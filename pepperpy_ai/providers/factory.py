@@ -11,9 +11,15 @@ from pepperpy_core.config import ConfigManager
 from pepperpy_core.plugins import PluginManager
 
 from ..exceptions import ProviderError, ConfigError
+from ..llm.base import LLMClient
 from ..llm.config import LLMConfig
 from .base import BaseProvider
 from .config import ProviderConfig, PROVIDER_SETTINGS
+from ..utils.dependencies import (
+    check_provider_availability,
+    verify_provider_dependencies,
+    get_installation_command,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +84,11 @@ class ProviderRegistry:
         }
         
         for name, module_path in provider_modules.items():
+            # Skip if dependencies are not available
+            if not check_provider_availability(name):
+                logger.debug(f"Provider {name} dependencies not available")
+                continue
+                
             try:
                 module = importlib.import_module(module_path, package=__package__)
                 provider_class = getattr(module, f"{name.capitalize()}Provider")
@@ -90,6 +101,12 @@ class ProviderRegistry:
             try:
                 provider_class = entry_point.load()
                 provider_name = entry_point.name.lower()
+                
+                # Skip if dependencies are not available
+                if not check_provider_availability(provider_name):
+                    logger.debug(f"Provider plugin {provider_name} dependencies not available")
+                    continue
+                    
                 self.register(provider_name, provider_class)
             except Exception as e:
                 logger.warning(f"Failed to load provider plugin {entry_point.name}: {e}")
@@ -158,10 +175,12 @@ class AIProviderFactory:
             
         Raises:
             ConfigError: If configuration is invalid
+            ProviderError: If provider dependencies are not met
         """
         if not config.provider:
             raise ConfigError("Provider type not specified")
         
+        # Check if provider is supported
         if config.provider not in self._registry.providers:
             supported = list(self._registry.providers.keys())
             raise ConfigError(
@@ -169,6 +188,18 @@ class AIProviderFactory:
                 invalid_keys=["provider"],
                 config_path=str(config),
                 metadata={"supported_providers": supported}
+            )
+            
+        # Check provider dependencies
+        missing = verify_provider_dependencies(config.provider)
+        if missing:
+            install_cmd = get_installation_command(missing)
+            raise ProviderError(
+                f"Provider '{config.provider}' dependencies not met. "
+                f"Missing: {', '.join(missing)}. "
+                f"Install with: {install_cmd}",
+                provider=config.provider,
+                operation="validate_config"
             )
 
     @lru_cache(maxsize=32)
@@ -185,8 +216,21 @@ class AIProviderFactory:
             Provider class
             
         Raises:
-            ProviderError: If provider not found
+            ProviderError: If provider not found or dependencies not met
         """
+        # Check dependencies first
+        if not check_provider_availability(provider_type):
+            missing = verify_provider_dependencies(provider_type)
+            if missing:
+                install_cmd = get_installation_command(missing)
+                raise ProviderError(
+                    f"Provider '{provider_type}' dependencies not met. "
+                    f"Missing: {', '.join(missing)}. "
+                    f"Install with: {install_cmd}",
+                    provider=provider_type,
+                    operation="get_class"
+                )
+        
         provider_class = self._registry.get_provider(provider_type)
         if not provider_class:
             raise ProviderError(
@@ -218,7 +262,7 @@ class AIProviderFactory:
             ConfigError: If configuration is invalid
         """
         try:
-            # Validate configuration
+            # Validate configuration and dependencies
             self.validate_config(config)
             
             # Load default configuration if requested
@@ -315,11 +359,18 @@ class AIProviderFactory:
         else:
             capabilities = {}
             
+        # Check dependencies
+        missing_deps = verify_provider_dependencies(provider_type)
+        
         return {
             "name": provider_type,
             "class": provider_class.__name__,
             "module": provider_class.__module__,
             "capabilities": capabilities,
             "settings": PROVIDER_SETTINGS.get(provider_type, {}).__annotations__,
-            "config": self._registry.load_provider_config(provider_type)
+            "config": self._registry.load_provider_config(provider_type),
+            "dependencies": {
+                "available": missing_deps is None,
+                "missing": missing_deps or []
+            }
         }
