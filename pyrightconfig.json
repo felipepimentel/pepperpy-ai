@@ -1,0 +1,17 @@
+{
+  "include": ["."],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "**/dist",
+    "**/build"
+  ],
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingTypeStubs": false,
+  "reportMissingImports": "warning",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "All",
+  "extraPaths": ["../"]
+}

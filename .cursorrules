@@ -1,0 +1,92 @@
+# PepperPy Core Cursor Rules
+
+## Code Style
+
+- Follow PEP 8 guidelines
+- Use black for code formatting with line length of 88
+- Use double quotes for strings
+- Use type hints for all function parameters and return types
+- Use async/await for I/O operations
+- Follow the principle of least privilege
+
+## Documentation
+
+- All public APIs must have docstrings
+- Use Google-style docstring format
+- Include type hints in docstrings
+- Provide usage examples for complex functions
+- Keep documentation up-to-date with code changes
+
+## Testing
+
+- Write unit tests for all new features
+- Maintain test coverage above 80%
+- Use pytest for testing
+- Write async tests using pytest-asyncio
+- Mock external dependencies
+
+## Security
+
+- Never store sensitive data in code
+- Use environment variables for configuration
+- Follow secure coding practices
+- Validate all inputs
+- Handle errors gracefully
+
+## Dependencies
+
+- Use Poetry for dependency management
+- Pin dependency versions
+- Keep dependencies up-to-date
+- Minimize third-party dependencies
+
+## Git Workflow
+
+- Use semantic versioning
+- Write descriptive commit messages
+- Follow conventional commits specification
+- Create feature branches for new features
+- Submit PRs for review
+
+## Error Handling
+
+- Use custom exceptions from exceptions.py
+- Log errors appropriately
+- Include context in error messages
+- Handle edge cases explicitly
+
+## Performance
+
+- Use async operations where appropriate
+- Implement caching when beneficial
+- Profile code for bottlenecks
+- Optimize resource usage
+
+## Code Organization
+
+- Keep modules focused and single-purpose
+- Use dependency injection
+- Follow SOLID principles
+- Maintain clean architecture
+
+## Quality Checks
+
+- Run mypy for type checking
+- Use ruff for linting
+- Run bandit for security checks
+- Maintain clean build status
+
+## AI Assistant Rules
+
+- Prefer async implementations
+- Use type hints consistently
+- Follow project structure
+- Implement proper error handling
+- Add comprehensive docstrings
+- Include usage examples
+- Write unit tests
+- Consider security implications
+- Optimize for performance
+- Keep code modular
+- Use async/await for I/O operations
+- Follow the principle of least privilege
