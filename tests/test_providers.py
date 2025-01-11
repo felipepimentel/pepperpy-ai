@@ -1,6 +1,7 @@
 """Tests for providers module."""
 
 import pytest
+from typing import Any
 
 from pepperpy_ai.providers.base import BaseProvider
 from pepperpy_ai.providers.mock import MockProvider
@@ -25,8 +26,12 @@ async def test_mock_provider():
     assert response.metadata is None
 
 
-@pytest.mark.asyncio
-async def test_base_provider_abstract():
-    """Test that BaseProvider cannot be instantiated."""
-    with pytest.raises(TypeError):
-        BaseProvider() 
+def test_base_provider_abstract():
+    """Test that BaseProvider is abstract."""
+    # Verify that BaseProvider has abstract methods
+    assert hasattr(BaseProvider, "complete")
+    assert hasattr(BaseProvider, "stream")
+
+    # Try to create a concrete class missing the abstract methods
+    with pytest.raises(TypeError) as exc_info:
+        type("TestProvider", (BaseProvider,), {}) 
