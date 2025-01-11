@@ -21,6 +21,7 @@ classifiers = [
 python = "^3.12"
 aiohttp = "^3.9.3"
 click = "^8.1.7"
+requests = "^2.31.0"
 
 # Optional dependencies for providers
 openai = { version = "^1.14.0", optional = true }
