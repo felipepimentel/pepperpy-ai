@@ -1,0 +1,19 @@
+[bandit]
+targets: pepperpy_ai
+exclude: /tests,/venv,/.venv,/.git,/.tox,/.eggs,*.pyc
+recursive: true
+aggregate: file
+number: 3
+level: HIGH
+confidence: HIGH
+format: txt
+output: bandit-report.txt
+baseline: bandit-baseline.json
+ini: .bandit
+quiet: false
+verbose: false
+debug: false
+profile: None
+ignore-nosec: false
+exclude-paths: []
+skips: [] 

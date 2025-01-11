@@ -1,114 +1,165 @@
 # PepperPy AI
 
-A flexible and modular AI library that supports multiple providers and capabilities.
+A flexible AI library with modular provider support.
+
+## Features
+
+- Multiple AI provider support (OpenAI, Anthropic, StackSpot, OpenRouter)
+- Modular capabilities (RAG, Chat, Embeddings)
+- Plug-and-play architecture
+- Async-first design
+- Type-safe with comprehensive type hints
+- Extensive test coverage
+- Well-documented API
 
 ## Installation
 
-PepperPy AI uses Poetry for dependency management and provides several installation options to minimize dependencies based on your needs.
-
-### Basic Installation
+You can install PepperPy AI with pip:
 
 ```bash
-# Basic installation with core functionality
-poetry add pepperpy-ai
+pip install pepperpy-ai
 ```
 
-### Provider-Specific Installation
+### Optional Dependencies
 
-Install only the providers you need:
+PepperPy AI uses Poetry's extras feature to manage optional dependencies. You can install specific providers or capabilities:
 
 ```bash
-# OpenAI support
-poetry add "pepperpy-ai[openai]"
+# Install with OpenAI support
+pip install "pepperpy-ai[openai]"
 
-# Anthropic support
-poetry add "pepperpy-ai[anthropic]"
+# Install with Anthropic support
+pip install "pepperpy-ai[anthropic]"
 
-# StackSpot support (uses core HTTP client)
-poetry add "pepperpy-ai[stackspot]"
+# Install with RAG support
+pip install "pepperpy-ai[rag]"
 
-# OpenRouter support (uses core HTTP client)
-poetry add "pepperpy-ai[openrouter]"
+# Install with all capabilities
+pip install "pepperpy-ai[all-capabilities]"
 
-# All providers
-poetry add "pepperpy-ai[all-providers]"
+# Install with all providers
+pip install "pepperpy-ai[all-providers]"
+
+# Install complete package with all features
+pip install "pepperpy-ai[complete]"
 ```
 
-### Additional Capabilities
+## Usage
 
-```bash
-# Embedding support (sentence-transformers)
-poetry add "pepperpy-ai[embeddings]"
-
-# Enhanced resilience (retries, backoff)
-poetry add "pepperpy-ai[resilience]"
-```
-
-### Complete Installation
-
-For all features and providers:
-
-```bash
-poetry add "pepperpy-ai[complete]"
-```
-
-## Available Extras
-
-The package provides the following extras for optional dependencies:
-
-- `openai`: OpenAI API support
-- `anthropic`: Anthropic API support
-- `stackspot`: StackSpot API support
-- `openrouter`: OpenRouter API support
-- `embeddings`: Text embedding capabilities
-- `resilience`: Enhanced error handling and retries
-- `all-providers`: All supported AI providers
-- `complete`: All features and providers
-
-## Usage Examples
-
-### Basic Usage with OpenAI
+Here's a simple example using the OpenAI provider:
 
 ```python
+from pepperpy_ai import AIClient
 from pepperpy_ai.providers import OpenAIProvider
-from pepperpy_ai.llm.config import LLMConfig
 
-config = LLMConfig(
-    provider="openai",
-    model="gpt-4",
-    api_key="your-api-key"
+# Initialize the client with OpenAI provider
+client = AIClient(
+    provider=OpenAIProvider(
+        api_key="your-api-key",
+        model="gpt-4-turbo-preview"
+    )
 )
 
-async with OpenAIProvider(config) as provider:
-    response = await provider.complete("Hello, world!")
-    print(response.content)
+# Use the chat capability
+chat = await client.get_capability("chat")
+response = await chat.send_message("Hello, how are you?")
+print(response.content)
 ```
 
-### Using Embeddings
+Using RAG capabilities:
 
 ```python
-from pepperpy_ai.embeddings import SentenceTransformerEmbeddings
+from pepperpy_ai import AIClient
+from pepperpy_ai.providers import OpenAIProvider
+from pepperpy_ai.capabilities.rag import Document
 
-embeddings = SentenceTransformerEmbeddings()
-vectors = await embeddings.embed_texts(["Hello, world!"])
+# Initialize the client
+client = AIClient(
+    provider=OpenAIProvider(
+        api_key="your-api-key",
+        model="gpt-4-turbo-preview"
+    )
+)
+
+# Get RAG capability
+rag = await client.get_capability("rag")
+
+# Add documents
+docs = [
+    Document(
+        content="PepperPy is a flexible AI library.",
+        metadata={"source": "readme"}
+    ),
+    Document(
+        content="It supports multiple AI providers.",
+        metadata={"source": "docs"}
+    )
+]
+await rag.add_documents(docs)
+
+# Generate response with context
+response = await rag.generate("What is PepperPy?")
+print(response.content)
 ```
 
 ## Development
 
-### Setup Development Environment
+### Setup
 
+1. Clone the repository:
 ```bash
-# Clone the repository
-git clone https://github.com/yourusername/pepperpy-ai.git
+git clone https://github.com/pimentel/pepperpy-ai.git
 cd pepperpy-ai
-
-# Install development dependencies
-poetry install --with dev
-
-# Run tests
-poetry run pytest
 ```
+
+2. Install development environment:
+```bash
+./scripts/setup.sh
+```
+
+3. Activate virtual environment:
+```bash
+poetry shell
+```
+
+### Quality Checks
+
+Run all quality checks:
+```bash
+./scripts/check.sh
+```
+
+This includes:
+- Code formatting (black, isort)
+- Linting (ruff)
+- Type checking (mypy)
+- Security checks (bandit)
+- Tests (pytest)
+
+### Clean
+
+Remove temporary files and build artifacts:
+```bash
+./scripts/clean.sh
+```
+
+### Publishing
+
+To publish a new version:
+```bash
+./scripts/publish.sh VERSION
+```
+
+Replace `VERSION` with the new version number (e.g., `1.0.0`).
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run quality checks
+5. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

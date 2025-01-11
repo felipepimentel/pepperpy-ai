@@ -1,0 +1,27 @@
+[run]
+source = pepperpy_ai
+omit =
+    tests/*
+    setup.py
+    conftest.py
+    */__init__.py
+    */cli/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise ImportError
+    except ImportError:
+    raise AssertionError
+    if TYPE_CHECKING:
+    @abstractmethod
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+[html]
+directory = htmlcov 

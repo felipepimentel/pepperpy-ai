@@ -1,11 +1,6 @@
-"""Providers module exports."""
+"""Provider module."""
 
-from .base import BaseProvider
-from .config import ProviderConfig
-from .factory import AIProviderFactory
+from pepperpy_ai.providers.base import BaseProvider
+from pepperpy_ai.providers.mock import MockProvider
 
-__all__ = [
-    "BaseProvider",
-    "ProviderConfig",
-    "AIProviderFactory",
-]
+__all__ = ["BaseProvider", "MockProvider"]

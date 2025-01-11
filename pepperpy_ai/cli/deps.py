@@ -1,138 +1,194 @@
-"""CLI tool for managing dependencies."""
+"""CLI tool for managing PepperPy AI dependencies."""
+
+import json
+from typing import Dict, List, Optional
 
 import click
-import sys
-from typing import Optional
-import json
 
-from ..utils.dependencies import (
-    print_availability_report,
-    verify_provider_dependencies,
-    verify_feature_dependencies,
-    get_installation_command,
-    get_available_providers,
-    get_available_features,
-)
+from pepperpy_ai.utils import check_dependency, get_missing_dependencies
+
+
+def get_provider_dependencies() -> Dict[str, List[str]]:
+    """Get provider dependencies.
+
+    Returns:
+        A dictionary mapping provider names to their required packages.
+    """
+    return {
+        "openai": ["openai"],
+        "anthropic": ["anthropic"],
+        "stackspot": [],  # Uses core aiohttp
+        "openrouter": [],  # Uses core aiohttp
+    }
+
+
+def get_capability_dependencies() -> Dict[str, List[str]]:
+    """Get capability dependencies.
+
+    Returns:
+        A dictionary mapping capability names to their required packages.
+    """
+    return {
+        "rag": ["numpy", "sentence-transformers"],
+        "chat": [],  # Uses provider dependencies
+        "embeddings": ["numpy", "sentence-transformers"],
+    }
+
 
 @click.group()
-def deps():
+def deps() -> None:
     """Manage PepperPy AI dependencies."""
     pass
 
+
 @deps.command()
-def check():
+def check() -> None:
     """Check available providers and features."""
-    print_availability_report()
+    providers = get_provider_dependencies()
+    capabilities = get_capability_dependencies()
+
+    click.echo("Available Providers:")
+    for provider, deps in providers.items():
+        available = all(check_dependency(pkg) for pkg in deps)
+        status = "✓" if available else "✗"
+        click.echo(f"  {status} {provider}")
+        if deps:
+            click.echo(f"    Required packages: {', '.join(deps)}")
+
+    click.echo("\nAvailable Capabilities:")
+    for capability, deps in capabilities.items():
+        available = all(check_dependency(pkg) for pkg in deps)
+        status = "✓" if available else "✗"
+        click.echo(f"  {status} {capability}")
+        if deps:
+            click.echo(f"    Required packages: {', '.join(deps)}")
+
 
 @deps.command()
 @click.argument("provider")
-def check_provider(provider: str):
+def check_provider(provider: str) -> None:
     """Check dependencies for a specific provider."""
-    try:
-        missing = verify_provider_dependencies(provider)
-        if missing:
-            click.echo(
-                click.style("Missing dependencies:", fg="yellow")
-                + f" {', '.join(missing)}"
-            )
-            click.echo(
-                click.style("Install with:", fg="green")
-                + f" {get_installation_command(missing)}"
-            )
-            sys.exit(1)
-        else:
-            click.echo(
-                click.style("✓", fg="green")
-                + f" Provider '{provider}' is ready to use"
-            )
-    except ValueError as e:
-        click.echo(click.style(str(e), fg="red"), err=True)
-        sys.exit(1)
+    providers = get_provider_dependencies()
+    if provider not in providers:
+        click.echo(f"Error: Unknown provider '{provider}'")
+        return
+
+    deps = providers[provider]
+    missing = get_missing_dependencies(deps)
+
+    if not deps:
+        click.echo(f"Provider '{provider}' has no additional dependencies.")
+    elif not missing:
+        click.echo(f"All dependencies for provider '{provider}' are satisfied.")
+    else:
+        click.echo(f"Missing dependencies for provider '{provider}':")
+        for pkg in missing:
+            click.echo(f"  - {pkg}")
+        click.echo("\nInstall with:")
+        click.echo(f"  pip install pepperpy-ai[{provider}]")
+
 
 @deps.command()
-@click.argument("feature")
-def check_feature(feature: str):
-    """Check dependencies for a specific feature."""
-    try:
-        missing = verify_feature_dependencies(feature)
-        if missing:
-            click.echo(
-                click.style("Missing dependencies:", fg="yellow")
-                + f" {', '.join(missing)}"
-            )
-            click.echo(
-                click.style("Install with:", fg="green")
-                + f" {get_installation_command(missing)}"
-            )
-            sys.exit(1)
-        else:
-            click.echo(
-                click.style("✓", fg="green")
-                + f" Feature '{feature}' is ready to use"
-            )
-    except ValueError as e:
-        click.echo(click.style(str(e), fg="red"), err=True)
-        sys.exit(1)
+@click.argument("capability")
+def check_capability(capability: str) -> None:
+    """Check dependencies for a specific capability."""
+    capabilities = get_capability_dependencies()
+    if capability not in capabilities:
+        click.echo(f"Error: Unknown capability '{capability}'")
+        return
+
+    deps = capabilities[capability]
+    missing = get_missing_dependencies(deps)
+
+    if not deps:
+        click.echo(f"Capability '{capability}' has no additional dependencies.")
+    elif not missing:
+        click.echo(f"All dependencies for capability '{capability}' are satisfied.")
+    else:
+        click.echo(f"Missing dependencies for capability '{capability}':")
+        for pkg in missing:
+            click.echo(f"  - {pkg}")
+        click.echo("\nInstall with:")
+        click.echo(f"  pip install pepperpy-ai[{capability}]")
+
 
 @deps.command()
-@click.option("--format", type=click.Choice(["text", "json"]), default="text")
-def list(format: str):
+@click.option("--json", "json_output", is_flag=True, help="Output in JSON format")
+def list(json_output: bool) -> None:
     """List available providers and features."""
-    providers = get_available_providers()
-    features = get_available_features()
-    
-    if format == "json":
+    providers = get_provider_dependencies()
+    capabilities = get_capability_dependencies()
+
+    if json_output:
         data = {
-            "providers": sorted(list(providers)),
-            "features": sorted(list(features))
+            "providers": {
+                name: {
+                    "dependencies": deps,
+                    "available": all(check_dependency(pkg) for pkg in deps),
+                }
+                for name, deps in providers.items()
+            },
+            "capabilities": {
+                name: {
+                    "dependencies": deps,
+                    "available": all(check_dependency(pkg) for pkg in deps),
+                }
+                for name, deps in capabilities.items()
+            },
         }
         click.echo(json.dumps(data, indent=2))
     else:
-        if providers:
-            click.echo("\nAvailable Providers:")
-            for provider in sorted(providers):
-                click.echo(f"  • {provider}")
-        
-        if features:
-            click.echo("\nAvailable Features:")
-            for feature in sorted(features):
-                click.echo(f"  • {feature}")
-        
-        if not providers and not features:
-            click.echo("\nNo optional features available.")
-            click.echo("Install extras with: poetry add 'pepperpy-ai[complete]'")
+        click.echo("Available Providers:")
+        for name, deps in providers.items():
+            click.echo(f"  {name}:")
+            if deps:
+                click.echo(f"    Dependencies: {', '.join(deps)}")
+            else:
+                click.echo("    No additional dependencies")
+
+        click.echo("\nAvailable Capabilities:")
+        for name, deps in capabilities.items():
+            click.echo(f"  {name}:")
+            if deps:
+                click.echo(f"    Dependencies: {', '.join(deps)}")
+            else:
+                click.echo("    No additional dependencies")
+
 
 @deps.command()
-@click.argument("extra")
-def install(extra: str):
-    """Install dependencies for a provider or feature."""
-    try:
-        # Try as provider first
-        missing = verify_provider_dependencies(extra)
-        if missing:
-            cmd = get_installation_command(missing)
-            click.echo(f"Installing provider '{extra}' dependencies...")
-            click.echo(f"Run: {cmd}")
-            return
-            
-        # Try as feature
-        missing = verify_feature_dependencies(extra)
-        if missing:
-            cmd = get_installation_command(missing)
-            click.echo(f"Installing feature '{extra}' dependencies...")
-            click.echo(f"Run: {cmd}")
-            return
-            
-        click.echo(
-            click.style("✓", fg="green")
-            + f" '{extra}' dependencies are already installed"
-        )
-    except ValueError:
-        click.echo(
-            click.style("Error:", fg="red")
-            + f" '{extra}' is not a valid provider or feature"
-        )
-        sys.exit(1)
+@click.argument("target")
+@click.option("--provider", is_flag=True, help="Install provider dependencies")
+@click.option("--capability", is_flag=True, help="Install capability dependencies")
+def install(target: str, provider: bool, capability: bool) -> None:
+    """Install dependencies for a provider or capability."""
+    if provider and capability:
+        click.echo("Error: Cannot specify both --provider and --capability")
+        return
 
-if __name__ == "__main__":
-    deps() 
+    if provider:
+        providers = get_provider_dependencies()
+        if target not in providers:
+            click.echo(f"Error: Unknown provider '{target}'")
+            return
+        deps = providers[target]
+    elif capability:
+        capabilities = get_capability_dependencies()
+        if target not in capabilities:
+            click.echo(f"Error: Unknown capability '{target}'")
+            return
+        deps = capabilities[target]
+    else:
+        click.echo("Error: Must specify either --provider or --capability")
+        return
+
+    missing = get_missing_dependencies(deps)
+    if not deps:
+        click.echo(f"No additional dependencies required for {target}")
+    elif not missing:
+        click.echo(f"All dependencies for {target} are already satisfied")
+    else:
+        click.echo(f"Installing dependencies for {target}:")
+        for pkg in missing:
+            click.echo(f"  - {pkg}")
+        click.echo("\nRun:")
+        click.echo(f"  pip install pepperpy-ai[{target}]") 
