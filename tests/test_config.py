@@ -2,7 +2,7 @@
 
 import pytest
 
-from tests.conftest import CapabilityConfig
+from pepperpy_ai.capabilities.base import CapabilityConfig
 
 
 def test_capability_config():
@@ -11,20 +11,16 @@ def test_capability_config():
     config = CapabilityConfig(
         name="test_capability",
         description="Test capability description",
-        version="2.0.0",
+    )
+    assert config.name == "test_capability"
+    assert config.description == "Test capability description"
+    
+    # Test with metadata
+    config = CapabilityConfig(
+        name="test_capability",
+        description="Test capability description",
         metadata={"key": "value"},
     )
     assert config.name == "test_capability"
     assert config.description == "Test capability description"
-    assert config.version == "2.0.0"
-    assert config.metadata == {"key": "value"}
-    
-    # Test with default values
-    config = CapabilityConfig(
-        name="test_capability",
-        description="Test capability description",
-    )
-    assert config.name == "test_capability"
-    assert config.description == "Test capability description"
-    assert config.version == "1.0.0"
-    assert config.metadata is None 
+    assert config.metadata == {"key": "value"} 

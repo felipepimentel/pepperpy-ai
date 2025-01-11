@@ -2,10 +2,8 @@
 
 from typing import List, Optional, Union
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
-
 from pepperpy_ai.capabilities.embeddings.base import BaseEmbedding, EmbeddingConfig
+from pepperpy_ai.exceptions import DependencyError
 
 
 class SimpleEmbedding(BaseEmbedding):
@@ -18,15 +16,29 @@ class SimpleEmbedding(BaseEmbedding):
             config: The embedding configuration.
         """
         super().__init__(config)
-        self._model: Optional[SentenceTransformer] = None
+        self._model = None
+        self._np = None
+        self._sentence_transformers = None
 
     async def initialize(self) -> None:
         """Initialize the embedding system."""
-        self._model = SentenceTransformer(self.config.model_name)
+        try:
+            import numpy as np
+            from sentence_transformers import SentenceTransformer
+            self._np = np
+            self._sentence_transformers = SentenceTransformer
+            self._model = SentenceTransformer(self.config.model_name)
+        except ImportError as e:
+            raise DependencyError(
+                "Missing required dependencies for embeddings: numpy, sentence-transformers",
+                package="numpy, sentence-transformers"
+            ) from e
 
     async def cleanup(self) -> None:
         """Clean up resources."""
         self._model = None
+        self._np = None
+        self._sentence_transformers = None
 
     async def encode(
         self, texts: Union[str, List[str]], batch_size: Optional[int] = None
@@ -83,17 +95,20 @@ class SimpleEmbedding(BaseEmbedding):
         Returns:
             Similarity score between the embeddings.
         """
+        if not self._np:
+            raise RuntimeError("Model not initialized. Call initialize() first.")
+
         # Convert to numpy arrays for efficient computation
-        emb1 = np.array(embeddings1)
-        emb2 = np.array(embeddings2)
+        emb1 = self._np.array(embeddings1)
+        emb2 = self._np.array(embeddings2)
 
         # Normalize if needed
         if self.config.normalize:
-            emb1 = emb1 / np.linalg.norm(emb1)
-            emb2 = emb2 / np.linalg.norm(emb2)
+            emb1 = emb1 / self._np.linalg.norm(emb1)
+            emb2 = emb2 / self._np.linalg.norm(emb2)
 
         # Compute cosine similarity
-        return float(np.dot(emb1, emb2))
+        return float(self._np.dot(emb1, emb2))
 
     async def bulk_similarity(
         self,
@@ -109,25 +124,28 @@ class SimpleEmbedding(BaseEmbedding):
         Returns:
             Similarity scores for each query-document pair.
         """
+        if not self._np:
+            raise RuntimeError("Model not initialized. Call initialize() first.")
+
         # Convert to numpy arrays
         if isinstance(query_embeddings[0], float):
             # Single query
-            query_array = np.array([query_embeddings])
+            query_array = self._np.array([query_embeddings])
             single_query = True
         else:
             # Multiple queries
-            query_array = np.array(query_embeddings)
+            query_array = self._np.array(query_embeddings)
             single_query = False
 
-        doc_array = np.array(document_embeddings)
+        doc_array = self._np.array(document_embeddings)
 
         # Normalize if needed
         if self.config.normalize:
-            query_array = query_array / np.linalg.norm(query_array, axis=1)[:, np.newaxis]
-            doc_array = doc_array / np.linalg.norm(doc_array, axis=1)[:, np.newaxis]
+            query_array = query_array / self._np.linalg.norm(query_array, axis=1)[:, self._np.newaxis]
+            doc_array = doc_array / self._np.linalg.norm(doc_array, axis=1)[:, self._np.newaxis]
 
         # Compute similarities
-        similarities = np.dot(query_array, doc_array.T)
+        similarities = self._np.dot(query_array, doc_array.T)
 
         if single_query:
             return similarities[0].tolist()

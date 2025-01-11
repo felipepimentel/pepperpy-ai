@@ -2,33 +2,35 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Type, TypeVar
+from typing import Any, Dict, Optional
 
 from pepperpy_ai.providers.base import BaseProvider
 
 
 @dataclass
 class CapabilityConfig:
-    """Base capability configuration."""
+    """Base capability configuration.
+    
+    Attributes:
+        name: Configuration name
+        description: Configuration description
+        metadata: Additional metadata
+    """
     name: str
     description: str
-    version: str = "1.0.0"
-    metadata: Optional[Dict[str, str]] = None
-
-
-T = TypeVar("T")
-
-
-def register(capability_type: Type[T]) -> Type[T]:
-    """Register a capability type."""
-    return capability_type
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class BaseCapability(ABC):
     """Base capability class."""
     
     def __init__(self, config: CapabilityConfig, provider: BaseProvider) -> None:
-        """Initialize the capability."""
+        """Initialize the capability.
+        
+        Args:
+            config: The capability configuration
+            provider: The AI provider to use
+        """
         self.config = config
         self.provider = provider
     

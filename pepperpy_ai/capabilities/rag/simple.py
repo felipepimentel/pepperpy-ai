@@ -4,12 +4,9 @@ import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, cast
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
-
-from pepperpy_core.responses import AIResponse
-from pepperpy_core.providers import BaseProvider
-
+from pepperpy_ai.exceptions import DependencyError
+from pepperpy_ai.responses import AIResponse
+from pepperpy_ai.providers.base import BaseProvider
 from .base import BaseRAG, Document, RAGConfig
 
 
@@ -43,17 +40,31 @@ class SimpleRAG(BaseRAG):
         """
         super().__init__(config, provider)
         self._documents: Dict[str, Document] = {}
-        self._embeddings: Dict[str, np.ndarray] = {}
-        self._model = SentenceTransformer("all-MiniLM-L6-v2")
+        self._embeddings: Dict[str, List[float]] = {}
+        self._model = None
+        self._np = None
+        self._sentence_transformers = None
 
     async def initialize(self) -> None:
         """Initialize the RAG system."""
-        # Nothing to initialize
-        pass
+        try:
+            import numpy as np
+            from sentence_transformers import SentenceTransformer
+            self._np = np
+            self._sentence_transformers = SentenceTransformer
+            self._model = SentenceTransformer("all-MiniLM-L6-v2")
+        except ImportError as e:
+            raise DependencyError(
+                "Missing required dependencies for RAG: numpy, sentence-transformers",
+                package="numpy, sentence-transformers"
+            ) from e
 
     async def cleanup(self) -> None:
         """Clean up resources."""
         await self.clear()
+        self._model = None
+        self._np = None
+        self._sentence_transformers = None
 
     async def add_document(self, document: Document) -> None:
         """Add a document to the RAG system.
@@ -61,12 +72,15 @@ class SimpleRAG(BaseRAG):
         Args:
             document: The document to add.
         """
+        if not self._model or not self._np:
+            raise RuntimeError("Model not initialized. Call initialize() first.")
+
         # Compute embedding asynchronously
         embedding = await asyncio.to_thread(
             self._model.encode, document.content, convert_to_numpy=True
         )
         self._documents[document.id] = document
-        self._embeddings[document.id] = embedding
+        self._embeddings[document.id] = embedding.tolist()
 
     async def remove_document(self, document_id: str) -> None:
         """Remove a document from the RAG system.
@@ -94,7 +108,7 @@ class SimpleRAG(BaseRAG):
         Returns:
             A list of matching documents.
         """
-        if not self._documents:
+        if not self._documents or not self._model or not self._np:
             return []
 
         # Compute query embedding
@@ -104,7 +118,7 @@ class SimpleRAG(BaseRAG):
 
         # Calculate similarities
         similarities = {
-            doc_id: np.dot(query_embedding, doc_embedding)
+            doc_id: self._np.dot(query_embedding, self._np.array(doc_embedding))
             for doc_id, doc_embedding in self._embeddings.items()
         }
 

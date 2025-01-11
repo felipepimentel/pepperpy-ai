@@ -1,12 +1,21 @@
 """Tests for base capabilities."""
 
 import pytest
-from typing import Type
+from typing import Any
 
-from pepperpy_ai.capabilities.base import BaseCapability, CapabilityConfig, register
+from pepperpy_ai.capabilities.base import BaseCapability, CapabilityConfig
 from pepperpy_ai.providers.base import BaseProvider
 from pepperpy_ai.responses import AIResponse
 from tests.providers import MockProvider
+
+
+@pytest.fixture
+def mock_capability_config():
+    """Fixture that provides a mock capability config."""
+    return CapabilityConfig(
+        name="test_capability",
+        description="Test capability description",
+    )
 
 
 @pytest.mark.asyncio
@@ -39,7 +48,6 @@ async def test_capability_initialization(
 async def test_capability_registration():
     """Test capability registration."""
     
-    @register
     class TestCapability(BaseCapability):
         """Test capability class."""
         async def initialize(self) -> None:
@@ -79,6 +87,6 @@ async def test_provider_methods(
     assert response.content == "Mock completion"
     
     # Test stream method
-    response = await mock_provider.stream("Test prompt")
-    assert isinstance(response, AIResponse)
-    assert response.content == "Mock stream" 
+    async for response in await mock_provider.stream("Test prompt"):
+        assert isinstance(response, AIResponse)
+        assert response.content == "Mock stream" 

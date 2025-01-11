@@ -1,10 +1,11 @@
 """Common test fixtures and utilities."""
 
 import pytest
+from typing import Dict, Any, cast
 
-from pepperpy_ai.providers.mock import MockProvider
+from pepperpy_ai.types import JsonDict, Message, MessageRole
 from pepperpy_ai.responses import AIResponse
-from pepperpy_ai.types import Message, MessageRole
+from pepperpy_ai.providers.mock import MockProvider
 
 
 @pytest.fixture
@@ -19,7 +20,7 @@ def mock_message():
     return Message(
         role=MessageRole.USER,
         content="Test message",
-        metadata={"test": "value"}
+        metadata=cast(Dict[str, Any], {"test": "value"})
     )
 
 
@@ -28,5 +29,5 @@ def mock_response():
     """Fixture that provides a mock AI response."""
     return AIResponse(
         content="Test response",
-        metadata={"test": "value"}
+        metadata=cast(Dict[str, Any], {"test": "value"})
     ) 

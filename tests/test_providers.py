@@ -20,10 +20,10 @@ async def test_mock_provider():
     assert response.metadata is None
 
     # Test streaming
-    response = await provider.stream("Test prompt")
-    assert isinstance(response, AIResponse)
-    assert response.content == "Mock stream"
-    assert response.metadata is None
+    async for response in await provider.stream("Test prompt"):
+        assert isinstance(response, AIResponse)
+        assert response.content == "Mock stream"
+        assert response.metadata is None
 
 
 def test_base_provider_abstract():
@@ -34,4 +34,6 @@ def test_base_provider_abstract():
 
     # Try to create a concrete class missing the abstract methods
     with pytest.raises(TypeError) as exc_info:
-        type("TestProvider", (BaseProvider,), {}) 
+        class ConcreteProvider(BaseProvider):
+            pass
+        ConcreteProvider() 
