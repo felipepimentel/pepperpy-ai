@@ -5,8 +5,27 @@ from typing import AsyncGenerator, Generator
 import pytest
 from pytest_mock import MockerFixture
 
+from pepperpy_ai.embeddings import EmbeddingsClient, EmbeddingsConfig, SimpleEmbeddingsProvider
 from pepperpy_ai.providers.mock import MockProvider
 from pepperpy_ai.providers.config import ProviderConfig
+
+
+@pytest.fixture
+def embeddings_client() -> Generator[EmbeddingsClient, None, None]:
+    """Create an embeddings client for testing."""
+    config = EmbeddingsConfig(dimension=384)
+    client = EmbeddingsClient(SimpleEmbeddingsProvider, config)
+    yield client
+
+
+@pytest.fixture
+async def initialized_embeddings_client(
+    embeddings_client: EmbeddingsClient,
+) -> AsyncGenerator[EmbeddingsClient, None]:
+    """Create an initialized embeddings client for testing."""
+    await embeddings_client.initialize()
+    yield embeddings_client
+    await embeddings_client.cleanup()
 
 
 @pytest.fixture
