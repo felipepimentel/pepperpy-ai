@@ -1,181 +1,136 @@
-"""Network client implementation."""
+"""Network client module."""
 
-from dataclasses import dataclass, field
-from typing import Any, Optional, AsyncGenerator, TypeVar
-from datetime import timedelta
+from functools import wraps
+from typing import Any, Callable, Dict, Optional, TypeVar, cast, Coroutine
+
 import aiohttp
-import backoff
+from aiohttp import ClientResponse, ClientSession
 
-from pepperpy_core.base import BaseData
-from pepperpy_core.types import JsonDict
-from ..exceptions import NetworkError
+from ..exceptions import ProviderError
 
-ResponseT = TypeVar("ResponseT")
+T = TypeVar("T")
 
-@dataclass
-class ClientConfig(BaseData):
-    """Client configuration.
-    
-    Attributes:
-        base_url: Base URL for requests
-        name: Client name
-        timeout: Request timeout in seconds
-        verify_ssl: Whether to verify SSL certificates
-        headers: Default request headers
-        metadata: Additional client metadata
-        max_retries: Maximum number of retry attempts
-        retry_delay: Delay between retries in seconds
-        retry_codes: HTTP status codes to retry on
+
+def handle_errors(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., Coroutine[Any, Any, T]]:
+    """Handle network errors.
+
+    Args:
+        func: The async function to wrap.
+
+    Returns:
+        The wrapped async function.
     """
-    # Required fields first
-    base_url: str = ""
-    name: str = ""  # From BaseData, must have default
+    @wraps(func)
+    async def wrapper(*args: Any, **kwargs: Any) -> T:
+        try:
+            return await func(*args, **kwargs)
+        except aiohttp.ClientError as e:
+            raise ProviderError(f"Network error: {e}", provider="network")
+        except Exception as e:
+            raise ProviderError(f"Unexpected error: {e}", provider="network")
+    return wrapper
 
-    # Optional fields
-    timeout: float = 30.0
-    verify_ssl: bool = True
-    headers: dict[str, str] = field(default_factory=dict)
-    metadata: JsonDict = field(default_factory=dict)
-    max_retries: int = 3
-    retry_delay: float = 1.0
-    retry_codes: set[int] = field(default_factory=lambda: {408, 429, 500, 502, 503, 504})
-
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        if not self.base_url:
-            raise ValueError("base_url cannot be empty")
-        if self.timeout <= 0:
-            raise ValueError("timeout must be positive")
-        if self.max_retries < 0:
-            raise ValueError("max_retries cannot be negative")
-        if self.retry_delay <= 0:
-            raise ValueError("retry_delay must be positive")
 
 class NetworkClient:
-    """HTTP client with retry and error handling."""
+    """Network client for making HTTP requests."""
 
-    def __init__(self, config: ClientConfig) -> None:
-        """Initialize client.
-        
+    def __init__(self, base_url: str, headers: Optional[Dict[str, str]] = None) -> None:
+        """Initialize the client.
+
         Args:
-            config: Client configuration
+            base_url: The base URL for requests.
+            headers: Optional headers to include in requests.
         """
-        self.config = config
-        self._session: Optional[aiohttp.ClientSession] = None
+        self.base_url = base_url
+        self.headers = headers or {}
+        self._session: Optional[ClientSession] = None
 
-    async def __aenter__(self) -> "NetworkClient":
-        """Enter async context."""
-        await self.connect()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Exit async context."""
-        await self.disconnect()
-
-    async def connect(self) -> None:
-        """Create client session."""
-        if self._session is None:
-            timeout = aiohttp.ClientTimeout(total=self.config.timeout)
+    async def initialize(self) -> None:
+        """Initialize the client session."""
+        if not self._session:
             self._session = aiohttp.ClientSession(
-                base_url=self.config.base_url,
-                headers=self.config.headers,
-                timeout=timeout,
+                base_url=self.base_url,
+                headers=self.headers
             )
 
-    async def disconnect(self) -> None:
-        """Close client session."""
-        if self._session is not None:
+    async def cleanup(self) -> None:
+        """Clean up the client session."""
+        if self._session:
             await self._session.close()
             self._session = None
 
-    @property
-    def session(self) -> aiohttp.ClientSession:
-        """Get client session.
-        
-        Raises:
-            NetworkError: If client is not connected
-        """
-        if self._session is None:
-            raise NetworkError("Client not connected")
-        return self._session
+    @handle_errors
+    async def get(self, path: str, **kwargs: Any) -> ClientResponse:
+        """Make a GET request.
 
-    @backoff.on_exception(
-        backoff.expo,
-        (aiohttp.ClientError, NetworkError),
-        max_tries=lambda self: self.config.max_retries + 1,
-        max_time=lambda self: self.config.timeout * (self.config.max_retries + 1),
-    )
-    async def request(
-        self,
-        method: str,
-        url: str,
-        **kwargs: Any,
-    ) -> aiohttp.ClientResponse:
-        """Send HTTP request with retry logic.
-        
         Args:
-            method: HTTP method
-            url: Request URL
-            **kwargs: Additional request parameters
-            
+            path: The request path.
+            **kwargs: Additional request arguments.
+
         Returns:
-            Response object
-            
+            The response.
+
         Raises:
-            NetworkError: If request fails
+            ProviderError: If the request fails.
         """
-        try:
-            response = await self.session.request(method, url, **kwargs)
-            if response.status in self.config.retry_codes:
-                raise NetworkError(
-                    f"Request failed with status {response.status}",
-                    url=str(response.url),
-                    method=method,
-                    status_code=response.status,
-                )
-            return response
-        except aiohttp.ClientError as e:
-            raise NetworkError(
-                str(e),
-                url=url,
-                method=method,
-            ) from e
+        if not self._session:
+            await self.initialize()
+        assert self._session is not None
+        return await self._session.get(path, **kwargs)
 
-    async def get(self, url: str, **kwargs: Any) -> aiohttp.ClientResponse:
-        """Send GET request."""
-        return await self.request("GET", url, **kwargs)
+    @handle_errors
+    async def post(self, path: str, **kwargs: Any) -> ClientResponse:
+        """Make a POST request.
 
-    async def post(self, url: str, **kwargs: Any) -> aiohttp.ClientResponse:
-        """Send POST request."""
-        return await self.request("POST", url, **kwargs)
-
-    async def put(self, url: str, **kwargs: Any) -> aiohttp.ClientResponse:
-        """Send PUT request."""
-        return await self.request("PUT", url, **kwargs)
-
-    async def delete(self, url: str, **kwargs: Any) -> aiohttp.ClientResponse:
-        """Send DELETE request."""
-        return await self.request("DELETE", url, **kwargs)
-
-    async def stream(
-        self,
-        method: str,
-        url: str,
-        **kwargs: Any,
-    ) -> AsyncGenerator[bytes, None]:
-        """Stream response data.
-        
         Args:
-            method: HTTP method
-            url: Request URL
-            **kwargs: Additional request parameters
-            
-        Yields:
-            Response data chunks
-            
+            path: The request path.
+            **kwargs: Additional request arguments.
+
+        Returns:
+            The response.
+
         Raises:
-            NetworkError: If request fails
+            ProviderError: If the request fails.
         """
-        async with await self.request(method, url, **kwargs) as response:
-            async for chunk in response.content.iter_chunks():
-                yield chunk[0]
+        if not self._session:
+            await self.initialize()
+        assert self._session is not None
+        return await self._session.post(path, **kwargs)
+
+    @handle_errors
+    async def put(self, path: str, **kwargs: Any) -> ClientResponse:
+        """Make a PUT request.
+
+        Args:
+            path: The request path.
+            **kwargs: Additional request arguments.
+
+        Returns:
+            The response.
+
+        Raises:
+            ProviderError: If the request fails.
+        """
+        if not self._session:
+            await self.initialize()
+        assert self._session is not None
+        return await self._session.put(path, **kwargs)
+
+    @handle_errors
+    async def delete(self, path: str, **kwargs: Any) -> ClientResponse:
+        """Make a DELETE request.
+
+        Args:
+            path: The request path.
+            **kwargs: Additional request arguments.
+
+        Returns:
+            The response.
+
+        Raises:
+            ProviderError: If the request fails.
+        """
+        if not self._session:
+            await self.initialize()
+        assert self._session is not None
+        return await self._session.delete(path, **kwargs)

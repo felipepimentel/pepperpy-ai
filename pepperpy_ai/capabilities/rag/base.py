@@ -1,93 +1,75 @@
 """Base RAG module."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from pepperpy_ai.responses import AIResponse
-from pepperpy_ai.providers.base import BaseProvider
+from ...ai_types import Message
+from ...responses import AIResponse
+from ..base import BaseCapability, CapabilityConfig
+
+
+@dataclass
+class RAGConfig(CapabilityConfig):
+    """RAG capability configuration."""
+
+    name: str = "rag"
+    version: str = "1.0.0"
+    enabled: bool = True
+    model_name: str = "default"
+    device: str = "cpu"
+    normalize_embeddings: bool = True
+    batch_size: int = 32
+    temperature: float = 0.7
+    max_tokens: int = 1024
+    api_key: str = ""
+    similarity_threshold: float = 0.5
+    max_documents: int = 1000
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    settings: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class Document:
-    """A document for RAG.
-    
-    Attributes:
-        id: The document identifier.
-        content: The document content.
-        metadata: Additional metadata for the document.
-        embedding: Optional document embedding.
-    """
+    """Document for RAG."""
 
     id: str
     content: str
     metadata: Dict[str, Any] = field(default_factory=dict)
-    embedding: Optional[List[float]] = None
 
 
-@dataclass
-class RAGConfig:
-    """Configuration for RAG capabilities.
-    
-    Attributes:
-        name: Configuration name
-        description: Configuration description
-        prompt_template: Template for generating prompts with retrieved documents.
-        max_documents: Maximum number of documents to use in generation.
-        metadata: Additional metadata for the RAG system.
-    """
+class RAGCapability(BaseCapability[RAGConfig], ABC):
+    """Base class for RAG capabilities."""
 
-    name: str
-    description: str
-    prompt_template: str = (
-        "Based on the following documents:\n\n{documents}\n\n"
-        "Please answer the following question:\n\n{query}"
-    )
-    max_documents: int = 5
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-class BaseRAG(ABC):
-    """Base class for RAG implementations."""
-    
-    def __init__(self, config: RAGConfig, provider: BaseProvider) -> None:
-        """Initialize the RAG system.
-
-        Args:
-            config: The RAG configuration.
-            provider: The AI provider to use for generation.
-        """
-        self.config = config
-        self.provider = provider
-    
     @abstractmethod
     async def initialize(self) -> None:
-        """Initialize the RAG system."""
-        pass
-    
+        """Initialize RAG capability."""
+        raise NotImplementedError
+
     @abstractmethod
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        pass
-    
+        """Cleanup RAG capability resources."""
+        raise NotImplementedError
+
     @abstractmethod
     async def add_document(self, document: Document) -> None:
-        """Add a document to the RAG system.
+        """Add document to RAG.
 
         Args:
-            document: The document to add.
+            document: Document to add
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     async def remove_document(self, document_id: str) -> None:
-        """Remove a document from the RAG system.
+        """Remove document from RAG.
 
         Args:
-            document_id: The ID of the document to remove.
+            document_id: ID of document to remove
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     async def search(
         self,
@@ -96,18 +78,18 @@ class BaseRAG(ABC):
         limit: Optional[int] = None,
         **kwargs: Any,
     ) -> List[Document]:
-        """Search for documents matching a query.
+        """Search for documents.
 
         Args:
-            query: The search query.
-            limit: Maximum number of documents to return.
-            **kwargs: Additional search parameters.
+            query: Search query
+            limit: Maximum number of documents to return
+            **kwargs: Additional search parameters
 
         Returns:
-            A list of matching documents.
+            List of matching documents
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     async def generate(
         self,
@@ -115,20 +97,20 @@ class BaseRAG(ABC):
         *,
         stream: bool = False,
         **kwargs: Any,
-    ) -> AIResponse:
-        """Generate a response using retrieved documents.
+    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
+        """Generate response from RAG.
 
         Args:
-            query: The query to answer.
-            stream: Whether to stream the response.
-            **kwargs: Additional generation parameters.
+            query: Query to generate response for
+            stream: Whether to stream the response
+            **kwargs: Additional generation parameters
 
         Returns:
-            The generated response.
+            Generated response or stream of responses
         """
-        pass
-    
+        raise NotImplementedError
+
     @abstractmethod
     async def clear(self) -> None:
-        """Clear all documents from the RAG system."""
-        pass 
+        """Clear all documents."""
+        raise NotImplementedError

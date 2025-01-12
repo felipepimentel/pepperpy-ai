@@ -1,22 +1,29 @@
-"""Embedding configuration."""
+"""Embeddings configuration."""
 
 from dataclasses import dataclass, field
-
-from ..config.base import BaseConfigData, JsonDict
-
+from typing import Any, Dict, Optional
 
 @dataclass
-class EmbeddingConfig(BaseConfigData):
-    """Embedding configuration."""
+class EmbeddingsConfig:
+    """Configuration for embeddings capability."""
 
-    # Required fields first (no defaults)
-    name: str
+    # Required fields
     model_name: str
     dimension: int
     batch_size: int
 
-    # Optional fields (with defaults)
+    # Optional fields with defaults
+    name: str = "embeddings"
+    version: str = "1.0.0"
+    enabled: bool = True
     device: str = "cpu"
     normalize_embeddings: bool = True
-    metadata: JsonDict = field(default_factory=dict)
-    settings: JsonDict = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    settings: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        """Validate configuration."""
+        if self.dimension <= 0:
+            raise ValueError("Dimension must be positive")
+        if self.batch_size <= 0:
+            raise ValueError("Batch size must be positive")

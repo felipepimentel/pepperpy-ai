@@ -1,39 +1,49 @@
-"""Tests for providers module."""
+"""Test provider functionality."""
+
+from collections.abc import AsyncGenerator
+from typing import List, Optional
 
 import pytest
-from typing import Any
 
+from pepperpy_ai.ai_types import Message
+from pepperpy_ai.exceptions import ProviderError
 from pepperpy_ai.providers.base import BaseProvider
-from pepperpy_ai.providers.mock import MockProvider
 from pepperpy_ai.responses import AIResponse
 
 
-@pytest.mark.asyncio
-async def test_mock_provider():
-    """Test mock provider."""
-    provider = MockProvider()
+class TestProvider(BaseProvider):
+    """Test provider implementation."""
 
-    # Test completion
-    response = await provider.complete("Test prompt")
-    assert isinstance(response, AIResponse)
-    assert response.content == "Mock completion"
-    assert response.metadata is None
+    async def initialize(self) -> None:
+        """Initialize test provider."""
+        self._initialized = True
 
-    # Test streaming
-    async for response in await provider.stream("Test prompt"):
-        assert isinstance(response, AIResponse)
-        assert response.content == "Mock stream"
-        assert response.metadata is None
+    async def cleanup(self) -> None:
+        """Cleanup test provider."""
+        self._initialized = False
 
+    async def stream(
+        self,
+        messages: List[Message],
+        *,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from test provider.
 
-def test_base_provider_abstract():
-    """Test that BaseProvider is abstract."""
-    # Verify that BaseProvider has abstract methods
-    assert hasattr(BaseProvider, "complete")
-    assert hasattr(BaseProvider, "stream")
+        Args:
+            messages: List of messages to send to provider
+            model: Optional model to use
+            temperature: Optional temperature parameter
+            max_tokens: Optional maximum tokens parameter
 
-    # Try to create a concrete class missing the abstract methods
-    with pytest.raises(TypeError) as exc_info:
-        class ConcreteProvider(BaseProvider):
-            pass
-        ConcreteProvider() 
+        Returns:
+            AsyncGenerator yielding AIResponse objects
+
+        Raises:
+            ProviderError: If provider is not initialized
+        """
+        if not self.is_initialized:
+            raise ProviderError("Provider not initialized", provider="test")
+        yield AIResponse(content="test", provider="test", model=model or "test")

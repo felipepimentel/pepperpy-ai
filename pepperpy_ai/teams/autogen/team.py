@@ -3,7 +3,8 @@
 from collections.abc import Sequence
 from typing import Any
 
-from ...ai_types import AIMessage, AIResponse
+from ...ai_types import Message
+from ...responses import AIResponse
 from ...types import MessageRole
 from ..base import BaseTeam
 
@@ -44,52 +45,23 @@ class AutogenTeam(BaseTeam):
             raise RuntimeError("Team not initialized")
 
     async def execute_task(self, task: str, **kwargs: Any) -> AIResponse:
-        """Execute team task.
-
-        Args:
-            task: Task to execute
-            **kwargs: Additional arguments
-
-        Returns:
-            AI response
-
-        Raises:
-            RuntimeError: If team not initialized
-        """
+        """Execute team task."""
         self._ensure_initialized()
-
-        messages = [
-            AIMessage(role=MessageRole.USER, content=task),
-            AIMessage(
-                role=MessageRole.ASSISTANT, content=f"Autogen team executing: {task}"
-            ),
-        ]
         return AIResponse(
             content=f"Autogen team executing: {task}",
-            messages=messages,
-            metadata={"provider": "autogen"},
+            model=kwargs.get("model"),
+            provider="autogen",
+            metadata={"role": "assistant"}
         )
 
     async def get_team_members(self) -> Sequence[str]:
-        """Get team members.
-
-        Returns:
-            List of team member names
-
-        Raises:
-            RuntimeError: If team not initialized
-        """
+        """Get team members."""
         self._ensure_initialized()
         return ["autogen"]
 
     async def get_team_roles(self) -> dict[str, str]:
-        """Get team roles.
-
-        Returns:
-            Dictionary mapping member names to roles
-
-        Raises:
-            RuntimeError: If team not initialized
-        """
+        """Get team roles."""
         self._ensure_initialized()
-        return {"autogen": "assistant"}
+        return {
+            "autogen": "assistant",
+        }

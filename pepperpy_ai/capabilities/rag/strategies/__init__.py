@@ -1,11 +1,5 @@
-"""RAG strategy implementations."""
+"""RAG strategies module."""
 
-from .base import BaseRAGStrategy, RAGStrategyConfig
-from .semantic import SemanticRAGConfig, SemanticRAGStrategy
+from .semantic import SemanticRAGStrategy
 
-__all__ = [
-    "BaseRAGStrategy",
-    "RAGStrategyConfig",
-    "SemanticRAGConfig",
-    "SemanticRAGStrategy",
-] 
+__all__ = ["SemanticRAGStrategy"]

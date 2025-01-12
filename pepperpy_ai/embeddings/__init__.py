@@ -1,10 +1,6 @@
 """Embeddings module exports."""
 
-from .base import EmbeddingConfig, EmbeddingProvider
-from .client import EmbeddingClient
+from .base import EmbeddingsConfig
+from .simple import SimpleEmbeddings
 
-__all__ = [
-    "EmbeddingConfig",
-    "EmbeddingProvider",
-    "EmbeddingClient",
-]
+__all__ = ["EmbeddingsConfig", "SimpleEmbeddings"]

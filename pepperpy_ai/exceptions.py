@@ -1,6 +1,6 @@
 """Custom exceptions for PepperPy AI."""
 
-from typing import Any, Optional
+from typing import Any
 
 
 class PepperPyAIError(Exception):
@@ -18,7 +18,7 @@ class PepperPyAIError(Exception):
 class ConfigurationError(PepperPyAIError):
     """Raised when there is a configuration error."""
 
-    def __init__(self, message: str, field: Optional[str] = None) -> None:
+    def __init__(self, message: str, field: str | None = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -85,3 +85,20 @@ class DependencyError(PepperPyAIError):
         """
         super().__init__(message)
         self.package = package
+
+
+class EmbeddingsError(Exception):
+    """Base class for embeddings errors."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize error.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(message)
+        self.message = message
+
+    def __str__(self) -> str:
+        """Get string representation."""
+        return self.message

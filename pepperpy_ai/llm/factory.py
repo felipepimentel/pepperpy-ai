@@ -1,36 +1,37 @@
-"""LLM client factory."""
+"""LLM factory module."""
 
-from ..exceptions import ConfigError
-from .base import LLMClient
-from .config import LLMConfig
+from typing import Dict, Type
 
-# Import providers conditionally to handle optional dependencies
-PROVIDERS: dict[str, type[LLMClient]] = {}
+from ..providers.anthropic import AnthropicProvider
+from ..providers.openai import OpenAIProvider
+from ..providers.base import BaseProvider
+from ..providers.config import ProviderConfig
 
-# Optional Anthropic provider
-try:
-    from ..providers.anthropic import AnthropicProvider
+PROVIDER_MAP: Dict[str, Type[BaseProvider[ProviderConfig]]] = {
+    "anthropic": AnthropicProvider,
+    "openai": OpenAIProvider,
+}
 
-    PROVIDERS["anthropic"] = AnthropicProvider
-except ImportError:
-    pass
+def create_provider(
+    provider_name: str,
+    config: ProviderConfig,
+    api_key: str,
+) -> BaseProvider[ProviderConfig]:
+    """Create a provider instance.
 
-# Optional OpenAI provider
-try:
-    from ..providers.openai import OpenAIProvider
+    Args:
+        provider_name: Name of the provider to create
+        config: Provider configuration
+        api_key: API key for the provider
 
-    PROVIDERS["openai"] = OpenAIProvider
-except ImportError:
-    pass
+    Returns:
+        Provider instance
 
+    Raises:
+        ValueError: If provider is not supported
+    """
+    provider_class = PROVIDER_MAP.get(provider_name)
+    if not provider_class:
+        raise ValueError(f"Unsupported provider: {provider_name}")
 
-def create_llm_client(config: LLMConfig) -> LLMClient:
-    """Create LLM client from config."""
-    provider_class = PROVIDERS.get(config.provider)
-    if provider_class is None:
-        raise ConfigError(
-            f"Unsupported LLM provider: {config.provider}. "
-            f"Supported providers: {', '.join(PROVIDERS.keys())}"
-        )
-
-    return provider_class(config)
+    return provider_class(config, api_key)

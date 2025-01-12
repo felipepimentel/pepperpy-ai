@@ -1,9 +1,5 @@
-"""Embedding providers module exports."""
+"""Embeddings providers package."""
 
-from .base import BaseEmbeddingProvider
-from .sentence_transformers import SentenceTransformerProvider
+from .base import BaseEmbeddingsProvider
 
-__all__ = [
-    "BaseEmbeddingProvider",
-    "SentenceTransformerProvider",
-]
+__all__ = ["BaseEmbeddingsProvider"]

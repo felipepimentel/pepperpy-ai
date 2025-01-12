@@ -1,35 +1,23 @@
-"""PepperPy AI capabilities module."""
+"""Capabilities module."""
 
-from pepperpy_ai.capabilities.base import BaseCapability, CapabilityConfig
-from pepperpy_ai.capabilities.chat.base import BaseChat, ChatConfig
-from pepperpy_ai.capabilities.chat.simple import SimpleChat
-from pepperpy_ai.capabilities.rag.base import BaseRAG, Document, RAGConfig
+from .base import BaseCapability, CapabilityConfig
+from .chat.base import ChatCapability, ChatConfig
+from .chat.simple import SimpleChatCapability
+from .embeddings.base import BaseEmbeddingsCapability, EmbeddingsConfig
+from .embeddings.simple import SimpleEmbeddingsCapability
+from .rag.base import RAGCapability, RAGConfig
+from .rag.simple import SimpleRAGCapability
 
 __all__ = [
-    # Base classes
     "BaseCapability",
-    "BaseChat",
-    "BaseRAG",
-    # Configuration classes
     "CapabilityConfig",
+    "ChatCapability",
     "ChatConfig",
+    "SimpleChatCapability",
+    "BaseEmbeddingsCapability",
+    "EmbeddingsConfig",
+    "SimpleEmbeddingsCapability",
+    "RAGCapability",
     "RAGConfig",
-    # Data classes
-    "Document",
-    # Implementations
-    "SimpleChat",
+    "SimpleRAGCapability",
 ]
-
-# Optional implementations
-try:
-    from pepperpy_ai.capabilities.embeddings.base import BaseEmbedding, EmbeddingConfig
-    from pepperpy_ai.capabilities.embeddings.simple import SimpleEmbedding
-    from pepperpy_ai.capabilities.rag.simple import SimpleRAG
-    __all__.extend([
-        "BaseEmbedding",
-        "EmbeddingConfig",
-        "SimpleEmbedding",
-        "SimpleRAG",
-    ])
-except ImportError:
-    pass 

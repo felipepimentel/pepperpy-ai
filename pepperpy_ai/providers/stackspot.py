@@ -1,103 +1,100 @@
-"""StackSpot provider implementation."""
+"""Stackspot provider module."""
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import List, Optional
+import json
 
-from ..ai_types import AIMessage, AIResponse
-from ..llm.base import LLMClient
-from ..llm.config import LLMConfig
+import aiohttp
+
+from ..ai_types import Message
+from ..exceptions import ProviderError
+from ..responses import AIResponse
+from .base import BaseProvider
+from .config import ProviderConfig
 
 
-class StackSpotProvider(LLMClient):
-    """StackSpot provider implementation."""
+class StackspotProvider(BaseProvider[ProviderConfig]):
+    """Stackspot provider implementation."""
 
-    def __init__(self, config: LLMConfig) -> None:
-        """Initialize provider."""
-        super().__init__(config)
-        self._client: Any = None
-        self._base_url = "https://api.stackspot.com/v1"
-
-    async def _setup(self) -> None:
-        """Setup provider resources."""
-        # Implementação específica do StackSpot
-        pass
-
-    async def _teardown(self) -> None:
-        """Teardown provider resources."""
-        self._client = None
-
-    async def complete(self, prompt: str) -> AIResponse:
-        """Complete prompt.
+    def __init__(self, config: ProviderConfig, api_key: str) -> None:
+        """Initialize Stackspot provider.
 
         Args:
-            prompt: Prompt to complete
-
-        Returns:
-            AI response
-
-        Raises:
-            RuntimeError: If provider not initialized
+            config: Provider configuration
+            api_key: API key for provider
         """
-        if not self.is_initialized or not self._client:
-            raise RuntimeError("Provider not initialized")
+        super().__init__(config, api_key)
+        self._session: Optional[aiohttp.ClientSession] = None
 
-        try:
-            response = await self._client.chat.completions.create(
-                model=self.config.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                **self.config.settings,
-            )
+    async def initialize(self) -> None:
+        """Initialize Stackspot client."""
+        if not self.api_key:
+            raise ProviderError("API key not provided", "stackspot")
+        self._session = aiohttp.ClientSession()
+        self._initialized = True
 
-            return AIResponse(
-                content=response.choices[0].message.content,
-                messages=[
-                    AIMessage(
-                        role="assistant", content=response.choices[0].message.content
-                    )
-                ],
-            )
-        except Exception as e:
-            raise RuntimeError("Completion failed") from e
+    async def cleanup(self) -> None:
+        """Cleanup Stackspot client."""
+        if self._session:
+            await self._session.close()
+            self._session = None
+        self._initialized = False
 
-    async def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses.
+    async def stream(
+        self,
+        messages: List[Message],
+        *,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from StackSpot.
 
         Args:
-            prompt: Prompt to stream
+            messages: List of messages to send to StackSpot
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
 
         Returns:
-            AsyncGenerator that yields AI response chunks
+            AsyncGenerator yielding AIResponse objects
 
         Raises:
-            RuntimeError: If provider not initialized
+            ProviderError: If provider is not initialized or client errors occur
         """
-        return self._stream(prompt)
-
-    async def _stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
-        if not self.is_initialized or not self._client:
-            raise RuntimeError("Provider not initialized")
+        if not self._session:
+            raise ProviderError("Client not initialized", provider="stackspot")
 
         try:
-            stream = await self._client.chat.completions.create(
-                model=self.config.model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-                stream=True,
-                **self.config.settings,
-            )
+            model = model or self.config.model
+            temperature = temperature or self.config.temperature
+            max_tokens = max_tokens or self.config.max_tokens
 
-            async for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    yield AIResponse(
-                        content=chunk.choices[0].delta.content,
-                        messages=[
-                            AIMessage(
-                                role="assistant", content=chunk.choices[0].delta.content
-                            )
-                        ],
-                    )
+            async with self._session.post(
+                "https://api.stackspot.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": model,
+                    "messages": [{"role": msg.role.value.lower(), "content": msg.content} for msg in messages],
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                },
+            ) as response:
+                async for line in response.content:
+                    if line:
+                        try:
+                            data = json.loads(line.decode())
+                            if "choices" in data and data["choices"][0]["delta"].get("content"):
+                                yield AIResponse(
+                                    content=data["choices"][0]["delta"]["content"],
+                                    model=model,
+                                    provider="stackspot"
+                                )
+                        except json.JSONDecodeError:
+                            continue
         except Exception as e:
-            raise RuntimeError("Streaming failed") from e
+            raise ProviderError(f"StackSpot streaming error: {str(e)}", provider="stackspot")

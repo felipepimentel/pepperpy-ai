@@ -4,12 +4,13 @@ import asyncio
 from typing import NoReturn
 
 from pepperpy_ai.examples.utils import ExampleAIClient
+from pepperpy_ai.providers.openai import OpenAIProvider
 
 
-async def main() -> NoReturn:
+async def main() -> None:
     """Run example."""
     # Create client
-    client = ExampleAIClient()
+    client = ExampleAIClient(provider=OpenAIProvider)
 
     # Initialize
     await client.initialize()

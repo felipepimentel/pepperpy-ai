@@ -2,7 +2,7 @@
 
 import importlib.util
 import logging
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 from pepperpy_ai.exceptions import DependencyError
 
@@ -23,7 +23,7 @@ def check_dependency(package: str) -> bool:
     return importlib.util.find_spec(package) is not None
 
 
-def get_missing_dependencies(required_packages: List[str]) -> List[str]:
+def get_missing_dependencies(required_packages: list[str]) -> list[str]:
     """Get a list of missing dependencies.
 
     Args:
@@ -36,7 +36,7 @@ def get_missing_dependencies(required_packages: List[str]) -> List[str]:
 
 
 def verify_dependencies(
-    feature_name: str, required_packages: List[str]
+    feature_name: str, required_packages: list[str]
 ) -> None:
     """Verify that all required dependencies are installed.
 
@@ -59,8 +59,8 @@ def verify_dependencies(
 def safe_import(
     module_path: str,
     class_name: str,
-    base_class: Optional[Type[T]] = None,
-) -> Optional[Type[T]]:
+    base_class: type[T] | None = None,
+) -> type[T] | None:
     """Safely import a class from a module.
 
     Args:
@@ -86,8 +86,8 @@ def safe_import(
 
 
 def merge_configs(
-    base: Dict[str, Any], override: Dict[str, Any]
-) -> Dict[str, Any]:
+    base: dict[str, Any], override: dict[str, Any]
+) -> dict[str, Any]:
     """Merge two configuration dictionaries.
 
     Args:
@@ -119,4 +119,4 @@ def format_exception(exc: Exception) -> str:
     Returns:
         A formatted string representation of the exception.
     """
-    return f"{exc.__class__.__name__}: {str(exc)}" 
+    return f"{exc.__class__.__name__}: {exc!s}"

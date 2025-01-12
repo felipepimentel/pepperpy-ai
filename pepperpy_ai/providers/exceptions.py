@@ -1,14 +1,15 @@
 """Provider exceptions module."""
 
 from dataclasses import dataclass, field
-from typing import Optional, Any
 from datetime import datetime
+from typing import Any
 
-from ..exceptions import PepperpyError, ErrorContext
+from ..exceptions import PepperPyAIError
 from ..types import JsonDict
 
+
 @dataclass
-class ProviderErrorContext(ErrorContext):
+class ProviderErrorContext:
     """Provider error context.
     
     Attributes:
@@ -22,9 +23,10 @@ class ProviderErrorContext(ErrorContext):
     operation: str = ""
     request_id: str = field(default_factory=lambda: datetime.now().isoformat())
     timestamp: datetime = field(default_factory=datetime.now)
-    details: JsonDict = field(default_factory=dict)
+    details: JsonDict = field(default_factory=lambda: {})
 
-class ProviderError(PepperpyError):
+
+class ProviderError(PepperPyAIError):
     """Base exception for provider errors.
     
     This class provides detailed error information for provider operations.
@@ -36,7 +38,7 @@ class ProviderError(PepperpyError):
         message: str,
         provider: str = "",
         operation: str = "",
-        cause: Optional[Exception] = None,
+        cause: Exception | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize error.
@@ -48,12 +50,11 @@ class ProviderError(PepperpyError):
             cause: Original exception
             **kwargs: Additional error details
         """
-        context = ProviderErrorContext(
-            provider=provider,
-            operation=operation,
-            details=kwargs
-        )
-        super().__init__(message, cause=cause, context=context)
+        super().__init__(message)
+        self.provider = provider
+        self.operation = operation
+        self.cause = cause
+        self.details = kwargs
 
 class ProviderNotFoundError(ProviderError):
     """Error when provider is not found."""
@@ -87,7 +88,7 @@ class ProviderConfigError(ProviderError):
         message: str,
         provider: str,
         config_path: str = "",
-        invalid_keys: Optional[list[str]] = None,
+        invalid_keys: list[str] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize error.
@@ -115,8 +116,8 @@ class ProviderAPIError(ProviderError):
         self,
         message: str,
         provider: str,
-        status_code: Optional[int] = None,
-        response: Optional[dict[str, Any]] = None,
+        status_code: int | None = None,
+        response: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize error.
@@ -143,7 +144,7 @@ class ProviderRateLimitError(ProviderAPIError):
     def __init__(
         self,
         provider: str,
-        retry_after: Optional[int] = None,
+        retry_after: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize error.
@@ -215,7 +216,7 @@ class ProviderValidationError(ProviderError):
         provider: str,
         field: str = "",
         value: Any = None,
-        constraints: Optional[dict[str, Any]] = None,
+        constraints: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize error.

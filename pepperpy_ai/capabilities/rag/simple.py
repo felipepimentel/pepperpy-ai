@@ -1,83 +1,79 @@
-"""Simple RAG implementation using sentence transformers."""
+"""Simple RAG capability implementation."""
 
 import asyncio
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, cast
+from collections.abc import AsyncGenerator
+from typing import Any, Dict, List, Optional, Type, cast
 
-from pepperpy_ai.exceptions import DependencyError
-from pepperpy_ai.responses import AIResponse
-from pepperpy_ai.providers.base import BaseProvider
-from .base import BaseRAG, Document, RAGConfig
+import numpy as np
+from sentence_transformers import SentenceTransformer
 
-
-@dataclass
-class SimpleRAGConfig(RAGConfig):
-    """Configuration for simple RAG implementation.
-    
-    Attributes:
-        model_name: The name of the sentence transformer model to use.
-        device: The device to use for model inference (e.g., "cpu", "cuda").
-        normalize_embeddings: Whether to normalize embeddings to unit length.
-        batch_size: The batch size for computing embeddings.
-    """
-
-    model_name: str = "all-MiniLM-L6-v2"
-    device: str = "cpu"
-    normalize_embeddings: bool = True
-    batch_size: int = 32
-    metadata: Dict[str, Any] = field(default_factory=dict)
+from ...ai_types import Message, MessageRole
+from ...exceptions import CapabilityError, DependencyError
+from ...providers.base import BaseProvider
+from ...responses import AIResponse
+from .base import Document, RAGCapability, RAGConfig
 
 
-class SimpleRAG(BaseRAG):
-    """Simple RAG implementation using sentence transformers."""
+class SimpleRAGCapability(RAGCapability):
+    """Simple RAG capability implementation."""
 
-    def __init__(self, config: RAGConfig, provider: BaseProvider) -> None:
-        """Initialize the simple RAG implementation.
+    def __init__(self, config: RAGConfig, provider: Type[BaseProvider[Any]]) -> None:
+        """Initialize capability.
 
         Args:
-            config: The RAG configuration.
-            provider: The AI provider to use for generation.
+            config: Capability configuration
+            provider: Provider class to use
         """
         super().__init__(config, provider)
+        self._model: Optional[SentenceTransformer] = None
+        self._np: Optional[Any] = None
         self._documents: Dict[str, Document] = {}
         self._embeddings: Dict[str, List[float]] = {}
-        self._model = None
-        self._np = None
-        self._sentence_transformers = None
 
-    async def initialize(self) -> None:
-        """Initialize the RAG system."""
+    def _ensure_initialized(self) -> None:
+        """Ensure capability is initialized.
+
+        Raises:
+            CapabilityError: If capability is not initialized
+        """
+        if self._np is None or self._model is None:
+            raise CapabilityError("RAG capability not initialized", "rag")
+
+    async def _setup(self) -> None:
+        """Setup capability resources."""
         try:
-            import numpy as np
-            from sentence_transformers import SentenceTransformer
             self._np = np
-            self._sentence_transformers = SentenceTransformer
-            self._model = SentenceTransformer("all-MiniLM-L6-v2")
+            self._model = SentenceTransformer(self.config.model_name)
         except ImportError as e:
             raise DependencyError(
-                "Missing required dependencies for RAG: numpy, sentence-transformers",
+                "Missing required dependencies for RAG capability. "
+                "Install with: pip install pepperpy-ai[rag]",
                 package="numpy, sentence-transformers"
             ) from e
 
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        await self.clear()
+    async def _teardown(self) -> None:
+        """Teardown capability resources."""
         self._model = None
         self._np = None
-        self._sentence_transformers = None
+        self._documents.clear()
+        self._embeddings.clear()
 
     async def add_document(self, document: Document) -> None:
         """Add a document to the RAG system.
 
         Args:
             document: The document to add.
+
+        Raises:
+            CapabilityError: If capability is not initialized
         """
-        if not self._model or not self._np:
-            raise RuntimeError("Model not initialized. Call initialize() first.")
+        self._ensure_initialized()
+        model = cast(SentenceTransformer, self._model)
+        np_module = cast(Any, self._np)
 
         # Compute embedding asynchronously
         embedding = await asyncio.to_thread(
-            self._model.encode, document.content, convert_to_numpy=True
+            model.encode, document.content, convert_to_numpy=True
         )
         self._documents[document.id] = document
         self._embeddings[document.id] = embedding.tolist()
@@ -107,65 +103,34 @@ class SimpleRAG(BaseRAG):
 
         Returns:
             A list of matching documents.
+
+        Raises:
+            CapabilityError: If capability is not initialized
         """
-        if not self._documents or not self._model or not self._np:
+        self._ensure_initialized()
+        model = cast(SentenceTransformer, self._model)
+        np_module = cast(Any, self._np)
+
+        if not self._documents:
             return []
 
         # Compute query embedding
         query_embedding = await asyncio.to_thread(
-            self._model.encode, query, convert_to_numpy=True
+            model.encode, query, convert_to_numpy=True
         )
 
-        # Calculate similarities
-        similarities = {
-            doc_id: self._np.dot(query_embedding, self._np.array(doc_embedding))
-            for doc_id, doc_embedding in self._embeddings.items()
-        }
+        # Compute similarities
+        similarities = []
+        for doc_id, doc_embedding in self._embeddings.items():
+            similarity = np_module.dot(query_embedding, doc_embedding) / (
+                np_module.linalg.norm(query_embedding) * np_module.linalg.norm(doc_embedding)
+            )
+            similarities.append((doc_id, similarity))
 
         # Sort by similarity
-        sorted_ids = sorted(similarities.keys(), key=lambda k: similarities[k], reverse=True)
-        if limit is not None:
-            sorted_ids = sorted_ids[:limit]
+        similarities.sort(key=lambda x: x[1], reverse=True)
+        if limit:
+            similarities = similarities[:limit]
 
-        return [self._documents[doc_id] for doc_id in sorted_ids]
-
-    async def generate(
-        self,
-        query: str,
-        *,
-        stream: bool = False,
-        **kwargs: Any,
-    ) -> AIResponse:
-        """Generate a response using retrieved documents.
-
-        Args:
-            query: The query to answer.
-            stream: Whether to stream the response.
-            **kwargs: Additional generation parameters.
-
-        Returns:
-            The generated response.
-        """
-        # Retrieve relevant documents
-        limit = kwargs.pop("limit", self.config.max_documents)
-        documents = await self.search(query, limit=limit)
-
-        # Format prompt with retrieved documents
-        docs_text = "\n\n".join(
-            f"Document {i+1}:\n{doc.content}"
-            for i, doc in enumerate(documents)
-        )
-        prompt = self.config.prompt_template.format(
-            documents=docs_text,
-            query=query,
-        )
-
-        # Generate response
-        if stream:
-            return await self.provider.stream(prompt, **kwargs)
-        return await self.provider.complete(prompt, **kwargs)
-
-    async def clear(self) -> None:
-        """Clear all documents from the RAG system."""
-        self._documents.clear()
-        self._embeddings.clear() 
+        # Return documents
+        return [self._documents[doc_id] for doc_id, _ in similarities]

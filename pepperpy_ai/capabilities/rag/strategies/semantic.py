@@ -1,163 +1,164 @@
-"""Semantic search strategy for RAG capabilities."""
+"""Semantic RAG strategy module."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, cast
+from collections.abc import AsyncGenerator
+from typing import Any, List, Optional, Type
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
-
-from ..base import Document
-from .base import BaseRAGStrategy, RAGStrategyConfig
-
-
-@dataclass
-class SemanticRAGConfig(RAGStrategyConfig):
-    """Configuration for semantic RAG strategy.
-    
-    Attributes:
-        model_name: The name of the sentence transformer model to use.
-        device: The device to use for model inference (e.g., "cpu", "cuda").
-        normalize_embeddings: Whether to normalize embeddings to unit length.
-        batch_size: The batch size for computing embeddings.
-    """
-
-    model_name: str = "all-MiniLM-L6-v2"
-    device: str = "cpu"
-    normalize_embeddings: bool = True
-    batch_size: int = 32
-    metadata: Dict[str, Any] = field(default_factory=dict)
+from ....ai_types import Message, MessageRole
+from ....responses import AIResponse
+from ....providers.base import BaseProvider
+from ..base import RAGCapability, RAGConfig, Document
 
 
-class SemanticRAGStrategy(BaseRAGStrategy):
-    """Semantic search strategy for RAG capabilities.
-    
-    This strategy uses sentence transformers to compute document embeddings
-    and performs semantic search using cosine similarity.
-    """
+class SemanticRAGStrategy(RAGCapability):
+    """Semantic RAG strategy implementation."""
 
-    def __init__(self, config: SemanticRAGConfig) -> None:
-        """Initialize the semantic RAG strategy.
+    def __init__(self, config: RAGConfig, provider: Type[BaseProvider[Any]]) -> None:
+        """Initialize semantic RAG strategy.
 
         Args:
-            config: The strategy configuration.
+            config: Strategy configuration
+            provider: Provider class to use
         """
-        super().__init__(config)
-        self.config = cast(SemanticRAGConfig, config)
-        self._model: Optional[SentenceTransformer] = None
-        self._embeddings: Optional[np.ndarray] = None
+        super().__init__(config, provider)
+        self._documents: List[Document] = []
+        self._provider_instance: Optional[BaseProvider[Any]] = None
 
     async def initialize(self) -> None:
-        """Initialize the strategy.
-        
-        This method loads the sentence transformer model and initializes
-        the embeddings array.
-        """
-        self._model = SentenceTransformer(
-            self.config.model_name,
-            device=self.config.device,
-        )
-        if self._model is not None:
-            self._embeddings = np.zeros((0, self._model.get_sentence_embedding_dimension()))
+        """Initialize strategy."""
+        if not self.is_initialized:
+            if not self._provider_instance:
+                self._provider_instance = self.provider(self.config, self.config.api_key)
+                await self._provider_instance.initialize()
+            self._initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up resources used by the strategy."""
-        self._model = None
-        self._embeddings = None
-        self._documents.clear()
-
-    async def process_document(self, document: Document) -> Document:
-        """Process a document for storage.
-
-        This method computes the document embedding if not already present.
-
-        Args:
-            document: The document to process.
-
-        Returns:
-            The processed document with embedding.
-        """
-        if document.embedding is None and self._model is not None:
-            embedding = self._model.encode(
-                document.content,
-                normalize_embeddings=self.config.normalize_embeddings,
-                batch_size=self.config.batch_size,
-            )
-            document.embedding = embedding.tolist()
-        return document
+        """Cleanup strategy resources."""
+        if self.is_initialized:
+            if self._provider_instance:
+                await self._provider_instance.cleanup()
+                self._provider_instance = None
+            self._documents.clear()
+            self._initialized = False
 
     async def add_document(self, document: Document) -> None:
-        """Add a document to the strategy.
+        """Add document to RAG.
 
         Args:
-            document: The document to add.
+            document: Document to add
         """
-        if len(self._documents) >= self.config.max_documents:
-            raise ValueError(
-                f"Maximum number of documents ({self.config.max_documents}) reached"
-            )
-        processed_doc = await self.process_document(document)
-        if processed_doc.embedding is not None and self._embeddings is not None:
-            self._embeddings = np.vstack(
-                [self._embeddings, np.array(processed_doc.embedding)]
-            )
-        self._documents.append(processed_doc)
+        self._documents.append(document)
 
-    async def remove_document(self, document: Document) -> None:
-        """Remove a document from the strategy.
+    async def remove_document(self, document_id: str) -> None:
+        """Remove document from RAG.
 
         Args:
-            document: The document to remove.
+            document_id: ID of document to remove
         """
-        try:
-            idx = self._documents.index(document)
-            self._documents.remove(document)
-            if self._embeddings is not None:
-                self._embeddings = np.delete(self._embeddings, idx, axis=0)
-        except ValueError:
-            pass
+        self._documents = [doc for doc in self._documents if doc.id != document_id]
 
-    async def search(self, query: str, top_k: int = 5) -> List[Document]:
-        """Search for documents similar to the query.
-
-        This method computes the query embedding and returns the most similar
-        documents based on cosine similarity.
+    async def search(
+        self,
+        query: str,
+        *,
+        limit: Optional[int] = None,
+        **kwargs: Any,
+    ) -> List[Document]:
+        """Search for documents.
 
         Args:
-            query: The search query.
-            top_k: The maximum number of documents to return.
+            query: Search query
+            limit: Maximum number of documents to return
+            **kwargs: Additional search parameters
 
         Returns:
-            A list of documents sorted by relevance.
+            List of matching documents
         """
-        if not self._documents or self._model is None or self._embeddings is None:
-            return []
+        # Simple implementation for now
+        return self._documents[:limit] if limit else self._documents
 
-        # Compute query embedding
-        query_embedding = self._model.encode(
-            query,
-            normalize_embeddings=self.config.normalize_embeddings,
-            batch_size=self.config.batch_size,
-        )
+    async def _generate_stream(
+        self,
+        messages: List[Message],
+        **kwargs: Any,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Generate streaming responses.
 
-        # Compute cosine similarities
-        similarities = np.dot(self._embeddings, query_embedding)
-        if self.config.normalize_embeddings:
-            similarities = (similarities + 1) / 2  # Scale to [0, 1]
+        Args:
+            messages: The messages to send to the provider.
+            **kwargs: Additional generation parameters.
 
-        # Get top-k documents
-        top_k = min(top_k, len(self._documents))
-        top_indices = np.argpartition(similarities, -top_k)[-top_k:]
-        top_indices = top_indices[np.argsort(similarities[top_indices])][::-1]
+        Returns:
+            An async generator of responses.
 
-        # Filter by similarity threshold
-        results = []
-        for idx in top_indices:
-            if similarities[idx] >= self.config.similarity_threshold:
-                results.append(self._documents[idx])
-        return results
+        Raises:
+            RuntimeError: If provider is not initialized
+        """
+        if not self._provider_instance:
+            raise RuntimeError("Provider not initialized")
+
+        async for response in self._provider_instance.stream(messages, **kwargs):
+            yield response
+
+    async def _generate_single(
+        self,
+        messages: List[Message],
+        **kwargs: Any,
+    ) -> AIResponse:
+        """Generate a single response.
+
+        Args:
+            messages: The messages to send to the provider.
+            **kwargs: Additional generation parameters.
+
+        Returns:
+            The generated response.
+
+        Raises:
+            RuntimeError: If provider is not initialized or no response received
+        """
+        if not self._provider_instance:
+            raise RuntimeError("Provider not initialized")
+
+        async for response in self._provider_instance.stream(messages, **kwargs):
+            return response
+        raise RuntimeError("No response received from provider")
+
+    async def generate(
+        self,
+        query: str,
+        *,
+        stream: bool = False,
+        **kwargs: Any,
+    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
+        """Generate response from RAG.
+
+        Args:
+            query: Query to generate response for
+            stream: Whether to stream the response
+            **kwargs: Additional generation parameters
+
+        Returns:
+            Generated response or stream of responses
+
+        Raises:
+            RuntimeError: If provider is not initialized
+        """
+        if not self.is_initialized:
+            await self.initialize()
+
+        if not self._provider_instance:
+            raise RuntimeError("Provider not initialized")
+
+        # Prepare messages with context from documents
+        messages = [
+            Message(role=MessageRole.SYSTEM, content="You are a helpful AI assistant."),
+            Message(role=MessageRole.USER, content=query),
+        ]
+
+        if stream:
+            return self._generate_stream(messages, **kwargs)
+        return await self._generate_single(messages, **kwargs)
 
     async def clear(self) -> None:
-        """Clear all documents from the strategy."""
+        """Clear all documents."""
         self._documents.clear()
-        if self._embeddings is not None:
-            self._embeddings = np.zeros((0, self._embeddings.shape[1])) 

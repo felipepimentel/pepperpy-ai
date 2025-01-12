@@ -1,65 +1,98 @@
-"""Base configuration types."""
+"""Base configuration module."""
 
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Optional
-from datetime import datetime
+from datetime import date
+from typing import Any, Dict, Optional, cast
 
-from ..types import JsonDict, Serializable
+from ..exceptions import ConfigurationError
+from ..types import JsonDict
+
+
+def _convert_to_date(value: Any, field_name: str) -> date:
+    """Convert value to date.
+
+    Args:
+        value: Value to convert
+        field_name: Name of the field being converted
+
+    Returns:
+        Converted date
+
+    Raises:
+        ConfigurationError: If value cannot be converted to date
+    """
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        raise ConfigurationError(f"Invalid date format for {field_name}", field=field_name)
+
 
 @dataclass
-class BaseConfigData:
-    """Base configuration data without defaults.
-    
-    This class defines the minimum required configuration fields
-    that all configurations must have.
-    
-    Attributes:
-        name: Configuration name
-        version: Configuration version
-        enabled: Whether the configuration is enabled
-    """
+class BaseConfig:
+    """Base configuration class."""
+
     name: str
     version: str
     enabled: bool = True
-
-    def __post_init__(self) -> None:
-        """Validate configuration data."""
-        if not self.name:
-            raise ValueError("Configuration name cannot be empty")
-        if not self.version:
-            raise ValueError("Configuration version cannot be empty")
-
-@dataclass
-class BaseConfig(BaseConfigData, Serializable):
-    """Base configuration with defaults.
-    
-    This class extends BaseConfigData with additional fields and
-    functionality common to all configurations.
-    
-    Attributes:
-        metadata: Additional configuration metadata
-        settings: Configuration settings
-        created_at: Configuration creation timestamp
-        updated_at: Configuration update timestamp
-    """
     metadata: JsonDict = field(default_factory=dict)
     settings: JsonDict = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
-
-    # Configuration schema version
-    SCHEMA_VERSION: ClassVar[str] = "1.0.0"
+    created_at: date = field(default_factory=date.today)
+    updated_at: date = field(default_factory=date.today)
 
     def __post_init__(self) -> None:
-        """Initialize and validate configuration."""
-        super().__post_init__()
-        self.metadata.setdefault("schema_version", self.SCHEMA_VERSION)
+        """Validate configuration."""
+        # Validate required fields
+        required_fields = ["name", "version"]
+        for field_name in required_fields:
+            value = getattr(self, field_name)
+            if not value:
+                raise ConfigurationError(
+                    f"Missing required field: {field_name}",
+                    field=field_name,
+                )
+
+        # Validate field types
+        if not isinstance(self.name, str):
+            raise ConfigurationError(
+                f"Invalid type for name: {type(self.name)}, expected str",
+                field="name",
+            )
+
+        if not isinstance(self.version, str):
+            raise ConfigurationError(
+                f"Invalid type for version: {type(self.version)}, expected str",
+                field="version",
+            )
+
+        if not isinstance(self.enabled, bool):
+            raise ConfigurationError(
+                f"Invalid type for enabled: {type(self.enabled)}, expected bool",
+                field="enabled",
+            )
+
+        if not isinstance(self.metadata, dict):
+            raise ConfigurationError(
+                f"Invalid type for metadata: {type(self.metadata)}, expected dict",
+                field="metadata",
+            )
+
+        if not isinstance(self.settings, dict):
+            raise ConfigurationError(
+                f"Invalid type for settings: {type(self.settings)}, expected dict",
+                field="settings",
+            )
+
+        # Convert dates
+        self.created_at = _convert_to_date(self.created_at, "created_at")
+        self.updated_at = _convert_to_date(self.updated_at, "updated_at")
 
     def to_dict(self) -> JsonDict:
         """Convert configuration to dictionary.
-        
+
         Returns:
-            Configuration as dictionary
+            Dictionary representation of the configuration.
         """
         return {
             "name": self.name,
@@ -74,61 +107,30 @@ class BaseConfig(BaseConfigData, Serializable):
     @classmethod
     def from_dict(cls, data: JsonDict) -> "BaseConfig":
         """Create configuration from dictionary.
-        
+
         Args:
-            data: Configuration data
-            
+            data: Dictionary containing configuration values.
+
         Returns:
-            Configuration instance
-            
+            New configuration instance.
+
         Raises:
-            ValueError: If required fields are missing
+            ConfigurationError: If required fields are missing or invalid.
         """
-        try:
-            return cls(
-                name=data["name"],
-                version=data["version"],
-                enabled=data.get("enabled", True),
-                metadata=data.get("metadata", {}),
-                settings=data.get("settings", {}),
-                created_at=datetime.fromisoformat(
-                    data.get("created_at", datetime.now().isoformat())
-                ),
-                updated_at=datetime.fromisoformat(
-                    data.get("updated_at", datetime.now().isoformat())
-                ),
-            )
-        except KeyError as e:
-            raise ValueError(f"Missing required field: {e}")
+        required_fields = ["name", "version"]
+        for field in required_fields:
+            if field not in data:
+                raise ConfigurationError(
+                    f"Missing required field: {field}",
+                    field=field,
+                )
 
-    def update(self, **kwargs: Any) -> None:
-        """Update configuration settings.
-        
-        Args:
-            **kwargs: Settings to update
-        """
-        self.settings.update(kwargs)
-        self.updated_at = datetime.now()
-
-    def get_setting(self, key: str, default: Any = None) -> Any:
-        """Get configuration setting.
-        
-        Args:
-            key: Setting key
-            default: Default value if setting doesn't exist
-            
-        Returns:
-            Setting value
-        """
-        return self.settings.get(key, default)
-
-    def validate(self) -> None:
-        """Validate configuration.
-        
-        This method should be overridden by subclasses to implement
-        configuration-specific validation.
-        
-        Raises:
-            ValueError: If configuration is invalid
-        """
-        pass
+        return cls(
+            name=str(data["name"]),
+            version=str(data["version"]),
+            enabled=bool(data.get("enabled", True)),
+            metadata=cast(JsonDict, data.get("metadata", {})),
+            settings=cast(JsonDict, data.get("settings", {})),
+            created_at=date.fromisoformat(str(data.get("created_at", date.today().isoformat()))),
+            updated_at=date.fromisoformat(str(data.get("updated_at", date.today().isoformat()))),
+        )

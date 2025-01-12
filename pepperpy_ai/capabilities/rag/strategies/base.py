@@ -1,8 +1,9 @@
 """Base classes for RAG strategies."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, TypeVar
+from typing import Any, TypeVar
 
 from pepperpy_core.types import BaseConfig
 
@@ -28,7 +29,7 @@ class RAGStrategyConfig(BaseConfig):
     max_documents: int = 1000
     similarity_threshold: float = 0.7
     max_context_documents: int = 5
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseRAGStrategy(ABC):
@@ -46,7 +47,7 @@ class BaseRAGStrategy(ABC):
             config: The strategy configuration.
         """
         self.config = config
-        self._documents: List[Document] = []
+        self._documents: list[Document] = []
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -108,7 +109,7 @@ class BaseRAGStrategy(ABC):
             pass
 
     @abstractmethod
-    async def search(self, query: str, top_k: int = 5) -> List[Document]:
+    async def search(self, query: str, top_k: int = 5) -> list[Document]:
         """Search for documents similar to the query.
 
         Args:
@@ -146,10 +147,10 @@ class BaseRAGStrategy(ABC):
             await self.remove_document(document)
 
     @property
-    def documents(self) -> List[Document]:
+    def documents(self) -> list[Document]:
         """Get all stored documents.
 
         Returns:
             A list of all stored documents.
         """
-        return self._documents.copy() 
+        return self._documents.copy()

@@ -1,66 +1,23 @@
-"""AI function utilities."""
+"""Function module."""
 
-from collections.abc import AsyncGenerator
-from typing import Protocol, runtime_checkable
+from typing import Any, AsyncGenerator, Callable, Coroutine
 
-from .ai_types import AIResponse
-from .client import AIClient
-
-
-@runtime_checkable
-class EmbeddingClient(Protocol):
-    """Protocol for clients that support embeddings."""
-
-    async def get_embedding(self, text: str) -> list[float]:
-        """Get embedding for text."""
-        ...
+from .ai_types import Message
+from .responses import AIResponse
+from .providers.base import BaseProvider
 
 
-@runtime_checkable
-class StreamingClient(Protocol):
-    """Protocol for clients that support streaming."""
-
-    async def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses."""
-        ...
-
-
-async def stream_response(
-    client: AIClient, prompt: str
-) -> AsyncGenerator[AIResponse, None]:
-    """Stream response from client.
+async def stream_with_callback(
+    provider: BaseProvider,
+    messages: list[Message],
+    callback: Callable[[AIResponse], Coroutine[Any, Any, None]],
+) -> None:
+    """Stream responses with callback.
 
     Args:
-        client: AI client
-        prompt: Prompt to stream
-
-    Yields:
-        AI response chunks
-
-    Raises:
-        TypeError: If client doesn't support streaming
+        provider: The provider to use
+        messages: List of messages to send to the provider
+        callback: The callback to call with each response
     """
-    if not hasattr(client, "stream"):
-        raise TypeError("Client does not support streaming")
-
-    async for response in client.stream(prompt):
-        yield response
-
-
-async def get_embedding(client: AIClient, text: str) -> list[float]:
-    """Get embedding from client.
-
-    Args:
-        client: AI client
-        text: Text to embed
-
-    Returns:
-        Embedding vector
-
-    Raises:
-        TypeError: If client doesn't support embeddings
-    """
-    if not isinstance(client, EmbeddingClient):
-        raise TypeError("Client does not support embeddings")
-
-    return await client.get_embedding(text)
+    async for response in provider.stream(messages):
+        await callback(response)

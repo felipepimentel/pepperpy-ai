@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from pepperpy_core.base import BaseData
-from pepperpy_core.types import JsonDict
+from ...types import JsonDict
 
 
 @dataclass

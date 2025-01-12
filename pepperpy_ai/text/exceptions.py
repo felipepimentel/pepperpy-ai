@@ -1,9 +1,21 @@
 """Text processing exceptions."""
 
-from ..exceptions import PepperpyError
+from ..exceptions import PepperPyAIError
 
 
-class TextProcessingError(PepperpyError):
+class TextError(PepperPyAIError):
+    """Raised when there is an error with text processing."""
+
+    def __init__(self, message: str) -> None:
+        """Initialize the exception.
+
+        Args:
+            message: The error message.
+        """
+        super().__init__(message)
+
+
+class TextProcessingError(TextError):
     """Base exception for text processing errors."""
 
     pass

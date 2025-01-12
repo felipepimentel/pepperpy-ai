@@ -1,91 +1,76 @@
 """Example utilities."""
 
 from collections.abc import AsyncGenerator
+from typing import List, Optional, Type
 
-from pepperpy_ai.ai_types import AIMessage, AIResponse
-from pepperpy_ai.llm.config import LLMConfig
+from pepperpy_ai.ai_types import Message, MessageRole
+from pepperpy_ai.exceptions import ProviderError
+from pepperpy_ai.providers.base import BaseProvider
+from pepperpy_ai.providers.config import ProviderConfig
+from pepperpy_ai.responses import AIResponse
 
 
 class ExampleAIClient:
-    """Example AI client implementation."""
+    """Example AI client."""
 
-    def __init__(self) -> None:
-        """Initialize client."""
-        self._config = LLMConfig(
-            name="example",
-            provider="example",
-            api_key="dummy-key",
-            model="gpt-3.5-turbo",
-            temperature=0.7,
-            max_tokens=150,
-        )
-        self._client = None
-        self._initialized = False
+    def __init__(self, provider: Type[BaseProvider[ProviderConfig]]) -> None:
+        """Initialize client.
 
-    @property
-    def config(self) -> LLMConfig:
-        """Get client configuration."""
-        return self._config
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if client is initialized."""
-        return self._initialized
+        Args:
+            provider: Provider class to use
+        """
+        self.provider = provider
+        self._provider_instance: Optional[BaseProvider[ProviderConfig]] = None
 
     async def initialize(self) -> None:
         """Initialize client."""
-        await self._setup()
-        self._initialized = True
+        if not self._provider_instance:
+            config = ProviderConfig(
+                provider="mock",
+                api_key="mock-key",
+                model="mock-model",
+            )
+            self._provider_instance = self.provider(config, config.api_key)
+            await self._provider_instance.initialize()
 
     async def cleanup(self) -> None:
         """Cleanup client resources."""
-        await self._teardown()
-        self._initialized = False
+        if self._provider_instance:
+            await self._provider_instance.cleanup()
+            self._provider_instance = None
 
-    async def _setup(self) -> None:
-        """Setup client resources."""
-        # Dummy implementation
-        pass
-
-    async def _teardown(self) -> None:
-        """Teardown client resources."""
-        self._client = None
-
-    async def complete(self, prompt: str) -> AIResponse:
-        """Complete prompt.
+    async def stream(
+        self,
+        messages: List[Message],
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from provider.
 
         Args:
-            prompt: Prompt to complete
+            messages: List of messages to send to provider
+            model: Optional model to use
+            temperature: Optional temperature parameter
+            max_tokens: Optional maximum tokens parameter
 
         Returns:
-            AI response
+            AsyncGenerator yielding AIResponse objects
+
+        Raises:
+            ProviderError: If provider is not initialized
         """
-        message = AIMessage(role="assistant", content=f"Example response to: {prompt}")
-        return AIResponse(content=message.content, messages=[message])
+        if not self._provider_instance:
+            raise ProviderError("Provider not initialized", "example")
 
-    async def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses.
+        # Get the stream from the provider
+        provider_stream = self._provider_instance.stream(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
 
-        Args:
-            prompt: Prompt to stream responses for
-
-        Yields:
-            AI responses
-        """
-        response = await self.complete(prompt)
-        yield response
-
-    async def get_embedding(self, text: str) -> list[float]:
-        """Get text embedding.
-
-        Args:
-            text: Text to get embedding for
-
-        Returns:
-            Text embedding vector
-
-        Note:
-            This is a dummy implementation that returns an empty vector.
-            In a real application, you would want to implement actual embedding logic.
-        """
-        return []
+        # Yield responses from the stream
+        async for response in provider_stream:
+            yield response

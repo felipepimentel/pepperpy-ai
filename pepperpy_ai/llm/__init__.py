@@ -2,10 +2,10 @@
 
 from .client import LLMClient
 from .config import LLMConfig
-from .factory import create_llm_client
+from .factory import create_provider
 
 __all__ = [
     "LLMClient",
     "LLMConfig",
-    "create_llm_client",
+    "create_provider",
 ]

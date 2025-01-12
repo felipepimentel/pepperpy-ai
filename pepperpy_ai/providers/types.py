@@ -1,11 +1,41 @@
 """Provider types."""
 
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Optional, Dict, List, Union
 from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, TypedDict, Optional, cast
 
 from ..types import JsonDict, Serializable
+from ..exceptions import ValidationError
+
+
+def safe_str(value: Any, default: str = "") -> str:
+    """Safely convert value to string."""
+    return str(value) if value is not None else default
+
+def safe_int(value: Any, default: int = 0) -> int:
+    """Safely convert value to int."""
+    try:
+        return int(value) if value is not None else default
+    except (ValueError, TypeError):
+        return default
+
+def safe_bool(value: Any, default: bool = False) -> bool:
+    """Safely convert value to bool."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.lower() in ("true", "1", "yes", "on")
+    try:
+        return bool(value)
+    except (ValueError, TypeError):
+        return default
+
+def safe_str_or_none(value: Any) -> Optional[str]:
+    """Safely convert value to string or None."""
+    return str(value) if value is not None else None
 
 class ProviderType(str, Enum):
     """Provider types.
@@ -38,21 +68,21 @@ class ProviderType(str, Enum):
                 f"Supported types: {', '.join(cls.__members__.keys())}"
             )
 
+class CapabilitiesDict(TypedDict, total=False):
+    """Type definition for capabilities dictionary."""
+
+    streaming: bool
+    embeddings: bool
+    functions: bool
+    max_tokens: int
+    max_requests_per_minute: int
+    supports_batch: bool
+    batch_size: int
+
 @dataclass
 class ProviderCapabilities:
-    """Provider capabilities.
-    
-    Defines the capabilities and limitations of a provider.
-    
-    Attributes:
-        streaming: Whether streaming is supported
-        embeddings: Whether embeddings are supported
-        functions: Whether function calling is supported
-        max_tokens: Maximum tokens per request
-        max_requests_per_minute: Maximum requests per minute
-        supports_batch: Whether batch processing is supported
-        batch_size: Maximum batch size if supported
-    """
+    """Provider capabilities."""
+
     streaming: bool = False
     embeddings: bool = False
     functions: bool = False
@@ -60,6 +90,23 @@ class ProviderCapabilities:
     max_requests_per_minute: int = 0
     supports_batch: bool = False
     batch_size: int = 1
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ProviderCapabilities":
+        """Create capabilities from dictionary."""
+        caps = data.get("capabilities", {})
+        if not isinstance(caps, dict):
+            caps = {}
+        
+        return cls(
+            streaming=safe_bool(caps.get("streaming")),
+            embeddings=safe_bool(caps.get("embeddings")),
+            functions=safe_bool(caps.get("functions")),
+            max_tokens=safe_int(caps.get("max_tokens")),
+            max_requests_per_minute=safe_int(caps.get("max_requests_per_minute")),
+            supports_batch=safe_bool(caps.get("supports_batch")),
+            batch_size=safe_int(caps.get("batch_size"), 1),
+        )
 
 @dataclass
 class ProviderMetadata(Serializable):
@@ -105,26 +152,46 @@ class ProviderMetadata(Serializable):
     @classmethod
     def from_dict(cls, data: JsonDict) -> "ProviderMetadata":
         """Create from dictionary."""
-        capabilities = ProviderCapabilities(
-            streaming=data.get("capabilities", {}).get("streaming", False),
-            embeddings=data.get("capabilities", {}).get("embeddings", False),
-            functions=data.get("capabilities", {}).get("functions", False),
-            max_tokens=data.get("capabilities", {}).get("max_tokens", 0),
-            max_requests_per_minute=data.get("capabilities", {}).get("max_requests_per_minute", 0),
-            supports_batch=data.get("capabilities", {}).get("supports_batch", False),
-            batch_size=data.get("capabilities", {}).get("batch_size", 1),
-        )
+        if not isinstance(data, dict):
+            raise ValidationError(
+                message="Data must be a dictionary",
+                field="data",
+                value=str(data)
+            )
+            
+        name = safe_str(data.get("name"))
+        if not name:
+            raise ValidationError(
+                message="Name is required",
+                field="name",
+                value=str(data.get("name"))
+            )
+            
+        version = safe_str(data.get("version"))
+        if not version:
+            raise ValidationError(
+                message="Version is required",
+                field="version",
+                value=str(data.get("version"))
+            )
+
+        settings = data.get("settings", {})
+        if not isinstance(settings, dict):
+            settings = {}
+
+        description = safe_str_or_none(data.get("description"))
+
         return cls(
-            name=data["name"],
-            version=data["version"],
-            description=data.get("description"),
-            settings=data.get("settings", {}),
-            capabilities=capabilities,
+            name=name,
+            version=version,
+            description=description,
+            settings=cast(JsonDict, settings),
+            capabilities=ProviderCapabilities.from_dict(data),
             created_at=datetime.fromisoformat(
-                data.get("created_at", datetime.now().isoformat())
+                safe_str(data.get("created_at"), datetime.now().isoformat())
             ),
             updated_at=datetime.fromisoformat(
-                data.get("updated_at", datetime.now().isoformat())
+                safe_str(data.get("updated_at"), datetime.now().isoformat())
             ),
         )
 
@@ -142,7 +209,7 @@ class ProviderResponse(Serializable):
     """
     content: str
     metadata: JsonDict = field(default_factory=dict)
-    raw_response: Optional[Any] = None
+    raw_response: Any | None = None
     created_at: datetime = field(default_factory=datetime.now)
     tokens_used: int = 0
     finish_reason: Optional[str] = None
@@ -160,14 +227,33 @@ class ProviderResponse(Serializable):
     @classmethod
     def from_dict(cls, data: JsonDict) -> "ProviderResponse":
         """Create from dictionary."""
+        if not isinstance(data, dict):
+            raise ValidationError(
+                message="Data must be a dictionary",
+                field="data",
+                value=str(data)
+            )
+            
+        content = safe_str(data.get("content", ""))
+        if not content:
+            raise ValidationError(
+                message="Content is required",
+                field="content",
+                value=str(data.get("content"))
+            )
+
+        metadata = data.get("metadata", {})
+        if not isinstance(metadata, dict):
+            metadata = {}
+
         return cls(
-            content=data["content"],
-            metadata=data.get("metadata", {}),
+            content=content,
+            metadata=cast(JsonDict, metadata),
             created_at=datetime.fromisoformat(
-                data.get("created_at", datetime.now().isoformat())
+                safe_str(data.get("created_at", datetime.now().isoformat()))
             ),
-            tokens_used=data.get("tokens_used", 0),
-            finish_reason=data.get("finish_reason"),
+            tokens_used=safe_int(data.get("tokens_used")),
+            finish_reason=safe_str_or_none(data.get("finish_reason")),
         )
 
 @dataclass
@@ -187,7 +273,7 @@ class ProviderUsage:
     total_errors: int = 0
     average_latency: float = 0.0
     requests_per_minute: float = 0.0
-    last_request: Optional[datetime] = None
+    last_request: datetime | None = None
 
     def update(
         self,
@@ -207,7 +293,7 @@ class ProviderUsage:
         self.total_requests += 1
         if error:
             self.total_errors += 1
-        
+
         # Update average latency
         if self.total_requests > 1:
             self.average_latency = (
@@ -216,13 +302,13 @@ class ProviderUsage:
             )
         else:
             self.average_latency = latency
-        
+
         # Update requests per minute
         if self.last_request:
             time_diff = (now - self.last_request).total_seconds() / 60
             if time_diff > 0:
                 self.requests_per_minute = 1 / time_diff
-        
+
         self.last_request = now
 
 @dataclass
@@ -237,9 +323,9 @@ class ProviderError(Exception):
         timestamp: Error timestamp
     """
     message: str
-    code: Optional[str] = None
+    code: str | None = None
     details: JsonDict = field(default_factory=dict)
-    cause: Optional[Exception] = None
+    cause: Exception | None = None
     timestamp: datetime = field(default_factory=datetime.now)
 
     def __str__(self) -> str:
@@ -250,7 +336,7 @@ class ProviderError(Exception):
         if self.details:
             parts.append(f"details: {self.details}")
         if self.cause:
-            parts.append(f"caused by: {str(self.cause)}")
+            parts.append(f"caused by: {self.cause!s}")
         return " ".join(parts)
 
     def to_dict(self) -> JsonDict:

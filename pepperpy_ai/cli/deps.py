@@ -1,14 +1,68 @@
 """CLI tool for managing PepperPy AI dependencies."""
 
 import json
-from typing import Dict, List, Optional
+from typing import Callable, List, Optional, TypeVar
 
 import click
 
 from pepperpy_ai.utils import check_dependency, get_missing_dependencies
 
+T = TypeVar("T")
 
-def get_provider_dependencies() -> Dict[str, List[str]]:
+def list_to_str(items: Optional[List[str]]) -> str:
+    """Convert list to string.
+
+    Args:
+        items: List of items
+
+    Returns:
+        String representation of list
+    """
+    if not items:
+        return ""
+    return ", ".join(items)
+
+def str_to_list(value: str) -> List[str]:
+    """Convert string to list.
+
+    Args:
+        value: String to convert
+
+    Returns:
+        List of strings
+    """
+    if not value:
+        return []
+    return [item.strip() for item in value.split(",")]
+
+def validate_list(
+    items: Optional[List[str]],
+    allowed_values: Optional[List[str]] = None,
+) -> List[str]:
+    """Validate list of items.
+
+    Args:
+        items: List of items to validate
+        allowed_values: Optional list of allowed values
+
+    Returns:
+        Validated list of items
+
+    Raises:
+        ValueError: If any item is invalid
+    """
+    if not items:
+        return []
+
+    result = []
+    for item in items:
+        item = item.strip()
+        if allowed_values and item not in allowed_values:
+            raise ValueError(f"Invalid value: {item}")
+        result.append(item)
+    return result
+
+def get_provider_dependencies() -> dict[str, list[str]]:
     """Get provider dependencies.
 
     Returns:
@@ -22,7 +76,7 @@ def get_provider_dependencies() -> Dict[str, List[str]]:
     }
 
 
-def get_capability_dependencies() -> Dict[str, List[str]]:
+def get_capability_dependencies() -> dict[str, list[str]]:
     """Get capability dependencies.
 
     Returns:
@@ -114,7 +168,7 @@ def check_capability(capability: str) -> None:
 
 @deps.command()
 @click.option("--json", "json_output", is_flag=True, help="Output in JSON format")
-def list(json_output: bool) -> None:
+def list_deps(json_output: bool) -> None:
     """List available providers and features."""
     providers = get_provider_dependencies()
     capabilities = get_capability_dependencies()
@@ -165,6 +219,7 @@ def install(target: str, provider: bool, capability: bool) -> None:
         click.echo("Error: Cannot specify both --provider and --capability")
         return
 
+    deps = []
     if provider:
         providers = get_provider_dependencies()
         if target not in providers:
@@ -191,4 +246,4 @@ def install(target: str, provider: bool, capability: bool) -> None:
         for pkg in missing:
             click.echo(f"  - {pkg}")
         click.echo("\nRun:")
-        click.echo(f"  pip install pepperpy-ai[{target}]") 
+        click.echo(f"  pip install pepperpy-ai[{target}]")

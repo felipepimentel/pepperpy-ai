@@ -2,8 +2,11 @@
 
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Any, Dict, Optional, Protocol
+from typing import Any, Protocol, TypeAlias, Union
 
+# Define tipos básicos para JSON
+JsonValue = Union[str, int, float, bool, None, list[Any], dict[str, Any]]
+JsonDict: TypeAlias = dict[str, JsonValue]
 
 class MessageRole(Enum):
     """Role of a message in a conversation."""
@@ -25,11 +28,7 @@ class Message:
 
     role: MessageRole
     content: str
-    metadata: Optional[Dict[str, Any]] = None
-
-
-class JsonDict(Dict[str, Any]):
-    """Type alias for JSON-like dictionaries."""
+    metadata: JsonDict | None = None
 
 
 class Serializable(Protocol):

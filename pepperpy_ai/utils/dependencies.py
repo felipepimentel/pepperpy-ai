@@ -1,10 +1,11 @@
 """Dependency checking utilities."""
 
 import importlib
-import sys
-from functools import lru_cache
-from typing import Optional, Dict, Set
+import importlib.metadata
+import importlib.util
 import logging
+from functools import cache
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ FEATURE_DEPENDENCIES = {
     "resilience": ["tenacity"],
 }
 
-@lru_cache(maxsize=None)
+@cache
 def check_dependency(package: str) -> bool:
     """Check if a Python package is installed.
     
@@ -47,7 +48,7 @@ def get_missing_dependencies(packages: list[str]) -> list[str]:
     """
     return [pkg for pkg in packages if not check_dependency(pkg)]
 
-def verify_provider_dependencies(provider: str) -> Optional[list[str]]:
+def verify_provider_dependencies(provider: str) -> list[str] | None:
     """Verify dependencies for a specific provider.
     
     Args:
@@ -64,15 +65,15 @@ def verify_provider_dependencies(provider: str) -> Optional[list[str]]:
             f"Unsupported provider: {provider}. "
             f"Supported providers: {', '.join(PROVIDER_DEPENDENCIES.keys())}"
         )
-    
+
     required = PROVIDER_DEPENDENCIES[provider]
     if not required:
         return None
-        
+
     missing = get_missing_dependencies(required)
     return missing if missing else None
 
-def verify_feature_dependencies(feature: str) -> Optional[list[str]]:
+def verify_feature_dependencies(feature: str) -> list[str] | None:
     """Verify dependencies for a specific feature.
     
     Args:
@@ -89,7 +90,7 @@ def verify_feature_dependencies(feature: str) -> Optional[list[str]]:
             f"Unsupported feature: {feature}. "
             f"Supported features: {', '.join(FEATURE_DEPENDENCIES.keys())}"
         )
-    
+
     required = FEATURE_DEPENDENCIES[feature]
     missing = get_missing_dependencies(required)
     return missing if missing else None
@@ -153,7 +154,7 @@ def check_feature_availability(feature: str) -> bool:
     except ValueError:
         return False
 
-def get_available_providers() -> Set[str]:
+def get_available_providers() -> set[str]:
     """Get set of available providers.
     
     Returns:
@@ -165,7 +166,7 @@ def get_available_providers() -> Set[str]:
         if check_provider_availability(provider)
     }
 
-def get_available_features() -> Set[str]:
+def get_available_features() -> set[str]:
     """Get set of available features.
     
     Returns:
@@ -181,21 +182,49 @@ def print_availability_report() -> None:
     """Print report of available providers and features."""
     providers = get_available_providers()
     features = get_available_features()
-    
+
     print("\nPepperPy AI Availability Report")
     print("==============================")
-    
+
     print("\nProviders:")
     for provider in PROVIDER_DEPENDENCIES:
         status = "✓" if provider in providers else "✗"
         print(f"  {status} {provider}")
-    
+
     print("\nFeatures:")
     for feature in FEATURE_DEPENDENCIES:
         status = "✓" if feature in features else "✗"
         print(f"  {status} {feature}")
-    
+
     if not providers and not features:
         print("\nNo optional features available. Install extras with:")
         print("  poetry add 'pepperpy-ai[complete]'")
-    print() 
+    print()
+
+def get_module_version(module_name: str) -> str:
+    """Get module version.
+
+    Args:
+        module_name: Name of the module.
+
+    Returns:
+        Module version.
+
+    Raises:
+        ImportError: If module is not found.
+    """
+    try:
+        return importlib.metadata.version(module_name)
+    except importlib.metadata.PackageNotFoundError as e:
+        raise ImportError(f"Module {module_name} not found") from e
+
+def is_package_installed(package_name: str) -> bool:
+    """Check if package is installed.
+
+    Args:
+        package_name: Name of the package.
+
+    Returns:
+        True if package is installed, False otherwise.
+    """
+    return importlib.util.find_spec(package_name) is not None

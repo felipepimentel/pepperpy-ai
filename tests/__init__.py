@@ -1,1 +1,1 @@
-"""Test package for PepperPy AI.""" 
+"""Test package for PepperPy AI."""

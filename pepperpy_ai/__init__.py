@@ -1,9 +1,9 @@
 """PepperPy AI - A flexible AI library with modular provider support."""
 
-from pepperpy_ai.capabilities.base import BaseCapability, CapabilityConfig
-from pepperpy_ai.capabilities.chat.base import BaseChat, ChatConfig
-from pepperpy_ai.capabilities.rag.base import BaseRAG, Document, RAGConfig
-from pepperpy_ai.exceptions import (
+from .capabilities.base import BaseCapability, CapabilityConfig
+from .capabilities.chat.base import ChatCapability, ChatConfig
+from .capabilities.rag.base import RAGCapability, Document, RAGConfig
+from .exceptions import (
     CapabilityError,
     ConfigurationError,
     DependencyError,
@@ -11,10 +11,10 @@ from pepperpy_ai.exceptions import (
     ProviderError,
     ValidationError,
 )
-from pepperpy_ai.providers.base import BaseProvider
-from pepperpy_ai.responses import AIResponse
-from pepperpy_ai.types import Message, MessageRole
-from pepperpy_ai.utils import (
+from .providers.base import BaseProvider
+from .responses import AIResponse
+from .types import Message, MessageRole
+from .utils import (
     check_dependency,
     format_exception,
     get_missing_dependencies,
@@ -28,9 +28,9 @@ __version__ = "0.1.0"
 __all__ = [
     # Base classes
     "BaseCapability",
-    "BaseChat",
+    "ChatCapability",
     "BaseProvider",
-    "BaseRAG",
+    "RAGCapability",
     # Configuration classes
     "CapabilityConfig",
     "ChatConfig",
@@ -59,14 +59,15 @@ __all__ = [
 
 # Optional implementations
 try:
-    from pepperpy_ai.capabilities.embeddings.base import BaseEmbedding, EmbeddingConfig
-    from pepperpy_ai.capabilities.embeddings.simple import SimpleEmbedding
-    from pepperpy_ai.capabilities.rag.simple import SimpleRAG
+    from .capabilities.embeddings.base import BaseEmbeddingsCapability
+    from .embeddings.base import EmbeddingsConfig
+    from .capabilities.embeddings.simple import SimpleEmbeddingsCapability
+    from .capabilities.rag.simple import SimpleRAGCapability
     __all__.extend([
-        "BaseEmbedding",
-        "EmbeddingConfig",
-        "SimpleEmbedding",
-        "SimpleRAG",
+        "BaseEmbeddingsCapability",
+        "EmbeddingsConfig",
+        "SimpleEmbeddingsCapability",
+        "SimpleRAGCapability",
     ])
 except ImportError:
     pass

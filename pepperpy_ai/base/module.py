@@ -1,42 +1,28 @@
 """Base module implementation."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import (
-    Any,
-    AsyncGenerator,
-    Generic,
-    Optional,
-    TypeVar,
-    cast,
-)
+from typing import Any, Generic, TypeVar, cast
 
 from ..config.base import BaseConfig
-from ..exceptions import ConfigError
+from ..exceptions import ConfigurationError
 from ..types import JsonDict
 
 ConfigT = TypeVar("ConfigT", bound=BaseConfig)
 
+
 class BaseModule(Generic[ConfigT], ABC):
-    """Base module implementation.
-    
-    This class provides the foundation for all modules in the system.
-    It handles initialization, cleanup, and resource management.
-    
-    Attributes:
-        config: Module configuration
-        _initialized: Module initialization state
-        _resources: Module-specific resources
-    """
+    """Base module implementation."""
 
     def __init__(self, config: ConfigT) -> None:
         """Initialize module.
-        
+
         Args:
             config: Module configuration
-        
+
         Raises:
-            ConfigError: If configuration is invalid
+            ConfigurationError: If configuration is invalid
         """
         self.validate_config(config)
         self.config = config
@@ -50,36 +36,39 @@ class BaseModule(Generic[ConfigT], ABC):
 
     def validate_config(self, config: ConfigT) -> None:
         """Validate module configuration.
-        
+
         Args:
             config: Configuration to validate
-            
+
         Raises:
-            ConfigError: If configuration is invalid
+            ConfigurationError: If configuration is invalid
         """
         config_dict = cast(dict[str, Any], config)
         required_fields = {"name", "version", "enabled"}
         missing = required_fields - set(config_dict)
         if missing:
-            raise ConfigError(
+            raise ConfigurationError(
                 f"Missing required configuration fields: {missing}",
-                invalid_keys=list(missing)
+                field="required_fields"
             )
 
     async def initialize(self) -> None:
         """Initialize module.
-        
+
         This method handles the module initialization lifecycle:
         1. Pre-initialization checks
         2. Resource setup
         3. Post-initialization tasks
-        
+
         Raises:
-            ConfigError: If module is already initialized
+            ConfigurationError: If module is already initialized
         """
         if self._initialized:
-            raise ConfigError("Module already initialized")
-        
+            raise ConfigurationError(
+                "Module is already initialized",
+                field="initialization_state"
+            )
+
         try:
             await self._pre_setup()
             await self._setup()
@@ -90,7 +79,7 @@ class BaseModule(Generic[ConfigT], ABC):
 
     async def cleanup(self) -> None:
         """Cleanup module resources.
-        
+
         This method handles the module cleanup lifecycle:
         1. Pre-cleanup tasks
         2. Resource teardown
@@ -98,7 +87,7 @@ class BaseModule(Generic[ConfigT], ABC):
         """
         if not self._initialized:
             return
-        
+
         try:
             await self._pre_teardown()
             await self._teardown()
@@ -110,10 +99,10 @@ class BaseModule(Generic[ConfigT], ABC):
     @asynccontextmanager
     async def session(self) -> AsyncGenerator[None, None]:
         """Context manager for module session.
-        
+
         This provides a safe way to use the module with automatic
         initialization and cleanup.
-        
+
         Example:
             async with module.session():
                 await module.process_data()
@@ -152,24 +141,24 @@ class BaseModule(Generic[ConfigT], ABC):
 
     async def _handle_setup_error(self, error: Exception) -> None:
         """Handle setup error.
-        
+
         Args:
             error: The error that occurred during setup
         """
         await self.cleanup()
-        if isinstance(error, ConfigError):
+        if isinstance(error, ConfigurationError):
             raise error
-        raise ConfigError(
-            "Failed to initialize module",
-            cause=error
+        raise ConfigurationError(
+            f"Failed to initialize module: {error}",
+            field="initialization"
         )
 
-    def get_resource(self, key: str) -> Optional[Any]:
+    def get_resource(self, key: str) -> Any | None:
         """Get module resource.
-        
+
         Args:
             key: Resource key
-            
+
         Returns:
             Resource value if exists, None otherwise
         """
@@ -177,7 +166,7 @@ class BaseModule(Generic[ConfigT], ABC):
 
     def set_resource(self, key: str, value: Any) -> None:
         """Set module resource.
-        
+
         Args:
             key: Resource key
             value: Resource value
@@ -186,7 +175,7 @@ class BaseModule(Generic[ConfigT], ABC):
 
     def get_status(self) -> JsonDict:
         """Get module status.
-        
+
         Returns:
             Module status information
         """

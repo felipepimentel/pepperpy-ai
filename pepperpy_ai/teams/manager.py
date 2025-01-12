@@ -1,16 +1,16 @@
 """Team manager implementation."""
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Type
 
-from ..exceptions import ConfigError
-from .base import BaseTeam
+from ..exceptions import ConfigurationError as ConfigError
+from .base import BaseTeam, BaseTeamProvider
 from .config import TeamConfig
 from .providers.autogen import AutogenTeamProvider
 from .providers.langchain import LangchainTeamProvider
 
 # Map of provider names to their implementations
-PROVIDERS: dict[str, type[BaseTeam]] = {
+PROVIDERS: dict[str, Type[BaseTeamProvider]] = {
     "autogen": AutogenTeamProvider,
     "langchain": LangchainTeamProvider,
 }
@@ -26,7 +26,7 @@ class TeamManager:
             client: AI client instance
         """
         self._client = client
-        self._teams: dict[str, BaseTeam] = {}
+        self._teams: dict[str, BaseTeamProvider] = {}
         self._initialized = False
 
     @property
@@ -54,7 +54,7 @@ class TeamManager:
         if not self._initialized:
             raise RuntimeError("Manager not initialized")
 
-    async def create_team(self, config: TeamConfig) -> BaseTeam:
+    async def create_team(self, config: TeamConfig) -> BaseTeamProvider:
         """Create team from configuration.
 
         Args:
@@ -82,7 +82,7 @@ class TeamManager:
         self._teams[config.name] = team
         return team
 
-    async def get_team(self, name: str) -> BaseTeam | None:
+    async def get_team(self, name: str) -> BaseTeamProvider | None:
         """Get team by name.
 
         Args:

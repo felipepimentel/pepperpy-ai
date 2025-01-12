@@ -1,10 +1,12 @@
 """Base team implementation."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
-from typing import Any, Protocol, runtime_checkable
+from collections.abc import AsyncGenerator, Sequence
+from typing import Any, List, Optional, Protocol, runtime_checkable
 
-from ..ai_types import AIResponse
+from ..ai_types import Message
+from ..exceptions import ProviderError
+from ..responses import AIResponse
 from .config import TeamConfig
 
 
@@ -90,6 +92,33 @@ class BaseTeamProvider(ABC):
     async def _teardown(self) -> None:
         """Teardown provider resources."""
         pass
+
+    @abstractmethod
+    async def stream(
+        self,
+        messages: List[Message],
+        *,
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from the provider.
+
+        Args:
+            messages: List of messages to send to provider
+            model: Optional model to use
+            temperature: Optional temperature parameter
+            max_tokens: Optional maximum tokens parameter
+
+        Returns:
+            AsyncGenerator yielding AIResponse objects
+
+        Raises:
+            ProviderError: If provider is not initialized
+        """
+        if not self.is_initialized:
+            raise ProviderError("Provider not initialized", provider="base")
+        yield AIResponse(content="Not implemented")
 
     @abstractmethod
     async def execute_task(self, task: str, **kwargs: Any) -> AIResponse:

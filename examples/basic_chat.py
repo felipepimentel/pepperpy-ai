@@ -4,12 +4,13 @@ import asyncio
 from typing import NoReturn
 
 from pepperpy_ai.examples.utils import ExampleAIClient
+from pepperpy_ai.providers.openai import OpenAIProvider
 
 
-async def main() -> NoReturn:
+async def main() -> None:
     """Run example."""
     # Create client
-    client = ExampleAIClient()
+    client = ExampleAIClient(provider=OpenAIProvider)
 
     # Initialize
     await client.initialize()
@@ -22,8 +23,10 @@ async def main() -> NoReturn:
                 break
 
             # Get response
-            response = await client.complete(prompt)
-            print(f"\nAssistant: {response.content}")
+            response_text = ""
+            async for chunk in client.stream(prompt):
+                response_text += chunk.content
+            print(f"\nAssistant: {response_text}")
 
     finally:
         await client.cleanup()

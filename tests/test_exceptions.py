@@ -1,7 +1,6 @@
 """Tests for exceptions module."""
 
 import pytest
-
 from pepperpy_ai.exceptions import (
     PepperPyAIError,
     ConfigurationError,
@@ -12,55 +11,43 @@ from pepperpy_ai.exceptions import (
 )
 
 
-def test_base_exception():
+def test_base_error() -> None:
     """Test base exception."""
-    msg = "Test error"
-    exc = PepperPyAIError(msg)
-    assert str(exc) == msg
+    error = PepperPyAIError("Test error")
+    assert str(error) == "Test error"
 
 
-def test_configuration_error():
+def test_configuration_error() -> None:
     """Test configuration error."""
-    msg = "Invalid config"
-    field = "api_key"
-    exc = ConfigurationError(msg, field)
-    assert str(exc) == msg
-    assert exc.field == field
+    error = ConfigurationError("Test error", field="test_field")
+    assert str(error) == "Test error"
+    assert error.field == "test_field"
 
 
-def test_provider_error():
+def test_provider_error() -> None:
     """Test provider error."""
-    msg = "Provider failed"
-    provider = "test_provider"
-    exc = ProviderError(msg, provider)
-    assert str(exc) == msg
-    assert exc.provider == provider
+    error = ProviderError("Test error", provider="test_provider")
+    assert str(error) == "Test error"
+    assert error.provider == "test_provider"
 
 
-def test_validation_error():
+def test_validation_error() -> None:
     """Test validation error."""
-    msg = "Invalid value"
-    field = "temperature"
-    value = 2.0
-    exc = ValidationError(msg, field, value)
-    assert str(exc) == msg
-    assert exc.field == field
-    assert exc.value == value
+    error = ValidationError("Test error", field="test_field", value="invalid")
+    assert str(error) == "Test error"
+    assert error.field == "test_field"
+    assert error.value == "invalid"
 
 
-def test_capability_error():
+def test_capability_error() -> None:
     """Test capability error."""
-    msg = "Capability not found"
-    capability = "rag"
-    exc = CapabilityError(msg, capability)
-    assert str(exc) == msg
-    assert exc.capability == capability
+    error = CapabilityError("Test error", capability="test_capability")
+    assert str(error) == "Test error"
+    assert error.capability == "test_capability"
 
 
-def test_dependency_error():
+def test_dependency_error() -> None:
     """Test dependency error."""
-    msg = "Missing package"
-    package = "openai"
-    exc = DependencyError(msg, package)
-    assert str(exc) == msg
-    assert exc.package == package 
+    error = DependencyError("Test error", package="test_package")
+    assert str(error) == "Test error"
+    assert error.package == "test_package"
