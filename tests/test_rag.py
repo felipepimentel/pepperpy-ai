@@ -12,7 +12,7 @@ from pepperpy_ai.utils import check_dependency
 def test_rag_imports() -> None:
     """Test RAG imports."""
     from pepperpy_ai.capabilities.rag.base import RAGCapability, RAGConfig
-    from pepperpy_ai.types import Document
+    from pepperpy_ai.capabilities.rag.types import Document
 
     assert issubclass(RAGCapability, object)
     assert issubclass(RAGConfig, object)

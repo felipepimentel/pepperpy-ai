@@ -1,6 +1,6 @@
 """Simple embeddings provider implementation."""
 
-from typing import List
+from typing import List, cast
 
 import numpy as np
 
@@ -41,12 +41,14 @@ class SimpleEmbeddingsProvider(BaseEmbeddingsProvider):
             A list of floats representing the embedding vector.
         """
         # Generate a deterministic random vector based on the text hash
-        text_hash = hash(text)
+        # Use abs and modulo to ensure the seed is within valid range
+        text_hash = abs(hash(text)) % (2**32 - 1)
         rng = np.random.RandomState(text_hash)
         vector = rng.randn(self._dimension)
         # Normalize the vector
         normalized = vector / np.linalg.norm(vector)
-        return normalized.tolist()
+        # Cast to ensure type safety
+        return cast(List[float], normalized.tolist())
 
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Generate simple embeddings for a list of texts.

@@ -2,6 +2,7 @@
 
 import pytest
 
+from pepperpy_ai.exceptions import DependencyError
 from pepperpy_ai.utils import (
     check_dependency,
     format_exception,
@@ -20,9 +21,9 @@ def test_check_dependency() -> None:
 
 def test_safe_import() -> None:
     """Test safe_import function."""
-    pytest = safe_import("pytest")
+    pytest = safe_import("pytest", "main")
     assert pytest is not None
-    assert safe_import("nonexistent_package") is None
+    assert safe_import("nonexistent_package", "main") is None
 
 
 def test_get_missing_dependencies() -> None:
@@ -36,9 +37,10 @@ def test_get_missing_dependencies() -> None:
 def test_verify_dependencies() -> None:
     """Test verify_dependencies function."""
     deps = ["pytest"]
-    assert verify_dependencies(deps) is True
+    verify_dependencies("test", deps)  # Should not raise
     deps = ["nonexistent_package"]
-    assert verify_dependencies(deps) is False
+    with pytest.raises(DependencyError):
+        verify_dependencies("test", deps)
 
 
 def test_merge_configs() -> None:
