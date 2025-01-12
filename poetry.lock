@@ -1304,7 +1304,7 @@ files = [
 name = "numpy"
 version = "2.2.1"
 description = "Fundamental package for array computing in Python"
-optional = true
+optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 markers = "extra == \"rag\" or extra == \"all-capabilities\" or extra == \"complete\""
@@ -2940,4 +2940,4 @@ rag = ["numpy", "sentence-transformers"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "d5c34692c8d20b3a6d7c3ef0df38ab110ce1245a08ad6c6b748a6a66eb16b182"
+content-hash = "05ce68f144ecbec42032127dd6df0523546ae2b0dcd900052a5a8bd5df14dd80"
