@@ -23,6 +23,12 @@ aiohttp = "^3.11.11"
 click = "^8.1.8"
 requests = "^2.32.3"
 
+# Test dependencies (required for development and CI)
+pytest = "^7.4.4"
+pytest-asyncio = "^0.23.5"
+pytest-cov = "^4.1.0"
+pytest-mock = "^3.12.0"
+
 # Optional dependencies for providers
 openai = { version = "1.59.6", optional = true }
 anthropic = { version = "0.42.0", optional = true }
@@ -30,12 +36,6 @@ anthropic = { version = "0.42.0", optional = true }
 # Optional dependencies for capabilities
 numpy = { version = "2.2.1", optional = true }
 sentence-transformers = { version = "3.3.1", optional = true }
-
-# Test dependencies
-pytest = { version = "^7.4.4", optional = true }
-pytest-asyncio = { version = "^0.23.5", optional = true }
-pytest-cov = { version = "^4.1.0", optional = true }
-pytest-mock = { version = "^3.12.0", optional = true }
 
 [tool.poetry.group.dev.dependencies]
 black = "^24.10.0"
@@ -49,7 +49,6 @@ pre-commit = "^4.0.1"
 openai = ["openai"]
 anthropic = ["anthropic"]
 rag = ["numpy", "sentence-transformers"]
-test = ["pytest", "pytest-asyncio", "pytest-cov", "pytest-mock"]
 all-providers = ["openai", "anthropic"]
 all-capabilities = ["numpy", "sentence-transformers"]
 complete = ["openai", "anthropic", "numpy", "sentence-transformers"]
