@@ -20,6 +20,7 @@ permissions:
 env:
   ACTIONS_RUNNER_DEBUG: true
   ACTIONS_STEP_DEBUG: true
+  POETRY_INSTALL_ARGS: "--extras test"
 
 jobs:
   pipeline:
