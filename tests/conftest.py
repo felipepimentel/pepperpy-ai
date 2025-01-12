@@ -5,7 +5,9 @@ from typing import AsyncGenerator, Generator
 import pytest
 from pytest_mock import MockerFixture
 
-from pepperpy_ai.embeddings import EmbeddingsClient, EmbeddingsConfig, SimpleEmbeddingsProvider
+from pepperpy_ai.embeddings.base import EmbeddingsConfig
+from pepperpy_ai.embeddings.client import EmbeddingsClient
+from pepperpy_ai.embeddings.providers import SimpleEmbeddingsProvider
 from pepperpy_ai.providers.mock import MockProvider
 from pepperpy_ai.providers.config import ProviderConfig
 

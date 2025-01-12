@@ -2,7 +2,9 @@
 
 import pytest
 
-from pepperpy_ai.embeddings import EmbeddingsClient, EmbeddingsConfig, SimpleEmbeddingsProvider
+from pepperpy_ai.embeddings.base import EmbeddingsConfig
+from pepperpy_ai.embeddings.client import EmbeddingsClient
+from pepperpy_ai.embeddings.providers import SimpleEmbeddingsProvider
 
 
 @pytest.mark.asyncio
