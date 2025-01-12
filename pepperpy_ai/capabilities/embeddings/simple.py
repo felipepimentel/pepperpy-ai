@@ -1,60 +1,60 @@
-"""Simple embeddings capability module."""
+"""Simple embeddings capability implementation."""
 
-from typing import Any, Dict, List, Optional, Type
+from typing import TypeVar
 
-from ...ai_types import Message
-from ...responses import AIResponse
-from ...exceptions import CapabilityError
-from ...embeddings.providers.base import BaseEmbeddingsProvider
-from ..base import CapabilityConfig
+from ...config.embeddings import EmbeddingsConfig
+from ...embeddings.base import BaseEmbeddingsProvider
 from .base import BaseEmbeddingsCapability
 
+T = TypeVar("T", bound=BaseEmbeddingsProvider)
 
-class SimpleEmbeddingsCapability(BaseEmbeddingsCapability):
-    """Simple embeddings capability implementation."""
 
-    def __init__(self, config: CapabilityConfig, provider: Type[BaseEmbeddingsProvider]) -> None:
+class SimpleEmbeddingsCapability(BaseEmbeddingsCapability[T]):
+    """A simple embeddings capability implementation.
+
+    This implementation provides basic embeddings functionality using
+    a configurable provider.
+    """
+
+    def __init__(
+        self,
+        config: EmbeddingsConfig,
+        provider: type[T],
+    ) -> None:
         """Initialize embeddings capability.
 
         Args:
-            config: Capability configuration
-            provider: Embeddings provider class to use
+            config: Capability configuration.
+            provider: Provider class to use.
         """
         super().__init__(config, provider)
-        self._embeddings: Dict[str, List[float]] = {}
 
-    async def embed(self, text: str) -> List[float]:
-        """Embed text into vector.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            List of embedding values
-
-        Raises:
-            CapabilityError: If provider is not initialized
-        """
-        if not self._provider_instance:
-            await self.initialize()
-        if not self._provider_instance:
-            raise CapabilityError("Provider not initialized", "embeddings")
-        return await self._provider_instance.embed(text)
-
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Embed multiple texts into vectors.
+    async def embed(self, text: str) -> list[float]:
+        """Generate embeddings for text.
 
         Args:
-            texts: List of texts to embed
+            text: Text to generate embeddings for.
 
         Returns:
-            List of embedding vectors
-
-        Raises:
-            CapabilityError: If provider is not initialized
+            list[float]: Generated embeddings.
         """
+        self._ensure_initialized()
         if not self._provider_instance:
-            await self.initialize()
+            raise RuntimeError("Provider not initialized")
+        result = await self._provider_instance.embed(text)
+        return result.embeddings
+
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to generate embeddings for.
+
+        Returns:
+            list[list[float]]: Generated embeddings for each text.
+        """
+        self._ensure_initialized()
         if not self._provider_instance:
-            raise CapabilityError("Provider not initialized", "embeddings")
-        return await self._provider_instance.embed_batch(texts)
+            raise RuntimeError("Provider not initialized")
+        results = await self._provider_instance.embed_batch(texts)
+        return [result.embeddings for result in results]

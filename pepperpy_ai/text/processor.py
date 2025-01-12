@@ -1,94 +1,31 @@
-"""Text processor implementation."""
+"""Text processor module."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
-
-ConfigT = TypeVar("ConfigT")
+from typing import TypedDict
 
 
-class BaseProcessor(Generic[ConfigT], ABC):
+class ProcessorParams(TypedDict, total=False):
+    """Text processor parameters."""
+
+    lowercase: bool | None
+    remove_punctuation: bool | None
+    remove_numbers: bool | None
+    remove_whitespace: bool | None
+    normalize: bool | None
+
+
+class BaseTextProcessor(ABC):
     """Base text processor implementation."""
 
-    def __init__(self, config: ConfigT) -> None:
-        """Initialize processor.
-
-        Args:
-            config: Processor configuration
-        """
-        self.config = config
-        self._initialized = False
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if processor is initialized."""
-        return self._initialized
-
-    async def initialize(self) -> None:
-        """Initialize processor."""
-        if not self._initialized:
-            await self._setup()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup processor resources."""
-        if self._initialized:
-            await self._teardown()
-            self._initialized = False
-
-    def _ensure_initialized(self) -> None:
-        """Ensure processor is initialized."""
-        if not self._initialized:
-            raise RuntimeError("Processor not initialized")
-
     @abstractmethod
-    async def _setup(self) -> None:
-        """Setup processor resources."""
-        pass
-
-    @abstractmethod
-    async def _teardown(self) -> None:
-        """Teardown processor resources."""
-        pass
-
-    @abstractmethod
-    async def process(self, text: str, **kwargs: Any) -> str:
+    async def process(self, text: str, **kwargs: ProcessorParams) -> str:
         """Process text.
 
         Args:
-            text: Text to process
-            **kwargs: Additional arguments
+            text: Text to process.
+            **kwargs: Processing parameters.
 
         Returns:
-            Processed text
-
-        Raises:
-            ProcessingError: If processing fails
-            ValidationError: If validation fails
-            RuntimeError: If processor not initialized
-        """
-        pass
-
-    @abstractmethod
-    async def validate(self, text: str) -> None:
-        """Validate text.
-
-        Args:
-            text: Text to validate
-
-        Raises:
-            ValidationError: If validation fails
-            RuntimeError: If processor not initialized
-        """
-        pass
-
-    @abstractmethod
-    async def get_metadata(self) -> dict[str, Any]:
-        """Get processor metadata.
-
-        Returns:
-            Processor metadata
-
-        Raises:
-            RuntimeError: If processor not initialized
+            str: Processed text.
         """
         pass

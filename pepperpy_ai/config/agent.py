@@ -1,35 +1,55 @@
-"""Agent configuration."""
+"""Agent configuration module."""
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any, Dict, Optional
+from ..roles import AgentRole
+from .base import BaseConfig
 
-class AgentRole(str, Enum):
-    """Agent role types."""
 
-    ASSISTANT = "assistant"
-    USER = "user"
-    SYSTEM = "system"
+class AgentConfig(BaseConfig):
+    """Configuration for agents.
 
-@dataclass
-class AgentConfig:
-    """Agent configuration."""
+    This class provides configuration options for agents, including their role,
+    model settings, and other parameters that control agent behavior.
+    """
 
-    # Required fields
-    role: AgentRole
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        role: str | AgentRole,
+        enabled: bool = True,
+    ) -> None:
+        """Initialize agent configuration.
 
-    # Optional fields with defaults
-    name: str = "agent"
-    version: str = "1.0.0"
-    enabled: bool = True
-    description: str = ""
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
+        Args:
+            name: Agent name.
+            version: Agent version.
+            role: Agent role.
+            enabled: Whether agent is enabled.
 
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        if isinstance(self.role, str):
-            try:
-                self.role = AgentRole(self.role)
-            except ValueError as e:
-                raise ValueError(f"Invalid role value: {self.role}. Must be one of {[r.value for r in AgentRole]}") from e
+        Raises:
+            ValueError: If role is invalid.
+        """
+        super().__init__(name=name, version=version, enabled=enabled)
+        self.role = self._validate_role(role)
+
+    def _validate_role(self, role: str | AgentRole) -> AgentRole:
+        """Validate and convert role.
+
+        Args:
+            role: Role to validate.
+
+        Returns:
+            AgentRole: Validated role.
+
+        Raises:
+            ValueError: If role is invalid.
+        """
+        if isinstance(role, AgentRole):
+            return role
+
+        valid_roles = {r.value for r in AgentRole}
+        if role not in valid_roles:
+            raise ValueError(
+                f"Invalid role: {role}. Must be one of {sorted(valid_roles)}"
+            )
+        return AgentRole(role)

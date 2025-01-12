@@ -1,7 +1,7 @@
 """RAG configuration."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 @dataclass
@@ -12,5 +12,5 @@ class RAGStrategyConfig:
     device: str = "cpu"
     normalize_embeddings: bool = True
     batch_size: int = 32
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict) 
+    metadata: dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)

@@ -1,13 +1,14 @@
-"""Teams module exports."""
+"""Team module."""
 
-from .base import BaseTeam, BaseTeamProvider
-from .config import TeamConfig, TeamResult
-from .types import AgentRole
+from ..agents.types import AgentRole
+from .base import BaseTeam
+from .providers.base import BaseTeamProvider
+from .types import TeamClient, TeamParams
 
 __all__ = [
     "AgentRole",
     "BaseTeam",
     "BaseTeamProvider",
-    "TeamConfig",
-    "TeamResult",
+    "TeamClient",
+    "TeamParams",
 ]

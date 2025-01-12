@@ -1,4 +1,4 @@
-"""Architect agent implementation"""
+"""Architect agent implementation."""
 
 from typing import Any
 
@@ -7,7 +7,7 @@ from .types import AgentConfig
 
 
 class ArchitectAgent(MessageHandler):
-    """Agent responsible for system architecture design"""
+    """Agent responsible for system architecture design."""
 
     def __init__(self, config: AgentConfig) -> None:
         """Initialize agent."""

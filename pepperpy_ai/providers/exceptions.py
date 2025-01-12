@@ -1,36 +1,35 @@
-"""Provider exceptions module."""
+"""Provider exception classes."""
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any
-
-from ..exceptions import PepperPyAIError
-from ..types import JsonDict
+from collections.abc import Sequence
+from typing import TypedDict
 
 
-@dataclass
-class ProviderErrorContext:
+class ErrorContext(TypedDict):
     """Provider error context.
-    
+
     Attributes:
         provider: Provider name
-        operation: Operation that failed
-        request_id: Request identifier
-        timestamp: Error timestamp
+        operation: Operation name
         details: Additional error details
     """
-    provider: str = ""
-    operation: str = ""
-    request_id: str = field(default_factory=lambda: datetime.now().isoformat())
-    timestamp: datetime = field(default_factory=datetime.now)
-    details: JsonDict = field(default_factory=lambda: {})
+
+    provider: str
+    operation: str
+    details: dict[str, str | int | float | bool | None]
 
 
-class ProviderError(PepperPyAIError):
+class ProviderError(Exception):
     """Base exception for provider errors.
-    
+
     This class provides detailed error information for provider operations.
     It includes context about the provider, operation, and error details.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+        operation: Operation that failed
+        details: Additional error details
+        cause: Original exception
     """
 
     def __init__(
@@ -38,203 +37,259 @@ class ProviderError(PepperPyAIError):
         message: str,
         provider: str = "",
         operation: str = "",
+        details: dict[str, str | int | float | bool | None] | None = None,
         cause: Exception | None = None,
-        **kwargs: Any,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             message: Error message
             provider: Provider name
             operation: Operation that failed
+            details: Additional error details
             cause: Original exception
-            **kwargs: Additional error details
         """
         super().__init__(message)
+        self.message = message
         self.provider = provider
         self.operation = operation
+        self.details = details or {}
         self.cause = cause
-        self.details = kwargs
+
 
 class ProviderNotFoundError(ProviderError):
-    """Error when provider is not found."""
+    """Error raised when provider is not found.
+
+    Attributes:
+        provider: Provider name
+        available_providers: List of available providers
+    """
 
     def __init__(
         self,
         provider: str,
-        available_providers: list[str],
-        **kwargs: Any,
+        available_providers: Sequence[str],
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             provider: Provider name
             available_providers: List of available providers
-            **kwargs: Additional error details
+            details: Additional error details
         """
+        message = (
+            f"Provider not found: {provider}. "
+            f"Available: {', '.join(available_providers)}"
+        )
         super().__init__(
-            f"Provider not found: {provider}. Available: {', '.join(available_providers)}",
+            message,
             provider=provider,
             operation="provider_lookup",
-            available_providers=available_providers,
-            **kwargs
+            details=details,
         )
+        self.available_providers = available_providers
+
 
 class ProviderConfigError(ProviderError):
-    """Error in provider configuration."""
+    """Error raised when provider configuration is invalid.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+        config_path: Path to config file
+        invalid_keys: List of invalid keys
+    """
 
     def __init__(
         self,
         message: str,
-        provider: str,
+        provider: str = "",
         config_path: str = "",
         invalid_keys: list[str] | None = None,
-        **kwargs: Any,
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             message: Error message
             provider: Provider name
             config_path: Path to config file
-            invalid_keys: List of invalid configuration keys
-            **kwargs: Additional error details
+            invalid_keys: List of invalid keys
+            details: Additional error details
         """
         super().__init__(
             message,
             provider=provider,
-            operation="configuration",
-            config_path=config_path,
-            invalid_keys=invalid_keys or [],
-            **kwargs
+            operation="config_validation",
+            details=details,
         )
+        self.config_path = config_path
+        self.invalid_keys = invalid_keys or []
+
 
 class ProviderAPIError(ProviderError):
-    """Error in provider API call."""
+    """Error raised when provider API request fails.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+        status_code: HTTP status code
+        response: API response data
+    """
 
     def __init__(
         self,
         message: str,
-        provider: str,
+        provider: str = "",
         status_code: int | None = None,
-        response: dict[str, Any] | None = None,
-        **kwargs: Any,
+        response: dict[str, str | int | float | bool | None] | None = None,
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             message: Error message
             provider: Provider name
             status_code: HTTP status code
-            response: API response
-            **kwargs: Additional error details
+            response: API response data
+            details: Additional error details
         """
         super().__init__(
             message,
             provider=provider,
-            operation="api_call",
-            status_code=status_code,
-            response=response or {},
-            **kwargs
+            operation="api_request",
+            details=details,
         )
+        self.status_code = status_code
+        self.response = response or {}
 
-class ProviderRateLimitError(ProviderAPIError):
-    """Error when provider rate limit is exceeded."""
+
+class ProviderRateLimitError(ProviderError):
+    """Error raised when provider rate limit is exceeded.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+        retry_after: Seconds to wait before retrying
+    """
 
     def __init__(
         self,
         provider: str,
         retry_after: int | None = None,
-        **kwargs: Any,
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             provider: Provider name
-            retry_after: Seconds to wait before retry
-            **kwargs: Additional error details
+            retry_after: Seconds to wait before retrying
+            details: Additional error details
         """
         super().__init__(
             f"Rate limit exceeded for provider: {provider}",
             provider=provider,
-            status_code=429,
-            retry_after=retry_after,
-            **kwargs
+            operation="rate_limit",
+            details=details,
         )
+        self.retry_after = retry_after
 
-class ProviderAuthError(ProviderAPIError):
-    """Error in provider authentication."""
+
+class ProviderAuthError(ProviderError):
+    """Error raised when provider authentication fails.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+    """
 
     def __init__(
         self,
         provider: str,
-        **kwargs: Any,
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             provider: Provider name
-            **kwargs: Additional error details
+            details: Additional error details
         """
         super().__init__(
             f"Authentication failed for provider: {provider}",
             provider=provider,
-            status_code=401,
-            **kwargs
+            operation="authentication",
+            details=details,
         )
 
-class ProviderTimeoutError(ProviderAPIError):
-    """Error when provider request times out."""
+
+class ProviderTimeoutError(ProviderError):
+    """Error raised when provider request times out.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+        timeout: Timeout duration in seconds
+    """
 
     def __init__(
         self,
         provider: str,
         timeout: float,
-        **kwargs: Any,
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             provider: Provider name
-            timeout: Request timeout in seconds
-            **kwargs: Additional error details
+            timeout: Timeout duration in seconds
+            details: Additional error details
         """
         super().__init__(
-            f"Request timed out for provider: {provider} (timeout: {timeout}s)",
+            f"Request timed out for provider: {provider} after {timeout}s",
             provider=provider,
-            status_code=408,
-            timeout=timeout,
-            **kwargs
+            operation="timeout",
+            details=details,
         )
+        self.timeout = timeout
+
 
 class ProviderValidationError(ProviderError):
-    """Error in provider input validation."""
+    """Error raised when provider input validation fails.
+
+    Attributes:
+        message: Error message
+        provider: Provider name
+        field: Field that failed validation
+        value: Invalid value
+        constraints: Validation constraints
+    """
 
     def __init__(
         self,
         message: str,
         provider: str,
         field: str = "",
-        value: Any = None,
-        constraints: dict[str, Any] | None = None,
-        **kwargs: Any,
+        value: str | int | float | bool | None = None,
+        constraints: dict[str, str | int | float | bool | None] | None = None,
+        details: dict[str, str | int | float | bool | None] | None = None,
     ) -> None:
         """Initialize error.
-        
+
         Args:
             message: Error message
             provider: Provider name
-            field: Invalid field
+            field: Field that failed validation
             value: Invalid value
             constraints: Validation constraints
-            **kwargs: Additional error details
+            details: Additional error details
         """
         super().__init__(
             message,
             provider=provider,
             operation="validation",
-            field=field,
-            value=value,
-            constraints=constraints or {},
-            **kwargs
+            details=details,
         )
+        self.field = field
+        self.value = value
+        self.constraints = constraints or {}

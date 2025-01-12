@@ -10,7 +10,9 @@ if TYPE_CHECKING:
 
 __all__ = [
     "BaseCapability",
-    "CapabilityConfig",
     "BaseEmbeddingsCapability",
+    "CapabilityConfig",
     "EmbeddingsConfig",
+    "RAGCapability",
+    "RAGConfig",
 ]

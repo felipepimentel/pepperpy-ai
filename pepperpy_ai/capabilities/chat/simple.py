@@ -1,7 +1,7 @@
 """Simple chat capability implementation."""
 
 from collections.abc import AsyncGenerator
-from typing import Any, List, Optional, Type
+from typing import Any, cast
 
 from ...ai_types import Message
 from ...exceptions import CapabilityError
@@ -11,57 +11,75 @@ from .base import ChatCapability, ChatConfig
 
 
 class SimpleChatCapability(ChatCapability):
-    """Simple chat capability implementation."""
+    """Simple chat capability implementation.
 
-    def __init__(self, config: ChatConfig, provider: Type[BaseProvider[Any]]) -> None:
-        """Initialize capability.
+    This implementation provides basic chat functionality using
+    a configurable provider.
+    """
+
+    def __init__(
+        self,
+        config: ChatConfig,
+        provider: type[BaseProvider[Any]],
+    ) -> None:
+        """Initialize chat capability.
 
         Args:
-            config: Chat configuration
-            provider: Provider class to use
+            config: Capability configuration.
+            provider: Provider class to use.
         """
         super().__init__(config, provider)
-        self._provider_instance: Optional[BaseProvider[Any]] = None
+        self._provider_instance: BaseProvider[Any] | None = None
 
     async def initialize(self) -> None:
-        """Initialize capability."""
-        if not self._provider_instance:
-            self._provider_instance = self.provider(self.config, self.config.api_key)
-            await self._provider_instance.initialize()
+        """Initialize capability resources."""
+        if not self.is_initialized:
+            if not self._provider_instance:
+                self._provider_instance = self.provider(
+                    self.config,
+                    api_key=self.config.api_key or "",
+                )
+                await self._provider_instance.initialize()
             self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup capability resources."""
-        if self._provider_instance:
-            await self._provider_instance.cleanup()
-            self._provider_instance = None
+        """Clean up capability resources."""
+        if self.is_initialized:
+            if self._provider_instance:
+                await self._provider_instance.cleanup()
+                self._provider_instance = None
             self._initialized = False
 
     async def stream(
         self,
-        messages: List[Message],
-        *,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[Message],
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
+        frequency_penalty: float | None = None,
+        presence_penalty: float | None = None,
+        timeout: float | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
         """Stream responses from the provider.
 
         Args:
-            messages: List of messages to send to the provider
-            model: Model to use for completion
-            temperature: Temperature to use for completion
-            max_tokens: Maximum number of tokens to generate
+            messages: List of messages to generate response for.
+            model: Model to use for generation.
+            temperature: Temperature for generation.
+            max_tokens: Maximum number of tokens to generate.
+            top_p: Top p for generation.
+            frequency_penalty: Frequency penalty for generation.
+            presence_penalty: Presence penalty for generation.
+            timeout: Timeout for generation.
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator[AIResponse, None]: Generated responses.
 
         Raises:
-            CapabilityError: If capability is not initialized
+            CapabilityError: If provider is not initialized or streaming fails.
         """
-        if not self.is_initialized:
-            raise CapabilityError("Capability not initialized", "chat")
-
+        self._ensure_initialized()
         if not self._provider_instance:
             raise CapabilityError("Provider not initialized", "chat")
 
@@ -74,4 +92,4 @@ class SimpleChatCapability(ChatCapability):
             ):
                 yield response
         except Exception as e:
-            raise CapabilityError(f"Error streaming responses: {str(e)}", "chat")
+            raise CapabilityError(f"Error streaming responses: {e!s}", "chat") from e

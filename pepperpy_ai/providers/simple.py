@@ -1,4 +1,4 @@
-"""Mock provider implementation."""
+"""Simple provider implementation."""
 
 from collections.abc import AsyncGenerator
 from typing import NotRequired, TypedDict, cast
@@ -9,8 +9,8 @@ from .base import BaseProvider
 from .exceptions import ProviderError
 
 
-class MockConfig(TypedDict):
-    """Mock provider configuration."""
+class SimpleConfig(TypedDict):
+    """Simple provider configuration."""
 
     model: str  # Required field
     temperature: NotRequired[float]
@@ -21,15 +21,15 @@ class MockConfig(TypedDict):
     timeout: NotRequired[float]
 
 
-class MockProvider(BaseProvider[MockConfig]):
-    """Mock provider implementation."""
+class SimpleProvider(BaseProvider[SimpleConfig]):
+    """Simple provider implementation."""
 
-    def __init__(self, config: MockConfig, api_key: str) -> None:
+    def __init__(self, config: SimpleConfig, api_key: str) -> None:
         """Initialize provider.
 
         Args:
             config: Provider configuration
-            api_key: Mock API key
+            api_key: API key
         """
         super().__init__(config, api_key)
 
@@ -50,7 +50,7 @@ class MockProvider(BaseProvider[MockConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from mock provider.
+        """Stream responses.
 
         Args:
             messages: List of messages to send
@@ -67,17 +67,17 @@ class MockProvider(BaseProvider[MockConfig]):
         if not self.is_initialized:
             raise ProviderError(
                 "Provider not initialized",
-                provider="mock",
+                provider="simple",
                 operation="stream",
             )
 
         try:
             for message in messages:
                 yield AIResponse(
-                    content=f"Mock response to: {message.content}",
+                    content=f"Simple provider response: {message.content}",
                     metadata=cast(ResponseMetadata, {
                         "model": model or self.config["model"],
-                        "provider": "mock",
+                        "provider": "simple",
                         "usage": {"total_tokens": 0},
                         "finish_reason": "stop",
                     }),
@@ -85,7 +85,7 @@ class MockProvider(BaseProvider[MockConfig]):
         except Exception as e:
             raise ProviderError(
                 "Failed to stream responses",
-                provider="mock",
+                provider="simple",
                 operation="stream",
                 cause=e,
             ) from e

@@ -1,62 +1,78 @@
 """Simple embeddings provider implementation."""
 
-from typing import List, cast
-
-import numpy as np
-
-from ..base import EmbeddingsConfig
-from .base import BaseEmbeddingsProvider
+from ...config.embeddings import EmbeddingsConfig
+from ..base import BaseEmbeddingsProvider, EmbeddingResult
 
 
 class SimpleEmbeddingsProvider(BaseEmbeddingsProvider):
-    """A simple embeddings provider implementation for testing and demonstration purposes."""
+    """Simple embeddings provider for testing and demonstration.
+
+    A basic implementation that provides embedding functionality for testing
+    and demonstration purposes.
+    """
 
     def __init__(self, config: EmbeddingsConfig) -> None:
-        """Initialize the simple embeddings provider.
+        """Initialize provider.
 
         Args:
-            config: The embeddings configuration.
+            config: Provider configuration.
         """
         super().__init__(config)
-        self._dimension = config.dimension or 384  # Default dimension
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if provider is initialized."""
+        return self._initialized
+
+    def _ensure_initialized(self) -> None:
+        """Ensure provider is initialized.
+
+        Raises:
+            RuntimeError: If provider is not initialized.
+        """
+        if not self.is_initialized:
+            raise RuntimeError("Provider not initialized")
 
     async def initialize(self) -> None:
-        """Initialize the provider. No-op for this simple implementation."""
-        pass
+        """Initialize provider resources."""
+        if not self.is_initialized:
+            self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup provider resources. No-op for this simple implementation."""
-        pass
+        """Clean up provider resources."""
+        if self.is_initialized:
+            self._initialized = False
 
-    async def embed(self, text: str) -> List[float]:
-        """Generate a simple embedding for a text string.
-
-        This is a mock implementation that generates random vectors.
-        It should only be used for testing and demonstration purposes.
+    async def embed(self, text: str) -> EmbeddingResult:
+        """Generate embeddings for text.
 
         Args:
-            text: The text to embed.
+            text: Text to generate embeddings for.
 
         Returns:
-            A list of floats representing the embedding vector.
+            EmbeddingResult: Generated embeddings.
         """
-        # Generate a deterministic random vector based on the text hash
-        # Use abs and modulo to ensure the seed is within valid range
-        text_hash = abs(hash(text)) % (2**32 - 1)
-        rng = np.random.RandomState(text_hash)
-        vector = rng.randn(self._dimension)
-        # Normalize the vector
-        normalized = vector / np.linalg.norm(vector)
-        # Cast to ensure type safety
-        return cast(List[float], normalized.tolist())
+        self._ensure_initialized()
+        return EmbeddingResult(
+            embeddings=[0.0] * 10,
+            metadata={"model": "simple", "dimensions": 10},
+        )
 
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Generate simple embeddings for a list of texts.
+    async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
+        """Generate embeddings for multiple texts.
 
         Args:
-            texts: The list of texts to embed.
+            texts: List of texts to generate embeddings for.
 
         Returns:
-            A list of float lists representing the embedding vectors.
+            list[EmbeddingResult]: Generated embeddings for each text.
         """
-        return [await self.embed(text) for text in texts] 
+        self._ensure_initialized()
+        return [
+            EmbeddingResult(
+                embeddings=[0.0] * 10,
+                metadata={"model": "simple", "dimensions": 10},
+            )
+            for _ in texts
+        ]

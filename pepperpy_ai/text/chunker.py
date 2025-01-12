@@ -1,97 +1,44 @@
-"""Text chunker implementation."""
+"""Text chunker module."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
-
-ConfigT = TypeVar("ConfigT")
+from typing import TypedDict
 
 
-class BaseChunker(Generic[ConfigT], ABC):
+class ChunkerParams(TypedDict, total=False):
+    """Text chunker parameters."""
+
+    chunk_size: int | None
+    chunk_overlap: int | None
+    min_chunk_size: int | None
+    max_chunk_size: int | None
+    normalize: bool | None
+
+
+class BaseTextChunker(ABC):
     """Base text chunker implementation."""
 
-    def __init__(self, config: ConfigT) -> None:
-        """Initialize chunker.
-
-        Args:
-            config: Chunker configuration
-        """
-        self.config = config
-        self._initialized = False
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if chunker is initialized."""
-        return self._initialized
-
-    async def initialize(self) -> None:
-        """Initialize chunker."""
-        if not self._initialized:
-            await self._setup()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup chunker resources."""
-        if self._initialized:
-            await self._teardown()
-            self._initialized = False
-
-    def _ensure_initialized(self) -> None:
-        """Ensure chunker is initialized."""
-        if not self._initialized:
-            raise RuntimeError("Chunker not initialized")
-
     @abstractmethod
-    async def _setup(self) -> None:
-        """Setup chunker resources."""
-        pass
-
-    @abstractmethod
-    async def _teardown(self) -> None:
-        """Teardown chunker resources."""
-        pass
-
-    @abstractmethod
-    async def chunk(self, text: str, **kwargs: Any) -> list[str]:
+    async def chunk(self, text: str, **kwargs: ChunkerParams) -> list[str]:
         """Split text into chunks.
 
         Args:
-            text: Text to chunk
-            **kwargs: Additional arguments
+            text: Text to split into chunks.
+            **kwargs: Chunking parameters.
 
         Returns:
-            List of text chunks
-
-        Raises:
-            ChunkingError: If chunking fails
-            RuntimeError: If chunker not initialized
+            list[str]: List of text chunks.
         """
         pass
 
     @abstractmethod
-    async def merge(self, chunks: list[str], **kwargs: Any) -> str:
+    async def merge(self, chunks: list[str], **kwargs: ChunkerParams) -> str:
         """Merge chunks back into text.
 
         Args:
-            chunks: Text chunks to merge
-            **kwargs: Additional arguments
+            chunks: List of text chunks to merge.
+            **kwargs: Merging parameters.
 
         Returns:
-            Merged text
-
-        Raises:
-            ChunkingError: If merging fails
-            RuntimeError: If chunker not initialized
-        """
-        pass
-
-    @abstractmethod
-    async def get_metadata(self) -> dict[str, Any]:
-        """Get chunker metadata.
-
-        Returns:
-            Chunker metadata
-
-        Raises:
-            RuntimeError: If chunker not initialized
+            str: Merged text.
         """
         pass

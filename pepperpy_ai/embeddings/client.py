@@ -1,80 +1,94 @@
 """Embeddings client module."""
 
-from typing import List, Optional, Type
+from typing import Generic, TypeVar
 
-from .base import EmbeddingsConfig
-from .providers.base import BaseEmbeddingsProvider
-from ..exceptions import EmbeddingsError
+from ..config.embeddings import EmbeddingsConfig
+from .base import BaseEmbeddingsProvider
+
+T = TypeVar("T", bound=BaseEmbeddingsProvider)
 
 
-class EmbeddingsClient:
-    """Client for embeddings providers."""
+class EmbeddingsClient(Generic[T]):
+    """Client for embeddings generation."""
 
     def __init__(
         self,
-        provider: Type[BaseEmbeddingsProvider],
-        config: Optional[EmbeddingsConfig] = None,
+        provider: type[T],
+        name: str,
+        version: str,
+        model: str,
+        enabled: bool = True,
+        normalize: bool = True,
+        batch_size: int = 32,
+        api_key: str | None = None,
     ) -> None:
         """Initialize client.
 
         Args:
-            provider: Provider class to use
-            config: Optional provider configuration
+            provider: Provider class to use.
+            name: Client name.
+            version: Client version.
+            model: Model name or path.
+            enabled: Whether embeddings are enabled.
+            normalize: Whether to normalize embeddings.
+            batch_size: Batch size for embedding generation.
+            api_key: API key for authentication.
         """
-        self.config = config or EmbeddingsConfig()
-        self._provider_class = provider
-        self._provider_instance: Optional[BaseEmbeddingsProvider] = None
+        self.config = EmbeddingsConfig(
+            name=name,
+            version=version,
+            model=model,
+            enabled=enabled,
+            normalize=normalize,
+            batch_size=batch_size,
+            api_key=api_key,
+        )
+        self.provider = provider
+        self._provider_instance: T | None = None
         self._initialized = False
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if client is initialized."""
-        return self._initialized
-
     async def initialize(self) -> None:
-        """Initialize client."""
-        if not self._provider_instance:
-            self._provider_instance = self._provider_class(self.config)
-            await self._provider_instance.initialize()
+        """Initialize client resources."""
+        if not self._initialized:
+            if not self._provider_instance:
+                self._provider_instance = self.provider(self.config)
+                await self._provider_instance.initialize()
             self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup client resources."""
-        if self._provider_instance:
+        """Clean up client resources."""
+        if self._initialized and self._provider_instance:
             await self._provider_instance.cleanup()
-            self._provider_instance = None
             self._initialized = False
 
-    async def embed(self, text: str) -> List[float]:
-        """Get embeddings for text.
+    async def embed(self, text: str) -> list[float]:
+        """Generate embeddings for text.
 
         Args:
-            text: Text to get embeddings for
+            text: Text to generate embeddings for.
 
         Returns:
-            List of embeddings
-
-        Raises:
-            EmbeddingsError: If client is not initialized
+            list[float]: Generated embeddings.
         """
-        if not self.is_initialized or not self._provider_instance:
-            raise EmbeddingsError("Client not initialized")
+        if not self._initialized:
+            await self.initialize()
+        if not self._provider_instance:
+            raise RuntimeError("Provider not initialized")
+        result = await self._provider_instance.embed(text)
+        return result.embeddings
 
-        return await self._provider_instance.embed(text)
-
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Get embeddings for multiple texts.
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings for multiple texts.
 
         Args:
-            texts: List of texts to get embeddings for
+            texts: List of texts to generate embeddings for.
 
         Returns:
-            List of embeddings lists
-
-        Raises:
-            EmbeddingsError: If client is not initialized
+            list[list[float]]: Generated embeddings for each text.
         """
-        if not self.is_initialized or not self._provider_instance:
-            raise EmbeddingsError("Client not initialized")
-
-        return await self._provider_instance.embed_batch(texts)
+        if not self._initialized:
+            await self.initialize()
+        if not self._provider_instance:
+            raise RuntimeError("Provider not initialized")
+        results = await self._provider_instance.embed_batch(texts)
+        return [result.embeddings for result in results]

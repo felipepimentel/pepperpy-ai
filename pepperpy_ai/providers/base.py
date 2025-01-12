@@ -2,11 +2,11 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, TypeVar
 
 from ..ai_types import Message
-from ..exceptions import ProviderError
-from ..responses import AIResponse
+from ..responses import AIResponse, ResponseMetadata
+from .exceptions import ProviderError
 
 TConfig = TypeVar("TConfig")
 
@@ -43,11 +43,11 @@ class BaseProvider(Generic[TConfig], ABC):
     @abstractmethod
     async def stream(
         self,
-        messages: List[Message],
+        messages: list[Message],
         *,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
         """Stream responses from the provider.
 
@@ -64,5 +64,12 @@ class BaseProvider(Generic[TConfig], ABC):
             ProviderError: If provider is not initialized
         """
         if not self.is_initialized:
-            raise ProviderError("Provider not initialized", provider="base")
-        yield AIResponse(content="Not implemented", provider="base")
+            raise ProviderError(
+                "Provider not initialized",
+                provider="base",
+                operation="stream",
+            )
+        yield AIResponse(
+            content="Not implemented",
+            metadata={"provider": "base", "model": "base", "usage": {"total_tokens": 0}},
+        )

@@ -1,6 +1,6 @@
 """Agent factory implementation."""
 
-from typing import Any
+from typing import ClassVar, TypedDict
 
 from ..base.message import MessageHandler
 from .analysis import AnalysisAgent
@@ -14,10 +14,17 @@ from .team import TeamAgent
 from .types import AgentRole
 
 
+class AgentKwargs(TypedDict, total=False):
+    """Type hints for agent kwargs."""
+    temperature: float
+    max_tokens: int
+    model: str
+
+
 class AgentFactory:
     """Factory for creating agents."""
 
-    _agent_types: dict[AgentRole, type[MessageHandler]] = {
+    _agent_types: ClassVar[dict[AgentRole, type[MessageHandler]]] = {
         AgentRole.ARCHITECT: ArchitectAgent,
         AgentRole.DEVELOPMENT: DevelopmentAgent,
         AgentRole.ANALYSIS: AnalysisAgent,
@@ -29,7 +36,7 @@ class AgentFactory:
     }
 
     @classmethod
-    def create_agent(cls, role: AgentRole, **kwargs: Any) -> MessageHandler:
+    def create_agent(cls, role: AgentRole, **kwargs: AgentKwargs) -> MessageHandler:
         """Create an agent instance.
 
         Args:

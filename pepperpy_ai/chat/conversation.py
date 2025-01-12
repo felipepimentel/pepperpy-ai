@@ -1,14 +1,13 @@
 """Chat conversation module."""
 
 from collections.abc import AsyncGenerator
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
-from ..client import AIClient
 from ..exceptions import ConfigurationError
 from ..responses import AIResponse
-from .types import ChatMessage, ChatRole
 from .config import ChatConfig
-from .types import ChatHistory
+from .types import ChatHistory, ChatMessage, ChatRole
+
 
 @runtime_checkable
 class ChatClient(Protocol):
@@ -46,7 +45,7 @@ class ChatConversation:
             config: The chat configuration.
         """
         self.config = config
-        self._client: Optional[ChatClient] = None
+        self._client: ChatClient | None = None
         self._history = ChatHistory()
 
     @property

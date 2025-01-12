@@ -1,7 +1,6 @@
 """Base embeddings provider module."""
 
 from abc import ABC, abstractmethod
-from typing import List
 
 from ..base import EmbeddingsConfig
 
@@ -34,7 +33,7 @@ class BaseEmbeddingsProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def embed(self, text: str) -> List[float]:
+    async def embed(self, text: str) -> list[float]:
         """Get embeddings for text.
 
         Args:
@@ -46,7 +45,7 @@ class BaseEmbeddingsProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Get embeddings for multiple texts.
 
         Args:

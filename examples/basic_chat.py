@@ -1,7 +1,6 @@
 """Basic chat example."""
 
 import asyncio
-from typing import NoReturn
 
 from pepperpy_ai.examples.utils import ExampleAIClient
 from pepperpy_ai.providers.openai import OpenAIProvider

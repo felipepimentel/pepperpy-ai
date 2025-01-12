@@ -2,9 +2,9 @@
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
-from .types import Message as AIMessage, JsonDict
+from .types import JsonDict
+from .types import Message as AIMessage
 
 
 class MessageRole(str, Enum):
@@ -20,8 +20,8 @@ class Message:
     """A message in a conversation."""
     role: MessageRole
     content: str
-    name: Optional[str] = None
-    function_call: Optional[dict] = None
+    name: str | None = None
+    function_call: dict | None = None
 
 
 @dataclass

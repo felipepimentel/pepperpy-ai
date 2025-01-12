@@ -1,7 +1,8 @@
 """Embeddings configuration."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
+
 
 @dataclass
 class EmbeddingsConfig:
@@ -18,8 +19,8 @@ class EmbeddingsConfig:
     enabled: bool = True
     device: str = "cpu"
     normalize_embeddings: bool = True
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Validate configuration."""

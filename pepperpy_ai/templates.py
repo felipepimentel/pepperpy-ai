@@ -1,90 +1,89 @@
-"""Prompt template system"""
+"""Template module."""
 
-from string import Formatter
-from typing import Any
+import re
+from collections.abc import Callable
+from typing import Any, TypedDict
+
+
+class TemplateParams(TypedDict, total=False):
+    """Template parameters."""
+
+    model: str | None
+    temperature: float | None
+    max_tokens: int | None
+    top_p: float | None
+    frequency_penalty: float | None
+    presence_penalty: float | None
+    timeout: float | None
 
 
 class PromptTemplate:
-    """Template for generating prompts with variables"""
+    """Prompt template implementation."""
 
     def __init__(
         self,
         template: str,
-        validator: dict[str, Any] | None = None,
         description: str | None = None,
-    ):
-        self.template = template
-        self.validator = validator
-        self.description = description
-        self._variables = self._extract_variables()
+        validators: dict[str, type | Callable[[str], bool]] | None = None,
+    ) -> None:
+        """Initialize template.
 
-    def _extract_variables(self) -> set[str]:
-        """Extract variable names from template"""
-        return {
-            fname
-            for _, fname, _, _ in Formatter().parse(self.template)
-            if fname is not None
-        }
+        Args:
+            template: Template string.
+            description: Template description.
+            validators: Variable validators.
+        """
+        self.template = template
+        self.description = description
+        self.validators = validators or {}
+        self._variables = self._extract_variables(template)
+
+    def _extract_variables(self, template: str) -> set[str]:
+        """Extract variable names from template.
+
+        Args:
+            template: Template string.
+
+        Returns:
+            set[str]: Set of variable names.
+        """
+        pattern = r"\{([^}]+)\}"
+        matches = re.findall(pattern, template)
+        return set(matches)
 
     def validate_variables(self, **kwargs: Any) -> None:
-        """Validate provided variables against template requirements"""
+        """Validate provided variables against template requirements.
+
+        Args:
+            **kwargs: Template parameters.
+
+        Raises:
+            ValueError: If validation fails.
+        """
         missing = self._variables - set(kwargs.keys())
         if missing:
-            raise ValueError(f"Missing required variables: {missing}")
+            raise ValueError(f"Missing required variables: {', '.join(missing)}")
 
-        if self.validator:
-            for var, value in kwargs.items():
-                if var in self.validator:
-                    validator = self.validator[var]
-                    if isinstance(validator, type):
-                        if not isinstance(value, validator):
-                            raise TypeError(
-                                f"Variable '{var}' must be of type {validator.__name__}",
-                            )
-                    elif callable(validator):
-                        if not validator(value):
-                            raise ValueError(f"Variable '{var}' failed validation")
+        for var, value in kwargs.items():
+            if var in self.validators:
+                validator = self.validators[var]
+                if isinstance(validator, type):
+                    if not isinstance(value, validator):
+                        raise ValueError(
+                            f"Variable '{var}' must be of type {validator.__name__}"
+                        )
+                else:
+                    if not validator(value):
+                        raise ValueError(f"Variable '{var}' failed validation")
 
     def format(self, **kwargs: Any) -> str:
-        """Format template with provided variables"""
+        """Format template with provided variables.
+
+        Args:
+            **kwargs: Template parameters.
+
+        Returns:
+            str: Formatted template.
+        """
         self.validate_variables(**kwargs)
         return self.template.format(**kwargs)
-
-    @classmethod
-    def from_file(cls, path: str) -> "PromptTemplate":
-        """Load template from file"""
-        with open(path, encoding="utf-8") as f:
-            return cls(f.read())
-
-
-class TemplateRegistry:
-    """Central registry for prompt templates"""
-
-    _templates: dict[str, PromptTemplate] = {}
-
-    @classmethod
-    def register(cls, name: str, template: PromptTemplate) -> None:
-        """Register new template"""
-        cls._templates[name] = template
-
-    @classmethod
-    def get(cls, name: str) -> PromptTemplate | None:
-        """Get template by name"""
-        return cls._templates.get(name)
-
-    @classmethod
-    def list_templates(cls) -> dict[str, str]:
-        """List all registered templates with descriptions"""
-        return {
-            name: template.description or "No description"
-            for name, template in cls._templates.items()
-        }
-
-
-def load_template(
-    name: str, variables: dict[str, Any] | None = None, language: str | None = None
-) -> str:
-    """Load template."""
-    if not name:
-        raise ValueError("Template name is required")
-    return ""  # Add your implementation here

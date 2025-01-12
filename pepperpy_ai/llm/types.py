@@ -1,11 +1,11 @@
-"""LLM types module"""
+"""LLM types module."""
 
 from dataclasses import dataclass
 from enum import Enum
 
 
 class Role(str, Enum):
-    """Message role types"""
+    """Message role types."""
 
     SYSTEM = "system"
     USER = "user"
@@ -14,7 +14,7 @@ class Role(str, Enum):
 
 @dataclass
 class Message:
-    """Chat message"""
+    """Chat message."""
 
     role: Role
     content: str
@@ -22,12 +22,12 @@ class Message:
 
 @dataclass
 class LLMResponse:
-    """LLM response"""
+    """LLM response."""
 
     content: str
-    role: Role
-    model: str
-    usage: dict[str, int]
+    model: str | None = None
+    provider: str | None = None
+    metadata: dict[str, str | int | float | bool | None] | None = None
 
 
 AIResponse = LLMResponse  # Alias para compatibilidade

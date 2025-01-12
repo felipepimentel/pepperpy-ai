@@ -1,4 +1,4 @@
-"""Autogen team module"""
+"""Autogen team module."""
 
 from .team import AutogenTeam
 

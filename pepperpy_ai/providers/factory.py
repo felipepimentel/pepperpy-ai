@@ -1,19 +1,19 @@
 """Provider factory module."""
 
-from typing import Type, cast
+from typing import cast
 
 from .anthropic import AnthropicProvider
-from .openai import OpenAIProvider
-from .openrouter import OpenRouterProvider
-from .mock import MockProvider
 from .base import BaseProvider
 from .config import ProviderConfig
+from .mock import MockProvider
+from .openai import OpenAIProvider
+from .openrouter import OpenRouterProvider
 
-PROVIDER_MAP: dict[str, Type[BaseProvider[ProviderConfig]]] = {
-    "anthropic": cast(Type[BaseProvider[ProviderConfig]], AnthropicProvider),
-    "openai": cast(Type[BaseProvider[ProviderConfig]], OpenAIProvider),
-    "openrouter": cast(Type[BaseProvider[ProviderConfig]], OpenRouterProvider),
-    "mock": cast(Type[BaseProvider[ProviderConfig]], MockProvider),
+PROVIDER_MAP: dict[str, type[BaseProvider[ProviderConfig]]] = {
+    "anthropic": cast(type[BaseProvider[ProviderConfig]], AnthropicProvider),
+    "openai": cast(type[BaseProvider[ProviderConfig]], OpenAIProvider),
+    "openrouter": cast(type[BaseProvider[ProviderConfig]], OpenRouterProvider),
+    "mock": cast(type[BaseProvider[ProviderConfig]], MockProvider),
 }
 
 def create_provider(

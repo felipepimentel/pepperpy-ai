@@ -1,6 +1,6 @@
 """Custom exceptions for PepperPy AI."""
 
-from typing import Any
+from .types import JsonValue
 
 
 class PepperPyAIError(Exception):
@@ -13,6 +13,11 @@ class PepperPyAIError(Exception):
             message: The error message.
         """
         super().__init__(message)
+        self._message = message
+
+    def __str__(self) -> str:
+        """Get string representation."""
+        return self._message
 
 
 class ConfigurationError(PepperPyAIError):
@@ -46,7 +51,7 @@ class ProviderError(PepperPyAIError):
 class ValidationError(PepperPyAIError):
     """Raised when there is a validation error."""
 
-    def __init__(self, message: str, field: str, value: Any) -> None:
+    def __init__(self, message: str, field: str, value: JsonValue) -> None:
         """Initialize the exception.
 
         Args:
@@ -102,3 +107,17 @@ class EmbeddingsError(Exception):
     def __str__(self) -> str:
         """Get string representation."""
         return self.message
+
+
+class TemplateError(PepperPyAIError):
+    """Raised when there is a template error."""
+
+    def __init__(self, message: str, operation: str) -> None:
+        """Initialize the exception.
+
+        Args:
+            message: Error message.
+            operation: Operation that failed.
+        """
+        super().__init__(message)
+        self.operation = operation

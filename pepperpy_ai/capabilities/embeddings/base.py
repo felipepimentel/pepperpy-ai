@@ -1,72 +1,54 @@
-"""Base classes for embedding capabilities."""
+"""Base embeddings capability module."""
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type, cast
+from abc import abstractmethod
+from typing import TypeVar
 
-from ...embeddings.base import EmbeddingsConfig
-from ...embeddings.providers.base import BaseEmbeddingsProvider
-from ..base import BaseCapability, CapabilityConfig
+from ...config.embeddings import EmbeddingsConfig
+from ...embeddings.base import BaseEmbeddingsProvider
+from ..base import BaseCapability
+
+T = TypeVar("T", bound=BaseEmbeddingsProvider)
 
 
-class BaseEmbeddingsCapability(BaseCapability[CapabilityConfig]):
+class BaseEmbeddingsCapability(BaseCapability[T]):
     """Base class for embeddings capabilities."""
 
     def __init__(
         self,
-        config: CapabilityConfig,
-        provider: Type[BaseEmbeddingsProvider],
+        config: EmbeddingsConfig,
+        provider: type[T],
     ) -> None:
-        """Initialize capability.
+        """Initialize embeddings capability.
 
         Args:
-            config: Capability configuration
-            provider: Embeddings provider class
+            config: Capability configuration.
+            provider: Provider class to use.
         """
-        super().__init__(config, cast(Type[Any], provider))
-        self._provider_instance: Optional[BaseEmbeddingsProvider] = None
-        self._provider_class = provider
-
-    async def initialize(self) -> None:
-        """Initialize capability."""
-        if not self._provider_instance:
-            embeddings_config = EmbeddingsConfig(
-                model_name=self.config.model_name,
-                dimension=768,  # Default dimension
-                device=self.config.device,
-                normalize_embeddings=self.config.normalize_embeddings,
-                batch_size=self.config.batch_size,
-            )
-            self._provider_instance = self._provider_class(embeddings_config)
-            await self._provider_instance.initialize()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup capability resources."""
-        if self._provider_instance:
-            await self._provider_instance.cleanup()
-            self._provider_instance = None
-            self._initialized = False
+        self.config = config
+        self.provider = provider
+        self._initialized = False
+        self._provider_instance: T | None = None
 
     @abstractmethod
-    async def embed(self, text: str) -> List[float]:
-        """Get embeddings for text.
+    async def embed(self, text: str) -> list[float]:
+        """Generate embeddings for text.
 
         Args:
-            text: Text to get embeddings for
+            text: Text to generate embeddings for.
 
         Returns:
-            List of embeddings
+            list[float]: Generated embeddings.
         """
-        raise NotImplementedError
+        pass
 
     @abstractmethod
-    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
-        """Get embeddings for multiple texts.
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings for multiple texts.
 
         Args:
-            texts: List of texts to get embeddings for
+            texts: List of texts to generate embeddings for.
 
         Returns:
-            List of embeddings lists
+            list[list[float]]: Generated embeddings for each text.
         """
-        raise NotImplementedError
+        pass

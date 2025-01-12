@@ -1,41 +1,77 @@
-"""Embeddings base module."""
+"""Base embeddings module."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from abc import abstractmethod
+from dataclasses import dataclass
+from typing import Any
 
-from ..config.base import BaseConfig
-from ..types import JsonDict
+from ..config.embeddings import EmbeddingsConfig
+from ..providers.base import BaseProvider
+
 
 @dataclass
-class EmbeddingsConfig(BaseConfig):
-    """Embeddings configuration class."""
+class EmbeddingResult:
+    """Result of embedding generation."""
 
-    name: str = "embeddings"
-    version: str = "1.0.0"
-    enabled: bool = True
-    model_name: str = "default"
-    dimension: int = 768
-    device: str = "cpu"
-    normalize_embeddings: bool = True
-    batch_size: int = 32
-    metadata: JsonDict = field(default_factory=dict)
-    settings: JsonDict = field(default_factory=dict)
+    embeddings: list[float]
+    metadata: dict[str, Any]
 
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        super().__post_init__()
 
-        if not self.model_name:
-            raise ValueError("Model name cannot be empty")
+class BaseEmbeddingsProvider(BaseProvider[EmbeddingsConfig]):
+    """Base class for embeddings providers."""
 
-        if not isinstance(self.dimension, int):
-            raise ValueError("Dimension must be an integer")
+    def __init__(self, config: EmbeddingsConfig) -> None:
+        """Initialize provider.
 
-        if not isinstance(self.device, str):
-            raise ValueError("Device must be a string")
+        Args:
+            config: Provider configuration.
+        """
+        super().__init__(config, config.api_key or "")
+        self._initialized = False
 
-        if not isinstance(self.normalize_embeddings, bool):
-            raise ValueError("Normalize embeddings must be a boolean")
+    @property
+    def is_initialized(self) -> bool:
+        """Check if provider is initialized."""
+        return self._initialized
 
-        if not isinstance(self.batch_size, int):
-            raise ValueError("Batch size must be an integer")
+    def _ensure_initialized(self) -> None:
+        """Ensure provider is initialized.
+
+        Raises:
+            RuntimeError: If provider is not initialized.
+        """
+        if not self.is_initialized:
+            raise RuntimeError("Provider not initialized")
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize provider resources."""
+        pass
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        pass
+
+    @abstractmethod
+    async def embed(self, text: str) -> EmbeddingResult:
+        """Generate embeddings for text.
+
+        Args:
+            text: Text to generate embeddings for.
+
+        Returns:
+            EmbeddingResult: Generated embeddings.
+        """
+        pass
+
+    @abstractmethod
+    async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to generate embeddings for.
+
+        Returns:
+            list[EmbeddingResult]: Generated embeddings for each text.
+        """
+        pass

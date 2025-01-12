@@ -1,20 +1,19 @@
-"""Embedding types module"""
+"""Embedding types module."""
 
 from dataclasses import dataclass
+from typing import Any
 
-# Define o tipo para vetores de embedding
+# Type alias for embedding vectors
 EmbeddingVector = list[float]
 
 
 @dataclass
 class EmbeddingResult:
-    """Result of embedding operation"""
+    """Result of embedding operation."""
 
     embeddings: EmbeddingVector
-    dimensions: int
-    text: str
-    model: str
+    metadata: dict[str, Any] | None = None
 
     def __len__(self) -> int:
-        """Get length of embeddings"""
+        """Get length of embeddings."""
         return len(self.embeddings)

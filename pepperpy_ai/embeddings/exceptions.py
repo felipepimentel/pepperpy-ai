@@ -1,58 +1,46 @@
-"""Embedding exceptions module"""
+"""Embeddings exceptions module."""
 
-from typing import Any
+from ..exceptions import PepperPyAIError
 
 
-class EmbeddingError(Exception):
-    """Base exception for embedding errors"""
+class EmbeddingError(PepperPyAIError):
+    """Base class for embeddings errors."""
 
     def __init__(self, message: str, cause: Exception | None = None) -> None:
-        """Initialize embedding error
+        """Initialize error.
 
         Args:
-            message: Error message
-            cause: Original exception that caused this error
+            message: Error message.
+            cause: Original exception that caused this error.
         """
         super().__init__(message)
-        self._message = message
-        self._cause = cause
+        self.cause = cause
 
-    @property
-    def message(self) -> str:
-        """Get error message"""
-        return self._message
+    def __eq__(self, other: object) -> bool:
+        """Compare error with another object.
 
-    @property
-    def cause(self) -> Exception | None:
-        """Get original exception"""
-        return self._cause
+        Args:
+            other: Object to compare with.
 
-    def __str__(self) -> str:
-        """Get string representation"""
-        return self._message
-
-    def __repr__(self) -> str:
-        """Get detailed string representation"""
-        return f"EmbeddingError('{self._message}')"
-
-    def __eq__(self, other: Any) -> bool:
-        """Check equality"""
+        Returns:
+            bool: True if objects are equal, False otherwise.
+        """
         if not isinstance(other, EmbeddingError):
-            return False
-        return self._message == other._message
-
-    def __hash__(self) -> int:
-        """Get hash value"""
-        return hash(self._message)
+            return NotImplemented
+        return (
+            str(self) == str(other)
+            and isinstance(other, type(self))
+            and self.cause == other.cause
+        )
 
 
 class ConfigurationError(EmbeddingError):
-    """Configuration error"""
+    """Configuration error."""
 
 
 class ProviderError(EmbeddingError):
-    """Provider error"""
+    """Provider error."""
 
 
 class CacheError(EmbeddingError):
-    """Cache error"""
+    """Cache error."""

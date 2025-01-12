@@ -1,13 +1,12 @@
 """Tests for exceptions module."""
 
-import pytest
 from pepperpy_ai.exceptions import (
-    PepperPyAIError,
+    CapabilityError,
     ConfigurationError,
+    DependencyError,
+    PepperPyAIError,
     ProviderError,
     ValidationError,
-    CapabilityError,
-    DependencyError,
 )
 
 

@@ -1,4 +1,4 @@
-"""Langchain team module"""
+"""Langchain team module."""
 
 from .team import LangchainTeam
 

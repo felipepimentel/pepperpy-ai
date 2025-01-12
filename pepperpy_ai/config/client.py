@@ -1,37 +1,45 @@
-"""Client configuration."""
+"""Client configuration module."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from .base import BaseConfig
 
-@dataclass
-class ClientConfig:
-    """Client configuration."""
 
-    # Required fields
-    provider: str
-    model: str
-    api_key: str
+class ClientConfig(BaseConfig):
+    """Configuration for clients.
 
-    # Optional fields with defaults
-    name: str = "client"
-    version: str = "1.0.0"
-    enabled: bool = True
-    description: str = ""
-    api_base: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 1000
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    This class provides configuration options for clients, including API
+    settings, connection parameters, and other options that control client
+    behavior.
+    """
 
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        if not self.provider:
-            raise ValueError("Provider type must be specified")
-        if not self.model:
-            raise ValueError("Model must be specified")
-        if not self.api_key:
-            raise ValueError("API key must be specified")
-        if not 0.0 <= self.temperature <= 1.0:
-            raise ValueError("Temperature must be between 0.0 and 1.0")
-        if self.max_tokens <= 0:
-            raise ValueError("Max tokens must be positive")
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        enabled: bool = True,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        max_connections: int = 10,
+        keep_alive: bool = True,
+        verify_ssl: bool = True,
+    ) -> None:
+        """Initialize client configuration.
+
+        Args:
+            name: Client name.
+            version: Client version.
+            enabled: Whether client is enabled.
+            timeout: Request timeout in seconds.
+            max_retries: Maximum number of retries.
+            retry_delay: Delay between retries in seconds.
+            max_connections: Maximum concurrent connections.
+            keep_alive: Whether to keep connections alive.
+            verify_ssl: Whether to verify SSL certificates.
+        """
+        super().__init__(name=name, version=version, enabled=enabled)
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.max_connections = max_connections
+        self.keep_alive = keep_alive
+        self.verify_ssl = verify_ssl

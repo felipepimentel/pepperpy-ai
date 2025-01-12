@@ -1,4 +1,4 @@
-"""CrewAI team implementation"""
+"""CrewAI team implementation."""
 
 from .team import CrewTeam
 

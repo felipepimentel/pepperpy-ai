@@ -1,1 +1,1 @@
-"""AI examples package"""
+"""AI examples package."""

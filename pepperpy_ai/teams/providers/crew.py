@@ -1,93 +1,43 @@
 """Crew team provider implementation."""
 
-from collections.abc import AsyncGenerator
-from typing import Any, Dict, List, Optional, Sequence
+from typing import cast
 
-from ...ai_types import Message, MessageRole
-from ...exceptions import ProviderError
-from ...providers.base import BaseProvider
-from ...providers.config import ProviderConfig
-from ...responses import AIResponse
-from ..base import BaseTeamProvider
-from ..types import AgentRole
+from ...config.team import TeamConfig
+from ...responses import AIResponse, ResponseMetadata
+from ..interfaces import ToolParams
+from .base import BaseTeamProvider
 
 
 class CrewTeamProvider(BaseTeamProvider):
     """Crew team provider implementation."""
 
-    def __init__(self, providers: List[BaseProvider[ProviderConfig]]) -> None:
-        """Initialize the crew team provider.
+    def __init__(self, config: TeamConfig) -> None:
+        """Initialize provider.
 
         Args:
-            providers: List of AI providers.
+            config: Team configuration.
         """
-        self.providers = providers
-        self._initialized = False
+        super().__init__(config)
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the provider is initialized.
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
+        """Execute team task.
+
+        Args:
+            task: Task to execute.
+            **kwargs: Additional task parameters.
 
         Returns:
-            True if initialized, False otherwise.
+            AIResponse: Task execution response.
         """
-        return self._initialized
-
-    async def initialize(self) -> None:
-        """Initialize all providers."""
         if not self.is_initialized:
-            for provider in self.providers:
-                await provider.initialize()
-            self._initialized = True
+            raise RuntimeError("Provider not initialized")
 
-    async def cleanup(self) -> None:
-        """Clean up all provider resources."""
-        if self.is_initialized:
-            for provider in self.providers:
-                await provider.cleanup()
-            self._initialized = False
-
-    async def stream(
-        self,
-        messages: List[Message],
-        *,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
-    ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from the team."""
-        self._ensure_initialized()
-        for provider in self.providers:
-            async for response in provider.stream(
-                messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            ):
-                yield response
-
-    async def execute_task(self, task: str, **kwargs: Any) -> AIResponse:
-        """Execute team task."""
-        self._ensure_initialized()
-        responses = []
-        for provider in self.providers:
-            messages = [Message(role=MessageRole.USER, content=task)]
-            async for response in provider.stream(messages):
-                responses.append(response)
-        return responses[-1] if responses else AIResponse(content="No response")
-
-    async def get_team_members(self) -> Sequence[str]:
-        """Get team members."""
-        if not self.is_initialized:
-            await self.initialize()
-        return ["planner", "executor", "reviewer"]
-
-    async def get_team_roles(self) -> dict[str, str]:
-        """Get team roles."""
-        if not self.is_initialized:
-            await self.initialize()
-        return {
-            "planner": AgentRole.PLANNER.value,
-            "executor": AgentRole.EXECUTOR.value,
-            "reviewer": AgentRole.REVIEWER.value,
-        }
+        return AIResponse(
+            content=f"Executing task: {task}",
+            metadata=cast(ResponseMetadata, {
+                "model": self.config.model,
+                "provider": "crew",
+                "usage": {"total_tokens": 0},
+                "finish_reason": "stop",
+            }),
+        )

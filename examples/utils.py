@@ -1,9 +1,8 @@
 """Example utilities."""
 
 from collections.abc import AsyncGenerator
-from typing import List, Optional, Type
 
-from pepperpy_ai.ai_types import Message, MessageRole
+from pepperpy_ai.ai_types import Message
 from pepperpy_ai.exceptions import ProviderError
 from pepperpy_ai.providers.base import BaseProvider
 from pepperpy_ai.providers.config import ProviderConfig
@@ -13,14 +12,14 @@ from pepperpy_ai.responses import AIResponse
 class ExampleAIClient:
     """Example AI client."""
 
-    def __init__(self, provider: Type[BaseProvider[ProviderConfig]]) -> None:
+    def __init__(self, provider: type[BaseProvider[ProviderConfig]]) -> None:
         """Initialize client.
 
         Args:
             provider: Provider class to use
         """
         self.provider = provider
-        self._provider_instance: Optional[BaseProvider[ProviderConfig]] = None
+        self._provider_instance: BaseProvider[ProviderConfig] | None = None
 
     async def initialize(self) -> None:
         """Initialize client."""
@@ -41,10 +40,10 @@ class ExampleAIClient:
 
     async def stream(
         self,
-        messages: List[Message],
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[Message],
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
         """Stream responses from provider.
 

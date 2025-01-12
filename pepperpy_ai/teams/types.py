@@ -1,13 +1,33 @@
 """Team types module."""
 
-from enum import Enum
+from typing import Protocol, TypedDict, runtime_checkable
 
 
-class AgentRole(str, Enum):
-    """Agent role types."""
+class TeamParams(TypedDict, total=False):
+    """Team parameters."""
 
-    PLANNER = "planner"
-    EXECUTOR = "executor"
-    REVIEWER = "reviewer"
-    ASSISTANT = "assistant"
-    USER = "user"
+    model: str | None
+    temperature: float | None
+    max_tokens: int | None
+    top_p: float | None
+    frequency_penalty: float | None
+    presence_penalty: float | None
+    timeout: float | None
+
+
+@runtime_checkable
+class TeamClient(Protocol):
+    """Team client interface."""
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if client is initialized."""
+        ...
+
+    async def initialize(self) -> None:
+        """Initialize client."""
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up client resources."""
+        ...

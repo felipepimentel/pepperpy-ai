@@ -1,36 +1,32 @@
 """Example utilities."""
 
 from collections.abc import AsyncGenerator
-from typing import List, Optional, Type
 
 from ..ai_types import Message, MessageRole
 from ..exceptions import ProviderError
-from ..responses import AIResponse
 from ..providers.base import BaseProvider
 from ..providers.config import ProviderConfig
+from ..responses import AIResponse
 
 
 class ExampleAIClient:
     """Example AI client implementation."""
 
-    def __init__(self, provider: Type[BaseProvider[ProviderConfig]]) -> None:
+    def __init__(self, provider: type[BaseProvider[ProviderConfig]]) -> None:
         """Initialize example client.
 
         Args:
             provider: The provider class to use
         """
         self.config = ProviderConfig(
-            name="example",
-            version="1.0.0",
-            enabled=True,
             api_key="example-key",
             model="gpt-3.5-turbo",
-            provider="example",
-            temperature=0.7,
-            max_tokens=100,
+            timeout=30.0,
+            max_retries=3,
+            retry_delay=1.0,
         )
         self._provider_class = provider
-        self._provider: Optional[BaseProvider[ProviderConfig]] = None
+        self._provider: BaseProvider[ProviderConfig] | None = None
 
     async def initialize(self) -> None:
         """Initialize the client."""
@@ -47,9 +43,9 @@ class ExampleAIClient:
     async def stream(
         self,
         prompt: str,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
         """Stream responses from provider.
 
@@ -66,16 +62,16 @@ class ExampleAIClient:
             ProviderError: If provider is not initialized
         """
         if not self._provider:
-            raise ProviderError("Provider not initialized", "example")
+            raise ProviderError("Provider not initialized", provider="example")
 
         messages = [Message(role=MessageRole.USER, content=prompt)]
-        
+
         # Get the stream from the provider
         provider_stream = self._provider.stream(
             messages,
             model=model or self.config.model,
-            temperature=temperature or self.config.temperature,
-            max_tokens=max_tokens or self.config.max_tokens,
+            temperature=temperature,
+            max_tokens=max_tokens,
         )
 
         # Yield responses from the stream

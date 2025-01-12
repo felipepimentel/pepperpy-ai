@@ -1,34 +1,16 @@
 """Base RAG module."""
 
-from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Generic, TypedDict, TypeVar
 
-from ...ai_types import Message
+from ...config.rag import RAGConfig
+from ...providers.base import BaseProvider
 from ...responses import AIResponse
-from ..base import BaseCapability, CapabilityConfig
+from ...types import Message
+from ..base import BaseCapability
 
-
-@dataclass
-class RAGConfig(CapabilityConfig):
-    """RAG capability configuration."""
-
-    name: str = "rag"
-    version: str = "1.0.0"
-    enabled: bool = True
-    model_name: str = "default"
-    device: str = "cpu"
-    normalize_embeddings: bool = True
-    batch_size: int = 32
-    temperature: float = 0.7
-    max_tokens: int = 1024
-    api_key: str = ""
-    similarity_threshold: float = 0.5
-    max_documents: int = 1000
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
-
+T = TypeVar("T", bound=BaseProvider[Any])
 
 @dataclass
 class Document:
@@ -36,81 +18,73 @@ class Document:
 
     id: str
     content: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
-class RAGCapability(BaseCapability[RAGConfig], ABC):
+class RAGSearchKwargs(TypedDict, total=False):
+    """Type hints for RAG search kwargs."""
+    limit: int | None
+    threshold: float
+    filter_criteria: dict[str, str]
+
+
+class RAGGenerateKwargs(TypedDict, total=False):
+    """Type hints for RAG generate kwargs."""
+    temperature: float
+    max_tokens: int
+    model: str
+    stream: bool
+
+
+class RAGCapability(BaseCapability[T], Generic[T]):
     """Base class for RAG capabilities."""
 
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize RAG capability."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def cleanup(self) -> None:
-        """Cleanup RAG capability resources."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def add_document(self, document: Document) -> None:
-        """Add document to RAG.
+    def __init__(self, config: RAGConfig, provider: type[T]) -> None:
+        """Initialize RAG capability.
 
         Args:
-            document: Document to add
+            config: RAG configuration.
+            provider: Provider class to use.
         """
-        raise NotImplementedError
+        super().__init__(config, provider)
+        self._provider_instance: T | None = None
 
-    @abstractmethod
-    async def remove_document(self, document_id: str) -> None:
-        """Remove document from RAG.
-
-        Args:
-            document_id: ID of document to remove
-        """
-        raise NotImplementedError
-
-    @abstractmethod
     async def search(
         self,
         query: str,
         *,
-        limit: Optional[int] = None,
-        **kwargs: Any,
-    ) -> List[Document]:
+        limit: int | None = None,
+        **kwargs: RAGSearchKwargs,
+    ) -> list[Document]:
         """Search for documents.
 
         Args:
-            query: Search query
-            limit: Maximum number of documents to return
-            **kwargs: Additional search parameters
+            query: Query to search for.
+            limit: Maximum number of documents to return.
+            **kwargs: Additional search parameters.
 
         Returns:
-            List of matching documents
+            list[Document]: List of matching documents.
         """
         raise NotImplementedError
 
-    @abstractmethod
     async def generate(
         self,
         query: str,
+        documents: list[Document],
         *,
         stream: bool = False,
-        **kwargs: Any,
+        **kwargs: RAGGenerateKwargs,
     ) -> AIResponse | AsyncGenerator[AIResponse, None]:
         """Generate response from RAG.
 
         Args:
-            query: Query to generate response for
-            stream: Whether to stream the response
-            **kwargs: Additional generation parameters
+            query: User query.
+            documents: Retrieved documents.
+            stream: Whether to stream responses.
+            **kwargs: Additional generation parameters.
 
         Returns:
-            Generated response or stream of responses
+            AIResponse | AsyncGenerator[AIResponse, None]: Generated response or stream.
         """
-        raise NotImplementedError
-
-    @abstractmethod
-    async def clear(self) -> None:
-        """Clear all documents."""
         raise NotImplementedError

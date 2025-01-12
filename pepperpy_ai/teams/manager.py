@@ -1,123 +1,71 @@
-"""Team manager implementation."""
+"""Team manager module."""
 
-from collections.abc import Sequence
-from typing import Any, Type
-
-from ..exceptions import ConfigurationError as ConfigError
-from .base import BaseTeam, BaseTeamProvider
-from .config import TeamConfig
-from .providers.autogen import AutogenTeamProvider
-from .providers.langchain import LangchainTeamProvider
-
-# Map of provider names to their implementations
-PROVIDERS: dict[str, Type[BaseTeamProvider]] = {
-    "autogen": AutogenTeamProvider,
-    "langchain": LangchainTeamProvider,
-}
+from ..config.team import TeamConfig
+from .base import BaseTeam
+from .factory import TeamFactory
+from .types import TeamClient, TeamParams
 
 
 class TeamManager:
     """Team manager implementation."""
 
-    def __init__(self, client: Any) -> None:
+    def __init__(self, client: TeamClient) -> None:
         """Initialize team manager.
 
         Args:
-            client: AI client instance
+            client: Team client instance.
         """
         self._client = client
-        self._teams: dict[str, BaseTeamProvider] = {}
-        self._initialized = False
+        self._factory = TeamFactory(client)
+        self._teams: dict[str, BaseTeam] = {}
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if manager is initialized."""
-        return self._initialized
-
-    async def initialize(self) -> None:
-        """Initialize manager."""
-        if not self._initialized:
-            if not self._client.is_initialized:
-                await self._client.initialize()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup manager resources."""
-        if self._initialized:
-            for team in self._teams.values():
-                await team.cleanup()
-            self._teams.clear()
-            self._initialized = False
-
-    def _ensure_initialized(self) -> None:
-        """Ensure manager is initialized."""
-        if not self._initialized:
-            raise RuntimeError("Manager not initialized")
-
-    async def create_team(self, config: TeamConfig) -> BaseTeamProvider:
-        """Create team from configuration.
+    async def create_team(self, name: str, config: TeamConfig) -> BaseTeam:
+        """Create and initialize team.
 
         Args:
-            config: Team configuration
+            name: Team name.
+            config: Team configuration.
 
         Returns:
-            Team instance
-
-        Raises:
-            ConfigError: If provider is not supported
-            RuntimeError: If manager not initialized
+            BaseTeam: Team instance.
         """
-        self._ensure_initialized()
-
-        provider_class = PROVIDERS.get(config.provider)
-        if provider_class is None:
-            raise ConfigError(
-                f"Unsupported team provider: {config.provider}. "
-                f"Supported providers: {', '.join(PROVIDERS.keys())}"
-            )
-
-        config.settings["client"] = self._client
-        team = provider_class(config)
+        team = self._factory.create(name, config)
         await team.initialize()
-        self._teams[config.name] = team
+        self._teams[name] = team
         return team
 
-    async def get_team(self, name: str) -> BaseTeamProvider | None:
+    async def get_team(self, name: str) -> BaseTeam:
         """Get team by name.
 
         Args:
-            name: Team name
+            name: Team name.
 
         Returns:
-            Team instance if found, None otherwise
+            BaseTeam: Team instance.
 
         Raises:
-            RuntimeError: If manager not initialized
+            ValueError: If team not found.
         """
-        self._ensure_initialized()
-        return self._teams.get(name)
+        if name not in self._teams:
+            raise ValueError(f"Team not found: {name}")
+        return self._teams[name]
 
-    async def list_teams(self) -> Sequence[str]:
-        """Get list of team names.
-
-        Returns:
-            List of team names
-
-        Raises:
-            RuntimeError: If manager not initialized
-        """
-        self._ensure_initialized()
-        return list(self._teams.keys())
-
-    async def remove_team(self, name: str) -> None:
-        """Remove team by name.
+    async def execute_task(self, name: str, task: str, **kwargs: TeamParams) -> None:
+        """Execute task with team.
 
         Args:
-            name: Team name
+            name: Team name.
+            task: Task to execute.
+            **kwargs: Additional task parameters.
 
         Raises:
-            RuntimeError: If manager not initialized
+            ValueError: If team not found.
         """
-        self._ensure_initialized()
-        if team := self._teams.pop(name, None):
+        team = await self.get_team(name)
+        await team.execute_task(task, **kwargs)
+
+    async def cleanup(self) -> None:
+        """Clean up all teams."""
+        for team in self._teams.values():
             await team.cleanup()
+        self._teams.clear()

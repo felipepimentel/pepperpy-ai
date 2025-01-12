@@ -1,69 +1,52 @@
-"""Team interfaces."""
+"""Team interfaces module."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import TypedDict
 
-from ..ai_types import AIResponse
-from .config import TeamResult
+from ..responses import AIResponse
 
 
-@runtime_checkable
-class TeamTool(Protocol):
-    """Team tool protocol."""
+class ToolParams(TypedDict, total=False):
+    """Tool parameters."""
 
-    @property
-    def name(self) -> str:
-        """Get tool name."""
-        ...
+    model: str | None
+    temperature: float | None
+    max_tokens: int | None
+    top_p: float | None
+    frequency_penalty: float | None
+    presence_penalty: float | None
+    timeout: float | None
 
-    @property
-    def description(self) -> str:
-        """Get tool description."""
-        ...
 
-    async def execute(self, **kwargs: Any) -> TeamResult:
+class TeamResult(TypedDict, total=False):
+    """Team result."""
+
+    content: str
+    metadata: dict[str, str | None]
+
+
+class TeamTool(ABC):
+    """Team tool interface."""
+
+    @abstractmethod
+    async def execute(self, **kwargs: ToolParams) -> TeamResult:
         """Execute tool."""
         ...
 
 
-@runtime_checkable
-class TeamAgent(Protocol):
-    """Team agent protocol."""
+class TeamAgent(ABC):
+    """Team agent interface."""
 
-    @property
-    def name(self) -> str:
-        """Get agent name."""
-        ...
-
-    @property
-    def role(self) -> str:
-        """Get agent role."""
-        ...
-
-    async def execute_task(self, task: str, **kwargs: Any) -> TeamResult:
+    @abstractmethod
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> TeamResult:
         """Execute task."""
         ...
 
-    async def get_tools(self) -> Sequence[TeamTool]:
-        """Get available tools."""
-        ...
 
-
-class BaseTeamInterface(ABC):
-    """Base team interface."""
+class TeamProvider(ABC):
+    """Team provider interface."""
 
     @abstractmethod
-    async def execute_task(self, task: str, **kwargs: Any) -> AIResponse:
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
         """Execute team task."""
-        pass
-
-    @abstractmethod
-    async def get_team_members(self) -> Sequence[str]:
-        """Get team members."""
-        pass
-
-    @abstractmethod
-    async def get_team_roles(self) -> dict[str, str]:
-        """Get team roles."""
         pass

@@ -1,18 +1,25 @@
 """Semantic RAG strategy module."""
 
 from collections.abc import AsyncGenerator
-from typing import Any, List, Optional, Type
+from typing import Any, TypedDict, TypeVar, cast
 
 from ....ai_types import Message, MessageRole
-from ....responses import AIResponse
 from ....providers.base import BaseProvider
-from ..base import RAGCapability, RAGConfig, Document
+from ....responses import AIResponse, ResponseMetadata
+from ..base import Document, RAGCapability, RAGConfig, RAGGenerateKwargs
 
+T = TypeVar("T", bound=BaseProvider[Any])
 
-class SemanticRAGStrategy(RAGCapability):
+class SemanticSearchKwargs(TypedDict, total=False):
+    """Type hints for semantic search kwargs."""
+    limit: int | None
+    threshold: float
+    filter_criteria: dict[str, str]
+
+class SemanticRAGStrategy(RAGCapability[T]):
     """Semantic RAG strategy implementation."""
 
-    def __init__(self, config: RAGConfig, provider: Type[BaseProvider[Any]]) -> None:
+    def __init__(self, config: RAGConfig, provider: type[T]) -> None:
         """Initialize semantic RAG strategy.
 
         Args:
@@ -20,71 +27,19 @@ class SemanticRAGStrategy(RAGCapability):
             provider: Provider class to use
         """
         super().__init__(config, provider)
-        self._documents: List[Document] = []
-        self._provider_instance: Optional[BaseProvider[Any]] = None
+        self._documents: list[Document] = []
 
-    async def initialize(self) -> None:
-        """Initialize strategy."""
-        if not self.is_initialized:
-            if not self._provider_instance:
-                self._provider_instance = self.provider(self.config, self.config.api_key)
-                await self._provider_instance.initialize()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup strategy resources."""
-        if self.is_initialized:
-            if self._provider_instance:
-                await self._provider_instance.cleanup()
-                self._provider_instance = None
-            self._documents.clear()
-            self._initialized = False
-
-    async def add_document(self, document: Document) -> None:
-        """Add document to RAG.
-
-        Args:
-            document: Document to add
-        """
-        self._documents.append(document)
-
-    async def remove_document(self, document_id: str) -> None:
-        """Remove document from RAG.
-
-        Args:
-            document_id: ID of document to remove
-        """
-        self._documents = [doc for doc in self._documents if doc.id != document_id]
-
-    async def search(
+    async def _stream_generate(
         self,
         query: str,
-        *,
-        limit: Optional[int] = None,
-        **kwargs: Any,
-    ) -> List[Document]:
-        """Search for documents.
-
-        Args:
-            query: Search query
-            limit: Maximum number of documents to return
-            **kwargs: Additional search parameters
-
-        Returns:
-            List of matching documents
-        """
-        # Simple implementation for now
-        return self._documents[:limit] if limit else self._documents
-
-    async def _generate_stream(
-        self,
-        messages: List[Message],
-        **kwargs: Any,
+        documents: list[Document],
+        **kwargs: RAGGenerateKwargs,
     ) -> AsyncGenerator[AIResponse, None]:
         """Generate streaming responses.
 
         Args:
-            messages: The messages to send to the provider.
+            query: User query.
+            documents: Retrieved documents.
             **kwargs: Additional generation parameters.
 
         Returns:
@@ -96,18 +51,36 @@ class SemanticRAGStrategy(RAGCapability):
         if not self._provider_instance:
             raise RuntimeError("Provider not initialized")
 
-        async for response in self._provider_instance.stream(messages, **kwargs):
+        # Extract kwargs for provider
+        model = cast(str | None, kwargs.get("model"))
+        temperature = cast(float | None, kwargs.get("temperature", 0.7))
+        max_tokens = cast(int | None, kwargs.get("max_tokens"))
+
+        # Prepare messages with context from documents
+        messages = [
+            Message(role=MessageRole.SYSTEM, content="You are a helpful AI assistant."),
+            Message(role=MessageRole.USER, content=query),
+        ]
+
+        async for response in self._provider_instance.stream(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
             yield response
 
     async def _generate_single(
         self,
-        messages: List[Message],
-        **kwargs: Any,
+        query: str,
+        documents: list[Document],
+        **kwargs: RAGGenerateKwargs,
     ) -> AIResponse:
         """Generate a single response.
 
         Args:
-            messages: The messages to send to the provider.
+            query: User query.
+            documents: Retrieved documents.
             **kwargs: Additional generation parameters.
 
         Returns:
@@ -119,35 +92,10 @@ class SemanticRAGStrategy(RAGCapability):
         if not self._provider_instance:
             raise RuntimeError("Provider not initialized")
 
-        async for response in self._provider_instance.stream(messages, **kwargs):
-            return response
-        raise RuntimeError("No response received from provider")
-
-    async def generate(
-        self,
-        query: str,
-        *,
-        stream: bool = False,
-        **kwargs: Any,
-    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
-        """Generate response from RAG.
-
-        Args:
-            query: Query to generate response for
-            stream: Whether to stream the response
-            **kwargs: Additional generation parameters
-
-        Returns:
-            Generated response or stream of responses
-
-        Raises:
-            RuntimeError: If provider is not initialized
-        """
-        if not self.is_initialized:
-            await self.initialize()
-
-        if not self._provider_instance:
-            raise RuntimeError("Provider not initialized")
+        # Extract kwargs for provider
+        model = cast(str | None, kwargs.get("model"))
+        temperature = cast(float | None, kwargs.get("temperature", 0.7))
+        max_tokens = cast(int | None, kwargs.get("max_tokens"))
 
         # Prepare messages with context from documents
         messages = [
@@ -155,9 +103,46 @@ class SemanticRAGStrategy(RAGCapability):
             Message(role=MessageRole.USER, content=query),
         ]
 
+        async for response in self._provider_instance.stream(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        ):
+            return response
+        raise RuntimeError("No response received from provider")
+
+    async def generate(
+        self,
+        query: str,
+        documents: list[Document],
+        *,
+        stream: bool = False,
+        **kwargs: RAGGenerateKwargs,
+    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
+        """Generate response from RAG.
+
+        Args:
+            query: User query.
+            documents: Retrieved documents.
+            stream: Whether to stream the response.
+            **kwargs: Additional generation parameters.
+
+        Returns:
+            Generated response or stream of responses.
+
+        Raises:
+            RuntimeError: If provider is not initialized.
+        """
+        if not self.is_initialized:
+            await self.initialize()
+
+        if not self._provider_instance:
+            raise RuntimeError("Provider not initialized")
+
         if stream:
-            return self._generate_stream(messages, **kwargs)
-        return await self._generate_single(messages, **kwargs)
+            return self._stream_generate(query, documents, **kwargs)
+        return await self._generate_single(query, documents, **kwargs)
 
     async def clear(self) -> None:
         """Clear all documents."""

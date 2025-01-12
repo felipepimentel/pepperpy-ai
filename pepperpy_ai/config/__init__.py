@@ -8,8 +8,8 @@ from .provider import ProviderConfig
 from .team import TeamConfig
 
 __all__ = [
-    "AgentConfig",
     "AIConfig",
+    "AgentConfig",
     "BaseConfig",
     "JsonDict",
     "ModuleConfig",

@@ -1,20 +1,20 @@
 """LLM factory module."""
 
-from typing import Dict, Type
+from typing import Union
 
-from ..providers.anthropic import AnthropicProvider
-from ..providers.openai import OpenAIProvider
+from ..providers.anthropic import AnthropicConfig, AnthropicProvider
 from ..providers.base import BaseProvider
 from ..providers.config import ProviderConfig
+from ..providers.openai import OpenAIConfig, OpenAIProvider
 
-PROVIDER_MAP: Dict[str, Type[BaseProvider[ProviderConfig]]] = {
+PROVIDER_MAP: dict[str, Union[type[AnthropicProvider], type[OpenAIProvider]]] = {
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
 }
 
 def create_provider(
     provider_name: str,
-    config: ProviderConfig,
+    config: Union[AnthropicConfig, OpenAIConfig],
     api_key: str,
 ) -> BaseProvider[ProviderConfig]:
     """Create a provider instance.
@@ -34,4 +34,4 @@ def create_provider(
     if not provider_class:
         raise ValueError(f"Unsupported provider: {provider_name}")
 
-    return provider_class(config, api_key)
+    return provider_class(config, api_key)  # type: ignore

@@ -1,10 +1,11 @@
 """Function module."""
 
-from typing import Any, AsyncGenerator, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from .ai_types import Message
-from .responses import AIResponse
 from .providers.base import BaseProvider
+from .responses import AIResponse
 
 
 async def stream_with_callback(

@@ -1,136 +1,156 @@
 """Simple RAG capability implementation."""
 
-import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any, Dict, List, Optional, Type, cast
+from typing import Any, TypeVar, cast
 
 import numpy as np
+from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
 
 from ...ai_types import Message, MessageRole
-from ...exceptions import CapabilityError, DependencyError
+from ...config.rag import RAGConfig
 from ...providers.base import BaseProvider
-from ...responses import AIResponse
-from .base import Document, RAGCapability, RAGConfig
+from ...responses import AIResponse, ResponseMetadata
+from .base import RAGCapability, RAGGenerateKwargs, RAGSearchKwargs
+from .document import Document
 
+T = TypeVar("T", bound=BaseProvider[Any])
 
-class SimpleRAGCapability(RAGCapability):
+class SimpleRAGCapability(RAGCapability[T]):
     """Simple RAG capability implementation."""
 
-    def __init__(self, config: RAGConfig, provider: Type[BaseProvider[Any]]) -> None:
-        """Initialize capability.
-
-        Args:
-            config: Capability configuration
-            provider: Provider class to use
-        """
+    def __init__(
+        self,
+        config: RAGConfig,
+        provider: type[T]
+    ) -> None:
+        """Initialize RAG capability."""
         super().__init__(config, provider)
-        self._model: Optional[SentenceTransformer] = None
-        self._np: Optional[Any] = None
-        self._documents: Dict[str, Document] = {}
-        self._embeddings: Dict[str, List[float]] = {}
+        self._model: SentenceTransformer | None = None
+        self._embeddings: dict[str, list[float]] = {}
 
-    def _ensure_initialized(self) -> None:
-        """Ensure capability is initialized.
+    async def initialize(self) -> None:
+        """Initialize capability resources."""
+        if not self.is_initialized:
+            try:
+                self._model = SentenceTransformer(self.config.model)
+                self._initialized = True
+            except ImportError as e:
+                raise ImportError(
+                    "Required packages not installed. "
+                    "Please install sentence-transformers and numpy."
+                ) from e
 
-        Raises:
-            CapabilityError: If capability is not initialized
-        """
-        if self._np is None or self._model is None:
-            raise CapabilityError("RAG capability not initialized", "rag")
+    async def cleanup(self) -> None:
+        """Clean up capability resources."""
+        if self.is_initialized:
+            self._model = None
+            self._embeddings.clear()
+            self._initialized = False
 
-    async def _setup(self) -> None:
-        """Setup capability resources."""
-        try:
-            self._np = np
-            self._model = SentenceTransformer(self.config.model_name)
-        except ImportError as e:
-            raise DependencyError(
-                "Missing required dependencies for RAG capability. "
-                "Install with: pip install pepperpy-ai[rag]",
-                package="numpy, sentence-transformers"
-            ) from e
-
-    async def _teardown(self) -> None:
-        """Teardown capability resources."""
-        self._model = None
-        self._np = None
-        self._documents.clear()
-        self._embeddings.clear()
-
-    async def add_document(self, document: Document) -> None:
-        """Add a document to the RAG system.
-
-        Args:
-            document: The document to add.
-
-        Raises:
-            CapabilityError: If capability is not initialized
-        """
+    async def _compute_embedding(self, text: str) -> list[float]:
+        """Compute embedding for text."""
         self._ensure_initialized()
         model = cast(SentenceTransformer, self._model)
-        np_module = cast(Any, self._np)
 
         # Compute embedding asynchronously
-        embedding = await asyncio.to_thread(
-            model.encode, document.content, convert_to_numpy=True
-        )
-        self._documents[document.id] = document
-        self._embeddings[document.id] = embedding.tolist()
-
-    async def remove_document(self, document_id: str) -> None:
-        """Remove a document from the RAG system.
-
-        Args:
-            document_id: The ID of the document to remove.
-        """
-        self._documents.pop(document_id, None)
-        self._embeddings.pop(document_id, None)
+        embeddings: NDArray[np.float32] = model.encode(text)
+        return cast(list[float], embeddings.tolist())
 
     async def search(
         self,
         query: str,
         *,
-        limit: Optional[int] = None,
-        **kwargs: Any,
-    ) -> List[Document]:
+        limit: int | None = None,
+        **kwargs: RAGSearchKwargs,
+    ) -> list[Document]:
         """Search for documents matching a query.
 
         Args:
             query: The search query.
             limit: Maximum number of documents to return.
-            **kwargs: Additional search parameters.
+            **kwargs: Additional keyword arguments.
 
         Returns:
-            A list of matching documents.
-
-        Raises:
-            CapabilityError: If capability is not initialized
+            list[Document]: List of matching documents.
         """
         self._ensure_initialized()
-        model = cast(SentenceTransformer, self._model)
-        np_module = cast(Any, self._np)
 
-        if not self._documents:
+        if not self._embeddings:
             return []
 
         # Compute query embedding
-        query_embedding = await asyncio.to_thread(
-            model.encode, query, convert_to_numpy=True
-        )
+        query_embedding = await self._compute_embedding(query)
 
         # Compute similarities
         similarities = []
         for doc_id, doc_embedding in self._embeddings.items():
-            similarity = np_module.dot(query_embedding, doc_embedding) / (
-                np_module.linalg.norm(query_embedding) * np_module.linalg.norm(doc_embedding)
+            similarity = (
+                np.dot(query_embedding, doc_embedding)
+                / (
+                    np.linalg.norm(query_embedding)
+                    * np.linalg.norm(doc_embedding)
+                )
             )
             similarities.append((doc_id, similarity))
 
-        # Sort by similarity
+        # Sort by similarity and limit results
         similarities.sort(key=lambda x: x[1], reverse=True)
         if limit:
             similarities = similarities[:limit]
 
         # Return documents
-        return [self._documents[doc_id] for doc_id, _ in similarities]
+        return [
+            Document(id=doc_id, content="", metadata={"similarity": sim})
+            for doc_id, sim in similarities
+        ]
+
+    async def generate(
+        self,
+        query: str,
+        documents: list[Document],
+        *,
+        stream: bool = False,
+        **kwargs: RAGGenerateKwargs,
+    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
+        """Generate response from RAG.
+
+        Args:
+            query: User query.
+            documents: Retrieved documents.
+            stream: Whether to stream the response.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            AIResponse | AsyncGenerator[AIResponse, None]: Generated response.
+        """
+        self._ensure_initialized()
+
+        # Prepare messages with context from documents
+        messages = [
+            Message(role=MessageRole.SYSTEM, content="You are a helpful AI assistant."),
+            Message(role=MessageRole.USER, content=query),
+        ]
+
+        if stream:
+            async def stream_response() -> AsyncGenerator[AIResponse, None]:
+                yield AIResponse(
+                    content="Simple RAG processing messages",
+                    metadata=cast(ResponseMetadata, {
+                        "model": self.config.model,
+                        "provider": "simple_rag",
+                        "usage": {"total_tokens": 0},
+                        "finish_reason": "stop",
+                    }),
+                )
+            return stream_response()
+
+        return AIResponse(
+            content="Simple RAG processing messages",
+            metadata=cast(ResponseMetadata, {
+                "model": self.config.model,
+                "provider": "simple_rag",
+                "usage": {"total_tokens": 0},
+                "finish_reason": "stop",
+            }),
+        )

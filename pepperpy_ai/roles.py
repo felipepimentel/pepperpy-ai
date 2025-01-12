@@ -1,10 +1,10 @@
-"""Agent role definitions"""
+"""Agent role definitions."""
 
 from enum import Enum
 
 
 class AgentRole(str, Enum):
-    """Agent role types"""
+    """Agent role types."""
 
     ANALYST = "analyst"
     DEVELOPER = "developer"

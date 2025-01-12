@@ -1,37 +1,51 @@
-"""Provider configuration."""
+"""Provider configuration module."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from .base import BaseConfig
 
-@dataclass
-class ProviderConfig:
-    """Provider configuration."""
 
-    # Required fields
-    provider: str
-    model: str
-    api_key: str
+class ProviderConfig(BaseConfig):
+    """Configuration for providers.
 
-    # Optional fields with defaults
-    name: str = "provider"
-    version: str = "1.0.0"
-    enabled: bool = True
-    description: str = ""
-    api_base: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 1000
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    settings: Dict[str, Any] = field(default_factory=dict)
+    This class provides configuration options for providers, including API
+    settings, model parameters, and other options that control provider
+    behavior.
+    """
 
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        if not self.provider:
-            raise ValueError("Provider type must be specified")
-        if not self.model:
-            raise ValueError("Model must be specified")
-        if not self.api_key:
-            raise ValueError("API key must be specified")
-        if not 0.0 <= self.temperature <= 1.0:
-            raise ValueError("Temperature must be between 0.0 and 1.0")
-        if self.max_tokens <= 0:
-            raise ValueError("Max tokens must be positive")
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        api_key: str | None = None,
+        api_base: str | None = None,
+        api_version: str | None = None,
+        organization_id: str | None = None,
+        model: str | None = None,
+        timeout: float = 30.0,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        enabled: bool = True,
+    ) -> None:
+        """Initialize provider configuration.
+
+        Args:
+            name: Provider name.
+            version: Provider version.
+            api_key: API key for authentication.
+            api_base: Base URL for API requests.
+            api_version: API version to use.
+            organization_id: Organization ID for API requests.
+            model: Default model to use.
+            timeout: Request timeout in seconds.
+            max_retries: Maximum number of retries.
+            retry_delay: Delay between retries in seconds.
+            enabled: Whether provider is enabled.
+        """
+        super().__init__(name=name, version=version, enabled=enabled)
+        self.api_key = api_key
+        self.api_base = api_base
+        self.api_version = api_version
+        self.organization_id = organization_id
+        self.model = model
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay

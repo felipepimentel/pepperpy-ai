@@ -1,92 +1,112 @@
 """Provider configuration module."""
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import TypedDict
 
-from ..config.base import BaseConfig
-from ..types import JsonDict
 
-@dataclass
-class ProviderConfig(BaseConfig):
-    """Provider configuration class.
-    
+class ProviderSettings(TypedDict, total=False):
+    """Provider settings dictionary.
+
     Attributes:
-        api_key: The API key for the provider.
-        model: The model name to use.
-        provider: The provider name.
-        api_base: Optional base URL for the provider's API.
-        temperature: Sampling temperature between 0 and 1.
-        max_tokens: Maximum number of tokens to generate.
+        api_key: API key for authentication
+        api_base: Base URL for API requests
+        api_version: API version to use
+        organization_id: Organization ID for multi-tenant providers
+        model: Default model to use
+        timeout: Request timeout in seconds
+        max_retries: Maximum number of retries
+        retry_delay: Delay between retries in seconds
     """
 
-    # Required provider fields
-    api_key: str = field(init=False)
-    model: str = field(init=False)
-    provider: str = field(init=False)
-    
-    # Optional provider fields
-    api_base: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 1024
+    api_key: str
+    api_base: str
+    api_version: str
+    organization_id: str
+    model: str
+    timeout: float
+    max_retries: int
+    retry_delay: float
+
+
+class ProviderConfig:
+    """Provider configuration class.
+
+    Attributes:
+        api_key: The API key for the provider
+        api_base: The base URL for API requests
+        api_version: The API version to use
+        organization_id: The organization ID for multi-tenant providers
+        model: The default model to use
+        timeout: The request timeout in seconds
+        max_retries: The maximum number of retries
+        retry_delay: The delay between retries in seconds
+    """
 
     def __init__(
         self,
-        api_key: str,
-        model: str,
-        provider: str,
-        name: str = "provider",
-        version: str = "1.0.0",
-        enabled: bool = True,
-        api_base: Optional[str] = None,
-        temperature: float = 0.7,
-        max_tokens: int = 1024,
-        metadata: Optional[JsonDict] = None,
-        settings: Optional[JsonDict] = None,
+        api_key: str = "",
+        api_base: str = "",
+        api_version: str = "",
+        organization_id: str = "",
+        model: str = "",
+        timeout: float = 30.0,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
     ) -> None:
         """Initialize provider configuration.
-        
+
         Args:
-            api_key: The API key for the provider.
-            model: The model name to use.
-            provider: The provider name.
-            name: The configuration name.
-            version: The configuration version.
-            enabled: Whether the provider is enabled.
-            api_base: Optional base URL for the provider's API.
-            temperature: Sampling temperature between 0 and 1.
-            max_tokens: Maximum number of tokens to generate.
-            metadata: Optional metadata dictionary.
-            settings: Optional settings dictionary.
+            api_key: The API key for the provider
+            api_base: The base URL for API requests
+            api_version: The API version to use
+            organization_id: The organization ID for multi-tenant providers
+            model: The default model to use
+            timeout: The request timeout in seconds
+            max_retries: The maximum number of retries
+            retry_delay: The delay between retries in seconds
         """
-        super().__init__(
-            name=name,
-            version=version,
-            enabled=enabled,
-            metadata=metadata or {},
-            settings=settings or {},
-        )
         self.api_key = api_key
-        self.model = model
-        self.provider = provider
         self.api_base = api_base
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.api_version = api_version
+        self.organization_id = organization_id
+        self.model = model
+        self.timeout = timeout
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
-    def __post_init__(self) -> None:
-        """Validate configuration."""
-        super().__post_init__()
+    def to_dict(self) -> ProviderSettings:
+        """Convert configuration to dictionary.
 
-        if not self.api_key:
-            raise ValueError("API key cannot be empty")
+        Returns:
+            Dictionary representation of the configuration
+        """
+        return {
+            "api_key": self.api_key,
+            "api_base": self.api_base,
+            "api_version": self.api_version,
+            "organization_id": self.organization_id,
+            "model": self.model,
+            "timeout": self.timeout,
+            "max_retries": self.max_retries,
+            "retry_delay": self.retry_delay,
+        }
 
-        if not self.model:
-            raise ValueError("Model name cannot be empty")
+    @classmethod
+    def from_dict(cls, data: ProviderSettings) -> "ProviderConfig":
+        """Create configuration from dictionary.
 
-        if not self.provider:
-            raise ValueError("Provider name cannot be empty")
+        Args:
+            data: Dictionary containing configuration values
 
-        if not isinstance(self.temperature, float):
-            raise ValueError("Temperature must be a float")
-
-        if not isinstance(self.max_tokens, int):
-            raise ValueError("Max tokens must be an integer")
+        Returns:
+            Provider configuration instance
+        """
+        return cls(
+            api_key=data.get("api_key", ""),
+            api_base=data.get("api_base", ""),
+            api_version=data.get("api_version", ""),
+            organization_id=data.get("organization_id", ""),
+            model=data.get("model", ""),
+            timeout=data.get("timeout", 30.0),
+            max_retries=data.get("max_retries", 3),
+            retry_delay=data.get("retry_delay", 1.0),
+        )

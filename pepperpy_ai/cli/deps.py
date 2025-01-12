@@ -1,7 +1,7 @@
 """CLI tool for managing PepperPy AI dependencies."""
 
 import json
-from typing import Callable, List, Optional, TypeVar
+from typing import TypeVar
 
 import click
 
@@ -9,7 +9,7 @@ from pepperpy_ai.utils import check_dependency, get_missing_dependencies
 
 T = TypeVar("T")
 
-def list_to_str(items: Optional[List[str]]) -> str:
+def list_to_str(items: list[str] | None) -> str:
     """Convert list to string.
 
     Args:
@@ -22,7 +22,7 @@ def list_to_str(items: Optional[List[str]]) -> str:
         return ""
     return ", ".join(items)
 
-def str_to_list(value: str) -> List[str]:
+def str_to_list(value: str) -> list[str]:
     """Convert string to list.
 
     Args:
@@ -36,9 +36,9 @@ def str_to_list(value: str) -> List[str]:
     return [item.strip() for item in value.split(",")]
 
 def validate_list(
-    items: Optional[List[str]],
-    allowed_values: Optional[List[str]] = None,
-) -> List[str]:
+    items: list[str] | None,
+    allowed_values: list[str] | None = None,
+) -> list[str]:
     """Validate list of items.
 
     Args:

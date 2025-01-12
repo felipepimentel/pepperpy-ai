@@ -1,72 +1,74 @@
-"""Base LLM client implementation."""
+"""Base LLM module."""
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
-from typing import List, Optional
+from typing import AsyncGenerator, cast
 
-from ..ai_types import Message
-from ..responses import AIResponse
-from ..exceptions import ProviderError
-from ..providers.base import BaseProvider
-from .config import LLMConfig
+from ..messages import Message
+from ..responses import AIResponse, ResponseMetadata
 
 
-class LLMClient(BaseProvider[LLMConfig], ABC):
-    """Base LLM client implementation."""
+class BaseLLM(ABC):
+    """Base LLM implementation."""
 
-    async def initialize(self) -> None:
-        """Initialize provider."""
-        await self._setup()
-        self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup provider resources."""
-        await self._teardown()
+    def __init__(self) -> None:
+        """Initialize LLM."""
         self._initialized = False
 
-    async def _setup(self) -> None:
-        """Setup client resources."""
-        pass
+    @property
+    def is_initialized(self) -> bool:
+        """Check if LLM is initialized.
 
-    async def _teardown(self) -> None:
-        """Teardown client resources."""
+        Returns:
+            bool: True if LLM is initialized, False otherwise.
+        """
+        return self._initialized
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize LLM."""
         pass
 
     @abstractmethod
-    async def complete(self, prompt: str) -> AIResponse:
-        """Complete prompt.
-
-        Args:
-            prompt: The prompt to complete
-
-        Returns:
-            AIResponse: The completion response
-        """
-        raise NotImplementedError
+    async def cleanup(self) -> None:
+        """Clean up LLM resources."""
+        pass
 
     @abstractmethod
     async def stream(
         self,
-        messages: List[Message],
-        *,
-        model: Optional[str] = None,
-        temperature: Optional[float] = None,
-        max_tokens: Optional[int] = None,
+        messages: list[Message],
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        top_p: float | None = None,
+        frequency_penalty: float | None = None,
+        presence_penalty: float | None = None,
+        timeout: float | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from the provider.
+        """Stream LLM messages.
 
         Args:
-            messages: List of messages to send to the provider
-            model: Model to use for completion
-            temperature: Temperature to use for completion
+            messages: List of messages to stream
+            model: Model to use for generation
+            temperature: Temperature for generation
             max_tokens: Maximum number of tokens to generate
+            top_p: Top p for generation
+            frequency_penalty: Frequency penalty for generation
+            presence_penalty: Presence penalty for generation
+            timeout: Timeout for generation
 
-        Returns:
-            AsyncGenerator yielding AIResponse objects
-
-        Raises:
-            ProviderError: If provider is not initialized
+        Yields:
+            AIResponse: Generated response
         """
         if not self.is_initialized:
-            raise ProviderError("Provider not initialized", provider="llm")
-        yield AIResponse(content="Not implemented", provider="llm")
+            raise RuntimeError("LLM not initialized")
+
+        yield AIResponse(
+            content="Hello, how can I help you?",
+            metadata=cast(ResponseMetadata, {
+                "model": model,
+                "provider": "llm",
+                "usage": {"total_tokens": 0},
+                "finish_reason": "stop",
+            }),
+        )

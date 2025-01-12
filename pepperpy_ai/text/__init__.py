@@ -6,10 +6,10 @@ from .exceptions import (
     TextProcessingError,
     ValidationError,
 )
-from .processor import BaseProcessor
+from .processor import BaseTextProcessor
 
 __all__ = [
-    "BaseProcessor",
+    "BaseTextProcessor",
     "ChunkingError",
     "ProcessingError",
     "TextProcessingError",

@@ -1,136 +1,188 @@
-"""Network client module."""
+"""HTTP client module."""
 
-from functools import wraps
-from typing import Any, Callable, Dict, Optional, TypeVar, cast, Coroutine
+from typing import TypedDict
 
 import aiohttp
-from aiohttp import ClientResponse, ClientSession
-
-from ..exceptions import ProviderError
-
-T = TypeVar("T")
+from aiohttp import ClientSession, ClientTimeout
+from multidict import MultiDict
 
 
-def handle_errors(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., Coroutine[Any, Any, T]]:
-    """Handle network errors.
+class RequestData(TypedDict, total=False):
+    """Request data parameters."""
 
-    Args:
-        func: The async function to wrap.
-
-    Returns:
-        The wrapped async function.
-    """
-    @wraps(func)
-    async def wrapper(*args: Any, **kwargs: Any) -> T:
-        try:
-            return await func(*args, **kwargs)
-        except aiohttp.ClientError as e:
-            raise ProviderError(f"Network error: {e}", provider="network")
-        except Exception as e:
-            raise ProviderError(f"Unexpected error: {e}", provider="network")
-    return wrapper
+    str_value: str | None
+    int_value: int | None
+    float_value: float | None
+    bool_value: bool | None
+    list_value: list[str | int | float | bool | None] | None
+    dict_value: dict[str, str | int | float | bool | None] | None
 
 
-class NetworkClient:
-    """Network client for making HTTP requests."""
+class HTTPClient:
+    """HTTP client implementation."""
 
-    def __init__(self, base_url: str, headers: Optional[Dict[str, str]] = None) -> None:
-        """Initialize the client.
+    def __init__(self) -> None:
+        """Initialize client."""
+        self._session: ClientSession | None = None
+        self._initialized = False
 
-        Args:
-            base_url: The base URL for requests.
-            headers: Optional headers to include in requests.
+    @property
+    def session(self) -> ClientSession:
+        """Get client session.
+
+        Returns:
+            ClientSession: Active client session.
+
+        Raises:
+            RuntimeError: If client is not initialized.
         """
-        self.base_url = base_url
-        self.headers = headers or {}
-        self._session: Optional[ClientSession] = None
+        if not self._initialized or not self._session:
+            raise RuntimeError("Client not initialized")
+        return self._session
 
     async def initialize(self) -> None:
-        """Initialize the client session."""
-        if not self._session:
-            self._session = aiohttp.ClientSession(
-                base_url=self.base_url,
-                headers=self.headers
-            )
+        """Initialize client."""
+        if not self._initialized:
+            self._session = aiohttp.ClientSession()
+            self._initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up the client session."""
-        if self._session:
+        """Clean up client resources."""
+        if self._initialized and self._session:
             await self._session.close()
             self._session = None
+            self._initialized = False
 
-    @handle_errors
-    async def get(self, path: str, **kwargs: Any) -> ClientResponse:
-        """Make a GET request.
-
-        Args:
-            path: The request path.
-            **kwargs: Additional request arguments.
-
-        Returns:
-            The response.
-
-        Raises:
-            ProviderError: If the request fails.
-        """
-        if not self._session:
-            await self.initialize()
-        assert self._session is not None
-        return await self._session.get(path, **kwargs)
-
-    @handle_errors
-    async def post(self, path: str, **kwargs: Any) -> ClientResponse:
-        """Make a POST request.
+    async def get(
+        self,
+        url: str,
+        params: MultiDict | dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        proxy: str | None = None,
+        timeout: ClientTimeout | None = None,
+        verify_ssl: bool = True,
+    ) -> str:
+        """Send GET request.
 
         Args:
-            path: The request path.
-            **kwargs: Additional request arguments.
+            url: Request URL.
+            params: Query parameters.
+            headers: Request headers.
+            proxy: Proxy URL.
+            timeout: Request timeout.
+            verify_ssl: Whether to verify SSL certificates.
 
         Returns:
-            The response.
-
-        Raises:
-            ProviderError: If the request fails.
+            str: Response text.
         """
-        if not self._session:
-            await self.initialize()
-        assert self._session is not None
-        return await self._session.post(path, **kwargs)
+        async with self.session.get(
+            url,
+            params=params,
+            headers=headers,
+            proxy=proxy,
+            timeout=timeout,
+            ssl=verify_ssl,
+        ) as response:
+            return await response.text()
 
-    @handle_errors
-    async def put(self, path: str, **kwargs: Any) -> ClientResponse:
-        """Make a PUT request.
+    async def post(
+        self,
+        url: str,
+        params: MultiDict | dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        proxy: str | None = None,
+        timeout: ClientTimeout | None = None,
+        verify_ssl: bool = True,
+        json: RequestData | None = None,
+    ) -> str:
+        """Send POST request.
 
         Args:
-            path: The request path.
-            **kwargs: Additional request arguments.
+            url: Request URL.
+            params: Query parameters.
+            headers: Request headers.
+            proxy: Proxy URL.
+            timeout: Request timeout.
+            verify_ssl: Whether to verify SSL certificates.
+            json: JSON data to send.
 
         Returns:
-            The response.
-
-        Raises:
-            ProviderError: If the request fails.
+            str: Response text.
         """
-        if not self._session:
-            await self.initialize()
-        assert self._session is not None
-        return await self._session.put(path, **kwargs)
+        async with self.session.post(
+            url,
+            params=params,
+            headers=headers,
+            proxy=proxy,
+            timeout=timeout,
+            ssl=verify_ssl,
+            json=json,
+        ) as response:
+            return await response.text()
 
-    @handle_errors
-    async def delete(self, path: str, **kwargs: Any) -> ClientResponse:
-        """Make a DELETE request.
+    async def put(
+        self,
+        url: str,
+        params: MultiDict | dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        proxy: str | None = None,
+        timeout: ClientTimeout | None = None,
+        verify_ssl: bool = True,
+        json: RequestData | None = None,
+    ) -> str:
+        """Send PUT request.
 
         Args:
-            path: The request path.
-            **kwargs: Additional request arguments.
+            url: Request URL.
+            params: Query parameters.
+            headers: Request headers.
+            proxy: Proxy URL.
+            timeout: Request timeout.
+            verify_ssl: Whether to verify SSL certificates.
+            json: JSON data to send.
 
         Returns:
-            The response.
-
-        Raises:
-            ProviderError: If the request fails.
+            str: Response text.
         """
-        if not self._session:
-            await self.initialize()
-        assert self._session is not None
-        return await self._session.delete(path, **kwargs)
+        async with self.session.put(
+            url,
+            params=params,
+            headers=headers,
+            proxy=proxy,
+            timeout=timeout,
+            ssl=verify_ssl,
+            json=json,
+        ) as response:
+            return await response.text()
+
+    async def delete(
+        self,
+        url: str,
+        params: MultiDict | dict[str, str] | None = None,
+        headers: dict[str, str] | None = None,
+        proxy: str | None = None,
+        timeout: ClientTimeout | None = None,
+        verify_ssl: bool = True,
+    ) -> str:
+        """Send DELETE request.
+
+        Args:
+            url: Request URL.
+            params: Query parameters.
+            headers: Request headers.
+            proxy: Proxy URL.
+            timeout: Request timeout.
+            verify_ssl: Whether to verify SSL certificates.
+
+        Returns:
+            str: Response text.
+        """
+        async with self.session.delete(
+            url,
+            params=params,
+            headers=headers,
+            proxy=proxy,
+            timeout=timeout,
+            ssl=verify_ssl,
+        ) as response:
+            return await response.text()

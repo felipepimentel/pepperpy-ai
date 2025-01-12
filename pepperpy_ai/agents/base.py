@@ -1,10 +1,17 @@
 """Base agent implementation."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol
+from typing import Protocol, TypedDict
 
 from ..ai_types import AIResponse
 from .types import AgentConfig
+
+
+class AgentKwargs(TypedDict, total=False):
+    """Type hints for agent kwargs."""
+    temperature: float
+    max_tokens: int
+    model: str
 
 
 class Agent(Protocol):
@@ -28,7 +35,7 @@ class Agent(Protocol):
         """Cleanup agent resources."""
         ...
 
-    async def execute(self, task: str, **kwargs: Any) -> AIResponse:
+    async def execute(self, task: str, **kwargs: AgentKwargs) -> AIResponse:
         """Execute agent task."""
         ...
 
@@ -67,6 +74,6 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    async def execute(self, task: str, **kwargs: Any) -> AIResponse:
+    async def execute(self, task: str, **kwargs: AgentKwargs) -> AIResponse:
         """Execute agent task."""
         pass
