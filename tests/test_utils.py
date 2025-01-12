@@ -1,30 +1,59 @@
-"""Tests for utilities module."""
+"""Tests for utility functions."""
 
 import pytest
-from pepperpy_ai.utils.dependencies import get_module_version, is_package_installed
-from pepperpy_ai.utils.config import load_module_config, validate_module_config
+
+from pepperpy_ai.utils import (
+    check_dependency,
+    format_exception,
+    get_missing_dependencies,
+    merge_configs,
+    safe_import,
+    verify_dependencies,
+)
 
 
-def test_get_module_version() -> None:
-    """Test getting module version."""
-    version = get_module_version("pytest")
-    assert isinstance(version, str)
-    assert len(version) > 0
+def test_check_dependency() -> None:
+    """Test check_dependency function."""
+    assert check_dependency("pytest") is True
+    assert check_dependency("nonexistent_package") is False
 
 
-def test_is_package_installed() -> None:
-    """Test checking if package is installed."""
-    assert is_package_installed("pytest")
-    assert not is_package_installed("nonexistent_package")
+def test_safe_import() -> None:
+    """Test safe_import function."""
+    pytest = safe_import("pytest")
+    assert pytest is not None
+    assert safe_import("nonexistent_package") is None
 
 
-def test_load_module_config() -> None:
-    """Test loading module configuration."""
-    config = load_module_config("test_module")
-    assert isinstance(config, dict)
+def test_get_missing_dependencies() -> None:
+    """Test get_missing_dependencies function."""
+    deps = ["pytest", "nonexistent_package"]
+    missing = get_missing_dependencies(deps)
+    assert "nonexistent_package" in missing
+    assert "pytest" not in missing
 
 
-def test_validate_module_config() -> None:
-    """Test validating module configuration."""
-    config = {"name": "test", "version": "1.0.0", "enabled": True}
-    assert validate_module_config(config) is None
+def test_verify_dependencies() -> None:
+    """Test verify_dependencies function."""
+    deps = ["pytest"]
+    assert verify_dependencies(deps) is True
+    deps = ["nonexistent_package"]
+    assert verify_dependencies(deps) is False
+
+
+def test_merge_configs() -> None:
+    """Test merge_configs function."""
+    config1 = {"a": 1, "b": 2}
+    config2 = {"b": 3, "c": 4}
+    merged = merge_configs(config1, config2)
+    assert merged == {"a": 1, "b": 3, "c": 4}
+
+
+def test_format_exception() -> None:
+    """Test format_exception function."""
+    try:
+        raise ValueError("test error")
+    except ValueError as e:
+        formatted = format_exception(e)
+        assert "ValueError" in formatted
+        assert "test error" in formatted

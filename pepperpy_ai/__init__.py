@@ -1,8 +1,8 @@
 """PepperPy AI - A flexible AI library with modular provider support."""
 
+from typing import TYPE_CHECKING
+
 from .capabilities.base import BaseCapability, CapabilityConfig
-from .capabilities.chat.base import ChatCapability, ChatConfig
-from .capabilities.rag.base import RAGCapability, Document, RAGConfig
 from .exceptions import (
     CapabilityError,
     ConfigurationError,
@@ -23,21 +23,22 @@ from .utils import (
     verify_dependencies,
 )
 
+if TYPE_CHECKING:
+    from .capabilities.chat.base import ChatCapability, ChatConfig
+    from .capabilities.rag.base import RAGCapability, Document, RAGConfig
+    from .capabilities.embeddings.base import BaseEmbeddingsCapability
+    from .embeddings.base import EmbeddingsConfig
+
 __version__ = "0.1.0"
 
 __all__ = [
     # Base classes
     "BaseCapability",
-    "ChatCapability",
     "BaseProvider",
-    "RAGCapability",
     # Configuration classes
     "CapabilityConfig",
-    "ChatConfig",
-    "RAGConfig",
     # Data classes
     "AIResponse",
-    "Document",
     "Message",
     # Enums
     "MessageRole",
@@ -58,16 +59,17 @@ __all__ = [
 ]
 
 # Optional implementations
-try:
+if check_dependency("sentence_transformers"):
+    from .capabilities.chat.base import ChatCapability, ChatConfig
+    from .capabilities.rag.base import RAGCapability, Document, RAGConfig
     from .capabilities.embeddings.base import BaseEmbeddingsCapability
     from .embeddings.base import EmbeddingsConfig
-    from .capabilities.embeddings.simple import SimpleEmbeddingsCapability
-    from .capabilities.rag.simple import SimpleRAGCapability
     __all__.extend([
+        "ChatCapability",
+        "ChatConfig",
+        "RAGCapability",
+        "RAGConfig",
+        "Document",
         "BaseEmbeddingsCapability",
         "EmbeddingsConfig",
-        "SimpleEmbeddingsCapability",
-        "SimpleRAGCapability",
     ])
-except ImportError:
-    pass
