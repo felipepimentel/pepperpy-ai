@@ -1,14 +1,28 @@
 """OpenAI provider implementation."""
 
+import importlib.util
 from collections.abc import AsyncGenerator
-from typing import NotRequired, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
 
-from openai import AsyncOpenAI
-
+from ..exceptions import DependencyError
 from ..ai_types import Message
 from ..responses import AIResponse, ResponseMetadata
 from .base import BaseProvider
 from .exceptions import ProviderError
+
+
+def _check_openai_dependency() -> None:
+    """Check if OpenAI package is installed.
+
+    Raises:
+        DependencyError: If OpenAI package is not installed.
+    """
+    if importlib.util.find_spec("openai") is None:
+        raise DependencyError(
+            feature="OpenAI provider",
+            package="openai",
+            extra="openai",
+        )
 
 
 class OpenAIConfig(TypedDict):
@@ -32,12 +46,16 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
         Args:
             config: Provider configuration
             api_key: OpenAI API key
+
+        Raises:
+            DependencyError: If OpenAI package is not installed
         """
+        _check_openai_dependency()
         super().__init__(config, api_key)
-        self._client: AsyncOpenAI | None = None
+        self._client: Any = None  # Type will be AsyncOpenAI when imported
 
     @property
-    def client(self) -> AsyncOpenAI:
+    def client(self) -> Any:  # Type will be AsyncOpenAI when imported
         """Get client instance.
 
         Returns:
@@ -57,7 +75,14 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
     async def initialize(self) -> None:
         """Initialize provider."""
         if not self._initialized:
-            self._client = AsyncOpenAI(api_key=self.api_key)
+            _check_openai_dependency()
+            from openai import AsyncOpenAI
+            
+            timeout = self.config.get("timeout", 30.0)
+            self._client = AsyncOpenAI(
+                api_key=self.api_key,
+                timeout=timeout,
+            )
             self._initialized = True
 
     async def cleanup(self) -> None:
@@ -88,6 +113,7 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
 
         Raises:
             ProviderError: If provider is not initialized or streaming fails
+            DependencyError: If OpenAI package is not installed
         """
         if not self.is_initialized:
             raise ProviderError(
@@ -99,7 +125,7 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
         try:
             async with self.client.chat.completions.stream(
                 messages=[
-                    {"role": msg.role, "content": msg.content}
+                    {"role": msg.role.value.lower(), "content": msg.content}
                     for msg in messages
                 ],
                 model=model or self.config["model"],
@@ -120,7 +146,7 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
                         )
         except Exception as e:
             raise ProviderError(
-                "Failed to stream responses",
+                f"Failed to stream responses: {str(e)}",
                 provider="openai",
                 operation="stream",
                 cause=e,
