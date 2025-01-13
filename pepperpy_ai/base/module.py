@@ -8,10 +8,13 @@ from ..config.base import BaseConfig
 
 T = TypeVar("T", bound=BaseConfig)
 
+
 class ResourceValue(TypedDict, total=False):
     """Type hints for resource values."""
+
     value: str | int | float | bool | dict | list | None
     metadata: dict[str, str | int | float | bool | dict | list | None]
+
 
 class BaseModule(ABC, Generic[T]):
     """Base class for modules.

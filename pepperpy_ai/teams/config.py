@@ -1,20 +1,22 @@
-"""Team configuration."""
+"""Team configuration module."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from typing import Any
 
-from ..types import JsonDict
+from pepperpy_core.types import BaseConfig
 
 
 @dataclass
-class TeamConfig:
+class TeamConfig(BaseConfig):
     """Team configuration."""
 
     name: str
+    version: str
     provider: str
     members: Sequence[str]
-    settings: JsonDict = field(default_factory=dict)
-    metadata: JsonDict = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -23,4 +25,4 @@ class TeamResult:
 
     success: bool
     output: str | None = None
-    metadata: JsonDict = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)

@@ -1,4 +1,4 @@
-"""Client configuration module."""
+"""Agent configuration module."""
 
 from dataclasses import dataclass, field
 from typing import Any
@@ -7,8 +7,8 @@ from pepperpy_core.types import BaseConfig
 
 
 @dataclass
-class ClientConfig(BaseConfig):
-    """Client configuration."""
+class AgentConfig(BaseConfig):
+    """Agent configuration."""
 
     name: str
     version: str
