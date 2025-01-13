@@ -1,4 +1,4 @@
-"""Utility functions module."""
+"""Module loading utilities."""
 
 import importlib
 import logging

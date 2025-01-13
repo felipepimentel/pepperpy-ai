@@ -1,4 +1,4 @@
-"""Example utilities."""
+"""Test utilities."""
 
 from collections.abc import AsyncGenerator
 from typing import Any, cast
@@ -10,11 +10,11 @@ from pepperpy_ai.providers.config import ProviderConfig, ProviderSettings
 from pepperpy_ai.responses import AIResponse, ResponseMetadata
 
 
-class ExampleProvider(BaseProvider):
-    """Example provider for testing."""
+class TestProvider(BaseProvider):
+    """Test provider for testing."""
 
     def __init__(self, config: ProviderConfig, api_key: str) -> None:
-        """Initialize example provider.
+        """Initialize test provider.
 
         Args:
             config: Provider configuration.
@@ -56,20 +56,20 @@ class ExampleProvider(BaseProvider):
         """
         if not self._initialized:
             raise ProviderError(
-                "Provider not initialized", provider="example", operation="stream"
+                "Provider not initialized", provider="test", operation="stream"
             )
 
         # Simulate streaming response
         metadata: ResponseMetadata = {
             "model": model or "test-model",
-            "provider": "example",
+            "provider": "test",
             "usage": {"total_tokens": 1},
             "finish_reason": "stop",
         }
         yield AIResponse(content="test", metadata=metadata)
 
 
-def create_provider_config(
+def create_test_config(
     name: str = "test",
     version: str = "1.0.0",
     model: str | None = None,
@@ -77,7 +77,7 @@ def create_provider_config(
     api_base: str | None = None,
     **kwargs: Any,
 ) -> ProviderConfig:
-    """Create provider configuration.
+    """Create test provider configuration.
 
     Args:
         name: Provider name.
