@@ -7,7 +7,6 @@ import numpy as np
 from numpy.typing import NDArray
 from sentence_transformers import SentenceTransformer
 
-from ...ai_types import Message, MessageRole
 from ...config.rag import RAGConfig
 from ...providers.base import BaseProvider
 from ...responses import AIResponse, ResponseMetadata
@@ -126,12 +125,7 @@ class SimpleRAGCapability(RAGCapability[T]):
         """
         self._ensure_initialized()
 
-        # Prepare messages with context from documents
-        messages = [
-            Message(role=MessageRole.SYSTEM, content="You are a helpful AI assistant."),
-            Message(role=MessageRole.USER, content=query),
-        ]
-
+        # Generate response
         if stream:
             async def stream_response() -> AsyncGenerator[AIResponse, None]:
                 yield AIResponse(

@@ -7,7 +7,6 @@ from typing import Any, Generic, TypedDict, TypeVar
 from ...config.rag import RAGConfig
 from ...providers.base import BaseProvider
 from ...responses import AIResponse
-from ...types import Message
 from ..base import BaseCapability
 
 T = TypeVar("T", bound=BaseProvider[Any])

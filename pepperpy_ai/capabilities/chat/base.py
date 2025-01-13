@@ -1,9 +1,9 @@
 """Base chat capability module."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, cast
+from collections.abc import AsyncGenerator
+from typing import cast
 
-from ...config.base import BaseConfig
 from ...config.capability import CapabilityConfig
 from ...messages import Message
 from ...providers.base import BaseProvider

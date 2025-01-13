@@ -1,7 +1,7 @@
 """Simple chat capability implementation."""
 
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import Any
 
 from ...ai_types import Message
 from ...exceptions import CapabilityError

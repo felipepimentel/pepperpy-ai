@@ -1,20 +1,19 @@
 """LLM factory module."""
 
-from typing import Union
 
 from ..providers.anthropic import AnthropicConfig, AnthropicProvider
 from ..providers.base import BaseProvider
 from ..providers.config import ProviderConfig
 from ..providers.openai import OpenAIConfig, OpenAIProvider
 
-PROVIDER_MAP: dict[str, Union[type[AnthropicProvider], type[OpenAIProvider]]] = {
+PROVIDER_MAP: dict[str, type[AnthropicProvider] | type[OpenAIProvider]] = {
     "anthropic": AnthropicProvider,
     "openai": OpenAIProvider,
 }
 
 def create_provider(
     provider_name: str,
-    config: Union[AnthropicConfig, OpenAIConfig],
+    config: AnthropicConfig | OpenAIConfig,
     api_key: str,
 ) -> BaseProvider[ProviderConfig]:
     """Create a provider instance.

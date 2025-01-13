@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from typing import Generic, TypeVar
 
 from ..ai_types import Message
-from ..responses import AIResponse, ResponseMetadata
+from ..responses import AIResponse
 from .exceptions import ProviderError
 
 TConfig = TypeVar("TConfig")
@@ -71,5 +71,9 @@ class BaseProvider(Generic[TConfig], ABC):
             )
         yield AIResponse(
             content="Not implemented",
-            metadata={"provider": "base", "model": "base", "usage": {"total_tokens": 0}},
+            metadata={
+                "provider": "base",
+                "model": "base",
+                "usage": {"total_tokens": 0}
+            },
         )

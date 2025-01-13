@@ -98,7 +98,10 @@ class StackSpotProvider(BaseProvider[StackSpotConfig]):
 
         try:
             async with self.client.chat.completions.stream(
-                messages=[{"role": msg.role, "content": msg.content} for msg in messages],
+                messages=[
+                    {"role": msg.role, "content": msg.content}
+                    for msg in messages
+                ],
                 model=model or self.config["model"],
                 temperature=temperature or self.config.get("temperature", 0.7),
                 max_tokens=max_tokens or self.config.get("max_tokens", 1000),
@@ -111,7 +114,7 @@ class StackSpotProvider(BaseProvider[StackSpotConfig]):
                             metadata=cast(ResponseMetadata, {
                                 "model": model or self.config["model"],
                                 "provider": "stackspot",
-                                "usage": {"total_tokens": 0},  # Streaming doesn't provide token count
+                                "usage": {"total_tokens": 0},
                                 "finish_reason": chunk.choices[0].finish_reason or None,
                             }),
                         )

@@ -1,13 +1,11 @@
 """Team factory module."""
 
-from typing import Type
 
 from ..config.team import TeamConfig
-from .base import BaseTeam
 from .providers.autogen import AutogenTeamProvider
+from .providers.base import BaseTeamProvider
 from .providers.crew import CrewTeamProvider
 from .providers.langchain import LangchainTeamProvider
-from .providers.base import BaseTeamProvider
 from .types import TeamClient
 
 
@@ -21,7 +19,7 @@ class TeamFactory:
             client: Team client instance.
         """
         self._client = client
-        self._teams: dict[str, Type[BaseTeamProvider]] = {
+        self._teams: dict[str, type[BaseTeamProvider]] = {
             "autogen": AutogenTeamProvider,
             "crew": CrewTeamProvider,
             "langchain": LangchainTeamProvider,

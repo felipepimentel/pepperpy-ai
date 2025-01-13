@@ -5,7 +5,7 @@ from typing import Any, TypedDict, TypeVar, cast
 
 from ....ai_types import Message, MessageRole
 from ....providers.base import BaseProvider
-from ....responses import AIResponse, ResponseMetadata
+from ....responses import AIResponse
 from ..base import Document, RAGCapability, RAGConfig, RAGGenerateKwargs
 
 T = TypeVar("T", bound=BaseProvider[Any])

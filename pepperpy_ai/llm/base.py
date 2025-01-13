@@ -1,7 +1,8 @@
 """Base LLM module."""
 
 from abc import ABC, abstractmethod
-from typing import AsyncGenerator, cast
+from collections.abc import AsyncGenerator
+from typing import cast
 
 from ..messages import Message
 from ..responses import AIResponse, ResponseMetadata
