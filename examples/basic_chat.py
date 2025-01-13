@@ -1,14 +1,33 @@
 """Basic chat example using PepperPy AI."""
 
 import asyncio
+import os
 import sys
+from pathlib import Path
 from typing import NoReturn
+
+from dotenv import load_dotenv
 
 from pepperpy_ai.ai_types import Message, MessageRole
 from pepperpy_ai.exceptions import DependencyError
 from pepperpy_ai.providers.config import ProviderSettings
 from pepperpy_ai.providers.exceptions import ProviderError
 from pepperpy_ai.providers.factory import create_provider
+
+
+def load_environment() -> None:
+    """Load environment variables from .env file.
+    
+    Looks for .env file in the following locations:
+    1. Current directory
+    2. Parent directory (project root)
+    """
+    # Try current directory
+    if Path(".env").exists():
+        load_dotenv()
+    # Try parent directory (project root)
+    elif Path("../.env").exists():
+        load_dotenv("../.env")
 
 
 def handle_error(error: Exception) -> NoReturn:
@@ -38,6 +57,9 @@ def handle_error(error: Exception) -> NoReturn:
 
 async def main() -> None:
     """Run basic chat example."""
+    # Load environment variables
+    load_environment()
+
     provider = None
     try:
         # Create provider from environment variables

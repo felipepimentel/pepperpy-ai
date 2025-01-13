@@ -49,6 +49,19 @@ export PEPPERPY_MAX_TOKENS="1000"
 export PEPPERPY_TIMEOUT="30.0"
 ```
 
+You can also use a `.env` file in the project root or example directory:
+```env
+# Required
+PEPPERPY_API_KEY=your-api-key
+
+# Optional (defaults shown)
+PEPPERPY_PROVIDER=openrouter
+PEPPERPY_MODEL=anthropic/claude-2
+PEPPERPY_TEMPERATURE=0.7
+PEPPERPY_MAX_TOKENS=1000
+PEPPERPY_TIMEOUT=30.0
+```
+
 Provider-specific defaults:
 - OpenRouter: `anthropic/claude-2`
 - OpenAI: `gpt-3.5-turbo`
@@ -81,7 +94,7 @@ If you see an error, follow the instructions provided in the error message.
 ## Best Practices
 
 - Always handle dependency errors using try/except blocks
-- Use environment variables for configuration
+- Use environment variables or `.env` files for configuration
 - Clean up resources using finally blocks
 - Use type hints for better code safety
 - Follow async/await patterns for I/O operations
