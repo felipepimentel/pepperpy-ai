@@ -1,6 +1,7 @@
 """OpenRouter provider implementation."""
 
 import json
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any, NotRequired, TypedDict, cast
 
@@ -10,6 +11,9 @@ from ..ai_types import Message
 from ..responses import AIResponse, ResponseMetadata
 from .base import BaseProvider
 from .exceptions import ProviderError
+
+
+logger = logging.getLogger(__name__)
 
 
 class OpenRouterConfig(TypedDict):
@@ -68,6 +72,7 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
                     "Authorization": f"Bearer {self.api_key}",
                     "HTTP-Referer": "https://github.com/felipepimentel/pepperpy-ai",
                     "X-Title": "PepperPy AI",
+                    "Content-Type": "application/json",
                 },
                 timeout=timeout,
             )
@@ -121,12 +126,29 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
                 "stream": True,
             }
 
+            logger.debug(
+                "Sending request to OpenRouter",
+                extra={
+                    "provider": "openrouter",
+                    "model": payload["model"],
+                    "messages": len(messages),
+                },
+            )
+
             async with self.session.post(
                 f"{self.BASE_URL}/chat/completions",
                 json=payload,
             ) as response:
                 if not response.ok:
                     error_text = await response.text()
+                    logger.error(
+                        "OpenRouter API error",
+                        extra={
+                            "provider": "openrouter",
+                            "status": response.status,
+                            "error": error_text,
+                        },
+                    )
                     raise ProviderError(
                         f"OpenRouter API error: {error_text}",
                         provider="openrouter",
@@ -135,11 +157,25 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
 
                 async for line in response.content:
                     line = line.strip()
-                    if not line or line == b"data: [DONE]":
+                    if not line:
                         continue
 
                     try:
-                        data = json.loads(line.decode("utf-8").removeprefix("data: "))
+                        text = line.decode("utf-8")
+                        if text == "data: [DONE]":
+                            continue
+
+                        if not text.startswith("data: "):
+                            logger.warning(
+                                "Unexpected response format",
+                                extra={
+                                    "provider": "openrouter",
+                                    "line": text,
+                                },
+                            )
+                            continue
+
+                        data = json.loads(text.removeprefix("data: "))
                         if not data["choices"][0]["delta"].get("content"):
                             continue
 
@@ -153,6 +189,14 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
                             }),
                         )
                     except json.JSONDecodeError as e:
+                        logger.error(
+                            "Failed to parse OpenRouter response",
+                            extra={
+                                "provider": "openrouter",
+                                "error": str(e),
+                                "line": text if "text" in locals() else line,
+                            },
+                        )
                         raise ProviderError(
                             f"Failed to parse OpenRouter response: {e}",
                             provider="openrouter",
@@ -162,6 +206,13 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
         except ProviderError:
             raise
         except Exception as e:
+            logger.error(
+                "Failed to stream responses",
+                extra={
+                    "provider": "openrouter",
+                    "error": str(e),
+                },
+            )
             raise ProviderError(
                 f"Failed to stream responses: {e}",
                 provider="openrouter",

@@ -1,6 +1,7 @@
 """Basic chat example using PepperPy AI."""
 
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
@@ -15,6 +16,14 @@ from pepperpy_ai.providers.exceptions import ProviderError
 from pepperpy_ai.providers.factory import create_provider
 
 
+# Configure logging
+logging.basicConfig(
+    level=logging.DEBUG if os.getenv("PEPPERPY_DEBUG") else logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
 def load_environment() -> None:
     """Load environment variables from .env file.
     
@@ -24,10 +33,14 @@ def load_environment() -> None:
     """
     # Try current directory
     if Path(".env").exists():
+        logger.debug("Loading .env from current directory")
         load_dotenv()
     # Try parent directory (project root)
     elif Path("../.env").exists():
+        logger.debug("Loading .env from parent directory")
         load_dotenv("../.env")
+    else:
+        logger.debug("No .env file found")
 
 
 def handle_error(error: Exception) -> NoReturn:

@@ -47,6 +47,9 @@ export PEPPERPY_MODEL="anthropic/claude-2"  # provider-specific model
 export PEPPERPY_TEMPERATURE="0.7"
 export PEPPERPY_MAX_TOKENS="1000"
 export PEPPERPY_TIMEOUT="30.0"
+
+# Debug mode (optional)
+export PEPPERPY_DEBUG=1  # Enable debug logging
 ```
 
 You can also use a `.env` file in the project root or example directory:
@@ -60,6 +63,9 @@ PEPPERPY_MODEL=anthropic/claude-2
 PEPPERPY_TEMPERATURE=0.7
 PEPPERPY_MAX_TOKENS=1000
 PEPPERPY_TIMEOUT=30.0
+
+# Debug mode (optional)
+PEPPERPY_DEBUG=1  # Enable debug logging
 ```
 
 Provider-specific defaults:
@@ -74,6 +80,9 @@ python examples/basic_chat.py
 
 # Using Poetry
 poetry run python examples/basic_chat.py
+
+# With debug logging
+PEPPERPY_DEBUG=1 poetry run python examples/basic_chat.py
 ```
 
 ### Error Handling
@@ -85,6 +94,7 @@ The examples demonstrate proper error handling, including helpful messages when:
 - Network errors occur
 
 If you see an error, follow the instructions provided in the error message.
+You can enable debug logging by setting `PEPPERPY_DEBUG=1` to get more detailed error information.
 
 ## Available Examples
 
@@ -100,6 +110,7 @@ If you see an error, follow the instructions provided in the error message.
 - Follow async/await patterns for I/O operations
 - Use Poetry for dependency management
 - Install only the dependencies you need using extras
+- Enable debug logging when troubleshooting issues
 
 ## Contributing
 
@@ -111,3 +122,4 @@ Feel free to contribute more examples by submitting a pull request. Make sure yo
 4. Are well documented
 5. Include type hints
 6. Use appropriate Poetry extras for dependencies
+7. Include debug logging support
