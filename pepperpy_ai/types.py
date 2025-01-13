@@ -1,38 +1,38 @@
 """Type definitions."""
 
-from typing import Any, Union
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
 
 # Type aliases for JSON values
-JsonValue = Union[str, int, float, bool, None, list[Any], dict[str, Any]]
+JsonValue = str | int | float | bool | None | list[Any] | dict[str, Any]
 JsonDict = dict[str, str | int | float | bool | None | list[Any] | dict[str, Any]]
 
-__all__ = ["JsonDict", "JsonValue"]
+
+class MessageRole(str, Enum):
+    """Message role enum."""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    FUNCTION = "function"
 
 
+@dataclass
 class Message:
     """Message type."""
 
-    def __init__(
-        self,
-        content: str,
-        role: str,
-        metadata: JsonDict | None = None,
-    ) -> None:
-        """Initialize message.
-
-        Args:
-            content: Message content.
-            role: Message role.
-            metadata: Additional metadata.
-        """
-        self.content = content
-        self.role = role
-        self.metadata = metadata
+    content: str
+    role: MessageRole
+    metadata: JsonDict | None = None
 
     def to_dict(self) -> JsonDict:
         """Convert message to dictionary."""
         return {
             "content": self.content,
-            "role": self.role,
+            "role": self.role.value,
             "metadata": self.metadata or {},
         }
+
+
+__all__ = ["JsonDict", "JsonValue", "Message", "MessageRole"]

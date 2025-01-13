@@ -8,4 +8,4 @@ class EmbeddingResult:
     """Embedding result."""
 
     embeddings: list[float]
-    metadata: dict[str, str | int | float | None] 
+    metadata: dict[str, str | int | float | None]

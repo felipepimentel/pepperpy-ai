@@ -2,60 +2,47 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from typing import cast
+from typing import TypedDict
 
-from ...config.capability import CapabilityConfig
-from ...messages import Message
-from ...providers.base import BaseProvider
-from ...responses import AIResponse, ResponseMetadata
-from ..base import BaseCapability
+from ...responses import AIResponse
+from ...types import Message
 
 
-class ChatConfig(CapabilityConfig):
-    """Chat configuration."""
+class ChatKwargs(TypedDict, total=False):
+    """Chat keyword arguments."""
 
-    pass
+    model: str
+    temperature: float
+    max_tokens: int
+    top_p: float
+    frequency_penalty: float
+    presence_penalty: float
+    timeout: float
 
 
-class ChatCapability(BaseCapability[BaseProvider], ABC):
-    """Base chat capability implementation."""
+class BaseChatCapability(ABC):
+    """Base chat capability."""
 
     @abstractmethod
     async def stream(
         self,
         messages: list[Message],
+        *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        top_p: float | None = None,
-        frequency_penalty: float | None = None,
-        presence_penalty: float | None = None,
-        timeout: float | None = None,
+        **kwargs: ChatKwargs,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream chat messages.
+        """Stream responses from the capability.
 
         Args:
-            messages: List of messages to stream
-            model: Model to use for generation
-            temperature: Temperature for generation
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
             max_tokens: Maximum number of tokens to generate
-            top_p: Top p for generation
-            frequency_penalty: Frequency penalty for generation
-            presence_penalty: Presence penalty for generation
-            timeout: Timeout for generation
+            **kwargs: Additional provider-specific parameters
 
-        Yields:
-            AIResponse: Generated response
+        Returns:
+            AsyncGenerator yielding AIResponse objects
         """
-        if not self.is_initialized:
-            raise RuntimeError("Capability not initialized")
-
-        yield AIResponse(
-            content="Hello, how can I help you?",
-            metadata=cast(ResponseMetadata, {
-                "model": model or self.config.model,
-                "provider": "chat",
-                "usage": {"total_tokens": 0},
-                "finish_reason": "stop",
-            }),
-        )
+        raise NotImplementedError

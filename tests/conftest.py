@@ -1,24 +1,20 @@
-"""Test fixtures module."""
-
-from collections.abc import AsyncGenerator
+"""Test configuration."""
 
 import pytest
 
-from pepperpy_ai.providers.mock import MockConfig, MockProvider
+from pepperpy_ai.providers.config import ProviderConfig
 
 
 @pytest.fixture
-async def mock_provider() -> MockProvider:
-    """Create a mock provider for testing."""
-    config = MockConfig(model="test-model")
-    return MockProvider(config=config, api_key="test-key")
-
-
-@pytest.fixture
-async def initialized_mock_provider(
-    mock_provider: MockProvider,
-) -> AsyncGenerator[MockProvider, None]:
-    """Create an initialized mock provider for testing."""
-    await mock_provider.initialize()
-    yield mock_provider
-    await mock_provider.cleanup()
+def provider_config() -> ProviderConfig:
+    """Create test provider configuration."""
+    return {
+        "model": "test-model",
+        "api_key": "test-key",
+        "temperature": 0.7,
+        "max_tokens": 1000,
+        "top_p": 1.0,
+        "frequency_penalty": 0.0,
+        "presence_penalty": 0.0,
+        "timeout": 30.0,
+    }

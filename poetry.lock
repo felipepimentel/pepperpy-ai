@@ -198,6 +198,18 @@ test = ["anyio[trio]", "coverage[toml] (>=7)", "exceptiongroup (>=1.2.0)", "hypo
 trio = ["trio (>=0.26.1)"]
 
 [[package]]
+name = "async-generator"
+version = "1.10"
+description = "Async generators and context managers for Python 3.5+"
+optional = false
+python-versions = ">=3.5"
+groups = ["main"]
+files = [
+    {file = "async_generator-1.10-py3-none-any.whl", hash = "sha256:01c7bf666359b4967d2cda0000cc2e4af16a0ae098cbffcb8472fb9e8ad6585b"},
+    {file = "async_generator-1.10.tar.gz", hash = "sha256:6ebb3d106c12920aaae42ccb6f787ef5eefdcdd166ea3d628fa8476abe712144"},
+]
+
+[[package]]
 name = "attrs"
 version = "24.3.0"
 description = "Classes Without Boilerplate"
@@ -1708,15 +1720,15 @@ files = [
 
 [[package]]
 name = "openai"
-version = "1.59.6"
+version = "1.59.7"
 description = "The official Python library for the openai API"
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
 markers = "extra == \"openai\" or extra == \"all-providers\" or extra == \"complete\""
 files = [
-    {file = "openai-1.59.6-py3-none-any.whl", hash = "sha256:b28ed44eee3d5ebe1a3ea045ee1b4b50fea36ecd50741aaa5ce5a5559c900cb6"},
-    {file = "openai-1.59.6.tar.gz", hash = "sha256:c7670727c2f1e4473f62fea6fa51475c8bc098c9ffb47bfb9eef5be23c747934"},
+    {file = "openai-1.59.7-py3-none-any.whl", hash = "sha256:cfa806556226fa96df7380ab2e29814181d56fea44738c2b0e581b462c268692"},
+    {file = "openai-1.59.7.tar.gz", hash = "sha256:043603def78c00befb857df9f0a16ee76a3af5984ba40cb7ee5e2f40db4646bf"},
 ]
 
 [package.dependencies]
@@ -1788,18 +1800,19 @@ files = [
 
 [[package]]
 name = "pepperpy-core"
-version = "0.1.6"
+version = "0.2.0"
 description = "Core package for PepperPy Framework"
 optional = false
 python-versions = "<4.0,>=3.12"
 groups = ["main"]
 files = [
-    {file = "pepperpy_core-0.1.6-py3-none-any.whl", hash = "sha256:4f51dea0a78cb71d7bfb5c60bef2e9e8b9f9256e84499b41fa38cd72c14983aa"},
-    {file = "pepperpy_core-0.1.6.tar.gz", hash = "sha256:e8071ef13190104272ed90e637b8305af9b17a3942a74266c4bf1a6bb3f3c87b"},
+    {file = "pepperpy_core-0.2.0-py3-none-any.whl", hash = "sha256:a594f4dc1f05973c23b07f80193703c291bdf3c2c71a4576df6da6086e0848ac"},
+    {file = "pepperpy_core-0.2.0.tar.gz", hash = "sha256:bb89dd9eb2a7c97bde4b691552c1d1d4ad7cbbbfdf8fae8175a9d94203fc03e2"},
 ]
 
 [package.dependencies]
 aiofiles = ">=24.1.0,<25.0.0"
+aiohttp = ">=3.11.11,<4.0.0"
 anyio = ">=4.2.0,<5.0.0"
 pydantic = ">=2.6.3,<3.0.0"
 python-dotenv = ">=1.0.1,<2.0.0"
@@ -3282,4 +3295,4 @@ rag = ["numpy", "sentence-transformers"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "9f484e26829a0bc8cfea0979854ce40c5849b17d22a53888f867ce5dff0922cd"
+content-hash = "c26315d2c4178ea5f550907488da8a307e25a85e8fad5a339c4954d8ae298395"

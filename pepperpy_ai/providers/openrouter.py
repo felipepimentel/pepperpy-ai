@@ -3,44 +3,37 @@
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import NotRequired, TypedDict, cast
 
 import aiohttp
 
-from ..ai_types import Message
-from ..responses import AIResponse, ResponseMetadata
+from ..responses import AIResponse
+from ..types import Message
 from .base import BaseProvider
+from .config import ProviderConfig
 from .exceptions import ProviderError
 
 logger = logging.getLogger(__name__)
 
 
-class OpenRouterConfig(TypedDict):
-    """OpenRouter provider configuration."""
-
-    model: str  # Required field
-    temperature: NotRequired[float]
-    max_tokens: NotRequired[int]
-    top_p: NotRequired[float]
-    frequency_penalty: NotRequired[float]
-    presence_penalty: NotRequired[float]
-    timeout: NotRequired[float]
-
-
-class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
+class OpenRouterProvider(BaseProvider[ProviderConfig]):
     """OpenRouter provider implementation."""
 
     BASE_URL = "https://openrouter.ai/api/v1"
 
-    def __init__(self, config: OpenRouterConfig, api_key: str) -> None:
+    def __init__(self, config: ProviderConfig) -> None:
         """Initialize provider.
 
         Args:
             config: Provider configuration
-            api_key: OpenRouter API key
         """
-        super().__init__(config, api_key)
+        super().__init__(config)
         self._session: aiohttp.ClientSession | None = None
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Return whether the provider is initialized."""
+        return self._initialized
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -53,22 +46,16 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
             ProviderError: If provider is not initialized.
         """
         if not self.is_initialized or not self._session:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="openrouter",
-                operation="get_session",
-            )
+            raise ProviderError("Provider is not initialized")
         return self._session
 
     async def initialize(self) -> None:
-        """Initialize provider."""
+        """Initialize provider resources."""
         if not self._initialized:
-            timeout = aiohttp.ClientTimeout(
-                total=self.config.get("timeout", 30.0)
-            )
+            timeout = aiohttp.ClientTimeout(total=self.config.get("timeout", 30.0))
             self._session = aiohttp.ClientSession(
                 headers={
-                    "Authorization": f"Bearer {self.api_key}",
+                    "Authorization": f"Bearer {self.config.get('api_key', '')}",
                     "HTTP-Referer": "https://github.com/felipepimentel/pepperpy-ai",
                     "X-Title": "PepperPy AI",
                     "Content-Type": "application/json",
@@ -107,143 +94,44 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
             ProviderError: If provider is not initialized or streaming fails
         """
         if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="openrouter",
-                operation="stream",
-            )
+            raise ProviderError("Provider is not initialized")
 
         try:
-            payload = {
-                "messages": [
-                    {"role": msg.role.value.lower(), "content": msg.content}
-                    for msg in messages
-                ],
-                "model": model or self.config["model"],
-                "temperature": temperature or self.config.get("temperature", 0.7),
-                "max_tokens": max_tokens or self.config.get("max_tokens", 1000),
-                "stream": True,
-            }
-
-            logger.debug(
-                "Sending request to OpenRouter",
-                extra={
-                    "provider": "openrouter",
-                    "model": payload["model"],
-                    "messages": len(messages),
-                    "payload": payload,
-                },
-            )
-
             async with self.session.post(
                 f"{self.BASE_URL}/chat/completions",
-                json=payload,
+                json={
+                    "messages": [
+                        {"role": msg.role.value.lower(), "content": msg.content}
+                        for msg in messages
+                    ],
+                    "model": model or self.config.get("model", ""),
+                    "temperature": temperature or self.config.get("temperature", 0.7),
+                    "max_tokens": max_tokens or self.config.get("max_tokens", 1000),
+                    "stream": True,
+                },
             ) as response:
-                if not response.ok:
-                    error_text = await response.text()
-                    logger.error(
-                        "OpenRouter API error",
-                        extra={
+                response.raise_for_status()
+                async for line in response.content:
+                    line = line.strip()
+                    if not line or line == b"data: [DONE]":
+                        continue
+                    if not line.startswith(b"data: "):
+                        continue
+                    data = json.loads(line[6:])
+                    if not data["choices"][0]["delta"].get("content"):
+                        continue
+                    yield AIResponse(
+                        content=data["choices"][0]["delta"]["content"],
+                        metadata={
+                            "model": model or self.config.get("model", ""),
                             "provider": "openrouter",
-                            "status": response.status,
-                            "error": error_text,
+                            "usage": {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0,
+                            },
+                            "finish_reason": data["choices"][0].get("finish_reason"),
                         },
                     )
-                    raise ProviderError(
-                        f"OpenRouter API error: {error_text}",
-                        provider="openrouter",
-                        operation="stream",
-                    )
-
-                logger.debug(
-                    "Response headers",
-                    extra={
-                        "provider": "openrouter",
-                        "headers": dict(response.headers),
-                    },
-                )
-
-                async for line in response.content:
-                    try:
-                        text = line.decode("utf-8").strip()
-                        if not text:
-                            continue
-
-                        logger.debug(
-                            "Received line",
-                            extra={
-                                "provider": "openrouter",
-                                "line": text,
-                            },
-                        )
-
-                        if not text.startswith("data: "):
-                            continue
-
-                        data_str = text.removeprefix("data: ")
-                        if data_str == "[DONE]":
-                            continue
-
-                        try:
-                            data = json.loads(data_str)
-                            if not data["choices"][0]["delta"].get("content"):
-                                continue
-
-                            content = data["choices"][0]["delta"]["content"]
-                            logger.debug(
-                                "Yielding content",
-                                extra={
-                                    "provider": "openrouter",
-                                    "content": content,
-                                },
-                            )
-
-                            yield AIResponse(
-                                content=content,
-                                metadata=cast(ResponseMetadata, {
-                                    "model": model or self.config["model"],
-                                    "provider": "openrouter",
-                                    "usage": data.get("usage", {"total_tokens": 0}),
-                                    "finish_reason": (
-                                        data["choices"][0].get("finish_reason")
-                                    ),
-                                }),
-                            )
-                        except json.JSONDecodeError as e:
-                            logger.error(
-                                "Failed to parse OpenRouter response",
-                                extra={
-                                    "provider": "openrouter",
-                                    "error": str(e),
-                                    "data": data_str,
-                                },
-                            )
-                            continue
-
-                    except Exception as e:
-                        logger.error(
-                            "Error processing response line",
-                            extra={
-                                "provider": "openrouter",
-                                "error": str(e),
-                                "line": text if "text" in locals() else line,
-                            },
-                        )
-                        continue
-
-        except ProviderError:
-            raise
         except Exception as e:
-            logger.error(
-                "Failed to stream responses",
-                extra={
-                    "provider": "openrouter",
-                    "error": str(e),
-                },
-            )
-            raise ProviderError(
-                f"Failed to stream responses: {e}",
-                provider="openrouter",
-                operation="stream",
-                cause=e,
-            ) from e
+            raise ProviderError(f"Failed to stream responses: {e}") from e

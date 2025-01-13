@@ -1,6 +1,6 @@
 """Agent configuration module."""
 
-from ..roles import AgentRole
+from ..core.roles import Role
 from .base import BaseConfig
 
 
@@ -15,7 +15,7 @@ class AgentConfig(BaseConfig):
         self,
         name: str,
         version: str,
-        role: str | AgentRole,
+        role: str | Role,
         enabled: bool = True,
     ) -> None:
         """Initialize agent configuration.
@@ -32,24 +32,24 @@ class AgentConfig(BaseConfig):
         super().__init__(name=name, version=version, enabled=enabled)
         self.role = self._validate_role(role)
 
-    def _validate_role(self, role: str | AgentRole) -> AgentRole:
+    def _validate_role(self, role: str | Role) -> Role:
         """Validate and convert role.
 
         Args:
             role: Role to validate.
 
         Returns:
-            AgentRole: Validated role.
+            Role: Validated role.
 
         Raises:
             ValueError: If role is invalid.
         """
-        if isinstance(role, AgentRole):
+        if isinstance(role, Role):
             return role
 
-        valid_roles = {r.value for r in AgentRole}
+        valid_roles = {r.value for r in Role}
         if role not in valid_roles:
             raise ValueError(
                 f"Invalid role: {role}. Must be one of {sorted(valid_roles)}"
             )
-        return AgentRole(role)
+        return Role(role)

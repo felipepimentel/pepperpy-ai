@@ -1,20 +1,48 @@
-"""PepperPy AI package."""
+"""PepperPy AI - A Python library for building AI-powered applications."""
 
-from pepperpy_core.types import BaseConfig
+from .core import (
+    AIClient,
+    AIResponse,
+    Cache,
+    CacheEntry,
+    Function,
+    FunctionCall,
+    ResponseMetadata,
+    Role,
+    Template,
+    TemplateContext,
+)
+from .exceptions import (
+    CapabilityError,
+    ConfigurationError,
+    DependencyError,
+    PepperPyAIError,
+    ProviderError,
+    ValidationError,
+)
+from .types import JsonDict, JsonValue, Message, MessageRole
 
-from .ai_types import MessageRole
-from .capabilities.base import BaseCapability
-from .capabilities.config import CapabilityConfig
-from .capabilities.embeddings.config import EmbeddingsConfig
-from .responses import AIResponse
-from .types import Message
+__version__ = "0.1.0"
 
 __all__ = [
+    "AIClient",
     "AIResponse",
-    "BaseCapability",
-    "BaseConfig",
-    "CapabilityConfig",
-    "EmbeddingsConfig",
+    "Cache",
+    "CacheEntry",
+    "CapabilityError",
+    "ConfigurationError",
+    "DependencyError",
+    "Function",
+    "FunctionCall",
+    "JsonDict",
+    "JsonValue",
     "Message",
     "MessageRole",
+    "PepperPyAIError",
+    "ProviderError",
+    "ResponseMetadata",
+    "Role",
+    "Template",
+    "TemplateContext",
+    "ValidationError",
 ]

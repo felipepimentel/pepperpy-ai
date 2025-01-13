@@ -1,34 +1,28 @@
-"""Base provider module."""
+"""Base provider implementation."""
 
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Generic, TypeVar
 
-from ..ai_types import Message
 from ..responses import AIResponse
-from .exceptions import ProviderError
+from ..types import Message
+from .config import ProviderConfig
 
-TConfig = TypeVar("TConfig")
+T = TypeVar("T", bound=ProviderConfig)
 
 
-class BaseProvider(Generic[TConfig], ABC):
-    """Base class for all AI providers."""
+class BaseProvider(ABC, Generic[T]):
+    """Base provider implementation."""
 
-    def __init__(self, config: TConfig, api_key: str) -> None:
-        """Initialize provider.
+    def __init__(self, config: T, api_key: str) -> None:
+        """Initialize base provider.
 
         Args:
             config: Provider configuration
-            api_key: API key for provider
+            api_key: API key for the provider
         """
         self.config = config
         self.api_key = api_key
-        self._initialized = False
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if provider is initialized."""
-        return self._initialized
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -37,7 +31,7 @@ class BaseProvider(Generic[TConfig], ABC):
 
     @abstractmethod
     async def cleanup(self) -> None:
-        """Cleanup provider resources."""
+        """Cleanup provider."""
         raise NotImplementedError
 
     @abstractmethod
@@ -52,28 +46,12 @@ class BaseProvider(Generic[TConfig], ABC):
         """Stream responses from the provider.
 
         Args:
-            messages: List of messages to send to the provider
+            messages: List of messages to send
             model: Model to use for completion
             temperature: Temperature to use for completion
             max_tokens: Maximum number of tokens to generate
 
         Returns:
             AsyncGenerator yielding AIResponse objects
-
-        Raises:
-            ProviderError: If provider is not initialized
         """
-        if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="base",
-                operation="stream",
-            )
-        yield AIResponse(
-            content="Not implemented",
-            metadata={
-                "provider": "base",
-                "model": "base",
-                "usage": {"total_tokens": 0}
-            },
-        )
+        raise NotImplementedError

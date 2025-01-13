@@ -1,12 +1,27 @@
-target-version = "py312"
+# Ruff configuration file
+
+# Line length
 line-length = 88
 
+# Target Python version
+target-version = "py312"
+
+# Exclude files
+exclude = [".git", ".venv", "__pycache__", "build", "dist"]
+
 [lint]
+# Enable flake8-annotations
+extend-select = ["ANN"]
+
+# Ignore ANN401 since we use TypedDict for kwargs
+ignore = ["ANN401"]
+
+# Select rules
 select = ["E", "F", "B", "W", "I", "N", "D", "UP", "ANN", "RUF"]
-ignore = []
+
+# Fix settings
 fixable = ["ALL"]
 unfixable = []
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [lint.per-file-ignores]
 "tests/**/*" = ["S101", "TID252"]

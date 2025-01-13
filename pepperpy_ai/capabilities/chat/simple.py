@@ -1,95 +1,65 @@
 """Simple chat capability implementation."""
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, Generic, TypeVar
 
-from ...ai_types import Message
-from ...exceptions import CapabilityError
 from ...providers.base import BaseProvider
 from ...responses import AIResponse
-from .base import ChatCapability, ChatConfig
+from ...types import Message
+from ..base import BaseCapability
+from .config import ChatConfig
+
+TProvider = TypeVar("TProvider", bound=BaseProvider[Any])
 
 
-class SimpleChatCapability(ChatCapability):
-    """Simple chat capability implementation.
+class SimpleChatCapability(BaseCapability[ChatConfig], Generic[TProvider]):
+    """Simple chat capability implementation."""
 
-    This implementation provides basic chat functionality using
-    a configurable provider.
-    """
-
-    def __init__(
-        self,
-        config: ChatConfig,
-        provider: type[BaseProvider[Any]],
-    ) -> None:
-        """Initialize chat capability.
+    def __init__(self, config: ChatConfig, provider: type[TProvider]) -> None:
+        """Initialize simple chat capability.
 
         Args:
-            config: Capability configuration.
-            provider: Provider class to use.
+            config: Chat configuration
+            provider: Provider class to use
         """
-        super().__init__(config, provider)
-        self._provider_instance: BaseProvider[Any] | None = None
+        super().__init__(config)
+        self._provider = provider(config)
 
     async def initialize(self) -> None:
-        """Initialize capability resources."""
-        if not self.is_initialized:
-            if not self._provider_instance:
-                self._provider_instance = self.provider(
-                    self.config,
-                    api_key=self.config.api_key or "",
-                )
-                await self._provider_instance.initialize()
-            self._initialized = True
+        """Initialize capability."""
+        await self._provider.initialize()
 
     async def cleanup(self) -> None:
-        """Clean up capability resources."""
-        if self.is_initialized:
-            if self._provider_instance:
-                await self._provider_instance.cleanup()
-                self._provider_instance = None
-            self._initialized = False
+        """Cleanup capability."""
+        await self._provider.cleanup()
 
     async def stream(
         self,
         messages: list[Message],
+        *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        top_p: float | None = None,
-        frequency_penalty: float | None = None,
-        presence_penalty: float | None = None,
-        timeout: float | None = None,
+        **kwargs: Any,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from the provider.
+        """Stream responses from the capability.
 
         Args:
-            messages: List of messages to generate response for.
-            model: Model to use for generation.
-            temperature: Temperature for generation.
-            max_tokens: Maximum number of tokens to generate.
-            top_p: Top p for generation.
-            frequency_penalty: Frequency penalty for generation.
-            presence_penalty: Presence penalty for generation.
-            timeout: Timeout for generation.
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional capability-specific parameters
 
         Returns:
-            AsyncGenerator[AIResponse, None]: Generated responses.
-
-        Raises:
-            CapabilityError: If provider is not initialized or streaming fails.
+            AsyncGenerator yielding AIResponse objects
         """
-        self._ensure_initialized()
-        if not self._provider_instance:
-            raise CapabilityError("Provider not initialized", capability="chat", operation="stream")
-
-        try:
-            async for response in self._provider_instance.stream(
-                messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-            ):
-                yield response
-        except Exception as e:
-            raise CapabilityError(f"Error streaming responses: {e!s}", capability="chat", operation="stream") from e
+        stream = await self._provider.stream(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        )
+        async for response in stream:
+            yield response

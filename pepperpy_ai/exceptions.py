@@ -1,4 +1,4 @@
-"""Exception classes for PepperPy AI."""
+"""Exceptions module."""
 
 from typing import Any
 
@@ -11,18 +11,14 @@ class PepperPyAIError(Exception):
 
         Args:
             message: Error message
-            **kwargs: Additional context
+            **kwargs: Additional error context
         """
         super().__init__(message)
-        self.context = kwargs
+        self.context = kwargs if kwargs else {}
 
 
 class ConfigurationError(PepperPyAIError):
     """Configuration error."""
-
-
-class ValidationError(PepperPyAIError):
-    """Validation error."""
 
 
 class ProviderError(PepperPyAIError):
@@ -31,24 +27,31 @@ class ProviderError(PepperPyAIError):
     def __init__(
         self,
         message: str,
-        provider: str,
-        operation: str,
+        provider: str | None = None,
+        operation: str | None = None,
         cause: Exception | None = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize the exception.
+        """Initialize provider error.
 
         Args:
             message: Error message
             provider: Provider name
             operation: Operation that failed
             cause: Original exception
+            **kwargs: Additional error context
         """
         super().__init__(
             message,
             provider=provider,
             operation=operation,
-            cause=str(cause) if cause else None,
+            cause=cause,
+            **kwargs,
         )
+
+
+class ValidationError(PepperPyAIError):
+    """Validation error."""
 
 
 class CapabilityError(PepperPyAIError):
@@ -57,23 +60,26 @@ class CapabilityError(PepperPyAIError):
     def __init__(
         self,
         message: str,
-        capability: str,
-        operation: str,
+        capability: str | None = None,
+        operation: str | None = None,
         cause: Exception | None = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize the exception.
+        """Initialize capability error.
 
         Args:
             message: Error message
             capability: Capability name
             operation: Operation that failed
             cause: Original exception
+            **kwargs: Additional error context
         """
         super().__init__(
             message,
             capability=capability,
             operation=operation,
-            cause=str(cause) if cause else None,
+            cause=cause,
+            **kwargs,
         )
 
 
@@ -90,24 +96,14 @@ class DependencyError(PepperPyAIError):
         """Initialize the exception.
 
         Args:
-            feature: Feature that requires the dependency
-            package: Package that is missing
-            extra: Optional extra to install
-            **kwargs: Additional context
+            feature: Feature requiring the dependency
+            package: Required package
+            extra: Optional extra containing the package
+            **kwargs: Additional error context
         """
-        pip_install = (
-            f"pip install {package}"
-            if not extra
-            else f"pip install pepperpy-ai[{extra}]"
-        )
-
-        message = (
-            f"\n\nThe feature '{feature}' requires the '{package}' package "
-            "which is not installed.\n"
-            f"To use this feature, install the required dependency using pip:\n\n"
-            f"    {pip_install}\n\n"
-        )
-
+        message = f"{feature} requires {package}"
+        if extra:
+            message += f" (install with pip install pepperpy-ai[{extra}])"
         super().__init__(
             message,
             feature=feature,

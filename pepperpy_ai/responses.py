@@ -1,49 +1,26 @@
 """Response types module."""
 
-from typing import TypedDict
+from typing import Any, NotRequired, TypedDict
 
 
 class ResponseMetadata(TypedDict, total=False):
-    """Response metadata dictionary.
+    """Response metadata."""
 
-    Attributes:
-        model: Model used for generation
-        provider: Provider name
-        usage: Usage statistics
-        finish_reason: Reason for completion
-    """
-
-    model: str
+    model: NotRequired[str]
     provider: str
-    usage: dict[str, int]
-    finish_reason: str
+    usage: NotRequired[dict[str, Any]]
+    finish_reason: NotRequired[str | None]
 
 
 class AIResponse:
-    """Response from an AI provider.
+    """AI response."""
 
-    Attributes:
-        content: The response content
-        metadata: Additional metadata
-    """
-
-    def __init__(self, content: str, metadata: ResponseMetadata | None = None) -> None:
+    def __init__(self, content: str, metadata: ResponseMetadata) -> None:
         """Initialize response.
 
         Args:
             content: Response content
-            metadata: Additional metadata
+            metadata: Response metadata
         """
         self.content = content
-        self.metadata = metadata or {}
-
-    def to_dict(self) -> dict[str, str | ResponseMetadata]:
-        """Convert response to dictionary.
-
-        Returns:
-            Dictionary representation of the response
-        """
-        return {
-            "content": self.content,
-            "metadata": self.metadata,
-        }
+        self.metadata = metadata

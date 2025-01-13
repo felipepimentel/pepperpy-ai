@@ -1,18 +1,19 @@
-"""Test provider functionality."""
+"""Test provider implementations."""
 
 from collections.abc import AsyncGenerator
 from typing import NotRequired, TypedDict, cast
 
-from pepperpy_ai.ai_types import Message
-from pepperpy_ai.exceptions import ProviderError
 from pepperpy_ai.providers.base import BaseProvider
+from pepperpy_ai.providers.types import ProviderKwargs
 from pepperpy_ai.responses import AIResponse, ResponseMetadata
+from pepperpy_ai.types import Message, MessageRole
 
 
-class TestConfig(TypedDict):
+class TestConfig(TypedDict, total=False):
     """Test provider configuration."""
 
-    model: str  # Required field
+    api_key: NotRequired[str]
+    model: NotRequired[str]
     temperature: NotRequired[float]
     max_tokens: NotRequired[int]
     top_p: NotRequired[float]
@@ -24,23 +25,21 @@ class TestConfig(TypedDict):
 class TestProvider(BaseProvider[TestConfig]):
     """Test provider implementation."""
 
-    def __init__(self, config: TestConfig, api_key: str) -> None:
+    def __init__(self, config: TestConfig) -> None:
         """Initialize provider.
 
         Args:
             config: Provider configuration
-            api_key: Test API key
         """
-        super().__init__(config, api_key)
+        super().__init__(config, api_key=config.get("api_key", "test_key"))
 
     async def initialize(self) -> None:
-        """Initialize test provider."""
-        if not self._initialized:
-            self._initialized = True
+        """Initialize provider."""
+        pass
 
     async def cleanup(self) -> None:
-        """Cleanup test provider."""
-        self._initialized = False
+        """Cleanup provider."""
+        pass
 
     async def stream(
         self,
@@ -49,29 +48,47 @@ class TestProvider(BaseProvider[TestConfig]):
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        **kwargs: ProviderKwargs,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from test provider.
+        """Stream responses from provider.
 
         Args:
-            messages: List of messages to send to provider
-            model: Optional model to use
-            temperature: Optional temperature parameter
-            max_tokens: Optional maximum tokens parameter
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional provider-specific parameters
 
         Returns:
             AsyncGenerator yielding AIResponse objects
-
-        Raises:
-            ProviderError: If provider is not initialized
         """
-        if not self.is_initialized:
-            raise ProviderError("Provider not initialized", provider="test", operation="stream")
         yield AIResponse(
-            content="test",
-            metadata=cast(ResponseMetadata, {
-                "model": model or self.config["model"],
-                "provider": "test",
-                "usage": {"total_tokens": 0},
-                "finish_reason": "stop",
-            }),
+            content="Hello, how can I help you?",
+            metadata=ResponseMetadata(
+                model=model or "test-model",
+                provider="test",
+            ),
         )
+
+
+async def test_provider_initialization() -> None:
+    """Test provider initialization."""
+    provider = TestProvider(TestConfig({"model": "test-model"}))
+    await provider.initialize()
+    await provider.cleanup()
+
+
+async def test_provider_stream() -> None:
+    """Test provider stream."""
+    provider = TestProvider(TestConfig({"model": "test-model"}))
+    await provider.initialize()
+
+    messages = [Message(role=MessageRole.USER, content="Hello!")]
+
+    async for response in provider.stream(messages):
+        metadata = cast(ResponseMetadata, response.metadata)
+        assert response.content == "Hello, how can I help you?"
+        assert metadata.get("model") == "test-model"
+        assert metadata.get("provider") == "test"
+
+    await provider.cleanup()

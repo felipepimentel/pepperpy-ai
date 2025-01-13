@@ -1,96 +1,43 @@
 """OpenAI provider implementation."""
 
-import importlib.util
 from collections.abc import AsyncGenerator
-from typing import Any, NotRequired, TypedDict, cast
+from typing import cast
 
-from ..ai_types import Message
-from ..exceptions import DependencyError
-from ..responses import AIResponse, ResponseMetadata
+from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam
+
+from ..responses import AIResponse
+from ..types import Message
 from .base import BaseProvider
+from .config import ProviderConfig
 from .exceptions import ProviderError
 
 
-def _check_openai_dependency() -> None:
-    """Check if OpenAI package is installed.
-
-    Raises:
-        DependencyError: If OpenAI package is not installed.
-    """
-    if importlib.util.find_spec("openai") is None:
-        raise DependencyError(
-            feature="OpenAI provider",
-            package="openai",
-            extra="openai",
-        )
-
-
-class OpenAIConfig(TypedDict):
-    """OpenAI provider configuration."""
-
-    model: str  # Required field
-    temperature: NotRequired[float]
-    max_tokens: NotRequired[int]
-    top_p: NotRequired[float]
-    frequency_penalty: NotRequired[float]
-    presence_penalty: NotRequired[float]
-    timeout: NotRequired[float]
-
-
-class OpenAIProvider(BaseProvider[OpenAIConfig]):
+class OpenAIProvider(BaseProvider[ProviderConfig]):
     """OpenAI provider implementation."""
 
-    def __init__(self, config: OpenAIConfig, api_key: str) -> None:
-        """Initialize provider.
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize OpenAI provider.
 
         Args:
             config: Provider configuration
-            api_key: OpenAI API key
-
-        Raises:
-            DependencyError: If OpenAI package is not installed
         """
-        _check_openai_dependency()
-        super().__init__(config, api_key)
-        self._client: Any = None
+        super().__init__(config)
+        self.client = AsyncOpenAI(api_key=self.config.get("api_key", ""))
+        self._initialized = False
 
     @property
-    def client(self) -> Any:
-        """Get client instance.
-
-        Returns:
-            AsyncOpenAI: Client instance.
-
-        Raises:
-            ProviderError: If provider is not initialized.
-        """
-        if not self.is_initialized or not self._client:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="openai",
-                operation="get_client",
-            )
-        return self._client
+    def is_initialized(self) -> bool:
+        """Return whether the provider is initialized."""
+        return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize provider."""
-        if not self._initialized:
-            _check_openai_dependency()
-            from openai import AsyncOpenAI
-
-            timeout = self.config.get("timeout", 30.0)
-            self._client = AsyncOpenAI(
-                api_key=self.api_key,
-                timeout=timeout,
-            )
-            self._initialized = True
+        """Initialize provider resources."""
+        self._initialized = True
 
     async def cleanup(self) -> None:
         """Cleanup provider resources."""
-        if self._client:
-            await self._client.close()
         self._initialized = False
-        self._client = None
 
     async def stream(
         self,
@@ -100,7 +47,7 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from OpenAI.
+        """Stream responses from the provider.
 
         Args:
             messages: List of messages to send
@@ -113,41 +60,41 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
 
         Raises:
             ProviderError: If provider is not initialized or streaming fails
-            DependencyError: If OpenAI package is not installed
         """
         if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="openai",
-                operation="stream",
-            )
+            raise ProviderError("Provider is not initialized")
 
         try:
-            async with self.client.chat.completions.stream(
-                messages=[
-                    {"role": msg.role.value.lower(), "content": msg.content}
-                    for msg in messages
-                ],
-                model=model or self.config["model"],
+            chat_messages = [
+                {
+                    "role": message.role.value,
+                    "content": message.content,
+                }
+                for message in messages
+            ]
+
+            stream = await self.client.chat.completions.create(
+                model=model or self.config.get("model", "gpt-3.5-turbo"),
+                messages=cast(list[ChatCompletionMessageParam], chat_messages),
                 temperature=temperature or self.config.get("temperature", 0.7),
                 max_tokens=max_tokens or self.config.get("max_tokens", 1000),
                 stream=True,
-            ) as stream:
-                async for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        yield AIResponse(
-                            content=chunk.choices[0].delta.content,
-                            metadata=cast(ResponseMetadata, {
-                                "model": model or self.config["model"],
-                                "provider": "openai",
-                                "usage": {"total_tokens": 0},
-                                "finish_reason": chunk.choices[0].finish_reason or None,
-                            }),
-                        )
+            )
+
+            async for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    yield AIResponse(
+                        content=chunk.choices[0].delta.content,
+                        metadata={
+                            "model": model or self.config.get("model", "gpt-3.5-turbo"),
+                            "provider": "openai",
+                            "finish_reason": chunk.choices[0].finish_reason,
+                            "usage": {
+                                "prompt_tokens": 0,
+                                "completion_tokens": 0,
+                                "total_tokens": 0,
+                            },
+                        },
+                    )
         except Exception as e:
-            raise ProviderError(
-                f"Failed to stream responses: {e!s}",
-                provider="openai",
-                operation="stream",
-                cause=e,
-            ) from e
+            raise ProviderError(f"Failed to stream responses: {e}") from e

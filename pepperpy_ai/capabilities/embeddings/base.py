@@ -1,54 +1,50 @@
-"""Base embeddings capability module."""
+"""Base embeddings capability implementation."""
 
 from abc import abstractmethod
-from typing import TypeVar
+from collections.abc import AsyncGenerator
+from typing import Any
 
-from ...config.embeddings import EmbeddingsConfig
-from ...embeddings.base import BaseEmbeddingsProvider
+from ...responses import AIResponse
+from ...types import Message
 from ..base import BaseCapability
+from .config import EmbeddingsConfig
 
-T = TypeVar("T", bound=BaseEmbeddingsProvider)
 
+class BaseEmbeddingsCapability(BaseCapability[EmbeddingsConfig]):
+    """Base embeddings capability implementation."""
 
-class BaseEmbeddingsCapability(BaseCapability[T]):
-    """Base class for embeddings capabilities."""
+    @abstractmethod
+    async def embed(self, texts: list[str], **kwargs: Any) -> list[float]:
+        """Embed texts.
 
-    def __init__(
+        Args:
+            texts: List of texts to embed
+            **kwargs: Additional capability-specific parameters
+
+        Returns:
+            List of embeddings
+        """
+        raise NotImplementedError
+
+    async def stream(
         self,
-        config: EmbeddingsConfig,
-        provider: type[T],
-    ) -> None:
-        """Initialize embeddings capability.
+        messages: list[Message],
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from the capability.
 
         Args:
-            config: Capability configuration.
-            provider: Provider class to use.
-        """
-        self.config = config
-        self.provider = provider
-        self._initialized = False
-        self._provider_instance: T | None = None
-
-    @abstractmethod
-    async def embed(self, text: str) -> list[float]:
-        """Generate embeddings for text.
-
-        Args:
-            text: Text to generate embeddings for.
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional capability-specific parameters
 
         Returns:
-            list[float]: Generated embeddings.
+            AsyncGenerator yielding AIResponse objects
         """
-        pass
-
-    @abstractmethod
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to generate embeddings for.
-
-        Returns:
-            list[list[float]]: Generated embeddings for each text.
-        """
-        pass
+        raise NotImplementedError

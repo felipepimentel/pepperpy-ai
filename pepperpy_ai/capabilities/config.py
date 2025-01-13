@@ -1,19 +1,16 @@
-"""Capability configuration module."""
+"""Capability configuration types."""
 
-from dataclasses import dataclass
-from typing import Any
-
-from pepperpy_core.types import BaseConfig
+from typing import NotRequired, TypedDict
 
 
-@dataclass
-class CapabilityConfig(BaseConfig):
+class CapabilityConfig(TypedDict, total=False):
     """Base capability configuration."""
 
-    name: str
-    version: str
-    model: str | None = None
-    api_key: str | None = None
-    api_base: str | None = None
-    metadata: dict[str, Any] | None = None
-    settings: dict[str, Any] | None = None
+    api_key: NotRequired[str]
+    model: NotRequired[str]
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    top_p: NotRequired[float]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    timeout: NotRequired[float]

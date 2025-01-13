@@ -1,89 +1,54 @@
-"""Base RAG module."""
+"""Base RAG strategy module."""
 
+from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass, field
-from typing import Any, Generic, TypedDict, TypeVar
 
-from ...config.rag import RAGConfig
-from ...providers.base import BaseProvider
 from ...responses import AIResponse
-from ..base import BaseCapability
-
-T = TypeVar("T", bound=BaseProvider[Any])
-
-@dataclass
-class Document:
-    """Document for RAG."""
-
-    id: str
-    content: str
-    metadata: dict[str, Any] = field(default_factory=dict)
+from ...types import Message
+from ..chat.base import BaseChatCapability
 
 
-class RAGSearchKwargs(TypedDict, total=False):
-    """Type hints for RAG search kwargs."""
-    limit: int | None
-    threshold: float
-    filter_criteria: dict[str, str]
+class BaseRAGStrategy(ABC):
+    """Base RAG strategy."""
 
-
-class RAGGenerateKwargs(TypedDict, total=False):
-    """Type hints for RAG generate kwargs."""
-    temperature: float
-    max_tokens: int
-    model: str
-    stream: bool
-
-
-class RAGCapability(BaseCapability[T], Generic[T]):
-    """Base class for RAG capabilities."""
-
-    def __init__(self, config: RAGConfig, provider: type[T]) -> None:
-        """Initialize RAG capability.
+    def __init__(self, chat_capability: BaseChatCapability) -> None:
+        """Initialize RAG strategy.
 
         Args:
-            config: RAG configuration.
-            provider: Provider class to use.
+            chat_capability: Chat capability to use for responses
         """
-        super().__init__(config, provider)
-        self._provider_instance: T | None = None
+        self.chat_capability = chat_capability
 
-    async def search(
+    @abstractmethod
+    async def stream(
         self,
-        query: str,
+        messages: list[Message],
         *,
-        limit: int | None = None,
-        **kwargs: RAGSearchKwargs,
-    ) -> list[Document]:
-        """Search for documents.
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from the strategy.
 
         Args:
-            query: Query to search for.
-            limit: Maximum number of documents to return.
-            **kwargs: Additional search parameters.
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
 
         Returns:
-            list[Document]: List of matching documents.
+            AsyncGenerator yielding AIResponse objects
         """
         raise NotImplementedError
 
-    async def generate(
-        self,
-        query: str,
-        documents: list[Document],
-        *,
-        stream: bool = False,
-        **kwargs: RAGGenerateKwargs,
-    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
-        """Generate response from RAG.
+    @abstractmethod
+    async def get_similar_documents(self, query: str) -> str:
+        """Get similar documents for a query.
 
         Args:
-            query: User query.
-            documents: Retrieved documents.
-            stream: Whether to stream responses.
-            **kwargs: Additional generation parameters.
+            query: Query to find similar documents for
 
         Returns:
-            AIResponse | AsyncGenerator[AIResponse, None]: Generated response or stream.
+            Similar documents as a string
         """
         raise NotImplementedError

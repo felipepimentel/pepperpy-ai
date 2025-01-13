@@ -1,54 +1,55 @@
-"""Base capability module."""
+"""Base capability implementation."""
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 from typing import Generic, TypeVar
 
-from ..config.capability import CapabilityConfig
-from ..providers.base import BaseProvider
+from ..responses import AIResponse
+from ..types import Message
+from .config import CapabilityConfig
 
-T = TypeVar("T", bound=BaseProvider)
+T = TypeVar("T", bound=CapabilityConfig)
 
 
 class BaseCapability(ABC, Generic[T]):
-    """Base class for capabilities.
+    """Base capability implementation."""
 
-    This class provides the foundation for implementing different capabilities.
-    Each capability can implement its own initialization, cleanup, and provider
-    management methods to support different use cases and requirements.
-    """
-
-    def __init__(self, config: CapabilityConfig, provider: type[T]) -> None:
-        """Initialize capability.
+    def __init__(self, config: T) -> None:
+        """Initialize base capability.
 
         Args:
-            config: Capability configuration.
-            provider: Provider class to use.
+            config: Capability configuration
         """
         self.config = config
-        self.provider = provider
-        self._initialized = False
-        self._provider_instance: T | None = None
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if capability is initialized."""
-        return self._initialized
-
-    def _ensure_initialized(self) -> None:
-        """Ensure capability is initialized.
-
-        Raises:
-            RuntimeError: If capability is not initialized.
-        """
-        if not self.is_initialized:
-            raise RuntimeError("Capability not initialized")
 
     @abstractmethod
     async def initialize(self) -> None:
-        """Initialize capability resources."""
-        pass
+        """Initialize capability."""
+        raise NotImplementedError
 
     @abstractmethod
     async def cleanup(self) -> None:
-        """Clean up capability resources."""
-        pass
+        """Cleanup capability."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from the capability.
+
+        Args:
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
+
+        Returns:
+            AsyncGenerator yielding AIResponse objects
+        """
+        raise NotImplementedError

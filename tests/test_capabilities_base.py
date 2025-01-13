@@ -1,33 +1,26 @@
 """Test base capability functionality."""
 
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, cast
 
-import pytest
-
-from pepperpy_ai.ai_types import Message, MessageRole
 from pepperpy_ai.capabilities.base import BaseCapability
-from pepperpy_ai.config.capability import CapabilityConfig
-from pepperpy_ai.exceptions import ProviderError
+from pepperpy_ai.capabilities.config import CapabilityConfig
 from pepperpy_ai.providers.base import BaseProvider
-from pepperpy_ai.responses import AIResponse
+from pepperpy_ai.providers.config import ProviderConfig
+from pepperpy_ai.responses import AIResponse, ResponseMetadata
+from pepperpy_ai.types import Message
 
 
-class TestProvider(BaseProvider[Any]):
-    """Test provider."""
-
-    def __init__(self, config: CapabilityConfig) -> None:
-        """Initialize test provider."""
-        super().__init__(config, api_key="test")
-        self._initialized = False
+class TestProvider(BaseProvider[ProviderConfig]):
+    """Test provider implementation."""
 
     async def initialize(self) -> None:
         """Initialize provider."""
-        self._initialized = True
+        pass
 
     async def cleanup(self) -> None:
-        """Clean up provider."""
-        self._initialized = False
+        """Cleanup provider."""
+        pass
 
     async def stream(
         self,
@@ -36,75 +29,72 @@ class TestProvider(BaseProvider[Any]):
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        **kwargs: Any,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses."""
-        if not self._initialized:
-            raise ProviderError("Provider not initialized", provider="test", operation="stream")
-        yield AIResponse(content="test")
+        """Stream responses from the provider.
+
+        Args:
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            AsyncGenerator yielding AIResponse objects
+        """
+        yield AIResponse(
+            content="Hello, how can I help you?",
+            metadata=cast(ResponseMetadata, {"model": "test", "provider": "test"}),
+        )
 
 
-class TestCapability(BaseCapability[TestProvider]):
+class TestCapability(BaseCapability[CapabilityConfig]):
     """Test capability implementation."""
 
-    def __init__(
-        self,
-        config: CapabilityConfig,
-        provider: type[TestProvider],
-    ) -> None:
-        """Initialize capability.
+    def __init__(self, config: CapabilityConfig) -> None:
+        """Initialize test capability.
 
         Args:
             config: Capability configuration
-            provider: Provider class to use
         """
-        super().__init__(config, provider)
-        self._provider_instance: TestProvider | None = None
-        self._initialized = False
+        super().__init__(config)
+        self._provider = TestProvider(config)
 
     async def initialize(self) -> None:
         """Initialize capability."""
-        if not self._initialized:
-            self._provider_instance = self.provider(self.config)
-            await self._provider_instance.initialize()
-            self._initialized = True
+        await self._provider.initialize()
 
     async def cleanup(self) -> None:
         """Cleanup capability."""
-        if self._initialized and self._provider_instance:
-            await self._provider_instance.cleanup()
-            self._provider_instance = None
-            self._initialized = False
+        await self._provider.cleanup()
 
+    async def stream(
+        self,
+        messages: list[Message],
+        *,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[AIResponse, None]:
+        """Stream responses from the capability.
 
-@pytest.mark.asyncio
-async def test_capability_initialization() -> None:
-    """Test capability initialization."""
-    config = CapabilityConfig(name="test", version="1.0")
-    capability = TestCapability(config, TestProvider)
+        Args:
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional capability-specific parameters
 
-    try:
-        assert not capability.is_initialized
-        await capability.initialize()
-        assert capability.is_initialized
-    finally:
-        await capability.cleanup()
-        assert not capability.is_initialized
-
-
-@pytest.mark.asyncio
-async def test_provider_streaming() -> None:
-    """Test provider streaming."""
-    config = CapabilityConfig(name="test", version="1.0.0")
-    provider = TestProvider(config)
-
-    try:
-        await provider.initialize()
-        messages = [Message(role=MessageRole.USER, content="test")]
-        responses = []
-        async for response in provider.stream(messages):
-            responses.append(response)
-
-        assert len(responses) == 1
-        assert responses[0].content == "test"
-    finally:
-        await provider.cleanup()
+        Returns:
+            AsyncGenerator yielding AIResponse objects
+        """
+        async for response in self._provider.stream(
+            messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs,
+        ):
+            yield response

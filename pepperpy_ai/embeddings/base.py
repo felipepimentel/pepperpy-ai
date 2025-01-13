@@ -1,77 +1,48 @@
-"""Base embeddings module."""
+"""Base embeddings provider module."""
 
 from abc import abstractmethod
-from dataclasses import dataclass
-from typing import Any
+from typing import TypedDict
 
-from ..config.embeddings import EmbeddingsConfig
 from ..providers.base import BaseProvider
+from .config import EmbeddingsConfig
+from .types import EmbeddingResult
 
 
-@dataclass
-class EmbeddingResult:
-    """Result of embedding generation."""
+class EmbeddingKwargs(TypedDict, total=False):
+    """Embedding keyword arguments."""
 
-    embeddings: list[float]
-    metadata: dict[str, Any]
+    batch_size: int
+    normalize: bool
+    device: str
+    model: str
 
 
-class BaseEmbeddingsProvider(BaseProvider[EmbeddingsConfig]):
+class BaseEmbeddingsProvider(BaseProvider):
     """Base class for embeddings providers."""
 
-    def __init__(self, config: EmbeddingsConfig) -> None:
-        """Initialize provider.
+    def __init__(self, config: EmbeddingsConfig, api_key: str) -> None:
+        """Initialize the embeddings provider.
 
         Args:
-            config: Provider configuration.
+            config: The embeddings configuration.
+            api_key: The API key for the provider.
         """
-        super().__init__(config, config.api_key or "")
-        self._initialized = False
+        super().__init__(config, api_key)
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if provider is initialized."""
-        return self._initialized
+    @abstractmethod
+    async def embed(
+        self, texts: list[str], **kwargs: EmbeddingKwargs
+    ) -> list[EmbeddingResult]:
+        """Embed a list of texts.
 
-    def _ensure_initialized(self) -> None:
-        """Ensure provider is initialized.
+        Args:
+            texts: The texts to embed.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            A list of embedding results.
 
         Raises:
-            RuntimeError: If provider is not initialized.
+            ProviderError: If the provider is not initialized or if an error occurs.
         """
-        if not self.is_initialized:
-            raise RuntimeError("Provider not initialized")
-
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize provider resources."""
-        pass
-
-    @abstractmethod
-    async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        pass
-
-    @abstractmethod
-    async def embed(self, text: str) -> EmbeddingResult:
-        """Generate embeddings for text.
-
-        Args:
-            text: Text to generate embeddings for.
-
-        Returns:
-            EmbeddingResult: Generated embeddings.
-        """
-        pass
-
-    @abstractmethod
-    async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
-        """Generate embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to generate embeddings for.
-
-        Returns:
-            list[EmbeddingResult]: Generated embeddings for each text.
-        """
-        pass
+        raise NotImplementedError

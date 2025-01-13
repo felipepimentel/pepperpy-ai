@@ -1,19 +1,14 @@
-"""Embeddings configuration module."""
+"""Embeddings capability configuration."""
 
-from dataclasses import dataclass
+from typing import NotRequired
 
-from pepperpy_core.types import BaseConfig
+from ..config import CapabilityConfig
 
 
-@dataclass
-class EmbeddingsConfig(BaseConfig):
+class EmbeddingsConfig(CapabilityConfig):
     """Embeddings capability configuration."""
 
-    name: str
-    version: str
-    model: str | None = None
-    dimensions: int | None = None
-    batch_size: int | None = None
-    normalize: bool = True
-    pooling_strategy: str = "mean"
-    device: str | None = None
+    api_base: NotRequired[str]
+    api_version: NotRequired[str]
+    organization_id: NotRequired[str]
+    batch_size: NotRequired[int]

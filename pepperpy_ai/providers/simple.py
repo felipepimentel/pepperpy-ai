@@ -1,42 +1,34 @@
 """Simple provider implementation."""
 
 from collections.abc import AsyncGenerator
-from typing import NotRequired, TypedDict, cast
 
-from ..ai_types import Message
-from ..responses import AIResponse, ResponseMetadata
+from ..responses import AIResponse
+from ..types import Message
 from .base import BaseProvider
+from .config import ProviderConfig
 from .exceptions import ProviderError
 
 
-class SimpleConfig(TypedDict):
-    """Simple provider configuration."""
-
-    model: str  # Required field
-    temperature: NotRequired[float]
-    max_tokens: NotRequired[int]
-    top_p: NotRequired[float]
-    frequency_penalty: NotRequired[float]
-    presence_penalty: NotRequired[float]
-    timeout: NotRequired[float]
-
-
-class SimpleProvider(BaseProvider[SimpleConfig]):
+class SimpleProvider(BaseProvider[ProviderConfig]):
     """Simple provider implementation."""
 
-    def __init__(self, config: SimpleConfig, api_key: str) -> None:
-        """Initialize provider.
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize simple provider.
 
         Args:
             config: Provider configuration
-            api_key: API key
         """
-        super().__init__(config, api_key)
+        super().__init__(config)
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Return whether the provider is initialized."""
+        return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize provider."""
-        if not self._initialized:
-            self._initialized = True
+        """Initialize provider resources."""
+        self._initialized = True
 
     async def cleanup(self) -> None:
         """Cleanup provider resources."""
@@ -50,7 +42,7 @@ class SimpleProvider(BaseProvider[SimpleConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses.
+        """Stream responses from the provider.
 
         Args:
             messages: List of messages to send
@@ -65,27 +57,21 @@ class SimpleProvider(BaseProvider[SimpleConfig]):
             ProviderError: If provider is not initialized or streaming fails
         """
         if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="simple",
-                operation="stream",
-            )
+            raise ProviderError("Provider is not initialized")
 
         try:
-            for message in messages:
-                yield AIResponse(
-                    content=f"Simple provider response: {message.content}",
-                    metadata=cast(ResponseMetadata, {
-                        "model": model or self.config["model"],
-                        "provider": "simple",
-                        "usage": {"total_tokens": 0},
-                        "finish_reason": "stop",
-                    }),
-                )
+            yield AIResponse(
+                content="Hello, how can I help you?",
+                metadata={
+                    "model": model or "simple",
+                    "provider": "simple",
+                    "finish_reason": "stop",
+                    "usage": {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "total_tokens": 0,
+                    },
+                },
+            )
         except Exception as e:
-            raise ProviderError(
-                "Failed to stream responses",
-                provider="simple",
-                operation="stream",
-                cause=e,
-            ) from e
+            raise ProviderError(f"Failed to stream responses: {e}") from e

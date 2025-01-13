@@ -1,71 +1,75 @@
 """StackSpot provider implementation."""
 
+import json
 from collections.abc import AsyncGenerator
-from typing import NotRequired, TypedDict, cast
 
-from stackspot import AsyncStackSpot
+import aiohttp
 
-from ..ai_types import Message
-from ..responses import AIResponse, ResponseMetadata
-from .base import BaseProvider
+from ..responses import AIResponse
+from ..types import Message
+from .base import BaseProvider, ProviderConfig
 from .exceptions import ProviderError
 
 
-class StackSpotConfig(TypedDict):
-    """StackSpot provider configuration."""
-
-    model: str  # Required field
-    temperature: NotRequired[float]
-    max_tokens: NotRequired[int]
-    top_p: NotRequired[float]
-    frequency_penalty: NotRequired[float]
-    presence_penalty: NotRequired[float]
-    timeout: NotRequired[float]
-
-
-class StackSpotProvider(BaseProvider[StackSpotConfig]):
+class StackSpotProvider(BaseProvider[ProviderConfig]):
     """StackSpot provider implementation."""
 
-    def __init__(self, config: StackSpotConfig, api_key: str) -> None:
-        """Initialize provider.
+    BASE_URL = "https://api.stackspot.com/v1"
+
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize StackSpot provider.
 
         Args:
             config: Provider configuration
-            api_key: StackSpot API key
         """
-        super().__init__(config, api_key)
-        self._client: AsyncStackSpot | None = None
+        super().__init__(config)
+        self._initialized = False
+        self._session: aiohttp.ClientSession | None = None
 
     @property
-    def client(self) -> AsyncStackSpot:
-        """Get client instance.
+    def session(self) -> aiohttp.ClientSession:
+        """Get the HTTP session.
 
         Returns:
-            AsyncStackSpot: Client instance.
+            The HTTP session
 
         Raises:
-            ProviderError: If provider is not initialized.
+            ProviderError: If provider is not initialized
         """
-        if not self.is_initialized or not self._client:
+        if not self._session:
             raise ProviderError(
                 "Provider not initialized",
                 provider="stackspot",
-                operation="get_client",
+                operation="session",
             )
-        return self._client
+        return self._session
 
     async def initialize(self) -> None:
-        """Initialize provider."""
+        """Initialize provider resources."""
         if not self._initialized:
-            self._client = AsyncStackSpot(api_key=self.api_key)
+            self._session = aiohttp.ClientSession(
+                headers={
+                    "Authorization": f"Bearer {self.config.get('api_key', '')}",
+                    "Content-Type": "application/json",
+                }
+            )
             self._initialized = True
 
     async def cleanup(self) -> None:
         """Cleanup provider resources."""
-        if self._client:
-            await self._client.close()
-        self._initialized = False
-        self._client = None
+        if self._initialized and self._session:
+            await self._session.close()
+            self._session = None
+            self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if provider is initialized.
+
+        Returns:
+            True if provider is initialized, False otherwise
+        """
+        return self._initialized
 
     async def stream(
         self,
@@ -97,27 +101,40 @@ class StackSpotProvider(BaseProvider[StackSpotConfig]):
             )
 
         try:
-            async with self.client.chat.completions.stream(
-                messages=[
-                    {"role": msg.role, "content": msg.content}
-                    for msg in messages
-                ],
-                model=model or self.config["model"],
-                temperature=temperature or self.config.get("temperature", 0.7),
-                max_tokens=max_tokens or self.config.get("max_tokens", 1000),
-                stream=True,
-            ) as stream:
-                async for chunk in stream:
-                    if chunk.choices[0].delta.content:
-                        yield AIResponse(
-                            content=chunk.choices[0].delta.content,
-                            metadata=cast(ResponseMetadata, {
-                                "model": model or self.config["model"],
-                                "provider": "stackspot",
-                                "usage": {"total_tokens": 0},
-                                "finish_reason": chunk.choices[0].finish_reason or None,
-                            }),
-                        )
+            async with self.session.post(
+                f"{self.BASE_URL}/chat/completions",
+                json={
+                    "messages": [
+                        {"role": msg.role.value.lower(), "content": msg.content}
+                        for msg in messages
+                    ],
+                    "model": model or self.config.get("model", ""),
+                    "temperature": temperature or self.config.get("temperature", 0.7),
+                    "max_tokens": max_tokens or self.config.get("max_tokens", 1000),
+                    "stream": True,
+                },
+            ) as response:
+                response.raise_for_status()
+                async for line in response.content:
+                    line = line.strip()
+                    if not line or line == b"data: [DONE]":
+                        continue
+                    if not line.startswith(b"data: "):
+                        continue
+                    data = json.loads(line[6:])
+                    if not data["choices"][0]["delta"].get("content"):
+                        continue
+                    yield AIResponse(
+                        content=data["choices"][0]["delta"]["content"],
+                        metadata={
+                            "model": model or self.config.get("model", ""),
+                            "provider": "stackspot",
+                            "prompt_tokens": 0,
+                            "completion_tokens": 0,
+                            "total_tokens": 0,
+                            "finish_reason": data["choices"][0].get("finish_reason"),
+                        },
+                    )
         except Exception as e:
             raise ProviderError(
                 "Failed to stream responses",

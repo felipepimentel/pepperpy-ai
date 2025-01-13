@@ -1,101 +1,54 @@
 """Test utilities."""
 
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import cast
 
-from pepperpy_ai.ai_types import Message
-from pepperpy_ai.exceptions import ProviderError
 from pepperpy_ai.providers.base import BaseProvider
-from pepperpy_ai.providers.config import ProviderConfig, ProviderSettings
+from pepperpy_ai.providers.config import ProviderConfig
 from pepperpy_ai.responses import AIResponse, ResponseMetadata
+from pepperpy_ai.types import Message
 
 
-class TestProvider(BaseProvider):
-    """Test provider for testing."""
+class TestProvider(BaseProvider[ProviderConfig]):
+    """Test provider implementation."""
 
-    def __init__(self, config: ProviderConfig, api_key: str) -> None:
-        """Initialize test provider.
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize provider.
 
         Args:
-            config: Provider configuration.
-            api_key: API key.
+            config: Provider configuration
         """
-        super().__init__(config=config, api_key=api_key)
-        self._initialized = False
+        super().__init__(config)
+        self._initialized: bool = False
 
     async def initialize(self) -> None:
         """Initialize provider."""
         self._initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up provider."""
+        """Cleanup provider."""
         self._initialized = False
 
     async def stream(
         self,
         messages: list[Message],
+        *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        **kwargs: Any,
     ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from provider.
+        """Stream responses from the provider.
 
         Args:
-            messages: Messages to send.
-            model: Model to use.
-            temperature: Temperature to use.
-            max_tokens: Maximum tokens to generate.
-            kwargs: Additional arguments.
+            messages: List of messages to send
+            model: Model to use for completion
+            temperature: Temperature to use for completion
+            max_tokens: Maximum number of tokens to generate
 
-        Yields:
-            AIResponse: Response from provider.
-
-        Raises:
-            ProviderError: If provider is not initialized.
+        Returns:
+            AsyncGenerator yielding AIResponse objects
         """
-        if not self._initialized:
-            raise ProviderError(
-                "Provider not initialized", provider="test", operation="stream"
-            )
-
-        # Simulate streaming response
-        metadata: ResponseMetadata = {
-            "model": model or "test-model",
-            "provider": "test",
-            "usage": {"total_tokens": 1},
-            "finish_reason": "stop",
-        }
-        yield AIResponse(content="test", metadata=metadata)
-
-
-def create_test_config(
-    name: str = "test",
-    version: str = "1.0.0",
-    model: str | None = None,
-    api_key: str | None = None,
-    api_base: str | None = None,
-    **kwargs: Any,
-) -> ProviderConfig:
-    """Create test provider configuration.
-
-    Args:
-        name: Provider name.
-        version: Provider version.
-        model: Model name.
-        api_key: API key.
-        api_base: API base URL.
-        kwargs: Additional settings.
-
-    Returns:
-        ProviderConfig: Provider configuration.
-    """
-    settings = cast(
-        ProviderSettings,
-        {"model": model, "api_key": api_key, "api_base": api_base, **kwargs},
-    )
-    return ProviderConfig(
-        name=name,
-        version=version,
-        settings=settings,
-    )
+        yield AIResponse(
+            content="Hello, how can I help you?",
+            metadata=cast(ResponseMetadata, {"model": "test", "provider": "test"}),
+        )
