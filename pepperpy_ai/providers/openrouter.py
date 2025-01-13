@@ -3,7 +3,7 @@
 import json
 import logging
 from collections.abc import AsyncGenerator
-from typing import Any, NotRequired, TypedDict, cast
+from typing import NotRequired, TypedDict, cast
 
 import aiohttp
 
@@ -11,7 +11,6 @@ from ..ai_types import Message
 from ..responses import AIResponse, ResponseMetadata
 from .base import BaseProvider
 from .exceptions import ProviderError
-
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +72,6 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
                     "HTTP-Referer": "https://github.com/felipepimentel/pepperpy-ai",
                     "X-Title": "PepperPy AI",
                     "Content-Type": "application/json",
-                    "Accept": "text/event-stream",  # Explicitly request SSE format
                 },
                 timeout=timeout,
             )
@@ -133,6 +131,7 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
                     "provider": "openrouter",
                     "model": payload["model"],
                     "messages": len(messages),
+                    "payload": payload,
                 },
             )
 
@@ -156,59 +155,74 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
                         operation="stream",
                     )
 
-                # Process Server-Sent Events (SSE)
-                buffer = ""
+                logger.debug(
+                    "Response headers",
+                    extra={
+                        "provider": "openrouter",
+                        "headers": dict(response.headers),
+                    },
+                )
+
                 async for line in response.content:
                     try:
                         text = line.decode("utf-8").strip()
                         if not text:
                             continue
 
-                        # Handle multi-line events
-                        buffer += text + "\n"
-                        if not buffer.endswith("\n\n"):
+                        logger.debug(
+                            "Received line",
+                            extra={
+                                "provider": "openrouter",
+                                "line": text,
+                            },
+                        )
+
+                        if not text.startswith("data: "):
                             continue
 
-                        # Process complete event
-                        for event in buffer.strip().split("\n\n"):
-                            if not event.startswith("data: "):
+                        data_str = text.removeprefix("data: ")
+                        if data_str == "[DONE]":
+                            continue
+
+                        try:
+                            data = json.loads(data_str)
+                            if not data["choices"][0]["delta"].get("content"):
                                 continue
 
-                            data_str = event.removeprefix("data: ")
-                            if data_str == "[DONE]":
-                                continue
+                            content = data["choices"][0]["delta"]["content"]
+                            logger.debug(
+                                "Yielding content",
+                                extra={
+                                    "provider": "openrouter",
+                                    "content": content,
+                                },
+                            )
 
-                            try:
-                                data = json.loads(data_str)
-                                if not data["choices"][0]["delta"].get("content"):
-                                    continue
-
-                                yield AIResponse(
-                                    content=data["choices"][0]["delta"]["content"],
-                                    metadata=cast(ResponseMetadata, {
-                                        "model": model or self.config["model"],
-                                        "provider": "openrouter",
-                                        "usage": data.get("usage", {"total_tokens": 0}),
-                                        "finish_reason": data["choices"][0].get("finish_reason"),
-                                    }),
-                                )
-                            except json.JSONDecodeError as e:
-                                logger.error(
-                                    "Failed to parse OpenRouter response",
-                                    extra={
-                                        "provider": "openrouter",
-                                        "error": str(e),
-                                        "data": data_str,
-                                    },
-                                )
-                                continue
-
-                        # Reset buffer after processing
-                        buffer = ""
+                            yield AIResponse(
+                                content=content,
+                                metadata=cast(ResponseMetadata, {
+                                    "model": model or self.config["model"],
+                                    "provider": "openrouter",
+                                    "usage": data.get("usage", {"total_tokens": 0}),
+                                    "finish_reason": (
+                                        data["choices"][0].get("finish_reason")
+                                    ),
+                                }),
+                            )
+                        except json.JSONDecodeError as e:
+                            logger.error(
+                                "Failed to parse OpenRouter response",
+                                extra={
+                                    "provider": "openrouter",
+                                    "error": str(e),
+                                    "data": data_str,
+                                },
+                            )
+                            continue
 
                     except Exception as e:
                         logger.error(
-                            "Error processing SSE event",
+                            "Error processing response line",
                             extra={
                                 "provider": "openrouter",
                                 "error": str(e),

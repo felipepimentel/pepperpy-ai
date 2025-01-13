@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 def load_environment() -> None:
     """Load environment variables from .env file.
-    
+
     Looks for .env file in the following locations:
     1. Current directory
     2. Parent directory (project root)
@@ -45,7 +45,7 @@ def load_environment() -> None:
 
 def handle_error(error: Exception) -> NoReturn:
     """Handle error and exit.
-    
+
     Args:
         error: Exception to handle
     """
@@ -55,7 +55,8 @@ def handle_error(error: Exception) -> NoReturn:
     elif isinstance(error, ProviderError):
         if "api_key" in str(error).lower():
             print(
-                "\nError: Missing or invalid API key. Please check your environment variables.\n",
+                "\nError: Missing or invalid API key. "
+                "Please check your environment variables.\n",
                 file=sys.stderr,
             )
             settings = ProviderSettings.from_env(prefix="PEPPERPY_")
