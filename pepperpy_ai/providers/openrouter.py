@@ -1,9 +1,10 @@
 """OpenRouter provider implementation."""
 
+import json
 from collections.abc import AsyncGenerator
-from typing import NotRequired, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
 
-from openrouter import AsyncOpenRouter
+import aiohttp
 
 from ..ai_types import Message
 from ..responses import AIResponse, ResponseMetadata
@@ -26,6 +27,8 @@ class OpenRouterConfig(TypedDict):
 class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
     """OpenRouter provider implementation."""
 
+    BASE_URL = "https://openrouter.ai/api/v1"
+
     def __init__(self, config: OpenRouterConfig, api_key: str) -> None:
         """Initialize provider.
 
@@ -34,38 +37,48 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
             api_key: OpenRouter API key
         """
         super().__init__(config, api_key)
-        self._client: AsyncOpenRouter | None = None
+        self._session: aiohttp.ClientSession | None = None
 
     @property
-    def client(self) -> AsyncOpenRouter:
-        """Get client instance.
+    def session(self) -> aiohttp.ClientSession:
+        """Get session instance.
 
         Returns:
-            AsyncOpenRouter: Client instance.
+            aiohttp.ClientSession: Session instance.
 
         Raises:
             ProviderError: If provider is not initialized.
         """
-        if not self.is_initialized or not self._client:
+        if not self.is_initialized or not self._session:
             raise ProviderError(
                 "Provider not initialized",
                 provider="openrouter",
-                operation="get_client",
+                operation="get_session",
             )
-        return self._client
+        return self._session
 
     async def initialize(self) -> None:
         """Initialize provider."""
         if not self._initialized:
-            self._client = AsyncOpenRouter(api_key=self.api_key)
+            timeout = aiohttp.ClientTimeout(
+                total=self.config.get("timeout", 30.0)
+            )
+            self._session = aiohttp.ClientSession(
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": "https://github.com/felipepimentel/pepperpy-ai",
+                    "X-Title": "PepperPy AI",
+                },
+                timeout=timeout,
+            )
             self._initialized = True
 
     async def cleanup(self) -> None:
         """Cleanup provider resources."""
-        if self._client:
-            await self._client.close()
+        if self._session:
+            await self._session.close()
         self._initialized = False
-        self._client = None
+        self._session = None
 
     async def stream(
         self,
@@ -97,30 +110,60 @@ class OpenRouterProvider(BaseProvider[OpenRouterConfig]):
             )
 
         try:
-            async with self.client.chat.completions.stream(
-                messages=[
-                    {"role": msg.role, "content": msg.content}
+            payload = {
+                "messages": [
+                    {"role": msg.role.value.lower(), "content": msg.content}
                     for msg in messages
                 ],
-                model=model or self.config["model"],
-                temperature=temperature or self.config.get("temperature", 0.7),
-                max_tokens=max_tokens or self.config.get("max_tokens", 1000),
-                stream=True,
-            ) as stream:
-                async for chunk in stream:
-                    if chunk.choices[0].delta.content:
+                "model": model or self.config["model"],
+                "temperature": temperature or self.config.get("temperature", 0.7),
+                "max_tokens": max_tokens or self.config.get("max_tokens", 1000),
+                "stream": True,
+            }
+
+            async with self.session.post(
+                f"{self.BASE_URL}/chat/completions",
+                json=payload,
+            ) as response:
+                if not response.ok:
+                    error_text = await response.text()
+                    raise ProviderError(
+                        f"OpenRouter API error: {error_text}",
+                        provider="openrouter",
+                        operation="stream",
+                    )
+
+                async for line in response.content:
+                    line = line.strip()
+                    if not line or line == b"data: [DONE]":
+                        continue
+
+                    try:
+                        data = json.loads(line.decode("utf-8").removeprefix("data: "))
+                        if not data["choices"][0]["delta"].get("content"):
+                            continue
+
                         yield AIResponse(
-                            content=chunk.choices[0].delta.content,
+                            content=data["choices"][0]["delta"]["content"],
                             metadata=cast(ResponseMetadata, {
                                 "model": model or self.config["model"],
                                 "provider": "openrouter",
-                                "usage": {"total_tokens": 0},
-                                "finish_reason": chunk.choices[0].finish_reason or None,
+                                "usage": data.get("usage", {"total_tokens": 0}),
+                                "finish_reason": data["choices"][0].get("finish_reason"),
                             }),
                         )
+                    except json.JSONDecodeError as e:
+                        raise ProviderError(
+                            f"Failed to parse OpenRouter response: {e}",
+                            provider="openrouter",
+                            operation="stream",
+                        ) from e
+
+        except ProviderError:
+            raise
         except Exception as e:
             raise ProviderError(
-                "Failed to stream responses",
+                f"Failed to stream responses: {e}",
                 provider="openrouter",
                 operation="stream",
                 cause=e,

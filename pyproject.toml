@@ -27,7 +27,6 @@ requests = "^2.32.3"
 # Optional dependencies for providers
 openai = { version = "1.59.6", optional = true }
 anthropic = { version = "0.42.0", optional = true }
-openrouter = { version = "0.3.2", optional = true }
 
 # Optional dependencies for capabilities
 numpy = { version = "^2.2.1", optional = true }
@@ -58,17 +57,10 @@ mkdocs-material = "^9.5.0"
 [tool.poetry.extras]
 openai = ["openai"]
 anthropic = ["anthropic"]
-openrouter = ["openrouter"]
 rag = ["numpy", "sentence-transformers"]
-all-providers = ["openai", "anthropic", "openrouter"]
+all-providers = ["openai", "anthropic"]
 all-capabilities = ["numpy", "sentence-transformers"]
-complete = [
-    "openai",
-    "anthropic",
-    "openrouter",
-    "numpy",
-    "sentence-transformers",
-]
+complete = ["openai", "anthropic", "numpy", "sentence-transformers"]
 
 [tool.poetry.scripts]
 pepperpy = "pepperpy_ai.cli:main"
