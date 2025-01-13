@@ -47,6 +47,20 @@ def test_capability_error() -> None:
 
 def test_dependency_error() -> None:
     """Test dependency error."""
-    error = DependencyError("Test error", package="test_package")
-    assert str(error) == "Test error"
+    error = DependencyError(
+        feature="Test Feature",
+        package="test_package",
+        extra="test_extra"
+    )
+    
+    # Check attributes
+    assert error.feature == "Test Feature"
     assert error.package == "test_package"
+    assert error.extra == "test_extra"
+    
+    # Check message format
+    message = str(error)
+    assert "Test Feature" in message
+    assert "test_package" in message
+    assert "pip install pepperpy-ai[test_extra]" in message
+    assert "poetry add pepperpy-ai[test_extra]" in message
