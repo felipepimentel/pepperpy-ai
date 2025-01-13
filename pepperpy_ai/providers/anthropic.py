@@ -1,14 +1,28 @@
 """Anthropic provider implementation."""
 
+import importlib.util
 from collections.abc import AsyncGenerator
-from typing import NotRequired, TypedDict, cast
-
-from anthropic import AsyncAnthropic
+from typing import Any, NotRequired, TypedDict, cast
 
 from ..ai_types import Message
+from ..exceptions import DependencyError
 from ..responses import AIResponse, ResponseMetadata
 from .base import BaseProvider
 from .exceptions import ProviderError
+
+
+def _check_anthropic_dependency() -> None:
+    """Check if Anthropic package is installed.
+
+    Raises:
+        DependencyError: If Anthropic package is not installed.
+    """
+    if importlib.util.find_spec("anthropic") is None:
+        raise DependencyError(
+            feature="Anthropic provider",
+            package="anthropic",
+            extra="anthropic",
+        )
 
 
 class AnthropicConfig(TypedDict):
@@ -18,8 +32,7 @@ class AnthropicConfig(TypedDict):
     temperature: NotRequired[float]
     max_tokens: NotRequired[int]
     top_p: NotRequired[float]
-    frequency_penalty: NotRequired[float]
-    presence_penalty: NotRequired[float]
+    top_k: NotRequired[int]
     timeout: NotRequired[float]
 
 
@@ -32,12 +45,16 @@ class AnthropicProvider(BaseProvider[AnthropicConfig]):
         Args:
             config: Provider configuration
             api_key: Anthropic API key
+
+        Raises:
+            DependencyError: If Anthropic package is not installed
         """
+        _check_anthropic_dependency()
         super().__init__(config, api_key)
-        self._client: AsyncAnthropic | None = None
+        self._client: Any = None
 
     @property
-    def client(self) -> AsyncAnthropic:
+    def client(self) -> Any:
         """Get client instance.
 
         Returns:
@@ -57,7 +74,14 @@ class AnthropicProvider(BaseProvider[AnthropicConfig]):
     async def initialize(self) -> None:
         """Initialize provider."""
         if not self._initialized:
-            self._client = AsyncAnthropic(api_key=self.api_key)
+            _check_anthropic_dependency()
+            from anthropic import AsyncAnthropic
+
+            timeout = self.config.get("timeout", 30.0)
+            self._client = AsyncAnthropic(
+                api_key=self.api_key,
+                timeout=timeout,
+            )
             self._initialized = True
 
     async def cleanup(self) -> None:
@@ -88,6 +112,7 @@ class AnthropicProvider(BaseProvider[AnthropicConfig]):
 
         Raises:
             ProviderError: If provider is not initialized or streaming fails
+            DependencyError: If Anthropic package is not installed
         """
         if not self.is_initialized:
             raise ProviderError(
@@ -97,30 +122,30 @@ class AnthropicProvider(BaseProvider[AnthropicConfig]):
             )
 
         try:
-            async with self.client.messages.stream(
+            stream = await self.client.messages.stream(
                 messages=[
-                    {"role": msg.role, "content": msg.content}
+                    {"role": msg.role.value.lower(), "content": msg.content}
                     for msg in messages
                 ],
                 model=model or self.config["model"],
                 temperature=temperature or self.config.get("temperature", 0.7),
                 max_tokens=max_tokens or self.config.get("max_tokens", 1000),
-                stream=True,
-            ) as stream:
-                async for chunk in stream:
-                    if chunk.delta.text:
-                        yield AIResponse(
-                            content=chunk.delta.text,
-                            metadata=cast(ResponseMetadata, {
-                                "model": model or self.config["model"],
-                                "provider": "anthropic",
-                                "usage": {"total_tokens": 0},
-                                "finish_reason": chunk.delta.stop_reason or None,
-                            }),
-                        )
+            )
+
+            async for chunk in stream:
+                if chunk.type == "content_block_delta":
+                    yield AIResponse(
+                        content=chunk.content[0].text,
+                        metadata=cast(ResponseMetadata, {
+                            "model": model or self.config["model"],
+                            "provider": "anthropic",
+                            "usage": {"total_tokens": 0},
+                            "finish_reason": chunk.type if hasattr(chunk, "type") else None,
+                        }),
+                    )
         except Exception as e:
             raise ProviderError(
-                "Failed to stream responses",
+                f"Failed to stream responses: {e!s}",
                 provider="anthropic",
                 operation="stream",
                 cause=e,

@@ -4,8 +4,8 @@ import importlib.util
 from collections.abc import AsyncGenerator
 from typing import Any, NotRequired, TypedDict, cast
 
-from ..exceptions import DependencyError
 from ..ai_types import Message
+from ..exceptions import DependencyError
 from ..responses import AIResponse, ResponseMetadata
 from .base import BaseProvider
 from .exceptions import ProviderError
@@ -52,10 +52,10 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
         """
         _check_openai_dependency()
         super().__init__(config, api_key)
-        self._client: Any = None  # Type will be AsyncOpenAI when imported
+        self._client: Any = None
 
     @property
-    def client(self) -> Any:  # Type will be AsyncOpenAI when imported
+    def client(self) -> Any:
         """Get client instance.
 
         Returns:
@@ -77,7 +77,7 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
         if not self._initialized:
             _check_openai_dependency()
             from openai import AsyncOpenAI
-            
+
             timeout = self.config.get("timeout", 30.0)
             self._client = AsyncOpenAI(
                 api_key=self.api_key,
@@ -146,7 +146,7 @@ class OpenAIProvider(BaseProvider[OpenAIConfig]):
                         )
         except Exception as e:
             raise ProviderError(
-                f"Failed to stream responses: {str(e)}",
+                f"Failed to stream responses: {e!s}",
                 provider="openai",
                 operation="stream",
                 cause=e,

@@ -2,15 +2,20 @@
 
 import os
 from dataclasses import dataclass
-from typing import Any, TypedDict
+from typing import Any
 
 from .exceptions import ProviderError
 
 
-class ProviderConfig(TypedDict):
+@dataclass
+class ProviderConfig:
     """Base provider configuration."""
 
     model: str
+    api_key: str | None = None
+    api_base: str | None = None
+    metadata: dict[str, Any] | None = None
+    settings: dict[str, Any] | None = None
 
 
 @dataclass

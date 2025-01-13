@@ -1,4 +1,4 @@
-# PepperPy Core Cursor Rules
+# Consolidated Cursor Rules
 
 ## Code Style
 
@@ -6,7 +6,7 @@
 - Use `black` for code formatting with a line length of 88.
 - Use double quotes for strings.
 - Use type hints for all function parameters and return types.
-- Use `async`/`await` for I/O operations.
+- Prefer `async`/`await` for I/O operations.
 - Follow the principle of least privilege.
 
 ## Documentation
@@ -30,7 +30,7 @@
 - Never store sensitive data in code.
 - Use environment variables for configuration.
 - Follow secure coding practices.
-- Validate all inputs.
+- Validate all inputs and sanitize where appropriate.
 - Handle errors gracefully.
 
 ## Dependencies
@@ -38,36 +38,35 @@
 - Use Poetry for dependency management.
 - Pin dependency versions.
 - Keep dependencies up-to-date.
-- Minimize third-party dependencies.
+- Separate optional dependencies in `pyproject.toml`.
 
 ## Git Workflow
 
 - Use semantic versioning.
-- Write descriptive commit messages.
-- Follow conventional commits specification.
+- Write descriptive commit messages following the conventional commits specification.
 - Create feature branches for new features.
 - Submit PRs for review.
 
 ## Error Handling
 
-- Use custom exceptions from `exceptions.py`.
-- Log errors appropriately.
+- Define custom exceptions in `exceptions.py`.
 - Include context in error messages.
+- Log errors appropriately with structured logging.
 - Handle edge cases explicitly.
 
 ## Performance
 
 - Use async operations where appropriate.
-- Implement caching when beneficial.
-- Profile code for bottlenecks.
-- Optimize resource usage.
+- Implement caching for expensive operations.
+- Monitor and profile code for bottlenecks.
+- Optimize resource usage and implement proper cleanup.
 
 ## Code Organization
 
 - Keep modules focused and single-purpose.
-- Use dependency injection.
-- Follow SOLID principles.
-- Maintain clean architecture.
+- Follow modular architecture with clear separation of concerns.
+- Use dependency injection and adhere to SOLID principles.
+- Avoid circular dependencies.
 
 ## Quality Checks
 
@@ -82,17 +81,26 @@
 - Use type hints consistently.
 - Follow project structure.
 - Implement proper error handling.
-- Add comprehensive docstrings.
-- Include usage examples.
+- Add comprehensive docstrings with examples.
 - Write unit tests.
 - Consider security implications.
 - Optimize for performance.
 - Keep code modular.
-- Use `async`/`await` for I/O operations.
-- Follow the principle of least privilege.
 
 ## Documentation Updates
 
-- Evaluate if changes necessitate updates to documentation in the `/docs` directory.
+- Evaluate if changes necessitate updates to the `/docs` directory.
 - Ensure all relevant documentation is updated and improved as needed.
 
+## Monitoring and Metrics
+
+- Use structured logging with context information.
+- Implement proper log levels and telemetry for performance metrics.
+- Track error rates and monitor for anomalies.
+
+## Pull Requests and Code Reviews
+
+- Ensure all pull requests include test coverage.
+- Verify documentation updates are included.
+- Check type consistency and error handling.
+- Ensure adherence to conventional commits.

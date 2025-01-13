@@ -25,10 +25,15 @@ class ExampleAIClient:
         """Initialize client."""
         if not self._provider_instance:
             config = ProviderConfig(
-                provider="mock",
-                api_key="mock-key",
                 model="mock-model",
+                api_key="mock-key",
             )
+            if not config.api_key:
+                raise ProviderError(
+                    "API key is required",
+                    provider="example",
+                    operation="initialize",
+                )
             self._provider_instance = self.provider(config, config.api_key)
             await self._provider_instance.initialize()
 
@@ -48,10 +53,10 @@ class ExampleAIClient:
         """Stream responses from provider.
 
         Args:
-            messages: List of messages to send to provider
-            model: Optional model to use
-            temperature: Optional temperature parameter
-            max_tokens: Optional maximum tokens parameter
+            messages: Messages to send to provider
+            model: Model to use
+            temperature: Temperature to use
+            max_tokens: Maximum tokens to generate
 
         Returns:
             AsyncGenerator yielding AIResponse objects
@@ -60,16 +65,12 @@ class ExampleAIClient:
             ProviderError: If provider is not initialized
         """
         if not self._provider_instance:
-            raise ProviderError("Provider not initialized", "example")
+            raise ProviderError("Provider not initialized", provider="example", operation="stream")
 
-        # Get the stream from the provider
-        provider_stream = self._provider_instance.stream(
+        async for response in self._provider_instance.stream(
             messages,
             model=model,
             temperature=temperature,
             max_tokens=max_tokens,
-        )
-
-        # Yield responses from the stream
-        async for response in provider_stream:
+        ):
             yield response

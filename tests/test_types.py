@@ -7,10 +7,10 @@ from pepperpy_ai.ai_types import MessageRole
 
 def test_message_role_values() -> None:
     """Test message role values."""
-    assert MessageRole.SYSTEM == "system"
-    assert MessageRole.USER == "user"
-    assert MessageRole.ASSISTANT == "assistant"
-    assert MessageRole.FUNCTION == "function"
+    assert MessageRole.SYSTEM.value == "system"
+    assert MessageRole.USER.value == "user"
+    assert MessageRole.ASSISTANT.value == "assistant"
+    assert MessageRole.FUNCTION.value == "function"
 
 
 def test_message_role_from_str() -> None:

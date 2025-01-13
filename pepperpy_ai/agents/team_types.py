@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from ..ai_types import AIMessage
+from pepperpy_ai.ai_types import Message
 
 JsonDict = dict[str, Any]
 
@@ -50,5 +50,5 @@ class TeamMessage:
 class TeamConversation:
     """Team conversation history."""
 
-    messages: list[AIMessage] = field(default_factory=list)
+    messages: list[Message] = field(default_factory=list)
     metadata: JsonDict = field(default_factory=dict)

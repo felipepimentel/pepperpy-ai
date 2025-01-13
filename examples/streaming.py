@@ -1,15 +1,20 @@
 """Streaming example."""
 
 import asyncio
+from typing import cast
 
+from pepperpy_ai.ai_types import Message, MessageRole
 from pepperpy_ai.examples.utils import ExampleAIClient
+from pepperpy_ai.providers.base import BaseProvider
+from pepperpy_ai.providers.config import ProviderConfig
 from pepperpy_ai.providers.openai import OpenAIProvider
 
 
 async def main() -> None:
     """Run example."""
-    # Create client
-    client = ExampleAIClient(provider=OpenAIProvider)
+    # Create client with OpenAI provider
+    provider = cast(type[BaseProvider[ProviderConfig]], OpenAIProvider)
+    client = ExampleAIClient(provider=provider)
 
     # Initialize
     await client.initialize()
@@ -18,14 +23,21 @@ async def main() -> None:
         while True:
             # Get user input
             prompt = input("\nYou: ")
+
+            if not prompt:
+                continue
+
             if prompt.lower() in ["exit", "quit"]:
                 break
 
-            # Stream response
+            # Create message
+            messages = [Message(role=MessageRole.USER, content=prompt)]
+
+            # Stream responses
             print("\nAssistant: ", end="", flush=True)
-            async for chunk in client.stream(prompt):
-                print(chunk.content, end="", flush=True)
-            print()
+            async for response in client.stream(messages):
+                print(response.content, end="", flush=True)
+            print("\n")
 
     finally:
         await client.cleanup()

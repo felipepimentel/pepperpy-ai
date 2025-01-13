@@ -2,7 +2,7 @@
 
 import re
 from collections.abc import Callable
-from typing import TypedDict
+from typing import TypedDict, Any
 
 
 class TemplateVariables(TypedDict, total=False):
@@ -75,7 +75,7 @@ class PromptTemplate:
         matches = re.findall(pattern, template)
         return set(matches)
 
-    def validate_variables(self, **kwargs: TemplateVariables) -> None:
+    def validate_variables(self, **kwargs: Any) -> None:
         """Validate provided variables against template requirements.
 
         Args:
@@ -97,10 +97,10 @@ class PromptTemplate:
                             f"Variable '{var}' must be of type {validator.__name__}"
                         )
                 else:
-                    if not validator(value):
+                    if not validator(str(value)):
                         raise ValueError(f"Variable '{var}' failed validation")
 
-    def format(self, **kwargs: TemplateVariables) -> str:
+    def format(self, **kwargs: Any) -> str:
         """Format template with provided variables.
 
         Args:

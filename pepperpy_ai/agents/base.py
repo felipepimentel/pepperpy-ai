@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Protocol, TypedDict
 
-from ..ai_types import AIResponse
+from pepperpy_ai.ai_types import Message
 from .types import AgentConfig
 
 
@@ -35,7 +35,7 @@ class Agent(Protocol):
         """Cleanup agent resources."""
         ...
 
-    async def execute(self, task: str, **kwargs: AgentKwargs) -> AIResponse:
+    async def execute(self, task: str, **kwargs: AgentKwargs) -> Message:
         """Execute agent task."""
         ...
 
@@ -74,6 +74,6 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    async def execute(self, task: str, **kwargs: AgentKwargs) -> AIResponse:
+    async def execute(self, task: str, **kwargs: AgentKwargs) -> Message:
         """Execute agent task."""
         pass

@@ -81,7 +81,7 @@ class SimpleChatCapability(ChatCapability):
         """
         self._ensure_initialized()
         if not self._provider_instance:
-            raise CapabilityError("Provider not initialized", "chat")
+            raise CapabilityError("Provider not initialized", capability="chat", operation="stream")
 
         try:
             async for response in self._provider_instance.stream(
@@ -92,4 +92,4 @@ class SimpleChatCapability(ChatCapability):
             ):
                 yield response
         except Exception as e:
-            raise CapabilityError(f"Error streaming responses: {e!s}", "chat") from e
+            raise CapabilityError(f"Error streaming responses: {e!s}", capability="chat", operation="stream") from e

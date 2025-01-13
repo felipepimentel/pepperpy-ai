@@ -65,7 +65,7 @@ class TestProvider(BaseProvider[TestConfig]):
             ProviderError: If provider is not initialized
         """
         if not self.is_initialized:
-            raise ProviderError("Provider not initialized", provider="test")
+            raise ProviderError("Provider not initialized", provider="test", operation="stream")
         yield AIResponse(
             content="test",
             metadata=cast(ResponseMetadata, {

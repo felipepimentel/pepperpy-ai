@@ -2,7 +2,7 @@
 
 from typing import Protocol, TypedDict
 
-from ..ai_types import AIResponse
+from pepperpy_ai.ai_types import Message
 
 
 class AgentKwargs(TypedDict, total=False):
@@ -14,6 +14,6 @@ class AgentKwargs(TypedDict, total=False):
 class Agent(Protocol):
     """Agent protocol."""
 
-    async def execute(self, task: str, **kwargs: AgentKwargs) -> AIResponse:
+    async def execute(self, task: str, **kwargs: AgentKwargs) -> Message:
         """Execute agent task."""
         ...

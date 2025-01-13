@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 
-from ..ai_types import AIResponse
+from pepperpy_ai.ai_types import Message
 from .config import LLMConfig
 
 
@@ -41,11 +41,11 @@ class LLMClient(ABC):
         pass
 
     @abstractmethod
-    async def complete(self, prompt: str) -> AIResponse:
+    async def complete(self, prompt: str) -> Message:
         """Complete prompt."""
         pass
 
     @abstractmethod
-    async def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
+    async def stream(self, prompt: str) -> AsyncGenerator[Message, None]:
         """Stream responses."""
         pass

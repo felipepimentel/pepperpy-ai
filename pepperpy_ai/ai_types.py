@@ -1,14 +1,12 @@
 """AI types module."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-
-from .types import JsonDict
-from .types import Message as AIMessage
 
 
 class MessageRole(str, Enum):
-    """Role of a message in a conversation."""
+    """Message role."""
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -17,17 +15,8 @@ class MessageRole(str, Enum):
 
 @dataclass
 class Message:
-    """A message in a conversation."""
+    """Message type."""
+
     role: MessageRole
     content: str
     name: str | None = None
-    function_call: dict | None = None
-
-
-@dataclass
-class AIResponse:
-    """AI response type."""
-
-    content: str
-    messages: list[AIMessage] = field(default_factory=list)
-    metadata: JsonDict = field(default_factory=dict)

@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 from typing import Protocol, runtime_checkable
 
-from .ai_types import AIResponse
+from .ai_types import Message
 from .config import AIConfig
 
 
@@ -29,11 +29,11 @@ class AIClient(Protocol):
         """Cleanup client resources."""
         ...
 
-    async def complete(self, prompt: str) -> AIResponse:
+    async def complete(self, prompt: str) -> Message:
         """Complete prompt."""
         ...
 
-    async def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
+    async def stream(self, prompt: str) -> AsyncGenerator[Message, None]:
         """Stream responses."""
         ...
 
