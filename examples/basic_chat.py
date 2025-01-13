@@ -1,35 +1,14 @@
 """Basic chat example using PepperPy AI."""
 
 import asyncio
-import os
 import sys
 from typing import NoReturn
 
 from pepperpy_ai.ai_types import Message, MessageRole
 from pepperpy_ai.exceptions import DependencyError
+from pepperpy_ai.providers.config import ProviderSettings
 from pepperpy_ai.providers.exceptions import ProviderError
-from pepperpy_ai.providers.openai import OpenAIProvider
-
-
-def get_api_key() -> str:
-    """Get OpenAI API key from environment.
-    
-    Returns:
-        str: API key
-
-    Raises:
-        SystemExit: If API key is not set
-    """
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        print(
-            "\nError: OPENAI_API_KEY environment variable is not set.\n"
-            "Please set it with your OpenAI API key:\n\n"
-            "    export OPENAI_API_KEY='your-api-key'\n",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    return api_key
+from pepperpy_ai.providers.factory import create_provider
 
 
 def handle_error(error: Exception) -> NoReturn:
@@ -44,9 +23,11 @@ def handle_error(error: Exception) -> NoReturn:
     elif isinstance(error, ProviderError):
         if "api_key" in str(error).lower():
             print(
-                "\nError: Invalid OpenAI API key. Please check your API key and try again.\n",
+                "\nError: Missing or invalid API key. Please check your environment variables.\n",
                 file=sys.stderr,
             )
+            settings = ProviderSettings.from_env(prefix="PEPPERPY_")
+            print(settings.get_env_help(prefix="PEPPERPY_"), file=sys.stderr)
         else:
             print(f"\nError: {error}", file=sys.stderr)
         sys.exit(1)
@@ -59,19 +40,8 @@ async def main() -> None:
     """Run basic chat example."""
     provider = None
     try:
-        # Get API key
-        api_key = get_api_key()
-
-        # Initialize provider with configuration
-        provider = OpenAIProvider(
-            config={
-                "model": "gpt-3.5-turbo",
-                "temperature": 0.7,
-                "max_tokens": 1000,
-                "timeout": 30.0,  # 30 seconds timeout
-            },
-            api_key=api_key,
-        )
+        # Create provider from environment variables
+        provider = create_provider(prefix="PEPPERPY_")
         await provider.initialize()
 
         # Send a message

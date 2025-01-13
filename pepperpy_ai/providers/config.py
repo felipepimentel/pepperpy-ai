@@ -1,112 +1,105 @@
 """Provider configuration module."""
 
-from typing import TypedDict
+import os
+from dataclasses import dataclass
+from typing import Any, TypedDict
+
+from .exceptions import ProviderError
 
 
-class ProviderSettings(TypedDict, total=False):
-    """Provider settings dictionary.
+class ProviderConfig(TypedDict):
+    """Base provider configuration."""
 
-    Attributes:
-        api_key: API key for authentication
-        api_base: Base URL for API requests
-        api_version: API version to use
-        organization_id: Organization ID for multi-tenant providers
-        model: Default model to use
-        timeout: Request timeout in seconds
-        max_retries: Maximum number of retries
-        retry_delay: Delay between retries in seconds
-    """
-
-    api_key: str
-    api_base: str
-    api_version: str
-    organization_id: str
     model: str
-    timeout: float
-    max_retries: int
-    retry_delay: float
 
 
-class ProviderConfig:
-    """Provider configuration class.
+@dataclass
+class ProviderSettings:
+    """Provider settings."""
 
-    Attributes:
-        api_key: The API key for the provider
-        api_base: The base URL for API requests
-        api_version: The API version to use
-        organization_id: The organization ID for multi-tenant providers
-        model: The default model to use
-        timeout: The request timeout in seconds
-        max_retries: The maximum number of retries
-        retry_delay: The delay between retries in seconds
-    """
-
-    def __init__(
-        self,
-        api_key: str = "",
-        api_base: str = "",
-        api_version: str = "",
-        organization_id: str = "",
-        model: str = "",
-        timeout: float = 30.0,
-        max_retries: int = 3,
-        retry_delay: float = 1.0,
-    ) -> None:
-        """Initialize provider configuration.
-
-        Args:
-            api_key: The API key for the provider
-            api_base: The base URL for API requests
-            api_version: The API version to use
-            organization_id: The organization ID for multi-tenant providers
-            model: The default model to use
-            timeout: The request timeout in seconds
-            max_retries: The maximum number of retries
-            retry_delay: The delay between retries in seconds
-        """
-        self.api_key = api_key
-        self.api_base = api_base
-        self.api_version = api_version
-        self.organization_id = organization_id
-        self.model = model
-        self.timeout = timeout
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
-
-    def to_dict(self) -> ProviderSettings:
-        """Convert configuration to dictionary.
-
-        Returns:
-            Dictionary representation of the configuration
-        """
-        return {
-            "api_key": self.api_key,
-            "api_base": self.api_base,
-            "api_version": self.api_version,
-            "organization_id": self.organization_id,
-            "model": self.model,
-            "timeout": self.timeout,
-            "max_retries": self.max_retries,
-            "retry_delay": self.retry_delay,
-        }
+    name: str
+    api_key: str
+    config: dict[str, Any]
 
     @classmethod
-    def from_dict(cls, data: ProviderSettings) -> "ProviderConfig":
-        """Create configuration from dictionary.
+    def from_env(cls, prefix: str = "") -> "ProviderSettings":
+        """Create provider settings from environment variables.
+
+        The following environment variables are used:
+        - {prefix}PROVIDER: Provider name (default: openrouter)
+        - {prefix}API_KEY: API key
+        - {prefix}MODEL: Model name (default: depends on provider)
+        - {prefix}TEMPERATURE: Temperature (default: 0.7)
+        - {prefix}MAX_TOKENS: Max tokens (default: 1000)
+        - {prefix}TIMEOUT: Timeout in seconds (default: 30.0)
 
         Args:
-            data: Dictionary containing configuration values
+            prefix: Environment variable prefix (e.g., "PEPPERPY_")
 
         Returns:
-            Provider configuration instance
+            Provider settings
+
+        Raises:
+            ProviderError: If required environment variables are missing
         """
+        # Get provider name (default to openrouter)
+        provider = os.getenv(f"{prefix}PROVIDER", "openrouter").lower()
+
+        # Get API key
+        api_key = os.getenv(f"{prefix}API_KEY", "").strip()
+        if not api_key:
+            raise ProviderError(
+                f"Missing {prefix}API_KEY environment variable",
+                provider=provider,
+                operation="config",
+            )
+
+        # Get model name
+        model = os.getenv(f"{prefix}MODEL", "")
+        if not model:
+            # Default models per provider
+            model = {
+                "openai": "gpt-3.5-turbo",
+                "anthropic": "claude-2.1",
+                "openrouter": "anthropic/claude-2",
+                "mock": "mock",
+            }.get(provider, "")
+
+        # Build config
+        config = {
+            "model": model,
+            "temperature": float(os.getenv(f"{prefix}TEMPERATURE", "0.7")),
+            "max_tokens": int(os.getenv(f"{prefix}MAX_TOKENS", "1000")),
+            "timeout": float(os.getenv(f"{prefix}TIMEOUT", "30.0")),
+        }
+
         return cls(
-            api_key=data.get("api_key", ""),
-            api_base=data.get("api_base", ""),
-            api_version=data.get("api_version", ""),
-            organization_id=data.get("organization_id", ""),
-            model=data.get("model", ""),
-            timeout=data.get("timeout", 30.0),
-            max_retries=data.get("max_retries", 3),
-            retry_delay=data.get("retry_delay", 1.0),
+            name=provider,
+            api_key=api_key,
+            config=config,
         )
+
+    def get_env_help(self, prefix: str = "") -> str:
+        """Get help text for environment variables.
+
+        Args:
+            prefix: Environment variable prefix
+
+        Returns:
+            Help text
+        """
+        return f"""
+Required environment variables:
+    {prefix}API_KEY: API key for the provider
+
+Optional environment variables:
+    {prefix}PROVIDER: Provider name (default: openrouter)
+        Supported providers: openai, anthropic, openrouter, mock
+    {prefix}MODEL: Model name (provider-specific defaults)
+        OpenAI: gpt-3.5-turbo
+        Anthropic: claude-2.1
+        OpenRouter: anthropic/claude-2
+    {prefix}TEMPERATURE: Temperature (default: 0.7)
+    {prefix}MAX_TOKENS: Max tokens (default: 1000)
+    {prefix}TIMEOUT: Timeout in seconds (default: 30.0)
+"""

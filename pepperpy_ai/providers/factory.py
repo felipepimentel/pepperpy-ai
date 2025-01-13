@@ -4,7 +4,8 @@ from typing import cast
 
 from .anthropic import AnthropicProvider
 from .base import BaseProvider
-from .config import ProviderConfig
+from .config import ProviderConfig, ProviderSettings
+from .exceptions import ProviderError
 from .mock import MockProvider
 from .openai import OpenAIProvider
 from .openrouter import OpenRouterProvider
@@ -16,26 +17,39 @@ PROVIDER_MAP: dict[str, type[BaseProvider[ProviderConfig]]] = {
     "mock": cast(type[BaseProvider[ProviderConfig]], MockProvider),
 }
 
+
 def create_provider(
-    provider_name: str,
-    config: ProviderConfig,
-    api_key: str,
+    settings: ProviderSettings | None = None,
+    prefix: str = "",
 ) -> BaseProvider[ProviderConfig]:
     """Create a provider instance.
 
+    If settings is not provided, they will be loaded from environment variables.
+    Environment variables are prefixed with the given prefix.
+
     Args:
-        provider_name: Name of the provider to create
-        config: Provider configuration
-        api_key: API key for the provider
+        settings: Provider settings
+        prefix: Environment variable prefix (e.g., "PEPPERPY_")
 
     Returns:
         Provider instance
 
     Raises:
-        ValueError: If provider is not supported
+        ProviderError: If provider is not supported or configuration is invalid
     """
-    provider_class = PROVIDER_MAP.get(provider_name)
-    if not provider_class:
-        raise ValueError(f"Unsupported provider: {provider_name}")
+    # Load settings from environment if not provided
+    if settings is None:
+        settings = ProviderSettings.from_env(prefix)
 
-    return provider_class(config, api_key)
+    # Get provider class
+    provider_class = PROVIDER_MAP.get(settings.name)
+    if not provider_class:
+        raise ProviderError(
+            f"Unsupported provider: {settings.name}",
+            provider=settings.name,
+            operation="create",
+        )
+
+    # Cast config to correct type
+    config = cast(ProviderConfig, settings.config)
+    return provider_class(config, settings.api_key)
