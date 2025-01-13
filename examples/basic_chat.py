@@ -1,102 +1,48 @@
-"""Basic chat example using PepperPy AI."""
+"""Basic chat example."""
 
 import asyncio
-import logging
-import os
-import sys
 from pathlib import Path
-from typing import NoReturn
 
 from dotenv import load_dotenv
 
 from pepperpy_ai.ai_types import Message, MessageRole
-from pepperpy_ai.exceptions import DependencyError
-from pepperpy_ai.providers.config import ProviderSettings
-from pepperpy_ai.providers.exceptions import ProviderError
 from pepperpy_ai.providers.factory import create_provider
 
 
-# Configure logging
-logging.basicConfig(
-    level=logging.DEBUG if os.getenv("PEPPERPY_DEBUG") else logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-logger = logging.getLogger(__name__)
-
-
 def load_environment() -> None:
-    """Load environment variables from .env file.
-
-    Looks for .env file in the following locations:
-    1. Current directory
-    2. Parent directory (project root)
-    """
-    # Try current directory
+    """Load environment variables from .env file."""
     if Path(".env").exists():
-        logger.debug("Loading .env from current directory")
         load_dotenv()
-    # Try parent directory (project root)
     elif Path("../.env").exists():
-        logger.debug("Loading .env from parent directory")
         load_dotenv("../.env")
-    else:
-        logger.debug("No .env file found")
-
-
-def handle_error(error: Exception) -> NoReturn:
-    """Handle error and exit.
-
-    Args:
-        error: Exception to handle
-    """
-    if isinstance(error, DependencyError):
-        print(error, file=sys.stderr)
-        sys.exit(1)
-    elif isinstance(error, ProviderError):
-        if "api_key" in str(error).lower():
-            print(
-                "\nError: Missing or invalid API key. "
-                "Please check your environment variables.\n",
-                file=sys.stderr,
-            )
-            settings = ProviderSettings.from_env(prefix="PEPPERPY_")
-            print(settings.get_env_help(prefix="PEPPERPY_"), file=sys.stderr)
-        else:
-            print(f"\nError: {error}", file=sys.stderr)
-        sys.exit(1)
-    else:
-        print(f"\nUnexpected error: {error}", file=sys.stderr)
-        sys.exit(1)
 
 
 async def main() -> None:
-    """Run basic chat example."""
+    """Run example."""
     # Load environment variables
     load_environment()
 
-    provider = None
+    # Create provider
+    provider = create_provider(prefix="PEPPERPY_")
+
     try:
-        # Create provider from environment variables
-        provider = create_provider(prefix="PEPPERPY_")
+        # Initialize provider
         await provider.initialize()
 
-        # Send a message
+        # Create messages
         messages = [
-            Message(role=MessageRole.USER, content="Hello! How are you?")
+            Message(content="Hello! How are you?", role=MessageRole.USER),
         ]
 
-        print("\nUser: Hello! How are you?")
+        # Stream responses
         print("\nAssistant: ", end="", flush=True)
-
-        async for response in provider.stream(messages):
+        async for response in provider.stream(messages=messages):
             print(response.content, end="", flush=True)
         print("\n")
 
-    except Exception as e:
-        handle_error(e)
     finally:
-        if provider:
-            await provider.cleanup()
+        # Clean up provider
+        await provider.cleanup()
 
 
 if __name__ == "__main__":

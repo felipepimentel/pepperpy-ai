@@ -1,13 +1,25 @@
 """Provider configuration module."""
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import TypedDict
 
-from pepperpy_core.types import BaseConfig
+from ..types import JsonDict
+
+
+class ProviderSettings(TypedDict, total=False):
+    """Provider settings."""
+
+    timeout: float
+    max_retries: int
+    retry_delay: float
+    api_key: str
+    api_base: str
+    model: str
+    metadata: JsonDict
 
 
 @dataclass
-class ProviderConfig(BaseConfig):
+class ProviderConfig:
     """Base provider configuration."""
 
     name: str
@@ -15,5 +27,8 @@ class ProviderConfig(BaseConfig):
     model: str | None = None
     api_key: str | None = None
     api_base: str | None = None
-    metadata: dict[str, Any] | None = None
-    settings: dict[str, Any] | None = None
+    metadata: JsonDict = field(default_factory=dict)
+    settings: ProviderSettings | None = None
+
+
+__all__ = ["ProviderConfig", "ProviderSettings"]

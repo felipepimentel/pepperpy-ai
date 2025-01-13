@@ -3,7 +3,7 @@
 from dataclasses import dataclass, field
 from enum import Enum
 
-from pepperpy_core.types import JsonDict
+from ..types import JsonDict
 
 
 class ChatRole(str, Enum):

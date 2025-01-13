@@ -1,8 +1,13 @@
-"""Base types module."""
+"""Type definitions."""
+
+from typing import Any, Union
 
 # Type aliases for JSON values
-JsonValue = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
-type JsonDict = dict[str, JsonValue]
+JsonValue = Union[str, int, float, bool, None, list[Any], dict[str, Any]]
+JsonDict = dict[str, str | int | float | bool | None | list[Any] | dict[str, Any]]
+
+__all__ = ["JsonDict", "JsonValue"]
+
 
 class Message:
     """Message type."""
