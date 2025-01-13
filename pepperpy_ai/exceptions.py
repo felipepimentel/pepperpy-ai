@@ -1,6 +1,7 @@
 """Custom exceptions for PepperPy AI."""
 
 from .types import JsonValue
+from typing import Any
 
 
 class PepperPyAIError(Exception):
@@ -81,18 +82,41 @@ class CapabilityError(PepperPyAIError):
 class DependencyError(PepperPyAIError):
     """Raised when there is a missing or incompatible dependency."""
 
-    def __init__(self, message: str, package: str) -> None:
+    def __init__(
+        self, feature: str, package: str, extra: str | None = None, **kwargs: Any
+    ) -> None:
         """Initialize the exception.
 
         Args:
-            message: The error message.
-            package: The name of the package that is missing or incompatible.
+            feature: Feature that requires the dependency
+            package: Package that is missing
+            extra: Optional poetry extra that provides the package
+            **kwargs: Additional error context
         """
+        pip_install = f"pip install {package}"
+        poetry_add = f"poetry add {package}"
+        
+        if extra:
+            pip_install = f"pip install pepperpy-ai[{extra}]"
+            poetry_add = f"poetry add pepperpy-ai[{extra}]"
+
+        message = (
+            f"\n\nThe feature '{feature}' requires the '{package}' package which is not installed.\n"
+            f"To use this feature, install the required dependency using pip:\n\n"
+            f"    {pip_install}\n\n"
+            f"Or if you're using Poetry:\n\n"
+            f"    {poetry_add}\n\n"
+            f"This is an optional dependency to keep the base package lightweight.\n"
+            f"For more information, visit: https://docs.pepperpy.ai/installation\n"
+        )
         super().__init__(message)
         self.package = package
+        self.feature = feature
+        self.extra = extra
+        self.context = kwargs
 
 
-class EmbeddingsError(Exception):
+class EmbeddingsError(PepperPyAIError):
     """Base class for embeddings errors."""
 
     def __init__(self, message: str) -> None:
@@ -102,11 +126,6 @@ class EmbeddingsError(Exception):
             message: Error message
         """
         super().__init__(message)
-        self.message = message
-
-    def __str__(self) -> str:
-        """Get string representation."""
-        return self.message
 
 
 class TemplateError(PepperPyAIError):
