@@ -21,28 +21,35 @@ poetry add pepperpy-ai
 Install only what you need:
 
 ```bash
-# OpenAI support
-pip install pepperpy-ai[openai]
-poetry add pepperpy-ai[openai]
+# Install with OpenRouter support (recommended)
+pip install pepperpy-ai[openrouter]
 
-# Anthropic support
-pip install pepperpy-ai[anthropic]
-poetry add pepperpy-ai[anthropic]
+# Or install other providers
+pip install pepperpy-ai[openai]      # For OpenAI
+pip install pepperpy-ai[anthropic]   # For Anthropic
+pip install pepperpy-ai[all-providers]  # For all providers
 
-# RAG (Retrieval Augmented Generation) support
+# Install with RAG support
 pip install pepperpy-ai[rag]
+
+# Install everything
+pip install pepperpy-ai[complete]
+```
+
+Using Poetry:
+```bash
+# Install with OpenRouter support (recommended)
+poetry add pepperpy-ai[openrouter]
+
+# Or install other providers
+poetry add pepperpy-ai[openai]      # For OpenAI
+poetry add pepperpy-ai[anthropic]   # For Anthropic
+poetry add pepperpy-ai[all-providers]  # For all providers
+
+# Install with RAG support
 poetry add pepperpy-ai[rag]
 
-# All providers
-pip install pepperpy-ai[all-providers]
-poetry add pepperpy-ai[all-providers]
-
-# All capabilities
-pip install pepperpy-ai[all-capabilities]
-poetry add pepperpy-ai[all-capabilities]
-
-# Everything
-pip install pepperpy-ai[complete]
+# Install everything
 poetry add pepperpy-ai[complete]
 ```
 
