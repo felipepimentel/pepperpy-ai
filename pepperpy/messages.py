@@ -1,63 +1,94 @@
-"""Messages module."""
+"""Message module."""
 
 from dataclasses import dataclass
-from typing import Any, Literal, TypedDict, cast
+from typing import Any
 
-from .types import Message, Role
-
-
-class MessageDict(TypedDict, total=False):
-    """Message dictionary."""
-
-    role: Literal["user", "assistant", "system"]
-    content: str
-    name: str
-    function_call: dict[str, Any]
-    tool_calls: list[dict[str, Any]]
+from pepperpy.types import Message, MessageRole
 
 
 @dataclass
-class MessageData:
-    """Message data."""
+class BaseMessage:
+    """Base message class."""
 
-    role: Role
+    role: MessageRole
     content: str
-    name: str | None = None
-    function_call: dict[str, Any] | None = None
-    tool_calls: list[dict[str, Any]] | None = None
 
     def to_dict(self) -> Message:
-        """Convert to dictionary.
+        """Convert message to dictionary.
 
         Returns:
-            Message dictionary.
+            Message: Dictionary representation.
         """
-        message: MessageDict = {
-            "role": cast(Literal["user", "assistant", "system"], self.role.value),
+        return {
+            "role": self.role.value,
             "content": self.content,
         }
-        if self.name is not None:
-            message["name"] = self.name
-        if self.function_call is not None:
-            message["function_call"] = self.function_call
-        if self.tool_calls is not None:
-            message["tool_calls"] = self.tool_calls
-        return cast(Message, message)
 
-    @classmethod
-    def from_dict(cls, data: Message) -> "MessageData":
-        """Create from dictionary.
+
+@dataclass
+class UserMessage(BaseMessage):
+    """User message class."""
+
+    def __init__(self, content: str) -> None:
+        """Initialize user message.
 
         Args:
-            data: Message dictionary.
+            content: Message content.
+        """
+        super().__init__(role=MessageRole.USER, content=content)
+
+
+@dataclass
+class AssistantMessage(BaseMessage):
+    """Assistant message class."""
+
+    def __init__(self, content: str) -> None:
+        """Initialize assistant message.
+
+        Args:
+            content: Message content.
+        """
+        super().__init__(role=MessageRole.ASSISTANT, content=content)
+
+
+@dataclass
+class SystemMessage(BaseMessage):
+    """System message class."""
+
+    def __init__(self, content: str) -> None:
+        """Initialize system message.
+
+        Args:
+            content: Message content.
+        """
+        super().__init__(role=MessageRole.SYSTEM, content=content)
+
+
+@dataclass
+class FunctionMessage(BaseMessage):
+    """Function message class."""
+
+    name: str
+    function_call: dict[str, Any] | None = None
+
+    def __init__(self, content: str, name: str) -> None:
+        """Initialize function message.
+
+        Args:
+            content: Message content.
+            name: Function name.
+        """
+        super().__init__(role=MessageRole.FUNCTION, content=content)
+        self.name = name
+
+    def to_dict(self) -> Message:
+        """Convert message to dictionary.
 
         Returns:
-            Message data.
+            Message: Dictionary representation.
         """
-        return cls(
-            role=Role(data["role"]),
-            content=data["content"],
-            name=data.get("name"),
-            function_call=data.get("function_call"),
-            tool_calls=data.get("tool_calls"),
-        )
+        message = super().to_dict()
+        message["name"] = self.name
+        if self.function_call:
+            message["function_call"] = self.function_call
+        return message

@@ -1,6 +1,11 @@
 """Teams client module."""
 
-from ..network.client import NetworkClient
+from typing import Any, cast
+
+import aiohttp
+
+from pepperpy.network import HTTPClient
+
 from .providers.config import TeamProviderConfig
 
 
@@ -14,7 +19,9 @@ class TeamsClient:
             base_url: Base URL.
             api_key: API key.
         """
-        self._client = NetworkClient(base_url=base_url, api_key=api_key)
+        self._client = HTTPClient()
+        self._base_url = base_url.rstrip("/")
+        self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
     async def initialize(self) -> None:
         """Initialize client."""
@@ -22,7 +29,7 @@ class TeamsClient:
 
     async def close(self) -> None:
         """Close client."""
-        await self._client.close()
+        await self._client.cleanup()
 
     async def get_team_config(self, team_id: str) -> TeamProviderConfig:
         """Get team configuration.
@@ -32,6 +39,20 @@ class TeamsClient:
 
         Returns:
             Team configuration.
+
+        Raises:
+            HTTPError: If the request fails.
         """
-        data = await self._client.get(f"/teams/{team_id}/config")
-        return TeamProviderConfig(**data)
+        response = cast(
+            aiohttp.ClientResponse,
+            await self._client.get(
+                f"{self._base_url}/teams/{team_id}/config",
+                headers=self._headers,
+            ),
+        )
+        data = cast(dict[str, Any], await response.json())
+        return TeamProviderConfig(
+            members=data.get("members", []),
+            roles=data.get("roles", {}),
+            tools=data.get("tools", {}),
+        )

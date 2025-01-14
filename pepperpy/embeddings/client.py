@@ -2,100 +2,84 @@
 
 from typing import Any
 
-from ..config.embeddings import EmbeddingsConfig
-from .base import BaseEmbeddingsProvider
-from .providers.sentence_transformers import SentenceTransformersProvider
-from .providers.simple import SimpleEmbeddingsProvider
+from pepperpy.embeddings.base import BaseEmbeddingsProvider
+from pepperpy.embeddings.providers.sentence_transformers import (
+    SentenceTransformersProvider,
+)
+from pepperpy.exceptions import DependencyError
+from pepperpy.types import CapabilityConfig
 
 
 class EmbeddingsClient:
-    """Embeddings client class."""
+    """Embeddings client."""
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: CapabilityConfig) -> None:
         """Initialize embeddings client.
 
         Args:
-            config: Embeddings configuration.
+            config: Client configuration.
         """
-        self.config = config
+        self._config = config
         self._provider: BaseEmbeddingsProvider | None = None
 
     @property
-    def is_initialized(self) -> bool:
-        """Return whether the client is initialized."""
-        return self._provider is not None and self._provider.is_initialized
+    def provider(self) -> BaseEmbeddingsProvider:
+        """Get embeddings provider.
+
+        Returns:
+            BaseEmbeddingsProvider: Embeddings provider.
+
+        Raises:
+            DependencyError: If provider is not initialized.
+        """
+        if not self._provider:
+            raise DependencyError(
+                "Provider not initialized", package="sentence-transformers"
+            )
+        return self._provider
 
     async def initialize(self) -> None:
-        """Initialize client."""
-        if self.is_initialized:
-            return
+        """Initialize client.
 
-        provider_type = self.config.get("provider_type", "simple")
-        model = self.config.get("model", "all-MiniLM-L6-v2")
-        api_key = self.config.get("api_key", "")
-
-        if not api_key:
-            raise ValueError("API key is required")
-
-        # Create embeddings config with required fields
-        embeddings_config: EmbeddingsConfig = {
-            "name": provider_type,
-            "version": "1.0.0",
-            "model": model,
-            "api_key": api_key,
-            "enabled": self.config.get("enabled", True),
-            "normalize": self.config.get("normalize", True),
-            "batch_size": self.config.get("batch_size", 32),
-            "device": self.config.get("device", "cpu"),
-        }
-
-        if provider_type == "simple":
-            self._provider = SimpleEmbeddingsProvider(embeddings_config)
-        elif provider_type == "sentence_transformers":
-            self._provider = SentenceTransformersProvider(embeddings_config)
-        else:
-            raise ValueError(f"Unsupported provider type: {provider_type}")
-
-        await self._provider.initialize()
+        Raises:
+            DependencyError: If provider is not initialized.
+        """
+        if not self._provider:
+            self._provider = SentenceTransformersProvider(self._config)
+            await self._provider.initialize()
 
     async def cleanup(self) -> None:
-        """Cleanup client."""
-        if self._provider is not None:
+        """Clean up client."""
+        if self._provider:
             await self._provider.cleanup()
             self._provider = None
 
-    async def embed(self, text: str) -> list[float]:
-        """Generate embeddings for text.
+    async def embed_text(self, text: str, **kwargs: Any) -> list[float]:
+        """Embed text.
 
         Args:
-            text: Text to generate embeddings for.
+            text: Text to embed.
+            **kwargs: Additional arguments.
 
         Returns:
-            List of embeddings.
+            list[float]: Embedding.
 
         Raises:
-            ValueError: If client is not initialized.
+            DependencyError: If provider is not initialized.
         """
-        if not self.is_initialized:
-            raise ValueError("Client not initialized")
+        return await self.provider.embed_text(text, **kwargs)
 
-        assert self._provider is not None
-        return await self._provider.embed(text)
-
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
+    async def embed_texts(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        """Embed texts.
 
         Args:
-            texts: List of texts to generate embeddings for.
+            texts: List of texts to embed.
+            **kwargs: Additional arguments.
 
         Returns:
-            List of embeddings.
+            list[list[float]]: List of embeddings.
 
         Raises:
-            ValueError: If client is not initialized.
+            DependencyError: If provider is not initialized.
         """
-        if not self.is_initialized:
-            raise ValueError("Client not initialized")
-
-        assert self._provider is not None
-        return await self._provider.embed_batch(texts)
+        return await self.provider.embed_texts(texts, **kwargs)

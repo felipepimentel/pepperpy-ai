@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 
 from ..config.team import TeamConfig
-from ..responses import AIResponse
+from ..responses import ResponseData
 from .interfaces import ToolParams
 
 
@@ -48,7 +48,7 @@ class BaseTeam(ABC):
             self._initialized = False
 
     @abstractmethod
-    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> ResponseData:
         """Execute team task.
 
         Args:
@@ -56,6 +56,6 @@ class BaseTeam(ABC):
             **kwargs: Additional task parameters.
 
         Returns:
-            AIResponse: Task execution response.
+            ResponseData: Task execution response.
         """
         pass

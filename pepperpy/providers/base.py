@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, Coroutine
 from typing import Any, Generic, TypeVar
 
-from ..responses import AIResponse
+from ..responses import ResponseData
 from ..types import Message
 from .config import ProviderConfig
 
@@ -47,7 +47,7 @@ class BaseProvider(ABC, Generic[TConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
+    ) -> Coroutine[Any, Any, AsyncGenerator[ResponseData, None]]:
         """Stream responses from the provider.
 
         Args:

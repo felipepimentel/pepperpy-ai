@@ -3,7 +3,7 @@
 from typing import cast
 
 from ...config.team import TeamConfig
-from ...responses import AIResponse, ResponseMetadata
+from ...responses import ResponseData, ResponseMetadata
 from ..base import BaseTeam
 from ..interfaces import ToolParams
 
@@ -19,7 +19,7 @@ class LangchainTeam(BaseTeam):
         """
         super().__init__(config)
 
-    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> ResponseData:
         """Execute team task.
 
         Args:
@@ -27,12 +27,12 @@ class LangchainTeam(BaseTeam):
             **kwargs: Additional task parameters.
 
         Returns:
-            AIResponse: Task execution response.
+            ResponseData: Task execution response.
         """
         if not self.is_initialized:
             raise RuntimeError("Team not initialized")
 
-        return AIResponse(
+        return ResponseData(
             content=f"Executing task: {task}",
             metadata=cast(
                 ResponseMetadata,

@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import TypedDict
 
-from ....responses import AIResponse
+from ....responses import ResponseData
 from ..document import Document
 
 
@@ -56,7 +56,7 @@ class BaseRAGStrategy(ABC):
         *,
         stream: bool = False,
         **kwargs: RAGGenerateKwargs,
-    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
+    ) -> ResponseData | AsyncGenerator[ResponseData, None]:
         """Generate response from RAG.
 
         Args:
@@ -66,6 +66,6 @@ class BaseRAGStrategy(ABC):
             **kwargs: Additional generation parameters.
 
         Returns:
-            AIResponse | AsyncGenerator[AIResponse, None]: Generated response.
+            ResponseData | AsyncGenerator[ResponseData, None]: Generated response.
         """
         pass

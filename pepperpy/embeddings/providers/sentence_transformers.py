@@ -1,115 +1,139 @@
-"""Sentence Transformers embeddings provider implementation."""
+"""Sentence transformers embeddings provider module."""
 
-from typing import TYPE_CHECKING, Any
+from collections.abc import Sequence
+from typing import Any, cast
 
-from ...config.embeddings import EmbeddingsConfig
-from ...exceptions import DependencyError
-from ..base import BaseEmbeddingsProvider
+import numpy as np
+from numpy.typing import NDArray
 
-if TYPE_CHECKING:
-    from sentence_transformers import SentenceTransformer
-else:
-    try:
-        from sentence_transformers import SentenceTransformer
-    except ImportError:
-        SentenceTransformer = None
+from pepperpy.embeddings.base import BaseEmbeddingsProvider
+from pepperpy.exceptions import DependencyError, ProviderError
+from pepperpy.types import CapabilityConfig
+from pepperpy.utils.dependencies import check_dependency
 
 
 class SentenceTransformersProvider(BaseEmbeddingsProvider):
-    """Sentence Transformers embeddings provider.
+    """Sentence transformers embeddings provider."""
 
-    This provider uses the sentence-transformers library to generate embeddings.
-    """
-
-    def __init__(self, config: EmbeddingsConfig) -> None:
-        """Initialize provider.
+    def __init__(self, config: CapabilityConfig) -> None:
+        """Initialize sentence transformers provider.
 
         Args:
             config: Provider configuration.
+
+        Raises:
+            DependencyError: If sentence-transformers is not installed.
         """
         super().__init__(config)
-        self._initialized = False
-        self._model: Any = None
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if provider is initialized."""
-        return self._initialized and self._model is not None
-
-    def _ensure_initialized(self) -> None:
-        """Ensure provider is initialized.
-
-        Raises:
-            RuntimeError: If provider is not initialized.
-        """
-        if not self.is_initialized:
-            raise RuntimeError("Provider not initialized")
+        self._model = None
 
     async def initialize(self) -> None:
-        """Initialize provider resources.
+        """Initialize provider.
 
         Raises:
-            DependencyError: If required packages are not installed.
+            DependencyError: If sentence-transformers is not installed.
         """
         if not self.is_initialized:
-            if SentenceTransformer is None:
-                raise DependencyError(
-                    "Required packages not installed. "
-                    "Please install extras: pip install pepperpy-ai[embeddings]",
-                    package="sentence-transformers",
-                )
-
             try:
-                model_name = self.config["model"]
-                device = self.config.get("device", "cpu")
-
-                self._model = SentenceTransformer(model_name, device=device)
-                self._initialized = True
-            except ImportError as e:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as err:
                 raise DependencyError(
-                    "Required packages not installed. "
-                    "Please install extras: pip install pepperpy-ai[embeddings]",
+                    "sentence-transformers is required for "
+                    "SentenceTransformersProvider",
                     package="sentence-transformers",
-                ) from e
+                ) from err
+
+            model_name = self.config.model or "all-MiniLM-L6-v2"
+            self._model = SentenceTransformer(model_name)
+            await super().initialize()
 
     async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        if self.is_initialized:
-            self._model = None
-            self._initialized = False
+        """Clean up provider."""
+        self._model = None
+        await super().cleanup()
 
-    async def embed(self, text: str) -> list[float]:
-        """Generate embeddings for text.
-
-        Args:
-            text: Text to generate embeddings for.
-
-        Returns:
-            list[float]: Generated embeddings.
-
-        Raises:
-            RuntimeError: If provider is not initialized.
-        """
-        self._ensure_initialized()
-        if self._model is None:
-            raise RuntimeError("Model not initialized")
-        embeddings = self._model.encode([text])
-        return [float(x) for x in embeddings[0]]
-
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
+    def _convert_to_float_list(self, data: Any) -> list[float]:
+        """Convert data to list of floats.
 
         Args:
-            texts: List of texts to generate embeddings for.
+            data: Data to convert.
 
         Returns:
-            list[list[float]]: Generated embeddings for each text.
+            list[float]: Converted data.
 
         Raises:
-            RuntimeError: If provider is not initialized.
+            ProviderError: If data cannot be converted.
         """
-        self._ensure_initialized()
-        if self._model is None:
-            raise RuntimeError("Model not initialized")
-        embeddings = self._model.encode(texts)
-        return [[float(x) for x in embedding] for embedding in embeddings]
+        array = np.asarray(data, dtype=np.float64)
+        if array.ndim != 1:
+            raise ProviderError("Invalid data format")
+        return cast(list[float], array.tolist())
+
+    def _convert_to_float_list_list(self, data: Any) -> list[list[float]]:
+        """Convert data to list of lists of floats.
+
+        Args:
+            data: Data to convert.
+
+        Returns:
+            list[list[float]]: Converted data.
+
+        Raises:
+            ProviderError: If data cannot be converted.
+        """
+        array = np.asarray(data, dtype=np.float64)
+        if array.ndim != 2:
+            raise ProviderError("Invalid data format")
+        return cast(list[list[float]], array.tolist())
+
+    async def _embed_text(self, text: str, **kwargs: Any) -> list[float]:
+        """Embed text.
+
+        Args:
+            text: Text to embed.
+            **kwargs: Additional arguments.
+
+        Returns:
+            list[float]: Embedding.
+
+        Raises:
+            DependencyError: If sentence-transformers is not installed.
+            ProviderError: If embedding fails.
+        """
+        if not self._model:
+            raise DependencyError(
+                "Provider not initialized",
+                package="sentence-transformers",
+            )
+
+        try:
+            embedding = self._model.encode(text, **kwargs)
+            return self._convert_to_float_list(embedding)
+        except Exception as err:
+            raise ProviderError("Failed to generate embedding") from err
+
+    async def _embed_texts(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        """Embed texts.
+
+        Args:
+            texts: List of texts to embed.
+            **kwargs: Additional arguments.
+
+        Returns:
+            list[list[float]]: List of embeddings.
+
+        Raises:
+            DependencyError: If sentence-transformers is not installed.
+            ProviderError: If embedding fails.
+        """
+        if not self._model:
+            raise DependencyError(
+                "Provider not initialized",
+                package="sentence-transformers",
+            )
+
+        try:
+            embeddings = self._model.encode(texts, **kwargs)
+            return self._convert_to_float_list_list(embeddings)
+        except Exception as err:
+            raise ProviderError("Failed to generate embeddings") from err

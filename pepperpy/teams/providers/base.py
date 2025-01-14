@@ -2,25 +2,36 @@
 
 from abc import ABC, abstractmethod
 
-from ...config.team import TeamConfig
-from ...responses import AIResponse
-from ..base import BaseTeam
-from ..interfaces import ToolParams
+from ...responses import ResponseData
+from ..interfaces import TeamProvider, ToolParams
 
 
-class BaseTeamProvider(BaseTeam, ABC):
+class BaseTeamProvider(TeamProvider, ABC):
     """Base team provider implementation."""
 
-    def __init__(self, config: TeamConfig) -> None:
-        """Initialize provider.
+    def __init__(self) -> None:
+        """Initialize provider."""
+        self._initialized = False
 
-        Args:
-            config: Team configuration.
+    @property
+    def is_initialized(self) -> bool:
+        """Check if provider is initialized.
+
+        Returns:
+            bool: True if provider is initialized, False otherwise.
         """
-        super().__init__(config)
+        return self._initialized
+
+    async def initialize(self) -> None:
+        """Initialize provider."""
+        self._initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        self._initialized = False
 
     @abstractmethod
-    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> ResponseData:
         """Execute team task.
 
         Args:
@@ -28,6 +39,6 @@ class BaseTeamProvider(BaseTeam, ABC):
             **kwargs: Additional task parameters.
 
         Returns:
-            AIResponse: Task execution response.
+            ResponseData: Task execution response.
         """
         pass

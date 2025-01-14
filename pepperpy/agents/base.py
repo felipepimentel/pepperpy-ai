@@ -1,27 +1,31 @@
 """Base agent implementation."""
 
 from abc import ABC, abstractmethod
-from typing import Protocol, TypedDict
+from typing import Any, Protocol, TypeVar
 
-from pepperpy.ai_types import Message
+from pepperpy_core import Message, Provider
 
-from .types import AgentConfig
+from .types import AgentConfig, Capability, Tool
 
-
-class AgentKwargs(TypedDict, total=False):
-    """Type hints for agent kwargs."""
-
-    temperature: float
-    max_tokens: int
-    model: str
+T = TypeVar("T", bound="BaseAgent")
 
 
 class Agent(Protocol):
-    """Agent protocol."""
+    """Agent protocol defining the interface for all agents."""
 
     @property
     def config(self) -> AgentConfig:
         """Get agent configuration."""
+        ...
+
+    @property
+    def capabilities(self) -> list[Capability]:
+        """Get agent capabilities."""
+        ...
+
+    @property
+    def tools(self) -> list[Tool]:
+        """Get agent tools."""
         ...
 
     @property
@@ -37,7 +41,11 @@ class Agent(Protocol):
         """Cleanup agent resources."""
         ...
 
-    async def execute(self, task: str, **kwargs: AgentKwargs) -> Message:
+    def use(self, provider: Provider) -> T:
+        """Configure agent to use specific provider."""
+        ...
+
+    async def execute(self, task: str, **kwargs: Any) -> Message:
         """Execute agent task."""
         ...
 
@@ -46,17 +54,48 @@ class BaseAgent(ABC):
     """Base agent implementation."""
 
     def __init__(self, config: AgentConfig) -> None:
-        """Initialize agent."""
+        """Initialize agent.
+
+        Args:
+            config: Agent configuration.
+        """
         self.config = config
+        self._provider: Provider | None = None
         self._initialized = False
+        self._capabilities: list[Capability] = []
+        self._tools: list[Tool] = []
+
+    @property
+    def capabilities(self) -> list[Capability]:
+        """Get agent capabilities."""
+        return self._capabilities
+
+    @property
+    def tools(self) -> list[Tool]:
+        """Get agent tools."""
+        return self._tools
 
     @property
     def is_initialized(self) -> bool:
         """Check if agent is initialized."""
         return self._initialized
 
+    def use(self, provider: Provider) -> T:
+        """Configure agent to use specific provider.
+
+        Args:
+            provider: Provider instance to use.
+
+        Returns:
+            Self for method chaining.
+        """
+        self._provider = provider
+        return self
+
     async def initialize(self) -> None:
         """Initialize agent."""
+        if not self._provider:
+            raise ValueError("Provider not configured. Use .use(provider) first.")
         await self._setup()
         self._initialized = True
 
@@ -76,6 +115,14 @@ class BaseAgent(ABC):
         pass
 
     @abstractmethod
-    async def execute(self, task: str, **kwargs: AgentKwargs) -> Message:
-        """Execute agent task."""
+    async def execute(self, task: str, **kwargs: Any) -> Message:
+        """Execute agent task.
+
+        Args:
+            task: Task description.
+            **kwargs: Additional task parameters.
+
+        Returns:
+            Message: Agent response message.
+        """
         pass

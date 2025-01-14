@@ -1,138 +1,72 @@
 """Semantic RAG strategy module."""
 
-from collections.abc import AsyncGenerator
-from typing import Any, TypedDict, cast
+from collections.abc import Sequence
+from typing import Any
 
-from ....responses import AIResponse
-from ....types import Role
-from ..document import Document
-from .base import BaseRAGStrategy, RAGGenerateKwargs, RAGSearchKwargs
-
-
-class SemanticKwargs(TypedDict, total=False):
-    """Semantic kwargs for RAG strategies."""
-
-    model: str | None
-    temperature: float | None
-    max_tokens: int | None
+from pepperpy.capabilities.rag.document import Document
+from pepperpy.capabilities.rag.strategies.base import BaseRAGStrategy
+from pepperpy.types import MessageRole
 
 
 class SemanticRAGStrategy(BaseRAGStrategy):
     """Semantic RAG strategy."""
 
-    def __init__(self, provider: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize semantic RAG strategy.
 
         Args:
-            provider: Provider to use for embeddings and chat.
+            **kwargs: Additional arguments.
         """
-        self.provider = provider
-        self._initialized = False
+        super().__init__(**kwargs)
 
-    @property
-    def is_initialized(self) -> bool:
-        """Return whether the strategy is initialized."""
-        return self._initialized
-
-    async def initialize(self) -> None:
-        """Initialize the strategy."""
-        if not self.is_initialized:
-            await self.provider.initialize()
-            self._initialized = True
-
-    async def search(
-        self,
-        query: str,
-        *,
-        limit: int | None = None,
-        **kwargs: RAGSearchKwargs,
-    ) -> list[Document]:
-        """Search for documents.
+    def _get_system_prompt(self, documents: Sequence[Document]) -> str:
+        """Get system prompt.
 
         Args:
-            query: Search query.
-            limit: Maximum number of documents to return.
-            **kwargs: Additional search parameters.
+            documents: List of documents.
 
         Returns:
-            list[Document]: List of relevant documents.
+            str: System prompt.
         """
-        if not self.is_initialized:
-            await self.initialize()
+        return (
+            "You are a helpful assistant that answers questions based on the provided "
+            "context. Use the context to provide accurate and relevant answers. "
+            "If you don't know the answer or if the context doesn't contain relevant "
+            "information, say so. Do not make up information."
+        )
 
-        return await self.get_relevant_documents(query)
-
-    async def generate(
-        self,
-        query: str,
-        documents: list[Document],
-        *,
-        stream: bool = False,
-        **kwargs: RAGGenerateKwargs,
-    ) -> AIResponse | AsyncGenerator[AIResponse, None]:
-        """Generate a response.
+    def _get_user_prompt(self, query: str, documents: Sequence[Document]) -> str:
+        """Get user prompt.
 
         Args:
             query: User query.
-            documents: List of relevant documents.
-            stream: Whether to stream the response.
-            **kwargs: Additional generation parameters.
+            documents: List of documents.
 
         Returns:
-            AIResponse | AsyncGenerator[AIResponse, None]: Generated response.
+            str: User prompt.
         """
-        if not self.is_initialized:
-            await self.initialize()
+        context = "\n\n".join(doc.content for doc in documents)
+        return f"Context:\n{context}\n\nQuestion: {query}"
 
-        # Create context message
-        context = "\n\n".join(doc["content"] for doc in documents)
-        system_message = {
-            "role": Role.SYSTEM,
-            "content": (
-                "Here are some relevant documents that may help answer the question:\n"
-                f"{context}"
-            ),
-        }
-
-        # Create user message
-        user_message = {
-            "role": Role.USER,
-            "content": query,
-        }
-
-        # Add context to messages
-        messages = [system_message, user_message]
-
-        # Stream responses from chat capability
-        if stream:
-            return cast(
-                AsyncGenerator[AIResponse, None],
-                self.provider.stream(
-                    messages,
-                    model=kwargs.get("model"),
-                    temperature=kwargs.get("temperature"),
-                    max_tokens=kwargs.get("max_tokens"),
-                ),
-            )
-        else:
-            return cast(
-                AIResponse,
-                await self.provider.chat(
-                    messages,
-                    model=kwargs.get("model"),
-                    temperature=kwargs.get("temperature"),
-                    max_tokens=kwargs.get("max_tokens"),
-                ),
-            )
-
-    async def get_relevant_documents(self, query: str) -> list[Document]:
-        """Get relevant documents for a query.
+    def _get_messages(
+        self, query: str, documents: Sequence[Document]
+    ) -> list[dict[str, str]]:
+        """Get messages for RAG.
 
         Args:
-            query: Query to get relevant documents for.
+            query: User query.
+            documents: List of documents.
 
         Returns:
-            list[Document]: List of relevant documents.
+            list[dict[str, str]]: List of messages.
         """
-        # TODO: Implement document retrieval
-        return []
+        return [
+            {
+                "role": MessageRole.SYSTEM.value,
+                "content": self._get_system_prompt(documents),
+            },
+            {
+                "role": MessageRole.USER.value,
+                "content": self._get_user_prompt(query, documents),
+            },
+        ]

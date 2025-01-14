@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import TypedDict
 
-from ..responses import AIResponse
+from ..responses import ResponseData
 
 
 class ToolParams(TypedDict, total=False):
@@ -47,6 +47,6 @@ class TeamProvider(ABC):
     """Team provider interface."""
 
     @abstractmethod
-    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> ResponseData:
         """Execute team task."""
         pass

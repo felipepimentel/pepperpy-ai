@@ -1,187 +1,100 @@
-"""Test embeddings module."""
+"""Embeddings tests."""
 
-from collections.abc import AsyncGenerator
 from typing import Any
 
 import pytest
 
-from pepperpy.config.embeddings import EmbeddingsConfig
-from pepperpy.core.responses import AIResponse, ResponseMetadata
 from pepperpy.embeddings.base import BaseEmbeddingsProvider
-from pepperpy.embeddings.types import EmbeddingResult
 from pepperpy.exceptions import ProviderError
-from pepperpy.types import Message
+from pepperpy.types import CapabilityConfig
 
 
 class TestEmbeddingsProvider(BaseEmbeddingsProvider):
     """Test embeddings provider."""
 
-    def __init__(self, config: EmbeddingsConfig) -> None:
-        """Initialize test provider.
+    def __init__(self, config: CapabilityConfig) -> None:
+        """Initialize test embeddings provider.
 
         Args:
-            config: Provider configuration
+            config: Provider configuration.
         """
         super().__init__(config)
-        self._initialized = False
 
-    @property
-    def is_initialized(self) -> bool:
-        """Return whether provider is initialized."""
-        return self._initialized
-
-    async def initialize(self) -> None:
-        """Initialize test provider."""
-        self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Cleanup test provider."""
-        self._initialized = False
-
-    async def embed(
-        self, texts: list[str], **kwargs: dict[str, Any]
-    ) -> list[EmbeddingResult]:
-        """Embed text using test provider.
+    async def _embed_texts(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        """Embed texts.
 
         Args:
-            texts: Texts to embed
-            **kwargs: Additional keyword arguments
+            texts: List of texts to embed.
+            **kwargs: Additional arguments.
 
         Returns:
-            list[EmbeddingResult]: List of embedding results
+            list[list[float]]: List of embeddings.
 
         Raises:
-            ProviderError: If provider is not initialized
+            ProviderError: If embedding fails.
         """
-        if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized", provider="test", operation="embed"
-            )
+        if not texts:
+            raise ProviderError("No texts provided")
 
         return [[0.1, 0.2, 0.3] for _ in texts]
 
-    async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
-        """Embed batch of texts using test provider.
+    async def _embed_text(self, text: str, **kwargs: Any) -> list[float]:
+        """Embed text.
 
         Args:
-            texts: Texts to embed
+            text: Text to embed.
+            **kwargs: Additional arguments.
 
         Returns:
-            list[EmbeddingResult]: List of embedding results
+            list[float]: Embedding.
 
         Raises:
-            ProviderError: If provider is not initialized
+            ProviderError: If embedding fails.
         """
-        return await self.embed(texts)
+        if not text:
+            raise ProviderError("No text provided")
 
-    async def stream(
-        self,
-        messages: list[Message],
-        *,
-        model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        **kwargs: dict[str, Any],
-    ) -> AsyncGenerator[AIResponse, None]:
-        """Stream responses from test provider.
-
-        Args:
-            messages: Messages to stream
-            model: Model to use
-            temperature: Temperature to use
-            max_tokens: Maximum tokens to generate
-            **kwargs: Additional keyword arguments
-
-        Yields:
-            AIResponse: Response from provider
-
-        Raises:
-            ProviderError: If provider is not initialized
-        """
-        if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized", provider="test", operation="stream"
-            )
-
-        yield AIResponse(
-            content="test",
-            metadata=ResponseMetadata(
-                model=model or "test-model",
-                provider="test",
-                usage={
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0,
-                },
-                finish_reason="stop",
-            ),
-        )
+        return [0.1, 0.2, 0.3]
 
 
-@pytest.mark.asyncio
-async def test_embeddings_provider() -> None:
-    """Test embeddings provider functionality."""
-    config: EmbeddingsConfig = {
-        "name": "test",
-        "version": "1.0.0",
-        "model": "test-model",
-        "api_key": "test_key",
-        "batch_size": 1,
-    }
-    provider = TestEmbeddingsProvider(config)
+@pytest.fixture
+def provider() -> TestEmbeddingsProvider:
+    """Create test provider."""
+    config = CapabilityConfig(name="test", version="1.0.0")
+    return TestEmbeddingsProvider(config)
 
+
+async def test_embeddings_provider(provider: TestEmbeddingsProvider) -> None:
+    """Test embeddings provider."""
     await provider.initialize()
     assert provider.is_initialized
 
-    result = await provider.embed(["test"])
-    assert isinstance(result, list)
-    assert len(result) == 1
-    assert isinstance(result[0], list)
-    assert result[0] == [0.1, 0.2, 0.3]
-
-    await provider.cleanup()
-    assert not provider.is_initialized
+    embedding = await provider.embed_text("test")
+    assert isinstance(embedding, list)
+    assert len(embedding) == 3
+    assert all(isinstance(x, float) for x in embedding)
 
 
-@pytest.mark.asyncio
-async def test_embeddings_provider_batch() -> None:
-    """Test embeddings provider batch functionality."""
-    config: EmbeddingsConfig = {
-        "name": "test",
-        "version": "1.0.0",
-        "model": "test-model",
-        "api_key": "test_key",
-        "batch_size": 2,
-    }
-    provider = TestEmbeddingsProvider(config)
-
+async def test_embeddings_provider_batch(provider: TestEmbeddingsProvider) -> None:
+    """Test embeddings provider batch."""
     await provider.initialize()
     assert provider.is_initialized
 
-    texts = ["test1", "test2"]
-    result = await provider.embed_batch(texts)
-    assert isinstance(result, list)
-    assert len(result) == 2
-    for res in result:
-        assert isinstance(res, list)
-        assert res == [0.1, 0.2, 0.3]
-
-    await provider.cleanup()
-    assert not provider.is_initialized
+    embeddings = await provider.embed_texts(["test1", "test2"])
+    assert isinstance(embeddings, list)
+    assert len(embeddings) == 2
+    assert all(isinstance(x, list) for x in embeddings)
+    assert all(len(x) == 3 for x in embeddings)
+    assert all(isinstance(y, float) for x in embeddings for y in x)
 
 
-@pytest.mark.asyncio
-async def test_embeddings_provider_error() -> None:
-    """Test embeddings provider error handling."""
-    config: EmbeddingsConfig = {
-        "name": "test",
-        "version": "1.0.0",
-        "model": "test-model",
-        "api_key": "test_key",
-        "batch_size": 1,
-    }
-    provider = TestEmbeddingsProvider(config)
+async def test_embeddings_provider_error(provider: TestEmbeddingsProvider) -> None:
+    """Test embeddings provider error."""
+    await provider.initialize()
+    assert provider.is_initialized
 
-    with pytest.raises(ProviderError) as exc_info:
-        await provider.embed(["test"])
-    assert str(exc_info.value) == "Provider not initialized"
+    with pytest.raises(ProviderError):
+        await provider.embed_text("")
+
+    with pytest.raises(ProviderError):
+        await provider.embed_texts([])

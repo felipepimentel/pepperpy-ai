@@ -1,67 +1,47 @@
 """Base capability module."""
 
-from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, Coroutine
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 
-from ..config.capability import CapabilityConfig
-from ..responses import AIResponse
-from ..types import Message
+from pepperpy.types import BaseConfig
 
-TConfig = TypeVar("TConfig", bound=CapabilityConfig)
+T = TypeVar("T", bound=BaseConfig)
 
 
-class BaseCapability(ABC, Generic[TConfig]):
+class BaseCapability(Generic[T]):
     """Base capability class."""
 
-    def __init__(self, config: TConfig) -> None:
-        """Initialize base capability.
+    def __init__(self, config: T) -> None:
+        """Initialize capability.
 
         Args:
-            config: The capability configuration.
+            config: Capability configuration.
         """
-        self.config = config
+        self._config = config
         self._initialized = False
 
     @property
-    def is_initialized(self) -> bool:
-        """Return whether the capability is initialized."""
-        return self._initialized
-
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize capability."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def cleanup(self) -> None:
-        """Cleanup capability."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def stream(
-        self,
-        messages: list[Message],
-        *,
-        model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        **kwargs: Any,
-    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
-        """Stream responses from the capability.
-
-        Args:
-            messages: The list of messages to process.
-            model: The model to use for the chat.
-            temperature: The temperature to use for the chat.
-            max_tokens: The maximum number of tokens to generate.
-            **kwargs: Additional capability-specific parameters.
+    def config(self) -> T:
+        """Get capability configuration.
 
         Returns:
-            An async generator yielding responses.
-
-        Raises:
-            ValueError: If no messages are provided or if the last message is not
-                from the user.
+            T: Capability configuration.
         """
-        raise NotImplementedError
+        return self._config
+
+    @property
+    def is_initialized(self) -> bool:
+        """Return whether the capability is initialized.
+
+        Returns:
+            bool: Whether the capability is initialized.
+        """
+        return self._initialized
+
+    async def initialize(self) -> None:
+        """Initialize capability."""
+        if not self.is_initialized:
+            self._initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up capability."""
+        self._initialized = False

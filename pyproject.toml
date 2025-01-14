@@ -20,12 +20,30 @@ classifiers = [
 # Core dependencies - keep minimal
 [tool.poetry.dependencies]
 python = "^3.12"
+pepperpy-core = "0.3.1"
+pyyaml = "^6.0.1"
 aiohttp = "^3.11.11"
-click = "^8.1.8"
-requests = "^2.32.3"
 python-dotenv = "^1.0.1"
+
+# All provider dependencies are optional
+openai = { version = "^1.0.0", optional = true }
+anthropic = { version = "^1.0.0", optional = true }
+cohere = { version = "^4.0.0", optional = true }
+
+# Optional dependencies for capabilities
+numpy = { version = "^1.24.0", optional = true }
+sentence-transformers = { version = "^2.2.0", optional = true }
+chromadb = { version = "^0.4.0", optional = true }
+langchain = { version = "^0.1.0", optional = true }
+pypdf = { version = "^3.0.0", optional = true }
+pdfminer-six = { version = "^20221105", optional = true }
+tiktoken = { version = "^0.5.0", optional = true }
+nltk = { version = "^3.8.0", optional = true }
+pygments = { version = "^2.15.0", optional = true }
+gitpython = { version = "^3.1.0", optional = true }
+
 # Development dependencies
-pepperpy-core = "*"
+pepperpy-core = "0.3.1"
 
 # Optional dependencies for providers
 openai = { version = "1.0.0", optional = true }
@@ -59,12 +77,23 @@ mkdocs-material = "^9.5.49"
 
 # Optional feature sets (extras)
 [tool.poetry.extras]
+# Providers
 openai = ["openai"]
 anthropic = ["anthropic"]
-rag = ["numpy", "sentence-transformers"]
-all-providers = ["openai", "anthropic"]
-all-capabilities = ["numpy", "sentence-transformers"]
-complete = ["openai", "anthropic", "numpy", "sentence-transformers"]
+cohere = ["cohere"]
+all-providers = ["openai", "anthropic", "cohere"]
+
+# Capabilities
+embeddings = ["sentence-transformers"]
+code = ["pygments", "gitpython"]
+rag = ["chromadb", "langchain"]
+text = ["tiktoken", "nltk"]
+pdf = ["pypdf", "pdfminer-six"]
+
+# Bundles
+nlp = ["embeddings", "text"]
+document = ["pdf", "text"]
+complete = ["all-providers", "embeddings", "code", "rag", "text", "pdf"]
 
 [tool.poetry.scripts]
 pepperpy = "pepperpy.cli:main"
@@ -120,7 +149,7 @@ convention = "google"
 [tool.ruff.lint.isort]
 known-first-party = ["pepperpy"]
 known-third-party = [
-    "pepperpy_core",
+    "pepperpy",
     "openai",
     "anthropic",
     "numpy",

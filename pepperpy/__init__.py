@@ -1,48 +1,43 @@
-"""PepperPy AI - A Python library for building AI-powered applications."""
+"""PepperPy AI library."""
 
-from .core import (
-    AIClient,
-    AIResponse,
-    Cache,
-    CacheEntry,
-    Function,
+from .responses import ResponseData, ResponseMetadata, UsageMetadata
+from .types import (
+    BaseConfig,
+    BaseResponse,
+    ChatMessage,
+    ChatResponse,
+    ChatResponseChunk,
+    ChatResponseFormat,
     FunctionCall,
-    ResponseMetadata,
+    FunctionDefinition,
+    JsonDict,
+    JsonValue,
+    Message,
+    MessageRole,
     Role,
-    Template,
-    TemplateContext,
+    Tool,
+    ToolCall,
 )
-from .exceptions import (
-    CapabilityError,
-    ConfigurationError,
-    DependencyError,
-    PepperPyAIError,
-    ProviderError,
-    ValidationError,
-)
-from .types import JsonDict, JsonValue, Message, MessageRole
 
 __version__ = "0.1.0"
 
 __all__ = [
-    "AIClient",
-    "AIResponse",
-    "Cache",
-    "CacheEntry",
-    "CapabilityError",
-    "ConfigurationError",
-    "DependencyError",
-    "Function",
+    "BaseConfig",
+    "BaseResponse",
+    "ChatMessage",
+    "ChatResponse",
+    "ChatResponseChunk",
+    "ChatResponseFormat",
     "FunctionCall",
+    "FunctionDefinition",
     "JsonDict",
     "JsonValue",
     "Message",
     "MessageRole",
-    "PepperPyAIError",
-    "ProviderError",
+    "ResponseData",
     "ResponseMetadata",
     "Role",
-    "Template",
-    "TemplateContext",
-    "ValidationError",
+    "Tool",
+    "ToolCall",
+    "UsageMetadata",
 ]

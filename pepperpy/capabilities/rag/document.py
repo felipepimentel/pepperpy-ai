@@ -1,11 +1,17 @@
-"""Document module for RAG capabilities."""
+"""Document module."""
 
-from typing import TypedDict
+from dataclasses import dataclass
+from typing import Any
 
 
-class Document(TypedDict):
-    """Document type for RAG capabilities."""
+@dataclass
+class Document:
+    """Document class.
+
+    Attributes:
+        content: Document content.
+        metadata: Optional document metadata.
+    """
 
     content: str
-    metadata: dict[str, str]
-    embedding: list[float] | None
+    metadata: dict[str, Any] | None = None

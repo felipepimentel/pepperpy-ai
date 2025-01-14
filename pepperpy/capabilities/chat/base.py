@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from ...responses import AIResponse
+from ...responses import ResponseData
 from ...types import Message
 from ..base import BaseCapability
 
@@ -21,7 +21,7 @@ class BaseChatCapability(BaseCapability):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the capability.
 
         Args:
@@ -32,6 +32,6 @@ class BaseChatCapability(BaseCapability):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
         raise NotImplementedError

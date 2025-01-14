@@ -1,106 +1,118 @@
 # PepperPy AI
 
-A flexible AI library with modular provider support.
+A flexible AI library with modular provider support and dynamic agent capabilities.
+
+## Features
+
+- Dynamic agent system with YAML-based configuration
+- Pluggable provider support (OpenAI, Anthropic, Cohere)
+- Extensible capabilities and tools
+- Modular architecture with clear separation of concerns
+- Strong typing and async support
 
 ## Installation
 
-PepperPy AI uses a modular dependency system to keep the base package lightweight. You only need to install the dependencies for the features you plan to use.
-
-### Basic Installation
-
 ```bash
-# Using pip
+# Basic installation
 pip install pepperpy-ai
 
-# Using Poetry
-poetry add pepperpy-ai
+# With specific provider support
+pip install pepperpy-ai[openai]      # OpenAI support
+pip install pepperpy-ai[anthropic]   # Anthropic support
+pip install pepperpy-ai[cohere]      # Cohere support
+
+# With capability support
+pip install pepperpy-ai[embeddings]  # Embedding support
+pip install pepperpy-ai[code]        # Code analysis support
+pip install pepperpy-ai[rag]         # RAG support
+pip install pepperpy-ai[text]        # Text processing
+pip install pepperpy-ai[pdf]         # PDF processing
+
+# Complete installation
+pip install pepperpy-ai[complete]    # All features
 ```
 
-### Optional Features
+## Quick Start
 
-Install only what you need:
+```python
+from pepperpy.agents import AgentFactory
+from pepperpy_core import Provider
 
-```bash
-# OpenRouter support is available out of the box!
-pip install pepperpy-ai
+# Create factory
+factory = AgentFactory()
 
-# Optional providers requiring additional dependencies:
-pip install pepperpy-ai[openai]      # For OpenAI
-pip install pepperpy-ai[anthropic]   # For Anthropic
-pip install pepperpy-ai[all-providers]  # For all providers
+# Load agent from YAML definition
+agent = factory.from_yaml("review/code_reviewer.yml")
 
-# Install with RAG support
-pip install pepperpy-ai[rag]
+# Configure provider
+agent.use(Provider.anthropic())
 
-# Install everything
-pip install pepperpy-ai[complete]
+# Initialize and use
+await agent.initialize()
+result = await agent.execute("Review this code for security issues")
+print(result)
 ```
 
-Using Poetry:
-```bash
-# OpenRouter support is available out of the box!
-poetry add pepperpy-ai
+## Creating Custom Agents
 
-# Optional providers requiring additional dependencies:
-poetry add pepperpy-ai[openai]      # For OpenAI
-poetry add pepperpy-ai[anthropic]   # For Anthropic
-poetry add pepperpy-ai[all-providers]  # For all providers
+1. Define agent in YAML:
 
-# Install with RAG support
-poetry add pepperpy-ai[rag]
+```yaml
+# assets/agents/custom/my_agent.yml
+name: my-custom-agent
+version: "1.0.0"
+description: "Custom agent for specific tasks"
 
-# Install everything
-poetry add pepperpy-ai[complete]
+capabilities:
+  - code_review
+  - security_audit
+
+role:
+  name: "Custom Agent"
+  description: "Specialized agent for custom tasks"
+  instructions: |
+    You are a specialized agent...
+
+tools:
+  - custom_tool
+  - another_tool
+
+settings:
+  context_window: 8000
 ```
 
-## Development Setup
+2. Implement agent class:
 
-For development, you'll need additional dependencies. We use Poetry groups to manage these:
+```python
+from pepperpy.agents import BaseAgent
 
-```bash
-# Clone the repository
-git clone https://github.com/pimentel/pepperpy-ai.git
-cd pepperpy-ai
+class CustomAgent(BaseAgent):
+    async def _setup(self) -> None:
+        # Initialize capabilities
+        pass
 
-# Install Poetry if you haven't already
-curl -sSL https://install.python-poetry.org | python3 -
+    async def _teardown(self) -> None:
+        # Cleanup resources
+        pass
 
-# Install with development dependencies
-poetry install --with dev,test,docs
+    async def execute(self, task: str, **kwargs) -> Message:
+        # Execute task
+        return await self._provider.generate(task)
 
-# Run tests
-poetry run pytest
-
-# Run linters
-poetry run ruff check .
-poetry run mypy .
-
-# Format code
-poetry run black .
-poetry run isort .
+# Register and use
+factory = AgentFactory()
+factory.register("my-custom-agent", CustomAgent)
+agent = factory.from_yaml("custom/my_agent.yml")
 ```
 
-## Project Structure
+## Documentation
 
-The project uses a modular dependency system:
-
-- **Core Dependencies**: Minimal set of required packages
-- **Optional Features**: Additional capabilities through extras
-- **Development Tools**: Linting, formatting, and testing (dev group)
-- **Test Framework**: Testing tools and dependencies (test group)
-- **Documentation**: Documentation building tools (docs group)
-
-This structure ensures that users only install what they need, while developers have access to all necessary tools.
+For detailed documentation, visit [docs.pepperpy.ai](https://docs.pepperpy.ai).
 
 ## Contributing
 
-1. Fork the repository
-2. Install development dependencies: `poetry install --with dev,test,docs`
-3. Create a feature branch
-4. Make your changes
-5. Run tests and linters
-6. Submit a pull request
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md).
 
 ## License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

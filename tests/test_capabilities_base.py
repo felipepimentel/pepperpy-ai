@@ -7,7 +7,7 @@ from pepperpy.capabilities.base import BaseCapability
 from pepperpy.config.capability import CapabilityConfig
 from pepperpy.providers.base import BaseProvider
 from pepperpy.providers.config import ProviderConfig
-from pepperpy.responses import AIResponse, ResponseMetadata
+from pepperpy.responses import ResponseData, ResponseMetadata
 from pepperpy.types import Message
 
 
@@ -30,7 +30,7 @@ class TestProvider(BaseProvider[ProviderConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the provider.
 
         Args:
@@ -41,9 +41,9 @@ class TestProvider(BaseProvider[ProviderConfig]):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
-        yield AIResponse(
+        yield ResponseData(
             content="Hello, how can I help you?",
             metadata=cast(ResponseMetadata, {"model": "test", "provider": "test"}),
         )
@@ -90,7 +90,7 @@ class TestCapability(BaseCapability[CapabilityConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the capability.
 
         Args:
@@ -101,7 +101,7 @@ class TestCapability(BaseCapability[CapabilityConfig]):
             **kwargs: Additional capability-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
         async for response in self._provider.stream(
             messages,

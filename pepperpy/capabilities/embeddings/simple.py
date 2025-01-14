@@ -5,7 +5,7 @@ from typing import Any, cast
 
 from ...config.embeddings import EmbeddingsConfig
 from ...embeddings.base import BaseEmbeddingsProvider
-from ...responses import AIResponse
+from ...responses import ResponseData
 from ...types import Message
 
 
@@ -91,7 +91,7 @@ class SimpleEmbeddingsCapability(BaseEmbeddingsProvider):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the capability.
 
         Args:
@@ -102,7 +102,7 @@ class SimpleEmbeddingsCapability(BaseEmbeddingsProvider):
             **kwargs: Additional capability-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
 
         Raises:
             NotImplementedError: This capability does not support streaming.

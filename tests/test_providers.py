@@ -5,7 +5,7 @@ from typing import NotRequired, TypedDict, cast
 
 from pepperpy.providers.base import BaseProvider
 from pepperpy.providers.types import ProviderKwargs
-from pepperpy.responses import AIResponse, ResponseMetadata
+from pepperpy.responses import ResponseData, ResponseMetadata
 from pepperpy.types import Message
 
 
@@ -58,7 +58,7 @@ class TestProvider(BaseProvider[TestConfig]):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: ProviderKwargs,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from provider.
 
         Args:
@@ -69,9 +69,9 @@ class TestProvider(BaseProvider[TestConfig]):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
-        yield AIResponse(
+        yield ResponseData(
             content="Hello, how can I help you?",
             metadata=ResponseMetadata(
                 model=model or "test-model",

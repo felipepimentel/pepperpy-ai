@@ -6,7 +6,7 @@ from typing import Protocol, runtime_checkable
 
 from ..config.chat import ChatConfig
 from ..exceptions import ConfigurationError
-from ..responses import AIResponse
+from ..responses import ResponseData
 from ..types import MessageRole
 
 
@@ -29,7 +29,7 @@ class ChatHistory:
 class ChatClient(Protocol):
     """Chat client protocol."""
 
-    async def complete(self, prompt: str) -> AIResponse:
+    async def complete(self, prompt: str) -> ResponseData:
         """Complete a prompt.
 
         Args:
@@ -40,7 +40,7 @@ class ChatClient(Protocol):
         """
         ...
 
-    def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
+    def stream(self, prompt: str) -> AsyncGenerator[ResponseData, None]:
         """Stream responses for a prompt.
 
         Args:
@@ -82,7 +82,7 @@ class ChatConversation:
         """
         self._client = client
 
-    async def complete(self, message: str) -> AIResponse:
+    async def complete(self, message: str) -> ResponseData:
         """Complete a message.
 
         Args:
@@ -112,7 +112,7 @@ class ChatConversation:
 
         return response
 
-    async def stream(self, message: str) -> AsyncGenerator[AIResponse, None]:
+    async def stream(self, message: str) -> AsyncGenerator[ResponseData, None]:
         """Stream responses for a message.
 
         Args:

@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator, Coroutine
 from typing import Any
 
-from ...responses import AIResponse
+from ...responses import ResponseData
 from ...types import Message
 from ..base import BaseCapability
 
@@ -41,7 +41,7 @@ class SimpleChatCapability(BaseCapability):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
+    ) -> Coroutine[Any, Any, AsyncGenerator[ResponseData, None]]:
         """Stream responses from the capability.
 
         Args:
@@ -52,7 +52,7 @@ class SimpleChatCapability(BaseCapability):
             **kwargs: Additional capability-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
 
         Raises:
             NotImplementedError: This capability does not support streaming.

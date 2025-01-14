@@ -5,7 +5,7 @@ from collections.abc import AsyncGenerator
 from typing import cast
 
 from ..messages import Message
-from ..responses import AIResponse, ResponseMetadata
+from ..responses import ResponseData, ResponseMetadata
 
 
 class BaseLLM(ABC):
@@ -45,7 +45,7 @@ class BaseLLM(ABC):
         frequency_penalty: float | None = None,
         presence_penalty: float | None = None,
         timeout: float | None = None,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream LLM messages.
 
         Args:
@@ -59,12 +59,12 @@ class BaseLLM(ABC):
             timeout: Timeout for generation
 
         Yields:
-            AIResponse: Generated response
+            ResponseData: Generated response
         """
         if not self.is_initialized:
             raise RuntimeError("LLM not initialized")
 
-        yield AIResponse(
+        yield ResponseData(
             content="Hello, how can I help you?",
             metadata=cast(
                 ResponseMetadata,

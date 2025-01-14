@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 from typing import Any, TypedDict
 
-from ...responses import AIResponse
+from ...responses import ResponseData
 from ...types import Message
 from ..base import BaseCapability
 from ..chat.base import BaseChatCapability
@@ -37,7 +37,7 @@ class BaseRAGStrategy(ABC):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the strategy.
 
         Args:
@@ -48,7 +48,7 @@ class BaseRAGStrategy(ABC):
             **kwargs: Additional strategy-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
         raise NotImplementedError
 
@@ -89,7 +89,7 @@ class RAGCapability(BaseCapability):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the capability.
 
         Args:
@@ -100,6 +100,6 @@ class RAGCapability(BaseCapability):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
         raise NotImplementedError

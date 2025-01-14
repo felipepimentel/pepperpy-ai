@@ -5,7 +5,7 @@ from typing import cast
 
 from pepperpy.providers.base import BaseProvider
 from pepperpy.providers.config import ProviderConfig
-from pepperpy.responses import AIResponse, ResponseMetadata
+from pepperpy.responses import ResponseData, ResponseMetadata
 from pepperpy.types import Message
 
 
@@ -36,7 +36,7 @@ class TestProvider(BaseProvider[ProviderConfig]):
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> AsyncGenerator[ResponseData, None]:
         """Stream responses from the provider.
 
         Args:
@@ -46,9 +46,9 @@ class TestProvider(BaseProvider[ProviderConfig]):
             max_tokens: Maximum number of tokens to generate
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            AsyncGenerator yielding ResponseData objects
         """
-        yield AIResponse(
+        yield ResponseData(
             content="Hello, how can I help you?",
             metadata=cast(ResponseMetadata, {"model": "test", "provider": "test"}),
         )

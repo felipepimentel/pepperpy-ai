@@ -1,119 +1,83 @@
 """Simple RAG capability module."""
 
-from collections.abc import AsyncGenerator, Coroutine
-from typing import Any, cast
+from collections.abc import Sequence
+from typing import Any
 
-from ...config.embeddings import EmbeddingsConfig
-from ...embeddings.providers.sentence_transformers import SentenceTransformersProvider
-from ...responses import AIResponse
-from ...types import Message
-from ..chat.base import BaseChatCapability
-from .base import RAGCapability
+from pepperpy.capabilities.base import BaseCapability
+from pepperpy.capabilities.rag.document import Document
+from pepperpy.embeddings.providers.sentence_transformers import (
+    SentenceTransformersProvider,
+)
+from pepperpy.exceptions import DependencyError
+from pepperpy.types import CapabilityConfig
 
 
-class SimpleRAGCapability(RAGCapability):
+class SimpleRAGCapability(BaseCapability[CapabilityConfig]):
     """Simple RAG capability."""
 
-    def __init__(
-        self, config: dict[str, Any], chat_capability: BaseChatCapability
-    ) -> None:
-        """Initialize the capability.
+    def __init__(self, config: CapabilityConfig) -> None:
+        """Initialize simple RAG capability.
 
         Args:
-            config: RAG configuration.
-            chat_capability: Chat capability to use for responses.
+            config: Capability configuration.
         """
-        super().__init__(config, chat_capability)
-        self._initialized = False
+        super().__init__(config)
         self._embeddings_provider: SentenceTransformersProvider | None = None
 
-    @property
-    def is_initialized(self) -> bool:
-        """Return whether the capability is initialized.
-
-        Returns:
-            bool: Whether the capability is initialized.
-        """
-        return self._initialized and self._embeddings_provider is not None
-
     async def initialize(self) -> None:
-        """Initialize the capability."""
-        if not self.is_initialized:
-            embeddings_config = cast(
-                EmbeddingsConfig,
-                {
-                    "name": self.config.get("name", "simple"),
-                    "version": self.config.get("version", "latest"),
-                    "model": self.config.get("model", "all-MiniLM-L6-v2"),
-                    "api_key": self.config.get("api_key", ""),
-                    "provider_type": self.config.get("provider_type", "simple"),
-                    "enabled": self.config.get("enabled", True),
-                    "normalize": self.config.get("normalize", True),
-                    "batch_size": self.config.get("batch_size", 32),
-                    "device": self.config.get("device", "cpu"),
-                },
-            )
-            self._embeddings_provider = SentenceTransformersProvider(embeddings_config)
-            await self._embeddings_provider.initialize()
-            await self.chat_capability.initialize()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Clean up the capability."""
-        if self.is_initialized and self._embeddings_provider is not None:
-            await self._embeddings_provider.cleanup()
-            await self.chat_capability.cleanup()
-            self._embeddings_provider = None
-            self._initialized = False
-
-    async def embed(self, text: str) -> list[float]:
-        """Generate embeddings for text.
-
-        Args:
-            text: Text to generate embeddings for.
-
-        Returns:
-            list[float]: Generated embeddings.
-        """
-        if not self.is_initialized or self._embeddings_provider is None:
-            raise RuntimeError("Capability not initialized")
-        return await self._embeddings_provider.embed(text)
-
-    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
-
-        Args:
-            texts: List of texts to generate embeddings for.
-
-        Returns:
-            list[list[float]]: Generated embeddings for each text.
-        """
-        if not self.is_initialized or self._embeddings_provider is None:
-            raise RuntimeError("Capability not initialized")
-        return await self._embeddings_provider.embed_batch(texts)
-
-    def stream(
-        self,
-        messages: list[Message],
-        *,
-        model: str | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        **kwargs: Any,
-    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
-        """Stream responses from the capability.
-
-        Args:
-            messages: List of messages to send
-            model: Model to use for completion
-            temperature: Temperature to use for completion
-            max_tokens: Maximum number of tokens to generate
-            **kwargs: Additional capability-specific parameters
-
-        Returns:
-            AsyncGenerator yielding AIResponse objects
+        """Initialize capability.
 
         Raises:
-            NotImplementedError: This capability does not support streaming.
+            DependencyError: If required dependencies are not installed.
         """
-        raise NotImplementedError("SimpleRAGCapability does not support streaming")
+        if not self.is_initialized:
+            self._embeddings_provider = SentenceTransformersProvider(self.config)
+            await self._embeddings_provider.initialize()
+            await super().initialize()
+
+    async def cleanup(self) -> None:
+        """Clean up capability."""
+        if self._embeddings_provider:
+            await self._embeddings_provider.cleanup()
+            self._embeddings_provider = None
+        await super().cleanup()
+
+    async def _embed_text(self, text: str, **kwargs: Any) -> list[float]:
+        """Embed text.
+
+        Args:
+            text: Text to embed.
+            **kwargs: Additional arguments.
+
+        Returns:
+            list[float]: Embedding.
+
+        Raises:
+            DependencyError: If embeddings provider is not initialized.
+        """
+        if not self._embeddings_provider:
+            raise DependencyError(
+                "Embeddings provider not initialized",
+                package="sentence-transformers",
+            )
+        return await self._embeddings_provider.embed_text(text, **kwargs)
+
+    async def _embed_texts(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        """Embed texts.
+
+        Args:
+            texts: List of texts to embed.
+            **kwargs: Additional arguments.
+
+        Returns:
+            list[list[float]]: List of embeddings.
+
+        Raises:
+            DependencyError: If embeddings provider is not initialized.
+        """
+        if not self._embeddings_provider:
+            raise DependencyError(
+                "Embeddings provider not initialized",
+                package="sentence-transformers",
+            )
+        return await self._embeddings_provider.embed_texts(texts, **kwargs)

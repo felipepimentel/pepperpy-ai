@@ -1,64 +1,65 @@
 """Base embeddings provider module."""
 
 from abc import ABC, abstractmethod
+from typing import Any
 
-from ..config.embeddings import EmbeddingsConfig
-from .types import BatchEmbeddingResult, EmbeddingResult
+from pepperpy.capabilities.base import BaseCapability
+from pepperpy.types import CapabilityConfig
 
 
-class BaseEmbeddingsProvider(ABC):
-    """Base class for embeddings providers."""
+class BaseEmbeddingsProvider(BaseCapability[CapabilityConfig], ABC):
+    """Base embeddings provider."""
 
-    def __init__(self, config: EmbeddingsConfig) -> None:
-        """Initialize provider.
+    @abstractmethod
+    async def _embed_text(self, text: str, **kwargs: Any) -> list[float]:
+        """Embed text.
 
         Args:
-            config: Provider configuration.
-        """
-        self.config = config
-        self._initialized = False
-
-    @property
-    def is_initialized(self) -> bool:
-        """Return whether the provider is initialized."""
-        return self._initialized
-
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize provider."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def cleanup(self) -> None:
-        """Cleanup provider."""
-        raise NotImplementedError
-
-    @abstractmethod
-    async def embed(self, text: str) -> EmbeddingResult:
-        """Embed a single text.
-
-        Args:
-            text: The text to embed.
+            text: Text to embed.
+            **kwargs: Additional arguments.
 
         Returns:
-            A list of embedding values.
-
-        Raises:
-            ProviderError: If the provider is not initialized or if an error occurs.
+            list[float]: Embedding.
         """
         raise NotImplementedError
 
     @abstractmethod
-    async def embed_batch(self, texts: list[str]) -> BatchEmbeddingResult:
-        """Embed a list of texts.
+    async def _embed_texts(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        """Embed texts.
 
         Args:
-            texts: The texts to embed.
+            texts: List of texts to embed.
+            **kwargs: Additional arguments.
 
         Returns:
-            A list of embedding value lists.
-
-        Raises:
-            ProviderError: If the provider is not initialized or if an error occurs.
+            list[list[float]]: List of embeddings.
         """
         raise NotImplementedError
+
+    async def embed_text(self, text: str, **kwargs: Any) -> list[float]:
+        """Embed text.
+
+        Args:
+            text: Text to embed.
+            **kwargs: Additional arguments.
+
+        Returns:
+            list[float]: Embedding.
+        """
+        if not self.is_initialized:
+            await self.initialize()
+        return await self._embed_text(text, **kwargs)
+
+    async def embed_texts(self, texts: list[str], **kwargs: Any) -> list[list[float]]:
+        """Embed texts.
+
+        Args:
+            texts: List of texts to embed.
+            **kwargs: Additional arguments.
+
+        Returns:
+            list[list[float]]: List of embeddings.
+        """
+        if not self.is_initialized:
+            await self.initialize()
+        return await self._embed_texts(texts, **kwargs)

@@ -1800,14 +1800,14 @@ files = [
 
 [[package]]
 name = "pepperpy-core"
-version = "0.2.1"
+version = "0.3.1"
 description = "Core package for PepperPy Framework"
 optional = false
 python-versions = "<4.0,>=3.12"
 groups = ["main"]
 files = [
-    {file = "pepperpy_core-0.2.1-py3-none-any.whl", hash = "sha256:65ff07e987c7de47e76102fa7037d08adf5ab3b9bf3f8e6a3fa86122ca5a432b"},
-    {file = "pepperpy_core-0.2.1.tar.gz", hash = "sha256:61743f823174e72c77b3206c905d3826586ebb7fcf11b736b1b91526363e2629"},
+    {file = "pepperpy_core-0.3.1-py3-none-any.whl", hash = "sha256:2dab5ce0d44289ed846032b7409f95966105cd02341e26ffc9d82a0ab5b36338"},
+    {file = "pepperpy_core-0.3.1.tar.gz", hash = "sha256:a622048e63865fff3444f85e453569934c3aff11950080ea77647faac3e476fe"},
 ]
 
 [package.dependencies]
@@ -3307,4 +3307,4 @@ rag = ["numpy", "sentence-transformers"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "9855b3df61822728f436ec96e56f645c84a27e544325f6aba0e358b35dbccbb3"
+content-hash = "4b9a3bad7578c72b126ecac00dd914a336767fcaa3b4836c72608fd0d469aed0"
