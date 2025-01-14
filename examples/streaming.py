@@ -3,7 +3,6 @@
 import asyncio
 from typing import cast
 
-from pepperpy_ai.ai_types import Message, MessageRole
 from pepperpy_ai.examples.utils import ExampleAIClient
 from pepperpy_ai.providers.base import BaseProvider
 from pepperpy_ai.providers.config import ProviderConfig
@@ -31,12 +30,12 @@ async def main() -> None:
                 break
 
             # Create message
-            messages = [Message(role=MessageRole.USER, content=prompt)]
+            messages = [{"content": prompt, "role": "user"}]
 
             # Stream responses
             print("\nAssistant: ", end="", flush=True)
             async for response in client.stream(messages):
-                print(response.content, end="", flush=True)
+                print(response["content"], end="", flush=True)
             print("\n")
 
     finally:
