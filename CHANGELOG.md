@@ -1,6 +1,14 @@
 # CHANGELOG
 
 
+## v1.0.0 (2025-01-14)
+
+### Refactoring
+
+- Rename pepperpy_ai module to pepperpy for better consistency
+  ([`6a66c04`](https://github.com/felipepimentel/pepperpy-ai/commit/6a66c040121bff4d019980d07b1b4f31ca7cf4d4))
+
+
 ## v0.1.0 (2025-01-14)
 
 ### Bug Fixes
