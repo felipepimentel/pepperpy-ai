@@ -31,7 +31,7 @@ async def main() -> None:
 
         # Create messages
         messages = [
-            Message(content="Hello! How are you?", role=MessageRole.USER),
+            {"content": "Hello! How are you?", "role": "user"},
         ]
 
         # Stream responses
