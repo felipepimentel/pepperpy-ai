@@ -9,6 +9,9 @@ from pepperpy_ai.providers.config import ProviderConfig
 def provider_config() -> ProviderConfig:
     """Create test provider configuration."""
     return {
+        "name": "test-provider",
+        "version": "1.0.0",
+        "api_base": "https://api.test.com",
         "model": "test-model",
         "api_key": "test-key",
         "temperature": 0.7,
