@@ -1,71 +1,46 @@
 """Team manager module."""
 
-from ..config.team import TeamConfig
-from .base import BaseTeam
-from .factory import TeamFactory
-from .types import TeamClient, TeamParams
+from typing import Any
+
+from pepperpy.teams.config import TeamConfig
+from pepperpy.teams.factory import TeamFactory
+from pepperpy.teams.providers.base import BaseTeamProvider
 
 
 class TeamManager:
-    """Team manager implementation."""
+    """Team manager."""
 
-    def __init__(self, client: TeamClient) -> None:
-        """Initialize team manager.
+    def __init__(self) -> None:
+        """Initialize team manager."""
+        self._teams: dict[str, BaseTeamProvider] = {}
 
-        Args:
-            client: Team client instance.
-        """
-        self._client = client
-        self._factory = TeamFactory(client)
-        self._teams: dict[str, BaseTeam] = {}
-
-    async def create_team(self, name: str, config: TeamConfig) -> BaseTeam:
-        """Create and initialize team.
+    def create_team(self, config: TeamConfig, **kwargs: Any) -> BaseTeamProvider:
+        """Create team provider.
 
         Args:
-            name: Team name.
             config: Team configuration.
+            **kwargs: Additional arguments.
 
         Returns:
-            BaseTeam: Team instance.
+            BaseTeamProvider: Team provider.
         """
-        team = self._factory.create(name, config)
-        await team.initialize()
-        self._teams[name] = team
+        team = TeamFactory.create_team(config, **kwargs)
+        self._teams[config.name] = team
         return team
 
-    async def get_team(self, name: str) -> BaseTeam:
-        """Get team by name.
+    def get_team(self, name: str) -> BaseTeamProvider:
+        """Get team provider.
 
         Args:
             name: Team name.
 
         Returns:
-            BaseTeam: Team instance.
+            BaseTeamProvider: Team provider.
 
         Raises:
-            ValueError: If team not found.
+            ValueError: If team is not found.
         """
-        if name not in self._teams:
+        team = self._teams.get(name)
+        if team is None:
             raise ValueError(f"Team not found: {name}")
-        return self._teams[name]
-
-    async def execute_task(self, name: str, task: str, **kwargs: TeamParams) -> None:
-        """Execute task with team.
-
-        Args:
-            name: Team name.
-            task: Task to execute.
-            **kwargs: Additional task parameters.
-
-        Raises:
-            ValueError: If team not found.
-        """
-        team = await self.get_team(name)
-        await team.execute_task(task, **kwargs)
-
-    async def cleanup(self) -> None:
-        """Clean up all teams."""
-        for team in self._teams.values():
-            await team.cleanup()
-        self._teams.clear()
+        return team

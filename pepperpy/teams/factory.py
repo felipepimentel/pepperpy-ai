@@ -1,43 +1,49 @@
 """Team factory module."""
 
-from ..config.team import TeamConfig
-from .providers.autogen import AutogenTeamProvider
-from .providers.base import BaseTeamProvider
-from .providers.crew import CrewTeamProvider
-from .providers.langchain import LangchainTeamProvider
-from .types import TeamClient
+from typing import Any, ClassVar, cast
+
+from pepperpy.teams.config import TeamConfig
+from pepperpy.teams.providers.autogen import AutogenTeamProvider
+from pepperpy.teams.providers.base import BaseTeamProvider
+from pepperpy.teams.providers.crew import CrewTeamProvider
+from pepperpy.teams.providers.langchain import LangchainTeamProvider
 
 
 class TeamFactory:
-    """Team factory implementation."""
+    """Team factory."""
 
-    def __init__(self, client: TeamClient) -> None:
-        """Initialize factory.
+    _providers: ClassVar[dict[str, type[BaseTeamProvider]]] = {
+        "autogen": AutogenTeamProvider,
+        "crew": CrewTeamProvider,
+        "langchain": LangchainTeamProvider,
+    }
 
-        Args:
-            client: Team client instance.
-        """
-        self._client = client
-        self._teams: dict[str, type[BaseTeamProvider]] = {
-            "autogen": AutogenTeamProvider,
-            "crew": CrewTeamProvider,
-            "langchain": LangchainTeamProvider,
-        }
-
-    def create(self, name: str, config: TeamConfig) -> BaseTeamProvider:
-        """Create team instance.
+    @classmethod
+    def create_team(cls, config: TeamConfig, **kwargs: Any) -> BaseTeamProvider:
+        """Create team provider.
 
         Args:
-            name: Team name.
             config: Team configuration.
+            **kwargs: Additional arguments.
 
         Returns:
-            BaseTeamProvider: Team instance.
+            BaseTeamProvider: Team provider.
 
         Raises:
-            ValueError: If team type is not found.
+            ValueError: If provider type is not supported.
         """
-        team_class = self._teams.get(name)
-        if team_class is None:
-            raise ValueError(f"Team type not found: {name}")
-        return team_class(config)
+        provider_type = config.provider
+        if provider_type not in cls._providers:
+            raise ValueError(f"Unsupported provider type: {provider_type}")
+
+        provider_class = cls._providers[provider_type]
+        provider = provider_class()
+        provider._config = config  # type: ignore
+        if provider_type == "crew":
+            crew_provider = cast(CrewTeamProvider, provider)
+            crew_provider._llm = kwargs.get("llm")
+            crew_provider._tools = kwargs.get("tools", [])
+            crew_provider._retriever = kwargs.get("retriever")
+            crew_provider._memory = kwargs.get("memory")
+            crew_provider._kwargs = kwargs
+        return provider

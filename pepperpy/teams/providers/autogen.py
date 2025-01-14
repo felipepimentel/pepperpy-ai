@@ -1,46 +1,45 @@
-"""Autogen team provider implementation."""
+"""Autogen team provider module."""
 
-from typing import cast
+from typing import Any, cast
 
-from ...config.team import TeamConfig
-from ...responses import AIResponse, ResponseMetadata
-from ..interfaces import ToolParams
-from .base import BaseTeamProvider
+from pepperpy.responses import ResponseData, ResponseMetadata
+from pepperpy.teams.config import TeamConfig
+from pepperpy.teams.providers.base import BaseTeamProvider
+from pepperpy.types.params import ToolParams
 
 
 class AutogenTeamProvider(BaseTeamProvider):
-    """Autogen team provider implementation."""
+    """Autogen team provider."""
 
     def __init__(self, config: TeamConfig) -> None:
-        """Initialize provider.
+        """Initialize autogen team provider.
 
         Args:
             config: Team configuration.
         """
-        super().__init__(config)
+        super().__init__()
+        self._config = config
 
-    async def execute_task(self, task: str, **kwargs: ToolParams) -> AIResponse:
+    @property
+    def config(self) -> TeamConfig:
+        """Get provider configuration.
+
+        Returns:
+            TeamConfig: Provider configuration.
+        """
+        return self._config
+
+    async def execute_task(self, task: str, **kwargs: ToolParams) -> ResponseData:
         """Execute team task.
 
         Args:
             task: Task to execute.
-            **kwargs: Additional task parameters.
+            **kwargs: Additional arguments.
 
         Returns:
-            AIResponse: Task execution response.
+            ResponseData: Task execution result.
         """
-        if not self.is_initialized:
-            raise RuntimeError("Provider not initialized")
-
-        return AIResponse(
+        return ResponseData(
             content=f"Executing task: {task}",
-            metadata=cast(
-                ResponseMetadata,
-                {
-                    "model": self.config.model,
-                    "provider": "autogen",
-                    "usage": {"total_tokens": 0},
-                    "finish_reason": "stop",
-                },
-            ),
+            metadata=ResponseMetadata(provider=self.config.provider),
         )
