@@ -2,7 +2,7 @@
 
 import pytest
 
-from pepperpy_ai.providers.config import ProviderConfig
+from pepperpy.providers.config import ProviderConfig
 
 
 @pytest.fixture

@@ -27,8 +27,8 @@ Text embeddings convert text into numerical vectors that capture semantic meanin
 ### Basic Usage
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 async def embedding_example():
     config = Config()
@@ -61,7 +61,7 @@ async def batch_embedding_example():
 Configure embedding settings:
 
 ```python
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 config = Config(
     embedding_provider="openai",
@@ -75,7 +75,7 @@ config = Config(
 ### Semantic Search
 
 ```python
-from pepperpy_ai.embeddings import semantic_search
+from pepperpy.embeddings import semantic_search
 
 async def search_example():
     config = Config()
@@ -106,7 +106,7 @@ async def search_example():
 ### Document Clustering
 
 ```python
-from pepperpy_ai.embeddings import cluster_documents
+from pepperpy.embeddings import cluster_documents
 
 async def clustering_example():
     config = Config()
@@ -168,7 +168,7 @@ PEPPERPY_EMBEDDING_DIMENSION=1536
 ### Text Similarity
 
 ```python
-from pepperpy_ai.embeddings import cosine_similarity
+from pepperpy.embeddings import cosine_similarity
 
 async def similarity_example():
     config = Config()
@@ -189,7 +189,7 @@ async def similarity_example():
 ### Custom Embedding Model
 
 ```python
-from pepperpy_ai.embeddings import SentenceTransformer
+from pepperpy.embeddings import SentenceTransformer
 
 async def custom_model_example():
     config = Config(

@@ -59,7 +59,7 @@ We use pytest for testing. All new features should include tests.
 poetry run pytest
 
 # Run with coverage
-poetry run pytest --cov=pepperpy_ai
+poetry run pytest --cov=pepperpy
 
 # Run specific test file
 poetry run pytest tests/test_client.py
@@ -69,8 +69,8 @@ poetry run pytest tests/test_client.py
 
 ```python
 import pytest
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 @pytest.mark.asyncio
 async def test_chat():

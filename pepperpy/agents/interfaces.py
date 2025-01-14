@@ -2,7 +2,7 @@
 
 from typing import Protocol, TypedDict
 
-from pepperpy_ai.ai_types import Message
+from pepperpy.ai_types import Message
 
 
 class AgentKwargs(TypedDict, total=False):

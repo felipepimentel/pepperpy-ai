@@ -7,7 +7,7 @@ This document explains the core concepts and architecture of PepperPy AI.
 PepperPy AI follows a modular architecture with several key components:
 
 ```
-pepperpy_ai/
+pepperpy/
 ├── agents/      # AI agents implementation
 ├── base/        # Base classes and interfaces
 ├── chat/        # Chat-related functionality

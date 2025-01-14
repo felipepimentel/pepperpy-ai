@@ -5,12 +5,12 @@ from typing import Any
 
 import pytest
 
-from pepperpy_ai.config.embeddings import EmbeddingsConfig
-from pepperpy_ai.core.responses import AIResponse, ResponseMetadata
-from pepperpy_ai.embeddings.base import BaseEmbeddingsProvider
-from pepperpy_ai.embeddings.types import EmbeddingResult
-from pepperpy_ai.exceptions import ProviderError
-from pepperpy_ai.types import Message
+from pepperpy.config.embeddings import EmbeddingsConfig
+from pepperpy.core.responses import AIResponse, ResponseMetadata
+from pepperpy.embeddings.base import BaseEmbeddingsProvider
+from pepperpy.embeddings.types import EmbeddingResult
+from pepperpy.exceptions import ProviderError
+from pepperpy.types import Message
 
 
 class TestEmbeddingsProvider(BaseEmbeddingsProvider):

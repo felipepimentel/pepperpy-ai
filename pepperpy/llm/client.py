@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 
-from pepperpy_ai.ai_types import Message
+from pepperpy.ai_types import Message
 
 from .config import LLMConfig
 

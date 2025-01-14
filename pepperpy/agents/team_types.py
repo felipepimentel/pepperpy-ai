@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-from pepperpy_ai.ai_types import Message
+from pepperpy.ai_types import Message
 
 JsonDict = dict[str, Any]
 

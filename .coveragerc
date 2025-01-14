@@ -1,5 +1,5 @@
 [run]
-source = pepperpy_ai
+source = pepperpy
 omit =
     tests/*
     setup.py

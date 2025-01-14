@@ -2,13 +2,13 @@
 
 import pytest
 
-from pepperpy_ai.exceptions import DependencyError
-from pepperpy_ai.utils.dependencies import (
+from pepperpy.exceptions import DependencyError
+from pepperpy.utils.dependencies import (
     check_dependency,
     get_missing_dependencies,
     verify_dependencies,
 )
-from pepperpy_ai.utils.exceptions import format_exception
+from pepperpy.utils.exceptions import format_exception
 
 
 def test_check_dependency() -> None:

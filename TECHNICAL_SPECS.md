@@ -6,7 +6,7 @@
 - Follow modular architecture with clear separation of concerns
 - Maintain directory structure:
   ```
-  pepperpy_ai/
+  pepperpy/
   ├── agents/        # Agent implementations
   ├── base/          # Base classes and protocols
   ├── chat/          # Chat-related functionality

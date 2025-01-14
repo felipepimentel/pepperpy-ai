@@ -39,8 +39,8 @@ The metrics system provides:
 ### Basic Usage
 
 ```python
-from pepperpy_ai.metrics import MetricsCollector
-from pepperpy_ai.config import Config
+from pepperpy.metrics import MetricsCollector
+from pepperpy.config import Config
 
 async def metrics_example():
     config = Config()
@@ -59,7 +59,7 @@ async def metrics_example():
 ### Custom Metrics
 
 ```python
-from pepperpy_ai.metrics import MetricsCollector, Metric
+from pepperpy.metrics import MetricsCollector, Metric
 
 async def custom_metrics_example():
     metrics = MetricsCollector()
@@ -80,7 +80,7 @@ async def custom_metrics_example():
 Configure monitoring settings:
 
 ```python
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 config = Config(
     metrics_enabled=True,
@@ -94,7 +94,7 @@ config = Config(
 ### Prometheus Integration
 
 ```python
-from pepperpy_ai.metrics import PrometheusExporter
+from pepperpy.metrics import PrometheusExporter
 
 async def prometheus_example():
     exporter = PrometheusExporter()
@@ -109,7 +109,7 @@ async def prometheus_example():
 ### Cost Analysis
 
 ```python
-from pepperpy_ai.metrics import CostAnalyzer
+from pepperpy.metrics import CostAnalyzer
 
 async def cost_analysis_example():
     analyzer = CostAnalyzer()
@@ -160,7 +160,7 @@ PEPPERPY_METRICS_PORT=8000
 ### Performance Monitoring
 
 ```python
-from pepperpy_ai.metrics import PerformanceMonitor
+from pepperpy.metrics import PerformanceMonitor
 
 async def performance_example():
     monitor = PerformanceMonitor()
@@ -177,7 +177,7 @@ async def performance_example():
 ### Usage Tracking
 
 ```python
-from pepperpy_ai.metrics import UsageTracker
+from pepperpy.metrics import UsageTracker
 
 async def usage_example():
     tracker = UsageTracker()
@@ -198,7 +198,7 @@ async def usage_example():
 ### Health Checks
 
 ```python
-from pepperpy_ai.metrics import HealthChecker
+from pepperpy.metrics import HealthChecker
 
 async def health_check_example():
     checker = HealthChecker()

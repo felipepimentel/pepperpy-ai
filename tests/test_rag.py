@@ -2,7 +2,7 @@
 
 import pytest
 
-from pepperpy_ai.utils.dependencies import check_dependency
+from pepperpy.utils.dependencies import check_dependency
 
 
 def test_rag_imports() -> None:
@@ -10,6 +10,6 @@ def test_rag_imports() -> None:
     if not check_dependency("sentence_transformers"):
         pytest.skip("sentence-transformers not installed")
 
-    from pepperpy_ai.capabilities.rag.base import RAGCapability
+    from pepperpy.capabilities.rag.base import RAGCapability
 
     assert RAGCapability is not None

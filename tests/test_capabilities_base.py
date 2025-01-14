@@ -3,12 +3,12 @@
 from collections.abc import AsyncGenerator
 from typing import Any, cast
 
-from pepperpy_ai.capabilities.base import BaseCapability
-from pepperpy_ai.config.capability import CapabilityConfig
-from pepperpy_ai.providers.base import BaseProvider
-from pepperpy_ai.providers.config import ProviderConfig
-from pepperpy_ai.responses import AIResponse, ResponseMetadata
-from pepperpy_ai.types import Message
+from pepperpy.capabilities.base import BaseCapability
+from pepperpy.config.capability import CapabilityConfig
+from pepperpy.providers.base import BaseProvider
+from pepperpy.providers.config import ProviderConfig
+from pepperpy.responses import AIResponse, ResponseMetadata
+from pepperpy.types import Message
 
 
 class TestProvider(BaseProvider[ProviderConfig]):

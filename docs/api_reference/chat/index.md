@@ -18,8 +18,8 @@ The chat system provides:
 The `Conversation` class manages chat interactions:
 
 ```python
-from pepperpy_ai.chat import Conversation, Message
-from pepperpy_ai.config import Config
+from pepperpy.chat import Conversation, Message
+from pepperpy.config import Config
 
 async def chat_example():
     config = Config()
@@ -41,7 +41,7 @@ async def chat_example():
 Different types of messages are supported:
 
 ```python
-from pepperpy_ai.chat import Message, SystemMessage, UserMessage, AssistantMessage
+from pepperpy.chat import Message, SystemMessage, UserMessage, AssistantMessage
 
 # System message (instructions)
 system_msg = SystemMessage("You are a helpful assistant")
@@ -58,7 +58,7 @@ assistant_msg = AssistantMessage("Here's how to use asyncio...")
 Configure chat behavior:
 
 ```python
-from pepperpy_ai.chat.config import ChatConfig
+from pepperpy.chat.config import ChatConfig
 
 config = ChatConfig(
     max_history=10,
@@ -73,7 +73,7 @@ config = ChatConfig(
 ### Streaming Chat
 
 ```python
-from pepperpy_ai.chat import StreamingConversation
+from pepperpy.chat import StreamingConversation
 
 async def streaming_chat():
     config = Config(stream_enabled=True)
@@ -86,7 +86,7 @@ async def streaming_chat():
 ### Context Management
 
 ```python
-from pepperpy_ai.chat import ConversationContext
+from pepperpy.chat import ConversationContext
 
 async def context_example():
     context = ConversationContext(
@@ -102,7 +102,7 @@ async def context_example():
 ### Role-Based Chat
 
 ```python
-from pepperpy_ai.chat import RoleBasedConversation
+from pepperpy.chat import RoleBasedConversation
 
 async def role_chat():
     conversation = RoleBasedConversation(
@@ -152,8 +152,8 @@ PEPPERPY_CHAT_SYSTEM_PROMPT="You are a helpful assistant"
 ### Basic Chat
 
 ```python
-from pepperpy_ai.chat import Conversation
-from pepperpy_ai.config import Config
+from pepperpy.chat import Conversation
+from pepperpy.config import Config
 
 async def basic_chat():
     config = Config()
@@ -171,7 +171,7 @@ async def basic_chat():
 ### Contextual Chat
 
 ```python
-from pepperpy_ai.chat import Conversation, Context
+from pepperpy.chat import Conversation, Context
 
 async def contextual_chat():
     context = Context(
@@ -187,7 +187,7 @@ async def contextual_chat():
 ### Function Calling
 
 ```python
-from pepperpy_ai.chat import Conversation, Function
+from pepperpy.chat import Conversation, Function
 
 async def function_chat():
     # Define available functions

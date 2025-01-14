@@ -38,8 +38,8 @@ PepperPy AI supports multiple AI providers through a unified interface.
 The `ProviderFactory` makes it easy to create and manage providers:
 
 ```python
-from pepperpy_ai.providers import ProviderFactory
-from pepperpy_ai.config import Config
+from pepperpy.providers import ProviderFactory
+from pepperpy.config import Config
 
 config = Config()
 factory = ProviderFactory(config)
@@ -82,7 +82,7 @@ class BaseProvider(Protocol):
 Providers can be configured through the config system:
 
 ```python
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 config = Config(
     provider="openai",
@@ -128,8 +128,8 @@ The following provider types are available:
 ### OpenAI Provider
 
 ```python
-from pepperpy_ai.providers import ProviderFactory
-from pepperpy_ai.config import Config
+from pepperpy.providers import ProviderFactory
+from pepperpy.config import Config
 
 async def openai_example():
     config = Config(provider="openai")

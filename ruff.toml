@@ -28,17 +28,14 @@ ignore = [
 
 [lint.per-file-ignores]
 "tests/**/*" = ["S101", "TID252"]
-"pepperpy_ai/types.py" = ["D"]
-"pepperpy_ai/capabilities/rag/**/*" = [
-    "F401",
-    "F403",
-] # Optional RAG dependencies
-"pepperpy_ai/embeddings/providers/**/*" = [
+"pepperpy/types.py" = ["D"]
+"pepperpy/capabilities/rag/**/*" = ["F401", "F403"] # Optional RAG dependencies
+"pepperpy/embeddings/providers/**/*" = [
     "F401",
     "F403",
 ] # Optional embedding providers
-"pepperpy_ai/providers/**/*" = ["F401", "F403"] # Optional LLM providers
-"pepperpy_ai/teams/providers/**/*" = ["F401", "F403"] # Optional team providers
+"pepperpy/providers/**/*" = ["F401", "F403"] # Optional LLM providers
+"pepperpy/teams/providers/**/*" = ["F401", "F403"] # Optional team providers
 
 [lint.mccabe]
 max-complexity = 10
@@ -47,5 +44,5 @@ max-complexity = 10
 convention = "google"
 
 [lint.isort]
-known-first-party = ["pepperpy_ai"]
+known-first-party = ["pepperpy"]
 known-third-party = ["openai", "anthropic", "pytest"]

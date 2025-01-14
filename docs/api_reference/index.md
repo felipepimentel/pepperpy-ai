@@ -26,21 +26,21 @@ This section provides detailed documentation for all public APIs in PepperPy AI.
 ## Module Reference
 
 ### Core Modules
-- [pepperpy_ai.client](./modules/client.md)
-- [pepperpy_ai.config](./modules/config.md)
-- [pepperpy_ai.cache](./modules/cache.md)
+- [pepperpy.client](./modules/client.md)
+- [pepperpy.config](./modules/config.md)
+- [pepperpy.cache](./modules/cache.md)
 
 ### Agent Modules
-- [pepperpy_ai.agents](./modules/agents.md)
-- [pepperpy_ai.base](./modules/base.md)
+- [pepperpy.agents](./modules/agents.md)
+- [pepperpy.base](./modules/base.md)
 
 ### Provider Modules
-- [pepperpy_ai.providers](./modules/providers.md)
-- [pepperpy_ai.llm](./modules/llm.md)
+- [pepperpy.providers](./modules/providers.md)
+- [pepperpy.llm](./modules/llm.md)
 
 ### Utility Modules
-- [pepperpy_ai.types](./modules/types.md)
-- [pepperpy_ai.exceptions](./modules/exceptions.md)
+- [pepperpy.types](./modules/types.md)
+- [pepperpy.exceptions](./modules/exceptions.md)
 
 ## Examples
 

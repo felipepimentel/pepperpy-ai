@@ -5,7 +5,7 @@ from typing import TypeVar
 
 import click
 
-from pepperpy_ai.utils import check_dependency, get_missing_dependencies
+from pepperpy.utils import check_dependency, get_missing_dependencies
 
 T = TypeVar("T")
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from pepperpy_ai.config.capability import CapabilityConfig
+from pepperpy.config.capability import CapabilityConfig
 
 
 @pytest.fixture

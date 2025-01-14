@@ -1,6 +1,6 @@
 """Tests for exceptions module."""
 
-from pepperpy_ai.exceptions import (
+from pepperpy.exceptions import (
     CapabilityError,
     ConfigurationError,
     DependencyError,

@@ -41,7 +41,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = "test_*.py"
 addopts = """
-    --cov=pepperpy_ai
+    --cov=pepperpy
     --cov-report=term-missing
     --cov-report=xml
     --cov-report=html
@@ -55,8 +55,8 @@ addopts = """
 
 ```python
 import pytest
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 @pytest.mark.asyncio
 async def test_client_initialization():
@@ -81,8 +81,8 @@ async def test_client_process():
 
 ```python
 import pytest
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 @pytest.mark.integration
 @pytest.mark.asyncio
@@ -103,7 +103,7 @@ async def test_api_workflow():
 
 ```python
 import pytest
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 @pytest.fixture
 async def client_config():
@@ -128,7 +128,7 @@ async def mock_client(client_config):
 
 ```python
 import pytest
-from pepperpy_ai.client import PepperPyAI
+from pepperpy.client import PepperPyAI
 
 @pytest.mark.asyncio
 async def test_async_operation():
@@ -151,7 +151,7 @@ async def test_with_mock():
     mock_response = AsyncMock()
     mock_response.json.return_value = {"status": "success"}
     
-    with patch("pepperpy_ai.client.request") as mock_request:
+    with patch("pepperpy.client.request") as mock_request:
         mock_request.return_value = mock_response
         client = PepperPyAI()
         result = await client.process("Test")
@@ -216,13 +216,13 @@ poetry run pytest tests/test_client.py::test_client_initialization
 
 ```bash
 # Run with coverage
-poetry run pytest --cov=pepperpy_ai
+poetry run pytest --cov=pepperpy
 
 # Generate HTML coverage report
-poetry run pytest --cov=pepperpy_ai --cov-report=html
+poetry run pytest --cov=pepperpy --cov-report=html
 
 # Show missing lines
-poetry run pytest --cov=pepperpy_ai --cov-report=term-missing
+poetry run pytest --cov=pepperpy --cov-report=term-missing
 ```
 
 ### Test Categories

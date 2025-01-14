@@ -5,8 +5,8 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from pepperpy_ai.providers.factory import create_provider
-from pepperpy_ai.types import Message
+from pepperpy.providers.factory import create_provider
+from pepperpy.types import Message
 
 
 def load_environment() -> None:

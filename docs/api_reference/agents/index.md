@@ -32,8 +32,8 @@ PepperPy AI provides a rich set of specialized AI agents for different tasks and
 The `AgentFactory` provides a centralized way to create and manage agents:
 
 ```python
-from pepperpy_ai.agents import AgentFactory
-from pepperpy_ai.config import Config
+from pepperpy.agents import AgentFactory
+from pepperpy.config import Config
 
 config = Config()
 factory = AgentFactory(config)
@@ -72,7 +72,7 @@ class BaseAgent(Protocol):
 Agents can be configured through the config system:
 
 ```python
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 config = Config(
     agent_type="development",
@@ -123,8 +123,8 @@ The following agent types are available:
 ### Development Agent
 
 ```python
-from pepperpy_ai.agents import AgentFactory
-from pepperpy_ai.config import Config
+from pepperpy.agents import AgentFactory
+from pepperpy.config import Config
 
 async def development_example():
     config = Config()

@@ -18,7 +18,7 @@ The configuration system provides:
 The foundation of all configurations:
 
 ```python
-from pepperpy_ai.config import Config, BaseConfig
+from pepperpy.config import Config, BaseConfig
 
 class CustomConfig(BaseConfig):
     """Custom configuration implementation."""
@@ -38,7 +38,7 @@ class CustomConfig(BaseConfig):
 Different configuration types for different components:
 
 ```python
-from pepperpy_ai.config import (
+from pepperpy.config import (
     AgentConfig,
     ProviderConfig,
     TeamConfig,
@@ -77,7 +77,7 @@ client_config = ClientConfig(
 Load configuration from environment:
 
 ```python
-from pepperpy_ai.config import EnvConfig
+from pepperpy.config import EnvConfig
 
 class AppConfig(EnvConfig):
     """Application configuration from environment."""
@@ -94,7 +94,7 @@ class AppConfig(EnvConfig):
 ### Configuration Validation
 
 ```python
-from pepperpy_ai.config import ConfigValidator
+from pepperpy.config import ConfigValidator
 from pydantic import BaseModel, Field
 
 class ConfigModel(BaseModel):
@@ -115,7 +115,7 @@ class ValidatedConfig(Config):
 ### Module Configuration
 
 ```python
-from pepperpy_ai.config import ModuleConfig
+from pepperpy.config import ModuleConfig
 
 class TextProcessorConfig(ModuleConfig):
     """Text processor module configuration."""
@@ -177,7 +177,7 @@ PEPPERPY_TEAM_MAX_STEPS=10
 ### Custom Configuration
 
 ```python
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 class AppConfig(Config):
     """Application configuration."""
@@ -200,7 +200,7 @@ class AppConfig(Config):
 ### Configuration Loading
 
 ```python
-from pepperpy_ai.config import ConfigLoader
+from pepperpy.config import ConfigLoader
 
 async def load_config():
     loader = ConfigLoader()
@@ -220,7 +220,7 @@ async def load_config():
 ### Configuration Inheritance
 
 ```python
-from pepperpy_ai.config import BaseConfig
+from pepperpy.config import BaseConfig
 
 class BaseServiceConfig(BaseConfig):
     """Base service configuration."""

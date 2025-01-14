@@ -18,8 +18,8 @@ The network layer provides:
 The main network client interface:
 
 ```python
-from pepperpy_ai.network import HTTPClient
-from pepperpy_ai.config import Config
+from pepperpy.network import HTTPClient
+from pepperpy.config import Config
 
 async def client_example():
     config = Config()
@@ -38,7 +38,7 @@ async def client_example():
 Handle different types of requests:
 
 ```python
-from pepperpy_ai.network import RequestManager
+from pepperpy.network import RequestManager
 
 async def request_example():
     manager = RequestManager(
@@ -66,7 +66,7 @@ async def request_example():
 Configure network behavior:
 
 ```python
-from pepperpy_ai.network.config import NetworkConfig
+from pepperpy.network.config import NetworkConfig
 
 config = NetworkConfig(
     timeout=30,
@@ -81,7 +81,7 @@ config = NetworkConfig(
 ### Rate Limiting
 
 ```python
-from pepperpy_ai.network import RateLimiter
+from pepperpy.network import RateLimiter
 
 async def rate_limit_example():
     limiter = RateLimiter(
@@ -96,7 +96,7 @@ async def rate_limit_example():
 ### Error Handling
 
 ```python
-from pepperpy_ai.network import NetworkError, RetryHandler
+from pepperpy.network import NetworkError, RetryHandler
 
 async def error_handling_example():
     retry_handler = RetryHandler(
@@ -114,7 +114,7 @@ async def error_handling_example():
 ### Request Middleware
 
 ```python
-from pepperpy_ai.network import RequestMiddleware
+from pepperpy.network import RequestMiddleware
 
 async def middleware_example():
     middleware = RequestMiddleware()
@@ -167,7 +167,7 @@ PEPPERPY_NETWORK_VERIFY_SSL=true
 ### API Client
 
 ```python
-from pepperpy_ai.network import APIClient
+from pepperpy.network import APIClient
 
 async def api_example():
     client = APIClient(
@@ -188,7 +188,7 @@ async def api_example():
 ### Streaming Client
 
 ```python
-from pepperpy_ai.network import StreamingClient
+from pepperpy.network import StreamingClient
 
 async def streaming_example():
     client = StreamingClient()
@@ -204,7 +204,7 @@ async def streaming_example():
 ### WebSocket Client
 
 ```python
-from pepperpy_ai.network import WebSocketClient
+from pepperpy.network import WebSocketClient
 
 async def websocket_example():
     client = WebSocketClient(

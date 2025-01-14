@@ -18,8 +18,8 @@ The core module provides:
 The fundamental building blocks:
 
 ```python
-from pepperpy_ai.core import BaseComponent
-from pepperpy_ai.config import Config
+from pepperpy.core import BaseComponent
+from pepperpy.config import Config
 
 class CustomComponent(BaseComponent):
     """Custom component implementation."""
@@ -38,7 +38,7 @@ class CustomComponent(BaseComponent):
 Standard interfaces for components:
 
 ```python
-from pepperpy_ai.core import ProcessorInterface, AsyncProcessor
+from pepperpy.core import ProcessorInterface, AsyncProcessor
 from typing import Protocol
 
 class CustomProcessor(ProcessorInterface):
@@ -58,7 +58,7 @@ class CustomProcessor(ProcessorInterface):
 ### Initialization
 
 ```python
-from pepperpy_ai.core import Initializable
+from pepperpy.core import Initializable
 
 class CustomService(Initializable):
     """Custom service with initialization."""
@@ -76,7 +76,7 @@ class CustomService(Initializable):
 ### Error Handling
 
 ```python
-from pepperpy_ai.core.exceptions import CoreError
+from pepperpy.core.exceptions import CoreError
 
 class CustomError(CoreError):
     """Custom error type."""
@@ -95,7 +95,7 @@ except CustomError as e:
 ### Type Definitions
 
 ```python
-from pepperpy_ai.core.types import (
+from pepperpy.core.types import (
     ProcessResult,
     ComponentConfig,
     ProcessorType
@@ -134,8 +134,8 @@ ProcessorType = Literal["text", "chat", "embedding"]
 ### Custom Component
 
 ```python
-from pepperpy_ai.core import BaseComponent
-from pepperpy_ai.config import Config
+from pepperpy.core import BaseComponent
+from pepperpy.config import Config
 
 class DataProcessor(BaseComponent):
     """Custom data processor."""
@@ -156,7 +156,7 @@ class DataProcessor(BaseComponent):
 ### Async Context Manager
 
 ```python
-from pepperpy_ai.core import AsyncContextManager
+from pepperpy.core import AsyncContextManager
 
 class ResourceManager(AsyncContextManager):
     """Resource manager with context support."""
@@ -172,7 +172,7 @@ class ResourceManager(AsyncContextManager):
 ### Type-Safe Processing
 
 ```python
-from pepperpy_ai.core import ProcessorInterface
+from pepperpy.core import ProcessorInterface
 from typing import TypeVar, Generic
 
 T = TypeVar("T")
@@ -190,7 +190,7 @@ class GenericProcessor(ProcessorInterface, Generic[T, R]):
 ### Error Chain
 
 ```python
-from pepperpy_ai.core.exceptions import (
+from pepperpy.core.exceptions import (
     CoreError,
     ValidationError,
     ProcessingError

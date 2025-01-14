@@ -2,7 +2,7 @@
 
 import pytest
 
-from pepperpy_ai.types import MessageRole
+from pepperpy.types import MessageRole
 
 
 def test_message_role_values() -> None:

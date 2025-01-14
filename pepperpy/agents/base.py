@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Protocol, TypedDict
 
-from pepperpy_ai.ai_types import Message
+from pepperpy.ai_types import Message
 
 from .types import AgentConfig
 

@@ -36,8 +36,8 @@ The teams system enables:
 ### Basic Team Setup
 
 ```python
-from pepperpy_ai.teams import TeamManager, Team
-from pepperpy_ai.config import Config
+from pepperpy.teams import TeamManager, Team
+from pepperpy.config import Config
 
 async def team_example():
     config = Config()
@@ -60,7 +60,7 @@ async def team_example():
 Configure team behavior:
 
 ```python
-from pepperpy_ai.teams.config import TeamConfig
+from pepperpy.teams.config import TeamConfig
 
 config = TeamConfig(
     team_type="autogen",
@@ -75,7 +75,7 @@ config = TeamConfig(
 ### AutoGen Teams
 
 ```python
-from pepperpy_ai.teams.autogen import AutoGenTeam
+from pepperpy.teams.autogen import AutoGenTeam
 
 async def autogen_example():
     team = AutoGenTeam(
@@ -95,7 +95,7 @@ async def autogen_example():
 ### LangChain Teams
 
 ```python
-from pepperpy_ai.teams.langchain import LangChainTeam
+from pepperpy.teams.langchain import LangChainTeam
 
 async def langchain_example():
     team = LangChainTeam(
@@ -111,7 +111,7 @@ async def langchain_example():
 ### Crew Teams
 
 ```python
-from pepperpy_ai.teams.crew import CrewTeam
+from pepperpy.teams.crew import CrewTeam
 
 async def crew_example():
     team = CrewTeam(
@@ -133,7 +133,7 @@ async def crew_example():
 ### Team Factory
 
 ```python
-from pepperpy_ai.teams import TeamFactory
+from pepperpy.teams import TeamFactory
 
 async def factory_example():
     factory = TeamFactory(config)
@@ -147,7 +147,7 @@ async def factory_example():
 ### Team Manager
 
 ```python
-from pepperpy_ai.teams import TeamManager
+from pepperpy.teams import TeamManager
 
 async def manager_example():
     manager = TeamManager(config)
@@ -201,7 +201,7 @@ PEPPERPY_TEAM_PARALLEL=true
 ### Research Project
 
 ```python
-from pepperpy_ai.teams import TeamManager
+from pepperpy.teams import TeamManager
 
 async def research_project():
     manager = TeamManager(config)

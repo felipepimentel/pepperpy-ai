@@ -3,10 +3,10 @@
 import asyncio
 from typing import cast
 
-from pepperpy_ai.examples.utils import ExampleAIClient
-from pepperpy_ai.providers.base import BaseProvider
-from pepperpy_ai.providers.config import ProviderConfig
-from pepperpy_ai.providers.openai import OpenAIProvider
+from pepperpy.examples.utils import ExampleAIClient
+from pepperpy.providers.base import BaseProvider
+from pepperpy.providers.config import ProviderConfig
+from pepperpy.providers.openai import OpenAIProvider
 
 
 async def main() -> None:

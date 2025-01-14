@@ -5,7 +5,7 @@ description = "A flexible AI library with modular provider support"
 authors = ["Felipe Pimentel <felipe@pepperpy.ai>"]
 license = "MIT"
 readme = "README.md"
-packages = [{ include = "pepperpy_ai" }]
+packages = [{ include = "pepperpy" }]
 repository = "https://github.com/pimentel/pepperpy-ai"
 documentation = "https://docs.pepperpy.ai"
 keywords = ["ai", "llm", "nlp", "machine-learning"]
@@ -28,12 +28,12 @@ python-dotenv = "^1.0.1"
 pepperpy-core = "*"
 
 # Optional dependencies for providers
-openai = { version = "0.1.0", optional = true }
-anthropic = { version = "0.1.0", optional = true }
+openai = { version = "1.59.7", optional = true }
+anthropic = { version = "0.42.0", optional = true }
 
 # Optional dependencies for capabilities
-numpy = { version = "0.1.0", optional = true }
-sentence-transformers = { version = "0.1.0", optional = true }
+numpy = { version = "2.2.1", optional = true }
+sentence-transformers = { version = "3.3.1", optional = true }
 async-generator = "^1.10"
 
 [tool.poetry.group.dev.dependencies]
@@ -67,7 +67,7 @@ all-capabilities = ["numpy", "sentence-transformers"]
 complete = ["openai", "anthropic", "numpy", "sentence-transformers"]
 
 [tool.poetry.scripts]
-pepperpy = "pepperpy_ai.cli:main"
+pepperpy = "pepperpy.cli:main"
 
 [build-system]
 requires = ["poetry-core"]
@@ -109,7 +109,7 @@ unfixable = []
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*" = ["S101", "TID252", "ANN201"]
-"pepperpy_ai/types.py" = ["D"]              # Ignore docstring requirements in types.py
+"pepperpy/types.py" = ["D"]                 # Ignore docstring requirements in types.py
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
@@ -118,7 +118,7 @@ max-complexity = 10
 convention = "google"
 
 [tool.ruff.lint.isort]
-known-first-party = ["pepperpy_ai"]
+known-first-party = ["pepperpy"]
 known-third-party = [
     "pepperpy_core",
     "openai",
@@ -144,7 +144,7 @@ strict_equality = true
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = ["pepperpy_ai.*"]
+module = ["pepperpy.*"]
 ignore_missing_imports = true
 
 

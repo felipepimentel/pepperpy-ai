@@ -18,8 +18,8 @@ The text processing system offers:
 The main text processing interface:
 
 ```python
-from pepperpy_ai.text import TextProcessor
-from pepperpy_ai.config import Config
+from pepperpy.text import TextProcessor
+from pepperpy.config import Config
 
 async def process_example():
     config = Config()
@@ -38,7 +38,7 @@ async def process_example():
 Advanced text analysis capabilities:
 
 ```python
-from pepperpy_ai.text import TextAnalyzer
+from pepperpy.text import TextAnalyzer
 
 async def analysis_example():
     analyzer = TextAnalyzer()
@@ -59,7 +59,7 @@ async def analysis_example():
 Split text into manageable chunks:
 
 ```python
-from pepperpy_ai.text import TextChunker
+from pepperpy.text import TextChunker
 
 async def chunking_example():
     chunker = TextChunker(
@@ -79,7 +79,7 @@ async def chunking_example():
 Configure text processing:
 
 ```python
-from pepperpy_ai.text.config import TextConfig
+from pepperpy.text.config import TextConfig
 
 config = TextConfig(
     chunk_size=1000,
@@ -95,7 +95,7 @@ config = TextConfig(
 ### Content Extraction
 
 ```python
-from pepperpy_ai.text import ContentExtractor
+from pepperpy.text import ContentExtractor
 
 async def extraction_example():
     extractor = ContentExtractor()
@@ -111,7 +111,7 @@ async def extraction_example():
 ### Semantic Analysis
 
 ```python
-from pepperpy_ai.text import SemanticAnalyzer
+from pepperpy.text import SemanticAnalyzer
 
 async def semantic_example():
     analyzer = SemanticAnalyzer()
@@ -127,7 +127,7 @@ async def semantic_example():
 ### Text Preprocessing
 
 ```python
-from pepperpy_ai.text import TextPreprocessor
+from pepperpy.text import TextPreprocessor
 
 async def preprocessing_example():
     preprocessor = TextPreprocessor()
@@ -182,7 +182,7 @@ PEPPERPY_TEXT_LANGUAGE=en
 ### Document Processing
 
 ```python
-from pepperpy_ai.text import DocumentProcessor
+from pepperpy.text import DocumentProcessor
 
 async def document_example():
     processor = DocumentProcessor()
@@ -202,7 +202,7 @@ async def document_example():
 ### Language Detection
 
 ```python
-from pepperpy_ai.text import LanguageDetector
+from pepperpy.text import LanguageDetector
 
 async def language_example():
     detector = LanguageDetector()
@@ -220,7 +220,7 @@ async def language_example():
 ### Text Summarization
 
 ```python
-from pepperpy_ai.text import TextSummarizer
+from pepperpy.text import TextSummarizer
 
 async def summarization_example():
     summarizer = TextSummarizer()

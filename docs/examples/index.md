@@ -7,8 +7,8 @@ This section provides practical examples of using PepperPy AI in various scenari
 ### Simple Chat Interaction
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 async def chat_example():
     config = Config(provider="openai")
@@ -21,8 +21,8 @@ async def chat_example():
 ### Text Completion
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 async def completion_example():
     config = Config(provider="anthropic")
@@ -37,9 +37,9 @@ async def completion_example():
 ### Custom Agent Configuration
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
-from pepperpy_ai.agents import ChatAgent
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
+from pepperpy.agents import ChatAgent
 
 async def custom_agent_example():
     config = Config()
@@ -56,9 +56,9 @@ async def custom_agent_example():
 ### Using Caching
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
-from pepperpy_ai.cache import Cache
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
+from pepperpy.cache import Cache
 
 async def cached_example():
     config = Config(cache_enabled=True)
@@ -77,8 +77,8 @@ async def cached_example():
 
 ```python
 from fastapi import FastAPI
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 app = FastAPI()
 config = Config()
@@ -93,9 +93,9 @@ async def chat_endpoint(message: str):
 ### Error Handling
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
-from pepperpy_ai.exceptions import PepperPyError
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
+from pepperpy.exceptions import PepperPyError
 
 async def error_handling_example():
     config = Config()
@@ -121,8 +121,8 @@ PEPPERPY_CACHE_ENABLED=true
 ```
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -133,8 +133,8 @@ client = PepperPyAI(config)
 ### Async Context Manager
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 async def context_manager_example():
     config = Config()

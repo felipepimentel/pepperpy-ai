@@ -16,7 +16,7 @@ The error handling system provides:
 ### Base Exceptions
 
 ```python
-from pepperpy_ai.exceptions import PepperpyError
+from pepperpy.exceptions import PepperpyError
 
 class PepperpyError(Exception):
     """Base exception for all PepperPy errors."""
@@ -29,7 +29,7 @@ class PepperpyError(Exception):
 ### Specific Exceptions
 
 ```python
-from pepperpy_ai.exceptions import (
+from pepperpy.exceptions import (
     AIError,
     ConfigError,
     ProviderError,
@@ -60,7 +60,7 @@ class ProviderError(PepperpyError):
 Preserve error context:
 
 ```python
-from pepperpy_ai.exceptions import ErrorContext
+from pepperpy.exceptions import ErrorContext
 
 class ErrorContext:
     """Error context information."""
@@ -84,7 +84,7 @@ except Exception as e:
 ### Error Recovery
 
 ```python
-from pepperpy_ai.exceptions import ErrorRecovery
+from pepperpy.exceptions import ErrorRecovery
 
 class ErrorRecovery:
     """Error recovery mechanisms."""
@@ -101,7 +101,7 @@ class ErrorRecovery:
 ### Error Reporting
 
 ```python
-from pepperpy_ai.exceptions import ErrorReporter
+from pepperpy.exceptions import ErrorReporter
 
 class ErrorReporter:
     """Error reporting system."""
@@ -140,7 +140,7 @@ class ErrorReporter:
 ### Basic Error Handling
 
 ```python
-from pepperpy_ai.exceptions import PepperpyError, AIError
+from pepperpy.exceptions import PepperpyError, AIError
 
 async def process_with_error_handling():
     try:
@@ -163,7 +163,7 @@ async def process_with_error_handling():
 ### Error Recovery Pattern
 
 ```python
-from pepperpy_ai.exceptions import ErrorRecovery, RetryableError
+from pepperpy.exceptions import ErrorRecovery, RetryableError
 
 async def retry_with_recovery():
     recovery = ErrorRecovery()
@@ -182,7 +182,7 @@ async def retry_with_recovery():
 ### Error Context Chain
 
 ```python
-from pepperpy_ai.exceptions import ErrorContextChain
+from pepperpy.exceptions import ErrorContextChain
 
 async def process_with_context():
     context_chain = ErrorContextChain()
@@ -208,7 +208,7 @@ async def process_with_context():
 ### Custom Error Types
 
 ```python
-from pepperpy_ai.exceptions import PepperpyError
+from pepperpy.exceptions import PepperpyError
 
 class ValidationError(PepperpyError):
     """Validation error with field information."""

@@ -27,12 +27,12 @@ echo -e "${GREEN}Ruff passed!${NC}\n"
 
 # Type check
 echo -e "${YELLOW}Running mypy...${NC}"
-mypy pepperpy_ai
+mypy pepperpy
 echo -e "${GREEN}Mypy passed!${NC}\n"
 
 # Run tests
 echo -e "${YELLOW}Running tests...${NC}"
-pytest tests -v --cov=pepperpy_ai --cov-report=term-missing
+pytest tests -v --cov=pepperpy --cov-report=term-missing
 echo -e "${GREEN}Tests passed!${NC}\n"
 
 echo -e "${GREEN}All checks passed!${NC}" 

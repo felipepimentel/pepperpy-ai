@@ -1800,21 +1800,21 @@ files = [
 
 [[package]]
 name = "pepperpy-core"
-version = "0.2.0"
+version = "0.2.1"
 description = "Core package for PepperPy Framework"
 optional = false
 python-versions = "<4.0,>=3.12"
 groups = ["main"]
 files = [
-    {file = "pepperpy_core-0.2.0-py3-none-any.whl", hash = "sha256:a594f4dc1f05973c23b07f80193703c291bdf3c2c71a4576df6da6086e0848ac"},
-    {file = "pepperpy_core-0.2.0.tar.gz", hash = "sha256:bb89dd9eb2a7c97bde4b691552c1d1d4ad7cbbbfdf8fae8175a9d94203fc03e2"},
+    {file = "pepperpy_core-0.2.1-py3-none-any.whl", hash = "sha256:65ff07e987c7de47e76102fa7037d08adf5ab3b9bf3f8e6a3fa86122ca5a432b"},
+    {file = "pepperpy_core-0.2.1.tar.gz", hash = "sha256:61743f823174e72c77b3206c905d3826586ebb7fcf11b736b1b91526363e2629"},
 ]
 
 [package.dependencies]
 aiofiles = ">=24.1.0,<25.0.0"
 aiohttp = ">=3.11.11,<4.0.0"
-anyio = ">=4.2.0,<5.0.0"
-pydantic = ">=2.6.3,<3.0.0"
+anyio = ">=4.8.0,<5.0.0"
+pydantic = ">=2.10.5,<3.0.0"
 python-dotenv = ">=1.0.1,<2.0.0"
 pyyaml = ">=6.0.2,<7.0.0"
 structlog = ">=24.4.0,<25.0.0"

@@ -21,8 +21,8 @@ poetry add "pepperpy-ai[providers]"
 Here's a simple example to get you started:
 
 ```python
-from pepperpy_ai.client import PepperPyAI
-from pepperpy_ai.config import Config
+from pepperpy.client import PepperPyAI
+from pepperpy.config import Config
 
 async def main():
     # Initialize the client
@@ -40,7 +40,7 @@ async def main():
 PepperPy AI can be configured through environment variables or programmatically:
 
 ```python
-from pepperpy_ai.config import Config
+from pepperpy.config import Config
 
 config = Config(
     provider="openai",  # or "anthropic"
