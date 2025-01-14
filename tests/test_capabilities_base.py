@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 from typing import Any, cast
 
 from pepperpy_ai.capabilities.base import BaseCapability
-from pepperpy_ai.capabilities.config import CapabilityConfig
+from pepperpy_ai.config.capability import CapabilityConfig
 from pepperpy_ai.providers.base import BaseProvider
 from pepperpy_ai.providers.config import ProviderConfig
 from pepperpy_ai.responses import AIResponse, ResponseMetadata
@@ -59,7 +59,20 @@ class TestCapability(BaseCapability[CapabilityConfig]):
             config: Capability configuration
         """
         super().__init__(config)
-        self._provider = TestProvider(config)
+        provider_config: ProviderConfig = {
+            "name": "test-provider",
+            "version": "1.0.0",
+            "api_base": "https://api.test.com",
+            "model": "test-model",
+            "api_key": "test-key",
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "top_p": 1.0,
+            "frequency_penalty": 0.0,
+            "presence_penalty": 0.0,
+            "timeout": 30.0,
+        }
+        self._provider = TestProvider(provider_config)
 
     async def initialize(self) -> None:
         """Initialize capability."""
