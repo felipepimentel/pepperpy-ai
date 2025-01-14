@@ -2,7 +2,7 @@
 
 import importlib
 import logging
-from typing import TypeVar
+from typing import TypeVar, cast
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +35,7 @@ def load_class(
                 base_class.__name__,
             )
             return None
-        return cls
+        return cast(type[T], cls)
     except (ImportError, AttributeError) as e:
         logger.warning(
             "Failed to load class %s from %s: %s",

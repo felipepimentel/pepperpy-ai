@@ -1,9 +1,18 @@
 """Sentence Transformers embeddings provider implementation."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ...config.embeddings import EmbeddingsConfig
-from ..base import BaseEmbeddingsProvider, EmbeddingResult
+from ...exceptions import DependencyError
+from ..base import BaseEmbeddingsProvider
+
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+else:
+    try:
+        from sentence_transformers import SentenceTransformer
+    except ImportError:
+        SentenceTransformer = None
 
 
 class SentenceTransformersProvider(BaseEmbeddingsProvider):
@@ -37,17 +46,31 @@ class SentenceTransformersProvider(BaseEmbeddingsProvider):
             raise RuntimeError("Provider not initialized")
 
     async def initialize(self) -> None:
-        """Initialize provider resources."""
-        if not self.is_initialized:
-            try:
-                from sentence_transformers import SentenceTransformer
-            except ImportError as e:
-                raise ImportError(
-                    "sentence-transformers package is required for this provider"
-                ) from e
+        """Initialize provider resources.
 
-            self._model = SentenceTransformer(self.config.model)
-            self._initialized = True
+        Raises:
+            DependencyError: If required packages are not installed.
+        """
+        if not self.is_initialized:
+            if SentenceTransformer is None:
+                raise DependencyError(
+                    "Required packages not installed. "
+                    "Please install extras: pip install pepperpy-ai[embeddings]",
+                    package="sentence-transformers",
+                )
+
+            try:
+                model_name = self.config["model"]
+                device = self.config.get("device", "cpu")
+
+                self._model = SentenceTransformer(model_name, device=device)
+                self._initialized = True
+            except ImportError as e:
+                raise DependencyError(
+                    "Required packages not installed. "
+                    "Please install extras: pip install pepperpy-ai[embeddings]",
+                    package="sentence-transformers",
+                ) from e
 
     async def cleanup(self) -> None:
         """Clean up provider resources."""
@@ -55,37 +78,38 @@ class SentenceTransformersProvider(BaseEmbeddingsProvider):
             self._model = None
             self._initialized = False
 
-    async def embed(self, text: str) -> EmbeddingResult:
+    async def embed(self, text: str) -> list[float]:
         """Generate embeddings for text.
 
         Args:
             text: Text to generate embeddings for.
 
         Returns:
-            EmbeddingResult: Generated embeddings.
+            list[float]: Generated embeddings.
+
+        Raises:
+            RuntimeError: If provider is not initialized.
         """
         self._ensure_initialized()
-        embeddings = self._model.encode(text)
-        return EmbeddingResult(
-            embeddings=embeddings.tolist(),
-            metadata={"model": self.config.model},
-        )
+        if self._model is None:
+            raise RuntimeError("Model not initialized")
+        embeddings = self._model.encode([text])
+        return [float(x) for x in embeddings[0]]
 
-    async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts.
 
         Args:
             texts: List of texts to generate embeddings for.
 
         Returns:
-            list[EmbeddingResult]: Generated embeddings for each text.
+            list[list[float]]: Generated embeddings for each text.
+
+        Raises:
+            RuntimeError: If provider is not initialized.
         """
         self._ensure_initialized()
+        if self._model is None:
+            raise RuntimeError("Model not initialized")
         embeddings = self._model.encode(texts)
-        return [
-            EmbeddingResult(
-                embeddings=embedding.tolist(),
-                metadata={"model": self.config.model},
-            )
-            for embedding in embeddings
-        ]
+        return [[float(x) for x in embedding] for embedding in embeddings]

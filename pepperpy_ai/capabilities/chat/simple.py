@@ -1,39 +1,39 @@
-"""Simple chat capability implementation."""
+"""Simple chat capability module."""
 
-from collections.abc import AsyncGenerator
-from typing import Any, Generic, TypeVar
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any
 
-from ...providers.base import BaseProvider
 from ...responses import AIResponse
 from ...types import Message
 from ..base import BaseCapability
-from .config import ChatConfig
-
-TProvider = TypeVar("TProvider", bound=BaseProvider[Any])
 
 
-class SimpleChatCapability(BaseCapability[ChatConfig], Generic[TProvider]):
-    """Simple chat capability implementation."""
+class SimpleChatCapability(BaseCapability):
+    """Simple chat capability."""
 
-    def __init__(self, config: ChatConfig, provider: type[TProvider]) -> None:
-        """Initialize simple chat capability.
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the capability.
 
         Args:
-            config: Chat configuration
-            provider: Provider class to use
+            config: The capability configuration.
         """
         super().__init__(config)
-        self._provider = provider(config)
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Return whether the capability is initialized."""
+        return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize capability."""
-        await self._provider.initialize()
+        """Initialize the capability."""
+        self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup capability."""
-        await self._provider.cleanup()
+        """Clean up the capability."""
+        self._initialized = False
 
-    async def stream(
+    def stream(
         self,
         messages: list[Message],
         *,
@@ -41,7 +41,7 @@ class SimpleChatCapability(BaseCapability[ChatConfig], Generic[TProvider]):
         temperature: float | None = None,
         max_tokens: int | None = None,
         **kwargs: Any,
-    ) -> AsyncGenerator[AIResponse, None]:
+    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
         """Stream responses from the capability.
 
         Args:
@@ -53,13 +53,8 @@ class SimpleChatCapability(BaseCapability[ChatConfig], Generic[TProvider]):
 
         Returns:
             AsyncGenerator yielding AIResponse objects
+
+        Raises:
+            NotImplementedError: This capability does not support streaming.
         """
-        stream = await self._provider.stream(
-            messages,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs,
-        )
-        async for response in stream:
-            yield response
+        raise NotImplementedError("SimpleChatCapability does not support streaming")

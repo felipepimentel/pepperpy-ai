@@ -1,19 +1,28 @@
-"""Embedding types module."""
+"""Embeddings types module."""
 
 from dataclasses import dataclass
 from typing import Any
 
 # Type alias for embedding vectors
-EmbeddingVector = list[float]
+type EmbeddingVector = list[float]
+"""Type alias for embedding vectors."""
+
+type EmbeddingResult = list[float]
+"""Type alias for embedding result."""
+
+type BatchEmbeddingResult = list[list[float]]
+"""Type alias for batch embedding result."""
 
 
 @dataclass
-class EmbeddingResult:
+class EmbeddingMetadata:
     """Result of embedding operation."""
 
-    embeddings: EmbeddingVector
-    metadata: dict[str, Any] | None = None
+    model: str
+    """The model used for embedding."""
 
-    def __len__(self) -> int:
-        """Get length of embeddings."""
-        return len(self.embeddings)
+    dimensions: int
+    """The dimensions of the embedding."""
+
+    metadata: dict[str, Any]
+    """Additional metadata about the embedding."""

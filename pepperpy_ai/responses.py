@@ -3,24 +3,28 @@
 from typing import Any, NotRequired, TypedDict
 
 
+class UsageMetadata(TypedDict):
+    """Usage metadata for responses."""
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+
+
 class ResponseMetadata(TypedDict, total=False):
     """Response metadata."""
 
     model: NotRequired[str]
-    provider: str
-    usage: NotRequired[dict[str, Any]]
-    finish_reason: NotRequired[str | None]
+    provider: NotRequired[str]
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    finish_reason: NotRequired[str]
+    usage: NotRequired[UsageMetadata]
+    settings: NotRequired[dict[str, Any]]
 
 
-class AIResponse:
-    """AI response."""
+class AIResponse(TypedDict):
+    """AI response type."""
 
-    def __init__(self, content: str, metadata: ResponseMetadata) -> None:
-        """Initialize response.
-
-        Args:
-            content: Response content
-            metadata: Response metadata
-        """
-        self.content = content
-        self.metadata = metadata
+    content: str
+    metadata: ResponseMetadata

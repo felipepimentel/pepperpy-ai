@@ -66,10 +66,13 @@ class BaseLLM(ABC):
 
         yield AIResponse(
             content="Hello, how can I help you?",
-            metadata=cast(ResponseMetadata, {
-                "model": model,
-                "provider": "llm",
-                "usage": {"total_tokens": 0},
-                "finish_reason": "stop",
-            }),
+            metadata=cast(
+                ResponseMetadata,
+                {
+                    "model": model,
+                    "provider": "llm",
+                    "usage": {"total_tokens": 0},
+                    "finish_reason": "stop",
+                },
+            ),
         )

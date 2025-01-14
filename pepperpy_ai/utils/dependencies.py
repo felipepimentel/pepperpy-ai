@@ -60,8 +60,7 @@ def verify_dependencies(packages: list[str]) -> None:
     if missing:
         # Raise error for first missing package
         raise DependencyError(
-            f"Missing required dependencies: {', '.join(missing)}",
-            missing[0]
+            f"Missing required dependencies: {', '.join(missing)}", missing[0]
         )
 
 

@@ -1,11 +1,5 @@
-"""LLM module exports."""
+"""LLM module."""
 
-from .client import LLMClient
-from .config import LLMConfig
-from .factory import create_provider
+from .factory import LLMFactory
 
-__all__ = [
-    "LLMClient",
-    "LLMConfig",
-    "create_provider",
-]
+__all__ = ["LLMFactory"]

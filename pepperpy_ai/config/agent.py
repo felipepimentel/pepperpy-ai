@@ -43,13 +43,17 @@ class AgentConfig(BaseConfig):
 
         Raises:
             ValueError: If role is invalid.
+            TypeError: If role is not a string or Role instance.
         """
         if isinstance(role, Role):
             return role
 
-        valid_roles = {r.value for r in Role}
-        if role not in valid_roles:
-            raise ValueError(
-                f"Invalid role: {role}. Must be one of {sorted(valid_roles)}"
-            )
-        return Role(role)
+        if not isinstance(role, str):
+            raise TypeError("Role must be a string or Role instance")
+
+        # Create role from string
+        return Role(
+            name=role,
+            description="",  # These will be populated by the agent
+            instructions="",  # These will be populated by the agent
+        )

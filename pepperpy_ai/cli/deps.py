@@ -9,6 +9,7 @@ from pepperpy_ai.utils import check_dependency, get_missing_dependencies
 
 T = TypeVar("T")
 
+
 def list_to_str(items: list[str] | None) -> str:
     """Convert list to string.
 
@@ -22,6 +23,7 @@ def list_to_str(items: list[str] | None) -> str:
         return ""
     return ", ".join(items)
 
+
 def str_to_list(value: str) -> list[str]:
     """Convert string to list.
 
@@ -34,6 +36,7 @@ def str_to_list(value: str) -> list[str]:
     if not value:
         return []
     return [item.strip() for item in value.split(",")]
+
 
 def validate_list(
     items: list[str] | None,
@@ -61,6 +64,7 @@ def validate_list(
             raise ValueError(f"Invalid value: {item}")
         result.append(item)
     return result
+
 
 def get_provider_dependencies() -> dict[str, list[str]]:
     """Get provider dependencies.

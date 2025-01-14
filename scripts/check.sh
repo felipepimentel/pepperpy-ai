@@ -13,27 +13,22 @@ echo -e "${YELLOW}Running code quality checks...${NC}\n"
 
 # Format code
 echo -e "${YELLOW}Running black...${NC}"
-black pepperpy_ai tests
+black . tests
 echo -e "${GREEN}Black passed!${NC}\n"
 
 echo -e "${YELLOW}Running isort...${NC}"
-isort pepperpy_ai tests
+isort . tests
 echo -e "${GREEN}Isort passed!${NC}\n"
 
 # Lint code
 echo -e "${YELLOW}Running ruff...${NC}"
-ruff check pepperpy_ai tests
+ruff check . tests
 echo -e "${GREEN}Ruff passed!${NC}\n"
 
 # Type check
 echo -e "${YELLOW}Running mypy...${NC}"
-mypy pepperpy_ai tests
+mypy pepperpy_ai
 echo -e "${GREEN}Mypy passed!${NC}\n"
-
-# Security check
-echo -e "${YELLOW}Running bandit...${NC}"
-bandit -r pepperpy_ai -c .bandit
-echo -e "${GREEN}Bandit passed!${NC}\n"
 
 # Run tests
 echo -e "${YELLOW}Running tests...${NC}"

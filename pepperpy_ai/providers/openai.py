@@ -1,29 +1,24 @@
-"""OpenAI provider implementation."""
+"""OpenAI provider module."""
 
-from collections.abc import AsyncGenerator
-from typing import cast
-
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any
 
 from ..responses import AIResponse
 from ..types import Message
 from .base import BaseProvider
 from .config import ProviderConfig
-from .exceptions import ProviderError
 
 
-class OpenAIProvider(BaseProvider[ProviderConfig]):
+class OpenAIProvider(BaseProvider):
     """OpenAI provider implementation."""
 
     def __init__(self, config: ProviderConfig) -> None:
-        """Initialize OpenAI provider.
+        """Initialize provider.
 
         Args:
-            config: Provider configuration
+            config: Provider configuration.
         """
         super().__init__(config)
-        self.client = AsyncOpenAI(api_key=self.config.get("api_key", ""))
         self._initialized = False
 
     @property
@@ -32,21 +27,22 @@ class OpenAIProvider(BaseProvider[ProviderConfig]):
         return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize provider resources."""
+        """Initialize provider."""
         self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup provider resources."""
+        """Clean up provider."""
         self._initialized = False
 
-    async def stream(
+    def stream(
         self,
         messages: list[Message],
         *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ) -> AsyncGenerator[AIResponse, None]:
+        **kwargs: Any,
+    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
         """Stream responses from the provider.
 
         Args:
@@ -54,47 +50,12 @@ class OpenAIProvider(BaseProvider[ProviderConfig]):
             model: Model to use for completion
             temperature: Temperature to use for completion
             max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional provider-specific parameters
 
         Returns:
             AsyncGenerator yielding AIResponse objects
 
         Raises:
-            ProviderError: If provider is not initialized or streaming fails
+            NotImplementedError: This provider does not support streaming.
         """
-        if not self.is_initialized:
-            raise ProviderError("Provider is not initialized")
-
-        try:
-            chat_messages = [
-                {
-                    "role": message.role.value,
-                    "content": message.content,
-                }
-                for message in messages
-            ]
-
-            stream = await self.client.chat.completions.create(
-                model=model or self.config.get("model", "gpt-3.5-turbo"),
-                messages=cast(list[ChatCompletionMessageParam], chat_messages),
-                temperature=temperature or self.config.get("temperature", 0.7),
-                max_tokens=max_tokens or self.config.get("max_tokens", 1000),
-                stream=True,
-            )
-
-            async for chunk in stream:
-                if chunk.choices[0].delta.content:
-                    yield AIResponse(
-                        content=chunk.choices[0].delta.content,
-                        metadata={
-                            "model": model or self.config.get("model", "gpt-3.5-turbo"),
-                            "provider": "openai",
-                            "finish_reason": chunk.choices[0].finish_reason,
-                            "usage": {
-                                "prompt_tokens": 0,
-                                "completion_tokens": 0,
-                                "total_tokens": 0,
-                            },
-                        },
-                    )
-        except Exception as e:
-            raise ProviderError(f"Failed to stream responses: {e}") from e
+        raise NotImplementedError("OpenAIProvider does not support streaming")

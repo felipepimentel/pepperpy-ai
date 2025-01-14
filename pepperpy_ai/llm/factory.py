@@ -1,36 +1,57 @@
 """LLM factory module."""
 
+from typing import cast
 
-from ..providers.anthropic import AnthropicConfig, AnthropicProvider
+from ..providers.anthropic import AnthropicProvider
 from ..providers.base import BaseProvider
 from ..providers.config import ProviderConfig
-from ..providers.openai import OpenAIConfig, OpenAIProvider
+from ..providers.openai import OpenAIProvider
+from ..providers.openrouter import OpenRouterProvider
+from ..providers.stackspot import StackSpotProvider
+from .config import LLMConfig
 
-PROVIDER_MAP: dict[str, type[AnthropicProvider] | type[OpenAIProvider]] = {
-    "anthropic": AnthropicProvider,
-    "openai": OpenAIProvider,
-}
 
-def create_provider(
-    provider_name: str,
-    config: AnthropicConfig | OpenAIConfig,
-    api_key: str,
-) -> BaseProvider[ProviderConfig]:
-    """Create a provider instance.
+class LLMFactory:
+    """LLM factory class."""
 
-    Args:
-        provider_name: Name of the provider to create
-        config: Provider configuration
-        api_key: API key for the provider
+    @staticmethod
+    def create_provider(config: LLMConfig) -> BaseProvider:
+        """Create LLM provider.
 
-    Returns:
-        Provider instance
+        Args:
+            config: LLM configuration.
 
-    Raises:
-        ValueError: If provider is not supported
-    """
-    provider_class = PROVIDER_MAP.get(provider_name)
-    if not provider_class:
-        raise ValueError(f"Unsupported provider: {provider_name}")
+        Returns:
+            LLM provider.
 
-    return provider_class(config, api_key)  # type: ignore
+        Raises:
+            ValueError: If provider type is not supported.
+        """
+        provider_type = config.get("provider_type", "openai")
+        provider_config = {
+            "name": provider_type,
+            "version": "latest",
+            "model": config.get("model", "gpt-4"),
+            "api_key": config.get("api_key", ""),
+            "api_base": config.get("api_base", ""),
+            "api_version": config.get("api_version"),
+            "organization": config.get("organization"),
+            "temperature": config.get("temperature", 0.0),
+            "max_tokens": config.get("max_tokens", 100),
+            "top_p": config.get("top_p", 1.0),
+            "frequency_penalty": config.get("frequency_penalty", 0.0),
+            "presence_penalty": config.get("presence_penalty", 0.0),
+            "timeout": config.get("timeout", 30.0),
+            "enabled": config.get("enabled", True),
+        }
+
+        if provider_type == "openai":
+            return OpenAIProvider(cast(ProviderConfig, provider_config))
+        elif provider_type == "anthropic":
+            return AnthropicProvider(cast(ProviderConfig, provider_config))
+        elif provider_type == "openrouter":
+            return OpenRouterProvider(cast(ProviderConfig, provider_config))
+        elif provider_type == "stackspot":
+            return StackSpotProvider(cast(ProviderConfig, provider_config))
+        else:
+            raise ValueError(f"Unsupported provider type: {provider_type}")

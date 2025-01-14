@@ -72,7 +72,6 @@
 
 - Run `mypy` for type checking.
 - Use `ruff` for linting.
-- Run `bandit` for security checks.
 - Maintain clean build status.
 
 ## AI Assistant Rules

@@ -1,12 +1,28 @@
 """Chat conversation module."""
 
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
 from typing import Protocol, runtime_checkable
 
+from ..config.chat import ChatConfig
 from ..exceptions import ConfigurationError
 from ..responses import AIResponse
-from .config import ChatConfig
-from .types import ChatHistory, ChatMessage, ChatRole
+from ..types import MessageRole
+
+
+@dataclass
+class ChatMessage:
+    """Chat message type."""
+
+    role: MessageRole
+    content: str
+
+
+@dataclass
+class ChatHistory:
+    """Chat history type."""
+
+    messages: list[ChatMessage]
 
 
 @runtime_checkable
@@ -24,7 +40,7 @@ class ChatClient(Protocol):
         """
         ...
 
-    async def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
+    def stream(self, prompt: str) -> AsyncGenerator[AIResponse, None]:
         """Stream responses for a prompt.
 
         Args:
@@ -35,6 +51,7 @@ class ChatClient(Protocol):
         """
         ...
 
+
 class ChatConversation:
     """Chat conversation class."""
 
@@ -42,26 +59,26 @@ class ChatConversation:
         """Initialize chat conversation.
 
         Args:
-            config: The chat configuration.
+            config: Chat configuration.
         """
-        self.config = config
+        self._config = config
         self._client: ChatClient | None = None
-        self._history = ChatHistory()
+        self._history = ChatHistory(messages=[])
 
     @property
     def history(self) -> ChatHistory:
         """Get conversation history.
 
         Returns:
-            The chat history.
+            The conversation history.
         """
         return self._history
 
     async def initialize(self, client: ChatClient) -> None:
-        """Initialize conversation with client.
+        """Initialize chat conversation.
 
         Args:
-            client: The chat client to use.
+            client: Chat client to use.
         """
         self._client = client
 
@@ -69,20 +86,20 @@ class ChatConversation:
         """Complete a message.
 
         Args:
-            message: The message to send.
+            message: The message to complete.
 
         Returns:
             The AI response.
 
         Raises:
-            ConfigurationError: If no client is configured.
+            ConfigurationError: If no AI client is configured.
         """
         if not self._client:
             raise ConfigurationError("No AI client configured", field="client")
 
         # Add user message to history
         self._history.messages.append(
-            ChatMessage(role=ChatRole.USER, content=message)
+            ChatMessage(role=MessageRole.USER, content=message)
         )
 
         # Get response from provider
@@ -90,37 +107,36 @@ class ChatConversation:
 
         # Add assistant message to history
         self._history.messages.append(
-            ChatMessage(role=ChatRole.ASSISTANT, content=response.content)
+            ChatMessage(role=MessageRole.ASSISTANT, content=response["content"])
         )
 
         return response
 
     async def stream(self, message: str) -> AsyncGenerator[AIResponse, None]:
-        """Stream a response from the AI provider.
+        """Stream responses for a message.
 
         Args:
-            message: The message to send.
+            message: The message to stream.
 
         Returns:
             An async generator yielding AI response chunks.
 
         Raises:
-            ConfigurationError: If no client is configured.
+            ConfigurationError: If no AI client is configured.
         """
         if not self._client:
             raise ConfigurationError("No AI client configured", field="client")
 
         # Add user message to history
         self._history.messages.append(
-            ChatMessage(role=ChatRole.USER, content=message)
+            ChatMessage(role=MessageRole.USER, content=message)
         )
 
-        # Stream response from provider
-        stream = await self._client.stream(message)
-        async for response in stream:
+        # Get stream from provider
+        async for response in self._client.stream(message):
             # Add assistant message to history
             self._history.messages.append(
-                ChatMessage(role=ChatRole.ASSISTANT, content=response.content)
+                ChatMessage(role=MessageRole.ASSISTANT, content=response["content"])
             )
             yield response
 
@@ -129,13 +145,16 @@ class ChatConversation:
 
         Args:
             prompt: The prompt to send.
+
+        Raises:
+            ConfigurationError: If no AI client is configured.
         """
         if not self._client:
             raise ConfigurationError("No AI client configured", field="client")
 
-        stream = await self._client.stream(prompt)
-        async for response in stream:
+        # Get stream from provider
+        async for response in self._client.stream(prompt):
             # Add assistant message to history
             self._history.messages.append(
-                ChatMessage(role=ChatRole.ASSISTANT, content=response.content)
+                ChatMessage(role=MessageRole.ASSISTANT, content=response["content"])
             )

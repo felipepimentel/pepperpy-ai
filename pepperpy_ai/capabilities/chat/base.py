@@ -1,26 +1,15 @@
 """Base chat capability module."""
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from collections.abc import AsyncGenerator
-from typing import TypedDict
+from typing import Any
 
 from ...responses import AIResponse
 from ...types import Message
+from ..base import BaseCapability
 
 
-class ChatKwargs(TypedDict, total=False):
-    """Chat keyword arguments."""
-
-    model: str
-    temperature: float
-    max_tokens: int
-    top_p: float
-    frequency_penalty: float
-    presence_penalty: float
-    timeout: float
-
-
-class BaseChatCapability(ABC):
+class BaseChatCapability(BaseCapability):
     """Base chat capability."""
 
     @abstractmethod
@@ -31,7 +20,7 @@ class BaseChatCapability(ABC):
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-        **kwargs: ChatKwargs,
+        **kwargs: Any,
     ) -> AsyncGenerator[AIResponse, None]:
         """Stream responses from the capability.
 

@@ -20,20 +20,20 @@ classifiers = [
 # Core dependencies - keep minimal
 [tool.poetry.dependencies]
 python = "^3.12"
-aiohttp = "^3.11.11"
-click = "^8.1.8"
-requests = "^2.32.3"
+aiohttp = "^3.9.3"
+click = "^8.1.7"
+requests = "^2.31.0"
 python-dotenv = "^1.0.1"
 # Development dependencies
 pepperpy-core = "*"
 
 # Optional dependencies for providers
 openai = { version = "1.59.7", optional = true }
-anthropic = { version = "0.42.0", optional = true }
+anthropic = { version = "0.21.3", optional = true }
 
 # Optional dependencies for capabilities
 numpy = { version = "^2.2.1", optional = true }
-sentence-transformers = { version = "3.3.1", optional = true }
+sentence-transformers = { version = "^2.5.1", optional = true }
 async-generator = "^1.10"
 
 [tool.poetry.group.dev.dependencies]
@@ -43,6 +43,7 @@ ruff = "^0.9.1"
 mypy = "^1.14.1"
 bandit = "^1.8.2"
 pre-commit = "^4.0.1"
+pyclean = "^2.7.5"
 
 # Test dependencies
 [tool.poetry.group.test.dependencies]
@@ -89,10 +90,42 @@ line_length = 88
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-select = ["E", "F", "B", "W", "I", "N", "D", "UP", "ANN", "RUF"]
-ignore = []
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "RUF", # Ruff-specific rules
+]
+ignore = ["D107"] # Missing docstring in __init__
 fixable = ["ALL"]
 unfixable = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*" = ["S101", "TID252", "ANN201"]
+"pepperpy_ai/types.py" = ["D"]              # Ignore docstring requirements in types.py
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["pepperpy_ai"]
+known-third-party = [
+    "pepperpy_core",
+    "openai",
+    "anthropic",
+    "numpy",
+    "sentence_transformers",
+]
 
 [tool.mypy]
 python_version = "3.12"
@@ -111,5 +144,5 @@ strict_equality = true
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "tests.*"
-warn_unreachable = false
+module = ["pepperpy_ai.*"]
+ignore_missing_imports = true

@@ -1,16 +1,32 @@
-"""RAG configuration."""
+"""RAG capability configuration."""
 
-from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 
-@dataclass
-class RAGStrategyConfig:
-    """RAG strategy configuration."""
+class RAGConfig(TypedDict):
+    """RAG capability configuration."""
 
+    # Required fields
     model_name: str
-    device: str = "cpu"
-    normalize_embeddings: bool = True
-    batch_size: int = 32
-    metadata: dict[str, Any] = field(default_factory=dict)
-    settings: dict[str, Any] = field(default_factory=dict)
+
+    # Optional fields
+    name: NotRequired[str]
+    version: NotRequired[str]
+    enabled: NotRequired[bool]
+    metadata: NotRequired[dict[str, Any]]
+    settings: NotRequired[dict[str, Any]]
+    api_key: NotRequired[str]
+    api_base: NotRequired[str]
+    api_version: NotRequired[str]
+    organization_id: NotRequired[str]
+    model: NotRequired[str]
+    temperature: NotRequired[float]
+    max_tokens: NotRequired[int]
+    top_p: NotRequired[float]
+    frequency_penalty: NotRequired[float]
+    presence_penalty: NotRequired[float]
+    timeout: NotRequired[float]
+    chunk_size: NotRequired[int]
+    chunk_overlap: NotRequired[int]
+    similarity_threshold: NotRequired[float]
+    max_documents: NotRequired[int]

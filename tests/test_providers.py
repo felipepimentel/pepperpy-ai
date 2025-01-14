@@ -6,20 +6,28 @@ from typing import NotRequired, TypedDict, cast
 from pepperpy_ai.providers.base import BaseProvider
 from pepperpy_ai.providers.types import ProviderKwargs
 from pepperpy_ai.responses import AIResponse, ResponseMetadata
-from pepperpy_ai.types import Message, MessageRole
+from pepperpy_ai.types import Message
 
 
-class TestConfig(TypedDict, total=False):
+class TestConfig(TypedDict, total=True):
     """Test provider configuration."""
 
-    api_key: NotRequired[str]
-    model: NotRequired[str]
+    name: str
+    version: str
+    model: str
+    api_key: str
+    api_base: str
+    organization_id: NotRequired[str | None]
+    api_version: NotRequired[str | None]
+    organization: NotRequired[str | None]
     temperature: NotRequired[float]
     max_tokens: NotRequired[int]
     top_p: NotRequired[float]
     frequency_penalty: NotRequired[float]
     presence_penalty: NotRequired[float]
     timeout: NotRequired[float]
+    max_retries: NotRequired[int]
+    enabled: NotRequired[bool]
 
 
 class TestProvider(BaseProvider[TestConfig]):
@@ -31,7 +39,8 @@ class TestProvider(BaseProvider[TestConfig]):
         Args:
             config: Provider configuration
         """
-        super().__init__(config, api_key=config.get("api_key", "test_key"))
+        super().__init__(config)
+        self.api_key = config.get("api_key", "test_key")
 
     async def initialize(self) -> None:
         """Initialize provider."""
@@ -67,27 +76,55 @@ class TestProvider(BaseProvider[TestConfig]):
             metadata=ResponseMetadata(
                 model=model or "test-model",
                 provider="test",
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                finish_reason="stop",
             ),
         )
 
 
 async def test_provider_initialization() -> None:
     """Test provider initialization."""
-    provider = TestProvider(TestConfig({"model": "test-model"}))
+    provider = TestProvider(
+        TestConfig(
+            name="test",
+            version="1.0.0",
+            model="test-model",
+            api_key="test_key",
+            api_base="http://test",
+            organization_id=None,
+            api_version=None,
+            organization=None,
+            enabled=True,
+            max_retries=3,
+        )
+    )
     await provider.initialize()
     await provider.cleanup()
 
 
 async def test_provider_stream() -> None:
     """Test provider stream."""
-    provider = TestProvider(TestConfig({"model": "test-model"}))
+    provider = TestProvider(
+        TestConfig(
+            name="test",
+            version="1.0.0",
+            model="test-model",
+            api_key="test_key",
+            api_base="http://test",
+            organization_id=None,
+            api_version=None,
+            organization=None,
+            enabled=True,
+            max_retries=3,
+        )
+    )
     await provider.initialize()
 
-    messages = [Message(role=MessageRole.USER, content="Hello!")]
+    messages = [Message(role="user", content="Hello!")]
 
     async for response in provider.stream(messages):
-        metadata = cast(ResponseMetadata, response.metadata)
-        assert response.content == "Hello, how can I help you?"
+        assert response["content"] == "Hello, how can I help you?"
+        metadata = cast(ResponseMetadata, response["metadata"])
         assert metadata.get("model") == "test-model"
         assert metadata.get("provider") == "test"
 

@@ -1,22 +1,22 @@
-"""Simple provider implementation."""
+"""Simple provider module."""
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any
 
 from ..responses import AIResponse
 from ..types import Message
 from .base import BaseProvider
 from .config import ProviderConfig
-from .exceptions import ProviderError
 
 
-class SimpleProvider(BaseProvider[ProviderConfig]):
+class SimpleProvider(BaseProvider):
     """Simple provider implementation."""
 
     def __init__(self, config: ProviderConfig) -> None:
-        """Initialize simple provider.
+        """Initialize provider.
 
         Args:
-            config: Provider configuration
+            config: Provider configuration.
         """
         super().__init__(config)
         self._initialized = False
@@ -27,21 +27,22 @@ class SimpleProvider(BaseProvider[ProviderConfig]):
         return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize provider resources."""
+        """Initialize provider."""
         self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup provider resources."""
+        """Clean up provider."""
         self._initialized = False
 
-    async def stream(
+    def stream(
         self,
         messages: list[Message],
         *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ) -> AsyncGenerator[AIResponse, None]:
+        **kwargs: Any,
+    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
         """Stream responses from the provider.
 
         Args:
@@ -49,29 +50,12 @@ class SimpleProvider(BaseProvider[ProviderConfig]):
             model: Model to use for completion
             temperature: Temperature to use for completion
             max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional provider-specific parameters
 
         Returns:
             AsyncGenerator yielding AIResponse objects
 
         Raises:
-            ProviderError: If provider is not initialized or streaming fails
+            NotImplementedError: This provider does not support streaming.
         """
-        if not self.is_initialized:
-            raise ProviderError("Provider is not initialized")
-
-        try:
-            yield AIResponse(
-                content="Hello, how can I help you?",
-                metadata={
-                    "model": model or "simple",
-                    "provider": "simple",
-                    "finish_reason": "stop",
-                    "usage": {
-                        "prompt_tokens": 0,
-                        "completion_tokens": 0,
-                        "total_tokens": 0,
-                    },
-                },
-            )
-        except Exception as e:
-            raise ProviderError(f"Failed to stream responses: {e}") from e
+        raise NotImplementedError("SimpleProvider does not support streaming")

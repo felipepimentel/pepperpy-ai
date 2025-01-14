@@ -6,8 +6,9 @@ from typing import Any
 import pytest
 
 from pepperpy_ai.core.responses import AIResponse, ResponseMetadata
-from pepperpy_ai.embeddings.base import BaseEmbeddingsProvider, EmbeddingResult
+from pepperpy_ai.embeddings.base import BaseEmbeddingsProvider
 from pepperpy_ai.embeddings.config import EmbeddingsConfig
+from pepperpy_ai.embeddings.types import EmbeddingResult
 from pepperpy_ai.exceptions import ProviderError
 from pepperpy_ai.types import Message
 
@@ -21,7 +22,8 @@ class TestEmbeddingsProvider(BaseEmbeddingsProvider):
         Args:
             config: Provider configuration
         """
-        super().__init__(config, api_key="test_key")
+        super().__init__(config)
+        self.api_key = "test_key"
         self._initialized = False
 
     @property
@@ -57,13 +59,7 @@ class TestEmbeddingsProvider(BaseEmbeddingsProvider):
                 "Provider not initialized", provider="test", operation="embed"
             )
 
-        return [
-            EmbeddingResult(
-                embeddings=[0.1, 0.2, 0.3],
-                metadata={"model": "test-model"},
-            )
-            for _ in texts
-        ]
+        return [[0.1, 0.2, 0.3] for _ in texts]
 
     async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
         """Embed batch of texts using test provider.
@@ -127,8 +123,14 @@ class TestEmbeddingsProvider(BaseEmbeddingsProvider):
 async def test_embeddings_provider() -> None:
     """Test embeddings provider functionality."""
     config = EmbeddingsConfig(
-        model_name="test-model",
-        dimension=3,
+        name="test",
+        version="1.0.0",
+        model="test-model",
+        api_key="test_key",
+        provider_type="test",
+        api_base="http://test",
+        api_version="v1",
+        organization="test",
         batch_size=1,
     )
     provider = TestEmbeddingsProvider(config)
@@ -139,9 +141,8 @@ async def test_embeddings_provider() -> None:
     result = await provider.embed(["test"])
     assert isinstance(result, list)
     assert len(result) == 1
-    assert isinstance(result[0], EmbeddingResult)
-    assert result[0].embeddings == [0.1, 0.2, 0.3]
-    assert result[0].metadata == {"model": "test-model"}
+    assert isinstance(result[0], list)
+    assert result[0] == [0.1, 0.2, 0.3]
 
     await provider.cleanup()
     assert not provider.is_initialized
@@ -151,8 +152,14 @@ async def test_embeddings_provider() -> None:
 async def test_embeddings_provider_batch() -> None:
     """Test embeddings provider batch functionality."""
     config = EmbeddingsConfig(
-        model_name="test-model",
-        dimension=3,
+        name="test",
+        version="1.0.0",
+        model="test-model",
+        api_key="test_key",
+        provider_type="test",
+        api_base="http://test",
+        api_version="v1",
+        organization="test",
         batch_size=2,
     )
     provider = TestEmbeddingsProvider(config)
@@ -165,9 +172,8 @@ async def test_embeddings_provider_batch() -> None:
     assert isinstance(result, list)
     assert len(result) == 2
     for res in result:
-        assert isinstance(res, EmbeddingResult)
-        assert res.embeddings == [0.1, 0.2, 0.3]
-        assert res.metadata == {"model": "test-model"}
+        assert isinstance(res, list)
+        assert res == [0.1, 0.2, 0.3]
 
     await provider.cleanup()
     assert not provider.is_initialized
@@ -177,8 +183,14 @@ async def test_embeddings_provider_batch() -> None:
 async def test_embeddings_provider_error() -> None:
     """Test embeddings provider error handling."""
     config = EmbeddingsConfig(
-        model_name="test-model",
-        dimension=3,
+        name="test",
+        version="1.0.0",
+        model="test-model",
+        api_key="test_key",
+        provider_type="test",
+        api_base="http://test",
+        api_version="v1",
+        organization="test",
         batch_size=1,
     )
     provider = TestEmbeddingsProvider(config)

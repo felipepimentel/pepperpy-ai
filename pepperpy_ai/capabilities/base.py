@@ -1,26 +1,32 @@
-"""Base capability implementation."""
+"""Base capability module."""
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator
-from typing import Generic, TypeVar
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any, Generic, TypeVar
 
+from ..config.capability import CapabilityConfig
 from ..responses import AIResponse
 from ..types import Message
-from .config import CapabilityConfig
 
-T = TypeVar("T", bound=CapabilityConfig)
+TConfig = TypeVar("TConfig", bound=CapabilityConfig)
 
 
-class BaseCapability(ABC, Generic[T]):
-    """Base capability implementation."""
+class BaseCapability(ABC, Generic[TConfig]):
+    """Base capability class."""
 
-    def __init__(self, config: T) -> None:
+    def __init__(self, config: TConfig) -> None:
         """Initialize base capability.
 
         Args:
-            config: Capability configuration
+            config: The capability configuration.
         """
         self.config = config
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Return whether the capability is initialized."""
+        return self._initialized
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -33,23 +39,29 @@ class BaseCapability(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    async def stream(
+    def stream(
         self,
         messages: list[Message],
         *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ) -> AsyncGenerator[AIResponse, None]:
+        **kwargs: Any,
+    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
         """Stream responses from the capability.
 
         Args:
-            messages: List of messages to send
-            model: Model to use for completion
-            temperature: Temperature to use for completion
-            max_tokens: Maximum number of tokens to generate
+            messages: The list of messages to process.
+            model: The model to use for the chat.
+            temperature: The temperature to use for the chat.
+            max_tokens: The maximum number of tokens to generate.
+            **kwargs: Additional capability-specific parameters.
 
         Returns:
-            AsyncGenerator yielding AIResponse objects
+            An async generator yielding responses.
+
+        Raises:
+            ValueError: If no messages are provided or if the last message is not
+                from the user.
         """
         raise NotImplementedError

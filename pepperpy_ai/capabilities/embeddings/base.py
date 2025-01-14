@@ -7,10 +7,9 @@ from typing import Any
 from ...responses import AIResponse
 from ...types import Message
 from ..base import BaseCapability
-from .config import EmbeddingsConfig
 
 
-class BaseEmbeddingsCapability(BaseCapability[EmbeddingsConfig]):
+class BaseEmbeddingsCapability(BaseCapability):
     """Base embeddings capability implementation."""
 
     @abstractmethod

@@ -1,38 +1,108 @@
-"""Type definitions."""
+"""Type definitions module."""
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any
-
-# Type aliases for JSON values
-JsonValue = str | int | float | bool | None | list[Any] | dict[str, Any]
-JsonDict = dict[str, str | int | float | bool | None | list[Any] | dict[str, Any]]
+from typing import Any, Literal, NotRequired, TypedDict
 
 
-class MessageRole(str, Enum):
-    """Message role enum."""
+class Role(str, Enum):
+    """Message role."""
 
-    SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    SYSTEM = "system"
+    TOOL = "tool"
     FUNCTION = "function"
 
 
-@dataclass
-class Message:
+class Message(TypedDict):
     """Message type."""
 
+    role: Literal["user", "assistant", "system", "function"]
     content: str
-    role: MessageRole
-    metadata: JsonDict | None = None
-
-    def to_dict(self) -> JsonDict:
-        """Convert message to dictionary."""
-        return {
-            "content": self.content,
-            "role": self.role.value,
-            "metadata": self.metadata or {},
-        }
+    name: NotRequired[str]
+    function_call: NotRequired[dict[str, Any]]
+    tool_calls: NotRequired[list[dict[str, Any]]]
 
 
-__all__ = ["JsonDict", "JsonValue", "Message", "MessageRole"]
+@dataclass
+class FunctionDefinition:
+    """Function definition."""
+
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+
+@dataclass
+class FunctionCall:
+    """Function call."""
+
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass
+class ToolCall:
+    """Tool call."""
+
+    id: str
+    type: str
+    function: FunctionCall
+
+
+@dataclass
+class Tool:
+    """Tool."""
+
+    function: FunctionDefinition
+
+
+class ChatResponseFormat(str, Enum):
+    """Chat response format."""
+
+    TEXT = "text"
+    JSON = "json"
+
+
+@dataclass
+class ChatMessage:
+    """Chat message."""
+
+    role: Role
+    content: str
+    name: str | None = None
+    tool_calls: list[ToolCall] | None = None
+    tool_call_id: str | None = None
+
+
+@dataclass
+class ChatResponse:
+    """Chat response."""
+
+    id: str
+    created: int
+    model: str
+    role: Role
+    content: str
+    tool_calls: list[ToolCall] | None = None
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    total_tokens: int | None = None
+
+
+@dataclass
+class ChatResponseChunk:
+    """Chat response chunk."""
+
+    id: str
+    created: int
+    model: str
+    role: Role | None
+    content: str
+    tool_calls: list[ToolCall] | None = None
+
+
+JsonDict = dict[str, Any]
+JsonValue = Any
+MessageRole = Role

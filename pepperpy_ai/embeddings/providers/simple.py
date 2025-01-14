@@ -1,7 +1,7 @@
 """Simple embeddings provider implementation."""
 
 from ...config.embeddings import EmbeddingsConfig
-from ..base import BaseEmbeddingsProvider, EmbeddingResult
+from ..base import BaseEmbeddingsProvider
 
 
 class SimpleEmbeddingsProvider(BaseEmbeddingsProvider):
@@ -44,35 +44,26 @@ class SimpleEmbeddingsProvider(BaseEmbeddingsProvider):
         if self.is_initialized:
             self._initialized = False
 
-    async def embed(self, text: str) -> EmbeddingResult:
+    async def embed(self, text: str) -> list[float]:
         """Generate embeddings for text.
 
         Args:
             text: Text to generate embeddings for.
 
         Returns:
-            EmbeddingResult: Generated embeddings.
+            list[float]: Generated embeddings.
         """
         self._ensure_initialized()
-        return EmbeddingResult(
-            embeddings=[0.0] * 10,
-            metadata={"model": "simple", "dimensions": 10},
-        )
+        return [0.0] * 10
 
-    async def embed_batch(self, texts: list[str]) -> list[EmbeddingResult]:
+    async def embed_batch(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for multiple texts.
 
         Args:
             texts: List of texts to generate embeddings for.
 
         Returns:
-            list[EmbeddingResult]: Generated embeddings for each text.
+            list[list[float]]: Generated embeddings for each text.
         """
         self._ensure_initialized()
-        return [
-            EmbeddingResult(
-                embeddings=[0.0] * 10,
-                metadata={"model": "simple", "dimensions": 10},
-            )
-            for _ in texts
-        ]
+        return [[0.0] * 10 for _ in texts]

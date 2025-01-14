@@ -1,6 +1,5 @@
 """Team factory module."""
 
-
 from ..config.team import TeamConfig
 from .providers.autogen import AutogenTeamProvider
 from .providers.base import BaseTeamProvider

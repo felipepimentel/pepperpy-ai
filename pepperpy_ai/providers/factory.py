@@ -1,124 +1,95 @@
 """Provider factory module."""
 
-import os
-from typing import cast
+from typing import Any, cast
 
+from ..config.provider import ProviderConfig
 from .anthropic import AnthropicProvider
 from .base import BaseProvider
-from .config import ProviderConfig, ProviderSettings
-from .exceptions import ProviderError
 from .mock import MockProvider
 from .openai import OpenAIProvider
 from .openrouter import OpenRouterProvider
-
-PROVIDER_MAP: dict[str, type[BaseProvider[ProviderConfig]]] = {
-    "anthropic": cast(type[BaseProvider[ProviderConfig]], AnthropicProvider),
-    "openai": cast(type[BaseProvider[ProviderConfig]], OpenAIProvider),
-    "openrouter": cast(type[BaseProvider[ProviderConfig]], OpenRouterProvider),
-    "mock": cast(type[BaseProvider[ProviderConfig]], MockProvider),
-}
-
-
-def load_settings_from_env(prefix: str = "") -> ProviderSettings:
-    """Load provider settings from environment variables.
-
-    Args:
-        prefix: Environment variable prefix (e.g., "PEPPERPY_")
-
-    Returns:
-        Provider settings
-
-    Raises:
-        ProviderError: If required environment variables are not set
-    """
-    provider = os.getenv(f"{prefix}PROVIDER")
-    if not provider:
-        raise ProviderError(
-            f"Provider not set in environment ({prefix}PROVIDER)",
-            provider="unknown",
-            operation="load_settings",
-        )
-
-    api_key = os.getenv(f"{prefix}API_KEY")
-    if not api_key:
-        raise ProviderError(
-            f"API key not set in environment ({prefix}API_KEY)",
-            provider=provider,
-            operation="load_settings",
-        )
-
-    settings: ProviderSettings = {
-        "api_key": api_key,
-        "timeout": float(os.getenv(f"{prefix}TIMEOUT", "30.0")),
-        "max_retries": int(os.getenv(f"{prefix}MAX_RETRIES", "3")),
-        "retry_delay": float(os.getenv(f"{prefix}RETRY_DELAY", "1.0")),
-    }
-
-    # Add optional settings if present
-    api_base = os.getenv(f"{prefix}API_BASE")
-    if api_base:
-        settings["api_base"] = api_base
-
-    model = os.getenv(f"{prefix}MODEL")
-    if model:
-        settings["model"] = model
-
-    return settings
+from .simple import SimpleProvider
+from .stackspot import StackSpotProvider
 
 
 def create_provider(
-    settings: ProviderSettings | None = None,
-    prefix: str = "",
-) -> BaseProvider[ProviderConfig]:
+    name: str,
+    version: str = "latest",
+    api_key: str | None = None,
+    api_base: str | None = None,
+    api_version: str | None = None,
+    organization_id: str | None = None,
+    model: str | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = 100,
+    timeout: float = 30.0,
+    max_retries: int = 3,
+    retry_delay: float = 1.0,
+    enabled: bool = True,
+    **kwargs: Any,
+) -> BaseProvider:
     """Create a provider instance.
 
-    If settings is not provided, they will be loaded from environment variables.
-    Environment variables are prefixed with the given prefix.
-
     Args:
-        settings: Provider settings
-        prefix: Environment variable prefix (e.g., "PEPPERPY_")
+        name: Provider name.
+        version: Provider version.
+        api_key: API key for authentication.
+        api_base: Base URL for API requests.
+        api_version: API version to use.
+        organization_id: Organization ID for API requests.
+        model: Default model to use.
+        temperature: Default temperature for model sampling.
+        max_tokens: Default maximum tokens to generate.
+        timeout: Request timeout in seconds.
+        max_retries: Maximum number of retries.
+        retry_delay: Delay between retries in seconds.
+        enabled: Whether provider is enabled.
+        **kwargs: Additional provider-specific settings.
 
     Returns:
-        Provider instance
+        A provider instance.
 
     Raises:
-        ProviderError: If provider is not supported or configuration is invalid
+        ValueError: If provider name is invalid or if required configuration is missing.
     """
-    # Load settings from environment if not provided
-    if settings is None:
-        settings = load_settings_from_env(prefix)
+    providers: dict[str, type[BaseProvider]] = {
+        "anthropic": AnthropicProvider,
+        "openai": OpenAIProvider,
+        "openrouter": OpenRouterProvider,
+        "stackspot": StackSpotProvider,
+        "simple": SimpleProvider,
+        "mock": MockProvider,
+    }
 
-    # Get provider class
-    provider = os.getenv(f"{prefix}PROVIDER")
-    if not provider:
-        raise ProviderError(
-            f"Provider not set in environment ({prefix}PROVIDER)",
-            provider="unknown",
-            operation="create",
+    if name not in providers:
+        raise ValueError(
+            f"Invalid provider name: {name}. "
+            f"Valid providers are: {', '.join(providers.keys())}"
         )
 
-    provider_class = PROVIDER_MAP.get(provider)
-    if not provider_class:
-        raise ProviderError(
-            f"Unsupported provider: {provider}",
-            provider=provider,
-            operation="create",
-        )
+    if api_key is None:
+        raise ValueError("API key is required")
 
-    # Create provider config
-    config = ProviderConfig(
-        name=provider,
-        version="1.0.0",
-        settings=settings,
-    )
+    if model is None:
+        raise ValueError("Model is required")
 
-    api_key = settings.get("api_key")
-    if not api_key:
-        raise ProviderError(
-            "API key not specified in settings",
-            provider=provider,
-            operation="create",
-        )
+    if api_base is None:
+        api_base = ""
 
-    return provider_class(config, api_key)
+    provider_config = {
+        "name": name,
+        "version": version,
+        "api_key": api_key,
+        "api_base": api_base,
+        "model": model,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "timeout": timeout,
+        "max_retries": max_retries,
+        "enabled": enabled,
+    }
+    provider_config.update(kwargs)
+
+    config = cast(ProviderConfig, provider_config)
+    provider_cls = providers[name]
+    return provider_cls(config)

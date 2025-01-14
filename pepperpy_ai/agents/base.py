@@ -10,6 +10,7 @@ from .types import AgentConfig
 
 class AgentKwargs(TypedDict, total=False):
     """Type hints for agent kwargs."""
+
     temperature: float
     max_tokens: int
     model: str

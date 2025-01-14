@@ -11,4 +11,5 @@ def test_rag_imports() -> None:
         pytest.skip("sentence-transformers not installed")
 
     from pepperpy_ai.capabilities.rag.base import RAGCapability
+
     assert RAGCapability is not None

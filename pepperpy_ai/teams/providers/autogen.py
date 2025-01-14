@@ -34,10 +34,13 @@ class AutogenTeamProvider(BaseTeamProvider):
 
         return AIResponse(
             content=f"Executing task: {task}",
-            metadata=cast(ResponseMetadata, {
-                "model": self.config.model,
-                "provider": "autogen",
-                "usage": {"total_tokens": 0},
-                "finish_reason": "stop",
-            }),
+            metadata=cast(
+                ResponseMetadata,
+                {
+                    "model": self.config.model,
+                    "provider": "autogen",
+                    "usage": {"total_tokens": 0},
+                    "finish_reason": "stop",
+                },
+            ),
         )

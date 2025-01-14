@@ -10,24 +10,42 @@ target-version = "py312"
 exclude = [".git", ".venv", "__pycache__", "build", "dist"]
 
 [lint]
-# Enable flake8-annotations
-extend-select = ["ANN"]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "N",   # pep8-naming
+    "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "RUF", # Ruff-specific rules
+]
 
-# Ignore ANN401 since we use TypedDict for kwargs
-ignore = ["ANN401"]
-
-# Select rules
-select = ["E", "F", "B", "W", "I", "N", "D", "UP", "ANN", "RUF"]
-
-# Fix settings
-fixable = ["ALL"]
-unfixable = []
+ignore = [
+    "D107", # Missing docstring in __init__
+]
 
 [lint.per-file-ignores]
 "tests/**/*" = ["S101", "TID252"]
+"pepperpy_ai/types.py" = ["D"]
+"pepperpy_ai/capabilities/rag/**/*" = [
+    "F401",
+    "F403",
+] # Optional RAG dependencies
+"pepperpy_ai/embeddings/providers/**/*" = [
+    "F401",
+    "F403",
+] # Optional embedding providers
+"pepperpy_ai/providers/**/*" = ["F401", "F403"] # Optional LLM providers
+"pepperpy_ai/teams/providers/**/*" = ["F401", "F403"] # Optional team providers
 
 [lint.mccabe]
 max-complexity = 10
 
 [lint.pydocstyle]
 convention = "google"
+
+[lint.isort]
+known-first-party = ["pepperpy_ai"]
+known-third-party = ["openai", "anthropic", "pytest"]

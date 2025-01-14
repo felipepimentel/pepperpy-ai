@@ -1,83 +1,61 @@
-"""Mock provider implementation."""
+"""Mock provider module."""
 
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Coroutine
+from typing import Any
 
 from ..responses import AIResponse
 from ..types import Message
-from .base import BaseProvider, ProviderConfig
-from .exceptions import ProviderError
+from .base import BaseProvider
+from .config import ProviderConfig
 
 
-class MockProvider(BaseProvider[ProviderConfig]):
+class MockProvider(BaseProvider):
     """Mock provider implementation."""
 
     def __init__(self, config: ProviderConfig) -> None:
-        """Initialize mock provider.
+        """Initialize provider.
 
         Args:
-            config: Provider configuration
+            config: Provider configuration.
         """
         super().__init__(config)
         self._initialized = False
 
     @property
     def is_initialized(self) -> bool:
-        """Check if provider is initialized.
-
-        Returns:
-            True if provider is initialized, False otherwise
-        """
+        """Return whether the provider is initialized."""
         return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize provider resources."""
-        if not self._initialized:
-            self._initialized = True
+        """Initialize provider."""
+        self._initialized = True
 
     async def cleanup(self) -> None:
-        """Cleanup provider resources."""
-        if self._initialized:
-            self._initialized = False
+        """Clean up provider."""
+        self._initialized = False
 
-    async def stream(
+    def stream(
         self,
         messages: list[Message],
         *,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ) -> AsyncGenerator[AIResponse, None]:
-        """Stream mock responses.
+        **kwargs: Any,
+    ) -> Coroutine[Any, Any, AsyncGenerator[AIResponse, None]]:
+        """Stream responses from the provider.
 
         Args:
             messages: List of messages to send
             model: Model to use for completion
             temperature: Temperature to use for completion
             max_tokens: Maximum number of tokens to generate
+            **kwargs: Additional provider-specific parameters
 
         Returns:
             AsyncGenerator yielding AIResponse objects
 
         Raises:
-            ProviderError: If provider is not initialized
+            NotImplementedError: This provider does not support streaming.
         """
-        if not self.is_initialized:
-            raise ProviderError(
-                "Provider not initialized",
-                provider="mock",
-                operation="stream",
-            )
-
-        yield AIResponse(
-            content="Mock response",
-            metadata={
-                "model": model or self.config.get("model", "mock"),
-                "provider": "mock",
-                "usage": {
-                    "prompt_tokens": 0,
-                    "completion_tokens": 0,
-                    "total_tokens": 0,
-                },
-                "finish_reason": "stop",
-            },
-        )
+        raise NotImplementedError("MockProvider does not support streaming")
