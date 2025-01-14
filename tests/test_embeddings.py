@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
+from pepperpy_ai.config.embeddings import EmbeddingsConfig
 from pepperpy_ai.core.responses import AIResponse, ResponseMetadata
 from pepperpy_ai.embeddings.base import BaseEmbeddingsProvider
-from pepperpy_ai.embeddings.config import EmbeddingsConfig
 from pepperpy_ai.embeddings.types import EmbeddingResult
 from pepperpy_ai.exceptions import ProviderError
 from pepperpy_ai.types import Message
@@ -23,7 +23,6 @@ class TestEmbeddingsProvider(BaseEmbeddingsProvider):
             config: Provider configuration
         """
         super().__init__(config)
-        self.api_key = "test_key"
         self._initialized = False
 
     @property
@@ -122,17 +121,13 @@ class TestEmbeddingsProvider(BaseEmbeddingsProvider):
 @pytest.mark.asyncio
 async def test_embeddings_provider() -> None:
     """Test embeddings provider functionality."""
-    config = EmbeddingsConfig(
-        name="test",
-        version="1.0.0",
-        model="test-model",
-        api_key="test_key",
-        provider_type="test",
-        api_base="http://test",
-        api_version="v1",
-        organization="test",
-        batch_size=1,
-    )
+    config: EmbeddingsConfig = {
+        "name": "test",
+        "version": "1.0.0",
+        "model": "test-model",
+        "api_key": "test_key",
+        "batch_size": 1,
+    }
     provider = TestEmbeddingsProvider(config)
 
     await provider.initialize()
@@ -151,17 +146,13 @@ async def test_embeddings_provider() -> None:
 @pytest.mark.asyncio
 async def test_embeddings_provider_batch() -> None:
     """Test embeddings provider batch functionality."""
-    config = EmbeddingsConfig(
-        name="test",
-        version="1.0.0",
-        model="test-model",
-        api_key="test_key",
-        provider_type="test",
-        api_base="http://test",
-        api_version="v1",
-        organization="test",
-        batch_size=2,
-    )
+    config: EmbeddingsConfig = {
+        "name": "test",
+        "version": "1.0.0",
+        "model": "test-model",
+        "api_key": "test_key",
+        "batch_size": 2,
+    }
     provider = TestEmbeddingsProvider(config)
 
     await provider.initialize()
@@ -182,17 +173,13 @@ async def test_embeddings_provider_batch() -> None:
 @pytest.mark.asyncio
 async def test_embeddings_provider_error() -> None:
     """Test embeddings provider error handling."""
-    config = EmbeddingsConfig(
-        name="test",
-        version="1.0.0",
-        model="test-model",
-        api_key="test_key",
-        provider_type="test",
-        api_base="http://test",
-        api_version="v1",
-        organization="test",
-        batch_size=1,
-    )
+    config: EmbeddingsConfig = {
+        "name": "test",
+        "version": "1.0.0",
+        "model": "test-model",
+        "api_key": "test_key",
+        "batch_size": 1,
+    }
     provider = TestEmbeddingsProvider(config)
 
     with pytest.raises(ProviderError) as exc_info:
