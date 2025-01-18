@@ -16,6 +16,7 @@ permissions:
   packages: write
   statuses: write
   actions: read
+  pages: write
 
 env:
   ACTIONS_RUNNER_DEBUG: true
