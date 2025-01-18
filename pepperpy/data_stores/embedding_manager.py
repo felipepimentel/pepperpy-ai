@@ -1,6 +1,6 @@
 """Embedding management utilities."""
 
-import numpy as np
+import numpy as np # type: ignore
 from pydantic import BaseModel
 
 from pepperpy.llms.base_llm import BaseLLM
@@ -150,7 +150,7 @@ class EmbeddingManager:
         Returns:
             Normalized embeddings
         """
-        import numpy as np
+        import numpy as np # type: ignore
 
         # Convert to numpy for efficient computation
         vectors = np.array(embeddings)

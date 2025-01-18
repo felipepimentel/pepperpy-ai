@@ -3,7 +3,7 @@
 from collections.abc import AsyncIterator
 from typing import Any, ClassVar
 
-from huggingface_hub import AsyncInferenceClient
+from huggingface_hub import AsyncInferenceClient # type: ignore
 
 from pepperpy.llms.base_llm import BaseLLM, LLMConfig, LLMResponse
 

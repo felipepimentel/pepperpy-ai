@@ -2,7 +2,7 @@
 
 from typing import Any, ClassVar
 
-from tiktoken import Encoding, encoding_for_model, get_encoding
+from tiktoken import Encoding, encoding_for_model, get_encoding # type: ignore
 
 
 class TokenHandler:
