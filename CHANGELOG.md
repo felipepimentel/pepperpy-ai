@@ -1,6 +1,67 @@
 # CHANGELOG
 
 
+## v1.1.0 (2025-01-18)
+
+### Chores
+
+- Update dependencies and enhance agent functionality
+  ([`720a864`](https://github.com/felipepimentel/pepperpy-ai/commit/720a864ab0fb6497bc58169fc3a02e744e482f26))
+
+* Add typing stubs for PyYAML to improve type checking in development. * Update poetry.lock to
+  include new package and adjust content hash. * Modify pyproject.toml to include types-pyyaml as a
+  dependency. * Refactor agent classes to improve error handling and type safety. * Streamline agent
+  response structures for better consistency. * Enhance memory integration and document storage
+  functionalities. * Update tool execution methods to return structured results. * Improve overall
+  code quality and maintainability through type annotations and refactoring.
+
+- Update file permissions and remove deprecated examples
+  ([`c5d3fa6`](https://github.com/felipepimentel/pepperpy-ai/commit/c5d3fa69859eb2d705b6e4a799070b169cb3a1be))
+
+* Change file permissions for multiple configuration and documentation files to executable (755). *
+  Remove outdated example scripts and related test files to streamline the project structure. *
+  Update README to clarify licensing terms. * Adjust Python version compatibility in poetry.lock
+  from 3.12 to 3.9.
+
+- Update GitHub Actions permissions for release workflow
+  ([`fd8559d`](https://github.com/felipepimentel/pepperpy-ai/commit/fd8559d28f7a85ece9d741038906b1606b71d821))
+
+* Add write permission for GitHub Pages to the release workflow. * Ensure proper access for
+  deployment and documentation generation.
+
+### Features
+
+- **agents**: Implement dynamic YAML-based agent system
+  ([`e84a912`](https://github.com/felipepimentel/pepperpy-ai/commit/e84a91297e41485fe0cc76a1287bd02e34fdd78b))
+
+* Add YAML-based agent configuration
+
+* Create agent factory and loader
+
+* Implement base agent abstractions
+
+* Add capability and tool protocols
+
+* Update documentation and examples
+
+* Reorganize dependencies with extras
+
+### Refactoring
+
+- **teams**: Improve team providers and factory
+  ([`d2b62b1`](https://github.com/felipepimentel/pepperpy-ai/commit/d2b62b1d3f54475733d768203bdb64a1bffffa0a))
+
+* Fix team provider initialization
+
+* Update imports to use absolute paths
+
+* Fix config class inheritance order
+
+* Add proper type casting for crew provider
+
+* Improve kwargs handling in factory
+
+
 ## v1.0.0 (2025-01-14)
 
 ### Refactoring
