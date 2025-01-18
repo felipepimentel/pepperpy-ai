@@ -1,1 +1,0 @@
-"""AI teams examples package."""

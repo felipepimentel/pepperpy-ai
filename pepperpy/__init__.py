@@ -1,43 +1,34 @@
 """PepperPy AI library."""
 
-from .responses import ResponseData, ResponseMetadata, UsageMetadata
-from .types import (
-    BaseConfig,
-    BaseResponse,
-    ChatMessage,
-    ChatResponse,
-    ChatResponseChunk,
-    ChatResponseFormat,
-    FunctionCall,
-    FunctionDefinition,
-    JsonDict,
-    JsonValue,
-    Message,
-    MessageRole,
-    Role,
-    Tool,
-    ToolCall,
+from pepperpy import (
+    ConfigurationManager,
+    Container,
+    ErrorManager,
+    LoggerFactory,
+    MessageBus,
+    PluginManager,
 )
 
-__version__ = "0.1.0"
+from .agents import Agent, AgentContext, AgentFactory
+from .shared import *  # noqa: F403
+from .tools import Tool, ToolChain, ToolFactory
+
+__version__ = "1.0.0"
 
 __all__ = [
-    "BaseConfig",
-    "BaseResponse",
-    "ChatMessage",
-    "ChatResponse",
-    "ChatResponseChunk",
-    "ChatResponseFormat",
-    "FunctionCall",
-    "FunctionDefinition",
-    "JsonDict",
-    "JsonValue",
-    "Message",
-    "MessageRole",
-    "ResponseData",
-    "ResponseMetadata",
-    "Role",
+    # Agent system
+    "Agent",
+    "AgentContext",
+    "AgentFactory",
+    # Core functionality
+    "ConfigurationManager",
+    "Container",
+    "ErrorManager",
+    "LoggerFactory",
+    "MessageBus",
+    "PluginManager",
+    # Tool system
     "Tool",
-    "ToolCall",
-    "UsageMetadata",
+    "ToolChain",
+    "ToolFactory",
 ]

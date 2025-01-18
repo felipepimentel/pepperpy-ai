@@ -50,7 +50,7 @@ The agent system provides a simple interface for using pre-defined agents:
 
 ```python
 from pepperpy.agents import AgentFactory
-from pepperpy_core import Provider
+from pepperpy import Provider
 
 # Create factory
 factory = AgentFactory()

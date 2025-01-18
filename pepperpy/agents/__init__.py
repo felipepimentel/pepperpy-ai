@@ -1,16 +1,27 @@
-"""Agent module initialization."""
+"""Agent module for different AI frameworks."""
 
-from .base import Agent, BaseAgent
-from .factory import AgentFactory
-from .loader import AgentLoader
-from .types import AgentConfig, Capability, Tool
+from pepperpy.agents.autogen_agent import AutoGenAgent
+from pepperpy.agents.crewai_agent import CrewAIAgent
+from pepperpy.agents.factory import AgentFactory
+from pepperpy.agents.interfaces import AgentCapabilities, BaseAgent, Message
+from pepperpy.agents.langchain_agent import LangChainAgent
+from pepperpy.agents.semantic_kernel_agent import SemanticKernelAgent
+
+# Main factory function for creating agents
+create_agent = AgentFactory.create
 
 __all__ = [
-    "Agent",
-    "AgentConfig",
+    "AgentCapabilities",
+    # Factory class (if needed for registration)
     "AgentFactory",
-    "AgentLoader",
+    # Agent implementations
+    "AutoGenAgent",
+    # Base interfaces
     "BaseAgent",
-    "Capability",
-    "Tool",
+    "CrewAIAgent",
+    "LangChainAgent",
+    "Message",
+    "SemanticKernelAgent",
+    # Main factory function
+    "create_agent",
 ]

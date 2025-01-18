@@ -1,118 +1,88 @@
-# PepperPy AI
+# PepperPy
 
-A flexible AI library with modular provider support and dynamic agent capabilities.
+A Python library for building flexible and powerful AI agents.
 
 ## Features
 
-- Dynamic agent system with YAML-based configuration
-- Pluggable provider support (OpenAI, Anthropic, Cohere)
-- Extensible capabilities and tools
-- Modular architecture with clear separation of concerns
-- Strong typing and async support
+- **Modular Agent Architecture**: Build agents using composable components and frameworks
+- **Multiple LLM Providers**: Support for OpenAI, Anthropic, OpenRouter and more
+- **Flexible Frameworks**: ReAct, Chain-of-Thought, and Tree-of-Thoughts implementations
+- **Rich Tools**: Web search, file operations, calculations and more
+- **State Management**: Built-in state tracking and memory management
+- **Extensible**: Easy integration with external frameworks like AutoGen, LangChain and more
 
 ## Installation
 
 ```bash
 # Basic installation
-pip install pepperpy-ai
+pip install pepperpy
 
-# With specific provider support
-pip install pepperpy-ai[openai]      # OpenAI support
-pip install pepperpy-ai[anthropic]   # Anthropic support
-pip install pepperpy-ai[cohere]      # Cohere support
+# With all dependencies
+pip install pepperpy[all]
 
-# With capability support
-pip install pepperpy-ai[embeddings]  # Embedding support
-pip install pepperpy-ai[code]        # Code analysis support
-pip install pepperpy-ai[rag]         # RAG support
-pip install pepperpy-ai[text]        # Text processing
-pip install pepperpy-ai[pdf]         # PDF processing
-
-# Complete installation
-pip install pepperpy-ai[complete]    # All features
+# With specific features
+pip install pepperpy[llms]  # Additional LLM providers
+pip install pepperpy[tools]  # Additional tools
+pip install pepperpy[data-stores]  # Vector stores and embeddings
+pip install pepperpy[integrations]  # External framework integrations
 ```
 
 ## Quick Start
 
 ```python
-from pepperpy.agents import AgentFactory
-from pepperpy_core import Provider
+from pepperpy.agents import ReActAgent
+from pepperpy.agents.base.interfaces import AgentConfig
 
-# Create factory
-factory = AgentFactory()
+# Configure the agent
+config = AgentConfig(
+    agent_id="my_agent",
+    model={
+        "provider": "openai",
+        "model_name": "gpt-4-turbo-preview"
+    }
+)
 
-# Load agent from YAML definition
-agent = factory.from_yaml("review/code_reviewer.yml")
-
-# Configure provider
-agent.use(Provider.anthropic())
-
-# Initialize and use
-await agent.initialize()
-result = await agent.execute("Review this code for security issues")
-print(result)
+# Create and use the agent
+async with ReActAgent(config) as agent:
+    response = await agent.process({
+        "request": "What is the weather in Paris?"
+    })
+    print(response.response)
 ```
 
-## Creating Custom Agents
+## Project Structure
 
-1. Define agent in YAML:
-
-```yaml
-# assets/agents/custom/my_agent.yml
-name: my-custom-agent
-version: "1.0.0"
-description: "Custom agent for specific tasks"
-
-capabilities:
-  - code_review
-  - security_audit
-
-role:
-  name: "Custom Agent"
-  description: "Specialized agent for custom tasks"
-  instructions: |
-    You are a specialized agent...
-
-tools:
-  - custom_tool
-  - another_tool
-
-settings:
-  context_window: 8000
 ```
-
-2. Implement agent class:
-
-```python
-from pepperpy.agents import BaseAgent
-
-class CustomAgent(BaseAgent):
-    async def _setup(self) -> None:
-        # Initialize capabilities
-        pass
-
-    async def _teardown(self) -> None:
-        # Cleanup resources
-        pass
-
-    async def execute(self, task: str, **kwargs) -> Message:
-        # Execute task
-        return await self._provider.generate(task)
-
-# Register and use
-factory = AgentFactory()
-factory.register("my-custom-agent", CustomAgent)
-agent = factory.from_yaml("custom/my_agent.yml")
+pepperpy/
+├── agents/                     # Agent architecture and logic
+│   ├── base/                  # Base interfaces and abstractions
+│   ├── frameworks/            # Reasoning framework implementations
+│   ├── integrations/          # External framework adapters
+│   ├── configurations/        # Agent configuration templates
+│   ├── templates/             # Agent templates and prompts
+│   └── utils/                 # Agent utilities
+│
+├── llms/                      # LLM provider integrations
+├── data_stores/               # Vector stores and embeddings
+├── tools/                     # Tool implementations
+├── pipelines/                 # Execution pipelines
+├── memory/                    # Memory management
+├── evaluation/                # Monitoring and evaluation
+└── config/                    # Global configuration
 ```
 
 ## Documentation
 
-For detailed documentation, visit [docs.pepperpy.ai](https://docs.pepperpy.ai).
+For detailed documentation, visit [docs/](docs/).
+
+## Examples
+
+Check out the [examples/](examples/) directory for more usage examples.
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md).
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the terms of the MIT license. See [LICENSE](LICENSE) for more details.

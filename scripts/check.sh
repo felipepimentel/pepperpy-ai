@@ -13,26 +13,26 @@ echo -e "${YELLOW}Running code quality checks...${NC}\n"
 
 # Format code
 echo -e "${YELLOW}Running black...${NC}"
-black . tests
+poetry run black . tests
 echo -e "${GREEN}Black passed!${NC}\n"
 
 echo -e "${YELLOW}Running isort...${NC}"
-isort . tests
+poetry run isort . tests
 echo -e "${GREEN}Isort passed!${NC}\n"
 
 # Lint code
 echo -e "${YELLOW}Running ruff...${NC}"
-ruff check . tests
+poetry run ruff check . tests
 echo -e "${GREEN}Ruff passed!${NC}\n"
 
 # Type check
 echo -e "${YELLOW}Running mypy...${NC}"
-mypy pepperpy
+poetry run mypy pepperpy
 echo -e "${GREEN}Mypy passed!${NC}\n"
 
 # Run tests
 echo -e "${YELLOW}Running tests...${NC}"
-pytest tests -v --cov=pepperpy --cov-report=term-missing
+poetry run pytest tests -v --cov=pepperpy --cov-report=term-missing
 echo -e "${GREEN}Tests passed!${NC}\n"
 
 echo -e "${GREEN}All checks passed!${NC}" 
