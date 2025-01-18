@@ -4,13 +4,13 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from typing import Any
 
-from pepperpy.common.types import JSON
+from pepperpy.agents.types import AgentConfig, AgentResponse
 
 
 class BaseAgent(ABC):
     """Base agent class."""
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(self, config: AgentConfig) -> None:
         """Initialize agent.
 
         Args:
@@ -19,7 +19,14 @@ class BaseAgent(ABC):
         self.config = config
 
     @abstractmethod
-    async def process(self, input_data: JSON, context: dict[str, Any]) -> str:
+    async def initialize(self) -> None:
+        """Initialize agent resources."""
+        pass
+
+    @abstractmethod
+    async def process(
+        self, input_data: dict[str, Any], context: dict[str, Any] | None = None
+    ) -> AgentResponse:
         """Process input data.
 
         Args:
@@ -27,13 +34,15 @@ class BaseAgent(ABC):
             context: Processing context
 
         Returns:
-            Processed result
+            Processed result with metadata
         """
         pass
 
     @abstractmethod
-    async def process_stream(
-        self, input_data: JSON, context: dict[str, Any]
+    def process_stream(
+        self,
+        input_data: dict[str, Any],
+        context: dict[str, Any] | None = None,
     ) -> AsyncIterator[str]:
         """Process input data and stream results.
 
@@ -56,11 +65,10 @@ class BaseAgent(ABC):
         """Validate agent configuration."""
         pass
 
-    @abstractmethod
-    def get_config(self) -> dict[str, Any]:
+    def get_config(self) -> AgentConfig:
         """Get agent configuration.
 
         Returns:
             Agent configuration
         """
-        pass
+        return self.config

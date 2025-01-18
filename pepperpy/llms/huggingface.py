@@ -76,17 +76,14 @@ class HuggingFaceLLM(BaseLLM):
                 prompt,
                 model=self.config.model_name,
                 **self._prepare_parameters(
-                    stop=stop,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs
-                )
+                    stop=stop, temperature=temperature, max_tokens=max_tokens, **kwargs
+                ),
             )
             return LLMResponse(
                 text=response,
                 tokens_used=len(response.split()),  # Approximate
                 finish_reason="stop",
-                model_name=self.config.model_name
+                model_name=self.config.model_name,
             )
 
         except Exception as e:
@@ -125,11 +122,8 @@ class HuggingFaceLLM(BaseLLM):
                 model=self.config.model_name,
                 stream=True,
                 **self._prepare_parameters(
-                    stop=stop,
-                    temperature=temperature,
-                    max_tokens=max_tokens,
-                    **kwargs
-                )
+                    stop=stop, temperature=temperature, max_tokens=max_tokens, **kwargs
+                ),
             ):
                 yield response
 
@@ -160,10 +154,16 @@ class HuggingFaceLLM(BaseLLM):
 
         try:
             model = self.config.model_kwargs.get(
-                "embedding_model",
-                "sentence-transformers/all-mpnet-base-v2"
+                "embedding_model", "sentence-transformers/all-mpnet-base-v2"
             )
             embeddings = await self.client.embeddings(texts, model=model)
+            if not isinstance(embeddings, list):
+                raise HuggingFaceError("Expected list of embeddings")
+            if not all(
+                isinstance(emb, list) and all(isinstance(x, float) for x in emb)
+                for emb in embeddings
+            ):
+                raise HuggingFaceError("Invalid embedding format")
             return embeddings
 
         except Exception as e:

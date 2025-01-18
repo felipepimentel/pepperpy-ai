@@ -4,13 +4,13 @@ import os
 from typing import Any
 
 from pepperpy.tools.tool import Tool
-from pepperpy.tools.types import JSON, ToolResult
+from pepperpy.tools.types import ToolResult
 
 
 class SemanticSearchTool(Tool):
     """Tool for semantic code search."""
 
-    async def execute(self, data: dict[str, Any]) -> JSON:
+    async def execute(self, data: dict[str, Any]) -> ToolResult:
         """Execute semantic search.
 
         Args:
@@ -21,9 +21,9 @@ class SemanticSearchTool(Tool):
                 - max_results: Maximum number of results (optional)
 
         Returns:
-            JSON: Tool execution result containing:
+            Tool execution result containing:
                 - success: Whether search was successful
-                - matches: List of matching files and snippets
+                - data: Search result data
                 - error: Error message if search failed
         """
         try:
@@ -33,7 +33,7 @@ class SemanticSearchTool(Tool):
                     success=False,
                     data={},
                     error="Search query is required",
-                ).dict()
+                )
 
             # Get search parameters
             directories = data.get("target_directories", [os.getcwd()])
@@ -52,11 +52,12 @@ class SemanticSearchTool(Tool):
                     "patterns": patterns,
                     "max_results": max_results,
                 },
-            ).dict()
+                error=None,
+            )
 
         except Exception as e:
             return ToolResult(
                 success=False,
                 data={},
                 error=str(e),
-            ).dict()
+            )

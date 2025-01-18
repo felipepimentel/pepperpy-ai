@@ -43,7 +43,10 @@ class PepperPy:
             )
 
         with open(config_path) as f:
-            return yaml.safe_load(f)
+            config: dict[str, Any] = yaml.safe_load(f)
+            if not isinstance(config, dict):
+                raise ValueError("Invalid configuration format")
+            return config
 
     async def initialize(self) -> None:
         """Initialize application components.
@@ -80,7 +83,10 @@ class PepperPy:
         if not self.is_initialized:
             raise ValueError("PepperPy not initialized")
 
-        return await self.agent_factory.create_agent(agent_type, config)
+        agent = await self.agent_factory.create_agent(agent_type, config)
+        if not isinstance(agent, BaseAgent):
+            raise ValueError(f"Invalid agent type: {agent_type}")
+        return agent
 
     async def cleanup(self) -> None:
         """Clean up application resources.

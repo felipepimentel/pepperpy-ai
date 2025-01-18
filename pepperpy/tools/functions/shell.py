@@ -1,32 +1,26 @@
 """Shell command execution tools."""
 
 import asyncio
-import os
 from typing import Any
 
 from pepperpy.tools.tool import Tool
-from pepperpy.tools.types import JSON, ToolResult
+from pepperpy.tools.types import ToolResult
 
 
 class ShellTool(Tool):
     """Tool for shell command execution."""
 
-    async def execute(self, data: dict[str, Any]) -> JSON:
-        """Execute a shell command.
+    async def execute(self, data: dict[str, Any]) -> ToolResult:
+        """Execute shell command.
 
         Args:
-            data: Tool input data containing:
-                - command: Shell command to execute
+            data: Command data including:
+                - command: Command to execute
                 - cwd: Working directory (optional)
                 - env: Environment variables (optional)
 
         Returns:
-            JSON: Tool execution result containing:
-                - success: Whether command execution was successful
-                - stdout: Command standard output
-                - stderr: Command standard error
-                - exit_code: Command exit code
-                - error: Error message if execution failed
+            Tool result with command output
         """
         try:
             command = data.get("command")
@@ -34,11 +28,11 @@ class ShellTool(Tool):
                 return ToolResult(
                     success=False,
                     data={},
-                    error="Command is required",
-                ).dict()
+                    error="No command provided",
+                )
 
-            cwd = data.get("cwd", os.getcwd())
-            env = data.get("env", os.environ.copy())
+            cwd = data.get("cwd")
+            env = data.get("env", {})
 
             process = await asyncio.create_subprocess_shell(
                 command,
@@ -50,6 +44,10 @@ class ShellTool(Tool):
 
             stdout, stderr = await process.communicate()
 
+            error_msg = None
+            if process.returncode != 0:
+                error_msg = f"Command failed with exit code {process.returncode}"
+
             return ToolResult(
                 success=process.returncode == 0,
                 data={
@@ -57,11 +55,12 @@ class ShellTool(Tool):
                     "stderr": stderr.decode(),
                     "exit_code": process.returncode,
                 },
-            ).dict()
+                error=error_msg,
+            )
 
         except Exception as e:
             return ToolResult(
                 success=False,
                 data={},
-                error=str(e),
-            ).dict()
+                error=f"Failed to execute command: {e!s}",
+            )

@@ -1,5 +1,6 @@
 """Embedding management utilities."""
 
+import numpy as np
 from pydantic import BaseModel
 
 from pepperpy.llms.base_llm import BaseLLM
@@ -54,21 +55,23 @@ class EmbeddingManager:
         """
         # Convert single text to list
         single_input = isinstance(texts, str)
-        texts_list = [texts] if single_input else texts
+        texts_list = (
+            [texts] if single_input else [str(t) for t in texts]
+        )  # Ensure all texts are strings
 
         # Get embeddings (from cache or generate)
-        embeddings = []
-        texts_to_embed = []
-        indices_to_embed = []
+        embeddings: list[list[float]] = []
+        texts_to_embed: list[str] = []
+        indices_to_embed: list[int] = []
 
-        for i, text in enumerate(texts_list):
+        for i, text_str in enumerate(texts_list):
             if use_cache and self.config.cache_embeddings:
-                cached = self._cache.get(text)
+                cached = self._cache.get(str(text_str))  # Ensure key is str
                 if cached is not None:
                     embeddings.append(cached)
                     continue
 
-            texts_to_embed.append(text)
+            texts_to_embed.append(str(text_str))  # Ensure text is str
             indices_to_embed.append(i)
 
         # Generate missing embeddings
@@ -78,7 +81,7 @@ class EmbeddingManager:
             # Update cache and insert at correct positions
             for idx, embedding in zip(indices_to_embed, new_embeddings, strict=False):
                 if self.config.cache_embeddings:
-                    self._cache[texts_list[idx]] = embedding
+                    self._cache[str(texts_list[idx])] = embedding  # Ensure key is str
                 embeddings.insert(idx, embedding)
 
         return embeddings[0] if single_input else embeddings
@@ -95,7 +98,7 @@ class EmbeddingManager:
         Raises:
             Exception: If embedding generation fails
         """
-        embeddings = []
+        embeddings: list[list[float]] = []
 
         # Process in batches
         for i in range(0, len(texts), self.config.batch_size):
@@ -105,6 +108,13 @@ class EmbeddingManager:
             for attempt in range(self.config.max_retries):
                 try:
                     batch_embeddings = await self.llm.embed(batch)
+                    if not isinstance(batch_embeddings, list):
+                        raise ValueError("Expected list of embeddings")
+                    if not all(
+                        isinstance(emb, list) and all(isinstance(x, float) for x in emb)
+                        for emb in batch_embeddings
+                    ):
+                        raise ValueError("Invalid embedding format")
                     embeddings.extend(batch_embeddings)
                     break
                 except Exception as e:
@@ -114,7 +124,10 @@ class EmbeddingManager:
 
         # Normalize if configured
         if self.config.normalize:
-            embeddings = self._normalize_embeddings(embeddings)
+            normalized = self._normalize_embeddings(embeddings)
+            if not isinstance(normalized, list):
+                raise ValueError("Normalization failed")
+            return normalized
 
         return embeddings
 
@@ -148,7 +161,13 @@ class EmbeddingManager:
         # Normalize and handle zero vectors
         normalized = np.divide(vectors, norms, where=norms != 0)
 
-        return normalized.tolist()
+        # Convert back to list and ensure correct type
+        result = normalized.tolist()
+        if not isinstance(result, list) or not all(
+            isinstance(x, list) and all(isinstance(y, float) for y in x) for x in result
+        ):
+            raise ValueError("Normalization failed to produce valid embeddings")
+        return result
 
     def clear_cache(self) -> None:
         """Clear the embedding cache."""
@@ -163,3 +182,13 @@ class EmbeddingManager:
         """
         self.clear_cache()
         await self.llm.cleanup()
+
+    def normalize_embeddings(self, embeddings: list[list[float]]) -> list[list[float]]:
+        """Normalize embeddings to unit length."""
+        normalized = np.array(embeddings)
+        normalized = normalized / np.linalg.norm(normalized, axis=1)[:, np.newaxis]
+        result = normalized.tolist()
+        assert isinstance(result, list) and all(
+            isinstance(x, list) and all(isinstance(y, float) for y in x) for x in result
+        ), "Invalid embedding format"
+        return result

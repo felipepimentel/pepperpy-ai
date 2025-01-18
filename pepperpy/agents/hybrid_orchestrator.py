@@ -2,13 +2,13 @@
 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.agents.base.interfaces import AgentConfig, AgentResponse
-from pepperpy.agents.frameworks.chain_of_thought import ChainOfThoughtAgent
-from pepperpy.agents.frameworks.react import ReActAgent
-from pepperpy.agents.frameworks.tree_of_thoughts import TreeOfThoughtsAgent
+from pepperpy.agents.chain_of_thought import ChainOfThoughtAgent
+from pepperpy.agents.react import ReActAgent
+from pepperpy.agents.tree_of_thoughts import TreeOfThoughtsAgent
+from pepperpy.agents.types import AgentConfig, AgentResponse
 
 
 @dataclass
@@ -29,10 +29,11 @@ class HybridOrchestrator(BaseAgent):
     4. Handles fallbacks
     """
 
+    # Cast each agent class to type[BaseAgent] to satisfy the type checker
     FRAMEWORKS: ClassVar[dict[str, type[BaseAgent]]] = {
-        "react": ReActAgent,
-        "chain_of_thought": ChainOfThoughtAgent,
-        "tree_of_thoughts": TreeOfThoughtsAgent,
+        "react": cast(type[BaseAgent], ReActAgent),
+        "chain_of_thought": cast(type[BaseAgent], ChainOfThoughtAgent),
+        "tree_of_thoughts": cast(type[BaseAgent], TreeOfThoughtsAgent),
     }
 
     def __init__(self, config: AgentConfig) -> None:
@@ -61,10 +62,7 @@ class HybridOrchestrator(BaseAgent):
             context: Optional context information
 
         Returns:
-            Agent's response
-
-        Raises:
-            Exception: If processing fails
+            Agent's response with metadata
         """
         context = context or {}
 
@@ -81,25 +79,22 @@ class HybridOrchestrator(BaseAgent):
             response = await agent.process(input_data, context)
 
             # Add framework info to metadata
+            if response.metadata is None:
+                response.metadata = {}
             response.metadata["framework_used"] = framework
             return response
 
         except Exception as e:
             # Try fallback if primary fails
             try:
-                fallback_response = await self._handle_fallback(
-                    input_data, context, str(e)
-                )
-                return fallback_response
+                return await self._handle_fallback(input_data, context, str(e))
             except Exception as fallback_e:
                 return AgentResponse(
-                    response="Error processing request",
-                    thought_process=[
-                        f"Primary error: {e!s}",
-                        f"Fallback error: {fallback_e!s}",
-                    ],
-                    actions=[],
-                    error=f"Multiple failures: {e!s} -> {fallback_e!s}",
+                    text="Error processing request",
+                    metadata={
+                        "primary_error": str(e),
+                        "fallback_error": str(fallback_e),
+                    },
                 )
 
     async def process_stream(
@@ -113,9 +108,6 @@ class HybridOrchestrator(BaseAgent):
 
         Returns:
             Async iterator of response chunks
-
-        Raises:
-            Exception: If processing fails
         """
         context = context or {}
 
@@ -131,8 +123,7 @@ class HybridOrchestrator(BaseAgent):
 
             # Stream from chosen framework
             agent = self.agents[framework]
-            stream = await agent.process_stream(input_data, context)
-            async for chunk in stream:
+            async for chunk in agent.process_stream(input_data, context):
                 yield chunk
 
         except Exception as e:
@@ -144,7 +135,7 @@ class HybridOrchestrator(BaseAgent):
                 fallback_response = await self._handle_fallback(
                     input_data, context, str(e)
                 )
-                yield f"Fallback response: {fallback_response.response}"
+                yield f"Fallback response: {fallback_response.text}"
             except Exception as fallback_e:
                 yield f"Fallback also failed: {fallback_e!s}"
 
@@ -212,10 +203,12 @@ class HybridOrchestrator(BaseAgent):
         response = await fallback_agent.process(input_data, context)
 
         # Add fallback info to metadata
+        if response.metadata is None:
+            response.metadata = {}
         response.metadata.update(
             {
                 "is_fallback": True,
-                "original_error": str(error),
+                "original_error": error,
                 "fallback_framework": fallback_framework,
             }
         )

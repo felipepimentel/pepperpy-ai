@@ -3,10 +3,10 @@
 import heapq
 from collections.abc import AsyncGenerator, AsyncIterator, Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.agents.base.interfaces import AgentConfig, AgentResponse
+from pepperpy.agents.types import AgentConfig, AgentResponse
 
 
 @dataclass
@@ -15,11 +15,11 @@ class ThoughtNode:
 
     thought: str
     score: float
-    parent: Optional["ThoughtNode"] = None
+    parent: "ThoughtNode | None" = None
     children: list["ThoughtNode"] = field(default_factory=list)
     depth: int = 0
 
-    def __lt__(self, other):
+    def __lt__(self, other: "ThoughtNode") -> bool:
         """Compare nodes by score for priority queue."""
         return self.score > other.score  # Higher scores have priority
 
@@ -42,16 +42,16 @@ class TreeOfThoughtsAgent(BaseAgent):
             config: Agent configuration
         """
         super().__init__(config)
-        self.max_depth = config.get("max_depth", 5)
-        self.beam_width = config.get("beam_width", 3)
-        self.min_score = config.get("min_score", 0.5)
+        if config.model_kwargs:
+            self.max_depth = config.model_kwargs.get("max_depth", 5)
+            self.beam_width = config.model_kwargs.get("beam_width", 3)
+            self.min_score = config.model_kwargs.get("min_score", 0.5)
+        else:
+            self.max_depth = 5
+            self.beam_width = 3
+            self.min_score = 0.5
         self.root: ThoughtNode | None = None
         self.best_path: list[str] = []
-
-    async def initialize(self) -> None:
-        """Initialize agent resources."""
-        # No special initialization needed
-        pass
 
     async def process(
         self, input_data: dict[str, Any], context: dict[str, Any] | None = None
@@ -63,10 +63,7 @@ class TreeOfThoughtsAgent(BaseAgent):
             context: Optional context information
 
         Returns:
-            Agent's response
-
-        Raises:
-            Exception: If processing fails
+            Agent's response with metadata
         """
         context = context or {}
         self.best_path = []
@@ -74,22 +71,22 @@ class TreeOfThoughtsAgent(BaseAgent):
         try:
             # Initialize root thought
             message = input_data["message"]
-            self.root = ThoughtNode(thought="Initial problem: " + message, score=1.0)
+            root = ThoughtNode(thought="Initial problem: " + message, score=1.0)
+            self.root = root
 
             # Explore thought tree
-            best_node = await self._explore_thoughts(self.root, context)
+            best_node = await self._explore_thoughts(root, context)
 
             # Extract best path
-            current = best_node
+            current: ThoughtNode | None = best_node
             while current:
                 self.best_path.insert(0, current.thought)
                 current = current.parent
 
             return AgentResponse(
-                response=best_node.thought,
-                thought_process=self.best_path,
-                actions=[],
+                text=best_node.thought,
                 metadata={
+                    "thought_path": self.best_path,
                     "final_score": best_node.score,
                     "tree_depth": best_node.depth,
                     "paths_explored": len(self.best_path),
@@ -98,10 +95,8 @@ class TreeOfThoughtsAgent(BaseAgent):
 
         except Exception as e:
             return AgentResponse(
-                response="Error in Tree of Thoughts processing",
-                thought_process=[*self.best_path, f"Error: {e!s}"],
-                actions=[],
-                error=str(e),
+                text=f"Error in Tree of Thoughts processing: {e!s}",
+                metadata={"thought_path": self.best_path, "error": str(e)},
             )
 
     async def process_stream(
@@ -115,9 +110,6 @@ class TreeOfThoughtsAgent(BaseAgent):
 
         Returns:
             Async iterator of response chunks
-
-        Raises:
-            Exception: If processing fails
         """
         context = context or {}
         self.best_path = []
@@ -126,7 +118,8 @@ class TreeOfThoughtsAgent(BaseAgent):
             # Initialize root thought
             message = input_data["message"]
             yield "Initializing thought tree...\n"
-            self.root = ThoughtNode(thought="Initial problem: " + message, score=1.0)
+            root = ThoughtNode(thought="Initial problem: " + message, score=1.0)
+            self.root = root
 
             # Explore thought tree
             yield "Exploring possible solution paths...\n"
@@ -134,13 +127,11 @@ class TreeOfThoughtsAgent(BaseAgent):
             async def stream_progress(msg: str) -> AsyncGenerator[str, None]:
                 yield msg
 
-            best_node = await self._explore_thoughts(
-                self.root, context, stream_progress
-            )
+            best_node = await self._explore_thoughts(root, context, stream_progress)
 
             # Extract best path
             yield "\nBest solution path found:\n"
-            current = best_node
+            current: ThoughtNode | None = best_node
             while current:
                 self.best_path.insert(0, current.thought)
                 yield f"- {current.thought} (score: {current.score:.2f})\n"
@@ -171,7 +162,7 @@ class TreeOfThoughtsAgent(BaseAgent):
             Best leaf node found
         """
         # Priority queue for beam search
-        beam = [(root.score, root)]
+        beam: list[tuple[float, ThoughtNode]] = [(root.score, root)]
         heapq.heapify(beam)
 
         # Track visited thoughts to avoid cycles
@@ -249,18 +240,19 @@ class TreeOfThoughtsAgent(BaseAgent):
             context: Current context
 
         Returns:
-            Quality score between 0 and 1
+            Score between 0 and 1
         """
-        # TODO: Implement more sophisticated thought evaluation
-        # For now, use simple heuristics
-        score = 0.7  # Base score
+        # TODO: Implement more sophisticated evaluation
+        # For now, use simple heuristic based on length and keywords
+        score = 0.5  # Base score
 
-        # Adjust based on thought characteristics
-        if len(thought.split()) > 5:  # Reward more detailed thoughts
-            score += 0.1
-        if "?" in thought:  # Reward questioning/exploration
-            score += 0.1
-        if any(word in thought.lower() for word in ["why", "how", "what if"]):
-            score += 0.1
+        # Longer thoughts might be more detailed
+        score += min(len(thought) / 200, 0.2)  # Up to 0.2 for length
 
-        return min(1.0, score)  # Cap at 1.0
+        # Analytical keywords suggest better reasoning
+        keywords = ["because", "therefore", "however", "consider", "analyze"]
+        score += sum(
+            0.1 for word in keywords if word in thought.lower()
+        )  # Up to 0.5 for keywords
+
+        return min(score, 1.0)  # Cap at 1.0

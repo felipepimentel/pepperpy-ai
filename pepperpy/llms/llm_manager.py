@@ -2,7 +2,7 @@
 
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 
 from pepperpy.llms.base_llm import BaseLLM, LLMConfig, LLMResponse
 from pepperpy.llms.huggingface import HuggingFaceLLM
@@ -37,8 +37,8 @@ class LLMManager:
 
     # Provider type to class mapping
     PROVIDER_TYPES: ClassVar[dict[str, type[BaseLLM]]] = {
-        "openai": OpenAIProvider,
-        "openrouter": OpenRouterProvider,
+        "openai": cast(type[BaseLLM], OpenAIProvider),
+        "openrouter": cast(type[BaseLLM], OpenRouterProvider),
         "huggingface": HuggingFaceLLM,
     }
 
@@ -155,8 +155,7 @@ class LLMManager:
         try:
             # Stream responses
             chunks: list[str] = []
-            stream = await provider_instance.generate_stream(prompt, **kwargs)
-            async for chunk in stream:
+            async for chunk in provider_instance.generate_stream(prompt, **kwargs):
                 chunks.append(chunk)
                 yield chunk
 

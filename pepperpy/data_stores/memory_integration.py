@@ -1,21 +1,16 @@
-"""Integration between memory and data stores."""
+"""Memory integration with data stores."""
 
+from collections.abc import Sequence
+from datetime import datetime
 from typing import Any, cast
 
-from pepperpy.data_stores.document_store import DocumentStore
+from pepperpy.data_stores.document_store import DocumentMetadata, DocumentStore
 from pepperpy.data_stores.embedding_manager import EmbeddingManager
 from pepperpy.data_stores.vector_db import BaseVectorDB, Document, SearchResult
 
 
 class MemoryIntegration:
-    """Integrates memory management with data stores.
-
-    This class provides:
-    - Unified interface for memory operations
-    - Automatic synchronization between stores
-    - Efficient retrieval strategies
-    - Memory cleanup and optimization
-    """
+    """Integrates memory management with data stores."""
 
     def __init__(
         self,
@@ -35,7 +30,7 @@ class MemoryIntegration:
         self.embedding_manager = embedding_manager
 
     async def add_to_memory(
-        self, texts: str | list[str], metadata: dict[str, Any] | None = None
+        self, texts: str | Sequence[str], metadata: dict[str, Any] | None = None
     ) -> str | list[str]:
         """Add text(s) to memory.
 
@@ -49,31 +44,44 @@ class MemoryIntegration:
         Raises:
             Exception: If addition fails
         """
-        # Convert to list
+        # Convert to list and ensure all texts are strings
         single_text = isinstance(texts, str)
-        texts_list = [texts] if single_text else texts
+        texts_list = [str(texts)] if single_text else [str(t) for t in texts]
         metadata_list = [metadata or {}] * len(texts_list)
 
         # Generate embeddings
         embeddings = await self.embedding_manager.get_embeddings(texts_list)
         embeddings_list = cast(list[list[float]], embeddings)
 
-        # Create documents
-        documents = [
-            Document(
-                id=f"mem_{i}",  # TODO: Better ID generation
-                text=text,
-                metadata=meta,
+        # Store documents with metadata and embeddings
+        doc_ids = []
+        for i, (text, meta, emb) in enumerate(
+            zip(texts_list, metadata_list, embeddings_list, strict=True)
+        ):
+            doc_id = f"mem_{i}"  # TODO: Better ID generation
+            doc_ids.append(doc_id)
+
+            # Create document metadata
+            doc_metadata = DocumentMetadata(
+                id=doc_id,
+                created_at=datetime.now(),
+                updated_at=datetime.now(),
+                source=meta.get("source", "memory") if meta else "memory",
+                tags=meta.get("tags", []) if meta else [],
                 embedding=emb,
             )
-            for i, (text, meta, emb) in enumerate(
-                zip(texts_list, metadata_list, embeddings_list, strict=False)
-            )
-        ]
 
-        # Store in both databases
-        doc_ids = await self.document_store.store(documents)
-        await self.vector_db.add_documents(documents)
+            # Store in document store
+            await self.document_store.store(doc_id, text, doc_metadata)
+
+            # Store in vector database
+            doc = Document(
+                id=doc_id,
+                text=text,  # text is already str from texts_list
+                metadata=meta or {},
+                embedding=emb,
+            )
+            await self.vector_db.add_documents([doc])
 
         return doc_ids[0] if single_text else doc_ids
 
@@ -83,7 +91,7 @@ class MemoryIntegration:
         k: int = 5,
         filter: dict[str, Any] | None = None,
         full_documents: bool = True,
-    ) -> list[SearchResult | Document]:
+    ) -> list[SearchResult] | list[Document]:
         """Search memory for relevant content.
 
         Args:
@@ -111,19 +119,23 @@ class MemoryIntegration:
             return results
 
         # Get full documents
-        doc_ids = [result.document.id for result in results]
-        documents = await self.document_store.retrieve(doc_ids)
-        if documents is None:
-            return []
+        documents = []
+        for result in results:
+            doc_content, doc_metadata = await self.document_store.retrieve(
+                result.document.id
+            )
+            if doc_content is not None and doc_metadata is not None:
+                doc = Document(
+                    id=doc_metadata.id,
+                    text=cast(str, doc_content),
+                    metadata={"similarity_score": result.score},
+                    embedding=doc_metadata.embedding,
+                )
+                documents.append(doc)
 
-        # Add similarity scores
-        for doc, result in zip(documents, results, strict=False):
-            if doc:
-                doc.metadata["similarity_score"] = result.score
+        return documents
 
-        return [doc for doc in documents if doc is not None]
-
-    async def forget(self, document_ids: str | list[str]) -> None:
+    async def forget(self, document_ids: str | Sequence[str]) -> None:
         """Remove content from memory.
 
         Args:
@@ -132,9 +144,15 @@ class MemoryIntegration:
         Raises:
             Exception: If removal fails
         """
+        # Convert to list
+        ids_list = (
+            [document_ids] if isinstance(document_ids, str) else list(document_ids)
+        )
+
         # Delete from both stores
-        await self.document_store.delete(document_ids)
-        await self.vector_db.delete(document_ids)
+        for doc_id in ids_list:
+            await self.document_store.delete(doc_id)
+        await self.vector_db.delete(ids_list)
 
     async def merge_memories(
         self, source_ids: list[str], strategy: str = "concatenate"
@@ -152,18 +170,18 @@ class MemoryIntegration:
             Exception: If merging fails
         """
         # Get source documents
-        documents = await self.document_store.retrieve(source_ids)
-        if documents is None:
-            raise ValueError("No valid documents to merge")
-
-        documents = [doc for doc in documents if doc is not None]
+        documents = []
+        for doc_id in source_ids:
+            doc_content, doc_metadata = await self.document_store.retrieve(doc_id)
+            if doc_content is not None and doc_metadata is not None:
+                documents.append(cast(str, doc_content))
 
         if not documents:
             raise ValueError("No valid documents to merge")
 
         # Merge based on strategy
         if strategy == "concatenate":
-            merged_text = "\n\n".join(doc.text for doc in documents)
+            merged_text = "\n\n".join(documents)
         elif strategy == "summarize":
             # TODO: Implement summarization
             raise NotImplementedError("Summarization not implemented yet")
@@ -245,13 +263,7 @@ class MemoryIntegration:
         return [[doc.document for doc in results]]
 
     async def cleanup(self) -> None:
-        """Clean up resources used by memory integration.
-
-        This includes:
-        - Cleaning up vector database resources
-        - Saving document store state
-        - Freeing embedding manager resources
-        """
+        """Clean up resources used by memory integration."""
         await self.vector_db.cleanup()
         await self.document_store.cleanup()
         await self.embedding_manager.cleanup()

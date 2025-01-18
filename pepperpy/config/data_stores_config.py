@@ -1,6 +1,7 @@
 """Embeddings capability configuration module."""
 
 from dataclasses import dataclass
+from typing import Any
 
 from .capability_config import CapabilityConfig
 
@@ -15,22 +16,21 @@ class EmbeddingsConfig(CapabilityConfig):
     device: str = "cpu"
     timeout: float | None = None
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary."""
-        data = super().to_dict()
-        data.update(
-            {
-                "model": self.model,
-                "batch_size": self.batch_size,
-                "normalize": self.normalize,
-                "device": self.device,
-                "timeout": self.timeout,
-            }
-        )
-        return data
+        base_data = super().to_dict()
+        config_data: dict[str, Any] = {
+            "model": self.model,
+            "batch_size": self.batch_size,
+            "normalize": self.normalize,
+            "device": self.device,
+            "timeout": self.timeout,
+        }
+        base_data.update(config_data)
+        return dict(base_data)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "EmbeddingsConfig":
+    def from_dict(cls, data: dict[str, Any]) -> "EmbeddingsConfig":
         """Create config from dictionary."""
         return cls(
             name=data["name"],

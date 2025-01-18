@@ -28,4 +28,14 @@ jobs:
       PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
     with:
       source-path: "."
-      dagger_version: "0.15.1"
+
+  docs:
+    needs: pipeline
+    if: github.event_name == 'push' || github.event_name == 'release'
+    uses: felipepimentel/daggerverse/.github/workflows/reusable-docs.yml@main
+    with:
+      generator: sphinx
+      source_dir: docs
+      environment: github-pages
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}

@@ -5,13 +5,13 @@ import os
 from typing import Any
 
 from pepperpy.tools.tool import Tool
-from pepperpy.tools.types import JSON, ToolResult
+from pepperpy.tools.types import ToolResult
 
 
 class CodeTool(Tool):
     """Tool for code operations."""
 
-    async def execute(self, data: dict[str, Any]) -> JSON:
+    async def execute(self, data: dict[str, Any]) -> ToolResult:
         """Execute code operation.
 
         Args:
@@ -23,9 +23,9 @@ class CodeTool(Tool):
                 - end_line: End line number (for read operations)
 
         Returns:
-            JSON: Tool execution result containing:
+            Tool execution result containing:
                 - success: Whether operation was successful
-                - content: File content or analysis results
+                - data: Operation result data
                 - error: Error message if operation failed
         """
         try:
@@ -37,7 +37,7 @@ class CodeTool(Tool):
                     success=False,
                     data={},
                     error="Operation and path are required",
-                ).dict()
+                )
 
             if operation == "read":
                 start_line = data.get("start_line")
@@ -54,7 +54,8 @@ class CodeTool(Tool):
                 return ToolResult(
                     success=True,
                     data={"content": content},
-                ).dict()
+                    error=None,
+                )
 
             elif operation == "write":
                 code = data.get("code")
@@ -63,7 +64,7 @@ class CodeTool(Tool):
                         success=False,
                         data={},
                         error="Code content is required for write operation",
-                    ).dict()
+                    )
 
                 # Validate Python syntax
                 try:
@@ -73,7 +74,7 @@ class CodeTool(Tool):
                         success=False,
                         data={},
                         error=f"Invalid Python syntax: {e}",
-                    ).dict()
+                    )
 
                 # Write code to file
                 os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -83,18 +84,19 @@ class CodeTool(Tool):
                 return ToolResult(
                     success=True,
                     data={"path": path},
-                ).dict()
+                    error=None,
+                )
 
             else:
                 return ToolResult(
                     success=False,
                     data={},
                     error=f"Unsupported operation: {operation}",
-                ).dict()
+                )
 
         except Exception as e:
             return ToolResult(
                 success=False,
                 data={},
                 error=str(e),
-            ).dict()
+            )

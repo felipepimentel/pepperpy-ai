@@ -18,14 +18,19 @@ class TokenHandler:
         """Initialize token handler."""
         self._encoders: dict[str, Encoding] = {}
 
-    def _get_encoding(self, model: str) -> Any:
-        """Get encoding for model."""
-        if model not in self._encoders:
-            try:
-                self._encoders[model] = encoding_for_model(model)
-            except (KeyError, ValueError):
-                self._encoders[model] = get_encoding("cl100k_base")
-        return self._encoders[model]
+    def _get_encoding(self, model: str) -> Encoding:
+        """Get encoding for model.
+
+        Args:
+            model: Model name
+
+        Returns:
+            Encoding for model
+        """
+        try:
+            return encoding_for_model(model)
+        except:  # noqa: E722
+            return get_encoding("cl100k_base")
 
     def _get_encoder(self, model: str) -> Any:
         """Get encoder for model."""

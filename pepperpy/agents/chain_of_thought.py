@@ -4,7 +4,7 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.agents.base.interfaces import AgentConfig, AgentResponse
+from pepperpy.agents.types import AgentConfig, AgentResponse
 
 
 class ChainOfThoughtAgent(BaseAgent):
@@ -26,11 +26,6 @@ class ChainOfThoughtAgent(BaseAgent):
         super().__init__(config)
         self.thought_chain: list[str] = []
 
-    async def initialize(self) -> None:
-        """Initialize agent resources."""
-        # No special initialization needed
-        pass
-
     async def process(
         self, input_data: dict[str, Any], context: dict[str, Any] | None = None
     ) -> AgentResponse:
@@ -41,10 +36,7 @@ class ChainOfThoughtAgent(BaseAgent):
             context: Optional context information
 
         Returns:
-            Agent's response
-
-        Raises:
-            Exception: If processing fails
+            Agent's response with metadata
         """
         context = context or {}
         self.thought_chain = []
@@ -64,10 +56,9 @@ class ChainOfThoughtAgent(BaseAgent):
             final_answer = await self._combine_results(intermediate_results)
 
             return AgentResponse(
-                response=final_answer,
-                thought_process=self.thought_chain,
-                actions=[],
+                text=final_answer,
                 metadata={
+                    "thought_chain": self.thought_chain,
                     "num_steps": len(steps),
                     "intermediate_results": intermediate_results,
                 },
@@ -75,10 +66,8 @@ class ChainOfThoughtAgent(BaseAgent):
 
         except Exception as e:
             return AgentResponse(
-                response="Error in Chain of Thought processing",
-                thought_process=[*self.thought_chain, f"Error: {e!s}"],
-                actions=[],
-                error=str(e),
+                text=f"Error in Chain of Thought processing: {e!s}",
+                metadata={"thought_chain": self.thought_chain, "error": str(e)},
             )
 
     async def process_stream(
@@ -92,9 +81,6 @@ class ChainOfThoughtAgent(BaseAgent):
 
         Returns:
             Async iterator of response chunks
-
-        Raises:
-            Exception: If processing fails
         """
         context = context or {}
         self.thought_chain = []

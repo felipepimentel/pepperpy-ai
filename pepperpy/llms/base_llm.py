@@ -111,7 +111,7 @@ class BaseLLM(ABC):
         pass
 
     @abstractmethod
-    async def generate_stream(
+    def generate_stream(
         self,
         prompt: str,
         stop: list[str] | None = None,

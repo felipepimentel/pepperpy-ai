@@ -5,13 +5,13 @@ from typing import Any
 import aiohttp
 
 from pepperpy.tools.tool import Tool
-from pepperpy.tools.types import JSON, ToolResult
+from pepperpy.tools.types import ToolResult
 
 
 class HttpTool(Tool):
     """Tool for HTTP requests."""
 
-    async def execute(self, data: dict[str, Any]) -> JSON:
+    async def execute(self, data: dict[str, Any]) -> ToolResult:
         """Execute HTTP request.
 
         Args:
@@ -24,11 +24,9 @@ class HttpTool(Tool):
                 - timeout: Request timeout (optional)
 
         Returns:
-            JSON: Tool execution result containing:
+            Tool execution result containing:
                 - success: Whether request was successful
-                - status: HTTP status code
-                - headers: Response headers
-                - body: Response body
+                - data: Response data
                 - error: Error message if request failed
         """
         try:
@@ -38,7 +36,7 @@ class HttpTool(Tool):
                     success=False,
                     data={},
                     error="URL is required",
-                ).dict()
+                )
 
             method = data.get("method", "GET")
             headers = data.get("headers", {})
@@ -62,11 +60,12 @@ class HttpTool(Tool):
                             "headers": dict(response.headers),
                             "body": await response.text(),
                         },
-                    ).dict()
+                        error=None,
+                    )
 
         except Exception as e:
             return ToolResult(
                 success=False,
                 data={},
                 error=str(e),
-            ).dict()
+            )

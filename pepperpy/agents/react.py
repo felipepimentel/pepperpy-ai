@@ -5,7 +5,16 @@ from dataclasses import dataclass
 from typing import Any
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.agents.base.interfaces import AgentAction, AgentConfig, AgentResponse
+from pepperpy.agents.types import AgentConfig, AgentResponse
+
+
+@dataclass
+class AgentAction:
+    """Action to be taken by the agent."""
+
+    name: str
+    args: dict[str, Any]
+    confidence: float
 
 
 @dataclass
@@ -34,14 +43,13 @@ class ReActAgent(BaseAgent):
             config: Agent configuration
         """
         super().__init__(config)
-        self.max_steps = config.get("max_steps", 10)
-        self.min_confidence = config.get("min_confidence", 0.7)
+        if config.model_kwargs:
+            self.max_steps = config.model_kwargs.get("max_steps", 10)
+            self.min_confidence = config.model_kwargs.get("min_confidence", 0.7)
+        else:
+            self.max_steps = 10
+            self.min_confidence = 0.7
         self.steps: list[ReActStep] = []
-
-    async def initialize(self) -> None:
-        """Initialize agent resources."""
-        # No special initialization needed
-        pass
 
     async def process(
         self, input_data: dict[str, Any], context: dict[str, Any] | None = None
@@ -53,10 +61,7 @@ class ReActAgent(BaseAgent):
             context: Optional context information
 
         Returns:
-            Agent's response
-
-        Raises:
-            Exception: If processing fails
+            Agent's response with metadata
         """
         context = context or {}
         self.steps = []
@@ -100,23 +105,50 @@ class ReActAgent(BaseAgent):
             response = await self._generate_response(self.steps, context)
 
             return AgentResponse(
-                response=response,
-                thought_process=[step.thought for step in self.steps],
-                actions=[step.action for step in self.steps if step.action],
+                text=response,
                 metadata={
-                    "num_steps": len(self.steps),
-                    "observations": [
-                        step.observation for step in self.steps if step.observation
+                    "steps": [
+                        {
+                            "thought": step.thought,
+                            "action": (
+                                {
+                                    "name": step.action.name,
+                                    "args": step.action.args,
+                                    "confidence": step.action.confidence,
+                                }
+                                if step.action
+                                else None
+                            ),
+                            "observation": step.observation,
+                        }
+                        for step in self.steps
                     ],
+                    "num_steps": len(self.steps),
                 },
             )
 
         except Exception as e:
             return AgentResponse(
-                response="Error in ReAct processing",
-                thought_process=[step.thought for step in self.steps],
-                actions=[step.action for step in self.steps if step.action],
-                error=str(e),
+                text=f"Error in ReAct processing: {e!s}",
+                metadata={
+                    "steps": [
+                        {
+                            "thought": step.thought,
+                            "action": (
+                                {
+                                    "name": step.action.name,
+                                    "args": step.action.args,
+                                    "confidence": step.action.confidence,
+                                }
+                                if step.action
+                                else None
+                            ),
+                            "observation": step.observation,
+                        }
+                        for step in self.steps
+                    ],
+                    "error": str(e),
+                },
             )
 
     async def process_stream(
@@ -130,9 +162,6 @@ class ReActAgent(BaseAgent):
 
         Returns:
             Async iterator of response chunks
-
-        Raises:
-            Exception: If processing fails
         """
         context = context or {}
         self.steps = []
@@ -259,11 +288,19 @@ class ReActAgent(BaseAgent):
             context: Current context
 
         Returns:
-            Whether goal has been reached
+            True if goal reached, False otherwise
         """
-        # TODO: Implement proper goal checking
-        # For now, stop after one action
-        return bool(steps[-1].observation)
+        # Simple heuristic based on number of steps and last observation
+        if len(steps) >= self.max_steps:
+            return True
+
+        # Check if last step indicates completion
+        if steps and steps[-1].observation:
+            last_obs = steps[-1].observation.lower()
+            completion_indicators = ["complete", "finished", "done", "solved"]
+            return any(indicator in last_obs for indicator in completion_indicators)
+
+        return False
 
     async def _generate_response(
         self, steps: list[ReActStep], context: dict[str, Any]
@@ -278,7 +315,12 @@ class ReActAgent(BaseAgent):
             Final response
         """
         # TODO: Implement more sophisticated response generation
-        # For now, use last observation or thought
-        if steps[-1].observation:
-            return steps[-1].observation
-        return steps[-1].thought
+        # For now, use simple format
+        response = "Based on the reasoning process:\n\n"
+        for i, step in enumerate(steps, 1):
+            response += f"{i}. {step.thought}\n"
+            if step.action:
+                response += f"   Action: {step.action.name}\n"
+            if step.observation:
+                response += f"   Observation: {step.observation}\n"
+        return response
