@@ -1,49 +1,42 @@
-"""HuggingFace API integration."""
+"""HuggingFace LLM module using OpenRouter API."""
 
-from collections.abc import AsyncIterator
-from typing import Any, ClassVar
+import os
+import time
+from dataclasses import dataclass
+from typing import Any, AsyncIterator, Dict
 
-from huggingface_hub import AsyncInferenceClient # type: ignore
+import aiohttp
+import json
+import asyncio
 
 from pepperpy.llms.base_llm import BaseLLM, LLMConfig, LLMResponse
 
 
-class HuggingFaceError(Exception):
-    """HuggingFace API error."""
-
-    pass
-
-
 class HuggingFaceLLM(BaseLLM):
-    """HuggingFace LLM provider."""
-
-    MODEL_COSTS: ClassVar[dict[str, float]] = {
-        "gpt2": 0.0001,
-        "gpt2-medium": 0.0002,
-        "gpt2-large": 0.0003,
-        "gpt2-xl": 0.0004,
-    }
+    """HuggingFace LLM client using OpenRouter API."""
 
     def __init__(self, config: LLMConfig) -> None:
-        """Initialize HuggingFace LLM.
-
+        """Initialize HuggingFace LLM client.
+        
         Args:
             config: LLM configuration
         """
         super().__init__(config)
-        self.client: AsyncInferenceClient | None = None
+        self.session: aiohttp.ClientSession | None = None
+        self.last_request_time = 0.0
+        self.min_request_interval = 2.0  # Minimum seconds between requests
 
     async def initialize(self) -> None:
-        """Initialize HuggingFace client."""
-        api_key = self.config.model_kwargs.get("api_key")
-        if not api_key:
-            raise HuggingFaceError("HuggingFace API key is required")
-
-        try:
-            self.client = AsyncInferenceClient(api_token=api_key)
-        except Exception as e:
-            msg = f"Failed to initialize HuggingFace client: {e!s}"
-            raise HuggingFaceError(msg) from e
+        """Initialize HTTP session."""
+        self.session = aiohttp.ClientSession(
+            base_url="https://openrouter.ai/",
+            headers={
+                "Authorization": f"Bearer {self.config.api_key}",
+                "HTTP-Referer": "https://github.com/felipepimentel/pepperpy-ai",
+                "X-Title": "PepperPy",
+                "Content-Type": "application/json",
+            },
+        )
 
     async def generate(
         self,
@@ -53,42 +46,70 @@ class HuggingFaceLLM(BaseLLM):
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        """Generate text using HuggingFace model.
-
+        """Generate text completion.
+        
         Args:
             prompt: Input prompt
             stop: Optional stop sequences
             temperature: Optional temperature override
             max_tokens: Optional max tokens override
             **kwargs: Additional parameters
-
+            
         Returns:
             Generated response
-
+            
         Raises:
-            HuggingFaceError: If generation fails
+            Exception: If generation fails
         """
-        if not self.client:
-            raise HuggingFaceError("HuggingFace client not initialized")
+        if not self.session:
+            raise RuntimeError("Client not initialized")
 
-        try:
-            response = await self.client.text_generation(
-                prompt,
-                model=self.config.model_name,
-                **self._prepare_parameters(
-                    stop=stop, temperature=temperature, max_tokens=max_tokens, **kwargs
-                ),
-            )
+        # Rate limiting
+        now = time.time()
+        time_since_last_request = now - self.last_request_time
+        if time_since_last_request < self.min_request_interval:
+            await asyncio.sleep(self.min_request_interval - time_since_last_request)
+        self.last_request_time = time.time()
+
+        data = {
+            "model": self.config.model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": temperature or self.config.temperature,
+            "max_tokens": max_tokens or self.config.max_tokens,
+        }
+
+        if stop:
+            data["stop"] = stop
+
+        print(f"\nSending request to OpenRouter API...")
+        print(f"Model: {self.config.model_name}")
+        print(f"Prompt: {prompt[:100]}...")
+
+        async with self.session.post("api/v1/chat/completions", json=data) as response:
+            if response.status != 200:
+                text = await response.text()
+                if response.status == 429:  # Rate limit
+                    print("Rate limit hit, waiting before retry...")
+                    await asyncio.sleep(5)  # Wait 5 seconds
+                    return await self.generate(prompt, stop, temperature, max_tokens, **kwargs)  # Retry
+                raise Exception(f"API request failed ({response.status}): {text}")
+
+            result = await response.json()
+            if "error" in result:
+                if "code" in result["error"] and result["error"]["code"] == 429:
+                    print("Rate limit hit, waiting before retry...")
+                    await asyncio.sleep(5)  # Wait 5 seconds
+                    return await self.generate(prompt, stop, temperature, max_tokens, **kwargs)  # Retry
+                raise Exception(f"API error: {json.dumps(result['error'], indent=2)}")
+
+            print(f"Raw response: {json.dumps(result, indent=2)}")
+
             return LLMResponse(
-                text=response,
-                tokens_used=len(response.split()),  # Approximate
-                finish_reason="stop",
-                model_name=self.config.model_name,
+                text=result["choices"][0]["message"]["content"],
+                tokens_used=result["usage"]["total_tokens"],
+                finish_reason=result["choices"][0]["finish_reason"],
+                model_name=result["model"],
             )
-
-        except Exception as e:
-            msg = f"HuggingFace generation failed: {e!s}"
-            raise HuggingFaceError(msg) from e
 
     async def generate_stream(
         self,
@@ -98,105 +119,41 @@ class HuggingFaceLLM(BaseLLM):
         max_tokens: int | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[str]:
-        """Stream text generation using HuggingFace model.
-
+        """Generate streaming text completion.
+        
         Args:
             prompt: Input prompt
             stop: Optional stop sequences
             temperature: Optional temperature override
             max_tokens: Optional max tokens override
             **kwargs: Additional parameters
-
+            
         Returns:
-            Async iterator of generated text chunks
-
+            Generated response chunks
+            
         Raises:
-            HuggingFaceError: If streaming fails
+            Exception: If generation fails
         """
-        if not self.client:
-            raise HuggingFaceError("HuggingFace client not initialized")
-
-        try:
-            async for response in self.client.text_generation(
-                prompt,
-                model=self.config.model_name,
-                stream=True,
-                **self._prepare_parameters(
-                    stop=stop, temperature=temperature, max_tokens=max_tokens, **kwargs
-                ),
-            ):
-                yield response
-
-        except Exception as e:
-            msg = f"HuggingFace streaming failed: {e!s}"
-            raise HuggingFaceError(msg) from e
+        # For now, we don't support streaming
+        response = await self.generate(prompt, stop, temperature, max_tokens, **kwargs)
+        yield response.text
 
     async def cleanup(self) -> None:
-        """Clean up HuggingFace client."""
-        if self.client:
-            await self.client.aclose()
-            self.client = None
+        """Clean up resources."""
+        if self.session:
+            await self.session.close()
+            self.session = None
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         """Generate embeddings for texts.
-
+        
         Args:
             texts: List of texts to embed
-
+            
         Returns:
-            List of embeddings (one per text)
-
+            List of embedding vectors
+            
         Raises:
-            HuggingFaceError: If embedding generation fails
+            Exception: If embedding generation fails
         """
-        if not self.client:
-            raise HuggingFaceError("HuggingFace client not initialized")
-
-        try:
-            model = self.config.model_kwargs.get(
-                "embedding_model", "sentence-transformers/all-mpnet-base-v2"
-            )
-            embeddings = await self.client.embeddings(texts, model=model)
-            if not isinstance(embeddings, list):
-                raise HuggingFaceError("Expected list of embeddings")
-            if not all(
-                isinstance(emb, list) and all(isinstance(x, float) for x in emb)
-                for emb in embeddings
-            ):
-                raise HuggingFaceError("Invalid embedding format")
-            return embeddings
-
-        except Exception as e:
-            msg = f"HuggingFace embedding generation failed: {e!s}"
-            raise HuggingFaceError(msg) from e
-
-    def _prepare_parameters(
-        self,
-        stop: list[str] | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """Prepare parameters for API call.
-
-        Args:
-            stop: Optional stop sequences
-            temperature: Optional temperature override
-            max_tokens: Optional max tokens override
-            **kwargs: Additional parameters
-
-        Returns:
-            Prepared parameters
-        """
-        # Convert common parameters
-        api_params = {
-            "max_new_tokens": max_tokens or self.config.max_tokens,
-            "temperature": temperature or self.config.temperature,
-            "top_p": kwargs.get("top_p", 0.9),
-            "top_k": kwargs.get("top_k", 50),
-            "repetition_penalty": kwargs.get("repetition_penalty", 1.0),
-            "stop_sequences": stop or self.config.stop_sequences,
-        }
-
-        # Remove None values
-        return {k: v for k, v in api_params.items() if v is not None}
+        raise NotImplementedError("Embedding generation not supported yet")

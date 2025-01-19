@@ -1,116 +1,58 @@
-"""Main application module."""
+"""Main module for PepperPy."""
 
 import os
-from typing import Any
+from typing import Any, Dict, Optional
 
-import yaml
+from dotenv import load_dotenv
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.agents.registry.factory import AgentFactory
-from pepperpy.data_stores.document_store import DocumentStore
 from pepperpy.llms.llm_manager import LLMManager
-from pepperpy.llms.token_handler import TokenHandler
+
+
+# Load environment variables
+load_dotenv()
 
 
 class PepperPy:
-    """Main application class."""
+    """Main class for PepperPy."""
 
-    def __init__(self, config_path: str | None = None) -> None:
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize PepperPy.
-
+        
         Args:
-            config_path: Path to configuration file
+            config: Optional configuration dictionary
         """
-        self.config = self._load_config(config_path)
+        self.config = config or {}
+        self.agent: Optional[BaseAgent] = None
         self.llm_manager = LLMManager()
-        self.agent_factory = AgentFactory()
-        self.document_store = DocumentStore(self.config.get("document_store", {}))
-        self.token_handler = TokenHandler()
-        self.is_initialized = False
-
-    def _load_config(self, config_path: str | None) -> dict[str, Any]:
-        """Load configuration from file.
-
-        Args:
-            config_path: Path to configuration file
-
-        Returns:
-            Configuration dictionary
-        """
-        if not config_path:
-            config_path = os.path.join(
-                os.path.dirname(__file__), "config", "default.yaml"
-            )
-
-        with open(config_path) as f:
-            config: dict[str, Any] = yaml.safe_load(f)
-            if not isinstance(config, dict):
-                raise ValueError("Invalid configuration format")
-            return config
 
     async def initialize(self) -> None:
-        """Initialize application components.
+        """Initialize PepperPy."""
+        # Initialize LLM configuration with primary and fallback providers
+        llm_config = {
+            "primary": {
+                "type": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
+                "model_name": os.getenv("PEPPERPY_MODEL", "anthropic/claude-2"),
+                "api_key": os.getenv("PEPPERPY_API_KEY", ""),
+                "priority": 100,
+                "is_fallback": False,
+            }
+        }
 
-        This includes:
-        - Setting up logging
-        - Initializing LLM manager
-        - Setting up document store
-        - Loading agent configurations
-        """
-        if self.is_initialized:
-            return
+        # Add fallback provider if configured
+        fallback_provider = os.getenv("PEPPERPY_FALLBACK_PROVIDER")
+        if fallback_provider:
+            llm_config["fallback"] = {
+                "type": fallback_provider,
+                "model_name": os.getenv("PEPPERPY_FALLBACK_MODEL", "gpt-3.5-turbo"),
+                "api_key": os.getenv("PEPPERPY_FALLBACK_API_KEY", ""),
+                "priority": 50,
+                "is_fallback": True,
+            }
 
-        try:
-            await self.llm_manager.initialize(self.config.get("llm", {}))
-            await self.document_store.setup()
-            self.is_initialized = True
-        except Exception as e:
-            raise Exception(f"Failed to initialize PepperPy: {e!s}") from e
-
-    async def create_agent(self, agent_type: str, config: dict[str, Any]) -> BaseAgent:
-        """Create an agent instance.
-
-        Args:
-            agent_type: Type of agent to create
-            config: Agent configuration
-
-        Returns:
-            Agent instance
-
-        Raises:
-            ValueError: If agent type is invalid
-        """
-        if not self.is_initialized:
-            raise ValueError("PepperPy not initialized")
-
-        agent = await self.agent_factory.create_agent(agent_type, config)
-        if not isinstance(agent, BaseAgent):
-            raise ValueError(f"Invalid agent type: {agent_type}")
-        return agent
+        # Initialize LLM manager
+        await self.llm_manager.initialize(llm_config)
 
     async def cleanup(self) -> None:
-        """Clean up application resources.
-
-        This includes:
-        - Closing document store
-        - Cleaning up LLM manager
-        - Releasing agent resources
-        """
-        if not self.is_initialized:
-            return
-
-        try:
-            await self.document_store.cleanup()
-            await self.llm_manager.cleanup()
-            self.is_initialized = False
-        except Exception as e:
-            raise Exception(f"Failed to clean up PepperPy: {e!s}") from e
-
-    async def __aenter__(self) -> "PepperPy":
-        """Context manager entry."""
-        await self.initialize()
-        return self
-
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Context manager exit."""
-        await self.cleanup()
+        """Clean up resources."""
+        await self.llm_manager.cleanup()

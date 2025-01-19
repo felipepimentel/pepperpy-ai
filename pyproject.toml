@@ -16,6 +16,9 @@ python-dateutil = "^2.9.0.post0"
 structlog = "^25.1.0"
 pyyaml = "^6.0.2"
 python-dotenv = "^1.0.1"
+pymupdf = "^1.25.2"
+markdown = "^3.7"
+beautifulsoup4 = "^4.12.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

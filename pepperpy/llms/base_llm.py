@@ -4,7 +4,9 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Dict, List, Optional
+
+from pepperpy.llms.types import ProviderStats, LLMResponse, ProviderConfig
 
 
 @dataclass
@@ -17,13 +19,21 @@ class LLMConfig:
         max_tokens: Maximum tokens to generate
         stop_sequences: Sequences to stop generation
         model_kwargs: Additional model parameters
+        type: Provider type (e.g., "huggingface", "openai")
+        api_key: API key for the provider
+        is_fallback: Whether this is a fallback provider
+        priority: Priority for fallback selection (higher = more preferred)
     """
 
     model_name: str
+    type: str = "huggingface"
+    api_key: str = ""
     temperature: float = 0.7
     max_tokens: int = 1000
-    stop_sequences: list[str] = field(default_factory=list)
-    model_kwargs: dict[str, Any] = field(default_factory=dict)
+    stop_sequences: List[str] = field(default_factory=list)
+    model_kwargs: Dict[str, Any] = field(default_factory=dict)
+    is_fallback: bool = False
+    priority: int = 100
 
 
 @dataclass
@@ -44,170 +54,96 @@ class LLMResponse:
     finish_reason: str
     model_name: str
     timestamp: datetime = field(default_factory=datetime.now)
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class BaseLLM(ABC):
-    """Abstract base class for LLM implementations.
-
-    Defines the core interface that all LLMs must implement:
-    1. Initialization and cleanup
-    2. Text generation (sync and streaming)
-    3. Configuration management
-    """
-
-    def __init__(self, config: LLMConfig) -> None:
-        """Initialize base LLM.
-
+    """Abstract base class for LLM providers."""
+    
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize LLM provider.
+        
         Args:
-            config: LLM configuration
+            config: Provider configuration.
         """
         self.config = config
+        self.stats = ProviderStats()
         self.is_initialized = False
-
+    
     @abstractmethod
     async def initialize(self) -> None:
-        """Initialize LLM resources.
-
+        """Initialize provider resources.
+        
         This method should:
         1. Set up API clients/connections
         2. Load any required models/data
         3. Validate configuration
-
+        
         Raises:
             Exception: If initialization fails
         """
         pass
-
-    @abstractmethod
-    async def generate(
-        self,
-        prompt: str,
-        stop: list[str] | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        **kwargs: Any,
-    ) -> LLMResponse:
-        """Generate text from prompt.
-
-        This method should:
-        1. Validate input parameters
-        2. Generate text using model
-        3. Format and return response
-
-        Args:
-            prompt: Input prompt
-            stop: Optional stop sequences
-            temperature: Optional temperature override
-            max_tokens: Optional max tokens override
-            **kwargs: Additional model parameters
-
-        Returns:
-            Generated response
-
-        Raises:
-            Exception: If generation fails
-        """
-        pass
-
-    @abstractmethod
-    def generate_stream(
-        self,
-        prompt: str,
-        stop: list[str] | None = None,
-        temperature: float | None = None,
-        max_tokens: int | None = None,
-        **kwargs: Any,
-    ) -> AsyncIterator[str]:
-        """Stream generated text from prompt.
-
-        This method should:
-        1. Validate input parameters
-        2. Generate text using model
-        3. Stream chunks as they're generated
-
-        Args:
-            prompt: Input prompt
-            stop: Optional stop sequences
-            temperature: Optional temperature override
-            max_tokens: Optional max tokens override
-            **kwargs: Additional model parameters
-
-        Returns:
-            Async iterator of text chunks
-
-        Raises:
-            Exception: If generation fails
-        """
-        pass
-
+    
     @abstractmethod
     async def cleanup(self) -> None:
-        """Clean up LLM resources.
-
+        """Clean up provider resources.
+        
         This method should:
         1. Close connections/clients
         2. Free model resources
         3. Reset internal state
-
+        
         Raises:
             Exception: If cleanup fails
         """
         pass
-
+    
     @abstractmethod
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for texts.
-
-        This method should:
-        1. Validate input texts
-        2. Generate embeddings using model
-        3. Format and return embeddings
-
+    async def generate(self, prompt: str) -> LLMResponse:
+        """Generate text from prompt.
+        
         Args:
-            texts: List of texts to embed
-
+            prompt: Input prompt.
+            
         Returns:
-            List of embeddings (one per text)
-
-        Raises:
-            Exception: If embedding generation fails
+            Generated text response.
         """
         pass
-
+    
+    @abstractmethod
+    async def generate_stream(self, prompt: str) -> AsyncIterator[str]:
+        """Generate text from prompt in streaming mode.
+        
+        Args:
+            prompt: Input prompt.
+            
+        Returns:
+            Iterator of generated text chunks.
+        """
+        pass
+    
+    @abstractmethod
+    async def get_embedding(self, text: str) -> List[float]:
+        """Get embedding vector for text.
+        
+        Args:
+            text: Input text.
+            
+        Returns:
+            Embedding vector as list of floats.
+        """
+        pass
+    
     def validate_config(self) -> None:
         """Validate LLM configuration.
-
-        This method should:
-        1. Check required fields
-        2. Validate field types/values
-        3. Set defaults for optional fields
-
+        
         Raises:
-            ValueError: If configuration is invalid
+            ValueError: If configuration is invalid.
         """
-        # Check required fields
+        if not self.config.api_key:
+            raise ValueError("API key is required")
         if not self.config.model_name:
-            raise ValueError("model_name is required")
-
-        # Validate field values
-        if not isinstance(self.config.temperature, int | float):
-            raise ValueError("temperature must be a number")
-        if self.config.temperature < 0 or self.config.temperature > 2:
-            raise ValueError("temperature must be between 0 and 2")
-
-        if not isinstance(self.config.max_tokens, int):
-            raise ValueError("max_tokens must be an integer")
-        if self.config.max_tokens < 1:
-            raise ValueError("max_tokens must be positive")
-
-        if not isinstance(self.config.stop_sequences, list):
-            raise ValueError("stop_sequences must be a list")
-        if not all(isinstance(s, str) for s in self.config.stop_sequences):
-            raise ValueError("stop_sequences must contain only strings")
-
-        if not isinstance(self.config.model_kwargs, dict):
-            raise ValueError("model_kwargs must be a dictionary")
+            raise ValueError("Model name is required")
 
     def get_config(self, key: str, default: Any = None) -> Any:
         """Get configuration value.
@@ -219,13 +155,9 @@ class BaseLLM(ABC):
         Returns:
             Configuration value
         """
-        if hasattr(self.config, key):
-            return getattr(self.config, key)
-        if hasattr(self.config, "model_kwargs"):
-            return self.config.model_kwargs.get(key, default)
-        return default
+        return self.config.model_kwargs.get(key, default)
 
-    def update_config(self, updates: dict[str, Any]) -> None:
+    def update_config(self, updates: Dict[str, Any]) -> None:
         """Update configuration values.
 
         Args:

@@ -1,23 +1,43 @@
-"""Base tool interface."""
+"""Base classes for tools."""
 
-from typing import Any
+from abc import ABC, abstractmethod
+from typing import Any, Generic, TypeVar
 
-from pepperpy.tools.types import ToolResult
+from pydantic import BaseModel
 
 
-class Tool:
-    """Base tool class."""
+T = TypeVar("T")
 
-    async def execute(self, data: dict[str, Any]) -> ToolResult:
-        """Execute the tool with the given data.
 
+class ToolResult(BaseModel, Generic[T]):
+    """Result from tool execution."""
+
+    success: bool
+    data: T | None = None
+    error: str | None = None
+
+
+class Tool(ABC):
+    """Base class for tools."""
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize tool."""
+        pass
+
+    @abstractmethod
+    async def execute(self, **kwargs: Any) -> ToolResult[Any]:
+        """Execute tool.
+        
         Args:
-            data: Tool input data
-
+            **kwargs: Tool-specific arguments
+            
         Returns:
-            Tool execution result containing:
-                - success: Whether execution was successful
-                - data: Operation result data
-                - error: Error message if execution failed
+            Tool execution result
         """
-        raise NotImplementedError
+        pass
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        pass
