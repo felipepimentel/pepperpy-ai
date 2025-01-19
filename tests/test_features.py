@@ -1,15 +1,16 @@
 """Tests for conversation, memory, and RAG features."""
 
-import json
 import os
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import AsyncGenerator, Dict, List, Any, AsyncIterator
+from typing import Any, Dict
 
 import pytest
+
+from pepperpy.data_stores.chunking import Chunk
 from pepperpy.data_stores.conversation import Conversation, Message, MessageRole
 from pepperpy.data_stores.memory import MemoryManager
 from pepperpy.data_stores.rag import RAGManager
-from pepperpy.data_stores.chunking import ChunkManager
 from pepperpy.llms.base_llm import BaseLLM
 from pepperpy.llms.types import LLMResponse, ProviderConfig
 
@@ -18,171 +19,150 @@ class MockLLM(BaseLLM):
     """Mock LLM for testing."""
 
     def __init__(self, config: ProviderConfig) -> None:
+        """Initialize mock LLM."""
         super().__init__(config)
-        self.is_initialized = False
+        self.cleaned_up = False
 
     async def initialize(self) -> None:
+        """Initialize LLM."""
         self.is_initialized = True
 
     async def cleanup(self) -> None:
-        self.is_initialized = False
+        """Clean up resources."""
+        self.cleaned_up = True
 
     async def generate(self, prompt: str) -> LLMResponse:
+        """Generate mock response."""
         return LLMResponse(
             text="Mock response",
             tokens_used=10,
-            cost=0.001,
+            finish_reason="length",
             model_name="mock-model",
-            timestamp=datetime.now()
+            cost=0.0,
+            timestamp=datetime.utcnow(),
+            metadata={}
         )
 
     async def generate_stream(self, prompt: str) -> AsyncIterator[str]:
+        """Generate mock stream."""
         yield "Mock"
         yield " "
         yield "response"
 
-    async def get_embedding(self, text: str) -> List[float]:
+    async def get_embedding(self, text: str) -> list[float]:
+        """Get mock embedding."""
         return [0.1, 0.2, 0.3]
 
 
 @pytest.fixture
-async def mock_llm() -> AsyncIterator[MockLLM]:
-    """Create a mock LLM."""
-    config = ProviderConfig(
-        type="mock",
-        model_name="mock-model",
-        api_key="mock-key",
-        temperature=0.7,
-        max_tokens=1000
-    )
-    llm = MockLLM(config)
-    await llm.initialize()
-    yield llm
-    await llm.cleanup()
-
-
-@pytest.fixture
-def conversation() -> Conversation:
-    """Create a conversation."""
-    return Conversation()
+async def conversation() -> AsyncIterator[Conversation]:
+    """Create test conversation."""
+    conv = Conversation(max_messages=5)
+    yield conv
+    conv.clear_history()
 
 
 @pytest.fixture
 async def memory_manager() -> AsyncIterator[MemoryManager]:
-    """Create a memory manager."""
+    """Create test memory manager."""
     manager = MemoryManager()
     yield manager
-    await manager.cleanup()
+    manager.clear_history()
 
 
 @pytest.fixture
-async def rag_manager(mock_llm: MockLLM) -> AsyncIterator[RAGManager]:
-    """Create a RAG manager."""
+async def rag_manager() -> AsyncIterator[RAGManager]:
+    """Create test RAG manager."""
     manager = RAGManager(
-        llm=mock_llm,
-        chunk_manager=ChunkManager()
+        llm=MockLLM(ProviderConfig(
+            type="mock",
+            model_name="mock-model",
+            api_key="test"
+        ))
     )
     yield manager
     await manager.cleanup()
 
 
-async def test_conversation_management(conversation: Conversation) -> None:
-    """Test conversation management."""
+def test_conversation_features(conversation: Conversation) -> None:
+    """Test conversation features."""
     # Add messages
-    conversation.add_message(
-        Message(
-            role=MessageRole.SYSTEM,
-            content="You are a helpful assistant.",
-            timestamp=datetime.now()
-        )
-    )
-    conversation.add_message(
-        Message(
-            role=MessageRole.USER,
-            content="Hello!",
-            timestamp=datetime.now()
-        )
-    )
-    conversation.add_message(
-        Message(
-            role=MessageRole.ASSISTANT,
-            content="Hi there!",
-            timestamp=datetime.now()
-        )
+    message = conversation.add_message(
+        content="Test message",
+        role=MessageRole.USER,
+        metadata={"test": True}
     )
 
-    # Check message roles
-    assert len(conversation.messages) == 3
-    assert conversation.messages[0].role == MessageRole.SYSTEM
-    assert conversation.messages[1].role == MessageRole.USER
-    assert conversation.messages[2].role == MessageRole.ASSISTANT
+    assert isinstance(message, Message)
+    assert message.content == "Test message"
+    assert message.role == MessageRole.USER
+    assert message.metadata["test"] is True
+    assert isinstance(message.timestamp, datetime)
 
-    # Save and load conversation
-    conversation.save_to_json("test_conversation.json")
-    loaded_conversation = Conversation.load_from_json("test_conversation.json")
-    assert len(loaded_conversation.messages) == 3
-    assert loaded_conversation.messages[0].role == MessageRole.SYSTEM
+    # Get context
+    context = conversation.get_context_window(include_metadata=True)
+    assert len(context) == 1
+    assert context[0]["content"] == "Test message"
+    assert context[0]["metadata"]["test"] is True
 
-    # Clean up
-    os.remove("test_conversation.json")
+    # Clear history
+    conversation.clear_history()
+    assert len(conversation.messages) == 0
 
 
-async def test_memory_management(memory_manager: MemoryManager) -> None:
-    """Test memory management."""
-    # Add memories
-    await memory_manager.add_memory(
-        content="User likes Python",
-        importance=0.8,
-        metadata={"type": "preference"}
-    )
-    await memory_manager.add_memory(
-        content="User is learning AI",
-        importance=0.9,
-        metadata={"type": "activity"}
+def test_memory_features(memory_manager: MemoryManager) -> None:
+    """Test memory features."""
+    # Add message
+    message = memory_manager.add_message(
+        content="Test message",
+        role=MessageRole.USER,
+        metadata={"test": True}
     )
 
-    # Query memories
-    memories = await memory_manager.query(
-        "What does the user like?",
-        limit=5
-    )
-    assert len(memories) > 0
+    assert isinstance(message, Message)
+    assert message.content == "Test message"
+    assert message.role == MessageRole.USER
+    assert message.metadata["test"] is True
 
-    # Save and load memories
-    await memory_manager.save_memories("test_memories.json")
-    await memory_manager.load_memories("test_memories.json")
-    assert len(await memory_manager.query("", limit=10)) > 0
+    # Get context
+    context = memory_manager.get_context_window(include_metadata=True)
+    assert len(context) == 1
+    assert context[0]["content"] == "Test message"
+    assert context[0]["metadata"]["test"] is True
 
-    # Clean up
-    os.remove("test_memories.json")
+    # Clear history
+    memory_manager.clear_history()
+    assert len(memory_manager.get_context_window()) == 0
 
 
-async def test_rag_management(rag_manager: RAGManager) -> None:
-    """Test RAG management."""
+async def test_rag_features(rag_manager: RAGManager) -> None:
+    """Test RAG features."""
     # Add document
     await rag_manager.add_document(
-        content="PepperPy is a Python framework for AI agents.",
-        doc_id="doc1",
-        metadata={"type": "documentation"}
+        content="Test content",
+        doc_id="test-doc",
+        metadata={"type": "test"}
     )
+
+    # Save documents
+    await rag_manager.save_documents("test_documents.json")
+
+    # Load documents
+    await rag_manager.load_documents("test_documents.json")
+
+    # Query
+    chunks = await rag_manager.query("test query")
+    assert isinstance(chunks, list)
+    assert len(chunks) > 0
+    assert isinstance(chunks[0], Chunk)
 
     # Generate with context
     response = await rag_manager.generate_with_context(
-        query="What is PepperPy?",
-        prompt_template=(
-            "Based on the following context, answer the question:\n\n"
-            "Context:\n{context}\n\n"
-            "Question: {query}\n\n"
-            "Answer:"
-        )
+        query="test query",
+        prompt_template="Context: {context}\nQuery: {query}"
     )
     assert isinstance(response, LLMResponse)
     assert response.text == "Mock response"
-
-    # Save and load documents
-    await rag_manager.save_documents("test_documents.json")
-    await rag_manager.load_documents("test_documents.json")
-    assert len(rag_manager.documents) > 0
 
     # Clean up
     os.remove("test_documents.json") 

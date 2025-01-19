@@ -32,12 +32,13 @@ class SerpSearchTool(Tool):
 
     async def initialize(self) -> None:
         """Initialize HTTP session."""
+        headers = {
+            "X-API-KEY": str(self.api_key),
+            "Content-Type": "application/json",
+        }
         self.session = aiohttp.ClientSession(
             base_url="https://google.serper.dev/",
-            headers={
-                "X-API-KEY": self.api_key,
-                "Content-Type": "application/json",
-            },
+            headers=headers,
         )
 
     async def search_news(self, query: str, num_results: int = 5) -> List[SerpSearchResult]:

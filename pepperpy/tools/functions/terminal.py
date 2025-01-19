@@ -1,4 +1,4 @@
-"""Tool for executing terminal commands safely."""
+"""Terminal command execution tool."""
 
 import asyncio
 import os
@@ -7,7 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from pepperpy.tools.tool import Tool, ToolResult
+from pepperpy.tools.base_tool import BaseTool, ToolResult
 
 
 class CommandResult(BaseModel):
@@ -18,20 +18,19 @@ class CommandResult(BaseModel):
     stderr: str
 
 
-class TerminalTool(Tool):
-    """Tool for executing terminal commands safely."""
+class TerminalTool(BaseTool):
+    """Tool for executing terminal commands."""
 
     def __init__(self) -> None:
         """Initialize terminal tool."""
         self.cwd = os.getcwd()
-        self.allowed_commands = {
-            "ls", "pwd", "cd", "cat", "head", "tail", "grep",
-            "find", "echo", "mkdir", "touch", "rm", "cp", "mv",
-            "wc", "sort", "uniq", "diff", "tree", "du", "df"
+        self.unsafe_commands = {
+            "rm", "mv", "cp", "dd", "mkfs",
+            "sudo", "su", "chown", "chmod"
         }
 
     async def initialize(self) -> None:
-        """Initialize tool."""
+        """Initialize tool resources."""
         pass
 
     def is_command_safe(self, command: str) -> bool:
@@ -43,47 +42,44 @@ class TerminalTool(Tool):
         Returns:
             True if command is safe
         """
-        # Split command and get base command
         parts = shlex.split(command)
-        if not parts:
-            return False
-            
         base_cmd = parts[0]
         
-        # Check if base command is in allowed list
-        return base_cmd in self.allowed_commands
+        # Check for unsafe commands
+        if base_cmd in self.unsafe_commands:
+            return False
+            
+        # Check for command chaining
+        if any(c in command for c in ["&&", "||", "|", ";"]):
+            return False
+            
+        return True
 
     async def execute_command(self, command: str) -> CommandResult:
-        """Execute a shell command.
+        """Execute shell command.
         
         Args:
             command: Command to execute
             
         Returns:
             Command execution result
-            
-        Raises:
-            Exception: If command execution fails
         """
-        # Create subprocess
         process = await asyncio.create_subprocess_shell(
             command,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            cwd=self.cwd
+            stderr=asyncio.subprocess.PIPE
         )
         
-        # Wait for completion and get output
         stdout, stderr = await process.communicate()
         
         return CommandResult(
-            exit_code=process.returncode,
+            exit_code=process.returncode or 0,
             stdout=stdout.decode() if stdout else "",
             stderr=stderr.decode() if stderr else ""
         )
 
     async def execute(self, **kwargs: Any) -> ToolResult[CommandResult]:
-        """Execute terminal command.
+        """Execute tool.
         
         Args:
             command: Command to execute
@@ -91,27 +87,35 @@ class TerminalTool(Tool):
         Returns:
             Command execution result
         """
-        command = str(kwargs.get("command", ""))
-        
-        try:
-            # Validate command
-            if not self.is_command_safe(command):
-                return ToolResult(
-                    success=False,
-                    error=f"Command '{command}' is not allowed for security reasons"
-                )
-            
-            # Execute command
-            result = await self.execute_command(command)
-            
+        command = kwargs.get("command")
+        if not command:
             return ToolResult(
-                success=result.exit_code == 0,
-                data=result,
-                error=result.stderr if result.exit_code != 0 else None
+                success=False,
+                error="Command is required",
+                data=None
             )
             
+        # Check command safety
+        if not self.is_command_safe(command):
+            return ToolResult(
+                success=False,
+                error="Command is not allowed for security reasons",
+                data=None
+            )
+            
+        try:
+            result = await self.execute_command(command)
+            return ToolResult(
+                success=result.exit_code == 0,
+                error=result.stderr if result.exit_code != 0 else None,
+                data=result
+            )
         except Exception as e:
-            return ToolResult(success=False, error=str(e))
+            return ToolResult(
+                success=False,
+                error=str(e),
+                data=None
+            )
 
     async def cleanup(self) -> None:
         """Clean up resources."""

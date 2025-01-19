@@ -11,8 +11,9 @@ class LLMResponse:
     
     text: str
     tokens_used: int
-    cost: float
+    finish_reason: str
     model_name: str
+    cost: float = 0.0
     timestamp: datetime = field(default_factory=datetime.now)
     metadata: Dict[str, Any] = field(default_factory=dict)
 

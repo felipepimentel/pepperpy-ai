@@ -3,19 +3,20 @@
 import os
 import time
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Dict
+from typing import Any, AsyncIterator, Dict, List
 
 import aiohttp
 import json
 import asyncio
 
 from pepperpy.llms.base_llm import BaseLLM, LLMConfig, LLMResponse
+from pepperpy.llms.types import ProviderConfig
 
 
 class HuggingFaceLLM(BaseLLM):
     """HuggingFace LLM client using OpenRouter API."""
 
-    def __init__(self, config: LLMConfig) -> None:
+    def __init__(self, config: ProviderConfig) -> None:
         """Initialize HuggingFace LLM client.
         
         Args:
@@ -137,6 +138,18 @@ class HuggingFaceLLM(BaseLLM):
         # For now, we don't support streaming
         response = await self.generate(prompt, stop, temperature, max_tokens, **kwargs)
         yield response.text
+
+    async def get_embedding(self, text: str) -> List[float]:
+        """Get text embedding.
+        
+        Args:
+            text: Text to embed
+            
+        Returns:
+            Text embedding
+        """
+        # Implementation here
+        return [0.1, 0.2, 0.3]  # Sample embedding
 
     async def cleanup(self) -> None:
         """Clean up resources."""

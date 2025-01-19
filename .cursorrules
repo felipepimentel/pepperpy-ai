@@ -1,5 +1,15 @@
 # Consolidated Cursor Rules
 
+## Project Overview
+
+Pepperpy is a modular and extensible framework designed for scalable AI systems, focusing on processes like chunking, embeddings, retrieval-augmented generation (RAG), and multi-LLM orchestration. The library is built as a **reusable building block** to enable experimentation, multiple algorithms, and diverse capabilities without unnecessary dependencies.
+
+This specification ensures maintainability, scalability, and alignment with core principles:
+- Modularity and extensibility.
+- Reuse over duplication.
+- Clear documentation and robust dependency management.
+- Compatibility with tools such as `pepperpy-core` and `pepperpy-console`.
+
 ## Code Style
 
 - Follow PEP 8 guidelines.

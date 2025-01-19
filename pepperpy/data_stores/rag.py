@@ -282,7 +282,7 @@ class RAGManager:
         
         return await self.llm.generate(prompt)
     
-    def save_documents(self, path: str) -> None:
+    async def save_documents(self, path: str) -> None:
         """Save documents to file.
         
         Args:
@@ -296,7 +296,7 @@ class RAGManager:
         with open(path, "w") as f:
             json.dump(data, f, indent=2)
     
-    def load_documents(self, path: str) -> None:
+    async def load_documents(self, path: str) -> None:
         """Load documents from file.
         
         Args:
@@ -308,4 +308,9 @@ class RAGManager:
         self.documents = {
             doc_id: Document.from_dict(doc_data)
             for doc_id, doc_data in data.items()
-        } 
+        }
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        await self.vector_store.clear()
+        self.documents.clear() 
