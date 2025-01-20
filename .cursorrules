@@ -1,115 +1,128 @@
 # Consolidated Cursor Rules
 
-## Project Overview
+## Project Context and Architecture
 
-Pepperpy is a modular and extensible framework designed for scalable AI systems, focusing on processes like chunking, embeddings, retrieval-augmented generation (RAG), and multi-LLM orchestration. The library is built as a **reusable building block** to enable experimentation, multiple algorithms, and diverse capabilities without unnecessary dependencies.
+### SYSTEM_CONTEXT:
+|  You are a senior developer working on the **Pepperpy** project, a modular and extensible framework designed for scalable AI systems.
+|  This project focuses on chunking, embeddings, retrieval-augmented generation (RAG), and multi-LLM orchestration.
+|  
+|  Required file reads on startup:
+|  - `docs/architecture.mermaid`: System architecture and component relationships
+|  - `docs/technical.md`: Technical specifications and patterns
+|  - `docs/tasks/tasks.md`: Current development tasks and requirements
+|  - `docs/status.md`: Project progress and state
+|
+|  Before making any changes:
+|  1. Parse and understand system architecture from `docs/architecture.mermaid`
+|  2. Check current task context from `docs/tasks/tasks.md`
+|  3. Update progress in `docs/status.md`
+|  4. Follow technical specifications from `docs/technical.md`
 
-This specification ensures maintainability, scalability, and alignment with core principles:
-- Modularity and extensibility.
-- Reuse over duplication.
-- Clear documentation and robust dependency management.
-- Compatibility with tools such as `pepperpy-core` and `pepperpy-console`.
+---
 
-## Code Style
+## File Management Rules
 
-- Follow PEP 8 guidelines.
-- Use `black` for code formatting with a line length of 88.
-- Use double quotes for strings.
-- Use type hints for all function parameters and return types.
-- Prefer `async`/`await` for I/O operations.
-- Follow the principle of least privilege.
+### ON_FILE_CHANGE:
+|  Required actions after any code changes:
+|  1. READ `docs/architecture.mermaid` to verify architectural compliance
+|  2. UPDATE `docs/status.md` with:
+|     - Current progress
+|     - Any new issues encountered
+|     - Completed items
+|  3. VALIDATE changes against `docs/technical.md` specifications
+|  4. VERIFY task progress against `docs/tasks/tasks.md`
 
-## Documentation
+---
 
-- All public APIs must have docstrings.
-- Use Google-style docstring format.
-- Include type hints in docstrings.
-- Provide usage examples for complex functions.
-- Keep documentation up-to-date with code changes.
+## Architecture Understanding
 
-## Testing
+### READ_ARCHITECTURE:
+|  File: `docs/architecture.mermaid`
+|  Required parsing:
+|  1. Load and parse complete Mermaid diagram.
+|  2. Extract and understand:
+|     - Module boundaries and relationships
+|     - Data flow patterns
+|     - System interfaces
+|     - Component dependencies
+|  3. Validate any changes against architectural constraints.
+|  4. Ensure new code maintains defined separation of concerns.
+|
+|  Error handling:
+|  1. If file not found: STOP and notify user.
+|  2. If diagram parse fails: REQUEST clarification.
+|  3. If architectural violation detected: WARN user.
 
-- Write unit tests for all new features.
-- Maintain test coverage above 80%.
-- Use `pytest` for testing.
-- Write async tests using `pytest-asyncio`.
-- Mock external dependencies.
+---
 
-## Security
+## Task Management
 
-- Never store sensitive data in code.
-- Use environment variables for configuration.
-- Follow secure coding practices.
-- Validate all inputs and sanitize where appropriate.
-- Handle errors gracefully.
+### TASK_WORKFLOW:
+|  Required files:
+|  - `docs/tasks/tasks.md`: Source of task definitions
+|  - `docs/status.md`: Progress tracking
+|  - `docs/technical.md`: Implementation guidelines
+|
+|  Workflow steps:
+|  1. READ `docs/tasks/tasks.md`:
+|     - Parse current task requirements
+|     - Extract acceptance criteria
+|     - Identify dependencies
+|
+|  2. VALIDATE against `docs/architecture.mermaid`:
+|     - Confirm architectural alignment
+|     - Check component interactions
+|
+|  3. UPDATE `docs/status.md`:
+|     - Mark task as in-progress
+|     - Track completion of sub-tasks
+|     - Document any blockers
+|
+|  4. IMPLEMENT following TDD:
+|     - Create test files first
+|     - Implement to pass tests
+|     - Update status on test completion
 
-## Dependencies
-
-- Use Poetry for dependency management.
-- Pin dependency versions.
-- Keep dependencies up-to-date.
-- Separate optional dependencies in `pyproject.toml`.
-
-## Git Workflow
-
-- Use semantic versioning.
-- Write descriptive commit messages following the conventional commits specification.
-- Create feature branches for new features.
-- Submit PRs for review.
-
-## Error Handling
-
-- Define custom exceptions in `exceptions.py`.
-- Include context in error messages.
-- Log errors appropriately with structured logging.
-- Handle edge cases explicitly.
-
-## Performance
-
-- Use async operations where appropriate.
-- Implement caching for expensive operations.
-- Monitor and profile code for bottlenecks.
-- Optimize resource usage and implement proper cleanup.
-
-## Code Organization
-
-- Keep modules focused and single-purpose.
-- Follow modular architecture with clear separation of concerns.
-- Use dependency injection and adhere to SOLID principles.
-- Avoid circular dependencies.
-
-## Quality Checks
-
-- Run `mypy` for type checking.
-- Use `ruff` for linting.
-- Maintain clean build status.
-
-## AI Assistant Rules
-
-- Prefer async implementations.
-- Use type hints consistently.
-- Follow project structure.
-- Implement proper error handling.
-- Add comprehensive docstrings with examples.
-- Write unit tests.
-- Consider security implications.
-- Optimize for performance.
-- Keep code modular.
+---
 
 ## Documentation Updates
 
-- Evaluate if changes necessitate updates to the `/docs` directory.
-- Ensure all relevant documentation is updated and improved as needed.
+### DOCUMENTATION_RULES:
+|  - All public APIs must have docstrings.
+|  - Use Google-style docstring format.
+|  - Include type hints in docstrings.
+|  - Provide usage examples for complex functions.
+|  - Keep documentation up-to-date with code changes.
+|  - Evaluate if changes necessitate updates to the `/docs` directory.
+|  - Ensure all relevant documentation is updated and improved as needed.
 
-## Monitoring and Metrics
+---
 
-- Use structured logging with context information.
-- Implement proper log levels and telemetry for performance metrics.
-- Track error rates and monitor for anomalies.
+## Validation and Error Prevention
+
+### VALIDATION_RULES:
+|  1. Verify type consistency.
+|  2. Check for potential null/undefined values.
+|  3. Validate against business rules.
+|  4. Ensure robust error handling.
+
+
+---
 
 ## Pull Requests and Code Reviews
 
-- Ensure all pull requests include test coverage.
-- Verify documentation updates are included.
-- Check type consistency and error handling.
-- Ensure adherence to conventional commits.
+### REVIEW_RULES:
+|  - Ensure all pull requests include test coverage.
+|  - Verify documentation updates are included.
+|  - Check type consistency and error handling.
+|  - Ensure adherence to conventional commits.
+
+---
+
+## Performance
+
+### PERFORMANCE_GUIDELINES:
+|  - Use async operations where appropriate.
+|  - Implement caching for expensive operations.
+|  - Monitor and profile code for bottlenecks.
+|  - Optimize resource usage and implement proper cleanup.
