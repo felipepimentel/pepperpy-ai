@@ -1,211 +1,138 @@
-"""Base vector store classes for Pepperpy."""
+"""Base vector database implementation."""
 
-import asyncio
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar
+from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
-from numpy.typing import NDArray
+from pepperpy.common.errors import PepperpyError
+from pepperpy.core.lifecycle import Lifecycle
 
-from ...common.types import PepperpyObject, DictInitializable, Validatable
-from ...common.errors import StorageError, VectorIndexError
-from ...core.lifecycle import Lifecycle
 
-T = TypeVar("T")
+class VectorDBError(PepperpyError):
+    """Vector database error."""
+    pass
 
-class VectorStore(Lifecycle, ABC):
-    """Base class for vector stores."""
+
+class VectorDB(Lifecycle, ABC):
+    """Base class for vector databases."""
     
     def __init__(
         self,
         name: str,
         dimension: int,
-        metric: str = "cosine",
-        index_path: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize vector store.
+        """Initialize vector database.
         
         Args:
-            name: Store name
+            name: Database name
             dimension: Vector dimension
-            metric: Distance metric (default: cosine)
-            index_path: Optional path to save/load index
+            config: Optional database configuration
         """
-        super().__init__(name)
+        super().__init__()
+        self.name = name
         self._dimension = dimension
-        self._metric = metric
-        self._index_path = index_path
-        self._index: Any = None
+        self._config = config or {}
         
     @property
     def dimension(self) -> int:
-        """Return vector dimension."""
+        """Get vector dimension."""
         return self._dimension
         
     @property
-    def metric(self) -> str:
-        """Return distance metric."""
-        return self._metric
+    def config(self) -> Dict[str, Any]:
+        """Get database configuration."""
+        return self._config
         
-    @property
-    def index_path(self) -> Optional[str]:
-        """Return index path."""
-        return self._index_path
-        
-    async def add(self, vectors: NDArray[np.float32], ids: Optional[List[str]] = None) -> List[str]:
-        """Add vectors to store.
+    @abstractmethod
+    async def add_vectors(
+        self,
+        vectors: List[List[float]],
+        metadata: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[str]:
+        """Add vectors to database.
         
         Args:
-            vectors: Vectors to add (shape: [n, dimension])
-            ids: Optional vector IDs (if None, generated automatically)
+            vectors: List of vectors to add
+            metadata: Optional metadata for each vector
             
         Returns:
             List of vector IDs
             
         Raises:
-            VectorIndexError: If vectors have wrong dimension or store is not initialized
+            VectorDBError: If vector addition fails
         """
-        if not self._initialized:
-            raise VectorIndexError("Vector store not initialized")
-            
-        if vectors.shape[1] != self.dimension:
-            raise VectorIndexError(f"Expected vectors of dimension {self.dimension}, got {vectors.shape[1]}")
-            
-        return await self._add(vectors, ids)
-        
-    @abstractmethod
-    async def _add(self, vectors: NDArray[np.float32], ids: Optional[List[str]] = None) -> List[str]:
-        """Add vectors implementation."""
         pass
         
-    async def search(
+    @abstractmethod
+    async def search_vectors(
         self,
-        query: NDArray[np.float32],
-        k: int = 10,
-        min_similarity: float = 0.0,
-    ) -> List[Tuple[str, float]]:
+        query_vector: List[float],
+        k: int = 5,
+        filter: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
         """Search for similar vectors.
         
         Args:
-            query: Query vector (shape: [dimension])
-            k: Number of results (default: 10)
-            min_similarity: Minimum similarity threshold (default: 0.0)
+            query_vector: Vector to search for
+            k: Number of results to return
+            filter: Optional metadata filter
             
         Returns:
-            List of (id, similarity) tuples
+            List of similar vectors with metadata
             
         Raises:
-            VectorIndexError: If query has wrong dimension or store is not initialized
+            VectorDBError: If vector search fails
         """
-        if not self._initialized:
-            raise VectorIndexError("Vector store not initialized")
-            
-        if query.shape[0] != self.dimension:
-            raise VectorIndexError(f"Expected query of dimension {self.dimension}, got {query.shape[0]}")
-            
-        return await self._search(query, k, min_similarity)
-        
-    @abstractmethod
-    async def _search(
-        self,
-        query: NDArray[np.float32],
-        k: int = 10,
-        min_similarity: float = 0.0,
-    ) -> List[Tuple[str, float]]:
-        """Search implementation."""
         pass
         
-    async def delete(self, ids: List[str]) -> None:
-        """Delete vectors from store.
+    @abstractmethod
+    async def get_vector(
+        self,
+        vector_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Get vector by ID.
         
         Args:
-            ids: Vector IDs to delete
+            vector_id: Vector ID
+            
+        Returns:
+            Vector with metadata if found, None otherwise
             
         Raises:
-            VectorIndexError: If store is not initialized
+            VectorDBError: If vector retrieval fails
         """
-        if not self._initialized:
-            raise VectorIndexError("Vector store not initialized")
-            
-        await self._delete(ids)
-        
-    @abstractmethod
-    async def _delete(self, ids: List[str]) -> None:
-        """Delete implementation."""
         pass
         
+    @abstractmethod
+    async def delete_vectors(
+        self,
+        vector_ids: List[str],
+    ) -> None:
+        """Delete vectors by ID.
+        
+        Args:
+            vector_ids: List of vector IDs to delete
+            
+        Raises:
+            VectorDBError: If vector deletion fails
+        """
+        pass
+        
+    @abstractmethod
     async def clear(self) -> None:
-        """Clear all vectors from store.
+        """Clear all vectors.
         
         Raises:
-            VectorIndexError: If store is not initialized
+            VectorDBError: If vector deletion fails
         """
-        if not self._initialized:
-            raise VectorIndexError("Vector store not initialized")
-            
-        await self._clear()
-        
-    @abstractmethod
-    async def _clear(self) -> None:
-        """Clear implementation."""
         pass
-        
-    async def save(self) -> None:
-        """Save index to disk.
-        
-        Raises:
-            VectorIndexError: If store is not initialized or no index path
-        """
-        if not self._initialized:
-            raise VectorIndexError("Vector store not initialized")
-            
-        if not self._index_path:
-            raise VectorIndexError("No index path specified")
-            
-        await self._save()
-        
-    @abstractmethod
-    async def _save(self) -> None:
-        """Save implementation."""
-        pass
-        
-    async def load(self) -> None:
-        """Load index from disk.
-        
-        Raises:
-            VectorIndexError: If store is initialized or no index path
-        """
-        if self._initialized:
-            raise VectorIndexError("Vector store already initialized")
-            
-        if not self._index_path:
-            raise VectorIndexError("No index path specified")
-            
-        await self._load()
-        
-    @abstractmethod
-    async def _load(self) -> None:
-        """Load implementation."""
-        pass
-        
-    async def _initialize(self) -> None:
-        """Initialize store implementation."""
-        if self._index_path:
-            await self.load()
-            
-    async def _cleanup(self) -> None:
-        """Cleanup store implementation."""
-        if self._index_path:
-            await self.save()
-            
-        self._index = None
         
     def validate(self) -> None:
-        """Validate store state."""
+        """Validate database state."""
         super().validate()
         
-        if self.dimension <= 0:
-            raise ValueError("Vector dimension must be positive")
+        if not self.name:
+            raise ValueError("Database name cannot be empty")
             
-        if not self.metric:
-            raise ValueError("Distance metric cannot be empty") 
+        if self._dimension <= 0:
+            raise ValueError("Vector dimension must be positive") 

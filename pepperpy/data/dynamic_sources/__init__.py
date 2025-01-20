@@ -1,13 +1,56 @@
-"""Dynamic sources module for data ingestion and processing."""
+"""Dynamic sources module for data processing and management."""
 
-from . import algorithms
-from .ingest import DataIngestor
-from .update import DataUpdater
-from .vector_linker import VectorLinker
+from .services import DataRESTService, DataWebSocketService
+from .types import (
+    Embeddable,
+    Chunkable,
+    SimilarityComparable,
+    Storable,
+    Indexable,
+    Cacheable,
+)
+from .pipeline import (
+    # Ingestion
+    IngestError,
+    Source,
+    Sink,
+    IngestManager,
+    FileSource,
+    FileSink,
+    # Updates
+    UpdateError,
+    Store,
+    UpdateManager,
+    FileStore,
+    # Vector linking
+    LinkerError,
+    VectorLinker,
+)
 
 __all__ = [
-    "algorithms",
-    "DataIngestor",
-    "DataUpdater",
+    # Services
+    "DataRESTService",
+    "DataWebSocketService",
+    # Types
+    "Embeddable",
+    "Chunkable",
+    "SimilarityComparable",
+    "Storable",
+    "Indexable",
+    "Cacheable",
+    # Pipeline - Ingestion
+    "IngestError",
+    "Source",
+    "Sink",
+    "IngestManager",
+    "FileSource",
+    "FileSink",
+    # Pipeline - Updates
+    "UpdateError",
+    "Store",
+    "UpdateManager",
+    "FileStore",
+    # Pipeline - Vector linking
+    "LinkerError",
     "VectorLinker",
 ]

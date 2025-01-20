@@ -1,153 +1,300 @@
-"""FAISS vector store implementation for Pepperpy."""
+"""FAISS vector database implementation."""
 
-import asyncio
+import json
 import logging
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
-import numpy as np
 import faiss
-from numpy.typing import NDArray
+import numpy as np
 
-from ...common.errors import VectorIndexError
-from .base import VectorStore
+from pepperpy.common.errors import PepperpyError
+from .base import VectorDB, VectorDBError
+
 
 logger = logging.getLogger(__name__)
 
-class FAISSVectorStore(VectorStore):
-    """FAISS vector store implementation."""
+
+class FaissVectorDB(VectorDB):
+    """FAISS vector database implementation."""
     
     def __init__(
         self,
         name: str,
         dimension: int,
-        metric: str = "cosine",
-        index_path: Optional[str] = None,
         index_type: str = "Flat",
+        metric: str = "l2",
+        path: Optional[Union[str, Path]] = None,
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize FAISS vector store.
+        """Initialize FAISS vector database.
         
         Args:
-            name: Store name
+            name: Database name
             dimension: Vector dimension
-            metric: Distance metric (default: cosine)
-            index_path: Optional path to save/load index
-            index_type: FAISS index type (default: Flat)
+            index_type: FAISS index type
+            metric: Distance metric (l2 or inner_product)
+            path: Optional path to save/load index
+            config: Optional database configuration
         """
-        super().__init__(name, dimension, metric, index_path)
+        super().__init__(name, dimension, config)
         self._index_type = index_type
-        self._id_map: Dict[str, int] = {}
-        self._next_id = 0
+        self._metric = metric
+        self._path = Path(path) if path else None
+        self._index: Optional[faiss.Index] = None
+        self._metadata: Dict[str, Dict[str, Any]] = {}
         
-    async def _initialize(self) -> None:
-        """Initialize FAISS index."""
-        await super()._initialize()
-        
-        if not self._initialized:
-            # Create FAISS index
-            if self._metric == "cosine":
-                self._index = faiss.IndexFlatIP(self.dimension)
-            elif self._metric == "euclidean":
-                self._index = faiss.IndexFlatL2(self.dimension)
+    async def initialize(self) -> None:
+        """Initialize database."""
+        try:
+            if self._path and self._path.exists():
+                index = faiss.read_index(str(self._path))
+                if index.d != self._dimension:
+                    raise VectorDBError(
+                        f"Index dimension {index.d} does not match "
+                        f"expected dimension {self._dimension}"
+                    )
+                self._index = index
             else:
-                raise VectorIndexError(f"Unsupported metric: {self._metric}")
+                self._index = self._create_index()
                 
-            logger.debug(f"Created FAISS index of type {self._index_type}")
+            if self._path:
+                self._path.parent.mkdir(parents=True, exist_ok=True)
+                metadata_path = self._path.with_suffix(".json")
+                if metadata_path.exists():
+                    with open(metadata_path) as f:
+                        self._metadata = json.load(f)
+                
+        except Exception as e:
+            raise VectorDBError(f"Failed to initialize FAISS index: {e}")
             
-    async def _add(self, vectors: NDArray[np.float32], ids: Optional[List[str]] = None) -> List[str]:
-        """Add vectors to FAISS index."""
-        # Generate IDs if not provided
-        if ids is None:
-            ids = [str(uuid.uuid4()) for _ in range(len(vectors))]
-            
-        # Map string IDs to integer indices
-        for id_ in ids:
-            self._id_map[id_] = self._next_id
-            self._next_id += 1
-            
-        # Add vectors to index
-        self._index.add(vectors)
-        logger.debug(f"Added {len(vectors)} vectors to FAISS index")
+    async def cleanup(self) -> None:
+        """Clean up database."""
+        if self._index and self._path:
+            try:
+                faiss.write_index(self._index, str(self._path))
+                metadata_path = self._path.with_suffix(".json")
+                with open(metadata_path, "w") as f:
+                    json.dump(self._metadata, f)
+            except Exception as e:
+                logger.error(f"Failed to save FAISS index: {e}")
+                
+    def _create_index(self) -> faiss.Index:
+        """Create FAISS index.
         
-        return ids
-        
-    async def _search(
+        Returns:
+            FAISS index
+            
+        Raises:
+            VectorDBError: If index creation fails
+        """
+        try:
+            if self._metric == "l2":
+                index = faiss.IndexFlatL2(self._dimension)
+            elif self._metric == "inner_product":
+                index = faiss.IndexFlatIP(self._dimension)
+            else:
+                raise VectorDBError(f"Unsupported metric: {self._metric}")
+                
+            if self._index_type != "Flat":
+                if self._index_type == "IVF":
+                    nlist = min(4096, max(self._dimension * 4, 16))
+                    quantizer = faiss.IndexFlatL2(self._dimension)
+                    index = faiss.IndexIVFFlat(quantizer, self._dimension, nlist)
+                    index.train(np.random.randn(nlist * 2, self._dimension).astype(np.float32))
+                else:
+                    raise VectorDBError(f"Unsupported index type: {self._index_type}")
+                    
+            return index
+            
+        except Exception as e:
+            raise VectorDBError(f"Failed to create FAISS index: {e}")
+            
+    async def add_vectors(
         self,
-        query: NDArray[np.float32],
-        k: int = 10,
-        min_similarity: float = 0.0,
-    ) -> List[Tuple[str, float]]:
-        """Search FAISS index."""
-        # Reshape query to 2D array
-        query = query.reshape(1, -1)
+        vectors: List[List[float]],
+        metadata: Optional[List[Dict[str, Any]]] = None,
+    ) -> List[str]:
+        """Add vectors to database.
         
-        # Search index
-        distances, indices = self._index.search(query, k)
-        
-        # Convert results
-        results = []
-        for distance, idx in zip(distances[0], indices[0]):
-            # Skip invalid indices
-            if idx == -1:
-                continue
-                
-            # Convert distance to similarity
-            if self._metric == "cosine":
-                similarity = float(distance)
-            else:
-                similarity = 1.0 / (1.0 + float(distance))
-                
-            # Apply similarity threshold
-            if similarity < min_similarity:
-                continue
-                
-            # Find string ID for index
-            id_ = next(k for k, v in self._id_map.items() if v == idx)
-            results.append((id_, similarity))
+        Args:
+            vectors: List of vectors to add
+            metadata: Optional metadata for each vector
             
-        return results
-        
-    async def _delete(self, ids: List[str]) -> None:
-        """Delete vectors from FAISS index."""
-        # FAISS doesn't support deletion, so we need to rebuild the index
-        raise NotImplementedError("Deletion not supported by FAISS")
-        
-    async def _clear(self) -> None:
-        """Clear FAISS index."""
-        # Reset index
-        await self._initialize()
-        self._id_map.clear()
-        self._next_id = 0
-        
-    async def _save(self) -> None:
-        """Save FAISS index to disk."""
-        # Create parent directory if needed
-        path = Path(self._index_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Save index
-        faiss.write_index(self._index, str(path))
-        logger.debug(f"Saved FAISS index to {path}")
-        
-    async def _load(self) -> None:
-        """Load FAISS index from disk."""
-        path = Path(self._index_path)
-        if not path.exists():
-            raise VectorIndexError(f"Index file not found: {path}")
+        Returns:
+            List of vector IDs
             
-        # Load index
-        self._index = faiss.read_index(str(path))
-        logger.debug(f"Loaded FAISS index from {path}")
+        Raises:
+            VectorDBError: If vector addition fails
+        """
+        if not self._index:
+            raise VectorDBError("FAISS index not initialized")
+            
+        try:
+            vectors_array = np.array(vectors).astype(np.float32)
+            if vectors_array.shape[1] != self._dimension:
+                raise VectorDBError(
+                    f"Vector dimension {vectors_array.shape[1]} does not match "
+                    f"index dimension {self._dimension}"
+                )
+                
+            vector_ids = [str(uuid.uuid4()) for _ in range(len(vectors))]
+            self._index.add(vectors_array)
+            
+            if metadata:
+                for i, vector_id in enumerate(vector_ids):
+                    self._metadata[vector_id] = metadata[i]
+                    
+            return vector_ids
+            
+        except Exception as e:
+            raise VectorDBError(f"Failed to add vectors: {e}")
+            
+    async def search_vectors(
+        self,
+        query_vector: List[float],
+        k: int = 5,
+        filter: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Search for similar vectors.
         
-    def __repr__(self) -> str:
-        """Return string representation."""
-        return (
-            f"{self.__class__.__name__}("
-            f"name={self.name}, "
-            f"dimension={self.dimension}, "
-            f"metric={self.metric}, "
-            f"index_type={self._index_type}, "
-            f"vectors={len(self._id_map)}"
-            f")"
-        ) 
+        Args:
+            query_vector: Vector to search for
+            k: Number of results to return
+            filter: Optional metadata filter
+            
+        Returns:
+            List of similar vectors with metadata
+            
+        Raises:
+            VectorDBError: If vector search fails
+        """
+        if not self._index:
+            raise VectorDBError("FAISS index not initialized")
+            
+        try:
+            query_array = np.array([query_vector]).astype(np.float32)
+            if query_array.shape[1] != self._dimension:
+                raise VectorDBError(
+                    f"Query dimension {query_array.shape[1]} does not match "
+                    f"index dimension {self._dimension}"
+                )
+                
+            distances, indices = self._index.search(query_array, k)
+            results = []
+            
+            for i, idx in enumerate(indices[0]):
+                if idx == -1:
+                    continue
+                    
+                vector_id = list(self._metadata.keys())[idx]
+                metadata = self._metadata.get(vector_id, {})
+                
+                if filter and not self._matches_filter(metadata, filter):
+                    continue
+                    
+                results.append({
+                    "id": vector_id,
+                    "distance": float(distances[0][i]),
+                    "metadata": metadata,
+                })
+                
+            return results
+            
+        except Exception as e:
+            raise VectorDBError(f"Failed to search vectors: {e}")
+            
+    def _matches_filter(self, metadata: Dict[str, Any], filter: Dict[str, Any]) -> bool:
+        """Check if metadata matches filter.
+        
+        Args:
+            metadata: Vector metadata
+            filter: Metadata filter
+            
+        Returns:
+            True if metadata matches filter, False otherwise
+        """
+        for key, value in filter.items():
+            if key not in metadata or metadata[key] != value:
+                return False
+        return True
+        
+    async def get_vector(
+        self,
+        vector_id: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Get vector by ID.
+        
+        Args:
+            vector_id: Vector ID
+            
+        Returns:
+            Vector with metadata if found, None otherwise
+            
+        Raises:
+            VectorDBError: If vector retrieval fails
+        """
+        if not self._index:
+            raise VectorDBError("FAISS index not initialized")
+            
+        try:
+            if vector_id not in self._metadata:
+                return None
+                
+            return {
+                "id": vector_id,
+                "metadata": self._metadata[vector_id],
+            }
+            
+        except Exception as e:
+            raise VectorDBError(f"Failed to get vector: {e}")
+            
+    async def delete_vectors(
+        self,
+        vector_ids: List[str],
+    ) -> None:
+        """Delete vectors by ID.
+        
+        Args:
+            vector_ids: List of vector IDs to delete
+            
+        Raises:
+            VectorDBError: If vector deletion fails
+        """
+        if not self._index:
+            raise VectorDBError("FAISS index not initialized")
+            
+        try:
+            for vector_id in vector_ids:
+                if vector_id in self._metadata:
+                    del self._metadata[vector_id]
+                    
+        except Exception as e:
+            raise VectorDBError(f"Failed to delete vectors: {e}")
+            
+    async def clear(self) -> None:
+        """Clear all vectors.
+        
+        Raises:
+            VectorDBError: If vector deletion fails
+        """
+        if not self._index:
+            raise VectorDBError("FAISS index not initialized")
+            
+        try:
+            self._index.reset()
+            self._metadata.clear()
+            
+        except Exception as e:
+            raise VectorDBError(f"Failed to clear vectors: {e}")
+            
+    def validate(self) -> None:
+        """Validate database state."""
+        super().validate()
+        
+        if not self._index_type:
+            raise ValueError("FAISS index type cannot be empty")
+            
+        if not self._metric:
+            raise ValueError("Distance metric cannot be empty") 

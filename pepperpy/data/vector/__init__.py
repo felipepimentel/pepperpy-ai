@@ -1,9 +1,20 @@
-"""Vector store module for Pepperpy."""
+"""Vector module for dynamic sources."""
 
-from .base import VectorStore
-from .faiss import FAISSVectorStore
+from .embeddings import EmbeddingModel, OpenAIEmbeddingModel
+from .indexer import VectorIndex, IndexError, SearchResult, IndexManager
+from .base import VectorDB, VectorDBError
+from .faiss import FaissVectorDB
+from .semantic import SemanticSearch
 
 __all__ = [
-    "VectorStore",
-    "FAISSVectorStore",
-]
+    "EmbeddingModel",
+    "OpenAIEmbeddingModel",
+    "VectorIndex",
+    "IndexError",
+    "SearchResult",
+    "IndexManager",
+    "VectorDB",
+    "VectorDBError",
+    "FaissVectorDB",
+    "SemanticSearch",
+] 

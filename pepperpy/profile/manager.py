@@ -1,14 +1,23 @@
-"""Profile manager implementation."""
+"""Profile manager implementation.
 
-import logging
+This module provides functionality for managing multiple AI profiles,
+including profile creation, retrieval, and persistence.
+"""
+
+import asyncio
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
 
-from ..common.errors import PepperpyError
-from ..core.lifecycle import Lifecycle
-from .base import Profile, ProfileError
+from pepperpy.common.errors import PepperpyError
+from pepperpy.core.lifecycle import Lifecycle
+from pepperpy.events import Event, EventBus
+from pepperpy.monitoring import Monitor
+from .profile import Profile, ProfileError
 
 
-logger = logging.getLogger(__name__)
+class ManagerError(PepperpyError):
+    """Manager error."""
+    pass
 
 
 class ProfileManager(Lifecycle):
@@ -17,166 +26,169 @@ class ProfileManager(Lifecycle):
     def __init__(
         self,
         name: str,
-        profiles: Optional[Dict[str, Profile]] = None,
+        event_bus: Optional[EventBus] = None,
+        monitor: Optional[Monitor] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize profile manager.
+        """Initialize manager.
         
         Args:
-            name: Profile manager name
-            profiles: Optional dictionary of profiles
-            config: Optional profile manager configuration
+            name: Manager name
+            event_bus: Optional event bus
+            monitor: Optional monitor
+            config: Optional configuration
         """
-        super().__init__(name)
-        self._profiles = profiles or {}
+        super().__init__()
+        self.name = name
+        self._event_bus = event_bus
+        self._monitor = monitor
         self._config = config or {}
+        self._profiles: Dict[str, Profile] = {}
+        self._lock = asyncio.Lock()
         
-    @property
-    def profiles(self) -> Dict[str, Profile]:
-        """Return profiles."""
-        return self._profiles
-        
-    @property
-    def config(self) -> Dict[str, Any]:
-        """Return profile manager configuration."""
-        return self._config
-        
-    async def _initialize(self) -> None:
-        """Initialize profile manager."""
-        for profile in self._profiles.values():
-            await profile.initialize()
-        
-    async def _cleanup(self) -> None:
-        """Clean up profile manager."""
-        for profile in self._profiles.values():
-            await profile.cleanup()
-            
-    def add_profile(self, profile: Profile) -> None:
-        """Add profile.
+    async def create_profile(
+        self,
+        id: str,
+        name: str,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Profile:
+        """Create profile.
         
         Args:
-            profile: Profile to add
-            
-        Raises:
-            ProfileError: If profile already exists
-        """
-        if profile.name in self._profiles:
-            raise ProfileError(f"Profile {profile.name} already exists")
-            
-        self._profiles[profile.name] = profile
-        
-    def remove_profile(self, name: str) -> None:
-        """Remove profile.
-        
-        Args:
+            id: Profile ID
             name: Profile name
+            config: Optional configuration
+            
+        Returns:
+            Created profile
             
         Raises:
-            ProfileError: If profile does not exist
+            ManagerError: If creation fails
         """
-        if name not in self._profiles:
-            raise ProfileError(f"Profile {name} does not exist")
-            
-        del self._profiles[name]
-        
-    def get_profile(self, name: str) -> Profile:
+        async with self._lock:
+            if id in self._profiles:
+                raise ManagerError(f"Profile already exists: {id}")
+                
+            try:
+                profile = Profile(
+                    id=id,
+                    name=name,
+                    event_bus=self._event_bus,
+                    monitor=self._monitor,
+                    config=config,
+                )
+                await profile.initialize()
+                self._profiles[id] = profile
+                
+                if self._event_bus:
+                    await self._event_bus.publish(
+                        Event(
+                            type="profile_created",
+                            source=self.name,
+                            timestamp=datetime.now(),
+                            data={
+                                "profile_id": id,
+                                "name": name,
+                            },
+                        )
+                    )
+                    
+                return profile
+            except Exception as e:
+                raise ManagerError(f"Profile creation failed: {e}")
+                
+    async def get_profile(self, id: str) -> Profile:
         """Get profile.
         
         Args:
-            name: Profile name
+            id: Profile ID
             
         Returns:
             Profile instance
             
         Raises:
-            ProfileError: If profile does not exist
+            ManagerError: If profile not found
         """
-        if name not in self._profiles:
-            raise ProfileError(f"Profile {name} does not exist")
+        if id not in self._profiles:
+            raise ManagerError(f"Profile not found: {id}")
             
-        return self._profiles[name]
+        return self._profiles[id]
         
-    def has_profile(self, name: str) -> bool:
-        """Check if profile exists.
+    async def delete_profile(self, id: str) -> None:
+        """Delete profile.
         
         Args:
-            name: Profile name
+            id: Profile ID
             
-        Returns:
-            True if profile exists, False otherwise
+        Raises:
+            ManagerError: If deletion fails
         """
-        return name in self._profiles
+        async with self._lock:
+            if id not in self._profiles:
+                raise ManagerError(f"Profile not found: {id}")
+                
+            try:
+                profile = self._profiles[id]
+                await profile.cleanup()
+                del self._profiles[id]
+                
+                if self._event_bus:
+                    await self._event_bus.publish(
+                        Event(
+                            type="profile_deleted",
+                            source=self.name,
+                            timestamp=datetime.now(),
+                            data={"profile_id": id},
+                        )
+                    )
+            except Exception as e:
+                raise ManagerError(f"Profile deletion failed: {e}")
+                
+    def list_profiles(self) -> List[str]:
+        """List profile IDs.
         
-    def get_profiles_with_capability(self, capability: str) -> List[Profile]:
-        """Get profiles with capability.
+        Returns:
+            List of profile IDs
+        """
+        return list(self._profiles.keys())
         
-        Args:
-            capability: Capability to check
+    async def _initialize(self) -> None:
+        """Initialize manager."""
+        if self._event_bus:
+            await self._event_bus.initialize()
             
-        Returns:
-            List of profiles with capability
-        """
-        return [
-            profile for profile in self._profiles.values()
-            if profile.has_capability(capability)
-        ]
-        
-    def get_profiles_with_goal(self, goal: str) -> List[Profile]:
-        """Get profiles with goal.
-        
-        Args:
-            goal: Goal to check
+        if self._monitor:
+            await self._monitor.initialize()
             
-        Returns:
-            List of profiles with goal
-        """
-        return [
-            profile for profile in self._profiles.values()
-            if goal in profile.goals
-        ]
-        
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert profile manager to dictionary.
-        
-        Returns:
-            Profile manager as dictionary
-        """
-        return {
-            "name": self.name,
-            "profiles": {
-                name: profile.to_dict()
-                for name, profile in self._profiles.items()
-            },
-            "config": self._config,
-        }
-        
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProfileManager":
-        """Create profile manager from dictionary.
-        
-        Args:
-            data: Profile manager data
+    async def _cleanup(self) -> None:
+        """Clean up manager."""
+        async with self._lock:
+            for profile in self._profiles.values():
+                await profile.cleanup()
+                
+            self._profiles.clear()
             
-        Returns:
-            Profile manager instance
-        """
-        profiles = {
-            name: Profile.from_dict(profile_data)
-            for name, profile_data in data.get("profiles", {}).items()
-        }
-        
-        return cls(
-            name=data["name"],
-            profiles=profiles,
-            config=data.get("config"),
-        )
-        
+            if self._monitor:
+                await self._monitor.cleanup()
+                
+            if self._event_bus:
+                await self._event_bus.cleanup()
+                
     def validate(self) -> None:
-        """Validate profile manager state."""
+        """Validate manager state."""
         super().validate()
         
         if not self.name:
-            raise ValueError("Profile manager name cannot be empty")
+            raise ManagerError("Empty manager name")
+            
+        if self._event_bus:
+            self._event_bus.validate()
+            
+        if self._monitor:
+            self._monitor.validate()
             
         for profile in self._profiles.values():
-            profile.validate() 
+            try:
+                profile.validate()
+            except Exception as e:
+                raise ManagerError(f"Profile validation failed: {e}") 

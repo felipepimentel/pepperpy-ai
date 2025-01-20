@@ -1,9 +1,23 @@
-"""Orchestrator module for Pepperpy."""
+"""Orchestrator module for managing AI components.
 
-from .base import Orchestrator, OrchestratorError
+This module provides functionality for orchestrating AI components,
+including task scheduling, resource management, and error handling.
+"""
 
+from .task import (
+    TaskError,
+    TaskStatus,
+    Task,
+)
+from .orchestrator import (
+    OrchestratorError,
+    Orchestrator,
+)
 
 __all__ = [
-    "Orchestrator",
+    "TaskError",
+    "TaskStatus",
+    "Task",
     "OrchestratorError",
+    "Orchestrator",
 ]

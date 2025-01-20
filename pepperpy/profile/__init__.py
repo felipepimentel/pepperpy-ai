@@ -1,11 +1,21 @@
-"""Profile module for Pepperpy."""
+"""Profile module for managing AI profiles.
 
-from .base import Profile, ProfileError
-from .manager import ProfileManager
+This module provides functionality for managing AI profiles,
+including preferences, settings, history tracking, and persistence.
+"""
 
+from .profile import (
+    ProfileError,
+    Profile,
+)
+from .manager import (
+    ManagerError,
+    ProfileManager,
+)
 
 __all__ = [
-    "Profile",
     "ProfileError",
+    "Profile",
+    "ManagerError",
     "ProfileManager",
 ]

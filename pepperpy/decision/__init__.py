@@ -1,45 +1,33 @@
-"""Decision module for Pepperpy."""
+"""Decision module for managing decision making.
 
-from .engine.core import Decision, DecisionEngine, DecisionError, Policy
-from .engine.policy import (
-    CompositePolicy,
-    PrioritizedPolicy,
-    RuleBasedPolicy,
-)
-from .criteria.evaluator import (
-    Criterion,
+This module provides functionality for making decisions based on various
+strategies and criteria, including validation and composition.
+"""
+
+from .criteria import (
     CriteriaError,
-    CriteriaEvaluator,
+    DecisionCriteria,
+    CompositeCriteria,
 )
-from .criteria.rules import (
-    Rule,
-    RuleError,
-    RuleCriterion,
-    ActionRule,
-    ConfidenceRule,
-    MetadataRule,
+from .strategy import (
+    StrategyError,
+    DecisionStrategy,
+    CompositeStrategy,
 )
-
+from .decision_maker import (
+    DecisionError,
+    Decision,
+    DecisionMaker,
+)
 
 __all__ = [
-    # Core components
-    "Decision",
-    "DecisionEngine",
-    "DecisionError",
-    "Policy",
-    # Policy implementations
-    "CompositePolicy",
-    "PrioritizedPolicy",
-    "RuleBasedPolicy",
-    # Criteria components
-    "Criterion",
     "CriteriaError",
-    "CriteriaEvaluator",
-    # Rule components
-    "Rule",
-    "RuleError",
-    "RuleCriterion",
-    "ActionRule",
-    "ConfidenceRule",
-    "MetadataRule",
+    "DecisionCriteria",
+    "CompositeCriteria",
+    "StrategyError",
+    "DecisionStrategy",
+    "CompositeStrategy",
+    "DecisionError",
+    "Decision",
+    "DecisionMaker",
 ]

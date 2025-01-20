@@ -1,12 +1,15 @@
-"""Data processing module for transformation and validation."""
+"""Processing module for data transformation and validation.
 
-from .transformer import Transformer, TextTransformer
-from .validator import Validator, TextValidator, ValidationResult
+This module provides functionality for transforming and validating data
+before it is processed by the system.
+"""
+
+from .transformer import DataTransformer, TransformationError
+from .validator import DataValidator, ValidationError
 
 __all__ = [
-    "Transformer",
-    "TextTransformer",
-    "Validator",
-    "TextValidator",
-    "ValidationResult",
-]
+    "DataTransformer",
+    "TransformationError",
+    "DataValidator",
+    "ValidationError",
+] 

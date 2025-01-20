@@ -1,26 +1,27 @@
-"""Agents module for Pepperpy."""
+"""Agents module for managing AI agents.
 
-from .base.base_agent import BaseAgent
-from .base.interfaces import (
-    Tool,
-    Message,
+This module provides the base agent implementation and interfaces for creating
+and managing AI agents. It handles agent configurations, types, and lifecycle
+services.
+"""
+
+from .agent import BaseAgent, AgentError
+from .interfaces import (
+    AgentInterface,
+    AgentConfig,
     AgentState,
-    AgentMemory,
-    AgentObserver,
+    AgentContext,
+    AgentResponse,
 )
-from .react.react_agent import ReActAgent
-from .cot.cot_agent import CoTAgent
-
 
 __all__ = [
-    # Base components
+    # Base agent
     "BaseAgent",
-    "Tool",
-    "Message",
+    "AgentError",
+    # Interfaces
+    "AgentInterface",
+    "AgentConfig",
     "AgentState",
-    "AgentMemory",
-    "AgentObserver",
-    # Agent implementations
-    "ReActAgent",
-    "CoTAgent",
+    "AgentContext",
+    "AgentResponse",
 ]
