@@ -1,6 +1,46 @@
-"""PepperPy package initialization."""
+"""Pepperpy: A modular and extensible framework for scalable AI systems."""
 
-from pepperpy.main import PepperPy
+from importlib import metadata
 
-__version__ = "0.1.0"
-__all__ = ["PepperPy"]
+try:
+    __version__ = metadata.version("pepperpy")
+except metadata.PackageNotFoundError:
+    __version__ = "0.0.0"
+
+from . import (
+    agents,
+    common,
+    context,
+    data,
+    decision,
+    events,
+    learning,
+    lifecycle,
+    memory,
+    monitoring,
+    orchestrator,
+    profile,
+    reasoning,
+    runtime,
+    security,
+    tools,
+)
+
+__all__ = [
+    "agents",
+    "common",
+    "context",
+    "data",
+    "decision",
+    "events",
+    "learning",
+    "lifecycle",
+    "memory",
+    "monitoring",
+    "orchestrator",
+    "profile",
+    "reasoning",
+    "runtime",
+    "security",
+    "tools",
+]

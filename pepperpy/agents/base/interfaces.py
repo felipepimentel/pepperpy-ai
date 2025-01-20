@@ -1,160 +1,170 @@
-"""Agent interfaces and data structures."""
+"""Agent interfaces and abstractions."""
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, TypedDict
+import abc
+import enum
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
-
-class AgentConfig(TypedDict, total=False):
-    """Agent configuration type.
-
-    Required fields:
-    - agent_id: Unique identifier for the agent
-    - model_name: Name of the model to use
-
-    Optional fields:
-    - temperature: Sampling temperature (default: 0.7)
-    - max_tokens: Maximum tokens to generate (default: 1000)
-    - stop_sequences: List of sequences to stop generation (default: [])
-    - model_kwargs: Additional model-specific parameters
-    """
-
-    agent_id: str
-    model_name: str
-    temperature: float
-    max_tokens: int
-    stop_sequences: list[str]
-    model_kwargs: dict[str, Any]
+from ...core.lifecycle import Lifecycle
 
 
-@dataclass
-class AgentAction:
-    """Action taken by an agent.
-
-    Attributes:
-        name: Name of the action
-        args: Arguments for the action
-        confidence: Confidence score (0-1)
-        timestamp: When the action was created
-        metadata: Additional action metadata
-    """
-
-    name: str
-    args: dict[str, Any]
-    confidence: float = 1.0
-    timestamp: datetime = field(default_factory=datetime.now)
-    metadata: dict[str, Any] = field(default_factory=dict)
+class AgentState(enum.Enum):
+    """Agent state enumeration."""
+    
+    IDLE = "idle"
+    READY = "ready"
+    PROCESSING = "processing"
+    ERROR = "error"
 
 
-@dataclass
-class AgentResponse:
-    """Response from an agent.
-
-    Attributes:
-        response: Main response text
-        thought_process: List of thoughts leading to response
-        actions: List of actions taken
-        error: Error message if processing failed
-        metadata: Additional response metadata
-    """
-
-    response: str
-    thought_process: list[str]
-    actions: list[AgentAction]
-    error: str | None = None
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class AgentMemory:
-    """Memory entry for an agent.
-
-    Attributes:
-        content: Memory content
-        source: Source of the memory
-        timestamp: When the memory was created
-        relevance: Relevance score (0-1)
-        metadata: Additional memory metadata
-    """
-
-    content: str
-    source: str
-    timestamp: datetime = field(default_factory=datetime.now)
-    relevance: float = 1.0
-    metadata: dict[str, Any] = field(default_factory=dict)
+@runtime_checkable
+class Tool(Protocol):
+    """Tool interface."""
+    
+    async def initialize(self) -> None:
+        """Initialize tool."""
+        ...
+        
+    async def cleanup(self) -> None:
+        """Clean up tool."""
+        ...
+        
+    async def execute(self, input_data: Any) -> Any:
+        """Execute tool.
+        
+        Args:
+            input_data: Input data
+            
+        Returns:
+            Execution result
+        """
+        ...
 
 
-@dataclass
-class AgentContext:
-    """Context for agent processing.
-
-    Attributes:
-        conversation_id: ID of current conversation
-        user_id: ID of current user
-        memories: Relevant memories
-        variables: Context variables
-        metadata: Additional context metadata
-    """
-
-    conversation_id: str
-    user_id: str
-    memories: list[AgentMemory] = field(default_factory=list)
-    variables: dict[str, Any] = field(default_factory=dict)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class AgentMetrics:
-    """Metrics for agent performance.
-
-    Attributes:
-        latency: Processing time in seconds
-        token_count: Number of tokens processed
-        memory_used: Memory usage in bytes
-        error_count: Number of errors encountered
-        metadata: Additional metrics
-    """
-
-    latency: float
-    token_count: int
-    memory_used: int
-    error_count: int = 0
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class AgentCapability:
-    """Capability offered by an agent.
-
-    Attributes:
-        name: Name of the capability
-        description: Description of what it does
-        parameters: Required parameters
-        examples: Usage examples
-        metadata: Additional capability metadata
-    """
-
-    name: str
-    description: str
-    parameters: dict[str, Any]
-    examples: list[dict[str, Any]]
-    metadata: dict[str, Any] = field(default_factory=dict)
+class Message:
+    """Message class."""
+    
+    def __init__(
+        self,
+        content: str,
+        role: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize message.
+        
+        Args:
+            content: Message content
+            role: Message role (e.g. user, assistant, system)
+            metadata: Optional message metadata
+        """
+        self.content = content
+        self.role = role
+        self.metadata = metadata or {}
+        
+    def __str__(self) -> str:
+        """Return string representation."""
+        return f"{self.role}: {self.content}"
+        
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary.
+        
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "content": self.content,
+            "role": self.role,
+            "metadata": self.metadata,
+        }
+        
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Message":
+        """Create from dictionary.
+        
+        Args:
+            data: Dictionary data
+            
+        Returns:
+            Message instance
+        """
+        return cls(
+            content=data["content"],
+            role=data["role"],
+            metadata=data.get("metadata"),
+        )
 
 
-@dataclass
-class AgentProfile:
-    """Profile of an agent's capabilities.
+class AgentMemory(Lifecycle):
+    """Agent memory interface."""
+    
+    async def add_message(self, message: Message) -> None:
+        """Add message to memory.
+        
+        Args:
+            message: Message to add
+        """
+        pass
+        
+    async def get_messages(
+        self,
+        limit: Optional[int] = None,
+        filters: Optional[Dict[str, Any]] = None,
+    ) -> List[Message]:
+        """Get messages from memory.
+        
+        Args:
+            limit: Optional message limit
+            filters: Optional message filters
+            
+        Returns:
+            List of messages
+        """
+        return []
+        
+    async def clear(self) -> None:
+        """Clear memory."""
+        pass
 
-    Attributes:
-        agent_id: Unique identifier
-        name: Display name
-        description: What the agent does
-        capabilities: List of capabilities
-        metadata: Additional profile metadata
-    """
 
-    agent_id: str
-    name: str
-    description: str
-    capabilities: list[AgentCapability]
-    metadata: dict[str, Any] = field(default_factory=dict)
+@runtime_checkable
+class AgentObserver(Protocol):
+    """Agent observer interface."""
+    
+    async def initialize(self) -> None:
+        """Initialize observer."""
+        ...
+        
+    async def cleanup(self) -> None:
+        """Clean up observer."""
+        ...
+        
+    async def on_message(self, message: Message) -> None:
+        """Handle message event.
+        
+        Args:
+            message: Message event
+        """
+        ...
+        
+    async def on_process_start(self, input_data: Any) -> None:
+        """Handle process start event.
+        
+        Args:
+            input_data: Input data
+        """
+        ...
+        
+    async def on_process_end(self, result: Any) -> None:
+        """Handle process end event.
+        
+        Args:
+            result: Process result
+        """
+        ...
+        
+    async def on_error(self, error: Exception) -> None:
+        """Handle error event.
+        
+        Args:
+            error: Error event
+        """
+        ...

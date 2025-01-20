@@ -1,5 +1,11 @@
-"""Tools module initialization."""
+"""Tools module for Pepperpy."""
 
-from pepperpy.tools.tool import Tool
+from .base import Tool, ToolError
+from .manager import ToolManager
 
-__all__ = ["Tool"]
+
+__all__ = [
+    "Tool",
+    "ToolError",
+    "ToolManager",
+]

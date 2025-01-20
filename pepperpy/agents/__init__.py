@@ -1,5 +1,26 @@
-"""Agent module initialization."""
+"""Agents module for Pepperpy."""
 
-from pepperpy.agents.base.base_agent import BaseAgent
+from .base.base_agent import BaseAgent
+from .base.interfaces import (
+    Tool,
+    Message,
+    AgentState,
+    AgentMemory,
+    AgentObserver,
+)
+from .react.react_agent import ReActAgent
+from .cot.cot_agent import CoTAgent
 
-__all__ = ["BaseAgent"]
+
+__all__ = [
+    # Base components
+    "BaseAgent",
+    "Tool",
+    "Message",
+    "AgentState",
+    "AgentMemory",
+    "AgentObserver",
+    # Agent implementations
+    "ReActAgent",
+    "CoTAgent",
+]
