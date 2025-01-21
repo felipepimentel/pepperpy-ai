@@ -108,6 +108,17 @@ Workflow steps:
 
 ---
 
+## Validation Rules for Task Consistency
+### TASK_VALIDATION:
+- Ensure task IDs in `@docs/status.md` match corresponding files in `@docs/tasks/`.
+- For missing tasks:
+  - STOP and notify the user.
+  - Recommend creating a new task file using the provided template.
+- For orphaned task files (not referenced in `@docs/status.md`):
+  - STOP and request confirmation for archival or deletion.
+
+---
+
 ## **Pull Requests and Code Reviews**
 
 ### **REVIEW_RULES:**
