@@ -1,4 +1,18 @@
-pepperpy/                              
+---
+type: "project-structure"
+scope: "Pepperpy Project"
+version: "1.0"
+---
+
+# Pepperpy Project Structure
+
+## Overview
+This document outlines the complete structure of the Pepperpy project, organized for modularity, scalability, and clarity.
+
+## Directory Structure
+
+```plaintext
+pepperpy/                                
 ├── agents/                            # Core agent functionality
 │   ├── __init__.py
 │   ├── base/                          # Base agent definitions
@@ -13,7 +27,7 @@ pepperpy/
 │   │   └── registry.py                # Agent registry
 │   ├── specialized/                   # Specialized agent types
 │   │   ├── __init__.py
-│   │   ├── dev_agent.py              # Developer agent
+│   │   ├── dev_agent.py               # Developer agent
 │   │   └── research_agent.py          # Research agent
 │   └── service.py                     # Agent services
 │
@@ -51,12 +65,6 @@ pepperpy/
 │       ├── errors.py                 # Error handling
 │       ├── logger.py                 # Logging system
 │       └── helpers.py                # Utility functions
-│
-├── composition/                       # Capability composition
-│   ├── __init__.py
-│   ├── composer.py                    # Composition orchestrator
-│   ├── resolver.py                    # Dependency resolver
-│   └── validator.py                   # Composition validator
 │
 ├── decision/                         # Decision making
 │   ├── __init__.py
@@ -103,21 +111,6 @@ pepperpy/
 │       ├── __init__.py
 │       ├── manager.py                # Example handling
 │       └── store.py                  # Example storage
-│
-├── memory/                           # Memory system
-│   ├── __init__.py
-│   ├── distributed/                  # Distributed memory
-│   │   ├── __init__.py
-│   │   ├── cache_manager.py          # Cache management
-│   │   └── sharded_memory.py         # Memory sharding
-│   ├── long_term/                    # Long-term memory
-│   │   ├── __init__.py
-│   │   ├── retriever.py              # Data retrieval
-│   │   └── storage.py                # Storage management
-│   └── short_term/                   # Short-term memory
-│       ├── __init__.py
-│       ├── context.py                # Context memory
-│       └── session.py                # Session management
 │
 ├── middleware/                       # Middleware system
 │   ├── __init__.py
@@ -201,59 +194,6 @@ pepperpy/
 │           ├── milvus.py            # Milvus implementation
 │           └── pinecone.py          # Pinecone implementation
 │
-├── reasoning/                        # Reasoning systems
-│   ├── __init__.py
-│   ├── evaluation/                   # Framework evaluation
-│   │   ├── __init__.py
-│   │   ├── analyzer.py               # Analysis tools
-│   │   └── metrics.py                # Evaluation metrics
-│   └── frameworks/                   # Framework implementations
-│       ├── __init__.py
-│       ├── cot/                      # Chain of Thought
-│       │   ├── __init__.py
-│       │   └── core.py               # CoT core implementation
-│       ├── react/                    # ReAct framework
-│       │   ├── __init__.py
-│       │   └── core.py               # ReAct core implementation
-│       └── tot/                      # Tree of Thoughts
-│           ├── __init__.py
-│           └── core.py               # ToT core implementation
-│
-├── security/                         # Security features
-│   ├── __init__.py
-│   ├── audit/                        # Security audit
-│   │   ├── __init__.py
-│   │   ├── checker.py                # Compliance checking
-│   │   └── logger.py                 # Audit logging
-│   ├── content_filter.py             # Content filtering
-│   ├── permission_manager.py         # Permissions
-│   └── rate_limiter.py               # Rate limiting
-│
-├── strategies/                       # Strategy management
-│   ├── __init__.py
-│   └── resolver/                     # Strategy resolution
-│       ├── __init__.py
-│       ├── learning/                 # Learning strategies
-│       │   ├── __init__.py
-│       │   ├── fine_tuning.py        # Fine-tuning strategy
-│       │   ├── in_context.py         # In-context learning
-│       │   ├── rag/                  # RAG workflows
-│       │   │   ├── __init__.py
-│       │   │   ├── evaluator.py      # RAG evaluation
-│       │   │   ├── pipeline.py       # RAG pipeline
-│       │   │   └── retriever.py      # Content retrieval
-│       │   └── retrieval.py          # Retrieval learning
-│       ├── providers/                # Provider strategies
-│       │   ├── __init__.py
-│       │   ├── llm.py                # LLM selection
-│       │   ├── memory.py             # Memory selection
-│       │   └── vector.py             # Vector store selection
-│       └── reasoning/                # Reasoning strategies
-│           ├── __init__.py
-│           ├── cot.py                # Chain of Thought selection
-│           ├── react.py              # ReAct selection
-│           └── tot.py                # Tree of Thoughts selection
-│
 └── validation/                       # Validation system
     ├── __init__.py
     ├── rules/                        # Validation rules
@@ -264,3 +204,5 @@ pepperpy/
         ├── __init__.py
         ├── input.py                  # Input validation
         └── output.py                 # Output validation
+```
+

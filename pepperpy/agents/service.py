@@ -1,12 +1,16 @@
 """Agent service functionality."""
-
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from pepperpy.common.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 from .agent import Agent
 from .config import AgentConfig
+from .base import BaseAgent
+from .factory import AgentFactory
+
+logger = logging.getLogger(__name__)
 
 
 class ServiceError(PepperpyError):
@@ -25,14 +29,19 @@ class AgentService(Lifecycle, ABC):
         """
         super().__init__()
         self.name = name
-        self._agents: Dict[str, Agent] = {}
+        self._agents: Dict[str, BaseAgent] = {}
+        self._factory = AgentFactory()
         
     @property
-    def agents(self) -> Dict[str, Agent]:
-        """Get registered agents."""
+    def agents(self) -> Dict[str, BaseAgent]:
+        """Get registered agents.
+        
+        Returns:
+            Dictionary of agent name to agent instance.
+        """
         return self._agents
         
-    async def register_agent(self, agent: Agent) -> None:
+    async def register_agent(self, agent: BaseAgent) -> None:
         """Register agent with service.
         
         Args:
@@ -93,4 +102,128 @@ class AgentService(Lifecycle, ABC):
         super().validate()
         
         if not self.name:
-            raise ValueError("Service name cannot be empty") 
+            raise ValueError("Service name cannot be empty")
+
+    async def create_agent(
+        self,
+        name: str,
+        agent_type: str,
+        config: Dict[str, Any]
+    ) -> BaseAgent:
+        """Create and register a new agent.
+        
+        Args:
+            name: Name for the new agent.
+            agent_type: Type of agent to create.
+            config: Agent configuration.
+            
+        Returns:
+            Created agent instance.
+            
+        Raises:
+            ValueError: If agent name already exists or creation fails.
+        """
+        if name in self._agents:
+            raise ValueError(f"Agent already exists: {name}")
+            
+        try:
+            # Create agent
+            agent = self._factory.create_agent(agent_type, config)
+            
+            # Initialize agent
+            if not await agent.initialize():
+                raise ValueError("Failed to initialize agent")
+                
+            # Register agent
+            self._agents[name] = agent
+            logger.info(f"Created agent '{name}' of type '{agent_type}'")
+            
+            return agent
+            
+        except Exception as e:
+            logger.error(f"Failed to create agent: {str(e)}")
+            raise ValueError(f"Failed to create agent: {str(e)}")
+    
+    async def get_agent(self, name: str) -> BaseAgent:
+        """Get a registered agent.
+        
+        Args:
+            name: Agent name.
+            
+        Returns:
+            Agent instance.
+            
+        Raises:
+            ValueError: If agent not found.
+        """
+        if name not in self._agents:
+            raise ValueError(f"Agent not found: {name}")
+            
+        return self._agents[name]
+    
+    async def delete_agent(self, name: str) -> None:
+        """Delete a registered agent.
+        
+        Args:
+            name: Agent name.
+            
+        Raises:
+            ValueError: If agent not found.
+        """
+        if name not in self._agents:
+            raise ValueError(f"Agent not found: {name}")
+            
+        try:
+            # Clean up agent
+            agent = self._agents[name]
+            await agent.cleanup()
+            
+            # Remove from registry
+            del self._agents[name]
+            logger.info(f"Deleted agent '{name}'")
+            
+        except Exception as e:
+            logger.error(f"Failed to delete agent: {str(e)}")
+            raise ValueError(f"Failed to delete agent: {str(e)}")
+    
+    async def process(
+        self,
+        name: str,
+        input_data: Any,
+        **kwargs: Any
+    ) -> Any:
+        """Process input with an agent.
+        
+        Args:
+            name: Agent name.
+            input_data: Input data to process.
+            **kwargs: Additional processing arguments.
+            
+        Returns:
+            Processing result.
+            
+        Raises:
+            ValueError: If agent not found or processing fails.
+        """
+        if name not in self._agents:
+            raise ValueError(f"Agent not found: {name}")
+            
+        try:
+            agent = self._agents[name]
+            return await agent.process(input_data, **kwargs)
+            
+        except Exception as e:
+            logger.error(f"Failed to process input: {str(e)}")
+            raise ValueError(f"Failed to process input: {str(e)}")
+    
+    async def cleanup(self) -> None:
+        """Clean up all agents."""
+        for name, agent in list(self._agents.items()):
+            try:
+                await agent.cleanup()
+                del self._agents[name]
+                logger.info(f"Cleaned up agent '{name}'")
+                
+            except Exception as e:
+                logger.error(f"Failed to clean up agent '{name}': {str(e)}")
+                # Continue cleaning up other agents 

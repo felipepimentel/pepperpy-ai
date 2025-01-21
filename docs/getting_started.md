@@ -1,62 +1,136 @@
-# Getting Started with PepperPy AI
-
-This guide will help you get started with PepperPy AI, from installation to basic usage.
+# Getting Started
 
 ## Installation
 
-PepperPy AI can be installed using Poetry:
-
 ```bash
-poetry add pepperpy-ai
-```
-
-To install with all optional dependencies:
-
-```bash
-poetry add "pepperpy-ai[providers]"
+pip install pepperpy
 ```
 
 ## Quick Start
 
-Here's a simple example to get you started:
+### Basic Chat Agent
 
 ```python
-from pepperpy.client import PepperPyAI
-from pepperpy.config import Config
+from pepperpy.agents import AgentService
 
+# Create service
+service = AgentService("my_service")
+
+# Configure chat agent
+config = {
+    "name": "chat_agent",
+    "description": "Basic chat agent",
+    "llm_provider": {
+        "type": "openrouter",
+        "parameters": {
+            "model": "gpt-3.5-turbo",
+            "api_key": "your_api_key"
+        }
+    }
+}
+
+# Create and use agent
 async def main():
-    # Initialize the client
-    config = Config()
-    client = PepperPyAI(config)
-    
-    # Use the client
-    result = await client.process_request("Your request here")
-    print(result)
-
+    agent = await service.create_agent("chat", config)
+    response = await service.process("chat_agent", "Hello!")
+    print(response)
+    await service.cleanup()
 ```
 
-## Basic Configuration
-
-PepperPy AI can be configured through environment variables or programmatically:
+### RAG-Enabled Agent
 
 ```python
-from pepperpy.config import Config
+# Configure RAG agent
+config = {
+    "name": "rag_agent",
+    "description": "Document-aware agent",
+    "llm_provider": {
+        "type": "openrouter",
+        "parameters": {
+            "model": "gpt-3.5-turbo",
+            "api_key": "your_api_key"
+        }
+    },
+    "vector_store_provider": {
+        "type": "faiss",
+        "parameters": {
+            "dimension": 768
+        }
+    },
+    "embedding_provider": {
+        "type": "sentence_transformers",
+        "parameters": {
+            "model": "all-MiniLM-L6-v2"
+        }
+    }
+}
 
-config = Config(
-    provider="openai",  # or "anthropic"
-    api_key="your-api-key",
-    cache_enabled=True,
-)
+# Create and use agent
+async def main():
+    agent = await service.create_agent("rag", config)
+    
+    # Add documents
+    documents = [
+        "Document 1 content",
+        "Document 2 content"
+    ]
+    await service.process("rag_agent", "add_documents", documents=documents)
+    
+    # Query documents
+    response = await service.process(
+        "rag_agent",
+        "What do the documents say?",
+        use_context=True
+    )
+    print(response)
+    
+    await service.cleanup()
 ```
 
-### Environment Variables
+## Configuration
 
-- `PEPPERPY_PROVIDER`: The AI provider to use
-- `PEPPERPY_API_KEY`: Your API key
-- `PEPPERPY_CACHE_ENABLED`: Enable/disable caching
+### Provider Types
+
+1. **LLM Providers**
+   - `openrouter`: OpenRouter API
+   - `huggingface`: HuggingFace models
+
+2. **Vector Store Providers**
+   - `faiss`: FAISS vector store
+   - `qdrant`: Qdrant vector database
+
+3. **Embedding Providers**
+   - `sentence_transformers`: Local embeddings
+   - `openai`: OpenAI embeddings
+
+### Agent Types
+
+1. **Chat Agent**
+   - Basic conversation
+   - Memory management
+   - Required: LLM provider
+
+2. **RAG Agent**
+   - Document retrieval
+   - Context augmentation
+   - Required: LLM, vector store, embedding providers
+
+## Error Handling
+
+```python
+from pepperpy.common.errors import PepperpyError
+
+try:
+    agent = await service.create_agent("chat", config)
+    response = await service.process("chat_agent", "Hello!")
+except PepperpyError as e:
+    print(f"Error: {str(e)}")
+finally:
+    await service.cleanup()
+```
 
 ## Next Steps
 
-- Explore the [Core Concepts](./core_concepts.md) to understand the architecture
-- Check out the [Examples](./examples/index.md) for more use cases
-- Read the [API Reference](./api_reference/index.md) for detailed information 
+1. Read the [Core Concepts](core_concepts.md) guide
+2. Check out the [Technical Documentation](technical.md)
+3. Explore [Example Projects](examples/) 

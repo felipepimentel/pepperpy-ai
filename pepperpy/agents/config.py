@@ -12,11 +12,10 @@ class ConfigError(PepperpyError):
 
 
 @dataclass
-class AgentCapabilityConfig:
-    """Agent capability configuration."""
+class ProviderConfig:
+    """Provider configuration."""
     
-    name: str
-    description: str
+    type: str
     parameters: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
@@ -51,7 +50,10 @@ class AgentConfig:
     
     name: str
     description: str
-    capabilities: List[AgentCapabilityConfig]
+    llm_provider: ProviderConfig
+    vector_store_provider: Optional[ProviderConfig] = None
+    embedding_provider: Optional[ProviderConfig] = None
+    memory_provider: Optional[ProviderConfig] = None
     state: AgentStateConfig = field(default_factory=AgentStateConfig)
     parameters: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -68,8 +70,11 @@ class AgentConfig:
         if not self.description:
             raise ConfigError("Agent description cannot be empty")
             
-        if not self.capabilities:
-            raise ConfigError("Agent must have at least one capability")
+        if not self.llm_provider:
+            raise ConfigError("Agent must have an LLM provider")
+            
+        if not self.llm_provider.type:
+            raise ConfigError("LLM provider type cannot be empty")
             
         # Validate state configuration
         if self.state.initial_state not in self.state.valid_states:
@@ -90,7 +95,7 @@ class AgentConfig:
 
 __all__ = [
     "ConfigError",
-    "AgentCapabilityConfig",
+    "ProviderConfig",
     "AgentStateConfig",
     "AgentConfig",
 ] 

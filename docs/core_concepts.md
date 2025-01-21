@@ -1,95 +1,178 @@
 # Core Concepts
 
-This document explains the core concepts and architecture of PepperPy AI.
-
-## Architecture Overview
-
-PepperPy AI follows a modular architecture with several key components:
-
-```
-pepperpy/
-├── agents/      # AI agents implementation
-├── base/        # Base classes and interfaces
-├── chat/        # Chat-related functionality
-├── config/      # Configuration management
-├── core/        # Core functionality
-├── embeddings/  # Text embedding features
-├── llm/         # Language model integrations
-├── providers/   # AI provider implementations
-└── network/     # Network communication
-```
+## Overview
+Pepperpy is a modular and extensible framework for building AI systems. It provides a flexible architecture based on providers and agents, allowing for easy integration of different AI capabilities.
 
 ## Key Components
 
-### 1. Agents
+### Providers
+Providers are the building blocks of Pepperpy, offering standardized interfaces for different functionalities:
 
-Agents are the core building blocks that handle AI interactions. They implement specific behaviors and can be customized for different use cases.
+1. **LLM Providers**
+   - Handle interactions with language models
+   - Support both API-based and local models
+   - Manage streaming and batched responses
+   - Example: OpenRouter, HuggingFace
 
-### 2. Providers
+2. **Vector Store Providers**
+   - Manage vector storage and retrieval
+   - Support similarity search operations
+   - Handle metadata and filtering
+   - Example: FAISS, Qdrant
 
-Providers abstract different AI services (OpenAI, Anthropic, etc.) behind a common interface. This allows for easy switching between providers while maintaining consistent behavior.
+3. **Embedding Providers**
+   - Generate text embeddings
+   - Support batched operations
+   - Handle different embedding models
+   - Example: SentenceTransformers, OpenAI
 
-### 3. Configuration
+4. **Memory Providers**
+   - Manage conversation history
+   - Support message filtering and search
+   - Handle state persistence
+   - Example: SQLite, Redis
 
-The configuration system allows for flexible setup through:
-- Environment variables
-- Configuration files
-- Programmatic configuration
+### Agents
+Agents are the high-level components that combine providers to create AI applications:
 
-### 4. Caching
+1. **Chat Agent**
+   - Basic conversation capabilities
+   - Memory management
+   - Message handling
 
-The caching system optimizes performance by:
-- Storing frequently used results
-- Reducing API calls
-- Managing cache invalidation
+2. **RAG Agent**
+   - Document retrieval
+   - Context augmentation
+   - Knowledge base integration
 
-### 5. Error Handling
+## Architecture
 
-Robust error handling is implemented through:
-- Custom exceptions
-- Error recovery mechanisms
-- Detailed error messages
+### Provider System
+The provider system follows these principles:
 
-## Design Principles
+1. **Registration**
+   - Providers register with a central registry
+   - Dynamic provider discovery
+   - Type-safe provider access
 
-1. **Async-First**
-   - All I/O operations are async
-   - Efficient resource utilization
-   - Non-blocking operations
+2. **Configuration**
+   - Standardized configuration structure
+   - Provider-specific parameters
+   - Metadata support
 
-2. **Type Safety**
-   - Comprehensive type hints
-   - Runtime type checking
-   - MyPy compatibility
+3. **Lifecycle**
+   - Initialization and cleanup
+   - Resource management
+   - Error handling
 
-3. **Modularity**
-   - Loose coupling
-   - High cohesion
-   - Easy extensibility
+### Agent Service
+The agent service manages agent lifecycle:
 
-4. **Security**
-   - Secure by default
-   - API key management
-   - Input validation
+1. **Creation**
+   - Factory-based agent creation
+   - Configuration validation
+   - Provider initialization
 
-5. **Performance**
-   - Efficient resource usage
-   - Caching mechanisms
-   - Optimized network calls
+2. **Management**
+   - Agent registration
+   - State tracking
+   - Resource cleanup
 
 ## Best Practices
 
-1. **Configuration**
-   - Use environment variables for sensitive data
-   - Implement proper error handling
-   - Validate configuration values
+### Development
+1. **Type Safety**
+   - Use type hints consistently
+   - Validate input/output types
+   - Handle type conversions
 
 2. **Error Handling**
-   - Use custom exceptions
-   - Implement proper logging
-   - Handle edge cases
+   - Use specific error types
+   - Include context in errors
+   - Clean up on failure
 
-3. **Testing**
-   - Write comprehensive tests
-   - Mock external dependencies
-   - Use pytest fixtures 
+3. **Resource Management**
+   - Initialize resources properly
+   - Clean up after use
+   - Handle cleanup failures
+
+### Configuration
+1. **Provider Config**
+   ```python
+   provider_config = {
+       "type": "provider_type",
+       "parameters": {
+           "key1": "value1",
+           "key2": "value2"
+       },
+       "metadata": {
+           "meta1": "value1"
+       }
+   }
+   ```
+
+2. **Agent Config**
+   ```python
+   agent_config = {
+       "name": "agent_name",
+       "description": "agent_description",
+       "llm_provider": provider_config,
+       "vector_store_provider": provider_config,  # Optional
+       "embedding_provider": provider_config,     # Optional
+       "memory_provider": provider_config,        # Optional
+       "parameters": {},
+       "metadata": {}
+   }
+   ```
+
+## Usage Patterns
+
+### Basic Usage
+```python
+# Create service
+service = AgentService("my_service")
+
+# Configure agent
+config = {
+    "name": "my_agent",
+    "description": "Example agent",
+    "llm_provider": {
+        "type": "openrouter",
+        "parameters": {"model": "gpt-3.5-turbo"}
+    }
+}
+
+# Create and use agent
+agent = await service.create_agent("chat", config)
+result = await service.process("my_agent", "Hello!")
+await service.cleanup()
+```
+
+### Advanced Usage
+```python
+# Configure RAG agent
+config = {
+    "name": "rag_agent",
+    "description": "RAG-enabled agent",
+    "llm_provider": {
+        "type": "openrouter",
+        "parameters": {"model": "gpt-3.5-turbo"}
+    },
+    "vector_store_provider": {
+        "type": "faiss",
+        "parameters": {"dimension": 768}
+    },
+    "embedding_provider": {
+        "type": "sentence_transformers",
+        "parameters": {"model": "all-MiniLM-L6-v2"}
+    }
+}
+
+# Create and use agent
+agent = await service.create_agent("rag", config)
+result = await service.process(
+    "rag_agent",
+    "Query documents",
+    documents=["doc1", "doc2"]
+)
+await service.cleanup() 

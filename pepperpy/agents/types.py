@@ -45,6 +45,11 @@ class AgentState(Protocol):
     def stopped(self) -> bool:
         """Get stopped status."""
         ...
+        
+    @property
+    def error(self) -> bool:
+        """Get error status."""
+        ...
 
 
 class AgentContext(Protocol):
@@ -56,13 +61,13 @@ class AgentContext(Protocol):
         ...
         
     @property
-    def config(self) -> AgentConfig:
-        """Get agent configuration."""
+    def metadata(self) -> Dict[str, Any]:
+        """Get context metadata."""
         ...
         
     @property
-    def metadata(self) -> Dict[str, Any]:
-        """Get context metadata."""
+    def parameters(self) -> Dict[str, Any]:
+        """Get context parameters."""
         ...
 
 

@@ -1,128 +1,153 @@
+---
+type: "cursorrules"
+scope: "Pepperpy Project"
+version: "1.4"
+dependencies:
+  - "docs/architecture.mermaid"
+  - "docs/project_structure.md"
+  - "docs/technical.md"
+  - "docs/tasks/tasks.md"
+---
+
 # Consolidated Cursor Rules
 
-## Project Context and Architecture
+## **Project Context and Architecture**
 
-### SYSTEM_CONTEXT:
-|  You are a senior developer working on the **Pepperpy** project, a modular and extensible framework designed for scalable AI systems.
-|  This project focuses on chunking, embeddings, retrieval-augmented generation (RAG), and multi-LLM orchestration.
-|  
-|  Required file reads on startup:
-|  - `docs/architecture.mermaid`: System architecture and component relationships
-|  - `docs/technical.md`: Technical specifications and patterns
-|  - `docs/tasks/tasks.md`: Current development tasks and requirements
-|  - `docs/status.md`: Project progress and state
-|
-|  Before making any changes:
-|  1. Parse and understand system architecture from `docs/architecture.mermaid`
-|  2. Check current task context from `docs/tasks/tasks.md`
-|  3. Update progress in `docs/status.md`
-|  4. Follow technical specifications from `docs/technical.md`
+### **SYSTEM_CONTEXT:**
+You are a senior developer working on the **Pepperpy** project, a modular and extensible framework designed for scalable AI systems. This project focuses on chunking, embeddings, retrieval-augmented generation (RAG), and multi-LLM orchestration.
+
+Required file reads on startup:
+- `docs/architecture.mermaid`: System architecture and component relationships.
+- `docs/technical.md`: Technical specifications and patterns.
+- `docs/project_structure.md`: Directory and module responsibilities.
+- `docs/tasks/tasks.md`: Current task definitions and priorities.
+
+Before making any changes:
+1. Parse and understand system architecture from `docs/architecture.mermaid`.
+2. Check current task context from `docs/tasks/tasks.md`.
+3. Follow technical specifications from `docs/technical.md`.
 
 ---
 
-## File Management Rules
+## **File Management Rules**
 
-### ON_FILE_CHANGE:
-|  Required actions after any code changes:
-|  1. READ `docs/architecture.mermaid` to verify architectural compliance
-|  2. UPDATE `docs/status.md` with:
-|     - Current progress
-|     - Any new issues encountered
-|     - Completed items
-|  3. VALIDATE changes against `docs/technical.md` specifications
-|  4. VERIFY task progress against `docs/tasks/tasks.md`
-
----
-
-## Architecture Understanding
-
-### READ_ARCHITECTURE:
-|  File: `docs/architecture.mermaid`
-|  Required parsing:
-|  1. Load and parse complete Mermaid diagram.
-|  2. Extract and understand:
-|     - Module boundaries and relationships
-|     - Data flow patterns
-|     - System interfaces
-|     - Component dependencies
-|  3. Validate any changes against architectural constraints.
-|  4. Ensure new code maintains defined separation of concerns.
-|
-|  Error handling:
-|  1. If file not found: STOP and notify user.
-|  2. If diagram parse fails: REQUEST clarification.
-|  3. If architectural violation detected: WARN user.
+### **ON_FILE_CHANGE:**
+Required actions after any code changes:
+1. READ `docs/project_structure.md` to ensure alignment with project structure and modularity principles.
+2. VERIFY compliance with `docs/technical.md` guidelines.
+3. VALIDATE changes against `docs/architecture.mermaid` to ensure architectural consistency.
+4. DOCUMENT task progress in `docs/tasks/<individual_task_files>.md`:
+   - Mark sub-tasks as complete.
+   - Log any deviations or blockers.
+5. Confirm task completion and outcomes within the respective task file.
 
 ---
 
-## Task Management
+## **Architecture Understanding**
 
-### TASK_WORKFLOW:
-|  Required files:
-|  - `docs/tasks/tasks.md`: Source of task definitions
-|  - `docs/status.md`: Progress tracking
-|  - `docs/technical.md`: Implementation guidelines
-|
-|  Workflow steps:
-|  1. READ `docs/tasks/tasks.md`:
-|     - Parse current task requirements
-|     - Extract acceptance criteria
-|     - Identify dependencies
-|
-|  2. VALIDATE against `docs/architecture.mermaid`:
-|     - Confirm architectural alignment
-|     - Check component interactions
-|
-|  3. UPDATE `docs/status.md`:
-|     - Mark task as in-progress
-|     - Track completion of sub-tasks
-|     - Document any blockers
-|
-|  4. IMPLEMENT following TDD:
-|     - Create test files first
-|     - Implement to pass tests
-|     - Update status on test completion
+### **READ_ARCHITECTURE:**
+File: `docs/architecture.mermaid`
+
+Required parsing:
+1. Load and parse complete Mermaid diagram.
+2. Extract and understand:
+   - Module boundaries and relationships.
+   - Data flow patterns.
+   - System interfaces.
+   - Component dependencies.
+3. Validate any changes against architectural constraints.
+4. Ensure new code maintains defined separation of concerns.
+
+Error handling:
+1. If file not found: STOP and notify user.
+2. If diagram parse fails: REQUEST clarification.
+3. If architectural violation detected: WARN user.
 
 ---
 
-## Documentation Updates
+## **Task Management**
 
-### DOCUMENTATION_RULES:
-|  - All public APIs must have docstrings.
-|  - Use Google-style docstring format.
-|  - Include type hints in docstrings.
-|  - Provide usage examples for complex functions.
-|  - Keep documentation up-to-date with code changes.
-|  - Evaluate if changes necessitate updates to the `/docs` directory.
-|  - Ensure all relevant documentation is updated and improved as needed.
+### **TASK_WORKFLOW:**
+Required files:
+- `docs/tasks/tasks.md`: Overview of high-level tasks.
+- `docs/tasks/<individual_task_files>.md`: Detailed task definitions.
+- `docs/technical.md`: Implementation guidelines.
 
----
-
-## Validation and Error Prevention
-
-### VALIDATION_RULES:
-|  1. Verify type consistency.
-|  2. Check for potential null/undefined values.
-|  3. Validate against business rules.
-|  4. Ensure robust error handling.
-
+Workflow steps:
+1. READ `docs/tasks/tasks.md` for high-level context.
+2. If task has a detailed file:
+   - READ `docs/tasks/<individual_task_file>.md` for task-specific requirements.
+3. VALIDATE against `docs/architecture.mermaid`:
+   - Confirm architectural alignment.
+   - Check component interactions.
+4. Ensure final validation criteria are met and updated in the task file before marking as complete.
 
 ---
 
-## Pull Requests and Code Reviews
+## **Documentation Updates**
 
-### REVIEW_RULES:
-|  - Ensure all pull requests include test coverage.
-|  - Verify documentation updates are included.
-|  - Check type consistency and error handling.
-|  - Ensure adherence to conventional commits.
+### **DOCUMENTATION_RULES:**
+- All public APIs must have docstrings.
+- Use Google-style docstring format.
+- Include type hints in docstrings.
+- Provide usage examples for complex functions.
+- Keep documentation up-to-date with code changes.
+- Evaluate if changes necessitate updates to the `/docs` directory.
+- Ensure all relevant documentation is updated and improved as needed.
 
 ---
 
-## Performance
+## **Validation and Error Prevention**
 
-### PERFORMANCE_GUIDELINES:
-|  - Use async operations where appropriate.
-|  - Implement caching for expensive operations.
-|  - Monitor and profile code for bottlenecks.
-|  - Optimize resource usage and implement proper cleanup.
+### **VALIDATION_RULES:**
+1. Verify type consistency.
+2. Check for potential null/undefined values.
+3. Validate against business rules.
+4. Ensure robust error handling.
+5. Confirm that all changes align with `docs/technical.md` and `docs/project_structure.md`.
+
+---
+
+## **Pull Requests and Code Reviews**
+
+### **REVIEW_RULES:**
+- Ensure all pull requests include test coverage.
+- Verify documentation updates are included.
+- Check type consistency and error handling.
+- Ensure adherence to conventional commits.
+- Confirm alignment with `docs/tasks/tasks.md` and individual task files.
+
+---
+
+## **Performance**
+
+### **PERFORMANCE_GUIDELINES:**
+- Use async operations where appropriate.
+- Implement caching for expensive operations.
+- Monitor and profile code for bottlenecks.
+- Optimize resource usage and implement proper cleanup.
+
+---
+
+## **Advanced Features (Optional Future Considerations)**
+
+### **ADVANCED_FEATURES:**
+- Incorporate a `Cross-Capability Dependency Resolver` to manage dependencies dynamically.
+- Develop an `Adaptive Middleware Pipeline` for context-aware processing.
+- Add a `Multi-Modal Memory Fusion` system for combining inputs across modalities.
+- Explore `Dynamic Agent Morphing` to allow runtime transformations of agents.
+- Build a `Cognitive Load Balancer` for optimal task distribution across agents.
+- Implement a `Continuous Compliance Checker` to monitor regulatory adherence.
+
+---
+
+## **Maintenance and Refactoring**
+
+### **MAINTENANCE_RULES:**
+- Review and refactor code regularly:
+  - Remove unused or deprecated modules.
+  - Consolidate duplicate logic.
+  - Align with `docs/technical.md` standards.
+- Update `docs/project_structure.md` after major refactorings.
+- Ensure all affected tasks in `docs/tasks/<individual_task_files>.md` are updated to reflect new structure or dependencies.
+- Log significant refactoring efforts within the respective task files.

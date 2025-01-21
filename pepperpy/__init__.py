@@ -1,46 +1,23 @@
-"""Pepperpy: A modular and extensible framework for scalable AI systems."""
+"""Pepperpy - A modular and extensible framework for scalable AI systems."""
 
-from importlib import metadata
+from .providers import ProviderRegistry
+from .providers.llm.base import BaseLLMProvider
+from .providers.vector_store.base import BaseVectorStoreProvider
+from .providers.embeddings.base import BaseEmbeddingProvider
+from .agents.base import BaseAgent
+from .agents.factory import AgentBuilder
+from .memory.interfaces import BaseMemory, ShortTermMemory, LongTermMemory
 
-try:
-    __version__ = metadata.version("pepperpy")
-except metadata.PackageNotFoundError:
-    __version__ = "0.0.0"
-
-from . import (
-    agents,
-    common,
-    context,
-    data,
-    decision,
-    events,
-    learning,
-    lifecycle,
-    memory,
-    monitoring,
-    orchestrator,
-    profile,
-    reasoning,
-    runtime,
-    security,
-    tools,
-)
+__version__ = "0.1.0"
 
 __all__ = [
-    "agents",
-    "common",
-    "context",
-    "data",
-    "decision",
-    "events",
-    "learning",
-    "lifecycle",
-    "memory",
-    "monitoring",
-    "orchestrator",
-    "profile",
-    "reasoning",
-    "runtime",
-    "security",
-    "tools",
+    "ProviderRegistry",
+    "BaseLLMProvider",
+    "BaseVectorStoreProvider",
+    "BaseEmbeddingProvider",
+    "BaseAgent",
+    "AgentBuilder",
+    "BaseMemory",
+    "ShortTermMemory",
+    "LongTermMemory",
 ]
