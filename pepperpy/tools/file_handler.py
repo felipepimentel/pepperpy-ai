@@ -5,24 +5,23 @@ including reading, writing, and validation.
 """
 
 import os
-from abc import ABC, abstractmethod
-from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
+import logging
+from datetime import datetime
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
-from pepperpy.security import Validator
+from ..core.errors import PepperpyError
+from ..core.events import Event, EventBus
+from ..interfaces import BaseProvider
+from ..monitoring import Monitor
 
+logger = logging.getLogger(__name__)
 
 class FileError(PepperpyError):
     """File error."""
     pass
 
-
-class FileHandler(Lifecycle):
+class FileHandler(BaseProvider):
     """File handler implementation."""
     
     def __init__(
@@ -33,7 +32,6 @@ class FileHandler(Lifecycle):
         max_size: Optional[int] = None,
         event_bus: Optional[EventBus] = None,
         monitor: Optional[Monitor] = None,
-        validator: Optional[Validator] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize handler.
@@ -45,19 +43,51 @@ class FileHandler(Lifecycle):
             max_size: Optional maximum file size in bytes
             event_bus: Optional event bus
             monitor: Optional monitor
-            validator: Optional validator
             config: Optional configuration
         """
-        super().__init__()
-        self.name = name
+        super().__init__(
+            name=name,
+            config=config,
+        )
         self._base_path = Path(base_path)
         self._allowed_extensions = allowed_extensions
         self._max_size = max_size
         self._event_bus = event_bus
         self._monitor = monitor
-        self._validator = validator
-        self._config = config or {}
         
+    async def _initialize_impl(self) -> None:
+        """Initialize implementation."""
+        if not self._base_path.is_dir():
+            raise FileError("Base directory not found")
+            
+        if self._event_bus:
+            await self._event_bus.initialize()
+            
+        if self._monitor:
+            await self._monitor.initialize()
+            
+    async def _cleanup_impl(self) -> None:
+        """Clean up implementation."""
+        if self._monitor:
+            await self._monitor.cleanup()
+            
+        if self._event_bus:
+            await self._event_bus.cleanup()
+            
+    def _validate_impl(self) -> None:
+        """Validate implementation."""
+        if not self._base_path:
+            raise FileError("Empty base path")
+            
+        if self._max_size is not None and self._max_size <= 0:
+            raise FileError("Invalid maximum file size")
+            
+        if self._event_bus:
+            self._event_bus.validate()
+            
+        if self._monitor:
+            self._monitor.validate()
+            
     def _validate_path(self, path: Union[str, Path]) -> Path:
         """Validate file path.
         
@@ -141,12 +171,6 @@ class FileHandler(Lifecycle):
             
             contents = path.read_bytes()
             
-            if self._validator:
-                try:
-                    self._validator.validate(contents)
-                except Exception as e:
-                    raise FileError(f"File validation failed: {e}")
-                    
             if self._event_bus:
                 await self._event_bus.publish(
                     Event(
@@ -185,12 +209,6 @@ class FileHandler(Lifecycle):
         self._validate_size(len(contents))
         
         try:
-            if self._validator:
-                try:
-                    self._validator.validate(contents)
-                except Exception as e:
-                    raise FileError(f"File validation failed: {e}")
-                    
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_bytes(contents)
             
@@ -302,51 +320,4 @@ class FileHandler(Lifecycle):
         except FileError:
             raise
         except Exception as e:
-            raise FileError(f"File listing failed: {e}")
-            
-    async def _initialize(self) -> None:
-        """Initialize handler."""
-        if not self._base_path.is_dir():
-            raise FileError("Base directory not found")
-            
-        if self._event_bus:
-            await self._event_bus.initialize()
-            
-        if self._monitor:
-            await self._monitor.initialize()
-            
-        if self._validator:
-            await self._validator.initialize()
-            
-    async def _cleanup(self) -> None:
-        """Clean up handler."""
-        if self._validator:
-            await self._validator.cleanup()
-            
-        if self._monitor:
-            await self._monitor.cleanup()
-            
-        if self._event_bus:
-            await self._event_bus.cleanup()
-            
-    def validate(self) -> None:
-        """Validate handler state."""
-        super().validate()
-        
-        if not self.name:
-            raise FileError("Empty handler name")
-            
-        if not self._base_path:
-            raise FileError("Empty base path")
-            
-        if self._max_size is not None and self._max_size <= 0:
-            raise FileError("Invalid maximum file size")
-            
-        if self._event_bus:
-            self._event_bus.validate()
-            
-        if self._monitor:
-            self._monitor.validate()
-            
-        if self._validator:
-            self._validator.validate() 
+            raise FileError(f"File listing failed: {e}") 

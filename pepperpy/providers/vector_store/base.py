@@ -1,10 +1,14 @@
-"""Base interface for vector store providers."""
+"""Base vector store provider implementation."""
+
+import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Type, TypeVar, ClassVar
+from typing import Any, Dict, Optional, Type, ClassVar
 
-T = TypeVar('T', bound='BaseVectorStoreProvider')
+from ...interfaces import VectorStoreProvider
 
-class BaseVectorStoreProvider(ABC):
+logger = logging.getLogger(__name__)
+
+class BaseVectorStoreProvider(ABC, VectorStoreProvider):
     """Base class for vector store providers."""
     
     _registry: ClassVar[Dict[str, Type['BaseVectorStoreProvider']]] = {}
@@ -19,7 +23,7 @@ class BaseVectorStoreProvider(ABC):
         Returns:
             Decorator function.
         """
-        def decorator(provider_cls: Type[T]) -> Type[T]:
+        def decorator(provider_cls: Type['BaseVectorStoreProvider']) -> Type['BaseVectorStoreProvider']:
             cls._registry[name] = provider_cls
             return provider_cls
         return decorator
@@ -42,22 +46,101 @@ class BaseVectorStoreProvider(ABC):
         return cls._registry[name]
     
     def __init__(self, config: Dict[str, Any]):
-        """Initialize the vector store provider.
+        """Initialize the provider.
         
         Args:
-            config: Configuration dictionary for the provider.
+            config: Provider configuration.
         """
         self.config = config
+        self.is_initialized = False
     
-    @abstractmethod
     async def initialize(self) -> None:
-        """Initialize provider resources."""
-        pass
+        """Initialize the provider.
+        
+        Raises:
+            ValueError: If initialization fails.
+        """
+        if self.is_initialized:
+            return
+            
+        try:
+            await self._initialize_impl()
+            self.is_initialized = True
+        except Exception as e:
+            logger.error(f"Failed to initialize provider: {str(e)}")
+            await self.cleanup()
+            raise ValueError(f"Provider initialization failed: {str(e)}")
     
-    @abstractmethod
     async def cleanup(self) -> None:
         """Clean up provider resources."""
-        pass
+        try:
+            await self._cleanup_impl()
+        finally:
+            self.is_initialized = False
+    
+    async def store(self, vectors: Dict[str, Any]) -> None:
+        """Store vectors.
+        
+        Args:
+            vectors: Vector data to store.
+            
+        Raises:
+            ValueError: If the provider is not initialized.
+        """
+        if not self.is_initialized:
+            raise ValueError("Provider not initialized")
+            
+        await self._store_impl(vectors)
+    
+    async def query(self, query: Any, **kwargs: Any) -> Dict[str, Any]:
+        """Query stored vectors.
+        
+        Args:
+            query: Query vector or parameters.
+            **kwargs: Additional query parameters.
+            
+        Returns:
+            Query results.
+            
+        Raises:
+            ValueError: If the provider is not initialized.
+        """
+        if not self.is_initialized:
+            raise ValueError("Provider not initialized")
+            
+        return await self._query_impl(query, **kwargs)
+    
+    @abstractmethod
+    async def _initialize_impl(self) -> None:
+        """Implementation-specific initialization."""
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def _cleanup_impl(self) -> None:
+        """Implementation-specific cleanup."""
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def _store_impl(self, vectors: Dict[str, Any]) -> None:
+        """Implementation-specific vector storage.
+        
+        Args:
+            vectors: Vector data to store.
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def _query_impl(self, query: Any, **kwargs: Any) -> Dict[str, Any]:
+        """Implementation-specific vector querying.
+        
+        Args:
+            query: Query vector or parameters.
+            **kwargs: Additional query parameters.
+            
+        Returns:
+            Query results.
+        """
+        raise NotImplementedError
     
     @abstractmethod
     async def add_vectors(

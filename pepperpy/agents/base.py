@@ -5,15 +5,18 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Type, TypeVar, ClassVar
 
-from ..providers.llm.base import BaseLLMProvider
-from ..providers.vector_store.base import BaseVectorStoreProvider
-from ..providers.embeddings.base import BaseEmbeddingProvider
+from ..interfaces import (
+    LLMProvider,
+    VectorStoreProvider,
+    EmbeddingProvider,
+    Provider,
+)
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar('T', bound='BaseAgent')
 
-class BaseAgent(ABC):
+class BaseAgent(ABC, Provider):
     """Base class for all agents."""
     
     _registry: ClassVar[Dict[str, Type['BaseAgent']]] = {}
@@ -52,9 +55,11 @@ class BaseAgent(ABC):
     
     def __init__(
         self,
-        llm: BaseLLMProvider,
+        llm: LLMProvider,
         capabilities: Dict[str, Any],
-        config: Dict[str, Any]
+        config: Dict[str, Any],
+        vector_store: Optional[VectorStoreProvider] = None,
+        embeddings: Optional[EmbeddingProvider] = None,
     ):
         """Initialize the agent.
         
@@ -62,6 +67,8 @@ class BaseAgent(ABC):
             llm: LLM provider instance.
             capabilities: Dictionary of agent capabilities.
             config: Agent configuration.
+            vector_store: Optional vector store provider.
+            embeddings: Optional embeddings provider.
         """
         self.llm = llm
         self.capabilities = capabilities
@@ -70,33 +77,17 @@ class BaseAgent(ABC):
         self.is_initialized = False
         
         # Optional providers
-        self.vector_store: Optional[BaseVectorStoreProvider] = None
-        self.embeddings: Optional[BaseEmbeddingProvider] = None
-        
-        # Initialize providers from capabilities
-        if "vector_store" in capabilities:
-            provider_name = capabilities["vector_store"]["provider"]
-            provider_config = capabilities["vector_store"]["config"]
-            provider_cls = BaseVectorStoreProvider.get_provider(provider_name)
-            self.vector_store = provider_cls(provider_config)
-            
-        if "embeddings" in capabilities:
-            provider_name = capabilities["embeddings"]["provider"]
-            provider_config = capabilities["embeddings"]["config"]
-            provider_cls = BaseEmbeddingProvider.get_provider(provider_name)
-            self.embeddings = provider_cls(provider_config)
+        self.vector_store = vector_store
+        self.embeddings = embeddings
     
-    async def initialize(self) -> bool:
+    async def initialize(self) -> None:
         """Initialize the agent and its capabilities.
         
-        Returns:
-            True if initialization was successful.
-            
         Raises:
             ValueError: If initialization fails.
         """
         if self.is_initialized:
-            return True
+            return
             
         try:
             # Initialize LLM provider
@@ -111,7 +102,6 @@ class BaseAgent(ABC):
                 await self.embeddings.initialize()
                 
             self.is_initialized = True
-            return True
             
         except Exception as e:
             logger.error(f"Failed to initialize agent: {str(e)}")

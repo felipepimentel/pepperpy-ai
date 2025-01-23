@@ -29,6 +29,8 @@ mypy = "^1.14.1"
 pytest-cov = "^6.0.0"
 pytest-mock = "^3.14.0"
 types-pyyaml = "^6.0.12.20241230"
+pydeps = "^3.0.0"
+pylint = "^3.3.3"
 
 [tool.poetry.extras]
 llms = ["anthropic", "openrouter"]

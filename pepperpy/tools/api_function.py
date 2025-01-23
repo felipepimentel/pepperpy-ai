@@ -1,261 +1,254 @@
 """API function implementation.
 
-This module provides functionality for defining and executing API functions,
-including parameter validation, error handling, and rate limiting.
+This module provides functionality for managing API functions,
+including parameter validation, rate limiting, and error handling.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Set, Union, TypeVar, Generic, Type
+from dataclasses import dataclass
+import logging
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
-from pepperpy.security import RateLimiter
-from pepperpy.security.validator import Validator
+from ..core.errors import PepperpyError
+from ..core.events import Event, EventBus
+from ..core.security import RateLimiter
+from ..interfaces import BaseProvider
+from ..monitoring import Monitor
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-
-class FunctionError(PepperpyError):
-    """Function error."""
+class APIFunctionError(PepperpyError):
+    """API function error."""
     pass
-
 
 @dataclass
 class Parameter:
     """Function parameter."""
     
     name: str
-    """Parameter name."""
-    
     type: Type[Any]
-    """Parameter type."""
-    
     description: str
-    """Parameter description."""
-    
     required: bool = True
-    """Whether parameter is required."""
-    
-    default: Optional[Any] = None
-    """Default parameter value."""
+    default: Any = None
     
     def validate(self, value: Any) -> None:
         """Validate parameter value.
         
         Args:
-            value: Parameter value
+            value: Parameter value to validate
             
         Raises:
-            FunctionError: If validation fails
+            APIFunctionError: If validation fails
         """
         if value is None:
             if self.required:
-                raise FunctionError(
+                raise APIFunctionError(
                     f"Missing required parameter: {self.name}"
                 )
             return
             
         if not isinstance(value, self.type):
-            raise FunctionError(
+            raise APIFunctionError(
                 f"Invalid type for parameter {self.name}: "
                 f"expected {self.type.__name__}, got {type(value).__name__}"
             )
 
-
-@dataclass
-class APIFunction(Lifecycle, ABC):
-    """API function interface."""
+class BaseAPIFunction(BaseProvider, Generic[T]):
+    """Base API function implementation."""
     
-    name: str
-    """Function name."""
-    
-    description: str
-    """Function description."""
-    
-    parameters: List[Parameter]
-    """Function parameters."""
-    
-    event_bus: Optional[EventBus] = None
-    """Optional event bus."""
-    
-    monitor: Optional[Monitor] = None
-    """Optional monitor."""
-    
-    rate_limiter: Optional[RateLimiter] = None
-    """Optional rate limiter."""
-    
-    validator: Optional[Validator] = None
-    """Optional validator."""
-    
-    config: Optional[Dict[str, Any]] = None
-    """Optional configuration."""
-    
-    def __post_init__(self) -> None:
-        """Initialize function."""
-        super().__init__()
-        self._config = self.config or {}
-        
-    def validate_parameters(self, params: Dict[str, Any]) -> None:
-        """Validate function parameters.
+    def __init__(
+        self,
+        name: str,
+        function: str,
+        parameters: Dict[str, Parameter],
+        rate_limiter: Optional[RateLimiter] = None,
+        event_bus: Optional[EventBus] = None,
+        monitor: Optional[Monitor] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize function.
         
         Args:
-            params: Parameter values
+            name: Function name
+            function: API function name
+            parameters: Function parameters
+            rate_limiter: Optional rate limiter
+            event_bus: Optional event bus
+            monitor: Optional monitor
+            config: Optional configuration
+        """
+        super().__init__(
+            name=name,
+            config=config,
+        )
+        self._function = function
+        self._parameters = parameters
+        self._rate_limiter = rate_limiter
+        self._event_bus = event_bus
+        self._monitor = monitor
+        self._created_at = datetime.now()
+        self._last_used_at: Optional[datetime] = None
+        self._use_count = 0
+        self._is_valid = True
+        
+    async def _initialize_impl(self) -> None:
+        """Initialize implementation."""
+        if self._event_bus:
+            await self._event_bus.initialize()
+            
+        if self._monitor:
+            await self._monitor.initialize()
+            
+        if self._rate_limiter:
+            await self._rate_limiter.initialize()
+            
+    async def _cleanup_impl(self) -> None:
+        """Clean up implementation."""
+        if self._rate_limiter:
+            await self._rate_limiter.cleanup()
+            
+        if self._monitor:
+            await self._monitor.cleanup()
+            
+        if self._event_bus:
+            await self._event_bus.cleanup()
+            
+    async def _validate_impl(self) -> None:
+        """Validate implementation."""
+        if not self._function:
+            raise APIFunctionError("Empty function name")
+            
+        if not self._parameters:
+            raise APIFunctionError("Empty parameters")
+            
+        if self._event_bus:
+            await self._event_bus.validate()
+            
+        if self._monitor:
+            await self._monitor.validate()
+            
+        if self._rate_limiter:
+            await self._rate_limiter.validate({
+                "function": self._function,
+                "parameters": self._parameters
+            })
+            
+    @property
+    def function(self) -> str:
+        """Get API function name.
+        
+        Returns:
+            API function name
             
         Raises:
-            FunctionError: If validation fails
+            APIFunctionError: If function is invalid
         """
-        # Check required parameters
-        param_names = {p.name for p in self.parameters}
-        for name in params:
-            if name not in param_names:
-                raise FunctionError(f"Unknown parameter: {name}")
-                
-        # Validate parameter values
-        for param in self.parameters:
-            value = params.get(param.name, param.default)
-            param.validate(value)
+        if not self._is_valid:
+            raise APIFunctionError("Function is invalid")
             
-        # Custom validation
-        if self.validator:
-            try:
-                self.validator.validate(params)
-            except Exception as e:
-                raise FunctionError(f"Parameter validation failed: {e}")
-                
+        return self._function
+        
+    @property
+    def parameters(self) -> Dict[str, Parameter]:
+        """Get function parameters.
+        
+        Returns:
+            Function parameters
+            
+        Raises:
+            APIFunctionError: If function is invalid
+        """
+        if not self._is_valid:
+            raise APIFunctionError("Function is invalid")
+            
+        return self._parameters
+        
+    @property
+    def use_count(self) -> int:
+        """Get function use count.
+        
+        Returns:
+            Function use count
+        """
+        return self._use_count
+        
+    @abstractmethod
+    async def _execute_impl(self, params: Dict[str, Any]) -> T:
+        """Execute function implementation.
+        
+        Args:
+            params: Function parameters
+            
+        Returns:
+            Function result
+            
+        Raises:
+            APIFunctionError: If execution fails
+        """
+        pass
+        
     async def execute(self, params: Dict[str, Any]) -> T:
         """Execute function.
         
         Args:
-            params: Parameter values
+            params: Function parameters
             
         Returns:
             Function result
             
         Raises:
-            FunctionError: If execution fails
+            APIFunctionError: If execution fails
         """
         # Validate parameters
-        self.validate_parameters(params)
-        
+        param_names = set(self._parameters.keys())
+        for name in params:
+            if name not in param_names:
+                raise APIFunctionError(f"Unknown parameter: {name}")
+                
+        # Validate parameter values
+        for name, param in self._parameters.items():
+            value = params.get(name)
+            param.validate(value)
+            
         # Check rate limit
-        if self.rate_limiter:
+        if self._rate_limiter:
             try:
-                await self.rate_limiter.check()
+                await self._rate_limiter.check()
             except Exception as e:
-                raise FunctionError(f"Rate limit exceeded: {e}")
+                raise APIFunctionError(f"Rate limit exceeded: {e}")
                 
         # Execute function
         try:
-            if self.event_bus:
-                await self.event_bus.publish(
-                    Event(
-                        type="function_started",
-                        source=self.name,
-                        timestamp=datetime.now(),
-                        data={"params": params},
-                    )
-                )
-                
-            result = await self._execute(params)
-            
-            if self.event_bus:
-                await self.event_bus.publish(
-                    Event(
-                        type="function_completed",
-                        source=self.name,
-                        timestamp=datetime.now(),
-                        data={
-                            "params": params,
-                            "result": result,
-                        },
-                    )
-                )
-                
+            result = await self._execute_impl(params)
+            self._use_count += 1
+            self._last_used_at = datetime.now()
             return result
         except Exception as e:
-            if self.event_bus:
-                await self.event_bus.publish(
-                    Event(
-                        type="function_failed",
-                        source=self.name,
-                        timestamp=datetime.now(),
-                        data={
-                            "params": params,
-                            "error": str(e),
-                        },
-                    )
-                )
-                
-            raise FunctionError(f"Function execution failed: {e}")
-            
-    @abstractmethod
-    async def _execute(self, params: Dict[str, Any]) -> T:
-        """Execute function implementation.
-        
-        Args:
-            params: Parameter values
-            
-        Returns:
-            Function result
-            
-        Raises:
-            Exception: If execution fails
-        """
-        pass
-        
-    async def _initialize(self) -> None:
-        """Initialize function."""
-        if self.event_bus:
-            await self.event_bus.initialize()
-            
-        if self.monitor:
-            await self.monitor.initialize()
-            
-        if self.rate_limiter:
-            await self.rate_limiter.initialize()
-            
-        if self.validator:
-            await self.validator.initialize()
-            
-    async def _cleanup(self) -> None:
-        """Clean up function."""
-        if self.validator:
-            await self.validator.cleanup()
-            
-        if self.rate_limiter:
-            await self.rate_limiter.cleanup()
-            
-        if self.monitor:
-            await self.monitor.cleanup()
-            
-        if self.event_bus:
-            await self.event_bus.cleanup()
-            
-    def validate(self) -> None:
+            raise APIFunctionError(f"Function execution failed: {e}")
+
+    async def validate(self) -> None:
         """Validate function state."""
-        super().validate()
+        await super().validate()
         
-        if not self.name:
-            raise FunctionError("Empty function name")
+        if not self._function:
+            raise APIFunctionError("Empty function name")
             
-        if not self.description:
-            raise FunctionError("Empty function description")
+        if not self._parameters:
+            raise APIFunctionError("Empty parameters")
             
-        if not self.parameters:
-            raise FunctionError("No function parameters")
+        await self._validate_impl()
+        
+        if self._event_bus:
+            await self._event_bus.validate()
             
-        if self.event_bus:
-            self.event_bus.validate()
+        if self._monitor:
+            await self._monitor.validate()
             
-        if self.monitor:
-            self.monitor.validate()
-            
-        if self.rate_limiter:
-            self.rate_limiter.validate()
-            
-        if self.validator:
-            self.validator.validate() 
+        if self._rate_limiter:
+            await self._rate_limiter.validate({
+                "function": self._function,
+                "parameters": self._parameters
+            }) 

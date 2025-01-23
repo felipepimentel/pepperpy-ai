@@ -1,26 +1,21 @@
-"""Code handler implementation.
+"""Code handler tool implementation."""
 
-This module provides functionality for handling code operations,
-including parsing, validation, and execution.
-"""
-
-from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set
+import logging
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
-from pepperpy.security import Validator
+from ..core.errors import PepperpyError
+from ..core.events import Event, EventBus
+from ..interfaces import BaseProvider
+from ..monitoring import Monitor
 
+logger = logging.getLogger(__name__)
 
 class CodeError(PepperpyError):
     """Code error."""
     pass
 
-
-class CodeHandler(Lifecycle):
+class CodeHandler(BaseProvider):
     """Code handler implementation."""
     
     def __init__(
@@ -30,7 +25,6 @@ class CodeHandler(Lifecycle):
         max_size: Optional[int] = None,
         event_bus: Optional[EventBus] = None,
         monitor: Optional[Monitor] = None,
-        validator: Optional[Validator] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize handler.
@@ -41,18 +35,44 @@ class CodeHandler(Lifecycle):
             max_size: Optional maximum code size in bytes
             event_bus: Optional event bus
             monitor: Optional monitor
-            validator: Optional validator
             config: Optional configuration
         """
-        super().__init__()
-        self.name = name
+        super().__init__(
+            name=name,
+            config=config,
+        )
         self._allowed_languages = allowed_languages
         self._max_size = max_size
         self._event_bus = event_bus
         self._monitor = monitor
-        self._validator = validator
-        self._config = config or {}
-        
+    
+    async def _initialize_impl(self) -> None:
+        """Initialize implementation."""
+        if self._event_bus:
+            await self._event_bus.initialize()
+            
+        if self._monitor:
+            await self._monitor.initialize()
+    
+    async def _cleanup_impl(self) -> None:
+        """Clean up implementation."""
+        if self._monitor:
+            await self._monitor.cleanup()
+            
+        if self._event_bus:
+            await self._event_bus.cleanup()
+    
+    def _validate_impl(self) -> None:
+        """Validate implementation."""
+        if self._max_size is not None and self._max_size <= 0:
+            raise CodeError("Invalid maximum code size")
+            
+        if self._event_bus:
+            self._event_bus.validate()
+            
+        if self._monitor:
+            self._monitor.validate()
+    
     def _validate_language(self, language: str) -> None:
         """Validate programming language.
         
@@ -107,12 +127,6 @@ class CodeHandler(Lifecycle):
         self._validate_size(code)
         
         try:
-            if self._validator:
-                try:
-                    self._validator.validate(code)
-                except Exception as e:
-                    raise CodeError(f"Code validation failed: {e}")
-                    
             # TODO: Implement language-specific parsing
             info = {
                 "language": language,
@@ -157,12 +171,6 @@ class CodeHandler(Lifecycle):
         self._validate_size(code)
         
         try:
-            if self._validator:
-                try:
-                    self._validator.validate(code)
-                except Exception as e:
-                    raise CodeError(f"Code validation failed: {e}")
-                    
             # TODO: Implement language-specific validation
             issues: List[Dict[str, Any]] = []
             
@@ -208,12 +216,6 @@ class CodeHandler(Lifecycle):
         self._validate_size(code)
         
         try:
-            if self._validator:
-                try:
-                    self._validator.validate(code)
-                except Exception as e:
-                    raise CodeError(f"Code validation failed: {e}")
-                    
             # TODO: Implement language-specific execution
             result = None
             
@@ -235,45 +237,4 @@ class CodeHandler(Lifecycle):
         except CodeError:
             raise
         except Exception as e:
-            raise CodeError(f"Code execution failed: {e}")
-            
-    async def _initialize(self) -> None:
-        """Initialize handler."""
-        if self._event_bus:
-            await self._event_bus.initialize()
-            
-        if self._monitor:
-            await self._monitor.initialize()
-            
-        if self._validator:
-            await self._validator.initialize()
-            
-    async def _cleanup(self) -> None:
-        """Clean up handler."""
-        if self._validator:
-            await self._validator.cleanup()
-            
-        if self._monitor:
-            await self._monitor.cleanup()
-            
-        if self._event_bus:
-            await self._event_bus.cleanup()
-            
-    def validate(self) -> None:
-        """Validate handler state."""
-        super().validate()
-        
-        if not self.name:
-            raise CodeError("Empty handler name")
-            
-        if self._max_size is not None and self._max_size <= 0:
-            raise CodeError("Invalid maximum code size")
-            
-        if self._event_bus:
-            self._event_bus.validate()
-            
-        if self._monitor:
-            self._monitor.validate()
-            
-        if self._validator:
-            self._validator.validate() 
+            raise CodeError(f"Code execution failed: {e}") 

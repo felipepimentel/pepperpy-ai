@@ -4,23 +4,23 @@ This module provides functionality for managing API tokens,
 including token validation, rotation, and rate limiting.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Set
+import logging
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
-from pepperpy.security import RateLimiter
+from ..core.errors import PepperpyError
+from ..core.events import Event, EventBus
+from ..core.security import RateLimiter
+from ..interfaces import BaseProvider
+from ..monitoring import Monitor
 
+logger = logging.getLogger(__name__)
 
 class TokenError(PepperpyError):
     """Token error."""
     pass
 
-
-class TokenHandler(Lifecycle):
+class TokenHandler(BaseProvider):
     """Token handler implementation."""
     
     def __init__(
@@ -42,18 +42,55 @@ class TokenHandler(Lifecycle):
             monitor: Optional monitor
             config: Optional configuration
         """
-        super().__init__()
-        self.name = name
+        super().__init__(
+            name=name,
+            config=config,
+        )
         self._token = token
         self._rate_limiter = rate_limiter
         self._event_bus = event_bus
         self._monitor = monitor
-        self._config = config or {}
         self._created_at = datetime.now()
         self._last_used_at: Optional[datetime] = None
         self._use_count = 0
         self._is_valid = True
         
+    async def _initialize_impl(self) -> None:
+        """Initialize implementation."""
+        if self._event_bus:
+            await self._event_bus.initialize()
+            
+        if self._monitor:
+            await self._monitor.initialize()
+            
+        if self._rate_limiter:
+            await self._rate_limiter.initialize()
+            
+    async def _cleanup_impl(self) -> None:
+        """Clean up implementation."""
+        if self._rate_limiter:
+            await self._rate_limiter.cleanup()
+            
+        if self._monitor:
+            await self._monitor.cleanup()
+            
+        if self._event_bus:
+            await self._event_bus.cleanup()
+            
+    async def _validate_impl(self) -> None:
+        """Validate implementation."""
+        if not self._token:
+            raise TokenError("Empty token")
+            
+        if self._event_bus:
+            await self._event_bus.validate()
+            
+        if self._monitor:
+            await self._monitor.validate()
+            
+        if self._rate_limiter:
+            await self._rate_limiter.validate({"token": self._token})
+            
     @property
     def token(self) -> str:
         """Get API token.
@@ -160,43 +197,20 @@ class TokenHandler(Lifecycle):
                 )
             )
             
-    async def _initialize(self) -> None:
-        """Initialize handler."""
-        if self._rate_limiter:
-            await self._rate_limiter.initialize()
-            
-        if self._event_bus:
-            await self._event_bus.initialize()
-            
-        if self._monitor:
-            await self._monitor.initialize()
-            
-    async def _cleanup(self) -> None:
-        """Clean up handler."""
-        if self._monitor:
-            await self._monitor.cleanup()
-            
-        if self._event_bus:
-            await self._event_bus.cleanup()
-            
-        if self._rate_limiter:
-            await self._rate_limiter.cleanup()
-            
-    def validate(self) -> None:
+    async def validate(self) -> None:
         """Validate handler state."""
-        super().validate()
+        await super().validate()
         
         if not self.name:
             raise TokenError("Empty handler name")
             
-        if not self._token:
-            raise TokenError("Empty token")
-            
+        await self._validate_impl()
+        
         if self._rate_limiter:
-            self._rate_limiter.validate()
+            await self._rate_limiter.validate({"token": self._token})
             
         if self._event_bus:
-            self._event_bus.validate()
+            await self._event_bus.validate()
             
         if self._monitor:
-            self._monitor.validate() 
+            await self._monitor.validate() 

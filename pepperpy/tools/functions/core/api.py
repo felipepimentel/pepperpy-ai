@@ -8,8 +8,7 @@ from typing import Any, Dict, Literal, Optional
 import aiohttp
 from pydantic import BaseModel
 
-from pepperpy.tools.tool import Tool, ToolResult
-
+from ....tools.base import BaseTool, ToolConfig
 
 Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH"]
 
@@ -23,34 +22,51 @@ class APIResponse(BaseModel):
     elapsed: float
 
 
-class APITool(Tool):
+class APITool(BaseTool):
     """Tool for making API requests."""
 
     def __init__(
         self,
+        name: str,
         base_url: Optional[str] = None,
         headers: Optional[Dict[str, str]] = None,
-        rate_limit: Optional[float] = None
+        rate_limit: Optional[float] = None,
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize API tool.
         
         Args:
+            name: Tool name
             base_url: Optional base URL for all requests
             headers: Optional default headers
             rate_limit: Optional minimum interval between requests in seconds
+            config: Optional configuration
         """
+        super().__init__(
+            config=ToolConfig(
+                name=name,
+                description="Tool for making API requests",
+                parameters=config or {},
+            )
+        )
         self.base_url = base_url
         self.headers = headers or {}
         self.rate_limit = rate_limit
         self.last_request_time = 0.0
         self.session: Optional[aiohttp.ClientSession] = None
 
-    async def initialize(self) -> None:
-        """Initialize HTTP session."""
+    async def _setup(self) -> None:
+        """Set up tool resources."""
         self.session = aiohttp.ClientSession(
             base_url=self.base_url,
             headers=self.headers
         )
+
+    async def _teardown(self) -> None:
+        """Clean up tool resources."""
+        if self.session:
+            await self.session.close()
+            self.session = None
 
     async def request(
         self,
@@ -118,55 +134,41 @@ class APITool(Tool):
                 elapsed=elapsed
             )
 
-    async def execute(self, **kwargs: Any) -> ToolResult[APIResponse]:
+    async def _execute_impl(
+        self,
+        input_data: Dict[str, Any],
+        context: Optional[Dict[str, Any]] = None,
+    ) -> APIResponse:
         """Execute API request.
         
         Args:
-            method: HTTP method
-            url: Request URL
-            headers: Optional request headers
-            params: Optional query parameters
-            json_data: Optional JSON body
-            data: Optional form data
+            input_data: Request parameters
+            context: Optional execution context
             
         Returns:
             API response
+            
+        Raises:
+            ValueError: If parameters are invalid
         """
-        method = str(kwargs.get("method", "GET")).upper()
+        method = str(input_data.get("method", "GET")).upper()
         if method not in ("GET", "POST", "PUT", "DELETE", "PATCH"):
-            return ToolResult(
-                success=False,
-                error=f"Invalid HTTP method: {method}"
-            )
+            raise ValueError(f"Invalid HTTP method: {method}")
             
-        url = str(kwargs.get("url", ""))
+        url = str(input_data.get("url", ""))
         if not url:
-            return ToolResult(
-                success=False,
-                error="URL is required"
-            )
+            raise ValueError("URL is required")
             
-        try:
-            response = await self.request(
-                method=method,  # type: ignore
-                url=url,
-                headers=kwargs.get("headers"),
-                params=kwargs.get("params"),
-                json_data=kwargs.get("json_data"),
-                data=kwargs.get("data"),
-            )
+        response = await self.request(
+            method=method,  # type: ignore
+            url=url,
+            headers=input_data.get("headers"),
+            params=input_data.get("params"),
+            json_data=input_data.get("json_data"),
+            data=input_data.get("data"),
+        )
+        
+        if response.status >= 300:
+            raise ValueError(f"Request failed with status {response.status}")
             
-            return ToolResult(
-                success=200 <= response.status < 300,
-                data=response,
-                error=f"Request failed with status {response.status}" if response.status >= 300 else None
-            )
-            
-        except Exception as e:
-            return ToolResult(success=False, error=str(e))
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if self.session:
-            await self.session.close()
-            self.session = None 
+        return response 

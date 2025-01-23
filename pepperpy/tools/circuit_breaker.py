@@ -4,15 +4,14 @@ This module provides functionality for implementing the circuit breaker pattern,
 including failure detection, state transitions, and automatic recovery.
 """
 
-from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from enum import Enum, auto
 from typing import Any, Dict, Optional, TypeVar
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
+from ..core.errors import PepperpyError
+from ..core.events import Event, EventBus
+from ..monitoring import Monitor
+from ..interfaces import BaseProvider
 
 T = TypeVar("T")
 
@@ -35,7 +34,7 @@ class CircuitError(PepperpyError):
     pass
 
 
-class CircuitBreaker(Lifecycle):
+class CircuitBreaker(BaseProvider):
     """Circuit breaker implementation."""
     
     def __init__(
@@ -57,13 +56,14 @@ class CircuitBreaker(Lifecycle):
             monitor: Optional monitor
             config: Optional configuration
         """
-        super().__init__()
-        self.name = name
+        super().__init__(
+            name=name,
+            config=config,
+            event_bus=event_bus,
+            monitor=monitor,
+        )
         self._failure_threshold = failure_threshold
         self._recovery_timeout = timedelta(seconds=recovery_timeout)
-        self._event_bus = event_bus
-        self._monitor = monitor
-        self._config = config or {}
         self._state = CircuitState.CLOSED
         self._failure_count = 0
         self._last_failure_time: Optional[datetime] = None
@@ -160,8 +160,8 @@ class CircuitBreaker(Lifecycle):
             
     async def _publish_state_change(self) -> None:
         """Publish state change event."""
-        if self._event_bus:
-            await self._event_bus.publish(
+        if self.event_bus:
+            await self.event_bus.publish(
                 Event(
                     type="circuit_state_changed",
                     source=self.name,
@@ -173,26 +173,16 @@ class CircuitBreaker(Lifecycle):
                 )
             )
             
-    async def _initialize(self) -> None:
+    async def _initialize_impl(self) -> None:
         """Initialize breaker."""
-        if self._event_bus:
-            await self._event_bus.initialize()
+        pass
             
-        if self._monitor:
-            await self._monitor.initialize()
-            
-    async def _cleanup(self) -> None:
+    async def _cleanup_impl(self) -> None:
         """Clean up breaker."""
-        if self._monitor:
-            await self._monitor.cleanup()
+        pass
             
-        if self._event_bus:
-            await self._event_bus.cleanup()
-            
-    def validate(self) -> None:
+    async def _validate_impl(self) -> None:
         """Validate breaker state."""
-        super().validate()
-        
         if not self.name:
             raise CircuitError("Empty breaker name")
             
@@ -200,10 +190,4 @@ class CircuitBreaker(Lifecycle):
             raise CircuitError("Invalid failure threshold")
             
         if self._recovery_timeout.total_seconds() <= 0:
-            raise CircuitError("Invalid recovery timeout")
-            
-        if self._event_bus:
-            self._event_bus.validate()
-            
-        if self._monitor:
-            self._monitor.validate() 
+            raise CircuitError("Invalid recovery timeout") 

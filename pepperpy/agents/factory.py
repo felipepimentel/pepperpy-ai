@@ -2,113 +2,110 @@
 import logging
 from typing import Any, Dict, Optional, Type
 
+from ..interfaces import (
+    LLMProvider,
+    VectorStoreProvider,
+    EmbeddingProvider,
+)
+from ..core.lifecycle import ComponentLifecycleManager
 from .base import BaseAgent
-from ..providers.llm.base import BaseLLMProvider
-from ..providers.memory.base import BaseMemoryProvider
-from ..providers.vector_store.base import BaseVectorStoreProvider
-from ..providers.embeddings.base import BaseEmbeddingProvider
 
 logger = logging.getLogger(__name__)
 
 class AgentFactory:
-    """Factory for creating agents."""
+    """Factory for creating agent instances."""
     
-    @staticmethod
-    def create_agent(
+    def __init__(self):
+        """Initialize the agent factory."""
+        self._llm_provider: Optional[LLMProvider] = None
+        self._vector_store: Optional[VectorStoreProvider] = None
+        self._embeddings: Optional[EmbeddingProvider] = None
+        self._lifecycle = ComponentLifecycleManager()
+    
+    def with_llm(self, provider: LLMProvider) -> 'AgentFactory':
+        """Set the LLM provider.
+        
+        Args:
+            provider: LLM provider instance.
+            
+        Returns:
+            Self for chaining.
+        """
+        self._llm_provider = provider
+        self._lifecycle.register("llm", provider)
+        return self
+    
+    def with_vector_store(self, provider: VectorStoreProvider) -> 'AgentFactory':
+        """Set the vector store provider.
+        
+        Args:
+            provider: Vector store provider instance.
+            
+        Returns:
+            Self for chaining.
+        """
+        self._vector_store = provider
+        self._lifecycle.register("vector_store", provider)
+        return self
+    
+    def with_embeddings(self, provider: EmbeddingProvider) -> 'AgentFactory':
+        """Set the embeddings provider.
+        
+        Args:
+            provider: Embeddings provider instance.
+            
+        Returns:
+            Self for chaining.
+        """
+        self._embeddings = provider
+        self._lifecycle.register("embeddings", provider, dependencies=["vector_store"])
+        return self
+    
+    async def create(
+        self,
         agent_type: str,
+        capabilities: Dict[str, Any],
         config: Dict[str, Any]
     ) -> BaseAgent:
         """Create an agent instance.
         
         Args:
             agent_type: Type of agent to create.
-            config: Agent configuration dictionary containing:
-                - llm: LLM provider configuration
-                    - provider: Provider name
-                    - config: Provider configuration
-                - capabilities: Optional agent capabilities
-                    - memory: Optional memory provider configuration
-                        - provider: Provider name
-                        - config: Provider configuration
-                    - vector_store: Optional vector store provider configuration
-                        - provider: Provider name
-                        - config: Provider configuration
-                    - embeddings: Optional embeddings provider configuration
-                        - provider: Provider name
-                        - config: Provider configuration
-                - config: Agent-specific configuration
+            capabilities: Agent capabilities.
+            config: Agent configuration.
             
         Returns:
             Agent instance.
             
         Raises:
-            ValueError: If agent type is not registered or configuration is invalid.
+            ValueError: If required providers are not set.
         """
-        # Get agent class
-        try:
-            agent_cls = BaseAgent.get_agent(agent_type)
-        except ValueError as e:
-            logger.error(f"Failed to get agent class: {str(e)}")
-            raise ValueError(f"Invalid agent type '{agent_type}'")
+        if not self._llm_provider:
+            raise ValueError("LLM provider not set")
+            
+        agent_cls = BaseAgent.get_agent(agent_type)
         
-        # Create LLM provider
-        try:
-            llm_config = config["llm"]
-            llm_cls = BaseLLMProvider.get_provider(llm_config["provider"])
-            llm = llm_cls(llm_config["config"])
-        except (KeyError, ValueError) as e:
-            logger.error(f"Failed to create LLM provider: {str(e)}")
-            raise ValueError("Invalid LLM provider configuration")
+        # Create agent with injected dependencies
+        agent = agent_cls(
+            llm=self._llm_provider,
+            capabilities=capabilities,
+            config=config,
+            vector_store=self._vector_store,
+            embeddings=self._embeddings,
+        )
         
-        # Initialize capabilities
-        capabilities: Dict[str, Any] = {}
+        # Register agent with lifecycle manager
+        self._lifecycle.register(
+            "agent",
+            agent,
+            dependencies=[
+                "llm",
+                *(["vector_store"] if self._vector_store else []),
+                *(["embeddings"] if self._embeddings else []),
+            ]
+        )
         
-        # Add memory provider if configured
-        if "memory" in config.get("capabilities", {}):
-            try:
-                memory_config = config["capabilities"]["memory"]
-                memory_cls = BaseMemoryProvider.get_provider(memory_config["provider"])
-                capabilities["memory"] = {
-                    "provider": memory_config["provider"],
-                    "config": memory_config["config"]
-                }
-            except (KeyError, ValueError) as e:
-                logger.error(f"Failed to configure memory provider: {str(e)}")
-                raise ValueError("Invalid memory provider configuration")
+        # Initialize all components in optimal order
+        await self._lifecycle.initialize()
         
-        # Add vector store provider if configured
-        if "vector_store" in config.get("capabilities", {}):
-            try:
-                vector_store_config = config["capabilities"]["vector_store"]
-                vector_store_cls = BaseVectorStoreProvider.get_provider(vector_store_config["provider"])
-                capabilities["vector_store"] = {
-                    "provider": vector_store_config["provider"],
-                    "config": vector_store_config["config"]
-                }
-            except (KeyError, ValueError) as e:
-                logger.error(f"Failed to configure vector store provider: {str(e)}")
-                raise ValueError("Invalid vector store provider configuration")
-        
-        # Add embeddings provider if configured
-        if "embeddings" in config.get("capabilities", {}):
-            try:
-                embeddings_config = config["capabilities"]["embeddings"]
-                embeddings_cls = BaseEmbeddingProvider.get_provider(embeddings_config["provider"])
-                capabilities["embeddings"] = {
-                    "provider": embeddings_config["provider"],
-                    "config": embeddings_config["config"]
-                }
-            except (KeyError, ValueError) as e:
-                logger.error(f"Failed to configure embeddings provider: {str(e)}")
-                raise ValueError("Invalid embeddings provider configuration")
-        
-        # Create agent
-        try:
-            return agent_cls(
-                llm=llm,
-                capabilities=capabilities,
-                config=config.get("config", {})
-            )
-        except Exception as e:
-            logger.error(f"Failed to create agent: {str(e)}")
-            raise ValueError(f"Failed to create agent: {str(e)}") 
+        return agent 

@@ -162,6 +162,21 @@ test = ["anyio[trio]", "coverage[toml] (>=7)", "exceptiongroup (>=1.2.0)", "hypo
 trio = ["trio (>=0.26.1)"]
 
 [[package]]
+name = "astroid"
+version = "3.3.8"
+description = "An abstract syntax tree for Python with inference support."
+optional = false
+python-versions = ">=3.9.0"
+groups = ["dev"]
+files = [
+    {file = "astroid-3.3.8-py3-none-any.whl", hash = "sha256:187ccc0c248bfbba564826c26f070494f7bc964fd286b6d9fff4420e55de828c"},
+    {file = "astroid-3.3.8.tar.gz", hash = "sha256:a88c7994f914a4ea8572fac479459f4955eeccc877be3f2d959a33273b0cf40b"},
+]
+
+[package.dependencies]
+typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.11\""}
+
+[[package]]
 name = "async-timeout"
 version = "5.0.1"
 description = "Timeout context manager for asyncio programs"
@@ -381,6 +396,22 @@ tomli = {version = "*", optional = true, markers = "python_full_version <= \"3.1
 
 [package.extras]
 toml = ["tomli"]
+
+[[package]]
+name = "dill"
+version = "0.3.9"
+description = "serialize all of Python"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "dill-0.3.9-py3-none-any.whl", hash = "sha256:468dff3b89520b474c0397703366b7b95eebe6303f108adf9b19da1f702be87a"},
+    {file = "dill-0.3.9.tar.gz", hash = "sha256:81aa267dddf68cbfe8029c42ca9ec6a4ab3b22371d1c450abc54422577b4512c"},
+]
+
+[package.extras]
+graph = ["objgraph (>=1.7.2)"]
+profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
 name = "distro"
@@ -624,6 +655,21 @@ files = [
 ]
 
 [[package]]
+name = "isort"
+version = "5.13.2"
+description = "A Python utility / library to sort Python imports."
+optional = false
+python-versions = ">=3.8.0"
+groups = ["dev"]
+files = [
+    {file = "isort-5.13.2-py3-none-any.whl", hash = "sha256:8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6"},
+    {file = "isort-5.13.2.tar.gz", hash = "sha256:48fdfcb9face5d58a4f6dde2e72a1fb8dcaf8ab26f95ab49fab84c2ddefb0109"},
+]
+
+[package.extras]
+colors = ["colorama (>=0.4.6)"]
+
+[[package]]
 name = "jinja2"
 version = "3.1.5"
 description = "A very fast and expressive template engine."
@@ -815,6 +861,18 @@ files = [
     {file = "MarkupSafe-3.0.2-cp39-cp39-win32.whl", hash = "sha256:8c4e8c3ce11e1f92f6536ff07154f9d49677ebaaafc32db9db4620bc11ed480f"},
     {file = "MarkupSafe-3.0.2-cp39-cp39-win_amd64.whl", hash = "sha256:6e296a513ca3d94054c2c881cc913116e90fd030ad1c656b3869762b754f5f8a"},
     {file = "markupsafe-3.0.2.tar.gz", hash = "sha256:ee55d3edf80167e48ea11a923c7386f4669df67d7994554387f84e7d8b0a2bf0"},
+]
+
+[[package]]
+name = "mccabe"
+version = "0.7.0"
+description = "McCabe checker, plugin for flake8"
+optional = false
+python-versions = ">=3.6"
+groups = ["dev"]
+files = [
+    {file = "mccabe-0.7.0-py2.py3-none-any.whl", hash = "sha256:6c2d30ab6be0e4a46919781807b4f0d834ebdd6c6e3dca0bda5a15f863427b6e"},
+    {file = "mccabe-0.7.0.tar.gz", hash = "sha256:348e0240c33b60bbdf4e523192ef919f28cb2c3d7d5c7794f74009290f236325"},
 ]
 
 [[package]]
@@ -1304,6 +1362,52 @@ files = [
 typing-extensions = ">=4.6.0,<4.7.0 || >4.7.0"
 
 [[package]]
+name = "pydeps"
+version = "3.0.0"
+description = "Display module dependencies"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "pydeps-3.0.0-py3-none-any.whl", hash = "sha256:2e887681883cb09e8e0d72f6f209ba7d7d33f86039349779f529e81b59694c73"},
+    {file = "pydeps-3.0.0.tar.gz", hash = "sha256:a0cd1966c45b57fa560071e4249c164644a97dda735fd78aabf012dbefa8895d"},
+]
+
+[package.dependencies]
+stdlib_list = "*"
+
+[[package]]
+name = "pylint"
+version = "3.3.3"
+description = "python code static checker"
+optional = false
+python-versions = ">=3.9.0"
+groups = ["dev"]
+files = [
+    {file = "pylint-3.3.3-py3-none-any.whl", hash = "sha256:26e271a2bc8bce0fc23833805a9076dd9b4d5194e2a02164942cb3cdc37b4183"},
+    {file = "pylint-3.3.3.tar.gz", hash = "sha256:07c607523b17e6d16e2ae0d7ef59602e332caa762af64203c24b41c27139f36a"},
+]
+
+[package.dependencies]
+astroid = ">=3.3.8,<=3.4.0-dev0"
+colorama = {version = ">=0.4.5", markers = "sys_platform == \"win32\""}
+dill = [
+    {version = ">=0.2", markers = "python_version < \"3.11\""},
+    {version = ">=0.3.7", markers = "python_version >= \"3.12\""},
+    {version = ">=0.3.6", markers = "python_version >= \"3.11\" and python_version < \"3.12\""},
+]
+isort = ">=4.2.5,<5.13.0 || >5.13.0,<6"
+mccabe = ">=0.6,<0.8"
+platformdirs = ">=2.2.0"
+tomli = {version = ">=1.1.0", markers = "python_version < \"3.11\""}
+tomlkit = ">=0.10.1"
+typing-extensions = {version = ">=3.10.0", markers = "python_version < \"3.10\""}
+
+[package.extras]
+spelling = ["pyenchant (>=3.2,<4.0)"]
+testutils = ["gitpython (>3)"]
+
+[[package]]
 name = "pymupdf"
 version = "1.25.2"
 description = "A high performance Python library for data extraction, analysis, conversion & manipulation of PDF (and other) documents."
@@ -1559,6 +1663,25 @@ files = [
 ]
 
 [[package]]
+name = "stdlib-list"
+version = "0.11.0"
+description = "A list of Python Standard Libraries (2.7 through 3.12)."
+optional = false
+python-versions = ">=3.9"
+groups = ["dev"]
+files = [
+    {file = "stdlib_list-0.11.0-py3-none-any.whl", hash = "sha256:8bf8decfffaaf273d4cfeb5bd852b910a00dec1037dcf163576803622bccf597"},
+    {file = "stdlib_list-0.11.0.tar.gz", hash = "sha256:b74a7b643a77a12637e907f3f62f0ab9f67300bce4014f6b2d3c8b4c8fd63c66"},
+]
+
+[package.extras]
+dev = ["build", "stdlib-list[doc,lint,test]"]
+doc = ["furo", "sphinx"]
+lint = ["mypy", "ruff"]
+support = ["sphobjinv"]
+test = ["coverage[toml]", "pytest", "pytest-cov"]
+
+[[package]]
 name = "structlog"
 version = "25.1.0"
 description = "Structured Logging for Python"
@@ -1620,6 +1743,18 @@ files = [
     {file = "tomli-2.2.1-cp313-cp313-win_amd64.whl", hash = "sha256:a38aa0308e754b0e3c67e344754dff64999ff9b513e691d0e786265c93583c69"},
     {file = "tomli-2.2.1-py3-none-any.whl", hash = "sha256:cb55c73c5f4408779d0cf3eef9f762b9c9f147a77de7b258bef0a5628adc85cc"},
     {file = "tomli-2.2.1.tar.gz", hash = "sha256:cd45e1dc79c835ce60f7404ec8119f2eb06d38b1deba146f07ced3bbc44505ff"},
+]
+
+[[package]]
+name = "tomlkit"
+version = "0.13.2"
+description = "Style preserving TOML library"
+optional = false
+python-versions = ">=3.8"
+groups = ["dev"]
+files = [
+    {file = "tomlkit-0.13.2-py3-none-any.whl", hash = "sha256:7a974427f6e119197f670fbbbeae7bef749a6c14e793db934baefc1b5f03efde"},
+    {file = "tomlkit-0.13.2.tar.gz", hash = "sha256:fff5fe59a87295b278abd31bec92c15d9bc4a06885ab12bcea52c71119392e79"},
 ]
 
 [[package]]
@@ -1796,4 +1931,4 @@ tools = ["beautifulsoup4"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.9"
-content-hash = "8bdbab40db22dfb7dbd8e9f9e9b2dd36c2ef410fc2c61bc8c1792608719a38ad"
+content-hash = "acba164cee06497355cd29223a5cb44827b760e34c9c14a87ab3b488770720fd"

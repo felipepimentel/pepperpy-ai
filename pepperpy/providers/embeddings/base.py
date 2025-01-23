@@ -1,10 +1,14 @@
-"""Base interface for embedding providers."""
+"""Base embeddings provider implementation."""
+
+import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Union, Optional, Type, TypeVar, ClassVar
+from typing import Any, Dict, Optional, Type, ClassVar
 
-T = TypeVar('T', bound='BaseEmbeddingProvider')
+from ...interfaces import EmbeddingProvider
 
-class BaseEmbeddingProvider(ABC):
+logger = logging.getLogger(__name__)
+
+class BaseEmbeddingProvider(ABC, EmbeddingProvider):
     """Base class for embedding providers."""
     
     _registry: ClassVar[Dict[str, Type['BaseEmbeddingProvider']]] = {}
@@ -19,7 +23,7 @@ class BaseEmbeddingProvider(ABC):
         Returns:
             Decorator function.
         """
-        def decorator(provider_cls: Type[T]) -> Type[T]:
+        def decorator(provider_cls: Type['BaseEmbeddingProvider']) -> Type['BaseEmbeddingProvider']:
             cls._registry[name] = provider_cls
             return provider_cls
         return decorator
@@ -42,23 +46,76 @@ class BaseEmbeddingProvider(ABC):
         return cls._registry[name]
     
     def __init__(self, config: Dict[str, Any]):
-        """Initialize the embedding provider.
+        """Initialize the provider.
         
         Args:
-            config: Configuration dictionary for the provider.
+            config: Provider configuration.
         """
         self.config = config
-        self.dimension: Optional[int] = None
+        self.is_initialized = False
     
-    @abstractmethod
     async def initialize(self) -> None:
-        """Initialize provider resources."""
-        pass
+        """Initialize the provider.
+        
+        Raises:
+            ValueError: If initialization fails.
+        """
+        if self.is_initialized:
+            return
+            
+        try:
+            await self._initialize_impl()
+            self.is_initialized = True
+        except Exception as e:
+            logger.error(f"Failed to initialize provider: {str(e)}")
+            await self.cleanup()
+            raise ValueError(f"Provider initialization failed: {str(e)}")
     
-    @abstractmethod
     async def cleanup(self) -> None:
         """Clean up provider resources."""
-        pass
+        try:
+            await self._cleanup_impl()
+        finally:
+            self.is_initialized = False
+    
+    async def embed(self, text: str) -> Dict[str, Any]:
+        """Generate embeddings for text.
+        
+        Args:
+            text: Input text.
+            
+        Returns:
+            Embedding vectors.
+            
+        Raises:
+            ValueError: If the provider is not initialized.
+        """
+        if not self.is_initialized:
+            raise ValueError("Provider not initialized")
+            
+        return await self._embed_impl(text)
+    
+    @abstractmethod
+    async def _initialize_impl(self) -> None:
+        """Implementation-specific initialization."""
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def _cleanup_impl(self) -> None:
+        """Implementation-specific cleanup."""
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def _embed_impl(self, text: str) -> Dict[str, Any]:
+        """Implementation-specific text embedding.
+        
+        Args:
+            text: Input text.
+            
+        Returns:
+            Embedding vectors.
+        """
+        raise NotImplementedError
     
     @abstractmethod
     async def embed_text(self, text: Union[str, List[str]]) -> Union[List[float], List[List[float]]]:

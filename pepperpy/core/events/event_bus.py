@@ -4,21 +4,21 @@ This module provides functionality for event-driven communication,
 including event publishing, subscription, and filtering.
 """
 
-from abc import ABC, abstractmethod
 import asyncio
-from typing import Any, Dict, List, Optional, Set, Type
+from typing import Any, Dict, List, Optional, Set
+import logging
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
+from ...core.errors import PepperpyError
+from ...interfaces import BaseProvider
 from .event import Event, EventFilter, EventHandler
 
+logger = logging.getLogger(__name__)
 
 class EventBusError(PepperpyError):
     """Event bus error."""
     pass
 
-
-class EventBus(Lifecycle):
+class EventBus(BaseProvider):
     """Event bus implementation."""
     
     def __init__(
@@ -32,9 +32,10 @@ class EventBus(Lifecycle):
             name: Bus name
             config: Optional configuration
         """
-        super().__init__()
-        self.name = name
-        self._config = config or {}
+        super().__init__(
+            name=name,
+            config=config,
+        )
         self._handlers: Dict[str, Set[EventHandler]] = {}
         self._filters: Dict[str, List[EventFilter]] = {}
         self._lock = asyncio.Lock()
@@ -132,16 +133,16 @@ class EventBus(Lifecycle):
             except Exception as e:
                 raise EventBusError(f"Event handling failed: {e}")
                 
-    async def _initialize(self) -> None:
+    async def _initialize_impl(self) -> None:
         """Initialize bus."""
         pass
         
-    async def _cleanup(self) -> None:
+    async def _cleanup_impl(self) -> None:
         """Clean up bus."""
         self._handlers.clear()
         self._filters.clear()
         
-    def validate(self) -> None:
+    async def validate(self) -> None:
         """Validate bus state."""
         if not self.name:
             raise EventBusError("Empty bus name") 

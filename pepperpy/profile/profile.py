@@ -7,11 +7,12 @@ including preferences, settings, and history tracking.
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
+import logging
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
+from ..core.events import Event, EventBus
+from ..interfaces import BaseProvider
+from ..common.errors import PepperpyError
+from ..monitoring import Monitor
 
 
 class ProfileError(PepperpyError):
@@ -19,7 +20,7 @@ class ProfileError(PepperpyError):
     pass
 
 
-class Profile(Lifecycle):
+class Profile(BaseProvider):
     """Profile implementation."""
     
     def __init__(
@@ -39,17 +40,23 @@ class Profile(Lifecycle):
             monitor: Optional monitor
             config: Optional configuration
         """
-        super().__init__()
+        super().__init__(event_bus=event_bus, monitor=monitor)
         self.id = id
         self.name = name
-        self._event_bus = event_bus
-        self._monitor = monitor
         self._config = config or {}
         self._preferences: Dict[str, Any] = {}
         self._settings: Dict[str, Any] = {}
         self._history: List[Dict[str, Any]] = []
         self._created_at = datetime.now()
         self._updated_at = self._created_at
+        
+    async def start(self) -> None:
+        """Start the provider."""
+        await super().start()
+    
+    async def stop(self) -> None:
+        """Stop the provider."""
+        await super().stop()
         
     @property
     def preferences(self) -> Dict[str, Any]:
@@ -226,22 +233,6 @@ class Profile(Lifecycle):
                     data={"profile_id": self.id},
                 )
             )
-            
-    async def _initialize(self) -> None:
-        """Initialize profile."""
-        if self._event_bus:
-            await self._event_bus.initialize()
-            
-        if self._monitor:
-            await self._monitor.initialize()
-            
-    async def _cleanup(self) -> None:
-        """Clean up profile."""
-        if self._monitor:
-            await self._monitor.cleanup()
-            
-        if self._event_bus:
-            await self._event_bus.cleanup()
             
     def validate(self) -> None:
         """Validate profile state."""

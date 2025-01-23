@@ -7,11 +7,12 @@ including profile creation, retrieval, and persistence.
 import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set
+import logging
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import Event, EventBus
-from pepperpy.monitoring import Monitor
+from ..core.events import Event, EventBus
+from ..interfaces import Provider
+from ..common.errors import PepperpyError
+from ..monitoring import Monitor
 from .profile import Profile, ProfileError
 
 
@@ -20,7 +21,7 @@ class ManagerError(PepperpyError):
     pass
 
 
-class ProfileManager(Lifecycle):
+class ProfileManager(Provider):
     """Profile manager implementation."""
     
     def __init__(
@@ -38,14 +39,18 @@ class ProfileManager(Lifecycle):
             monitor: Optional monitor
             config: Optional configuration
         """
-        super().__init__()
-        self.name = name
-        self._event_bus = event_bus
-        self._monitor = monitor
-        self._config = config or {}
+        super().__init__(name=name, event_bus=event_bus, monitor=monitor, config=config)
         self._profiles: Dict[str, Profile] = {}
         self._lock = asyncio.Lock()
         
+    async def _start(self) -> None:
+        """Start the profile manager."""
+        pass
+
+    async def _stop(self) -> None:
+        """Stop the profile manager."""
+        pass
+
     async def create_profile(
         self,
         id: str,
