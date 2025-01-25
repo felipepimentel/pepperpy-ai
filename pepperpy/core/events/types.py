@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.interfaces import EventFilter, EventTransformer
 
 class EventError(PepperpyError):

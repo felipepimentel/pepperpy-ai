@@ -1,97 +1,70 @@
-"""Component initialization functionality."""
+"""
+Component initialization management for Pepperpy.
+"""
+from typing import Any, Dict, Optional, Type
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
-
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 
 class InitializationError(PepperpyError):
-    """Initialization error."""
+    """Error raised during component initialization."""
     pass
 
 
-class Initializer(ABC):
-    """Base class for component initializers."""
-    
-    def __init__(self, name: str):
-        """Initialize initializer.
-        
-        Args:
-            name: Initializer name
-        """
-        self.name = name
-        self._initialized = False
-        
-    @property
-    def initialized(self) -> bool:
-        """Get initialization status."""
-        return self._initialized
-        
-    @abstractmethod
-    async def initialize(self, **kwargs: Any) -> None:
-        """Initialize component.
-        
-        Args:
-            **kwargs: Component-specific initialization arguments
-            
-        Raises:
-            InitializationError: If initialization fails
-        """
-        pass
-        
-    def validate(self) -> None:
-        """Validate initializer state."""
-        if not self.name:
-            raise ValueError("Initializer name cannot be empty")
+class Initializer:
+    """Manages component initialization in the Pepperpy system."""
 
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the Initializer.
 
-class PepperpyInitializer(Initializer):
-    """Concrete initializer implementation for Pepperpy components."""
-    
-    def __init__(self):
-        """Initialize the Pepperpy initializer."""
-        super().__init__("pepperpy_initializer")
-        self._init_steps: List[Dict[str, Any]] = []
-    
-    async def initialize(self, **kwargs: Any) -> None:
-        """Initialize Pepperpy component.
-        
         Args:
-            **kwargs: Component-specific initialization arguments
-            
-        Raises:
-            InitializationError: If initialization fails
+            config: Optional configuration dictionary.
         """
-        if self._initialized:
-            raise InitializationError("Component already initialized")
-        
-        try:
-            # Record initialization step
-            self._init_steps.append({
-                "step": "start",
-                "kwargs": kwargs
-            })
-            
-            # Perform initialization
-            # TODO: Add actual initialization logic
-            
-            self._initialized = True
-            self._init_steps.append({
-                "step": "complete",
-                "success": True
-            })
-        except Exception as e:
-            self._init_steps.append({
-                "step": "error",
-                "error": str(e)
-            })
-            raise InitializationError(f"Initialization failed: {str(e)}")
-    
-    def get_init_steps(self) -> List[Dict[str, Any]]:
-        """Get initialization steps.
-        
+        self.config = config or {}
+        self._initialized_components: Dict[str, Any] = {}
+
+    def initialize_component(self, component_class: Type[Any], **kwargs: Any) -> Any:
+        """Initialize a component with the given configuration.
+
+        Args:
+            component_class: The class of the component to initialize.
+            **kwargs: Additional initialization parameters.
+
         Returns:
-            List of initialization steps with metadata.
+            The initialized component instance.
+
+        Raises:
+            InitializationError: If initialization fails.
         """
-        return self._init_steps.copy() 
+        try:
+            component_name = component_class.__name__
+            if component_name in self._initialized_components:
+                return self._initialized_components[component_name]
+
+            component_config = {
+                **self.config.get(component_name, {}),
+                **kwargs
+            }
+            
+            instance = component_class(**component_config)
+            self._initialized_components[component_name] = instance
+            return instance
+        except Exception as e:
+            raise InitializationError(
+                f"Failed to initialize component {component_class.__name__}: {str(e)}"
+            ) from e
+
+    def get_initialized_component(self, component_name: str) -> Optional[Any]:
+        """Get an initialized component by name.
+
+        Args:
+            component_name: Name of the component.
+
+        Returns:
+            The initialized component instance or None if not found.
+        """
+        return self._initialized_components.get(component_name)
+
+    def reset(self) -> None:
+        """Reset the initializer state."""
+        self._initialized_components.clear() 

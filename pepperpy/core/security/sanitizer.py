@@ -8,7 +8,7 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Pattern, Union
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 
 

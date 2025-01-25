@@ -44,7 +44,7 @@ class Monitor(BaseProvider):
         self._traces.clear()
         self._logs.clear()
         
-    async def validate(self) -> None:
+    def _validate_impl(self) -> None:
         """Validate monitor state."""
         if not self.name:
             raise MonitorError("Empty monitor name") 

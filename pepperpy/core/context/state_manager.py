@@ -7,7 +7,7 @@ and transitions, including validation and history tracking.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 from .history import HistoryTracker
 from .state import State, StateError, StateManager

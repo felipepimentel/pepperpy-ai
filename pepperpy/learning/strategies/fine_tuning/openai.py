@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from openai import AsyncOpenAI
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from .base import EmbeddingModel, EmbeddingError
 
 

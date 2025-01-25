@@ -1,97 +1,231 @@
-"""Lifecycle management implementation for Pepperpy framework."""
+"""Lifecycle manager module for Pepperpy framework."""
 
-from typing import Dict, Any, Optional
-from datetime import datetime
+import asyncio
+import logging
+from typing import Dict, List, Optional, Set
 
-from .. import LifecycleManager
-from ..utils.logger import get_logger
-from .initializer import PepperpyInitializer
-from .terminator import PepperpyTerminator
+from ...common.errors import PepperpyError
+from .lifecycle import Lifecycle
 
-logger = get_logger(__name__)
 
-class PepperpyLifecycleManager(LifecycleManager):
-    """Lifecycle manager implementation for Pepperpy framework."""
+logger = logging.getLogger(__name__)
+
+
+class LifecycleManagerError(PepperpyError):
+    """Lifecycle manager error class."""
+    pass
+
+
+class PepperpyLifecycleManager:
+    """Manages component lifecycle with optimized initialization."""
     
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the lifecycle manager."""
-        self._state = "uninitialized"
-        self._initializer = PepperpyInitializer()
-        self._terminator = PepperpyTerminator()
-        self._metadata: Dict[str, Any] = {
-            "created_at": datetime.now().isoformat()
-        }
+        self._components: Dict[str, Lifecycle] = {}
+        self._dependencies: Dict[str, Set[str]] = {}
+        self._initialized: Set[str] = set()
+        self._state = "created"
+    
+    def register(
+        self,
+        name: str,
+        component: Lifecycle,
+        dependencies: Optional[List[str]] = None
+    ) -> None:
+        """Register a component.
+        
+        Args:
+            name: Component name.
+            component: Component instance.
+            dependencies: Optional list of dependency component names.
+            
+        Raises:
+            LifecycleManagerError: If component registration fails.
+        """
+        if name in self._components:
+            raise LifecycleManagerError(f"Component {name} is already registered")
+        
+        if not isinstance(component, Lifecycle):
+            raise LifecycleManagerError(
+                f"Component {name} must be a Lifecycle instance"
+            )
+        
+        self._components[name] = component
+        self._dependencies[name] = set(dependencies or [])
     
     async def initialize(self) -> None:
-        """Initialize the component."""
-        if self._state != "uninitialized":
-            logger.warning(f"Component already initialized (state: {self._state})")
-            return
+        """Initialize all components in dependency order.
         
+        This method uses a topological sort to initialize components
+        in the correct order, with parallel initialization where possible.
+        
+        Raises:
+            LifecycleManagerError: If initialization fails.
+        """
+        if self._state != "created":
+            return
+            
         try:
-            await self._initializer.initialize()
+            # Find initialization order
+            init_order = self._topological_sort()
+            
+            # Group components that can be initialized in parallel
+            parallel_groups = self._group_parallel_components(init_order)
+            
+            # Initialize each group in parallel
+            for group in parallel_groups:
+                tasks = [
+                    self._initialize_component(name)
+                    for name in group
+                ]
+                await asyncio.gather(*tasks)
+                
             self._state = "initialized"
-            self._metadata["initialized_at"] = datetime.now().isoformat()
-            logger.info("Component initialized successfully")
+            
         except Exception as e:
-            logger.error(f"Failed to initialize component: {str(e)}")
-            self._state = "error"
-            self._metadata["error"] = str(e)
-            raise
+            logger.error(f"Initialization failed: {e}")
+            await self.terminate()
+            raise LifecycleManagerError(f"Initialization failed: {e}")
     
     async def terminate(self) -> None:
-        """Terminate the component."""
-        if self._state not in ["initialized", "error"]:
-            logger.warning(f"Component not initialized (state: {self._state})")
-            return
+        """Terminate all components in reverse dependency order.
         
+        Raises:
+            LifecycleManagerError: If termination fails.
+        """
+        if self._state != "initialized":
+            return
+            
         try:
-            await self._terminator.terminate()
+            # Reverse the initialization order
+            term_order = list(reversed(self._topological_sort()))
+            
+            # Group components that can be terminated in parallel
+            parallel_groups = self._group_parallel_components(term_order)
+            
+            # Terminate each group in parallel
+            for group in parallel_groups:
+                tasks = [
+                    self._terminate_component(name)
+                    for name in group
+                ]
+                await asyncio.gather(*tasks)
+                
+            self._initialized.clear()
             self._state = "terminated"
-            self._metadata["terminated_at"] = datetime.now().isoformat()
-            logger.info("Component terminated successfully")
+            
         except Exception as e:
-            logger.error(f"Failed to terminate component: {str(e)}")
-            self._state = "error"
-            self._metadata["error"] = str(e)
-            raise
+            logger.error(f"Termination failed: {e}")
+            raise LifecycleManagerError(f"Termination failed: {e}")
     
     def get_state(self) -> str:
-        """Get the current lifecycle state.
-        
-        Returns:
-            Current state string.
-        """
+        """Get the current lifecycle state."""
         return self._state
     
-    def get_metadata(self) -> Dict[str, Any]:
-        """Get lifecycle metadata.
+    def _topological_sort(self) -> List[str]:
+        """Perform topological sort of components.
         
         Returns:
-            Dictionary containing lifecycle metadata.
+            List of component names in dependency order.
+            
+        Raises:
+            LifecycleManagerError: If there are circular dependencies.
         """
-        return self._metadata.copy()
+        result: List[str] = []
+        visited: Set[str] = set()
+        temp: Set[str] = set()
+        
+        def visit(name: str) -> None:
+            if name in temp:
+                raise LifecycleManagerError(
+                    f"Circular dependency detected involving {name}"
+                )
+            if name in visited:
+                return
+                
+            temp.add(name)
+            for dep in self._dependencies[name]:
+                if dep not in self._components:
+                    raise LifecycleManagerError(
+                        f"Missing dependency {dep} for component {name}"
+                    )
+                visit(dep)
+            temp.remove(name)
+            visited.add(name)
+            result.append(name)
+        
+        for name in self._components:
+            if name not in visited:
+                visit(name)
+                
+        return result
     
-    def get_init_steps(self) -> Dict[str, Any]:
-        """Get initialization steps.
+    def _group_parallel_components(self, ordered: List[str]) -> List[List[str]]:
+        """Group components that can be initialized in parallel.
         
+        Args:
+            ordered: List of component names in dependency order.
+            
         Returns:
-            Dictionary containing initialization steps and metadata.
+            List of component groups that can be initialized in parallel.
         """
-        return {
-            "steps": self._initializer.get_init_steps(),
-            "state": self._state,
-            "metadata": self._metadata.copy()
-        }
+        result: List[List[str]] = []
+        current_group: List[str] = []
+        seen_deps: Set[str] = set()
+        
+        for name in ordered:
+            # If component has unseen dependencies, start new group
+            if any(dep not in seen_deps for dep in self._dependencies[name]):
+                if current_group:
+                    result.append(current_group)
+                current_group = []
+            
+            current_group.append(name)
+            seen_deps.add(name)
+        
+        if current_group:
+            result.append(current_group)
+            
+        return result
     
-    def get_term_steps(self) -> Dict[str, Any]:
-        """Get termination steps.
+    async def _initialize_component(self, name: str) -> None:
+        """Initialize a single component.
         
-        Returns:
-            Dictionary containing termination steps and metadata.
+        Args:
+            name: Component name.
+            
+        Raises:
+            LifecycleManagerError: If component initialization fails.
         """
-        return {
-            "steps": self._terminator.get_term_steps(),
-            "state": self._state,
-            "metadata": self._metadata.copy()
-        } 
+        if name in self._initialized:
+            return
+            
+        try:
+            component = self._components[name]
+            await component.initialize()
+            self._initialized.add(name)
+        except Exception as e:
+            raise LifecycleManagerError(
+                f"Failed to initialize component {name}: {e}"
+            )
+    
+    async def _terminate_component(self, name: str) -> None:
+        """Terminate a single component.
+        
+        Args:
+            name: Component name.
+            
+        Raises:
+            LifecycleManagerError: If component termination fails.
+        """
+        if name not in self._initialized:
+            return
+            
+        try:
+            component = self._components[name]
+            await component.cleanup()
+            self._initialized.remove(name)
+        except Exception as e:
+            raise LifecycleManagerError(
+                f"Failed to terminate component {name}: {e}"
+            ) 

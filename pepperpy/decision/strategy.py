@@ -7,7 +7,7 @@ strategies, including validation and composition.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, TypeVar, Generic
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 
 T = TypeVar("T")

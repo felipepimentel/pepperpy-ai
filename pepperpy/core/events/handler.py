@@ -7,7 +7,7 @@ filtering, transformation, and validation.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 from .types import Event, EventFilter, EventTransformer, EventValidator
 

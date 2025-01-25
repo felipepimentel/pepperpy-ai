@@ -12,19 +12,43 @@ class MockProvider(Provider):
     
     def __init__(self):
         """Initialize the mock provider."""
-        self.initialized = False
-        self.cleaned_up = False
+        self._initialized = False
+        self._cleaned_up = False
         self.init_order: List[str] = []
-    
+        
+    @property
+    def name(self) -> str:
+        """Get provider name."""
+        return "mock"
+        
+    @property
+    def config(self) -> dict:
+        """Get provider configuration."""
+        return {}
+        
+    @property
+    def is_initialized(self) -> bool:
+        """Whether provider is initialized."""
+        return self._initialized
+        
+    @property
+    def is_cleaned_up(self) -> bool:
+        """Whether provider is cleaned up."""
+        return self._cleaned_up
+        
     async def initialize(self) -> None:
         """Initialize the provider."""
-        self.initialized = True
+        self._initialized = True
         self.init_order.append("initialize")
     
     async def cleanup(self) -> None:
         """Clean up the provider."""
-        self.cleaned_up = True
+        self._cleaned_up = True
         self.init_order.append("cleanup")
+        
+    def validate(self) -> None:
+        """Validate provider state."""
+        pass
 
 @pytest.fixture
 def lifecycle_manager():
@@ -44,13 +68,13 @@ async def test_single_component_lifecycle(lifecycle_manager, mock_provider):
     
     # Initialize
     await lifecycle_manager.initialize()
-    assert mock_provider.initialized
-    assert not mock_provider.cleaned_up
+    assert mock_provider.is_initialized
+    assert not mock_provider.is_cleaned_up
     assert lifecycle_manager.get_state() == "initialized"
     
     # Terminate
     await lifecycle_manager.terminate()
-    assert mock_provider.cleaned_up
+    assert mock_provider.is_cleaned_up
     assert lifecycle_manager.get_state() == "terminated"
 
 @pytest.mark.asyncio
@@ -102,7 +126,7 @@ async def test_parallel_initialization():
     
     # Both should initialize at the same time
     await delayed_init()
-    assert a.initialized and b.initialized
+    assert a.is_initialized and b.is_initialized
 
 @pytest.mark.asyncio
 async def test_circular_dependency_detection():
@@ -126,7 +150,7 @@ async def test_cleanup_on_initialization_failure():
     """Test cleanup is called when initialization fails."""
     class FailingProvider(MockProvider):
         async def initialize(self) -> None:
-            self.initialized = True
+            self._initialized = True
             raise ValueError("Initialization failed")
     
     manager = ComponentLifecycleManager()
@@ -139,7 +163,7 @@ async def test_cleanup_on_initialization_failure():
     with pytest.raises(ValueError, match="Initialization failed"):
         await manager.initialize()
     
-    assert provider.cleaned_up
+    assert provider.is_cleaned_up
 
 @pytest.mark.asyncio
 async def test_multiple_initialization():

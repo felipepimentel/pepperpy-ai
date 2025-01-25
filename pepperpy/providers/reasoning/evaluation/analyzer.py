@@ -7,7 +7,7 @@ including step analysis, pattern detection, and quality assessment.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, TypeVar
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.reasoning.frameworks.cot import CoTStep
 from pepperpy.reasoning.frameworks.react import ReActStep
 

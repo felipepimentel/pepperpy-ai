@@ -1,11 +1,12 @@
-"""Tests for LLM functionality."""
+"""Test LLM functionality."""
 
 from collections.abc import AsyncIterator
 
 import pytest
+from unittest.mock import AsyncMock, patch
 
-from pepperpy.llms.base_llm import BaseLLM
-from pepperpy.llms.types import LLMResponse, ProviderConfig
+from pepperpy.providers.llm.base import BaseLLM
+from pepperpy.providers.llm.types import LLMResponse, ProviderConfig
 
 
 class MockLLM(BaseLLM):

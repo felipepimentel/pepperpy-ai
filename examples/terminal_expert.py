@@ -6,8 +6,9 @@ import os
 from dotenv import load_dotenv
 
 from pepperpy.agents.terminal_agent import TerminalAgent, TerminalAgentConfig
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
-from pepperpy.tools.functions.terminal import TerminalTool
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
+from pepperpy.capabilities.tools.terminal import TerminalTool
 
 
 # Load environment variables
@@ -17,16 +18,17 @@ load_dotenv()
 async def main() -> None:
     """Run the terminal expert example."""
     # Initialize LLM configuration
+    if not os.getenv("HUGGINGFACE_API_KEY"):
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
     llm_config = LLMConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "anthropic/claude-2"),
-        model_kwargs={
-            "api_key": os.getenv("PEPPERPY_API_KEY", ""),
-            "provider": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
-        },
+        api_key=os.environ["HUGGINGFACE_API_KEY"],
+        model="anthropic/claude-2",
+        base_url="https://api-inference.huggingface.co/models"
     )
 
     # Create LLM and tools
-    llm = HuggingFaceLLM(llm_config)
+    llm = HuggingFaceProvider(llm_config.to_dict())
     terminal_tool = TerminalTool()
 
     try:

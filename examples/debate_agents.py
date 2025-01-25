@@ -8,8 +8,9 @@ from dotenv import load_dotenv
 from pydantic import BaseModel
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
-from pepperpy.tools.tool import Tool, ToolResult
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
+from pepperpy.capabilities.tools.tool import Tool, ToolResult
 
 
 # Load environment variables
@@ -21,7 +22,7 @@ class DebateAgentConfig(BaseModel):
 
     name: str
     perspective: str
-    llm: HuggingFaceLLM
+    llm: HuggingFaceProvider
 
 
 class DebateAgent(BaseAgent):
@@ -50,7 +51,7 @@ class DebateAgent(BaseAgent):
             isinstance(config, DebateAgentConfig)
             and isinstance(config.name, str)
             and isinstance(config.perspective, str)
-            and isinstance(config.llm, HuggingFaceLLM)
+            and isinstance(config.llm, HuggingFaceProvider)
         )
 
     async def initialize(self) -> None:
@@ -110,7 +111,7 @@ class ConsensusBuilderConfig(BaseModel):
     """Configuration for consensus builder agent."""
 
     name: str
-    llm: HuggingFaceLLM
+    llm: HuggingFaceProvider
 
 
 class ConsensusBuilder(BaseAgent):
@@ -137,7 +138,7 @@ class ConsensusBuilder(BaseAgent):
         return (
             isinstance(config, ConsensusBuilderConfig)
             and isinstance(config.name, str)
-            and isinstance(config.llm, HuggingFaceLLM)
+            and isinstance(config.llm, HuggingFaceProvider)
         )
 
     async def initialize(self) -> None:
@@ -194,18 +195,22 @@ class ConsensusBuilder(BaseAgent):
 async def main() -> None:
     """Run the debate example."""
     # Initialize LLM configuration
+    api_key = os.getenv("HUGGINGFACE_API_KEY")
+    if not api_key:
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
     llm_config = LLMConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "google/gemini-2.0-flash-exp:free"),
-        model_kwargs={
-            "api_key": os.getenv("PEPPERPY_API_KEY", ""),
-            "provider": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
-        },
+        api_key=api_key,
+        model="mistralai/Mistral-7B-Instruct-v0.1",
+        base_url="https://api-inference.huggingface.co/models",
+        temperature=0.7,
+        max_tokens=1000
     )
 
     # Create LLMs for each agent
-    llm1 = HuggingFaceLLM(llm_config)
-    llm2 = HuggingFaceLLM(llm_config)
-    llm3 = HuggingFaceLLM(llm_config)
+    llm1 = HuggingFaceProvider(llm_config.to_dict())
+    llm2 = HuggingFaceProvider(llm_config.to_dict())
+    llm3 = HuggingFaceProvider(llm_config.to_dict())
 
     try:
         # Create debate agents

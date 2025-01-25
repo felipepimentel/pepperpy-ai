@@ -1,61 +1,39 @@
-"""Tools module for managing tool implementations.
+"""Tools module for Pepperpy framework.
 
-This module provides the base classes and type definitions for implementing
-and managing tools in the Pepperpy framework.
+This module provides a collection of reusable tools that can be used by agents
+to perform specific tasks or operations.
 """
 
-import logging
-from abc import ABC, abstractmethod
-from collections.abc import AsyncIterator
-from dataclasses import dataclass, field
-from datetime import datetime
-from typing import Any, Dict, List, Optional
-
-from .base import BaseTool, ToolConfig
-from ..core.errors import PepperpyError
-
-logger = logging.getLogger(__name__)
-
-
-class ToolError(PepperpyError):
-    """Tool error."""
-    pass
-
-
-@dataclass
-class ToolInput:
-    """Tool input data."""
-    
-    data: Any
-    context: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class ToolResult:
-    """Tool execution result."""
-    
-    output: Any
-    error: Optional[str] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-# Re-export core tools
-from .functions.core import (
-    APITool,
-    CircuitBreaker,
-    TokenHandler,
-)
-from .functions.core.function import Function
-
+from pepperpy.capabilities.tools.base import BaseTool, ToolConfig, ToolError
+from pepperpy.capabilities.tools.functions.core import APITool, CircuitBreaker, TokenHandler
+from pepperpy.capabilities.tools.functions.io import FileHandler, CodeHandler, SearchHandler, ShellHandler, DocumentLoader
+from pepperpy.capabilities.tools.functions.ai import LLMManager, BaseLLM, StabilityAI, VisionHandler, SerpHandler
+from pepperpy.capabilities.tools.functions.media import ElevenLabs
+from pepperpy.capabilities.tools.functions.system import TerminalHandler
 
 __all__ = [
-    "ToolError",
-    "ToolConfig",
-    "ToolInput",
-    "ToolResult",
-    "BaseTool",
-    "Function",
-    "APITool",
-    "CircuitBreaker",
-    "TokenHandler",
+    # Base
+    'BaseTool',
+    'ToolConfig',
+    'ToolError',
+    # Core
+    'APITool',
+    'CircuitBreaker',
+    'TokenHandler',
+    # IO
+    'FileHandler',
+    'CodeHandler',
+    'SearchHandler',
+    'ShellHandler',
+    'DocumentLoader',
+    # AI
+    'LLMManager',
+    'BaseLLM',
+    'StabilityAI',
+    'VisionHandler',
+    'SerpHandler',
+    # Media
+    'ElevenLabs',
+    # System
+    'TerminalHandler',
 ]

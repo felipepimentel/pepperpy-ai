@@ -7,7 +7,7 @@ enables exploring multiple reasoning paths through a tree structure.
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 
 class ToTError(PepperpyError):

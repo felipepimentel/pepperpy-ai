@@ -8,7 +8,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Protocol, TypeVar
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.reasoning.frameworks.cot import CoTAgent, CoTStep
 from pepperpy.reasoning.frameworks.react import ReActAgent, ReActStep

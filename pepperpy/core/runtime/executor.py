@@ -8,7 +8,7 @@ import asyncio
 import logging
 from typing import Any, Dict, List, Optional, Protocol, TypeVar
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 
 

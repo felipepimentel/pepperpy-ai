@@ -27,54 +27,53 @@ class BaseTool(BaseProvider, Tool):
     
     def __init__(
         self,
-        config: ToolConfig,
+        tool_cfg: ToolConfig,
         dependencies: Optional[Dict[str, BaseProvider]] = None,
     ) -> None:
         """Initialize tool.
         
         Args:
-            config: Tool configuration
+            tool_cfg: Tool configuration
             dependencies: Optional tool dependencies
         """
-        super().__init__({"config": config.parameters, **config.metadata})
-        self._config = config
+        if not tool_cfg.name:
+            raise ValueError("Tool name cannot be empty")
+            
+        # Store tool configuration
+        self._tool_config = tool_cfg
         self._dependencies = dependencies or {}
+        
+        # Create provider configuration
+        provider_cfg = {"parameters": tool_cfg.parameters}
+        provider_cfg.update(tool_cfg.metadata)
+        
+        # Initialize base provider attributes
+        self._name = tool_cfg.name
+        self._config = provider_cfg
+        self._initialized = False
+        self._initialized_at = None
+        self._cleaned_up = False
+        self._cleaned_up_at = None
     
     @property
     def name(self) -> str:
         """Get tool name."""
-        return self._config.name
+        return self._name
     
     @property
     def description(self) -> str:
         """Get tool description."""
-        return self._config.description
+        return self._tool_config.description
+    
+    @property
+    def is_initialized(self) -> bool:
+        """Get initialization status."""
+        return self._initialized
     
     @property
     def dependencies(self) -> Dict[str, BaseProvider]:
         """Get tool dependencies."""
-        return self._dependencies
-    
-    async def _initialize_impl(self) -> None:
-        """Initialize tool and its dependencies."""
-        # Initialize dependencies first
-        for dep in self._dependencies.values():
-            if not dep.is_initialized:
-                await dep.initialize()
-        
-        # Then initialize tool-specific resources
-        await self._setup()
-    
-    async def _cleanup_impl(self) -> None:
-        """Clean up tool and its dependencies."""
-        try:
-            # Clean up tool-specific resources first
-            await self._teardown()
-        finally:
-            # Then clean up dependencies
-            for dep in reversed(list(self._dependencies.values())):
-                if dep.is_initialized:
-                    await dep.cleanup()
+        return self._dependencies.copy()
     
     async def execute(
         self,
@@ -102,22 +101,51 @@ class BaseTool(BaseProvider, Tool):
             
         return await self._execute_impl(input_data, context)
     
+    async def _initialize_impl(self) -> None:
+        """Initialize tool and its dependencies."""
+        # Initialize dependencies first
+        for dep in self._dependencies.values():
+            if not dep.is_initialized:
+                await dep.initialize()
+        
+        # Then initialize tool-specific resources
+        await self._setup()
+    
+    async def _cleanup_impl(self) -> None:
+        """Clean up tool and its dependencies."""
+        try:
+            # Clean up tool-specific resources first
+            await self._teardown()
+        finally:
+            # Then clean up dependencies
+            for dep in reversed(list(self._dependencies.values())):
+                if dep.is_initialized:
+                    await dep.cleanup()
+    
+    def _validate_impl(self) -> None:
+        """Validate tool state."""
+        if not self._name:
+            raise ValueError("Empty tool name")
+            
+        if not self._tool_config.description:
+            raise ValueError("Empty tool description")
+            
+        # Validate dependencies
+        for name, dep in self._dependencies.items():
+            if not name:
+                raise ValueError("Empty dependency name")
+            if not dep:
+                raise ValueError(f"Missing dependency: {name}")
+            dep.validate()
+    
     @abstractmethod
     async def _setup(self) -> None:
-        """Set up tool-specific resources.
-        
-        This method should be overridden by tool implementations
-        to initialize any tool-specific resources.
-        """
+        """Set up tool-specific resources."""
         pass
     
     @abstractmethod
     async def _teardown(self) -> None:
-        """Clean up tool-specific resources.
-        
-        This method should be overridden by tool implementations
-        to clean up any tool-specific resources.
-        """
+        """Clean up tool-specific resources."""
         pass
     
     @abstractmethod

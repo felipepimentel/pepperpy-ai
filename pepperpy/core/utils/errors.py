@@ -1,157 +1,109 @@
-"""Error handling for Pepperpy framework."""
+"""
+Core error handling and custom exceptions.
+"""
+from typing import Optional
 
-from typing import Any, Dict, Optional
-from .constants import ErrorCode
 
 class PepperpyError(Exception):
-    """Base exception class for Pepperpy framework."""
-    
-    def __init__(
-        self,
-        message: str,
-        code: Optional[ErrorCode] = None,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize the error.
-        
+    """Base exception class for all Pepperpy errors."""
+
+    def __init__(self, message: str, code: Optional[str] = None) -> None:
+        """Initialize PepperpyError.
+
         Args:
-            message: Error message
-            code: Optional error code
-            details: Optional error details
+            message: Error message.
+            code: Optional error code.
         """
-        super().__init__(message)
         self.message = message
         self.code = code
-        self.details = details or {}
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert error to dictionary format.
-        
-        Returns:
-            Dictionary containing error information.
-        """
-        return {
-            "message": self.message,
-            "code": self.code.value if self.code else None,
-            "details": self.details
-        }
+        super().__init__(message)
+
 
 class ConfigurationError(PepperpyError):
-    """Configuration-related errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize configuration error.
-        
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(
-            message,
-            code=ErrorCode.CONFIGURATION_ERROR,
-            details=details
-        )
+    """Raised when there is a configuration-related error."""
+    pass
 
-class InitializationError(PepperpyError):
-    """Initialization-related errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize initialization error.
-        
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(
-            message,
-            code=ErrorCode.INITIALIZATION_ERROR,
-            details=details
-        )
-
-class ProviderError(PepperpyError):
-    """Provider-related errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize provider error.
-        
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(
-            message,
-            code=ErrorCode.PROVIDER_ERROR,
-            details=details
-        )
 
 class ValidationError(PepperpyError):
-    """Validation-related errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize validation error.
-        
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(
-            message,
-            code=ErrorCode.VALIDATION_ERROR,
-            details=details
-        )
+    """Raised when validation fails."""
+    pass
 
-class RuntimeError(PepperpyError):
-    """Runtime-related errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize runtime error.
-        
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(
-            message,
-            code=ErrorCode.RUNTIME_ERROR,
-            details=details
-        )
+
+class ProviderError(PepperpyError):
+    """Raised when there is an error with a provider."""
+    pass
+
+
+class ResourceNotFoundError(PepperpyError):
+    """Raised when a requested resource is not found."""
+    pass
+
+
+class AuthenticationError(PepperpyError):
+    """Raised when authentication fails."""
+    pass
+
+
+class AuthorizationError(PepperpyError):
+    """Raised when authorization fails."""
+    pass
+
+
+class RateLimitError(PepperpyError):
+    """Raised when rate limits are exceeded."""
+    pass
+
 
 class TimeoutError(PepperpyError):
-    """Timeout-related errors."""
-    
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None
-    ):
-        """Initialize timeout error.
-        
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(
-            message,
-            code=ErrorCode.TIMEOUT_ERROR,
-            details=details
-        )
+    """Raised when an operation times out."""
+    pass
+
+
+class DependencyError(PepperpyError):
+    """Raised when there is an error with a dependency."""
+    pass
+
+
+class ResourceError(PepperpyError):
+    """Error raised for resource management issues."""
+    pass
+
+
+class SecurityError(PepperpyError):
+    """Error raised for security-related issues."""
+    pass
+
+
+class MiddlewareError(PepperpyError):
+    """Error raised for middleware-related issues."""
+    pass
+
+
+class ExtensionError(PepperpyError):
+    """Error raised for extension-related issues."""
+    pass
+
+
+class CapabilityError(PepperpyError):
+    """Error raised for capability-related issues."""
+    pass
+
+
+class AgentError(PepperpyError):
+    """Error raised for agent-related issues."""
+    pass
+
+
+class WorkflowError(PepperpyError):
+    """Error raised for workflow-related issues."""
+    pass
+
+
+class PersistenceError(PepperpyError):
+    """Error raised for persistence-related issues."""
+    pass
+
+
+class MonitoringError(PepperpyError):
+    """Error raised for monitoring-related issues."""
+    pass

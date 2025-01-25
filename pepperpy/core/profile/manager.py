@@ -6,14 +6,13 @@ including profile creation, retrieval, and persistence.
 
 import asyncio
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
-import logging
+from typing import Any, Dict, List, Optional
 
+from ..core.errors import PepperpyError
+from ..providers.base import BaseProvider
 from ..core.events import Event, EventBus
-from ..interfaces import Provider
-from ..common.errors import PepperpyError
 from ..monitoring import Monitor
-from .profile import Profile, ProfileError
+from .profile import Profile
 
 
 class ManagerError(PepperpyError):
@@ -21,7 +20,7 @@ class ManagerError(PepperpyError):
     pass
 
 
-class ProfileManager(Provider):
+class ProfileManager(BaseProvider):
     """Profile manager implementation."""
     
     def __init__(
@@ -39,18 +38,12 @@ class ProfileManager(Provider):
             monitor: Optional monitor
             config: Optional configuration
         """
-        super().__init__(name=name, event_bus=event_bus, monitor=monitor, config=config)
+        self._event_bus = event_bus
+        self._monitor = monitor
         self._profiles: Dict[str, Profile] = {}
         self._lock = asyncio.Lock()
+        super().__init__(name, config)
         
-    async def _start(self) -> None:
-        """Start the profile manager."""
-        pass
-
-    async def _stop(self) -> None:
-        """Stop the profile manager."""
-        pass
-
     async def create_profile(
         self,
         id: str,
@@ -68,11 +61,11 @@ class ProfileManager(Provider):
             Created profile
             
         Raises:
-            ManagerError: If creation fails
+            ManagerError: If profile creation fails
         """
         async with self._lock:
             if id in self._profiles:
-                raise ManagerError(f"Profile already exists: {id}")
+                raise ManagerError(f"Profile {id} already exists")
                 
             try:
                 profile = Profile(
@@ -93,14 +86,15 @@ class ProfileManager(Provider):
                             timestamp=datetime.now(),
                             data={
                                 "profile_id": id,
-                                "name": name,
+                                "profile_name": name,
                             },
                         )
                     )
                     
                 return profile
+                
             except Exception as e:
-                raise ManagerError(f"Profile creation failed: {e}")
+                raise ManagerError(f"Failed to create profile: {e}")
                 
     async def get_profile(self, id: str) -> Profile:
         """Get profile.
@@ -115,7 +109,7 @@ class ProfileManager(Provider):
             ManagerError: If profile not found
         """
         if id not in self._profiles:
-            raise ManagerError(f"Profile not found: {id}")
+            raise ManagerError(f"Profile {id} not found")
             
         return self._profiles[id]
         
@@ -126,11 +120,11 @@ class ProfileManager(Provider):
             id: Profile ID
             
         Raises:
-            ManagerError: If deletion fails
+            ManagerError: If profile deletion fails
         """
         async with self._lock:
             if id not in self._profiles:
-                raise ManagerError(f"Profile not found: {id}")
+                raise ManagerError(f"Profile {id} not found")
                 
             try:
                 profile = self._profiles[id]
@@ -143,21 +137,24 @@ class ProfileManager(Provider):
                             type="profile_deleted",
                             source=self.name,
                             timestamp=datetime.now(),
-                            data={"profile_id": id},
+                            data={
+                                "profile_id": id,
+                            },
                         )
                     )
+                    
             except Exception as e:
-                raise ManagerError(f"Profile deletion failed: {e}")
+                raise ManagerError(f"Failed to delete profile: {e}")
                 
     def list_profiles(self) -> List[str]:
-        """List profile IDs.
+        """List profiles.
         
         Returns:
             List of profile IDs
         """
         return list(self._profiles.keys())
         
-    async def _initialize(self) -> None:
+    async def _initialize_impl(self) -> None:
         """Initialize manager."""
         if self._event_bus:
             await self._event_bus.initialize()
@@ -165,9 +162,9 @@ class ProfileManager(Provider):
         if self._monitor:
             await self._monitor.initialize()
             
-    async def _cleanup(self) -> None:
+    async def _cleanup_impl(self) -> None:
         """Clean up manager."""
-        async with self._lock:
+        try:
             for profile in self._profiles.values():
                 await profile.cleanup()
                 
@@ -179,21 +176,10 @@ class ProfileManager(Provider):
             if self._event_bus:
                 await self._event_bus.cleanup()
                 
-    def validate(self) -> None:
+        except Exception as e:
+            raise ManagerError(f"Failed to clean up manager: {e}")
+            
+    def _validate_impl(self) -> None:
         """Validate manager state."""
-        super().validate()
-        
         if not self.name:
-            raise ManagerError("Empty manager name")
-            
-        if self._event_bus:
-            self._event_bus.validate()
-            
-        if self._monitor:
-            self._monitor.validate()
-            
-        for profile in self._profiles.values():
-            try:
-                profile.validate()
-            except Exception as e:
-                raise ManagerError(f"Profile validation failed: {e}") 
+            raise ManagerError("Empty manager name") 

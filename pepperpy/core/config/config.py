@@ -4,6 +4,7 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
+from dataclasses import dataclass, field
 
 import yaml
 
@@ -16,6 +17,36 @@ logger = logging.getLogger(__name__)
 class ConfigError(PepperpyError):
     """Configuration error."""
     pass
+
+
+@dataclass
+class Config:
+    """Base configuration class.
+    
+    All configuration classes should inherit from this class.
+    """
+    name: str
+    parameters: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        if not self.name:
+            raise ConfigError("Configuration name cannot be empty")
+        
+        if not isinstance(self.parameters, dict):
+            raise ConfigError("Parameters must be a dictionary")
+        
+        if not isinstance(self.metadata, dict):
+            raise ConfigError("Metadata must be a dictionary")
+
+    def validate(self) -> None:
+        """Validate configuration.
+        
+        This method is called after initialization to validate the configuration.
+        Subclasses should override this method to add their own validation logic.
+        """
+        self.__post_init__()
 
 
 def load_config(path: Optional[str] = None) -> Dict[str, Any]:

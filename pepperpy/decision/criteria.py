@@ -7,7 +7,7 @@ criteria, including validation and composition.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 
 class CriteriaError(PepperpyError):

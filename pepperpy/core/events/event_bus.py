@@ -142,7 +142,7 @@ class EventBus(BaseProvider):
         self._handlers.clear()
         self._filters.clear()
         
-    async def validate(self) -> None:
+    def _validate_impl(self) -> None:
         """Validate bus state."""
         if not self.name:
             raise EventBusError("Empty bus name") 

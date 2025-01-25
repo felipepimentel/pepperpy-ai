@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 T = TypeVar("T")
 

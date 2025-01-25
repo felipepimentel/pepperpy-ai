@@ -8,8 +8,9 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
-from pepperpy.tools.functions.serp import SerpSearchResult, SerpSearchTool
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
+from pepperpy.capabilities.tools.serp import SerpSearchResult, SerpSearchTool
 
 
 # Load environment variables
@@ -22,8 +23,30 @@ class NewsAgentConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     topic: str
-    llm: HuggingFaceLLM
+    llm: HuggingFaceProvider
     search_tool: SerpSearchTool
+
+    @classmethod
+    def create(cls, topic: str) -> "NewsAgentConfig":
+        """Create a news agent config with default settings."""
+        api_key = os.getenv("HUGGINGFACE_API_KEY")
+        if not api_key:
+            raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
+        llm_config = LLMConfig(
+            api_key=api_key,
+            model="google/flan-t5-large",
+            base_url="https://api-inference.huggingface.co/models",
+            temperature=0.7,
+            max_tokens=512,
+            is_fallback=False,
+            priority=1
+        )
+        return cls(
+            topic=topic,
+            llm=HuggingFaceProvider(llm_config.to_dict()),
+            search_tool=SerpSearchTool()
+        )
 
 
 class NewsAgent(BaseAgent):
@@ -51,7 +74,7 @@ class NewsAgent(BaseAgent):
         return (
             isinstance(config, NewsAgentConfig)
             and isinstance(config.topic, str)
-            and isinstance(config.llm, HuggingFaceLLM)
+            and isinstance(config.llm, HuggingFaceProvider)
             and isinstance(config.search_tool, SerpSearchTool)
         )
 
@@ -147,7 +170,7 @@ async def main() -> None:
     )
 
     # Create LLM and search tool
-    llm = HuggingFaceLLM(llm_config)
+    llm = HuggingFaceProvider(llm_config)
     search_tool = SerpSearchTool()
 
     try:

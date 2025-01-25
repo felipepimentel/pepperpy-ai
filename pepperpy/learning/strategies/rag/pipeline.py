@@ -7,10 +7,10 @@ import json
 import os
 from datetime import datetime
 
-from pepperpy.data_stores.chunking import Chunk, ChunkManager
+from pepperpy.persistence.storage.chunking import Chunk, ChunkManager
 from pepperpy.llms.base_llm import BaseLLM
 from pepperpy.llms.types import LLMResponse
-from pepperpy.common.errors import RAGError, ConfigurationError
+from pepperpy.core.utils.errors import RAGError, ConfigurationError
 from pepperpy.monitoring.performance_metrics import MetricsCollector
 
 

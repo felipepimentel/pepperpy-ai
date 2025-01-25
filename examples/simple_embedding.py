@@ -1,60 +1,43 @@
-"""Simple example demonstrating embedding generation and vector storage."""
+"""Example of using the embedding provider."""
 
 import asyncio
-import os
-from typing import Any, cast
+from typing import List
 
-from pepperpy.data_stores.embedding_manager import EmbeddingConfig, EmbeddingManager
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
+from pepperpy.providers.embedding import EmbeddingConfig, EmbeddingManager
+from pepperpy.providers.vector_store.base import Embeddings
 
 
-async def main() -> None:
+async def main():
     """Run the example."""
-    # Initialize LLM with configuration from environment
-    llm_config = LLMConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "google/gemini-2.0-flash-exp:free"),
-        model_kwargs={
-            "api_key": os.getenv("PEPPERPY_API_KEY", ""),
-            "provider": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
-        },
-    )
-    llm = HuggingFaceLLM(llm_config)
-    await llm.initialize()
-
     # Initialize embedding manager
-    embedding_config = EmbeddingConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "google/gemini-2.0-flash-exp:free"),
-        batch_size=32,
-        cache_embeddings=True,
-    )
-    embedding_manager = EmbeddingManager(llm, embedding_config)
-
-    # Example texts
-    texts = [
-        "The quick brown fox jumps over the lazy dog",
-        "Pack my box with five dozen liquor jugs",
-        "How vexingly quick daft zebras jump",
-    ]
-
+    manager = EmbeddingManager()
+    await manager.initialize({
+        "primary": {
+            "type": "sentence_transformers",
+            "model_name": "all-MiniLM-L6-v2",
+            "device": "cpu"
+        }
+    })
+    
     try:
         # Generate embeddings
-        print("Generating embeddings...")
-        embeddings = cast(list[list[float]], await embedding_manager.get_embeddings(texts))
+        texts = [
+            "Hello, world!",
+            "How are you?",
+            "Nice to meet you!"
+        ]
         
-        # Print embedding dimensions
-        print(f"\nGenerated {len(embeddings)} embeddings")
-        print(f"Each embedding has {len(embeddings[0])} dimensions")
+        embeddings: List[Embeddings] = await manager.embed_batch(texts)
         
-        # Generate embedding for a single text
-        single_text = "The quick brown fox"
-        print("\nGenerating embedding for single text...")
-        single_embedding = cast(list[float], await embedding_manager.get_embeddings(single_text))
-        print(f"Single embedding has {len(single_embedding)} dimensions")
-
+        # Print results
+        for emb in embeddings:
+            print(f"Text: {emb.text}")
+            print(f"Vector shape: {emb.vector.shape}")
+            print(f"Vector type: {emb.vector.dtype}")
+            print("---")
+            
     finally:
-        # Cleanup
-        await embedding_manager.cleanup()
-        await llm.cleanup()
+        await manager.cleanup()
 
 
 if __name__ == "__main__":

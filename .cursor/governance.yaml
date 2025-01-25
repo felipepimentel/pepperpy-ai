@@ -1,0 +1,23 @@
+# Contexto prioritário para o Cursor
+context_rules:
+  priority_files:
+    - "docs/GUIDES/00_MASTER_RULES.md"
+    - "docs/REFERENCE/ARCHITECTURE/core_diagrams.mmd"
+
+# Regras de validação automática
+validation_gates:
+  pre_commit:
+    - rule: "task-reference-check"
+      action: "verify_task_in_status"
+    - rule: "arch-impact"
+      action: "check_architecture_compliance --strict"
+
+# Templates de prompts
+prompt_templates:
+  code_review:
+    system: |
+      Você é um engenheiro sênior revisando uma mudança no módulo {{module}}.
+      Diretrizes críticas:
+      1. Alinhamento com {{#if task}}task {{task}}{{else}}Master Rules{{/if}}
+      2. Impacto em {{dependencies}}
+      3. Padrão de código: {{guidelines.version}}

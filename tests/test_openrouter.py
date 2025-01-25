@@ -1,13 +1,15 @@
-"""Tests for OpenRouter LLM provider."""
+"""Test OpenRouter provider functionality."""
 
+import json
 from collections.abc import AsyncIterator
+from typing import Any, Dict
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from pepperpy.llms.openrouter import OpenRouterProvider
-from pepperpy.llms.types import LLMResponse, ProviderConfig
+from pepperpy.providers.llm.openrouter import OpenRouterProvider
+from pepperpy.providers.llm.types import LLMResponse, ProviderConfig
 
 
 @pytest.fixture

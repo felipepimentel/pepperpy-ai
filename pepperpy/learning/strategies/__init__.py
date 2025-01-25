@@ -10,16 +10,18 @@ import asyncio
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, TypeVar
 
-from pepperpy.common.types import PepperpyObject, DictInitializable, Validatable
-from pepperpy.common.errors import LearningError, RetrievalMatchError, ContextLengthError
+from pepperpy.core.types import PepperpyObject, DictInitializable, Validatable
+from pepperpy.core.utils.errors import LearningError, RetrievalMatchError, ContextLengthError
 from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.context import Context
-from pepperpy.data.document import Document, DocumentStore
-from pepperpy.models.embeddings import EmbeddingModel
-from pepperpy.models.llm import LLMModel
+from pepperpy.persistence.storage.document import Document, DocumentStore
+from pepperpy.providers.embeddings.base import BaseEmbeddingProvider
+from pepperpy.providers.llm.base import BaseLLMProvider
 
-from .rag import RAGWorkflow, BasicRAG, Pipeline
-from .fine_tuning import FineTuningStrategy
+from .rag.rag import RAGStrategy
+from .rag.basic import BasicRAGWorkflow
+from .rag.pipeline import RAGPipeline
+from .fine_tuning.strategy import FineTuningStrategy
 
 T = TypeVar("T")
 
@@ -31,8 +33,8 @@ class LearningStrategy(Lifecycle, ABC):
         self,
         name: str,
         document_store: DocumentStore,
-        embedding_model: EmbeddingModel,
-        llm_model: LLMModel,
+        embedding_model: BaseEmbeddingProvider,
+        llm_model: BaseLLMProvider,
         max_context_length: int = 4000,
         min_similarity: float = 0.7,
         batch_size: int = 5,
@@ -52,7 +54,7 @@ class LearningStrategy(Lifecycle, ABC):
             enable_metrics: Whether to enable metrics
             context: Optional execution context
         """
-        super().__init__(name, context)
+        super().__init__(name)
         self._document_store = document_store
         self._embedding_model = embedding_model
         self._llm_model = llm_model
@@ -60,6 +62,7 @@ class LearningStrategy(Lifecycle, ABC):
         self._min_similarity = min_similarity
         self._batch_size = batch_size
         self._enable_metrics = enable_metrics
+        self._context = context
         self._metrics: Dict[str, float] = {}
         self._initialized = False
         
@@ -70,132 +73,116 @@ class LearningStrategy(Lifecycle, ABC):
         
     async def _initialize(self) -> None:
         """Initialize strategy."""
-        await self._document_store.initialize()
+        self._document_store.initialize()
         await self._embedding_model.initialize()
         await self._llm_model.initialize()
         self._initialized = True
         
     async def _cleanup(self) -> None:
         """Clean up strategy."""
-        await self._document_store.cleanup()
+        self._document_store.cleanup()
         await self._embedding_model.cleanup()
         await self._llm_model.cleanup()
         self._initialized = False
         
     @property
     def context(self) -> Optional[Context]:
-        """Return execution context."""
+        """Return context."""
         return self._context
         
     @property
     def metrics(self) -> Dict[str, float]:
-        """Return strategy metrics."""
-        return self._metrics
+        """Return metrics."""
+        return self._metrics.copy()
         
     async def add_document(self, document: Document) -> None:
         """Add document to store.
         
         Args:
             document: Document to add
-            
-        Raises:
-            LearningError: If strategy is not initialized
         """
-        if not self._initialized:
-            raise LearningError("Learning strategy not initialized")
+        if not self.is_initialized:
+            raise LearningError("Strategy not initialized")
             
-        await self._document_store.add([document])
+        self._document_store.add_document(document)
         
     async def process(self, query: str) -> str:
         """Process query using learning strategy.
         
         Args:
-            query: Query text
+            query: Query to process
             
         Returns:
             Generated response
             
         Raises:
-            LearningError: If strategy is not initialized
+            LearningError: If strategy not initialized
             RetrievalMatchError: If no relevant documents found
-            ContextLengthError: If context length exceeds maximum
+            ContextLengthError: If context length exceeded
         """
-        if not self._initialized:
-            raise LearningError("Learning strategy not initialized")
+        if not self.is_initialized:
+            raise LearningError("Strategy not initialized")
             
-        # Get query embedding
-        query_embedding = await self._embedding_model.embed(query)
-        
         # Search for relevant documents
-        documents = await self._document_store.search(
-            query=query,
-            limit=self._batch_size,
-        )
+        documents = self._document_store.filter_by_metadata({
+            "query": query,
+            "min_similarity": self._min_similarity,
+            "max_documents": self._batch_size,
+        })
         
         if not documents:
-            raise RetrievalMatchError(
-                message="No relevant documents found",
-                query=query,
-                min_similarity=self._min_similarity,
-                documents_checked=self._batch_size,
-            )
+            raise RetrievalMatchError("No relevant documents found")
             
-        # Calculate total context length
+        # Check context length
         total_length = sum(len(doc.content) for doc in documents)
-        
         if total_length > self._max_context_length:
             raise ContextLengthError(
-                message="Context length exceeds maximum",
-                max_length=self._max_context_length,
-                current_length=total_length,
+                "Context length exceeded",
+                details={
+                    "max_length": self._max_context_length,
+                    "current_length": total_length,
+                }
             )
             
         # Generate response
         response = await self._generate_response(query, documents)
         
-        # Update metrics
-        if self._enable_metrics:
-            self._metrics.update({
-                "num_documents": len(documents),
-                "context_length": total_length,
-                "similarity_score": sum(doc.metadata.get("similarity", 0.0) for doc in documents) / len(documents),
-            })
-            
         return response
         
     @abstractmethod
     async def _generate_response(self, query: str, documents: List[Document]) -> str:
-        """Generate response implementation."""
+        """Generate response from query and documents.
+        
+        Args:
+            query: Query to process
+            documents: Relevant documents
+            
+        Returns:
+            Generated response
+        """
         pass
         
     def validate(self) -> None:
-        """Validate strategy state."""
-        super().validate()
-        
-        if not self.name:
-            raise ValueError("Strategy name cannot be empty")
-            
-        if self._max_context_length <= 0:
-            raise ValueError("Maximum context length must be positive")
-            
-        if not 0 <= self._min_similarity <= 1:
-            raise ValueError("Minimum similarity must be between 0 and 1")
-            
-        if self._batch_size <= 0:
-            raise ValueError("Batch size must be positive")
+        """Validate strategy configuration."""
+        if not self._document_store:
+            raise ValueError("Document store not set")
+        if not self._embedding_model:
+            raise ValueError("Embedding model not set")
+        if not self._llm_model:
+            raise ValueError("Language model not set")
             
         self._document_store.validate()
         self._embedding_model.validate()
         self._llm_model.validate()
         
-        if self._context is not None:
+        if self._context:
             self._context.validate()
 
 
 __all__ = [
     "LearningStrategy",
-    "RAGWorkflow",
-    "BasicRAG",
-    "Pipeline",
+    "RAGStrategy",
+    "BasicRAGWorkflow",
+    "RAGPipeline",
     "FineTuningStrategy",
 ]

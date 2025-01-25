@@ -8,9 +8,10 @@ from dotenv import load_dotenv
 from pydantic import BaseModel, ConfigDict
 
 from pepperpy.agents.base.base_agent import BaseAgent
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
-from pepperpy.tools.functions.elevenlabs import ElevenLabsConfig, ElevenLabsTool
-from pepperpy.tools.functions.serp import SerpSearchResult, SerpSearchTool
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
+from pepperpy.capabilities.tools.elevenlabs import ElevenLabsConfig, ElevenLabsTool
+from pepperpy.capabilities.tools.serp import SerpSearchResult, SerpSearchTool
 
 
 # Load environment variables
@@ -22,7 +23,7 @@ class NarratorAgentConfig(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    llm: HuggingFaceLLM
+    llm: HuggingFaceProvider
     tts_tool: ElevenLabsTool
 
 
@@ -49,7 +50,7 @@ class NarratorAgent(BaseAgent):
         """
         return (
             isinstance(config, NarratorAgentConfig)
-            and isinstance(config.llm, HuggingFaceLLM)
+            and isinstance(config.llm, HuggingFaceProvider)
             and isinstance(config.tts_tool, ElevenLabsTool)
         )
 
@@ -116,7 +117,7 @@ class NewsAgentConfig(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     topic: str
-    llm: HuggingFaceLLM
+    llm: HuggingFaceProvider
     search_tool: SerpSearchTool
 
 
@@ -145,7 +146,7 @@ class NewsAgent(BaseAgent):
         return (
             isinstance(config, NewsAgentConfig)
             and isinstance(config.topic, str)
-            and isinstance(config.llm, HuggingFaceLLM)
+            and isinstance(config.llm, HuggingFaceProvider)
             and isinstance(config.search_tool, SerpSearchTool)
         )
 
@@ -232,17 +233,21 @@ class NewsAgent(BaseAgent):
 async def main() -> None:
     """Run the news narration example."""
     # Initialize LLM configuration
+    api_key = os.getenv("HUGGINGFACE_API_KEY")
+    if not api_key:
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
     llm_config = LLMConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "anthropic/claude-2"),
-        model_kwargs={
-            "api_key": os.getenv("PEPPERPY_API_KEY", ""),
-            "provider": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
-        },
+        api_key=api_key,
+        model="anthropic/claude-2",
+        base_url="https://api-inference.huggingface.co/models",
+        temperature=0.7,
+        max_tokens=1000
     )
 
     # Create LLM and tools
-    llm1 = HuggingFaceLLM(llm_config)
-    llm2 = HuggingFaceLLM(llm_config)
+    llm1 = HuggingFaceProvider(llm_config.to_dict())
+    llm2 = HuggingFaceProvider(llm_config.to_dict())
     search_tool = SerpSearchTool()
     tts_tool = ElevenLabsTool()
 

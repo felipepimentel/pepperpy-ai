@@ -1,97 +1,116 @@
-"""Component termination functionality."""
+"""
+Component termination management for Pepperpy.
+"""
+from typing import Any, Callable, Dict, List, Optional
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
-
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 
 class TerminationError(PepperpyError):
-    """Termination error."""
+    """Error raised during component termination."""
     pass
 
 
-class Terminator(ABC):
-    """Base class for component terminators."""
-    
-    def __init__(self, name: str):
-        """Initialize terminator.
-        
-        Args:
-            name: Terminator name
-        """
-        self.name = name
-        self._terminated = False
-        
-    @property
-    def terminated(self) -> bool:
-        """Get termination status."""
-        return self._terminated
-        
-    @abstractmethod
-    async def terminate(self, **kwargs: Any) -> None:
-        """Terminate component.
-        
-        Args:
-            **kwargs: Component-specific termination arguments
-            
-        Raises:
-            TerminationError: If termination fails
-        """
-        pass
-        
-    def validate(self) -> None:
-        """Validate terminator state."""
-        if not self.name:
-            raise ValueError("Terminator name cannot be empty")
+class Terminator:
+    """Manages component termination in the Pepperpy system."""
 
+    def __init__(self) -> None:
+        """Initialize the Terminator."""
+        self._cleanup_handlers: Dict[str, List[Callable[[], None]]] = {}
+        self._terminated_components: List[str] = []
 
-class PepperpyTerminator(Terminator):
-    """Concrete terminator implementation for Pepperpy components."""
-    
-    def __init__(self):
-        """Initialize the Pepperpy terminator."""
-        super().__init__("pepperpy_terminator")
-        self._term_steps: List[Dict[str, Any]] = []
-    
-    async def terminate(self, **kwargs: Any) -> None:
-        """Terminate Pepperpy component.
-        
+    def register_cleanup(self, component_id: str, cleanup_handler: Callable[[], None]) -> None:
+        """Register a cleanup handler for a component.
+
         Args:
-            **kwargs: Component-specific termination arguments
-            
+            component_id: Unique identifier for the component.
+            cleanup_handler: Function to call during cleanup.
+
         Raises:
-            TerminationError: If termination fails
+            TerminationError: If registration fails.
         """
-        if self._terminated:
-            raise TerminationError("Component already terminated")
-        
         try:
-            # Record termination step
-            self._term_steps.append({
-                "step": "start",
-                "kwargs": kwargs
-            })
-            
-            # Perform termination
-            # TODO: Add actual termination logic
-            
-            self._terminated = True
-            self._term_steps.append({
-                "step": "complete",
-                "success": True
-            })
+            if component_id not in self._cleanup_handlers:
+                self._cleanup_handlers[component_id] = []
+            self._cleanup_handlers[component_id].append(cleanup_handler)
         except Exception as e:
-            self._term_steps.append({
-                "step": "error",
-                "error": str(e)
-            })
-            raise TerminationError(f"Termination failed: {str(e)}")
-    
-    def get_term_steps(self) -> List[Dict[str, Any]]:
-        """Get termination steps.
-        
-        Returns:
-            List of termination steps with metadata.
+            raise TerminationError(
+                f"Failed to register cleanup handler for component {component_id}: {str(e)}"
+            ) from e
+
+    def terminate_component(self, component_id: str, force: bool = False) -> None:
+        """Terminate a component and run its cleanup handlers.
+
+        Args:
+            component_id: Unique identifier for the component.
+            force: Whether to continue on cleanup errors.
+
+        Raises:
+            TerminationError: If termination fails and force is False.
         """
-        return self._term_steps.copy() 
+        if component_id in self._terminated_components:
+            return
+
+        handlers = self._cleanup_handlers.get(component_id, [])
+        errors: List[Exception] = []
+
+        for handler in handlers:
+            try:
+                handler()
+            except Exception as e:
+                errors.append(e)
+                if not force:
+                    raise TerminationError(
+                        f"Failed to terminate component {component_id}: {str(e)}"
+                    ) from e
+
+        if not errors:
+            self._terminated_components.append(component_id)
+            self._cleanup_handlers.pop(component_id, None)
+        elif force:
+            # Log errors but continue if force is True
+            error_messages = "; ".join(str(e) for e in errors)
+            print(f"Forced termination of {component_id} with errors: {error_messages}")
+
+    def terminate_all(self, force: bool = False) -> None:
+        """Terminate all registered components.
+
+        Args:
+            force: Whether to continue on cleanup errors.
+
+        Raises:
+            TerminationError: If any termination fails and force is False.
+        """
+        components = list(self._cleanup_handlers.keys())
+        errors: List[Exception] = []
+
+        for component_id in components:
+            try:
+                self.terminate_component(component_id, force=force)
+            except Exception as e:
+                errors.append(e)
+                if not force:
+                    raise TerminationError(
+                        f"Failed to terminate components: {str(e)}"
+                    ) from e
+
+        if errors and force:
+            # Log errors but continue if force is True
+            error_messages = "; ".join(str(e) for e in errors)
+            print(f"Forced termination completed with errors: {error_messages}")
+
+    def is_terminated(self, component_id: str) -> bool:
+        """Check if a component has been terminated.
+
+        Args:
+            component_id: Unique identifier for the component.
+
+        Returns:
+            True if the component has been terminated.
+        """
+        return component_id in self._terminated_components
+
+    def reset(self) -> None:
+        """Reset the terminator state."""
+        self._cleanup_handlers.clear()
+        self._terminated_components.clear() 

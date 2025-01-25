@@ -6,8 +6,9 @@ import os
 from dotenv import load_dotenv
 
 from pepperpy.agents.review_agent import ReviewAgent, ReviewAgentConfig
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
-from pepperpy.tools.functions.document_loader import DocumentLoaderTool
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
+from pepperpy.capabilities.tools.document_loader import DocumentLoaderTool
 
 
 # Load environment variables
@@ -27,16 +28,20 @@ REVIEW_CRITERIA = {
 async def main() -> None:
     """Run the content review example."""
     # Initialize LLM configuration
+    api_key = os.getenv("HUGGINGFACE_API_KEY")
+    if not api_key:
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
     llm_config = LLMConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "anthropic/claude-2"),
-        model_kwargs={
-            "api_key": os.getenv("PEPPERPY_API_KEY", ""),
-            "provider": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
-        },
+        api_key=api_key,
+        model="anthropic/claude-2",
+        base_url="https://api-inference.huggingface.co/models",
+        temperature=0.7,
+        max_tokens=1000
     )
 
     # Create LLM and tools
-    llm = HuggingFaceLLM(llm_config)
+    llm = HuggingFaceProvider(llm_config.to_dict())
     document_loader = DocumentLoaderTool()
 
     try:

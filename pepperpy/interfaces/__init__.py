@@ -95,128 +95,27 @@ class Provider(Lifecycle, Protocol):
     def config(self) -> Dict[str, Any]:
         """Return provider configuration."""
         raise NotImplementedError
-
-class BaseProvider(ABC):
-    """Base provider implementation."""
-    
-    def __init__(
-        self,
-        name: str,
-        config: Optional[Dict[str, Any]] = None,
-        event_bus: Optional[Any] = None,
-        monitor: Optional[Any] = None,
-        validator: Optional[Any] = None,
-    ) -> None:
-        """Initialize provider.
-        
-        Args:
-            name: Provider name
-            config: Optional configuration
-            event_bus: Optional event bus
-            monitor: Optional monitor
-            validator: Optional validator
-        """
-        self._name = name
-        self._config = config or {}
-        self._event_bus = event_bus
-        self._monitor = monitor
-        self._validator = validator
-        self._is_initialized = False
         
     @property
-    def name(self) -> str:
-        """Return provider name."""
-        return self._name
-        
-    @property
-    def config(self) -> Dict[str, Any]:
-        """Return provider configuration."""
-        return self._config
-        
-    @property
+    @abstractmethod
     def is_initialized(self) -> bool:
         """Return whether provider is initialized."""
-        return self._is_initialized
+        raise NotImplementedError
         
     @property
     def event_bus(self) -> Optional[Any]:
         """Return event bus."""
-        return self._event_bus
+        return None
         
     @property
     def monitor(self) -> Optional[Any]:
         """Return monitor."""
-        return self._monitor
+        return None
         
     @property
     def validator(self) -> Optional[Any]:
         """Return validator."""
-        return self._validator
-        
-    async def initialize(self) -> None:
-        """Initialize provider."""
-        if self.is_initialized:
-            return
-            
-        if self.event_bus:
-            await self.event_bus.initialize()
-            
-        if self.monitor:
-            await self.monitor.initialize()
-            
-        if self.validator:
-            await self.validator.initialize()
-            
-        await self._initialize_impl()
-        self._is_initialized = True
-        
-    async def cleanup(self) -> None:
-        """Clean up provider."""
-        if not self.is_initialized:
-            return
-            
-        await self._cleanup_impl()
-        
-        if self.validator:
-            await self.validator.cleanup()
-            
-        if self.monitor:
-            await self.monitor.cleanup()
-            
-        if self.event_bus:
-            await self.event_bus.cleanup()
-            
-        self._is_initialized = False
-        
-    async def validate(self) -> None:
-        """Validate provider state."""
-        if not self.name:
-            raise ValueError("Empty provider name")
-            
-        if self.event_bus:
-            await self.event_bus.validate()
-            
-        if self.monitor:
-            await self.monitor.validate()
-            
-        if self.validator:
-            await self.validator.validate()
-            
-        await self._validate_impl()
-        
-    @abstractmethod
-    async def _initialize_impl(self) -> None:
-        """Initialize implementation."""
-        pass
-        
-    @abstractmethod
-    async def _cleanup_impl(self) -> None:
-        """Clean up implementation."""
-        pass
-        
-    async def _validate_impl(self) -> None:
-        """Validate implementation."""
-        pass
+        return None
 
 class LLMProvider(Provider, Protocol):
     """Protocol for LLM providers."""

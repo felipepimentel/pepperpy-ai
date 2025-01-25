@@ -7,7 +7,7 @@ combines reasoning with action execution for dynamic problem-solving.
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 
 class ReActError(PepperpyError):

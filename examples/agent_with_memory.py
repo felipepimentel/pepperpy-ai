@@ -5,45 +5,29 @@ import os
 from datetime import datetime
 from dotenv import load_dotenv
 
-from pepperpy.llms.llm_manager import LLMManager
-from pepperpy.data_stores.conversation import Conversation, Message, MessageRole
-from pepperpy.data_stores.memory import MemoryManager
-from pepperpy.data_stores.rag import RAGManager
-from pepperpy.data_stores.chunking import ChunkManager
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
+from pepperpy.persistence.storage.conversation import Conversation, Message, MessageRole
+from pepperpy.persistence.storage.memory import MemoryManager
+from pepperpy.persistence.storage.rag import RAGManager
+from pepperpy.persistence.storage.chunking import ChunkManager
 
 async def main():
     # Load environment variables
     load_dotenv()
 
-    # Initialize LLM manager with multiple providers
-    llm_manager = LLMManager()
-    await llm_manager.initialize({
-        "primary": {
-            "type": "openrouter",
-            "model_name": "anthropic/claude-2",
-            "api_key": os.getenv("PEPPERPY_API_KEY"),
-            "temperature": 0.7,
-            "max_tokens": 1000
-        },
-        "fallback1": {
-            "type": "openrouter",
-            "model_name": "openai/gpt-4",
-            "api_key": os.getenv("PEPPERPY_FALLBACK_API_KEY"),
-            "temperature": 0.7,
-            "max_tokens": 1000,
-            "is_fallback": True,
-            "priority": 1
-        },
-        "fallback2": {
-            "type": "openrouter",
-            "model_name": "google/palm-2-chat-bison",
-            "api_key": os.getenv("PEPPERPY_FALLBACK_API_KEY"),
-            "temperature": 0.7,
-            "max_tokens": 1000,
-            "is_fallback": True,
-            "priority": 2
-        }
-    })
+    # Check for required environment variables
+    if not os.getenv("HUGGINGFACE_API_KEY"):
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
+    # Initialize LLM with HuggingFace provider
+    llm_config = LLMConfig(
+        api_key=os.environ["HUGGINGFACE_API_KEY"],
+        model="gpt2",  # example model
+        base_url="https://api-inference.huggingface.co/models"
+    )
+    
+    llm = HuggingFaceProvider(llm_config.to_dict())
 
     try:
         # Initialize conversation
@@ -61,7 +45,7 @@ async def main():
 
         # Initialize RAG manager
         rag_manager = RAGManager(
-            llm=llm_manager.get_primary_provider(),
+            llm=llm,
             chunk_manager=ChunkManager()
         )
 
@@ -153,7 +137,6 @@ async def main():
 
     finally:
         # Cleanup
-        await llm_manager.cleanup()
         await memory_manager.cleanup()
         await rag_manager.cleanup()
 

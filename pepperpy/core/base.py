@@ -1,18 +1,19 @@
 """Base provider implementation."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 from datetime import datetime
 
 from ..interfaces import Provider
 
 
-class BaseProvider(ABC):
+class BaseProvider(ABC, Provider):
     """Base provider implementation."""
     
     def __init__(
         self,
         name: str,
+        *,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize provider.
@@ -21,6 +22,9 @@ class BaseProvider(ABC):
             name: Provider name
             config: Optional configuration
         """
+        if not name:
+            raise ValueError("Provider name cannot be empty")
+            
         self._name = name
         self._config = config or {}
         self._initialized = False

@@ -7,10 +7,10 @@ from typing import Any, Dict
 
 import pytest
 
-from pepperpy.data_stores.chunking import Chunk
-from pepperpy.data_stores.conversation import Conversation, Message, MessageRole
-from pepperpy.data_stores.memory import MemoryManager
-from pepperpy.data_stores.rag import RAGManager
+from pepperpy.persistence.storage.chunking import Chunk
+from pepperpy.persistence.storage.conversation import Conversation, Message, MessageRole
+from pepperpy.providers.memory import MemoryManager
+from pepperpy.persistence.storage.rag import RAGManager
 from pepperpy.llms.base_llm import BaseLLM
 from pepperpy.llms.types import LLMResponse, ProviderConfig
 

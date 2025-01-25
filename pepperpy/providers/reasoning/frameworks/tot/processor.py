@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
 
 from pepperpy.reasoning.base import Reasoner
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 
 logger = logging.getLogger(__name__)

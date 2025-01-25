@@ -7,6 +7,7 @@ state transitions, history tracking, and complex state hierarchies.
 from .state import State, StateError, StateManager
 from .history import HistoryEntry, HistoryError, HistoryTracker
 from .complex_state_manager import ComplexStateError, ComplexStateManager
+from .context import Context, ContextError
 
 __all__ = [
     "State",
@@ -17,4 +18,6 @@ __all__ = [
     "HistoryTracker",
     "ComplexStateError",
     "ComplexStateManager",
+    "Context",
+    "ContextError",
 ]
