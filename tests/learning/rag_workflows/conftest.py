@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pepperpy.data.vector import VectorIndex, Embeddings
+from pepperpy.providers.vector_store.base import VectorIndex, Embeddings
 from pepperpy.memory.memory_manager import MemoryManager
 from pepperpy.learning.rag_workflows import RAGPipeline, MemoryRetriever
 from pepperpy.learning.rag_workflows.pipeline import RetrievalResult

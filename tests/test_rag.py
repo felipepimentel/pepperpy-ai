@@ -1,15 +1,16 @@
-"""Tests for RAG functionality."""
+"""Test RAG functionality."""
 
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any, Sequence
 
 import pytest
+from unittest.mock import AsyncMock, patch
 
-from pepperpy.data_stores.chunking import Chunk
-from pepperpy.data_stores.rag import BaseVectorStore, Document, RAGManager
-from pepperpy.llms.base_llm import BaseLLM
-from pepperpy.llms.types import LLMResponse, ProviderConfig
+from pepperpy.persistence.storage.chunking import Chunk
+from pepperpy.persistence.storage.rag import BaseVectorStore, Document, RAGManager
+from pepperpy.providers.llm.base import BaseLLM
+from pepperpy.providers.llm.types import LLMResponse, ProviderConfig
 
 
 class MockVectorStore(BaseVectorStore):

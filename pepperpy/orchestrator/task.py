@@ -5,11 +5,12 @@ including task status, dependencies, and error handling.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum, auto
+from enum import Enum
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 
 T = TypeVar("T")
 
@@ -20,134 +21,27 @@ class TaskError(PepperpyError):
 
 
 class TaskStatus(Enum):
-    """Task status."""
-    
-    PENDING = auto()
-    """Task is pending execution."""
-    
-    RUNNING = auto()
-    """Task is running."""
-    
-    COMPLETED = auto()
-    """Task completed successfully."""
-    
-    FAILED = auto()
-    """Task failed."""
+    """Task status enum."""
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
 
 
+@dataclass
 class Task(Generic[T], ABC):
-    """Task interface."""
+    """Task class."""
     
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize task.
-        
-        Args:
-            id: Task ID
-            name: Task name
-            config: Optional configuration
-        """
-        self.id = id
-        self.name = name
-        self._config = config or {}
-        self._status = TaskStatus.PENDING
-        self._result: Optional[T] = None
-        self._error: Optional[Exception] = None
-        self._start_time: Optional[datetime] = None
-        self._end_time: Optional[datetime] = None
-        
-    @property
-    def status(self) -> TaskStatus:
-        """Get task status.
-        
-        Returns:
-            Task status
-        """
-        return self._status
-        
-    @status.setter
-    def status(self, value: TaskStatus) -> None:
-        """Set task status.
-        
-        Args:
-            value: Task status
-        """
-        if value == TaskStatus.RUNNING:
-            self._start_time = datetime.now()
-        elif value in (TaskStatus.COMPLETED, TaskStatus.FAILED):
-            self._end_time = datetime.now()
-            
-        self._status = value
-        
-    @property
-    def result(self) -> Optional[T]:
-        """Get task result.
-        
-        Returns:
-            Task result if any
-        """
-        return self._result
-        
-    @result.setter
-    def result(self, value: Optional[T]) -> None:
-        """Set task result.
-        
-        Args:
-            value: Task result
-        """
-        self._result = value
-        
-    @property
-    def error(self) -> Optional[Exception]:
-        """Get task error.
-        
-        Returns:
-            Task error if any
-        """
-        return self._error
-        
-    @error.setter
-    def error(self, value: Optional[Exception]) -> None:
-        """Set task error.
-        
-        Args:
-            value: Task error
-        """
-        self._error = value
-        
-    @property
-    def start_time(self) -> Optional[datetime]:
-        """Get task start time.
-        
-        Returns:
-            Task start time if any
-        """
-        return self._start_time
-        
-    @property
-    def end_time(self) -> Optional[datetime]:
-        """Get task end time.
-        
-        Returns:
-            Task end time if any
-        """
-        return self._end_time
-        
-    @property
-    def duration(self) -> Optional[float]:
-        """Get task duration in seconds.
-        
-        Returns:
-            Task duration if completed
-        """
-        if self._start_time and self._end_time:
-            return (self._end_time - self._start_time).total_seconds()
-        return None
-        
+    id: str
+    name: str
+    status: TaskStatus = TaskStatus.PENDING
+    result: Optional[T] = None
+    error: Optional[Exception] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    _config: Dict[str, Any] = field(default_factory=dict)
+    _start_time: datetime = field(default_factory=datetime.now, init=False)
+    _end_time: datetime = field(default_factory=datetime.now, init=False)
+    
     @abstractmethod
     async def execute(self) -> T:
         """Execute task.
@@ -159,21 +53,42 @@ class Task(Generic[T], ABC):
             TaskError: If execution fails
         """
         pass
-        
+    
     def validate(self) -> None:
-        """Validate task state.
-        
-        Raises:
-            TaskError: If validation fails
-        """
+        """Validate task state."""
         if not self.id:
             raise TaskError("Empty task ID")
             
         if not self.name:
             raise TaskError("Empty task name")
             
-        if self._status == TaskStatus.COMPLETED and self._result is None:
+        if self.status == TaskStatus.COMPLETED and self.result is None:
             raise TaskError("Missing task result")
             
-        if self._status == TaskStatus.FAILED and self._error is None:
-            raise TaskError("Missing task error") 
+        if self.status == TaskStatus.FAILED and self.error is None:
+            raise TaskError("Missing task error")
+    
+    @property
+    def start_time(self) -> datetime:
+        """Return task start time."""
+        return self._start_time
+        
+    @start_time.setter
+    def start_time(self, value: datetime) -> None:
+        """Set task start time."""
+        self._start_time = value
+        
+    @property
+    def end_time(self) -> datetime:
+        """Return task end time."""
+        return self._end_time
+        
+    @end_time.setter
+    def end_time(self, value: datetime) -> None:
+        """Set task end time."""
+        self._end_time = value
+        
+    @property
+    def duration(self) -> float:
+        """Return task duration in seconds."""
+        return (self.end_time - self.start_time).total_seconds() 

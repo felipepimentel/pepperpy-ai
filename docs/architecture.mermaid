@@ -6,6 +6,7 @@ graph TB
         Core --> CoreConfig[Core Config]
         Core --> CoreContext[Core Context]
         Core --> CoreLifecycle[Core Lifecycle]
+        Core --> Interfaces[Interfaces]
     end
 
     %% Base Infrastructure
@@ -29,6 +30,7 @@ graph TB
     %% Provider System
     Providers[Providers]
     Core --> Providers
+    Providers --> Interfaces
     Providers --> Monitoring
 
     %% Capability System
@@ -83,6 +85,7 @@ graph TB
     %% Agent System
     Agents[Agents]
     Core --> Agents
+    Agents --> Interfaces
     Agents --> Orchestrator
     Agents --> Capabilities
     Agents --> Monitoring
@@ -108,7 +111,7 @@ graph TB
     classDef interface fill:#fbb,stroke:#333,stroke-width:1px
 
     class Core core
-    class CoreUtils,CoreConfig,CoreContext,CoreLifecycle coreComponent
+    class CoreUtils,CoreConfig,CoreContext,CoreLifecycle,Interfaces coreComponent
     class Validation,Security,Monitoring,Extensions,Middleware,Providers,Persistence infrastructure
     class Capabilities,Memory,Reasoning,Learning,Strategies,Composition,Orchestrator,Agents business
     class Interfaces interface

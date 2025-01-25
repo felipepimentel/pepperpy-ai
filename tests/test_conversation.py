@@ -1,10 +1,10 @@
-"""Tests for conversation functionality."""
+"""Test conversation functionality."""
 
 from uuid import UUID
-
 import pytest
+from datetime import datetime
 
-from pepperpy.memory.conversation import Conversation, Message, MessageRole
+from pepperpy.persistence.storage.conversation import Conversation, Message, MessageRole
 
 
 @pytest.fixture

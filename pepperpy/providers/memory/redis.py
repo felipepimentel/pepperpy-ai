@@ -1,271 +1,182 @@
 """Redis memory provider implementation."""
+
 import json
 import logging
-from datetime import datetime
-from typing import Dict, Any, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
 import redis.asyncio as redis
 
-from .base import BaseMemoryProvider, Message
+from pepperpy.core.utils.errors import PepperpyError
+from pepperpy.providers.memory.base import BaseMemoryProvider
+
 
 logger = logging.getLogger(__name__)
 
+
+class RedisMemoryError(PepperpyError):
+    """Redis memory provider error."""
+    pass
+
+
 @BaseMemoryProvider.register("redis")
 class RedisMemoryProvider(BaseMemoryProvider):
-    """Redis memory provider implementation."""
+    """Redis memory provider implementation.
     
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the Redis memory provider.
-        
-        Args:
-            config: Configuration dictionary containing:
-                - host: Redis host
-                - port: Redis port
-                - db: Optional Redis database number
-                - password: Optional Redis password
-                - prefix: Optional key prefix (defaults to "pepperpy:messages:")
-        """
-        super().__init__(config)
-        self.host = config["host"]
-        self.port = config["port"]
-        self.db = config.get("db", 0)
-        self.password = config.get("password")
-        self.prefix = config.get("prefix", "pepperpy:messages:")
-        self.client: Optional[redis.Redis] = None
+    This provider uses Redis as a backend for storing and retrieving
+    memory data.
+    """
     
-    async def initialize(self) -> bool:
-        """Initialize the provider.
-        
-        Returns:
-            True if initialization was successful.
-            
-        Raises:
-            ValueError: If initialization fails.
-        """
-        if self.is_initialized:
-            return True
-            
-        try:
-            self.client = redis.Redis(
-                host=self.host,
-                port=self.port,
-                db=self.db,
-                password=self.password,
-                decode_responses=True
-            )
-            # Test connection
-            await self.client.ping()
-            
-            self.is_initialized = True
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize Redis provider: {str(e)}")
-            await self.cleanup()
-            raise ValueError(f"Redis initialization failed: {str(e)}")
-    
-    async def cleanup(self) -> None:
-        """Clean up resources used by the provider."""
-        if self.client:
-            await self.client.close()
-            self.client = None
-        self.is_initialized = False
-    
-    def _get_key(self, timestamp: datetime) -> str:
-        """Get Redis key for a message.
-        
-        Args:
-            timestamp: Message timestamp.
-            
-        Returns:
-            Redis key.
-        """
-        return f"{self.prefix}{timestamp.isoformat()}"
-    
-    async def add_message(self, message: Message) -> None:
-        """Add a message to memory.
-        
-        Args:
-            message: Message to add.
-            
-        Raises:
-            ValueError: If provider is not initialized.
-        """
-        if not self.is_initialized:
-            raise ValueError("Provider not initialized")
-            
-        if not self.client:
-            raise ValueError("Redis client not initialized")
-            
-        try:
-            key = self._get_key(message.timestamp)
-            value = json.dumps(message.to_dict())
-            await self.client.set(key, value)
-            
-            # Add to role index
-            role_key = f"{self.prefix}role:{message.role}"
-            await self.client.zadd(role_key, {key: message.timestamp.timestamp()})
-            
-        except Exception as e:
-            logger.error(f"Failed to add message: {str(e)}")
-            raise RuntimeError(f"Failed to add message: {str(e)}")
-    
-    async def get_messages(
+    def __init__(
         self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        role: Optional[str] = None,
-        limit: Optional[int] = None
-    ) -> List[Message]:
-        """Get messages from memory.
-        
-        Args:
-            start_time: Optional start time filter.
-            end_time: Optional end time filter.
-            role: Optional role filter.
-            limit: Optional limit on number of messages.
-            
-        Returns:
-            List of messages.
-            
-        Raises:
-            ValueError: If provider is not initialized.
-        """
-        if not self.is_initialized:
-            raise ValueError("Provider not initialized")
-            
-        if not self.client:
-            raise ValueError("Redis client not initialized")
-            
-        try:
-            messages = []
-            
-            if role:
-                # Get messages by role
-                role_key = f"{self.prefix}role:{role}"
-                min_score = start_time.timestamp() if start_time else "-inf"
-                max_score = end_time.timestamp() if end_time else "+inf"
-                keys = await self.client.zrangebyscore(
-                    role_key,
-                    min_score,
-                    max_score,
-                    start=0,
-                    num=limit
-                )
-            else:
-                # Get all message keys
-                keys = await self.client.keys(f"{self.prefix}*")
-                # Filter out role index keys
-                keys = [k for k in keys if not k.startswith(f"{self.prefix}role:")]
-                # Sort by timestamp
-                keys.sort(reverse=True)
-                if limit:
-                    keys = keys[:limit]
-            
-            # Get message data
-            for key in keys:
-                if value := await self.client.get(key):
-                    data = json.loads(value)
-                    messages.append(Message.from_dict(data))
-            
-            return messages
-            
-        except Exception as e:
-            logger.error(f"Failed to get messages: {str(e)}")
-            raise RuntimeError(f"Failed to get messages: {str(e)}")
-    
-    async def clear_messages(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        role: Optional[str] = None
+        name: str,
+        redis_url: str,
+        config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Clear messages from memory.
+        """Initialize Redis memory provider.
         
         Args:
-            start_time: Optional start time filter.
-            end_time: Optional end time filter.
-            role: Optional role filter.
+            name: Provider name
+            redis_url: Redis connection URL
+            config: Optional configuration
+        """
+        super().__init__(name, config)
+        self._redis_url = redis_url
+        self._redis: Optional[redis.Redis] = None
+        
+    async def _initialize_impl(self) -> None:
+        """Initialize Redis client.
+        
+        Raises:
+            RedisMemoryError: If Redis client initialization fails
+        """
+        try:
+            self._redis = await redis.from_url(self._redis_url)
+        except Exception as e:
+            raise RedisMemoryError(f"Failed to connect to Redis: {e}")
+            
+    async def _cleanup_impl(self) -> None:
+        """Clean up Redis client.
+        
+        Raises:
+            RedisMemoryError: If Redis client cleanup fails
+        """
+        if self._redis:
+            try:
+                await self._redis.close()
+            except Exception as e:
+                raise RedisMemoryError(f"Failed to close Redis connection: {e}")
+            
+    def _validate_impl(self) -> None:
+        """Validate Redis configuration.
+        
+        Raises:
+            RedisMemoryError: If configuration is invalid
+        """
+        if not self._redis_url:
+            raise RedisMemoryError("Redis URL not configured")
+            
+    async def store(self, key: str, value: Any) -> None:
+        """Store value in Redis.
+        
+        Args:
+            key: Storage key
+            value: Value to store
             
         Raises:
-            ValueError: If provider is not initialized.
+            RedisMemoryError: If value cannot be stored
         """
-        if not self.is_initialized:
-            raise ValueError("Provider not initialized")
-            
-        if not self.client:
-            raise ValueError("Redis client not initialized")
+        if not self._redis:
+            raise RedisMemoryError("Redis client not initialized")
             
         try:
-            if role:
-                # Delete messages by role
-                role_key = f"{self.prefix}role:{role}"
-                min_score = start_time.timestamp() if start_time else "-inf"
-                max_score = end_time.timestamp() if end_time else "+inf"
-                keys = await self.client.zrangebyscore(
-                    role_key,
-                    min_score,
-                    max_score
-                )
-                if keys:
-                    # Delete message data
-                    await self.client.delete(*keys)
-                    # Remove from role index
-                    await self.client.zremrangebyscore(
-                        role_key,
-                        min_score,
-                        max_score
-                    )
-            else:
-                # Delete all messages
-                keys = await self.client.keys(f"{self.prefix}*")
-                if keys:
-                    await self.client.delete(*keys)
-            
+            serialized = json.dumps(value)
+            await self._redis.set(f"{self.name}:{key}", serialized)
         except Exception as e:
-            logger.error(f"Failed to clear messages: {str(e)}")
-            raise RuntimeError(f"Failed to clear messages: {str(e)}")
-    
-    async def search_messages(
-        self,
-        query: str,
-        limit: Optional[int] = None
-    ) -> List[Message]:
-        """Search messages in memory.
+            raise RedisMemoryError(f"Failed to store value: {e}")
+            
+    async def retrieve(self, key: str) -> Optional[Any]:
+        """Retrieve value from Redis.
         
         Args:
-            query: Search query.
-            limit: Optional limit on number of results.
+            key: Storage key
             
         Returns:
-            List of matching messages.
+            Retrieved value or None if not found
             
         Raises:
-            ValueError: If provider is not initialized.
+            RedisMemoryError: If value cannot be retrieved
         """
-        if not self.is_initialized:
-            raise ValueError("Provider not initialized")
-            
-        if not self.client:
-            raise ValueError("Redis client not initialized")
+        if not self._redis:
+            raise RedisMemoryError("Redis client not initialized")
             
         try:
-            messages = []
-            keys = await self.client.keys(f"{self.prefix}*")
-            # Filter out role index keys
-            keys = [k for k in keys if not k.startswith(f"{self.prefix}role:")]
-            
-            # Get message data and filter by content
-            for key in keys:
-                if value := await self.client.get(key):
-                    data = json.loads(value)
-                    if query.lower() in data["content"].lower():
-                        messages.append(Message.from_dict(data))
-                        if limit and len(messages) >= limit:
-                            break
-            
-            return messages
-            
+            value = await self._redis.get(f"{self.name}:{key}")
+            if value is None:
+                return None
+                
+            return json.loads(value)
         except Exception as e:
-            logger.error(f"Failed to search messages: {str(e)}")
-            raise RuntimeError(f"Failed to search messages: {str(e)}") 
+            raise RedisMemoryError(f"Failed to retrieve value: {e}")
+            
+    async def delete(self, key: str) -> None:
+        """Delete value from Redis.
+        
+        Args:
+            key: Storage key
+            
+        Raises:
+            RedisMemoryError: If value cannot be deleted
+        """
+        if not self._redis:
+            raise RedisMemoryError("Redis client not initialized")
+            
+        try:
+            await self._redis.delete(f"{self.name}:{key}")
+        except Exception as e:
+            raise RedisMemoryError(f"Failed to delete value: {e}")
+            
+    async def clear(self) -> None:
+        """Clear all values from Redis.
+        
+        Raises:
+            RedisMemoryError: If values cannot be cleared
+        """
+        if not self._redis:
+            raise RedisMemoryError("Redis client not initialized")
+            
+        try:
+            pattern = f"{self.name}:*"
+            cursor = 0
+            while True:
+                cursor, keys = await self._redis.scan(cursor, match=pattern)
+                if keys:
+                    await self._redis.delete(*keys)
+                if cursor == 0:
+                    break
+        except Exception as e:
+            raise RedisMemoryError(f"Failed to clear values: {e}")
+            
+    async def list_keys(self) -> List[str]:
+        """List all keys in Redis.
+        
+        Returns:
+            List of storage keys
+            
+        Raises:
+            RedisMemoryError: If keys cannot be listed
+        """
+        if not self._redis:
+            raise RedisMemoryError("Redis client not initialized")
+            
+        try:
+            pattern = f"{self.name}:*"
+            keys = []
+            cursor = 0
+            while True:
+                cursor, batch = await self._redis.scan(cursor, match=pattern)
+                keys.extend(k.decode().removeprefix(f"{self.name}:") for k in batch)
+                if cursor == 0:
+                    break
+            return keys
+        except Exception as e:
+            raise RedisMemoryError(f"Failed to list keys: {e}") 

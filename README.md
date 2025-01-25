@@ -68,8 +68,8 @@ if __name__ == "__main__":
 
 ```python
 from datetime import datetime
-from pepperpy.data_stores.conversation import Conversation, Message, MessageRole
-from pepperpy.data_stores.memory import MemoryManager
+from pepperpy.persistence.storage.conversation import Conversation, Message, MessageRole
+from pepperpy.providers.memory import MemoryManager
 
 # Create conversation
 conversation = Conversation()
@@ -99,8 +99,8 @@ relevant_memories = await memory_manager.query(
 ### Using RAG
 
 ```python
-from pepperpy.data_stores.rag import RAGManager
-from pepperpy.data_stores.chunking import ChunkManager
+from pepperpy.persistence.storage.rag import RAGManager
+from pepperpy.persistence.storage.chunking import ChunkManager
 
 # Create RAG manager
 rag_manager = RAGManager(

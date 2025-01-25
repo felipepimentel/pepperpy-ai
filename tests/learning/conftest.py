@@ -6,7 +6,7 @@ from typing import Any, AsyncGenerator, Dict, List
 
 from pepperpy.llms.base_llm import BaseLLM
 from pepperpy.memory.memory_manager import MemoryManager
-from pepperpy.data.vector import VectorIndex, Embeddings
+from pepperpy.providers.vector_store.base import VectorIndex, Embeddings
 from pepperpy.learning.examples import ExampleStore, ExampleManager
 from pepperpy.learning.strategies import InContextLearner, RetrievalLearner
 

@@ -1,9 +1,10 @@
-"""Tests for tools functionality."""
+"""Test tool functionality."""
 
 from collections.abc import AsyncIterator
 import pytest
-from pepperpy.tools.functions.serp import SerpSearchTool, SerpSearchResult
-from pepperpy.tools.functions.terminal import CommandResult, TerminalTool
+from unittest.mock import AsyncMock, patch
+from pepperpy.capabilities.tools.functions.serp import SerpSearchTool, SerpSearchResult
+from pepperpy.capabilities.tools.functions.terminal import CommandResult, TerminalTool
 
 
 @pytest.fixture

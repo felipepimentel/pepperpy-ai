@@ -3,7 +3,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
 
 

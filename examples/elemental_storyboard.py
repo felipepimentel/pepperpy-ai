@@ -4,10 +4,10 @@ import asyncio
 import os
 from dotenv import load_dotenv
 
-from pepperpy.llms.llm_manager import LLMManager
-from pepperpy.tools.functions.vision import VisionTool
-from pepperpy.tools.functions.stability import StabilityTool
-from pepperpy.agents.storyboard_agent import StoryboardAgent, StoryboardAgentConfig
+from pepperpy.providers.llm.manager import LLMManager
+from pepperpy.capabilities.tools.vision import VisionTool
+from pepperpy.capabilities.tools.stability import StabilityTool
+from pepperpy.agents.storyboard.storyboard_agent import StoryboardAgent, StoryboardAgentConfig
 
 
 async def main():
@@ -17,29 +17,31 @@ async def main():
     # Load environment variables
     load_dotenv()
     
+    # Get API keys from environment
+    api_key = os.getenv("HUGGINGFACE_API_KEY")
+    if not api_key:
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+    
     # Initialize LLM manager with primary and fallback providers
     llm_manager = LLMManager()
     await llm_manager.initialize({
         "primary": {
-            "type": "openrouter",
-            "model_name": "mistralai/Mistral-7B-Instruct-v0.1",
-            "api_key": os.getenv("PEPPERPY_API_KEY"),
+            "api_key": api_key,
+            "model": "mistralai/Mistral-7B-Instruct-v0.1",
+            "base_url": "https://api-inference.huggingface.co/models",
+            "temperature": 0.7,
+            "max_tokens": 1000,
             "is_fallback": False,
             "priority": 1
         },
         "fallback1": {
-            "type": "openrouter",
-            "model_name": "HuggingFaceH4/zephyr-7b-beta",
-            "api_key": os.getenv("PEPPERPY_FALLBACK_API_KEY"),
+            "api_key": api_key,
+            "model": "HuggingFaceH4/zephyr-7b-beta",
+            "base_url": "https://api-inference.huggingface.co/models",
+            "temperature": 0.7,
+            "max_tokens": 1000,
             "is_fallback": True,
             "priority": 2
-        },
-        "fallback2": {
-            "type": "openrouter",
-            "model_name": "tiiuae/falcon-7b-instruct",
-            "api_key": os.getenv("PEPPERPY_FALLBACK_API_KEY"),
-            "is_fallback": True,
-            "priority": 3
         }
     })
     

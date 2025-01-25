@@ -6,33 +6,40 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 
-from pepperpy.llms.llm_manager import LLMManager
-from pepperpy.memory.memory_store import MemoryEntry, LongTermMemory
-from pepperpy.tools.functions.document_loader import DocumentLoaderTool
+from pepperpy.providers.llm.manager import LLMManager
+from pepperpy.providers.memory.memory_store import MemoryEntry, LongTermMemory
+from pepperpy.capabilities.tools.document_loader import DocumentLoaderTool
 
 async def main():
     """Run the RAG with memory example."""
     # Load environment variables
     load_dotenv()
 
+    # Get API keys from environment
+    api_key = os.getenv("HUGGINGFACE_API_KEY")
+    if not api_key:
+        raise ValueError("HUGGINGFACE_API_KEY environment variable is required")
+
     # Initialize LLM manager with multiple providers
     llm_manager = LLMManager()
     await llm_manager.initialize({
         "primary": {
-            "type": "openrouter",
-            "model_name": os.getenv("PEPPERPY_MODEL", "google/gemini-2.0-flash-exp:free"),
-            "api_key": os.getenv("PEPPERPY_API_KEY"),
+            "api_key": api_key,
+            "model": "mistralai/Mistral-7B-Instruct-v0.1",
+            "base_url": "https://api-inference.huggingface.co/models",
             "temperature": 0.7,
-            "max_tokens": 1000
+            "max_tokens": 1000,
+            "is_fallback": False,
+            "priority": 1
         },
         "fallback1": {
-            "type": os.getenv("PEPPERPY_FALLBACK_PROVIDER", "openrouter"),
-            "model_name": os.getenv("PEPPERPY_FALLBACK_MODEL", "openai/gpt-4o-mini"),
-            "api_key": os.getenv("PEPPERPY_FALLBACK_API_KEY"),
+            "api_key": api_key,
+            "model": "HuggingFaceH4/zephyr-7b-beta",
+            "base_url": "https://api-inference.huggingface.co/models",
             "temperature": 0.7,
             "max_tokens": 1000,
             "is_fallback": True,
-            "priority": 1
+            "priority": 2
         }
     })
 
@@ -83,7 +90,6 @@ async def main():
                         "Answer:"
                     )
                 )
-                response_text = response.text if hasattr(response, 'text') else str(response)
             except Exception as e:
                 print(f"\nError with primary provider: {e}")
                 print("Trying fallback provider...")
@@ -102,15 +108,14 @@ async def main():
                             "Answer:"
                         )
                     )
-                    response_text = response.text if hasattr(response, 'text') else str(response)
                 except Exception as e:
                     print(f"Error with fallback provider: {e}")
-                    response_text = "I apologize, but I encountered an error while trying to generate a response. Please try again."
+                    response = "I apologize, but I encountered an error while trying to generate a response. Please try again."
 
             # Store important information in memory
             await memory_manager.add_memory(
                 MemoryEntry(
-                    content=response_text,
+                    content=response,
                     importance=0.9,
                     metadata={
                         "type": "response",
@@ -120,7 +125,7 @@ async def main():
                 )
             )
 
-            print(f"A: {response_text}\n")
+            print(f"A: {response}\n")
 
             # Query memory to demonstrate retention
             if i > 1:

@@ -1,172 +1,172 @@
-"""Base agent implementation."""
+"""Base agent module for Pepperpy framework."""
 
-import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type, TypeVar, ClassVar
+from typing import Any, Dict, Optional, Type
 
-from ..providers.llm.base import BaseLLMProvider
-from ..providers.vector_store.base import BaseVectorStoreProvider
-from ..providers.embeddings.base import BaseEmbeddingProvider
+from ..core.utils.errors import PepperpyError
+from ..core.lifecycle import Lifecycle
+
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar('T', bound='BaseAgent')
 
-class BaseAgent(ABC):
-    """Base class for all agents."""
+class AgentError(PepperpyError):
+    """Agent error class."""
+    pass
+
+
+class BaseAgent(Lifecycle, ABC):
+    """Base class for all agents.
     
-    _registry: ClassVar[Dict[str, Type['BaseAgent']]] = {}
-    
+    All agents should inherit from this class and implement the required methods.
+    """
+    _registry: Dict[str, Type["BaseAgent"]] = {}
+
     @classmethod
     def register(cls, name: str) -> Any:
         """Register an agent class.
         
         Args:
-            name: Name to register the agent under.
+            name: The name to register the agent class under.
             
         Returns:
-            Decorator function.
+            The decorator function.
         """
-        def decorator(agent_cls: Type[T]) -> Type[T]:
+        def decorator(agent_cls: Type["BaseAgent"]) -> Type["BaseAgent"]:
+            if not isinstance(agent_cls, type):
+                raise TypeError("Can only register classes")
             cls._registry[name] = agent_cls
             return agent_cls
         return decorator
-    
+
     @classmethod
-    def get_agent(cls, name: str) -> Type['BaseAgent']:
-        """Get a registered agent class.
+    def get(cls, name: str) -> Type["BaseAgent"]:
+        """Get an agent class by name.
         
         Args:
-            name: Name of the agent.
+            name: The name of the agent class to get.
             
         Returns:
-            Agent class.
+            The agent class.
             
         Raises:
-            ValueError: If agent is not registered.
+            AgentError: If the agent class is not found.
         """
         if name not in cls._registry:
-            raise ValueError(f"Agent '{name}' not registered")
+            raise AgentError(f"Agent {name} not found")
         return cls._registry[name]
-    
+
     def __init__(
         self,
-        llm: BaseLLMProvider,
+        name: str,
+        llm: Any,
         capabilities: Dict[str, Any],
-        config: Dict[str, Any]
-    ):
-        """Initialize the agent.
+        config: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize base agent.
         
         Args:
+            name: Agent name.
             llm: LLM provider instance.
-            capabilities: Dictionary of agent capabilities.
-            config: Agent configuration.
-        """
-        self.llm = llm
-        self.capabilities = capabilities
-        self.config = config
-        self.name = config.get("name", self.__class__.__name__)
-        self.is_initialized = False
-        
-        # Optional providers
-        self.vector_store: Optional[BaseVectorStoreProvider] = None
-        self.embeddings: Optional[BaseEmbeddingProvider] = None
-        
-        # Initialize providers from capabilities
-        if "vector_store" in capabilities:
-            provider_name = capabilities["vector_store"]["provider"]
-            provider_config = capabilities["vector_store"]["config"]
-            provider_cls = BaseVectorStoreProvider.get_provider(provider_name)
-            self.vector_store = provider_cls(provider_config)
-            
-        if "embeddings" in capabilities:
-            provider_name = capabilities["embeddings"]["provider"]
-            provider_config = capabilities["embeddings"]["config"]
-            provider_cls = BaseEmbeddingProvider.get_provider(provider_name)
-            self.embeddings = provider_cls(provider_config)
-    
-    async def initialize(self) -> bool:
-        """Initialize the agent and its capabilities.
-        
-        Returns:
-            True if initialization was successful.
+            capabilities: Agent capabilities.
+            config: Optional agent configuration.
             
         Raises:
-            ValueError: If initialization fails.
+            AgentError: If initialization fails.
         """
-        if self.is_initialized:
-            return True
-            
-        try:
-            # Initialize LLM provider
-            await self.llm.initialize()
-            
-            # Initialize vector store if present
-            if self.vector_store:
-                await self.vector_store.initialize()
-                
-            # Initialize embeddings if present
-            if self.embeddings:
-                await self.embeddings.initialize()
-                
-            self.is_initialized = True
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize agent: {str(e)}")
-            await self.cleanup()
-            raise ValueError(f"Agent initialization failed: {str(e)}")
-    
-    async def cleanup(self) -> None:
-        """Clean up resources used by the agent."""
-        # Clean up LLM provider
-        await self.llm.cleanup()
+        super().__init__(name, config)
         
-        # Clean up vector store if present
-        if self.vector_store:
-            await self.vector_store.cleanup()
-            
-        # Clean up embeddings if present
-        if self.embeddings:
-            await self.embeddings.cleanup()
-            
-        self.is_initialized = False
+        self._llm = llm
+        self._capabilities = capabilities
+        
+        if not self._llm:
+            raise AgentError("LLM provider cannot be None")
+        
+        if not isinstance(self._capabilities, dict):
+            raise AgentError("Capabilities must be a dictionary")
+    
+    @property
+    def llm(self) -> Any:
+        """Get LLM provider."""
+        return self._llm
+    
+    @property
+    def capabilities(self) -> Dict[str, Any]:
+        """Get agent capabilities."""
+        return self._capabilities
+    
+    async def _initialize_impl(self) -> None:
+        """Initialize agent implementation.
+        
+        Raises:
+            AgentError: If initialization fails.
+        """
+        try:
+            await self._setup()
+        except Exception as e:
+            raise AgentError(f"Failed to initialize agent {self.name}: {e}")
+    
+    async def _cleanup_impl(self) -> None:
+        """Clean up agent implementation.
+        
+        Raises:
+            AgentError: If cleanup fails.
+        """
+        try:
+            await self._teardown()
+        except Exception as e:
+            raise AgentError(f"Failed to clean up agent {self.name}: {e}")
+    
+    async def _validate_impl(self) -> None:
+        """Validate agent implementation.
+        
+        Raises:
+            AgentError: If validation fails.
+        """
+        try:
+            await self._validate()
+        except Exception as e:
+            raise AgentError(f"Failed to validate agent {self.name}: {e}")
     
     @abstractmethod
-    async def process(self, input_data: Any) -> Any:
-        """Process input data and generate a response.
+    async def _setup(self) -> None:
+        """Set up agent resources.
+        
+        Raises:
+            Exception: If setup fails.
+        """
+        pass
+    
+    @abstractmethod
+    async def _teardown(self) -> None:
+        """Clean up agent resources.
+        
+        Raises:
+            Exception: If teardown fails.
+        """
+        pass
+    
+    @abstractmethod
+    async def _validate(self) -> None:
+        """Validate agent state.
+        
+        Raises:
+            Exception: If validation fails.
+        """
+        pass
+    
+    @abstractmethod
+    async def execute(self, input_data: Any) -> Any:
+        """Execute agent with input data.
         
         Args:
-            input_data: Input data to process.
+            input_data: Input data for agent execution.
             
         Returns:
-            Processed result.
+            Agent execution result.
             
         Raises:
-            ValueError: If the agent is not initialized.
+            AgentError: If execution fails.
         """
-        if not self.is_initialized:
-            raise ValueError("Agent not initialized")
-    
-    def has_capability(self, name: str) -> bool:
-        """Check if the agent has a specific capability.
-        
-        Args:
-            name: Name of the capability.
-            
-        Returns:
-            True if the agent has the capability.
-        """
-        return name in self.capabilities
-    
-    def get_capability_config(self, name: str) -> Optional[Dict[str, Any]]:
-        """Get configuration for a specific capability.
-        
-        Args:
-            name: Name of the capability.
-            
-        Returns:
-            Configuration dictionary if capability exists, None otherwise.
-        """
-        return self.capabilities.get(name) 
+        pass 

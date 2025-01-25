@@ -1,0 +1,251 @@
+version: "1.0"
+metadata:
+  name: "Pepperpy Project"
+  description: "Project structure and architecture definition"
+  last_updated: "2024-03-20"
+
+validation_rules:
+  allow_extra_files: false
+  required_files:
+    - "__init__.py"
+  ignore_patterns:
+    - "__pycache__"
+    - "*.pyc"
+    - ".pytest_cache"
+    - "*.egg-info"
+
+architecture:
+  components:
+    core:
+      description: "Core functionality and utilities"
+      allowed_dependencies: []  # Core cannot depend on other modules
+      subcomponents:
+        - core_utils
+        - core_config
+        - core_context
+        - core_lifecycle
+        - interfaces
+    
+    providers:
+      description: "Provider system implementations"
+      allowed_dependencies: 
+        - core
+        - interfaces
+      subcomponents:
+        - embedding
+        - llm
+        - memory
+        - vector_store
+    
+    capabilities:
+      description: "System capabilities"
+      allowed_dependencies:
+        - core
+        - providers
+        - extensions
+    
+    agents:
+      description: "Agent system"
+      allowed_dependencies:
+        - core
+        - capabilities
+        - providers
+        - orchestrator
+    
+    middleware:
+      description: "Middleware components"
+      allowed_dependencies:
+        - core
+        - monitoring
+    
+    extensions:
+      description: "Extension system"
+      allowed_dependencies:
+        - core
+        - monitoring
+    
+    monitoring:
+      description: "System monitoring"
+      allowed_dependencies:
+        - core
+
+root:
+  path: pepperpy
+  type: directory
+  children:
+    agents:
+      type: module
+      description: "Core agent functionality"
+      children:
+        base:
+          type: module
+          description: "Base agent definitions"
+          children:
+            agent.py:
+              type: file
+              required: true
+            config.py:
+              type: file
+            lifecycle.py:
+              type: file
+            types.py:
+              type: file
+        factory:
+          type: module
+          description: "Agent creation system"
+          children:
+            builder.py:
+              type: file
+            registry.py:
+              type: file
+        specialized:
+          type: module
+          description: "Specialized agent types"
+          children:
+            dev_agent.py:
+              type: file
+            research_agent.py:
+              type: file
+        service.py:
+          type: file
+    
+    providers:
+      type: module
+      description: "Provider system"
+      children:
+        base:
+          type: module
+          description: "Base provider patterns"
+          children:
+            adapter.py:
+              type: file
+            provider.py:
+              type: file
+              required: true
+        embedding:
+          type: module
+          description: "Embedding providers"
+          children:
+            implementations:
+              type: module
+              children:
+                openai.py:
+                  type: file
+                sentence.py:
+                  type: file
+        llm:
+          type: module
+          description: "LLM providers"
+          children:
+            anthropic.py:
+              type: file
+            gemini.py:
+              type: file
+            openai.py:
+              type: file
+              required: true
+        memory:
+          type: module
+          description: "Memory providers"
+          children:
+            postgres.py:
+              type: file
+            redis.py:
+              type: file
+        vector_store:
+          type: module
+          description: "Vector store providers"
+          children:
+            implementations:
+              type: module
+              children:
+                milvus.py:
+                  type: file
+                pinecone.py:
+                  type: file
+    
+    core:
+      type: module
+      description: "Core functionality"
+      children:
+        utils:
+          type: module
+          description: "Core utilities"
+          children:
+            constants.py:
+              type: file
+            errors.py:
+              type: file
+              required: true
+            logger.py:
+              type: file
+            helpers.py:
+              type: file
+  
+  capabilities:
+    __init__.py: {}
+    base:
+      __init__.py: {}
+      capability.py: {}
+      interfaces.py: {}
+    registry:
+      __init__.py: {}
+      discovery.py: {}
+      registry.py: {}
+  
+  core:
+    __init__.py: {}
+    config:
+      __init__.py: {}
+      loader.py: {}
+      manager.py: {}
+    context:
+      __init__.py: {}
+      complex_state_manager.py: {}
+      history.py: {}
+      manager.py: {}
+      state.py: {}
+    lifecycle:
+      __init__.py: {}
+      initializer.py: {}
+      state_manager.py: {}
+      terminator.py: {}
+    utils:
+      __init__.py: {}
+      constants.py: {}
+      errors.py: {}
+      logger.py: {}
+      helpers.py: {}
+  
+  providers:
+    __init__.py: {}
+    base:
+      __init__.py: {}
+      adapter.py: {}
+      provider.py: {}
+    embedding:
+      __init__.py: {}
+      implementations:
+        __init__.py: {}
+        openai.py: {}
+        sentence.py: {}
+    llm:
+      __init__.py: {}
+      anthropic.py: {}
+      gemini.py: {}
+      openai.py: {}
+    memory:
+      __init__.py: {}
+      postgres.py: {}
+      redis.py: {}
+    reasoning:
+      __init__.py: {}
+      cot_adapter.py: {}
+      react_adapter.py: {}
+      tot_adapter.py: {}
+    vector_store:
+      __init__.py: {}
+      implementations:
+        __init__.py: {}
+        milvus.py: {}
+        pinecone.py: {} 

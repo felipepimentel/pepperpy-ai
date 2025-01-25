@@ -1,114 +1,136 @@
-"""Agent factory implementation."""
+"""Agent factory module for Pepperpy framework."""
+
 import logging
 from typing import Any, Dict, Optional, Type
 
+from ..common.errors import PepperpyError
+from ..core.lifecycle import ComponentLifecycleManager
 from .base import BaseAgent
-from ..providers.llm.base import BaseLLMProvider
-from ..providers.memory.base import BaseMemoryProvider
-from ..providers.vector_store.base import BaseVectorStoreProvider
-from ..providers.embeddings.base import BaseEmbeddingProvider
+from .chat import ChatAgent
+from .rag import RAGAgent
+
 
 logger = logging.getLogger(__name__)
 
+
+class AgentFactoryError(PepperpyError):
+    """Agent factory error class."""
+    pass
+
+
 class AgentFactory:
-    """Factory for creating agents."""
+    """Factory class for creating and configuring agents."""
     
-    @staticmethod
+    def __init__(self) -> None:
+        """Initialize agent factory."""
+        self._lifecycle_manager = ComponentLifecycleManager()
+        self._agent_types: Dict[str, Type[BaseAgent]] = {
+            "chat": ChatAgent,
+            "rag": RAGAgent,
+        }
+    
+    def register_agent_type(self, name: str, agent_type: Type[BaseAgent]) -> None:
+        """Register a new agent type.
+        
+        Args:
+            name: Agent type name.
+            agent_type: Agent class.
+            
+        Raises:
+            AgentFactoryError: If agent type registration fails.
+        """
+        if name in self._agent_types:
+            raise AgentFactoryError(f"Agent type {name} is already registered")
+        
+        if not issubclass(agent_type, BaseAgent):
+            raise AgentFactoryError(
+                f"Agent type {name} must be a subclass of BaseAgent"
+            )
+        
+        self._agent_types[name] = agent_type
+    
     def create_agent(
+        self,
         agent_type: str,
-        config: Dict[str, Any]
+        name: str,
+        llm: Any,
+        capabilities: Dict[str, Any],
+        config: Optional[Dict[str, Any]] = None,
+        dependencies: Optional[Dict[str, Any]] = None
     ) -> BaseAgent:
-        """Create an agent instance.
+        """Create and configure an agent.
         
         Args:
             agent_type: Type of agent to create.
-            config: Agent configuration dictionary containing:
-                - llm: LLM provider configuration
-                    - provider: Provider name
-                    - config: Provider configuration
-                - capabilities: Optional agent capabilities
-                    - memory: Optional memory provider configuration
-                        - provider: Provider name
-                        - config: Provider configuration
-                    - vector_store: Optional vector store provider configuration
-                        - provider: Provider name
-                        - config: Provider configuration
-                    - embeddings: Optional embeddings provider configuration
-                        - provider: Provider name
-                        - config: Provider configuration
-                - config: Agent-specific configuration
+            name: Agent name.
+            llm: LLM provider instance.
+            capabilities: Agent capabilities.
+            config: Optional agent configuration.
+            dependencies: Optional agent dependencies.
             
         Returns:
-            Agent instance.
+            Configured agent instance.
             
         Raises:
-            ValueError: If agent type is not registered or configuration is invalid.
+            AgentFactoryError: If agent creation fails.
         """
-        # Get agent class
+        if agent_type not in self._agent_types:
+            raise AgentFactoryError(f"Unknown agent type: {agent_type}")
+        
         try:
-            agent_cls = BaseAgent.get_agent(agent_type)
-        except ValueError as e:
-            logger.error(f"Failed to get agent class: {str(e)}")
-            raise ValueError(f"Invalid agent type '{agent_type}'")
-        
-        # Create LLM provider
-        try:
-            llm_config = config["llm"]
-            llm_cls = BaseLLMProvider.get_provider(llm_config["provider"])
-            llm = llm_cls(llm_config["config"])
-        except (KeyError, ValueError) as e:
-            logger.error(f"Failed to create LLM provider: {str(e)}")
-            raise ValueError("Invalid LLM provider configuration")
-        
-        # Initialize capabilities
-        capabilities: Dict[str, Any] = {}
-        
-        # Add memory provider if configured
-        if "memory" in config.get("capabilities", {}):
-            try:
-                memory_config = config["capabilities"]["memory"]
-                memory_cls = BaseMemoryProvider.get_provider(memory_config["provider"])
-                capabilities["memory"] = {
-                    "provider": memory_config["provider"],
-                    "config": memory_config["config"]
-                }
-            except (KeyError, ValueError) as e:
-                logger.error(f"Failed to configure memory provider: {str(e)}")
-                raise ValueError("Invalid memory provider configuration")
-        
-        # Add vector store provider if configured
-        if "vector_store" in config.get("capabilities", {}):
-            try:
-                vector_store_config = config["capabilities"]["vector_store"]
-                vector_store_cls = BaseVectorStoreProvider.get_provider(vector_store_config["provider"])
-                capabilities["vector_store"] = {
-                    "provider": vector_store_config["provider"],
-                    "config": vector_store_config["config"]
-                }
-            except (KeyError, ValueError) as e:
-                logger.error(f"Failed to configure vector store provider: {str(e)}")
-                raise ValueError("Invalid vector store provider configuration")
-        
-        # Add embeddings provider if configured
-        if "embeddings" in config.get("capabilities", {}):
-            try:
-                embeddings_config = config["capabilities"]["embeddings"]
-                embeddings_cls = BaseEmbeddingProvider.get_provider(embeddings_config["provider"])
-                capabilities["embeddings"] = {
-                    "provider": embeddings_config["provider"],
-                    "config": embeddings_config["config"]
-                }
-            except (KeyError, ValueError) as e:
-                logger.error(f"Failed to configure embeddings provider: {str(e)}")
-                raise ValueError("Invalid embeddings provider configuration")
-        
-        # Create agent
-        try:
-            return agent_cls(
+            agent_class = self._agent_types[agent_type]
+            agent = agent_class(
+                name=name,
                 llm=llm,
                 capabilities=capabilities,
-                config=config.get("config", {})
+                config=config
             )
+            
+            if dependencies:
+                for dep_name, dep in dependencies.items():
+                    self._lifecycle_manager.register(
+                        dep_name,
+                        dep,
+                        dependencies=None
+                    )
+                
+                self._lifecycle_manager.register(
+                    name,
+                    agent,
+                    dependencies=list(dependencies.keys())
+                )
+            else:
+                self._lifecycle_manager.register(name, agent)
+            
+            return agent
+            
         except Exception as e:
-            logger.error(f"Failed to create agent: {str(e)}")
-            raise ValueError(f"Failed to create agent: {str(e)}") 
+            raise AgentFactoryError(f"Failed to create agent {name}: {e}")
+    
+    async def initialize_agent(self, agent: BaseAgent) -> None:
+        """Initialize an agent and its dependencies.
+        
+        Args:
+            agent: Agent to initialize.
+            
+        Raises:
+            AgentFactoryError: If agent initialization fails.
+        """
+        try:
+            await self._lifecycle_manager.initialize()
+        except Exception as e:
+            raise AgentFactoryError(f"Failed to initialize agent: {e}")
+    
+    async def terminate_agent(self, agent: BaseAgent) -> None:
+        """Terminate an agent and its dependencies.
+        
+        Args:
+            agent: Agent to terminate.
+            
+        Raises:
+            AgentFactoryError: If agent termination fails.
+        """
+        try:
+            await self._lifecycle_manager.terminate()
+        except Exception as e:
+            raise AgentFactoryError(f"Failed to terminate agent: {e}") 

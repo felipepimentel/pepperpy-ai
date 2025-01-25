@@ -1,101 +1,157 @@
-"""Base interface for embedding providers."""
+"""Base embedding provider implementation."""
+
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Union, Optional, Type, TypeVar, ClassVar
+from typing import Any, Dict, List, Optional, Union
 
-T = TypeVar('T', bound='BaseEmbeddingProvider')
+from ...interfaces import EmbeddingProvider
 
-class BaseEmbeddingProvider(ABC):
-    """Base class for embedding providers."""
+
+class BaseEmbeddingProvider(ABC, EmbeddingProvider):
+    """Base embedding provider implementation."""
     
-    _registry: ClassVar[Dict[str, Type['BaseEmbeddingProvider']]] = {}
-    
-    @classmethod
-    def register(cls, name: str) -> Any:
-        """Register a provider class.
+    def __init__(
+        self,
+        name: str,
+        dimension: int,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize provider.
         
         Args:
-            name: Name to register the provider under.
-            
-        Returns:
-            Decorator function.
+            name: Provider name
+            dimension: Embedding dimension
+            config: Optional configuration
         """
-        def decorator(provider_cls: Type[T]) -> Type[T]:
-            cls._registry[name] = provider_cls
-            return provider_cls
-        return decorator
-    
-    @classmethod
-    def get_provider(cls, name: str) -> Type['BaseEmbeddingProvider']:
-        """Get a registered provider class.
+        if not name:
+            raise ValueError("Provider name cannot be empty")
+        if dimension <= 0:
+            raise ValueError("Embedding dimension must be positive")
+            
+        self._name = name
+        self._dimension = dimension
+        self._config = config or {}
+        self._initialized = False
         
-        Args:
-            name: Name of the provider.
-            
-        Returns:
-            Provider class.
-            
-        Raises:
-            ValueError: If provider is not registered.
-        """
-        if name not in cls._registry:
-            raise ValueError(f"Provider '{name}' not registered")
-        return cls._registry[name]
-    
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the embedding provider.
+    @property
+    def name(self) -> str:
+        """Get provider name."""
+        return self._name
         
-        Args:
-            config: Configuration dictionary for the provider.
-        """
-        self.config = config
-        self.dimension: Optional[int] = None
-    
-    @abstractmethod
+    @property
+    def dimension(self) -> int:
+        """Get embedding dimension."""
+        return self._dimension
+        
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Get provider configuration."""
+        return self._config.copy()
+        
+    @property
+    def is_initialized(self) -> bool:
+        """Get initialization status."""
+        return self._initialized
+        
     async def initialize(self) -> None:
-        """Initialize provider resources."""
-        pass
-    
-    @abstractmethod
+        """Initialize provider."""
+        if self.is_initialized:
+            return
+            
+        await self._initialize_impl()
+        self._initialized = True
+        
     async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        pass
-    
+        """Clean up provider."""
+        if not self.is_initialized:
+            return
+            
+        await self._cleanup_impl()
+        self._initialized = False
+        
+    def validate(self) -> None:
+        """Validate provider state."""
+        if not self.name:
+            raise ValueError("Empty provider name")
+        if self.dimension <= 0:
+            raise ValueError("Invalid embedding dimension")
+            
+        self._validate_impl()
+        
     @abstractmethod
-    async def embed_text(self, text: Union[str, List[str]]) -> Union[List[float], List[List[float]]]:
+    async def _initialize_impl(self) -> None:
+        """Initialize implementation."""
+        pass
+        
+    @abstractmethod
+    async def _cleanup_impl(self) -> None:
+        """Clean up implementation."""
+        pass
+        
+    def _validate_impl(self) -> None:
+        """Validate implementation."""
+        pass
+        
+    @abstractmethod
+    async def embed_text(
+        self,
+        text: Union[str, List[str]],
+    ) -> Union[List[float], List[List[float]]]:
         """Generate embeddings for text.
         
         Args:
-            text: Single text or list of texts to embed.
+            text: Text to embed (single string or list of strings)
             
         Returns:
-            Single embedding vector or list of embedding vectors.
+            Embeddings (single vector or list of vectors)
+        """
+        raise NotImplementedError
+    
+    @abstractmethod
+    async def embed(self, text: str) -> Dict[str, Any]:
+        """Generate embeddings for text.
+        
+        Args:
+            text: Input text.
+            
+        Returns:
+            Embedding vectors.
             
         Raises:
             ValueError: If the provider is not initialized.
         """
-        pass
+        if not self.is_initialized:
+            raise ValueError("Provider not initialized")
+            
+        return await self._embed_impl(text)
+    
+    @abstractmethod
+    async def _embed_impl(self, text: str) -> Dict[str, Any]:
+        """Implementation-specific text embedding.
+        
+        Args:
+            text: Input text.
+            
+        Returns:
+            Embedding vectors.
+        """
+        raise NotImplementedError
     
     @abstractmethod
     async def embed_batch(
-        self, 
-        texts: List[str], 
+        self,
+        texts: List[str],
         batch_size: int = 32,
-        show_progress: bool = False
     ) -> List[List[float]]:
-        """Generate embeddings for a batch of texts.
+        """Generate embeddings for multiple texts.
         
         Args:
-            texts: List of texts to embed.
-            batch_size: Size of batches to process.
-            show_progress: Whether to show progress bar.
+            texts: List of texts to embed
+            batch_size: Number of texts to process at once
             
         Returns:
-            List of embedding vectors.
-            
-        Raises:
-            ValueError: If the provider is not initialized.
+            List of embedding vectors
         """
-        pass
+        raise NotImplementedError
     
     @abstractmethod
     def get_dimension(self) -> int:

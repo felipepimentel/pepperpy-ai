@@ -3,34 +3,33 @@
 import asyncio
 import os
 
-from pepperpy.llms.huggingface import HuggingFaceLLM, LLMConfig
+from pepperpy.providers.llm.huggingface import HuggingFaceProvider
+from pepperpy.providers.llm.types import LLMConfig
 
 
 async def main() -> None:
     """Run the example."""
-    # Initialize LLM with configuration from environment
+    # Create LLM config
     llm_config = LLMConfig(
-        model_name=os.getenv("PEPPERPY_MODEL", "google/gemini-2.0-flash-exp:free"),
-        model_kwargs={
-            "api_key": os.getenv("PEPPERPY_API_KEY", ""),
-            "provider": os.getenv("PEPPERPY_PROVIDER", "openrouter"),
-        },
+        api_key=os.environ["HUGGINGFACE_API_KEY"],
+        model="meta-llama/Llama-2-70b-chat-hf",
+        base_url="https://api-inference.huggingface.co/models"
     )
-    llm = HuggingFaceLLM(llm_config)
+    
+    # Initialize LLM
+    llm = HuggingFaceProvider(llm_config.to_dict())
     await llm.initialize()
 
     try:
         # Generate text
-        prompt = "The quick brown fox"
+        prompt = "What is the meaning of life?"
         print(f"\nGenerating text for prompt: {prompt}")
-        response = await llm.generate(prompt, max_tokens=20)
-        print(f"\nGenerated text: {response.text}")
-        print(f"Tokens used: {response.tokens_used}")
-        print(f"Model used: {response.model_name}")
+        response = await llm.generate(prompt)
+        print(f"\nGenerated text: {response}")
 
         # Stream text
         print("\nStreaming text generation...")
-        async for chunk in llm.generate_stream(prompt, max_tokens=20):
+        async for chunk in llm.generate_stream(prompt):
             print(chunk, end="", flush=True)
         print("\n")
 

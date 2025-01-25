@@ -1,243 +1,252 @@
-"""RAG (Retrieval-Augmented Generation) agent implementation."""
+"""RAG agent implementation."""
+
 import logging
 from typing import Any, Dict, List, Optional, cast, Sequence
 
-from .base import BaseAgent
-from ..providers.llm.base import BaseLLMProvider
-from ..providers.memory.base import BaseMemoryProvider, Message
-from ..providers.vector_store.base import BaseVectorStoreProvider
+from ..common.errors import PepperpyError
 from ..providers.embeddings.base import BaseEmbeddingProvider
+from ..providers.vector_store.base import BaseVectorStoreProvider
+from ..providers.retriever.base import BaseRetrieverProvider
+from .base import BaseAgent
+
 
 logger = logging.getLogger(__name__)
 
-@BaseAgent.register("rag")
+
+class RAGAgentError(PepperpyError):
+    """RAG agent error class."""
+    pass
+
+
 class RAGAgent(BaseAgent):
-    """RAG agent implementation."""
+    """RAG (Retrieval-Augmented Generation) agent implementation."""
     
     def __init__(
         self,
-        llm: BaseLLMProvider,
+        name: str,
+        llm: Any,
         capabilities: Dict[str, Any],
-        config: Dict[str, Any]
-    ):
-        """Initialize the RAG agent.
+        config: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Initialize RAG agent.
         
         Args:
+            name: Agent name.
             llm: LLM provider instance.
-            capabilities: Dictionary of agent capabilities.
-            config: Agent configuration.
-        """
-        super().__init__(llm, capabilities, config)
-        
-        # Verify required capabilities
-        if not self.vector_store:
-            raise ValueError("Vector store provider required")
-        if not self.embeddings:
-            raise ValueError("Embedding provider required")
-            
-        # Cast providers for type checking
-        self.vector_store = cast(BaseVectorStoreProvider, self.vector_store)
-        self.embeddings = cast(BaseEmbeddingProvider, self.embeddings)
-        
-        # RAG-specific configuration
-        self.system_prompt = config.get("system_prompt", "You are a helpful AI assistant.")
-        self.max_history = config.get("max_history", 10)
-        self.temperature = config.get("temperature", 0.7)
-        self.num_chunks = config.get("num_chunks", 3)
-        
-        # Message history
-        self.messages: List[Message] = []
-        
-        # Memory provider (from base class)
-        self.memory: Optional[BaseMemoryProvider] = self.memory
-    
-    async def process(self, input_data: str) -> str:
-        """Process user input and generate a response.
-        
-        Args:
-            input_data: User input text.
-            
-        Returns:
-            Generated response.
+            capabilities: Agent capabilities.
+            config: Optional agent configuration.
             
         Raises:
-            ValueError: If agent is not initialized.
+            RAGAgentError: If initialization fails.
         """
-        if not self.is_initialized:
-            raise ValueError("Agent not initialized")
-            
-        if not self.embeddings or not self.vector_store:
-            raise ValueError("Required providers not initialized")
-            
+        super().__init__(name, llm, capabilities, config)
+        
+        # Initialize RAG components
+        self._embeddings = cast(Optional[BaseEmbeddingProvider], capabilities.get("embeddings"))
+        self._vector_store = cast(Optional[BaseVectorStoreProvider], capabilities.get("vector_store"))
+        self._retriever = cast(Optional[BaseRetrieverProvider], capabilities.get("retriever"))
+        
+        # Get RAG configuration
+        self._max_chunks = config.get("max_chunks", 5) if config else 5
+        self._chunk_size = config.get("chunk_size", 1000) if config else 1000
+        self._overlap = config.get("overlap", 100) if config else 100
+        
+        if self._max_chunks <= 0:
+            raise RAGAgentError("Max chunks must be positive")
+        if self._chunk_size <= 0:
+            raise RAGAgentError("Chunk size must be positive")
+        if self._overlap < 0:
+            raise RAGAgentError("Overlap must be non-negative")
+        if self._overlap >= self._chunk_size:
+            raise RAGAgentError("Overlap must be less than chunk size")
+    
+    async def _setup(self) -> None:
+        """Set up RAG agent resources.
+        
+        Raises:
+            RAGAgentError: If setup fails.
+        """
         try:
-            # Add user message to history
-            user_message = Message(content=input_data, role="user")
-            await self._add_message(user_message)
+            # Initialize embeddings provider
+            if self._embeddings:
+                await self._embeddings.initialize()
             
-            # Get relevant chunks from vector store
-            query_embedding = await self.embeddings.embed_text(input_data)
-            if isinstance(query_embedding, list):
-                # Single embedding
-                if all(isinstance(x, float) for x in query_embedding):
-                    chunks = await self.vector_store.search(
-                        query_vector=cast(List[float], query_embedding),
-                        k=self.num_chunks
-                    )
-                else:
-                    raise ValueError("Invalid embedding format")
-            else:
-                raise ValueError("Invalid embedding format")
+            # Initialize vector store
+            if self._vector_store:
+                await self._vector_store.initialize()
             
-            # Build conversation history with context
-            history = self._build_history(chunks)
+            # Initialize retriever
+            if self._retriever:
+                await self._retriever.initialize()
+        except Exception as e:
+            raise RAGAgentError(f"Failed to set up RAG agent: {e}")
+    
+    async def _teardown(self) -> None:
+        """Clean up RAG agent resources.
+        
+        Raises:
+            RAGAgentError: If cleanup fails.
+        """
+        try:
+            # Clean up embeddings provider
+            if self._embeddings:
+                await self._embeddings.cleanup()
             
-            # Generate response
-            response = await self.llm.generate(
-                prompt=history,
-                temperature=self.temperature
+            # Clean up vector store
+            if self._vector_store:
+                await self._vector_store.cleanup()
+            
+            # Clean up retriever
+            if self._retriever:
+                await self._retriever.cleanup()
+        except Exception as e:
+            raise RAGAgentError(f"Failed to clean up RAG agent: {e}")
+    
+    async def _validate_impl(self) -> None:
+        """Validate RAG agent state.
+        
+        Raises:
+            RAGAgentError: If validation fails.
+        """
+        try:
+            if self._max_chunks <= 0:
+                raise RAGAgentError("Max chunks must be positive")
+            if self._chunk_size <= 0:
+                raise RAGAgentError("Chunk size must be positive")
+            if self._overlap < 0:
+                raise RAGAgentError("Overlap must be non-negative")
+            if self._overlap >= self._chunk_size:
+                raise RAGAgentError("Overlap must be less than chunk size")
+            
+            # Validate required capabilities
+            if not self._embeddings:
+                raise RAGAgentError("Embeddings provider not configured")
+            if not self._vector_store:
+                raise RAGAgentError("Vector store not configured")
+            if not self._retriever:
+                raise RAGAgentError("Retriever not configured")
+            
+            # Validate provider states
+            if not self._embeddings.is_initialized:
+                raise RAGAgentError("Embeddings provider not initialized")
+            if not self._vector_store.is_initialized:
+                raise RAGAgentError("Vector store not initialized")
+            if not self._retriever.is_initialized:
+                raise RAGAgentError("Retriever not initialized")
+        except Exception as e:
+            raise RAGAgentError(f"Failed to validate RAG agent: {e}")
+    
+    async def execute(self, input_data: Any) -> Any:
+        """Execute RAG agent with input data.
+        
+        Args:
+            input_data: Input data for agent execution.
+            
+        Returns:
+            Agent execution result.
+            
+        Raises:
+            RAGAgentError: If execution fails.
+        """
+        if not isinstance(input_data, str):
+            raise RAGAgentError("Input must be a string")
+        
+        # Validate state before execution
+        await self._validate_impl()
+        
+        try:
+            # Generate query embedding
+            query_embedding = await self._embeddings.embed_text(input_data)  # type: ignore
+            if not isinstance(query_embedding, list) or not all(isinstance(x, float) for x in query_embedding):
+                raise RAGAgentError("Invalid embedding format")
+            
+            # Retrieve relevant chunks
+            chunks = await self._vector_store.search(  # type: ignore
+                cast(List[float], query_embedding),
+                k=self._max_chunks
             )
             
-            # Add assistant message to history
-            assistant_message = Message(content=response, role="assistant")
-            await self._add_message(assistant_message)
+            # Build context from chunks
+            context = "\n\n".join(chunk["text"] for chunk in chunks)
             
+            # Generate response with context
+            prompt = f"""Context: {context}
+
+Question: {input_data}
+
+Answer based on the context above:"""
+            
+            response = await self.llm.generate(prompt)
             return response
             
         except Exception as e:
-            logger.error(f"Failed to process input: {str(e)}")
-            raise RuntimeError(f"Failed to process input: {str(e)}")
+            raise RAGAgentError(f"Failed to execute RAG agent: {e}")
     
-    async def _add_message(self, message: Message) -> None:
-        """Add a message to history and memory.
+    async def add_document(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
+        """Add document to RAG knowledge base.
         
         Args:
-            message: Message to add.
-        """
-        # Add to in-memory history
-        self.messages.append(message)
-        
-        # Trim history if needed
-        if len(self.messages) > self.max_history * 2:  # Keep extra for context
-            self.messages = self.messages[-self.max_history * 2:]
-        
-        # Add to persistent memory if available
-        if self.memory:
-            await self.memory.add_message(message)
-    
-    def _build_history(self, chunks: List[Dict[str, Any]]) -> str:
-        """Build conversation history string with context.
-        
-        Args:
-            chunks: Retrieved context chunks.
-            
-        Returns:
-            Formatted conversation history.
-        """
-        # Start with system prompt
-        history = [f"System: {self.system_prompt}"]
-        
-        # Add context
-        if chunks:
-            history.append("Context:")
-            for chunk in chunks:
-                if "metadata" in chunk and "content" in chunk["metadata"]:
-                    history.append(chunk["metadata"]["content"])
-        
-        # Add recent messages
-        history.append("Conversation:")
-        for msg in self.messages[-self.max_history * 2:]:
-            role = msg.role.title()
-            history.append(f"{role}: {msg.content}")
-        
-        return "\n\n".join(history)
-    
-    async def add_document(
-        self,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Add a document to the vector store.
-        
-        Args:
-            content: Document content.
+            text: Document text.
             metadata: Optional document metadata.
             
         Raises:
-            ValueError: If agent is not initialized.
+            RAGAgentError: If document addition fails.
         """
-        if not self.is_initialized:
-            raise ValueError("Agent not initialized")
-            
-        if not self.embeddings or not self.vector_store:
-            raise ValueError("Required providers not initialized")
-            
+        if not isinstance(text, str):
+            raise RAGAgentError("Document must be a string")
+        
+        # Validate state before adding document
+        await self._validate_impl()
+        
         try:
-            # Generate embedding
-            embedding = await self.embeddings.embed_text(content)
-            if isinstance(embedding, list):
-                # Single embedding
-                if all(isinstance(x, float) for x in embedding):
-                    # Add to vector store
-                    metadata = metadata or {}
-                    metadata["content"] = content
-                    await self.vector_store.add_vectors(
-                        vectors=[cast(List[float], embedding)],
-                        metadata=[metadata]
-                    )
-                else:
-                    raise ValueError("Invalid embedding format")
-            else:
-                raise ValueError("Invalid embedding format")
+            # Generate embeddings for text chunks
+            chunks = self._chunk_text(text)
+            embeddings = await self._embeddings.embed_text(chunks)  # type: ignore
+            if not isinstance(embeddings, list) or not all(isinstance(x, list) and all(isinstance(y, float) for y in x) for x in embeddings):
+                raise RAGAgentError("Invalid embeddings format")
             
+            # Store chunks with embeddings
+            for chunk, embedding in zip(chunks, embeddings):
+                chunk_metadata = metadata.copy() if metadata else {}
+                chunk_metadata["text"] = chunk
+                
+                await self._vector_store.add_vectors(  # type: ignore
+                    cast(List[List[float]], [embedding]),
+                    [chunk_metadata]
+                )
         except Exception as e:
-            logger.error(f"Failed to add document: {str(e)}")
-            raise RuntimeError(f"Failed to add document: {str(e)}")
+            raise RAGAgentError(f"Failed to add document: {e}")
     
-    async def search_history(
-        self,
-        query: str,
-        limit: Optional[int] = None
-    ) -> List[Message]:
-        """Search conversation history.
+    def _chunk_text(self, text: str) -> List[str]:
+        """Split text into chunks.
         
         Args:
-            query: Search query.
-            limit: Optional limit on number of results.
+            text: Text to split.
             
         Returns:
-            List of matching messages.
-            
-        Raises:
-            ValueError: If agent is not initialized.
+            List of text chunks.
         """
-        if not self.is_initialized:
-            raise ValueError("Agent not initialized")
-            
-        if not self.memory:
-            # Search in-memory history
-            messages = []
-            for msg in reversed(self.messages):
-                if query.lower() in msg.content.lower():
-                    messages.append(msg)
-                    if limit and len(messages) >= limit:
-                        break
-            return messages
-            
-        # Search in persistent memory
-        return await self.memory.search_messages(query, limit)
-    
-    async def clear_history(self) -> None:
-        """Clear conversation history.
+        chunks = []
+        start = 0
+        text_len = len(text)
         
-        Raises:
-            ValueError: If agent is not initialized.
-        """
-        if not self.is_initialized:
-            raise ValueError("Agent not initialized")
+        while start < text_len:
+            # Calculate end position
+            end = min(start + self._chunk_size, text_len)
             
-        # Clear in-memory history
-        self.messages.clear()
+            # If not at the end, try to break at a space
+            if end < text_len:
+                # Look for last space within chunk
+                while end > start and not text[end - 1].isspace():
+                    end -= 1
+                if end == start:
+                    # No space found, use hard break
+                    end = min(start + self._chunk_size, text_len)
+            
+            # Add chunk
+            chunks.append(text[start:end].strip())
+            
+            # Move start position for next chunk
+            start = end - self._overlap
         
-        # Clear persistent memory if available
-        if self.memory:
-            await self.memory.clear_messages() 
+        return chunks 

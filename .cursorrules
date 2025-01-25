@@ -1,164 +1,196 @@
 ---
-type: "cursorrules"
+title: .cursorrules
+version: "1.0"
 scope: "Pepperpy Project"
-version: "1.4"
-dependencies:
-  - "docs/architecture.mermaid"
-  - "docs/project_structure.md"
-  - "docs/technical.md"
-  - "docs/tasks/tasks.md"
 ---
 
-# Consolidated Cursor Rules
+directives:
+  context: |
+    You are the primary AI interface for the Pepperpy project.
+    Your objective is to ensure the generation of clear, maintainable, and consistent code. All implementations must align with the project's architecture and coding standards, leveraging modularity, type safety, and proper documentation.
+    Always adhere strictly to the provided examples and enforce consistency across the codebase. Prioritize modularity and extensibility in all designs.
+    Additionally, validate the project structure against `project_structure.yml` using the script `./scripts/validate_structure.py` and resolve any issues before proceeding with further development.
+    Maintain and update `docs/status.md` to reflect the current state of tasks, priorities, and development progress.
 
-## **Project Context and Architecture**
+  goals:
+    - Ensure Python code adheres to PEP 8 standards and uses explicit type annotations.
+    - Generate modular, scalable, and extensible code that aligns with `project_structure.yml`.
+    - Apply Google-style docstrings to all public APIs, including sections for Args, Returns, Raises, and Examples.
+    - Ensure the project structure is validated and synchronized with `project_structure.yml`.
+    - Manage the project status in `docs/status.md`, keeping tasks prioritized and updated in real-time.
+    - Incorporate "Plan" and "Act" modes to enable detailed task preparation and execution tracking.
 
-### **SYSTEM_CONTEXT:**
-You are a senior developer working on the **Pepperpy** project, a modular and extensible framework designed for scalable AI systems. This project focuses on chunking, embeddings, retrieval-augmented generation (RAG), and multi-LLM orchestration.
+rules:
+  project_structure_validation:
+    - Execute the script `./scripts/validate_structure.py` before starting any development or integration task.
+    - If the script detects unexpected items or missing paths, prioritize resolving these issues.
+      Steps to resolve:
+      1. If the issue is due to missing files or directories, create them as specified in `project_structure.yml`.
+      2. If the issue is due to unexpected items, analyze their purpose and either:
+         - Remove them if unnecessary.
+         - Update `project_structure.yml` if they represent a legitimate new feature or extension.
+    - Ensure all updates to `project_structure.yml` are carefully reviewed to prevent uncontrolled growth or disorganization.
+    - Rerun the script after making changes to confirm compliance.
 
-Required file reads on startup:
-- `docs/architecture.mermaid`: System architecture and component relationships.
-- `docs/technical.md`: Technical specifications and patterns.
-- `docs/project_structure.md`: Directory and module responsibilities.
-- `docs/tasks/tasks.md`: Current task definitions and priorities.
+  status_management:
+    - Maintain `docs/status.md` to reflect the current state of all tasks:
+      1. **To Do**: Tasks planned but not yet started.
+      2. **In Progress**: Tasks currently being worked on.
+      3. **Done**: Completed tasks, with a summary of the outcome.
+    - Each task entry must include:
+      - Task ID (unique identifier, e.g., `TASK-001`).
+      - Title or brief description.
+      - Priority level (e.g., High, Medium, Low).
+      - Associated components or files.
+      - Timestamp of the last update.
+      - Mode (Plan or Act).
+    - Example Format:
+      ```markdown
+      ## To Do
+      - TASK-005: Implement vector store provider [Priority: High, Mode: Plan, Updated: 2025-01-25]
 
-Before making any changes:
-1. Parse and understand system architecture from `docs/architecture.mermaid`.
-2. Check current task context from `docs/tasks/tasks.md`.
-3. Follow technical specifications from `docs/technical.md`.
+      ## In Progress
+      - TASK-003: Refactor agent factory module [Priority: Medium, Mode: Act, Updated: 2025-01-24]
 
----
+      ## Done
+      - TASK-001: Create project structure validation script [Completed: 2025-01-23, Outcome: Script integrated successfully]
+      ```
+    - Tasks in **Plan Mode** involve detailed preparation, such as research, design, and breaking down subtasks.
+    - Tasks in **Act Mode** involve active development and implementation.
+    - Automatically transition tasks from Plan to Act mode when ready for execution.
+    - When starting a new task, move it from **To Do** to **In Progress**.
+    - Upon task completion, move it to **Done**, including a brief summary of the results.
+    - Ensure tasks are sorted by priority within each section.
 
-## **File Management Rules**
+  type_system:
+    - Use explicit generics, e.g., `list[str]` instead of `list`.
+    - Avoid `Any`; if used, provide `# type: ignore` with a justification comment.
+    - Example:
+      ```python
+      def process_items(items: list[str]) -> int:
+          """Processes a list of items."""
+          return len(items)
+      ```
+    - Ensure type annotations are validated through unit tests.
 
-### **ON_FILE_CHANGE:**
-Required actions after any code changes:
-1. READ `docs/project_structure.md` to ensure alignment with project structure and modularity principles.
-2. VERIFY compliance with `docs/technical.md` guidelines.
-3. VALIDATE changes against `docs/architecture.mermaid` to ensure architectural consistency.
-4. DOCUMENT task progress in `docs/tasks/<individual_task_files>.md`:
-   - Mark sub-tasks as complete.
-   - Log any deviations or blockers.
-5. Confirm task completion and outcomes within the respective task file.
+  documentation:
+    - Use Google-style docstrings for all public APIs.
+    - Mandatory sections: Args, Returns, Raises, Example.
+    - Unversioned TODOs are forbidden; use `TODO[v2]: description`.
+    - Example:
+      ```python
+      def add_numbers(a: int, b: int) -> int:
+          """
+          Add two integers.
 
----
+          Args:
+              a (int): The first number.
+              b (int): The second number.
 
-## **Architecture Understanding**
+          Returns:
+              int: The result of adding `a` and `b`.
 
-### **READ_ARCHITECTURE:**
-File: `docs/architecture.mermaid`
+          Example:
+              >>> add_numbers(2, 3)
+              5
 
-Required parsing:
-1. Load and parse complete Mermaid diagram.
-2. Extract and understand:
-   - Module boundaries and relationships.
-   - Data flow patterns.
-   - System interfaces.
-   - Component dependencies.
-3. Validate any changes against architectural constraints.
-4. Ensure new code maintains defined separation of concerns.
+          Raises:
+              ValueError: If inputs are invalid.
+          """
+          if not isinstance(a, int) or not isinstance(b, int):
+              raise ValueError("Both inputs must be integers.")
+          return a + b
+      ```
 
-Error handling:
-1. If file not found: STOP and notify user.
-2. If diagram parse fails: REQUEST clarification.
-3. If architectural violation detected: WARN user.
+  provider_guidelines:
+    - Providers must adhere to `pepperpy.providers.base` interfaces.
+    - Methods like `initialize`, `execute`, and `cleanup` are mandatory.
+    - Use a standardized `ProviderConfig` structure:
+      ```python
+      @dataclass
+      class ProviderConfig:
+          type: str
+          parameters: dict
+          metadata: dict = field(default_factory=dict)
+      ```
+    - Ensure proper error handling and logging in providers:
+      ```python
+      class ProviderError(Exception):
+          """Custom error for provider issues."""
+      ```
 
----
+  testing_guidelines:
+    - Test against interface definitions, using mocks for external dependencies.
+    - Include unit, integration, and lifecycle tests.
+    - Validate type annotations within test cases.
+    - Example:
+      ```python
+      def test_component_initialization():
+          mock_dependency = MockDependency()
+          component = MyComponent(dependency=mock_dependency)
+          assert component.dependency is mock_dependency
+      ```
 
-## **Task Management**
+  anti_patterns:
+    violations:
+      - Hardcoded values: Rejected, tagged as `CRITICAL-SECURITY`.
+      - Circular dependencies: Refactor required, tagged as `ARCH-REFACTOR`.
+      - Duplicate code: Extract to shared components, tagged as `CODE-DUPLICATION`.
+    - Table Format:
+      | Violation            | Action               | Tag                  |
+      |----------------------|----------------------|----------------------|
+      | Hardcoded Values     | Immediate rejection | CRITICAL-SECURITY    |
+      | Circular Dependencies| Refactor required   | ARCH-REFACTOR        |
+      | Duplicate Code       | Extract components  | CODE-DUPLICATION     |
 
-### **TASK_WORKFLOW:**
-Required files:
-- `docs/tasks/tasks.md`: Overview of high-level tasks.
-- `docs/tasks/<individual_task_files>.md`: Detailed task definitions.
-- `docs/technical.md`: Implementation guidelines.
+    - Example:
+      ```python
+      # Bad Practice:
+      API_KEY = "hardcoded_key"  # CRITICAL-SECURITY
 
-Workflow steps:
-1. READ `docs/tasks/tasks.md` for high-level context.
-2. If task has a detailed file:
-   - READ `docs/tasks/<individual_task_file>.md` for task-specific requirements.
-3. VALIDATE against `docs/architecture.mermaid`:
-   - Confirm architectural alignment.
-   - Check component interactions.
-4. Ensure final validation criteria are met and updated in the task file before marking as complete.
+      # Good Practice:
+      import os
+      API_KEY = os.getenv("API_KEY")
+      ```
 
----
+  task_system:
+    - Commands must follow a structured format with clear parameters and context validation.
+    - Example Command:
+      ```python
+      @command(
+          name="/register-provider",
+          agents=["RegistryAgent"],
+          params={"type": "str", "config": "dict"}
+      )
+      async def register_provider(ctx: CommandContext):
+          """Registers a new provider in the system."""
+          if not ctx.params.get("type"):
+              raise ValueError("Provider type is required.")
+          await ctx.execute_chain(["validate-config", "update-registry", "notify-agents"])
+      ```
 
-## **Documentation Updates**
+  context_rules:
+    - Dynamic contexts must include validation for freshness, scope, and priority.
+    - Context tagging system:
+      ```python
+      class ContextTag:
+          def __init__(self, name: str, lifespan: int):
+              self.name = name
+              self.expiry = time.time() + lifespan
 
-### **DOCUMENTATION_RULES:**
-- All public APIs must have docstrings.
-- Use Google-style docstring format.
-- Include type hints in docstrings.
-- Provide usage examples for complex functions.
-- Keep documentation up-to-date with code changes.
-- Evaluate if changes necessitate updates to the `/docs` directory.
-- Ensure all relevant documentation is updated and improved as needed.
+          def is_active(self):
+              return time.time() < self.expiry
+      ```
 
----
+  quality_checks:
+    - Run `./scripts/check.sh` for linting and type checking.
+    - Ensure compliance with PEP 8 and documentation standards.
 
-## **Validation and Error Prevention**
+  scalability:
+    - Design features using building block principles to ensure modularity.
+    - Avoid tight coupling or hardcoded dependencies.
+    - Ensure systems support horizontal scaling and extensibility.
 
-### **VALIDATION_RULES:**
-1. Verify type consistency.
-2. Check for potential null/undefined values.
-3. Validate against business rules.
-4. Ensure robust error handling.
-5. Confirm that all changes align with `docs/technical.md` and `docs/project_structure.md`.
-
----
-
-## Validation Rules for Task Consistency
-### TASK_VALIDATION:
-- Ensure task IDs in `@docs/status.md` match corresponding files in `@docs/tasks/`.
-- For missing tasks:
-  - STOP and notify the user.
-  - Recommend creating a new task file using the provided template.
-- For orphaned task files (not referenced in `@docs/status.md`):
-  - STOP and request confirmation for archival or deletion.
-
----
-
-## **Pull Requests and Code Reviews**
-
-### **REVIEW_RULES:**
-- Ensure all pull requests include test coverage.
-- Verify documentation updates are included.
-- Check type consistency and error handling.
-- Ensure adherence to conventional commits.
-- Confirm alignment with `docs/tasks/tasks.md` and individual task files.
-
----
-
-## **Performance**
-
-### **PERFORMANCE_GUIDELINES:**
-- Use async operations where appropriate.
-- Implement caching for expensive operations.
-- Monitor and profile code for bottlenecks.
-- Optimize resource usage and implement proper cleanup.
-
----
-
-## **Advanced Features (Optional Future Considerations)**
-
-### **ADVANCED_FEATURES:**
-- Incorporate a `Cross-Capability Dependency Resolver` to manage dependencies dynamically.
-- Develop an `Adaptive Middleware Pipeline` for context-aware processing.
-- Add a `Multi-Modal Memory Fusion` system for combining inputs across modalities.
-- Explore `Dynamic Agent Morphing` to allow runtime transformations of agents.
-- Build a `Cognitive Load Balancer` for optimal task distribution across agents.
-- Implement a `Continuous Compliance Checker` to monitor regulatory adherence.
-
----
-
-## **Maintenance and Refactoring**
-
-### **MAINTENANCE_RULES:**
-- Review and refactor code regularly:
-  - Remove unused or deprecated modules.
-  - Consolidate duplicate logic.
-  - Align with `docs/technical.md` standards.
-- Update `docs/project_structure.md` after major refactorings.
-- Ensure all affected tasks in `docs/tasks/<individual_task_files>.md` are updated to reflect new structure or dependencies.
-- Log significant refactoring efforts within the respective task files.
+  ai_review:
+    - Periodically review code for unused components, performance optimizations, and adherence to principles.
+    - Use AI tools to identify refactoring opportunities and detect dead code.
