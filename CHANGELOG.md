@@ -1,6 +1,162 @@
 # CHANGELOG
 
 
+## v1.2.0 (2025-01-25)
+
+### Chores
+
+- Add python-dotenv and pyyaml dependencies
+  ([`779b66d`](https://github.com/felipepimentel/pepperpy-ai/commit/779b66df7d5032b468731416256fe666e883a397))
+
+* Introduced python-dotenv version 1.0.1 for managing environment variables from .env files. * Added
+  pyyaml version 6.0.2 for YAML parsing and emitting. * Updated pyproject.toml to include new
+  dependencies. * Adjusted content hash in poetry.lock to reflect the changes.
+
+- Enhance cursor rules and refactor LLM and RAG management
+  ([`6f9118c`](https://github.com/felipepimentel/pepperpy-ai/commit/6f9118c9932501053c4ea065a10dc37642a0567c))
+
+* Added project overview and core principles to .cursorrules for better clarity on framework goals.
+  * Refactored RAGManager methods to be asynchronous for improved performance and resource
+  management. * Updated HuggingFaceLLM initialization to use ProviderConfig for better type safety.
+  * Introduced new async methods for document management in RAGManager. * Enhanced TerminalTool to
+  improve command safety checks and execution handling. * Updated tests to reflect changes in LLM
+  and RAG management, ensuring better coverage and functionality. * Removed outdated
+  TECHNICAL_SPECS.md to streamline documentation and focus on current specifications.
+
+- Enhance project structure and update configurations
+  ([`b5011aa`](https://github.com/felipepimentel/pepperpy-ai/commit/b5011aae49b4d21ede39f260dc9f85bf437cd6d6))
+
+* Refactor project structure for improved organization and maintainability. * Update file
+  permissions for configuration files to ensure proper execution. * Remove deprecated example
+  scripts to streamline the project. * Adjust Python version compatibility in poetry.lock from 3.12
+  to 3.9. * Update README to clarify licensing terms and enhance documentation.
+
+- Update dependencies and configuration for semantic release
+  ([`e831591`](https://github.com/felipepimentel/pepperpy-ai/commit/e831591d1b594e619d0c7e9ed1219d6eb156a614))
+
+* Bump openai package version from 1.59.7 to 1.59.8 in poetry.lock. * Add semantic release
+  configuration to pyproject.toml for automated versioning and publishing. * Update numpy imports
+  across multiple files to include type ignore comments for better type checking compatibility.
+
+- Update dependencies and refactor main application structure
+  ([`4c1aa14`](https://github.com/felipepimentel/pepperpy-ai/commit/4c1aa1414b3fdf0c2d9678cbbefb2c31347c08e0))
+
+* Added new dependencies: beautifulsoup4 (4.12.3), pymupdf (1.25.2), and markdown (3.7) to enhance
+  functionality. * Updated .gitignore to exclude story_output/ directory. * Refactored main
+  application module for improved clarity and maintainability, including changes to configuration
+  handling and initialization processes. * Streamlined agent and LLM management by removing unused
+  imports and simplifying class structures. * Enhanced error handling and response management in LLM
+  provider implementations. * Improved type annotations and overall code quality for better
+  readability and maintainability.
+
+### Features
+
+- Enhance project structure and add new dependencies
+  ([`90d888b`](https://github.com/felipepimentel/pepperpy-ai/commit/90d888bfcf99d2acdc561e1dc6079a6238427f73))
+
+* Introduced new packages: astroid (3.3.8) and tomlkit (0.13.2) to improve code quality and TOML
+  handling. * Updated pyproject.toml to include new dependencies: pydeps (3.0.0) and pylint (3.3.3)
+  for enhanced code analysis and linting. * Modified architecture documentation to include new
+  interfaces and components, improving clarity on system interactions. * Refactored agent and
+  provider classes to implement a more consistent interface, enhancing modularity and
+  maintainability. * Removed deprecated lifecycle management components to streamline the codebase
+  and improve performance. * Updated various modules to ensure compatibility with the new structure
+  and dependencies.
+
+- Introduce event-driven architecture with core event handling components
+  ([`1014faa`](https://github.com/felipepimentel/pepperpy-ai/commit/1014faa71a70b70123cb33da92dea01f13239ddf))
+
+* Added a new events module for event-driven communication, including event publishing,
+  subscription, filtering, and transformation. * Implemented core classes such as Event, EventBus,
+  EventHandler, and EventDispatcher to facilitate event management and processing. * Introduced
+  input validation and sanitization mechanisms to enhance security and data integrity. * Established
+  a comprehensive event manager to oversee event types and their handlers, ensuring robust event
+  lifecycle management. * Enhanced overall project structure and modularity for better
+  maintainability and extensibility.
+
+- Restructure tools and capabilities modules with comprehensive implementation
+  ([`6937462`](https://github.com/felipepimentel/pepperpy-ai/commit/69374624f362460d56445c346a1022280cd5ddc4))
+
+* Introduced new tools and capabilities modules with detailed implementations across various
+  domains: - Added core tools for API handling, circuit breaking, and token management - Implemented
+  AI-related tools for LLM management, vision processing, and search operations - Created IO tools
+  for file handling, code manipulation, and document loading - Developed system and media-related
+  tools for terminal and audio processing * Reorganized project structure to improve modularity and
+  separation of concerns * Enhanced tool base classes with robust initialization, validation, and
+  execution methods * Removed deprecated data and common modules to streamline the codebase *
+  Improved overall code organization and implemented consistent tool interfaces
+
+### Refactoring
+
+- Add validation rules for task consistency in .cursorrules
+  ([`456caae`](https://github.com/felipepimentel/pepperpy-ai/commit/456caaed66ddec92e9496d2f2d318763bff23d2d))
+
+* Introduced new validation rules to ensure task IDs in `@docs/status.md` match corresponding files
+  in `@docs/tasks/`. * Implemented checks for missing tasks, prompting user notification and task
+  creation recommendations. * Added handling for orphaned task files, requiring user confirmation
+  for archival or deletion. * Enhanced overall documentation clarity and maintainability.
+
+- Comprehensive update of .cursorrules with enhanced project governance and AI development
+  guidelines
+  ([`0916a5e`](https://github.com/felipepimentel/pepperpy-ai/commit/0916a5eb2f781a2923a24326700a108223ed8131))
+
+* Completely restructured .cursorrules to provide a detailed, comprehensive framework for project
+  development * Introduced robust directives for context management, project goals, and coding
+  standards * Added extensive rules for project structure validation, status management, and type
+  system enforcement * Implemented detailed guidelines for documentation, provider integration,
+  testing, and anti-pattern prevention * Enhanced task system with structured command and context
+  validation mechanisms * Improved scalability and modularity principles with clear implementation
+  recommendations
+
+- Enhance project documentation and streamline codebase
+  ([`6e83d3a`](https://github.com/felipepimentel/pepperpy-ai/commit/6e83d3a906dcefdc77e523c535555967342fe850))
+
+* Updated the .cursorrules file to include detailed project context, architecture guidelines, and
+  refined file management rules. * Consolidated and improved documentation for better clarity and
+  maintainability, ensuring all public APIs are well-documented. * Removed obsolete project
+  structure documentation and deprecated files to streamline the codebase. * Refactored agent and
+  memory management components for improved consistency and type safety. * Enhanced error handling
+  and validation checks across various modules. * Updated relevant documentation to reflect
+  structural changes and improve overall organization.
+
+- Optimize project structure and enhance module organization
+  ([`86b0052`](https://github.com/felipepimentel/pepperpy-ai/commit/86b00523c6169ece7b26c0e83e6d58d3375c1784))
+
+* Comprehensive restructuring of project modules with focus on modularity and code organization *
+  Refined import management and removed deprecated backup and unused files * Updated documentation
+  and project structure to improve clarity and maintainability * Enhanced test suite and integration
+  points across various components * Streamlined core modules in pepperpy, agents, capabilities, and
+  providers
+
+- Overhaul PepperPy structure and remove deprecated components
+  ([`8e26620`](https://github.com/felipepimentel/pepperpy-ai/commit/8e266204a1366270ed329ae671ec91077dddf06f))
+
+* Updated package initialization to enhance modularity and extensibility. * Removed obsolete agent
+  classes and data store modules to streamline the codebase. * Refactored agent interfaces and base
+  classes for improved consistency and type safety. * Enhanced version management using
+  importlib.metadata for better package handling. * Consolidated tool and agent management under a
+  unified framework. * Updated documentation to reflect structural changes and improve clarity. *
+  Removed outdated configuration files and integrated new management practices.
+
+- Remove deprecated files and enhance project structure
+  ([`bb5a7fb`](https://github.com/felipepimentel/pepperpy-ai/commit/bb5a7fb984848295595fc2b43ad6ff25afc0ff6f))
+
+* Deleted obsolete agent and base files to streamline the codebase. * Removed unused modules and
+  components across various directories. * Updated initialization files to improve modularity and
+  organization. * Enhanced error handling and validation checks in remaining components. * Improved
+  overall code quality and maintainability through refactoring. * Updated documentation to reflect
+  structural changes and improve clarity.
+
+- Update cursor rules and remove outdated project structure documentation
+  ([`f9a6e2f`](https://github.com/felipepimentel/pepperpy-ai/commit/f9a6e2f8e4b6b68cc95dbb00e78ed5ff1f3e13f7))
+
+* Enhanced the .cursorrules file with detailed project context, architecture guidelines, and updated
+  file management rules. * Consolidated documentation rules to ensure all public APIs are
+  well-documented and up-to-date. * Removed obsolete project structure documentation files to
+  streamline the codebase and improve clarity. * Improved overall organization and maintainability
+  of project documentation.
+
+
 ## v1.1.0 (2025-01-18)
 
 ### Chores
