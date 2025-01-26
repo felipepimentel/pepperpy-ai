@@ -1,9 +1,6 @@
-"""
-LLM provider implementations for Pepperpy.
-"""
+"""LLM provider package."""
+from .openai import OpenAIProvider
+from .anthropic import AnthropicProvider
+from .gemini import GeminiProvider
 
-from pepperpy.providers.llm.anthropic import AnthropicProvider
-from pepperpy.providers.llm.base import LLMProvider
-from pepperpy.providers.llm.gemini import GeminiProvider
-
-__all__ = ["LLMProvider", "AnthropicProvider", "GeminiProvider"] 
+__all__ = ["OpenAIProvider", "AnthropicProvider", "GeminiProvider"] 

@@ -23,14 +23,16 @@ directives:
 rules:
   project_structure_validation:
     - Execute the script `./scripts/validate_structure.py` before starting any development or integration task.
-    - If the script detects unexpected items or missing paths, prioritize resolving these issues.
-      Steps to resolve:
-      1. If the issue is due to missing files or directories, create them as specified in `project_structure.yml`.
-      2. If the issue is due to unexpected items, analyze their purpose and either:
-         - Remove them if unnecessary.
-         - Update `project_structure.yml` if they represent a legitimate new feature or extension.
-    - Ensure all updates to `project_structure.yml` are carefully reviewed to prevent uncontrolled growth or disorganization.
-    - Rerun the script after making changes to confirm compliance.
+    - If the script detects unexpected items or missing paths, the AI **must not** automatically modify `project_structure.yml`.
+      - **Approval Required**: Any changes to `project_structure.yml` must first be explicitly approved by the user.
+      - Steps for handling detected issues:
+        1. Log the issue with a detailed explanation of the discrepancy.
+        2. Propose a solution to the user, including:
+           - Justification for creating, removing, or renaming components.
+           - Alternatives, if applicable.
+        3. Wait for user confirmation before applying any modifications.
+      - **Prohibited Changes**: Avoid adding redundant directories (e.g., `data` and `data_store` for similar purposes). Consolidate under existing structures instead.
+    - Rerun the script after applying user-approved changes to confirm compliance.
 
   status_management:
     - Maintain `docs/status.md` to reflect the current state of all tasks:

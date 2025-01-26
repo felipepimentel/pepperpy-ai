@@ -1,187 +1,53 @@
-"""
-Anthropic Claude provider implementation.
-"""
-import asyncio
-from typing import Any, AsyncIterator, Dict, List, Optional
+"""Anthropic LLM provider implementation."""
+from typing import Any, Dict, List, Optional
 
-import anthropic
 from anthropic import AsyncAnthropic
+from anthropic.types import Message
 
-from pepperpy.core.utils.errors import ProviderError
-from pepperpy.providers.llm.base import LLMProvider
+from ..base.provider import BaseProvider, ProviderConfig
 
-
-class AnthropicProvider(LLMProvider):
-    """Anthropic Claude provider implementation."""
-
-    def __init__(self, api_key: str, model: str = "claude-3-opus-20240229", **kwargs: Any) -> None:
-        """Initialize the Anthropic provider.
-
-        Args:
-            api_key: Anthropic API key.
-            model: Model name to use.
-            **kwargs: Additional configuration parameters.
-        """
-        super().__init__({"api_key": api_key, "model": model, **kwargs})
-        self._client: Optional[AsyncAnthropic] = None
-        self._model = model
-
+class AnthropicProvider(BaseProvider):
+    """Provider for Anthropic language models."""
+    
+    def __init__(self, config: ProviderConfig):
+        """Initialize the Anthropic provider."""
+        super().__init__(config)
+        self.client = None
+        self.model = config.parameters.get("model", "claude-3-opus-20240229")
+    
     async def initialize(self) -> None:
-        """Initialize the Anthropic client.
-
-        Raises:
-            ProviderError: If initialization fails.
-        """
-        try:
-            await self.validate_config()
-            self._client = AsyncAnthropic(api_key=self.config["api_key"])
+        """Initialize the Anthropic client."""
+        if not self._initialized:
+            api_key = self.config.parameters.get("api_key")
+            if not api_key:
+                raise ValueError("Anthropic API key is required")
+            
+            self.client = AsyncAnthropic(api_key=api_key)
             self._initialized = True
-        except Exception as e:
-            raise ProviderError(f"Failed to initialize Anthropic provider: {str(e)}") from e
-
-    async def validate_config(self) -> None:
-        """Validate the provider configuration.
-
-        Raises:
-            ProviderError: If configuration is invalid.
-        """
-        if not self.config.get("api_key"):
-            raise ProviderError("Anthropic API key is required")
-        if not self.config.get("model"):
-            raise ProviderError("Model name is required")
-
+    
     async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        """Cleanup resources."""
+        if self.client:
+            await self.client.close()
             self._initialized = False
-
+    
     async def generate(
         self,
-        prompt: str,
-        *,
-        max_tokens: Optional[int] = None,
+        messages: List[Dict[str, str]],
         temperature: float = 0.7,
-        top_p: float = 1.0,
-        stop: Optional[List[str]] = None,
-        **kwargs: Any,
-    ) -> str:
-        """Generate text using Anthropic Claude.
-
-        Args:
-            prompt: The input prompt.
-            max_tokens: Maximum number of tokens to generate.
-            temperature: Sampling temperature (0.0 to 1.0).
-            top_p: Nucleus sampling parameter (0.0 to 1.0).
-            stop: Optional list of stop sequences.
-            **kwargs: Additional provider-specific parameters.
-
-        Returns:
-            The generated text.
-
-        Raises:
-            ProviderError: If generation fails.
-        """
-        if not self._client or not self._initialized:
-            raise ProviderError("Provider not initialized")
-
-        try:
-            response = await self._client.messages.create(
-                model=self._model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                stop_sequences=stop,
-                **kwargs,
-            )
-            return response.content[0].text
-        except Exception as e:
-            raise ProviderError(f"Text generation failed: {str(e)}") from e
-
-    async def generate_stream(
-        self,
-        prompt: str,
-        *,
         max_tokens: Optional[int] = None,
-        temperature: float = 0.7,
-        top_p: float = 1.0,
-        stop: Optional[List[str]] = None,
-        **kwargs: Any,
-    ) -> AsyncIterator[str]:
-        """Generate text using Anthropic Claude in streaming mode.
-
-        Args:
-            prompt: The input prompt.
-            max_tokens: Maximum number of tokens to generate.
-            temperature: Sampling temperature (0.0 to 1.0).
-            top_p: Nucleus sampling parameter (0.0 to 1.0).
-            stop: Optional list of stop sequences.
-            **kwargs: Additional provider-specific parameters.
-
-        Yields:
-            Generated text chunks.
-
-        Raises:
-            ProviderError: If generation fails.
-        """
-        if not self._client or not self._initialized:
-            raise ProviderError("Provider not initialized")
-
-        try:
-            stream = await self._client.messages.create(
-                model=self._model,
-                messages=[{"role": "user", "content": prompt}],
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                stop_sequences=stop,
-                stream=True,
-                **kwargs,
-            )
-
-            async for chunk in stream:
-                if chunk.content:
-                    yield chunk.content[0].text
-        except Exception as e:
-            raise ProviderError(f"Streaming text generation failed: {str(e)}") from e
-
-    async def count_tokens(self, text: str) -> int:
-        """Count the number of tokens in a text.
-
-        Args:
-            text: The input text.
-
-        Returns:
-            The number of tokens.
-
-        Raises:
-            ProviderError: If token counting fails.
-        """
-        try:
-            return anthropic.count_tokens(text)
-        except Exception as e:
-            raise ProviderError(f"Token counting failed: {str(e)}") from e
-
-    async def get_model_info(self) -> Dict[str, Any]:
-        """Get information about the current model.
-
-        Returns:
-            A dictionary containing model information.
-
-        Raises:
-            ProviderError: If retrieving model info fails.
-        """
-        if not self._client or not self._initialized:
-            raise ProviderError("Provider not initialized")
-
-        return {
-            "name": self._model,
-            "provider": "anthropic",
-            "capabilities": {
-                "streaming": True,
-                "function_calling": True,
-                "vision": True,
-            },
-        } 
+        stop: Optional[List[str]] = None
+    ) -> Message:
+        """Generate completion for the given messages."""
+        if not self._initialized:
+            raise RuntimeError("Provider not initialized")
+        
+        response = await self.client.messages.create(
+            model=self.model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stop_sequences=stop
+        )
+        
+        return response 

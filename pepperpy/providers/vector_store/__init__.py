@@ -1,7 +1,4 @@
-"""
-Vector store provider implementations for Pepperpy.
-"""
+"""Vector store provider package."""
+from .implementations import MilvusProvider, PineconeProvider
 
-from pepperpy.providers.vector_store.base import VectorStoreProvider
-
-__all__ = ["VectorStoreProvider"] 
+__all__ = ["MilvusProvider", "PineconeProvider"] 

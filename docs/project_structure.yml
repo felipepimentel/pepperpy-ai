@@ -73,14 +73,24 @@ root:
   path: pepperpy
   type: directory
   children:
+    __init__.py:
+      type: file
+      required: true
+    
     agents:
       type: module
       description: "Core agent functionality"
       children:
+        __init__.py:
+          type: file
+          required: true
         base:
           type: module
           description: "Base agent definitions"
           children:
+            __init__.py:
+              type: file
+              required: true
             agent.py:
               type: file
               required: true
@@ -94,6 +104,9 @@ root:
           type: module
           description: "Agent creation system"
           children:
+            __init__.py:
+              type: file
+              required: true
             builder.py:
               type: file
             registry.py:
@@ -102,6 +115,9 @@ root:
           type: module
           description: "Specialized agent types"
           children:
+            __init__.py:
+              type: file
+              required: true
             dev_agent.py:
               type: file
             research_agent.py:
@@ -113,10 +129,16 @@ root:
       type: module
       description: "Provider system"
       children:
+        __init__.py:
+          type: file
+          required: true
         base:
           type: module
           description: "Base provider patterns"
           children:
+            __init__.py:
+              type: file
+              required: true
             adapter.py:
               type: file
             provider.py:
@@ -126,9 +148,15 @@ root:
           type: module
           description: "Embedding providers"
           children:
+            __init__.py:
+              type: file
+              required: true
             implementations:
               type: module
               children:
+                __init__.py:
+                  type: file
+                  required: true
                 openai.py:
                   type: file
                 sentence.py:
@@ -137,6 +165,9 @@ root:
           type: module
           description: "LLM providers"
           children:
+            __init__.py:
+              type: file
+              required: true
             anthropic.py:
               type: file
             gemini.py:
@@ -148,6 +179,9 @@ root:
           type: module
           description: "Memory providers"
           children:
+            __init__.py:
+              type: file
+              required: true
             postgres.py:
               type: file
             redis.py:
@@ -156,9 +190,15 @@ root:
           type: module
           description: "Vector store providers"
           children:
+            __init__.py:
+              type: file
+              required: true
             implementations:
               type: module
               children:
+                __init__.py:
+                  type: file
+                  required: true
                 milvus.py:
                   type: file
                 pinecone.py:
@@ -168,10 +208,16 @@ root:
       type: module
       description: "Core functionality"
       children:
+        __init__.py:
+          type: file
+          required: true
         utils:
           type: module
           description: "Core utilities"
           children:
+            __init__.py:
+              type: file
+              required: true
             constants.py:
               type: file
             errors.py:
@@ -180,6 +226,59 @@ root:
             logger.py:
               type: file
             helpers.py:
+              type: file
+    
+    capabilities:
+      type: module
+      description: "System capabilities"
+      children:
+        __init__.py:
+          type: file
+          required: true
+        base:
+          type: module
+          description: "Base capability definitions"
+          children:
+            __init__.py:
+              type: file
+              required: true
+            capability.py:
+              type: file
+              required: true
+        decision:
+          type: module
+          description: "Decision making capabilities"
+          children:
+            __init__.py:
+              type: file
+              required: true
+            engine.py:
+              type: file
+              required: true
+            strategies.py:
+              type: file
+        learning:
+          type: module
+          description: "System learning capabilities"
+          children:
+            __init__.py:
+              type: file
+              required: true
+            adapters.py:
+              type: file
+            trainer.py:
+              type: file
+        tools:
+          type: module
+          description: "System tools and utilities"
+          children:
+            __init__.py:
+              type: file
+              required: true
+            base.py:
+              type: file
+              required: true
+            registry.py:
               type: file
   
   capabilities:

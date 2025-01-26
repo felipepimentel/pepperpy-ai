@@ -1,8 +1,4 @@
-"""
-Embedding provider implementations for Pepperpy.
-"""
+"""Embedding provider package."""
+from .implementations import OpenAIEmbeddingProvider, SentenceTransformerProvider
 
-from pepperpy.providers.embedding.base import EmbeddingProvider
-from pepperpy.providers.embedding.sentence_transformers import SentenceTransformersProvider
-
-__all__ = ["EmbeddingProvider", "SentenceTransformersProvider"] 
+__all__ = ["OpenAIEmbeddingProvider", "SentenceTransformerProvider"] 

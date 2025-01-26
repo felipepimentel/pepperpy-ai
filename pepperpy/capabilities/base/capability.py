@@ -52,13 +52,9 @@ class BaseCapability(Generic[T, R], ABC):
             raise ValueError(f"Capability '{name}' not registered")
         return cls._registry[name]
     
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """Initialize the capability.
-        
-        Args:
-            config: Optional configuration dictionary.
-        """
-        self.config = config or {}
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize the capability."""
+        self.config = config
         self._initialized = False
 
     @property
@@ -72,20 +68,20 @@ class BaseCapability(Generic[T, R], ABC):
         return self._initialized
         
     async def initialize(self) -> None:
-        """Initialize the capability.
-        
-        This method should be called before using the capability.
-        It should handle any setup required by the capability.
-        """
-        self._initialized = True
+        """Initialize the capability."""
+        if not self._initialized:
+            await self._initialize_impl()
+            self._initialized = True
         
     async def cleanup(self) -> None:
-        """Clean up capability."""
-        if not self.is_initialized:
-            return
-            
-        await self._cleanup_impl()
-        self._initialized = False
+        """Cleanup capability resources."""
+        if self._initialized:
+            await self._cleanup_impl()
+            self._initialized = False
+        
+    def validate_config(self) -> None:
+        """Validate capability configuration."""
+        pass
         
     def validate(self) -> None:
         """Validate capability state."""
@@ -96,36 +92,32 @@ class BaseCapability(Generic[T, R], ABC):
         
     @abstractmethod
     async def _initialize_impl(self) -> None:
-        """Initialize implementation."""
+        """Implementation specific initialization."""
         pass
         
     @abstractmethod
     async def _cleanup_impl(self) -> None:
-        """Clean up implementation."""
+        """Implementation specific cleanup."""
         pass
         
     def _validate_impl(self) -> None:
         """Validate implementation."""
         pass
 
-    async def execute(self, input_data: T) -> R:
-        """Execute the capability.
+    async def execute(
+        self,
+        action: str,
+        params: Optional[Dict[str, Any]] = None
+    ) -> Any:
+        """Execute a capability action."""
+        if not self._initialized:
+            raise RuntimeError("Capability not initialized")
         
-        Args:
-            input_data: Input data for the capability.
-            
-        Returns:
-            The capability's output.
-            
-        Raises:
-            ValidationError: If input validation fails.
-        """
-        if not self.is_initialized:
-            raise ValidationError("Capability not initialized. Call initialize() first.")
-        await self.validate_input(input_data)
-        result = await self._execute(input_data)
-        await self.validate_output(result)
-        return result
+        method = getattr(self, action, None)
+        if not method or not callable(method):
+            raise ValueError(f"Unknown action: {action}")
+        
+        return await method(**(params or {}))
 
     @abstractmethod
     async def _execute(self, input_data: T) -> R:
@@ -165,12 +157,12 @@ class BaseCapability(Generic[T, R], ABC):
 
     @abstractmethod
     async def get_metadata(self) -> Dict[str, Any]:
-        """Get capability metadata.
-
-        Returns:
-            Dictionary containing capability metadata
-        """
-        pass
+        """Get capability metadata."""
+        return {
+            "name": self.__class__.__name__,
+            "type": "capability",
+            "config": self.config
+        }
 
     @abstractmethod
     async def get_dependencies(self) -> List[str]:

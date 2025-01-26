@@ -1,8 +1,5 @@
-"""
-Base provider interfaces for Pepperpy.
-"""
+"""Base provider package."""
+from .provider import BaseProvider, ProviderConfig
+from .adapter import BaseAdapter
 
-from pepperpy.providers.base.adapter import Adapter
-from pepperpy.providers.base.provider import Provider
-
-__all__ = ["Adapter", "Provider"] 
+__all__ = ["BaseProvider", "ProviderConfig", "BaseAdapter"] 

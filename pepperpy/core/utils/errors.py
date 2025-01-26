@@ -1,109 +1,63 @@
-"""
-Core error handling and custom exceptions.
-"""
+"""Base exception classes for the Pepperpy framework."""
 from typing import Optional
 
-
 class PepperpyError(Exception):
-    """Base exception class for all Pepperpy errors."""
+    """Base class for all Pepperpy exceptions."""
+    def __init__(self, message: Optional[str] = None):
+        super().__init__(message or self.__doc__)
 
-    def __init__(self, message: str, code: Optional[str] = None) -> None:
-        """Initialize PepperpyError.
-
-        Args:
-            message: Error message.
-            code: Optional error code.
-        """
-        self.message = message
-        self.code = code
-        super().__init__(message)
-
-
-class ConfigurationError(PepperpyError):
-    """Raised when there is a configuration-related error."""
+class ConfigError(PepperpyError):
+    """Error raised when there is a configuration issue."""
     pass
 
-
-class ValidationError(PepperpyError):
-    """Raised when validation fails."""
+class LifecycleError(PepperpyError):
+    """Error raised when there is a lifecycle management issue."""
     pass
-
 
 class ProviderError(PepperpyError):
-    """Raised when there is an error with a provider."""
+    """Error raised when there is a provider-related issue."""
     pass
-
-
-class ResourceNotFoundError(PepperpyError):
-    """Raised when a requested resource is not found."""
-    pass
-
-
-class AuthenticationError(PepperpyError):
-    """Raised when authentication fails."""
-    pass
-
-
-class AuthorizationError(PepperpyError):
-    """Raised when authorization fails."""
-    pass
-
-
-class RateLimitError(PepperpyError):
-    """Raised when rate limits are exceeded."""
-    pass
-
-
-class TimeoutError(PepperpyError):
-    """Raised when an operation times out."""
-    pass
-
-
-class DependencyError(PepperpyError):
-    """Raised when there is an error with a dependency."""
-    pass
-
-
-class ResourceError(PepperpyError):
-    """Error raised for resource management issues."""
-    pass
-
-
-class SecurityError(PepperpyError):
-    """Error raised for security-related issues."""
-    pass
-
-
-class MiddlewareError(PepperpyError):
-    """Error raised for middleware-related issues."""
-    pass
-
-
-class ExtensionError(PepperpyError):
-    """Error raised for extension-related issues."""
-    pass
-
-
-class CapabilityError(PepperpyError):
-    """Error raised for capability-related issues."""
-    pass
-
 
 class AgentError(PepperpyError):
-    """Error raised for agent-related issues."""
+    """Error raised when there is an agent-related issue."""
     pass
 
-
-class WorkflowError(PepperpyError):
-    """Error raised for workflow-related issues."""
+class MemoryError(PepperpyError):
+    """Error raised when there is a memory-related issue."""
     pass
 
-
-class PersistenceError(PepperpyError):
-    """Error raised for persistence-related issues."""
+class LLMError(PepperpyError):
+    """Error raised when there is an LLM-related issue."""
     pass
 
-
-class MonitoringError(PepperpyError):
-    """Error raised for monitoring-related issues."""
+class VectorStoreError(PepperpyError):
+    """Error raised when there is a vector store-related issue."""
     pass
+
+class DocumentStoreError(PepperpyError):
+    """Error raised when there is a document store-related issue."""
+    pass
+
+class EmbeddingError(PepperpyError):
+    """Error raised when there is an embedding-related issue."""
+    pass
+
+class ValidationError(PepperpyError):
+    """Error raised when there is a validation issue."""
+    pass
+
+class SecurityError(PepperpyError):
+    """Error raised when there is a security-related issue."""
+    pass
+
+class RateLimitError(PepperpyError):
+    """Error raised when rate limits are exceeded."""
+    pass
+
+class EventError(PepperpyError):
+    """Error raised when there is an event-related issue."""
+    pass
+
+class ProfileError(PepperpyError):
+    """Error raised when there is a profile-related issue."""
+    pass 
