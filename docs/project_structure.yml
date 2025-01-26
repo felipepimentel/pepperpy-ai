@@ -227,6 +227,9 @@ root:
               type: file
             helpers.py:
               type: file
+            units.py:
+              type: file
+              description: "Unit conversion utilities"
     
     capabilities:
       type: module
@@ -257,6 +260,12 @@ root:
               required: true
             strategies.py:
               type: file
+            utils.py:
+              type: file
+              description: "Decision utilities and helpers"
+            scoring.py:
+              type: file
+              description: "Decision scoring functionality"
         learning:
           type: module
           description: "System learning capabilities"

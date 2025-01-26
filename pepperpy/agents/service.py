@@ -1,22 +1,55 @@
 """Agent service functionality."""
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type, TypeVar, Callable, Awaitable, Union, cast
 
 from pepperpy.core.utils.errors import PepperpyError
 from pepperpy.core.lifecycle import Lifecycle
+from .base.base_agent import BaseAgent
+from .factory.agent_factory import AgentFactory
 from .agent import Agent
 from .config import AgentConfig
-from .base import BaseAgent
-from .factory import AgentFactory
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar('T')
 
 class ServiceError(PepperpyError):
     """Service error."""
     pass
 
+class ErrorHandler:
+    """Helper class for error handling."""
+    
+    @staticmethod
+    async def handle_operation(
+        operation: Union[Callable[..., T], Callable[..., Awaitable[T]]],
+        error_prefix: str,
+        *args: Any,
+        **kwargs: Any
+    ) -> T:
+        """Handle operation with consistent error handling.
+        
+        Args:
+            operation: Operation to execute (sync or async)
+            error_prefix: Prefix for error message
+            *args: Operation arguments
+            **kwargs: Operation keyword arguments
+            
+        Returns:
+            Operation result
+            
+        Raises:
+            ValueError: If operation fails
+        """
+        try:
+            result = operation(*args, **kwargs)
+            if isinstance(result, Awaitable):
+                result = await result
+            return cast(T, result)
+        except Exception as e:
+            logger.error(f"{error_prefix}: {str(e)}")
+            raise ValueError(f"{error_prefix}: {str(e)}")
 
 class AgentValidator:
     """Helper class for agent validation."""
@@ -39,7 +72,6 @@ class AgentValidator:
         if name in agents:
             raise ValueError(f"Agent already exists: {name}")
 
-
 class AgentLifecycle:
     """Helper class for agent lifecycle management."""
     
@@ -52,12 +84,7 @@ class AgentLifecycle:
     @staticmethod
     async def cleanup_agent(agent: BaseAgent) -> None:
         """Clean up an agent."""
-        try:
-            await agent.cleanup()
-        except Exception as e:
-            logger.error(f"Failed to clean up agent: {str(e)}")
-            raise ValueError(f"Failed to clean up agent: {str(e)}")
-
+        await agent.cleanup()
 
 class AgentService(Lifecycle, ABC):
     """Base class for agent services."""
@@ -74,64 +101,31 @@ class AgentService(Lifecycle, ABC):
         self._factory = AgentFactory()
         self._validator = AgentValidator()
         self._lifecycle = AgentLifecycle()
+        self._error_handler = ErrorHandler()
         
     @property
     def agents(self) -> Dict[str, BaseAgent]:
-        """Get registered agents.
-        
-        Returns:
-            Dictionary of agent name to agent instance.
-        """
+        """Get registered agents."""
         return self._agents
         
     async def register_agent(self, agent: BaseAgent) -> None:
-        """Register agent with service.
-        
-        Args:
-            agent: Agent to register
-            
-        Raises:
-            ServiceError: If agent already registered
-        """
+        """Register agent with service."""
         self._validator.validate_unique(agent.name, self._agents)
         self._agents[agent.name] = agent
         
     async def unregister_agent(self, name: str) -> None:
-        """Unregister agent from service.
-        
-        Args:
-            name: Agent name
-            
-        Raises:
-            ServiceError: If agent not registered
-        """
+        """Unregister agent from service."""
         self._validator.validate_exists(name, self._agents)
         del self._agents[name]
-        
+    
     @abstractmethod
     async def start_agent(self, name: str, **kwargs: Any) -> None:
-        """Start registered agent.
-        
-        Args:
-            name: Agent name
-            **kwargs: Agent-specific start arguments
-            
-        Raises:
-            ServiceError: If agent not registered or start fails
-        """
+        """Start registered agent."""
         self._validator.validate_exists(name, self._agents)
         
     @abstractmethod
     async def stop_agent(self, name: str, **kwargs: Any) -> None:
-        """Stop registered agent.
-        
-        Args:
-            name: Agent name
-            **kwargs: Agent-specific stop arguments
-            
-        Raises:
-            ServiceError: If agent not registered or stop fails
-        """
+        """Stop registered agent."""
         self._validator.validate_exists(name, self._agents)
         
     def validate(self) -> None:
@@ -145,76 +139,38 @@ class AgentService(Lifecycle, ABC):
         agent_type: str,
         config: Dict[str, Any]
     ) -> BaseAgent:
-        """Create and register a new agent.
-        
-        Args:
-            name: Name for the new agent.
-            agent_type: Type of agent to create.
-            config: Agent configuration.
-            
-        Returns:
-            Created agent instance.
-            
-        Raises:
-            ValueError: If agent name already exists or creation fails.
-        """
-        try:
+        """Create and register a new agent."""
+        async def create_operation() -> BaseAgent:
             self._validator.validate_unique(name, self._agents)
-            
-            # Create agent
             agent = self._factory.create_agent(agent_type, config)
-            
-            # Initialize agent
             await self._lifecycle.initialize_agent(agent)
-            
-            # Register agent
             self._agents[name] = agent
             logger.info(f"Created agent '{name}' of type '{agent_type}'")
-            
             return agent
             
-        except Exception as e:
-            logger.error(f"Failed to create agent: {str(e)}")
-            raise ValueError(f"Failed to create agent: {str(e)}")
-    
+        return await self._error_handler.handle_operation(
+            create_operation,
+            "Failed to create agent"
+        )
+            
     async def get_agent(self, name: str) -> BaseAgent:
-        """Get a registered agent.
-        
-        Args:
-            name: Agent name.
-            
-        Returns:
-            Agent instance.
-            
-        Raises:
-            ValueError: If agent not found.
-        """
+        """Get a registered agent."""
         self._validator.validate_exists(name, self._agents)
         return self._agents[name]
     
     async def delete_agent(self, name: str) -> None:
-        """Delete a registered agent.
-        
-        Args:
-            name: Agent name.
-            
-        Raises:
-            ValueError: If agent not found.
-        """
-        try:
+        """Delete a registered agent."""
+        async def delete_operation() -> None:
             self._validator.validate_exists(name, self._agents)
-            
-            # Clean up agent
             agent = self._agents[name]
             await self._lifecycle.cleanup_agent(agent)
-            
-            # Remove from registry
             del self._agents[name]
             logger.info(f"Deleted agent '{name}'")
             
-        except Exception as e:
-            logger.error(f"Failed to delete agent: {str(e)}")
-            raise ValueError(f"Failed to delete agent: {str(e)}")
+        await self._error_handler.handle_operation(
+            delete_operation,
+            "Failed to delete agent"
+        )
     
     async def process(
         self,
@@ -222,27 +178,16 @@ class AgentService(Lifecycle, ABC):
         input_data: Any,
         **kwargs: Any
     ) -> Any:
-        """Process input with an agent.
-        
-        Args:
-            name: Agent name.
-            input_data: Input data to process.
-            **kwargs: Additional processing arguments.
-            
-        Returns:
-            Processing result.
-            
-        Raises:
-            ValueError: If agent not found or processing fails.
-        """
-        try:
+        """Process input with an agent."""
+        async def process_operation() -> Any:
             self._validator.validate_exists(name, self._agents)
             agent = self._agents[name]
             return await agent.process(input_data, **kwargs)
             
-        except Exception as e:
-            logger.error(f"Failed to process input: {str(e)}")
-            raise ValueError(f"Failed to process input: {str(e)}")
+        return await self._error_handler.handle_operation(
+            process_operation,
+            "Failed to process input"
+        )
     
     async def cleanup(self) -> None:
         """Clean up all agents."""
@@ -251,7 +196,6 @@ class AgentService(Lifecycle, ABC):
                 await self._lifecycle.cleanup_agent(agent)
                 del self._agents[name]
                 logger.info(f"Cleaned up agent '{name}'")
-                
             except Exception as e:
                 logger.error(f"Failed to clean up agent '{name}': {str(e)}")
                 # Continue cleaning up other agents 

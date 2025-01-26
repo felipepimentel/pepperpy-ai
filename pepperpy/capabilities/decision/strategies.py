@@ -4,34 +4,10 @@ from typing import Any, Dict, List, Optional, TypeVar, cast
 
 from ..base.capability import BaseCapability
 from .engine import DecisionEngine
+from .scoring import ScoreCalculator
+from .utils import ProbabilityCalculator
 
 T = TypeVar('T', bound=BaseCapability)
-
-class ScoreCalculator:
-    """Helper class for calculating scores."""
-    
-    def __init__(self, rule_evaluator: Any, rules: List[Dict[str, Any]]):
-        """Initialize score calculator."""
-        self.rule_evaluator = rule_evaluator
-        self.rules = rules
-    
-    def calculate_score(
-        self,
-        option: Any,
-        context: Dict[str, Any],
-        weights: Optional[Dict[str, float]] = None
-    ) -> float:
-        """Calculate score for option."""
-        if not isinstance(option, dict):
-            return 0.0 if weights else 1.0
-            
-        score = 0.0
-        for rule in self.rules:
-            if self.rule_evaluator.evaluate_rule(rule, context):
-                score += self.rule_evaluator.calculate_rule_score(
-                    rule, option, weights
-                )
-        return score
 
 class DecisionStrategy(ABC):
     """Base class for decision strategies."""
@@ -64,15 +40,7 @@ class SimpleStrategy(DecisionStrategy):
         options: List[Any]
     ) -> Any:
         """Return first option that matches context."""
-        if not options:
-            return None
-            
-        # Find first option with non-zero score
-        for option in options:
-            if self.score_calculator.calculate_score(option, context) > 0:
-                return option
-                
-        return options[0]
+        return self.score_calculator.find_first_match(options, context)
 
 class WeightedStrategy(DecisionStrategy):
     """Strategy that weighs options based on context."""
@@ -92,16 +60,11 @@ class WeightedStrategy(DecisionStrategy):
         options: List[Any]
     ) -> Any:
         """Return option with highest weighted score."""
-        if not options:
-            return None
-            
-        scores = {
-            option: self.score_calculator.calculate_score(
-                option, context, self.weights
-            )
-            for option in options
-        }
-        return max(scores.items(), key=lambda x: x[1])[0]
+        return self.score_calculator.find_highest_score(
+            options,
+            context,
+            self.weights
+        )
 
 class ProbabilisticStrategy(DecisionStrategy):
     """Strategy that makes probabilistic decisions."""
@@ -114,6 +77,7 @@ class ProbabilisticStrategy(DecisionStrategy):
         """Initialize the probabilistic strategy."""
         super().__init__(capability)
         self.temperature = temperature
+        self.probability_calculator = ProbabilityCalculator()
     
     async def decide(
         self,
@@ -126,25 +90,13 @@ class ProbabilisticStrategy(DecisionStrategy):
             
         # Calculate base scores
         scores = [
-            self.score_calculator.calculate_score(option, context) + 1.0
+            self.score_calculator.calculate_base_score(option, context) + 1.0
             for option in options
         ]
         
-        # Apply temperature and normalize
-        if self.temperature != 0:
-            scores = [s / self.temperature for s in scores]
-            
-        total = sum(scores)
-        if total == 0:
-            return options[0]
-            
         # Sample based on probabilities
-        import random
-        r = random.random() * total
-        cumsum = 0
-        for option, score in zip(options, scores):
-            cumsum += score
-            if r <= cumsum:
-                return option
-                
-        return options[-1] 
+        return self.probability_calculator.sample(
+            options,
+            scores,
+            self.temperature
+        ) 
