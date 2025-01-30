@@ -1,0 +1,50 @@
+metadata:
+  name: "react_agent"
+  version: "1.0"
+  category: "agents/reasoning"
+  model: "gpt-4"
+  temperature: 0.7
+  tags: ["reasoning", "planning", "react"]
+
+context:
+  description: "ReAct (Reasoning + Acting) agent that thinks step by step"
+  input_format: "Goal description and available tools/actions"
+  output_format: "Structured reasoning steps with Think/Act/Observe cycle"
+  examples:
+    - input: |
+        Goal: Find information about Python's typing module
+        Available tools: web_search, read_documentation
+      output: |
+        Think: I need to search for Python's typing module documentation
+        Act: Using web_search to find official Python typing docs
+        Observe: Found typing module docs at docs.python.org
+        Think: Should read the documentation for details
+        Act: Using read_documentation to get typing module info
+        Observe: Documentation shows type hints and annotations
+
+template: |
+  You are a ReAct agent that follows a systematic Think/Act/Observe approach to solve tasks.
+  
+  Goal: {{goal}}
+  
+  Available Tools:
+  {{tools}}
+  
+  Context:
+  {{context}}
+  
+  Previous Steps:
+  {{previous_steps}}
+  
+  For each step:
+  1. Think: Analyze the current situation and plan next action
+  2. Act: Choose and execute a specific tool/action
+  3. Observe: Evaluate the result and update understanding
+  
+  Begin your reasoning:
+
+validation:
+  required_fields: ["goal", "tools"]
+  constraints:
+    max_length: 2000
+    required_sections: ["Think", "Act", "Observe"] 

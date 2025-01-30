@@ -1,0 +1,160 @@
+---
+version: "1.0"
+scope: "Pepperpy Project"
+description: "Evolving project structure - only create directories when needed by tasks"
+
+structure:
+  # Core Package Structure
+  pepperpy/:
+    description: "Main package directory"
+    components:
+      __init__.py:
+        purpose: "Package initialization and version"
+        status: required
+      
+      common/:
+        description: "Common utilities and base components"
+        status: required
+        components:
+          __init__.py:
+            purpose: "Common module initialization"
+            status: required
+          config.py:
+            purpose: "Configuration management"
+            status: pending
+            task: TASK-001
+      
+      agents/:
+        description: "Agent system implementation"
+        status: pending
+        task: TASK-004
+        components:
+          __init__.py:
+            purpose: "Agents module initialization"
+            status: pending
+          base.py:
+            purpose: "Base agent implementation"
+            status: pending
+          protocol.py:
+            purpose: "Agent communication protocol"
+            status: pending
+            task: TASK-002
+      
+      providers/:
+        description: "Provider implementations"
+        status: pending
+        task: TASK-008
+        components:
+          __init__.py:
+            purpose: "Providers module initialization"
+            status: pending
+          base.py:
+            purpose: "Base provider interface"
+            status: pending
+      
+      memory/:
+        description: "Memory system implementation"
+        status: pending
+        task: TASK-005
+        components:
+          __init__.py:
+            purpose: "Memory module initialization"
+            status: pending
+          store.py:
+            purpose: "Memory storage implementation"
+            status: pending
+      
+      events/:
+        description: "Event system implementation"
+        status: pending
+        task: TASK-006
+        components:
+          __init__.py:
+            purpose: "Events module initialization"
+            status: pending
+          dispatcher.py:
+            purpose: "Event dispatcher implementation"
+            status: pending
+  
+  # Development Support
+  scripts/:
+    description: "Development and maintenance scripts"
+    status: required
+    components:
+      structure/:
+        description: "Project structure management"
+        status: required
+        components:
+          export_structure.py:
+            purpose: "Export project structure"
+            status: active
+          validate_headers.py:
+            purpose: "Validate file headers"
+            status: active
+          check_duplicates.py:
+            purpose: "Check for duplicate files"
+            status: active
+  
+  # Tests
+  tests/:
+    description: "Test suite"
+    status: required
+    components:
+      __init__.py:
+        purpose: "Test package initialization"
+        status: required
+      conftest.py:
+        purpose: "Pytest configuration"
+        status: required
+  
+  # Documentation
+  docs/:
+    description: "Project documentation"
+    status: required
+    components:
+      architecture.mermaid:
+        purpose: "System architecture diagrams"
+        status: required
+      api/:
+        description: "API documentation"
+        status: pending
+  
+  # Product Management
+  .product/:
+    description: "Product management files"
+    status: required
+    components:
+      kanban.md:
+        purpose: "Task tracking"
+        status: required
+      tasks/:
+        description: "Detailed task specifications"
+        status: required
+  
+  # Development Configuration
+  .cursor/:
+    description: "Development rules and configuration"
+    status: required
+    components:
+      rules/:
+        description: "Project rules"
+        status: required
+
+rules:
+  # File Creation
+  file_creation:
+    - "Only create directories when implementing related tasks"
+    - "All Python files must have proper headers"
+    - "Follow naming conventions defined in rules"
+  
+  # Structure Evolution
+  evolution:
+    - "Update structure when starting new tasks"
+    - "Keep documentation in sync with changes"
+    - "Validate structure before commits"
+  
+  # Validation
+  validation:
+    - "Run structure validation scripts"
+    - "Check for duplicate files"
+    - "Verify file headers" 

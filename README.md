@@ -1,184 +1,115 @@
-# PepperPy
+# Pepperpy
 
-PepperPy is a Python framework for building AI agents with advanced conversation, memory, and knowledge retrieval capabilities.
+A flexible and extensible agent system for building intelligent applications.
 
-## Features
+## Overview
 
-### Conversation Management
-- Track conversation history with context
-- Support for system, user, assistant, and function messages
-- Save and load conversations
-- Metadata and timestamp tracking
+Pepperpy is a Python framework for building intelligent agent-based systems. It provides:
 
-### Memory System
-- Short-term and long-term memory management
-- Memory importance scoring
-- Memory consolidation and retrieval
-- Flexible storage backends
+- Flexible agent architecture with standardized communication protocol
+- Modular provider system for different AI backends
+- Built-in memory management with vector storage
+- Event-driven architecture for agent coordination
+- Comprehensive logging and monitoring
 
-### Retrieval Augmented Generation (RAG)
-- Document chunking with multiple strategies
-- Vector storage for semantic search
-- Embedding generation and similarity search
-- Context-aware text generation
+## Project Structure
 
-### LLM Provider Management
-- Multiple provider support
-- Automatic fallback handling
-- Provider statistics tracking
-- Streaming response support
+The project follows a task-based evolutionary approach:
 
-## Installation
+```plaintext
+pepperpy/              # Main package
+├── common/            # Common utilities
+├── agents/            # Agent system
+├── providers/         # Provider implementations
+├── memory/           # Memory system
+├── events/           # Event system
+└── ...
+
+scripts/              # Development tools
+├── setup.py          # Environment setup
+├── test.py          # Test runner
+└── structure/        # Structure management
+```
+
+## Development Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/pepperpy.git
+   cd pepperpy
+   ```
+
+2. Create a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # Linux/Mac
+   # or
+   .venv\Scripts\activate     # Windows
+   ```
+
+3. Run setup script:
+   ```bash
+   ./scripts/setup.py
+   ```
+
+4. Copy environment template:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your settings
+   ```
+
+## Development Workflow
+
+1. Check the kanban board in `.product/kanban.md`
+2. Pick a task to work on
+3. Create a branch: `task/XXX-description`
+4. Implement the task
+5. Run tests: `./scripts/test.py`
+6. Create PR following guidelines
+
+## Project Rules
+
+All development must follow these rules:
+
+1. File Management
+   - Follow file header template
+   - Use meaningful file names
+   - Keep single responsibility
+
+2. Code Quality
+   - Follow PEP 8
+   - Use type hints
+   - Write tests
+   - Document public APIs
+
+3. Structure
+   - Follow `project_structure.yml`
+   - Only create needed components
+   - Keep architecture updated
+
+## Testing
+
+Run the test suite:
 
 ```bash
-pip install pepperpy
+# Run all tests
+./scripts/test.py
+
+# Run specific tests
+./scripts/test.py tests/test_agents
+
+# Skip some checks
+./scripts/test.py --no-lint --no-type-check
 ```
-
-## Quick Start
-
-### Basic Usage
-
-```python
-import asyncio
-from pepperpy.llms.llm_manager import LLMManager
-
-async def main():
-    # Initialize LLM manager
-    llm_manager = LLMManager()
-    await llm_manager.initialize({
-        "primary": {
-            "type": "openrouter",
-            "model_name": "anthropic/claude-2",
-            "api_key": "your-api-key"
-        }
-    })
-    
-    try:
-        # Generate text
-        response = await llm_manager.generate("Hello, world!")
-        print(response.text)
-    finally:
-        await llm_manager.cleanup()
-
-if __name__ == "__main__":
-    asyncio.run(main())
-```
-
-### Using Conversation and Memory
-
-```python
-from datetime import datetime
-from pepperpy.persistence.storage.conversation import Conversation, Message, MessageRole
-from pepperpy.providers.memory import MemoryManager
-
-# Create conversation
-conversation = Conversation()
-conversation.add_message(
-    Message(
-        role=MessageRole.SYSTEM,
-        content="You are a helpful assistant.",
-        timestamp=datetime.now()
-    )
-)
-
-# Create memory manager
-memory_manager = MemoryManager()
-await memory_manager.add_memory(
-    content="User likes Python programming",
-    importance=0.8,
-    metadata={"type": "preference"}
-)
-
-# Query memories
-relevant_memories = await memory_manager.query(
-    "What does the user like?",
-    limit=5
-)
-```
-
-### Using RAG
-
-```python
-from pepperpy.persistence.storage.rag import RAGManager
-from pepperpy.persistence.storage.chunking import ChunkManager
-
-# Create RAG manager
-rag_manager = RAGManager(
-    llm=llm_manager.get_primary_provider(),
-    chunk_manager=ChunkManager()
-)
-
-# Add documents
-await rag_manager.add_document(
-    content="Document content...",
-    doc_id="doc1",
-    metadata={"type": "article"}
-)
-
-# Generate with context
-response = await rag_manager.generate_with_context(
-    query="What is this document about?",
-    prompt_template=(
-        "Based on the following context, answer the question:\n\n"
-        "Context:\n{context}\n\n"
-        "Question: {query}\n\n"
-        "Answer:"
-    )
-)
-```
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# OpenRouter API key
-PEPPERPY_API_KEY=your-api-key
-
-# Optional fallback configuration
-PEPPERPY_FALLBACK_API_KEY=your-fallback-api-key
-PEPPERPY_FALLBACK_MODEL=openai/gpt-4
-```
-
-### Provider Configuration
-
-```python
-config = {
-    "primary": {
-        "type": "openrouter",
-        "model_name": "anthropic/claude-2",
-        "api_key": "your-api-key",
-        "temperature": 0.7,
-        "max_tokens": 1000
-    },
-    "fallback": {
-        "type": "openrouter",
-        "model_name": "openai/gpt-4",
-        "api_key": "your-fallback-api-key",
-        "temperature": 0.7,
-        "max_tokens": 1000,
-        "is_fallback": True,
-        "priority": 1
-    }
-}
-```
-
-## Examples
-
-Check out the `examples` directory for more detailed examples:
-
-- `agent_with_memory.py`: Demonstrates conversation, memory, and RAG features
-- `story_illustrator.py`: Shows how to use LLMs for creative tasks
-- More examples coming soon!
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests with `pytest`
-5. Submit a pull request
+1. Check the kanban board for available tasks
+2. Follow the project rules
+3. Write tests for new features
+4. Update documentation
+5. Create a pull request
 
 ## License
 
-MIT License - see LICENSE file for details
+[Your License Here]

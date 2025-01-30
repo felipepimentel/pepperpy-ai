@@ -1,0 +1,58 @@
+[flake8]
+# Line length configuration
+max-line-length = 88
+extend-ignore = E203
+
+# Exclude patterns
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    .venv,
+    build,
+    dist
+
+# Plugin configuration
+docstring-convention = google
+max-complexity = 10
+
+# Error codes to ignore
+ignore =
+    # E203: Whitespace before ':' (black handles this)
+    E203,
+    # W503: Line break before binary operator (black handles this)
+    W503,
+    # E731: Do not assign a lambda expression
+    E731,
+    # D100: Missing docstring in public module
+    D100,
+    # D104: Missing docstring in public package
+    D104
+
+# Additional error codes to select
+select =
+    # Regular flake8 rules
+    E,
+    F,
+    W,
+    # flake8-bugbear rules
+    B,
+    # flake8-comprehensions rules
+    C,
+    # flake8-docstrings rules
+    D,
+    # flake8-annotations rules
+    ANN
+
+# Per-file-ignores
+per-file-ignores =
+    # Tests can use assert
+    tests/*:S101,
+    # Allow missing annotations in tests
+    tests/*:ANN
+    # Allow missing docstrings in tests
+    tests/*:D
+
+# Docstring settings
+docstring-style = google 

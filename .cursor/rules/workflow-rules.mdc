@@ -6,7 +6,7 @@ globs: pepperpy/**/*.py
 
 # Status Management
 
-- Maintain `docs/status.md` to reflect task progress:
+- Maintain `.product/kanban.md` to reflect task progress:
   1. **To Do**: Planned tasks, not started.
   2. **In Progress**: Actively developed tasks.
   3. **Done**: Completed tasks, with an outcome summary.
@@ -27,9 +27,39 @@ globs: pepperpy/**/*.py
 
 ## Done
 - TASK-001: Create project structure validation script [Completed: 2025-01-23, Outcome: Script integrated successfully]
+```
 
-# Tasks in Plan Mode involve detailed prep; Act Mode is active coding.
-Sort tasks by priority within each section.
+# Product Management
+
+## Story Management
+- All stories must be in `.product/tasks/stories/`
+- Story files must follow the format: `STORY-{ID}.md`
+- Each story must have:
+  - Acceptance criteria
+  - Technical requirements
+  - Dependencies
+  - Story points
+
+## Specification Management
+- All specifications in `.product/tasks/specs/`
+- Must include:
+  - Technical design
+  - Architecture impacts
+  - Test requirements
+  - Performance criteria
+
+## Architecture Management
+- Changes requiring architecture updates:
+  1. Update `.product/architecture.mermaid`
+  2. Update `.product/project_structure.yml`
+  3. Document in specifications
+
+## Documentation Flow
+1. Story creation in `.product/tasks/stories/`
+2. Technical spec in `.product/tasks/specs/`
+3. Update kanban in `.product/kanban.md`
+4. Implementation
+5. Update documentation
 
 # Task System
 Commands must follow a structured format with clear parameters and context validation.

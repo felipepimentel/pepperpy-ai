@@ -1,0 +1,88 @@
+metadata:
+  name: "code_implementation"
+  version: "1.0"
+  category: "tools/code"
+  model: "gpt-4"
+  temperature: 0.2
+  tags: ["code", "implementation", "generation"]
+
+context:
+  description: "Generate code implementation following project standards"
+  input_format: "Requirements and technical context"
+  output_format: "Complete code implementation with tests"
+  examples:
+    - input: |
+        Requirements:
+        - Implement a function to validate email addresses
+        - Must handle common edge cases
+        - Return bool indicating validity
+        
+        Technical Context:
+        - Language: Python
+        - Framework: None
+        - Testing: pytest
+      output: |
+        import re
+        from typing import Pattern
+        
+        # Compile regex once for efficiency
+        EMAIL_PATTERN: Pattern = re.compile(
+            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        )
+        
+        def is_valid_email(email: str) -> bool:
+            """Validate if a string is a valid email address.
+            
+            Args:
+                email: The string to validate
+                
+            Returns:
+                bool: True if valid email, False otherwise
+            """
+            if not email or len(email) > 254:
+                return False
+            return bool(EMAIL_PATTERN.match(email))
+            
+        def test_is_valid_email():
+            """Test email validation function."""
+            assert is_valid_email("test@example.com")
+            assert is_valid_email("user.name+tag@example.co.uk")
+            assert not is_valid_email("invalid.email@")
+            assert not is_valid_email("@example.com")
+            assert not is_valid_email("")
+
+template: |
+  Task: Implement the following component
+  
+  Requirements:
+  {{requirements}}
+  
+  Technical Context:
+  - Language: {{language}}
+  - Framework: {{framework}}
+  - Testing: {{testing_framework}}
+  
+  Project Guidelines:
+  - Follow PEP 8 style guide
+  - Use explicit type annotations
+  - Include Google-style docstrings
+  - Write unit tests
+  - Handle edge cases and errors
+  
+  Additional Context:
+  {{context}}
+  
+  Generate the implementation following these steps:
+  1. Start with imports and type definitions
+  2. Implement the main functionality
+  3. Add comprehensive error handling
+  4. Include unit tests
+  5. Add usage examples in docstring
+  
+  Implementation:
+
+validation:
+  required_fields: ["requirements", "language"]
+  constraints:
+    max_length: 4000
+    required_sections: ["imports", "implementation", "tests"] 

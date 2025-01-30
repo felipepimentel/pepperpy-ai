@@ -1,0 +1,81 @@
+---
+title: Pepperpy Architecture
+---
+
+graph TB
+    subgraph Core Components
+        Agents[Agents Module]
+        Memory[Memory System]
+        Reasoning[Reasoning Engine]
+        Tools[Tools & Extensions]
+    end
+
+    subgraph Communication
+        Protocol[Message Protocol]
+        Events[Event System]
+        Orchestrator[Orchestrator]
+    end
+
+    subgraph Data Management
+        Ingestion[Data Ingestion]
+        Embeddings[Embeddings]
+        VectorStore[Vector Store]
+        Cache[Short-term Cache]
+    end
+
+    subgraph Infrastructure
+        Config[Configuration]
+        Security[Security Layer]
+        Monitoring[Monitoring Stack]
+        Lifecycle[Lifecycle Manager]
+    end
+
+    subgraph Providers
+        ModelProvider[AI Model Provider]
+        StorageProvider[Storage Provider]
+        ExtensionProvider[Extension Provider]
+    end
+
+    %% Core Component Relationships
+    Agents --> Protocol
+    Agents --> Memory
+    Agents --> Reasoning
+    Agents --> Tools
+
+    %% Communication Flow
+    Protocol --> Events
+    Events --> Orchestrator
+    Orchestrator --> Agents
+
+    %% Data Flow
+    Ingestion --> Embeddings
+    Embeddings --> VectorStore
+    Memory --> Cache
+    Memory --> VectorStore
+
+    %% Infrastructure Integration
+    Config --> Agents
+    Config --> Providers
+    Security --> Protocol
+    Security --> Tools
+    Monitoring --> Events
+    Monitoring --> Agents
+    Lifecycle --> Agents
+    Lifecycle --> Providers
+
+    %% Provider Integration
+    ModelProvider --> Agents
+    StorageProvider --> Memory
+    ExtensionProvider --> Tools
+
+    classDef core fill:#f9f,stroke:#333,stroke-width:2px
+    classDef infra fill:#bbf,stroke:#333,stroke-width:2px
+    classDef data fill:#bfb,stroke:#333,stroke-width:2px
+    classDef comm fill:#fbb,stroke:#333,stroke-width:2px
+    classDef provider fill:#fff,stroke:#333,stroke-width:2px
+
+    class Agents,Memory,Reasoning,Tools core
+    class Config,Security,Monitoring,Lifecycle infra
+    class Ingestion,Embeddings,VectorStore,Cache data
+    class Protocol,Events,Orchestrator comm
+    class ModelProvider,StorageProvider,ExtensionProvider provider

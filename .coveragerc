@@ -1,11 +1,11 @@
 [run]
 source = pepperpy
+branch = True
 omit =
     tests/*
     setup.py
     conftest.py
     */__init__.py
-    */cli/*
 
 [report]
 exclude_lines =
@@ -16,12 +16,15 @@ exclude_lines =
     if __name__ == .__main__.:
     pass
     raise ImportError
+    raise ValueError
+    raise TypeError
     except ImportError:
-    raise AssertionError
-    if TYPE_CHECKING:
-    @abstractmethod
-    class .*\bProtocol\):
-    @(abc\.)?abstractmethod
+    except ValueError:
+    except TypeError:
+
+ignore_errors = True
+fail_under = 80
 
 [html]
-directory = htmlcov 
+directory = htmlcov
+title = Pepperpy Coverage Report 

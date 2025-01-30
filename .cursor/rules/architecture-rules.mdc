@@ -7,8 +7,8 @@ globs: pepperpy/**/*.py
 # Project Structure Validation
 
 - Execute `./scripts/validate_structure.py` before starting any development or integration task.
-- If unexpected items or missing paths are found, do not automatically modify `project_structure.yml`.
-  - **Approval Required**: Any changes to `project_structure.yml` must be explicitly approved by the user.
+- If unexpected items or missing paths are found, do not automatically modify `.product/project_structure.yml`.
+  - **Approval Required**: Any changes to `.product/project_structure.yml` must be explicitly approved by the user.
   - **Steps** to handle discrepancies:
     1. Log the issue with a detailed explanation.
     2. Propose a solution (justification, alternatives).
@@ -23,24 +23,79 @@ globs: pepperpy/**/*.py
 - **Hardcoded values**: Rejected (`CRITICAL-SECURITY`).
 - **Circular dependencies**: Refactor required (`ARCH-REFACTOR`).
 - **Duplicate code**: Extract shared components (`CODE-DUPLICATION`).
+- **Direct model access**: Must use provider abstraction (`MODEL-ACCESS`).
+- **Unstructured logging**: Must use centralized logger (`LOG-STRUCTURE`).
 
 | Violation             | Action               | Tag                  |
 |-----------------------|----------------------|----------------------|
 | Hardcoded Values      | Immediate rejection  | CRITICAL-SECURITY    |
 | Circular Dependencies | Refactor required    | ARCH-REFACTOR        |
 | Duplicate Code        | Extract components   | CODE-DUPLICATION     |
+| Direct Model Access   | Use providers        | MODEL-ACCESS         |
+| Unstructured Logging  | Use central logger   | LOG-STRUCTURE        |
 
 ```python
 # Bad Practice:
 API_KEY = "hardcoded_key"  # CRITICAL-SECURITY
 
 # Good Practice:
-import os
-API_KEY = os.getenv("API_KEY")
+from pepperpy.common.config import config
+API_KEY = config.api_keys.openai
 ```
+
 ---
 
-# Scalability
+# Core Architecture Components
+
+## 1. Configuration Management
+```python
+from pepperpy.common.config import PepperpyConfig
+
+config = PepperpyConfig()
+assert config.model_type in ["gpt-4", "claude-3"]  # Validate at startup
+```
+
+## 2. Observability Stack
+```python
+from pepperpy.monitoring import logger, tracer
+
+@tracer.start_as_current_span("operation_name")
+def tracked_operation():
+    logger.info("Operation started", operation_id=123)
+```
+
+## 3. Memory Management
+- Short-term: Redis/In-memory cache
+- Medium-term: Vector store (FAISS/Chroma)
+- Long-term: Document store (PostgreSQL)
+
+## 4. Communication Protocol
+```python
+from pepperpy.events.protocol import Message
+
+message = Message(
+    sender="AgentA",
+    receiver="AgentB",
+    message_type="task_request",
+    content={"task_id": "123"},
+    metadata={"priority": "high"}
+)
+```
+
+---
+
+# Scalability Guidelines
 - Design features using building-block principles for modularity.
 - Avoid tight coupling or hardcoded dependencies.
 - Ensure systems support horizontal scaling and extensibility.
+- Use async/await for I/O-bound operations.
+- Implement proper connection pooling.
+
+---
+
+# Security Requirements
+- All external communications must be encrypted
+- API keys must be rotated regularly
+- Input validation on all external data
+- Rate limiting on API endpoints
+- Audit logging for sensitive operations

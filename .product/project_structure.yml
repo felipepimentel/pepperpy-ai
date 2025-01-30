@@ -1,0 +1,166 @@
+version: "2.0"
+project: "pepperpy"
+description: "Multi-agent AI framework with modular architecture"
+
+structure:
+  pepperpy:
+    agents:
+      __init__.py: "Agent module initialization"
+      agent.py: "Base agent implementation"
+      types.py: "Agent-related type definitions"
+      config.py: "Agent configuration"
+      builder.py: "Agent factory and builder patterns"
+      service.py: "Agent service layer"
+
+    lifecycle:
+      __init__.py: "Lifecycle management initialization"
+      manager.py: "Component lifecycle management"
+      hooks.py: "Lifecycle hooks and events"
+
+    context:
+      __init__.py: "Context management initialization"
+      state.py: "State management"
+      history.py: "Historical context tracking"
+
+    profile:
+      __init__.py: "Profile management initialization"
+      preferences.py: "Agent preferences"
+      goals.py: "Goal management"
+
+    memory:
+      __init__.py: "Memory system initialization"
+      short_term.py: "Short-term memory implementation"
+      long_term.py: "Long-term memory storage"
+      vector_store.py: "Vector storage implementation"
+      cache.py: "Memory caching layer"
+
+    decision:
+      __init__.py: "Decision making initialization"
+      rules.py: "Decision rules engine"
+      evaluator.py: "Decision evaluation"
+      policies.py: "Decision policies"
+
+    data:
+      __init__.py: "Data management initialization"
+      ingestion:
+        __init__.py: "Data ingestion initialization"
+        processor.py: "Data processing pipeline"
+        validator.py: "Data validation"
+      embeddings:
+        __init__.py: "Embeddings initialization"
+        models.py: "Embedding models"
+        processor.py: "Embedding processing"
+      algorithms:
+        __init__.py: "Algorithms initialization"
+        clustering.py: "Data clustering"
+        ranking.py: "Result ranking"
+
+    events:
+      __init__.py: "Event system initialization"
+      protocol.py: "Communication protocol"
+      dispatcher.py: "Event dispatching"
+      handler.py: "Event handling"
+      types.py: "Event type definitions"
+
+    orchestrator:
+      __init__.py: "Orchestrator initialization"
+      coordinator.py: "Task coordination"
+      scheduler.py: "Task scheduling"
+      workflow.py: "Workflow management"
+
+    reasoning:
+      __init__.py: "Reasoning system initialization"
+      react.py: "ReAct implementation"
+      cot.py: "Chain of Thought"
+      tot.py: "Tree of Thoughts"
+
+    tools:
+      __init__.py: "Tools initialization"
+      api.py: "API integration tools"
+      executor.py: "Function execution"
+      database.py: "Database tools"
+
+    learning:
+      __init__.py: "Learning system initialization"
+      rag.py: "Retrieval Augmented Generation"
+      fine_tuning.py: "Model fine-tuning"
+      context.py: "Learning context"
+    
+    monitoring:
+      __init__.py: "Monitoring initialization"
+      logging.py: "Structured logging"
+      tracing.py: "Distributed tracing"
+      metrics.py: "Performance metrics"
+      alerts.py: "Alert management"
+
+    runtime:
+      __init__.py: "Runtime initialization"
+      environment.py: "Runtime environment"
+      executor.py: "Task execution"
+
+    security:
+      __init__.py: "Security initialization"
+      auth.py: "Authentication"
+      validation.py: "Input validation"
+      sanitizer.py: "Data sanitization"
+      rate_limiter.py: "Rate limiting"
+
+    common:
+      __init__.py: "Common utilities initialization"
+      config.py: "Configuration management"
+      logger.py: "Logging configuration"
+      errors.py: "Error definitions"
+      utils.py: "Shared utilities"
+
+  tests:
+    unit:
+      test_agents.py: "Agent unit tests"
+      test_memory.py: "Memory system tests"
+      test_events.py: "Event system tests"
+    integration:
+      test_workflow.py: "Workflow integration tests"
+      test_providers.py: "Provider integration tests"
+    performance:
+      test_memory.py: "Memory performance tests"
+      test_agents.py: "Agent performance tests"
+
+  docs:
+    README.md: "Project documentation"
+    CONTRIBUTING.md: "Contribution guidelines"
+    CHANGELOG.md: "Version history"
+    api:
+      agents.md: "Agent API documentation"
+      memory.md: "Memory system documentation"
+      events.md: "Event system documentation"
+    examples:
+      basic_agent.py: "Basic agent example"
+      custom_provider.py: "Custom provider example"
+
+  scripts:
+    validate_structure.py: "Structure validation script"
+    setup_environment.py: "Environment setup script"
+    run_benchmarks.py: "Performance benchmark script"
+
+  .product:
+    architecture.mermaid: "System architecture diagrams"
+    project_structure.yml: "Project structure definition"
+    kanban.md: "Sprint and backlog management"
+    tasks:
+      stories: "User stories and epics"
+      specs: "Detailed specifications"
+      roadmap.md: "Product roadmap"
+
+dependencies:
+  required:
+    pydantic: "^2.0.0"
+    loguru: "^0.7.0"
+    opentelemetry-api: "^1.20.0"
+    opentelemetry-sdk: "^1.20.0"
+    redis: "^5.0.0"
+    faiss-cpu: "^1.7.4"
+    sqlalchemy: "^2.0.0"
+    
+  optional:
+    torch: "^2.0.0"
+    transformers: "^4.35.0"
+    langchain: "^0.0.300" 

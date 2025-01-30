@@ -1,0 +1,55 @@
+metadata:
+  name: "memory_retrieval"
+  version: "1.0"
+  category: "agents/memory"
+  model: "gpt-4"
+  temperature: 0.3
+  tags: ["memory", "retrieval", "context"]
+
+context:
+  description: "Retrieve and synthesize relevant information from memory"
+  input_format: "Query and retrieved memory fragments"
+  output_format: "Synthesized response with citations"
+  examples:
+    - input: |
+        Query: What do we know about the user's preferred programming style?
+        
+        Memory Fragments:
+        [1] User consistently uses type hints and docstrings (2024-03-15)
+        [2] Preference for functional programming patterns noted (2024-03-14)
+        [3] User requested modular code organization (2024-03-13)
+      output: |
+        Based on the available memory:
+        1. The user follows a strict typing discipline, consistently using type hints [1]
+        2. They prefer functional programming patterns over imperative approaches [2]
+        3. Code organization is important to them, with a focus on modularity [3]
+        
+        This suggests a preference for a modern, type-safe, and functional programming style
+        with clean architecture principles.
+
+template: |
+  Task: Analyze and synthesize information from memory fragments
+  
+  Query:
+  {{query}}
+  
+  Retrieved Memory Fragments:
+  {{memories}}
+  
+  Current Context:
+  {{context}}
+  
+  Instructions:
+  1. Analyze each memory fragment for relevance
+  2. Synthesize a coherent response
+  3. Include citations to memory fragments [N]
+  4. Note any uncertainties or conflicts
+  5. Suggest any missing information needed
+  
+  Response:
+
+validation:
+  required_fields: ["query", "memories"]
+  constraints:
+    max_length: 2000
+    required_sections: ["analysis", "synthesis", "citations"] 

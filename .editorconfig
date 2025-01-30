@@ -16,28 +16,41 @@ indent_style = space
 indent_size = 4
 max_line_length = 88
 
+# Documentation
+[*.{md,rst}]
+trim_trailing_whitespace = false
+max_line_length = 80
+
 # YAML files
 [*.{yml,yaml}]
 indent_style = space
 indent_size = 2
 
-# TOML files
-[*.toml]
-indent_style = space
-indent_size = 4
-
 # JSON files
 [*.json]
 indent_style = space
-indent_size = 4
+indent_size = 2
 
-# Markdown files
-[*.md]
-trim_trailing_whitespace = false
-max_line_length = off
+# Shell scripts
+[*.{sh,bash}]
+indent_style = space
+indent_size = 2
+end_of_line = lf
 
-# Documentation
-[*.rst]
+# Windows scripts
+[*.{cmd,bat,ps1}]
+end_of_line = crlf
+
+# Configuration files
+[*.{ini,cfg,conf}]
 indent_style = space
 indent_size = 4
-max_line_length = 80 
+
+# Makefile requires tabs
+[Makefile]
+indent_style = tab
+
+# TOML files
+[*.toml]
+indent_style = space
+indent_size = 4 

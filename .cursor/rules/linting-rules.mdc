@@ -1,0 +1,174 @@
+---
+title: Linting Rules
+description: Defines standards for code linting and automatic fixes
+globs: pepperpy/**/*.py
+---
+
+# Linting Management
+
+## Automatic Fixes
+
+### Priority Levels
+
+1. **Auto-Fix (Level 1)**
+   - Missing type hints
+   - Import sorting
+   - Code formatting
+   - Unused imports
+   - Variable naming
+   - Missing docstrings
+
+2. **Propose Fix (Level 2)**
+   - Missing class attributes
+   - Configuration fields
+   - Function parameters
+   - Return types
+   - Base class requirements
+
+3. **Manual Review (Level 3)**
+   - Security issues
+   - Performance problems
+   - Architectural violations
+   - Complex refactoring
+
+## Decision Matrix
+
+| Issue Type                | Action    | Example                                    |
+|--------------------------|-----------|--------------------------------------------| 
+| Missing Config Field     | Auto-Fix  | Add field with appropriate type and default|
+| Incorrect Import         | Auto-Fix  | Fix import statement                       |
+| Missing Type Hint        | Auto-Fix  | Add type annotation                        |
+| Security Violation       | Manual    | Review and fix security issue              |
+| Performance Issue        | Manual    | Profile and optimize code                  |
+
+## Auto-Fix Examples
+
+### Configuration Fields
+```python
+# Before: Missing field error
+class Config(BaseModel):
+    name: str
+    # Error: Accessing undefined 'path' field
+
+# After: Automatic fix
+class Config(BaseModel):
+    name: str
+    path: Path = Field(default_factory=Path)  # Auto-added with appropriate type
+```
+
+### Type Hints
+```python
+# Before: Missing type hint
+def process_data(data):
+    return data.value
+
+# After: Automatic fix
+def process_data(data: DataType) -> ResultType:
+    return data.value
+```
+
+### Import Fixes
+```python
+# Before: Missing import
+def handle_path(p):
+    return Path(p)  # Error: Path not imported
+
+# After: Automatic fix
+from pathlib import Path
+
+def handle_path(p: str) -> Path:
+    return Path(p)
+```
+
+## Implementation Guidelines
+
+1. **Linter Integration**
+   ```python
+   # Auto-fix configuration in pyproject.toml
+   [tool.ruff]
+   fix = true
+   unsafe-fixes = false
+   fixable = ["F", "E", "W", "I", "N", "B", "A"]
+   ```
+
+2. **Fix Application**
+   ```python
+   # Example of applying fixes
+   from pepperpy.tools.linting import LintFixer
+
+   async def apply_fixes(file: Path):
+       fixer = LintFixer(file)
+       await fixer.auto_fix_level_1()  # Apply safe fixes
+       await fixer.propose_level_2()   # Propose other fixes
+   ```
+
+3. **Fix Validation**
+   ```python
+   # Validate fixes before applying
+   def validate_fix(fix: CodeFix) -> bool:
+       return (
+           fix.is_safe() and
+           fix.has_tests() and
+           fix.maintains_compatibility()
+       )
+   ```
+
+## Automation Rules
+
+1. **Always Auto-Fix**
+   - Code formatting (black)
+   - Import sorting (isort)
+   - Unused imports (autoflake)
+   - Basic type hints
+   - Missing docstrings
+
+2. **Propose and Apply if Approved**
+   - Missing configuration fields
+   - Class attributes
+   - Function signatures
+   - Return types
+
+3. **Never Auto-Fix**
+   - Security issues
+   - Performance optimizations
+   - Architectural changes
+   - Complex refactoring
+
+## Fix Verification
+
+1. **Pre-Fix Checks**
+   - Run tests
+   - Check type consistency
+   - Verify imports
+   - Validate syntax
+
+2. **Post-Fix Validation**
+   - Run tests again
+   - Verify no new issues
+   - Check performance
+   - Validate functionality
+
+## Example Workflow
+
+```python
+from pepperpy.tools.linting import LintManager
+
+async def handle_lint_issues(file: Path):
+    """Handle linting issues with appropriate fixes."""
+    manager = LintManager(file)
+    
+    # Get lint issues
+    issues = await manager.check()
+    
+    for issue in issues:
+        if issue.level == 1:
+            # Auto-fix level 1 issues
+            await manager.auto_fix(issue)
+        elif issue.level == 2:
+            # Propose fixes for level 2 issues
+            fix = await manager.generate_fix(issue)
+            if fix.is_safe():
+                await manager.apply_fix(fix)
+        else:
+            # Log level 3 issues for manual review
+            await manager.log_for_review(issue) 

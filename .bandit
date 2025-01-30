@@ -15,3 +15,30 @@ exclude_dirs:
 exclude_pattern: '*.pyc'
 targets:
   - pepperpy 
+
+[bandit]
+# Skip test files
+exclude_dirs = [
+    'tests',
+    '.git',
+    '__pycache__',
+    '.pytest_cache',
+    '.mypy_cache',
+    '.venv',
+    'build',
+    'dist'
+]
+
+# Tests to skip
+skips = [
+    'B101',  # assert statements
+    'B404',  # import subprocess
+    'B603',  # subprocess without shell
+    'B607'   # start process with partial path
+]
+
+# Files to include
+include = '*.py'
+
+[bandit.assert_used]
+skips = ['*_test.py', 'test_*.py'] 

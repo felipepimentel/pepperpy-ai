@@ -1,0 +1,207 @@
+---
+title: Prompt Rules
+description: Defines standards for managing prompts, templates, and AI interactions.
+globs: prompts/**/*.{md,yaml,json}
+---
+
+# Prompt Management
+
+## Directory Structure
+```plaintext
+prompts/
+├── agents/              # Agent-specific prompts
+│   ├── reasoning/       # Reasoning prompts (ReAct, CoT, etc)
+│   ├── memory/         # Memory management prompts
+│   └── orchestration/  # Multi-agent coordination
+├── providers/          # Provider-specific prompts
+│   ├── openai/        # OpenAI-specific prompts
+│   └── anthropic/     # Anthropic-specific prompts
+├── tools/             # Tool-specific prompts
+│   ├── code/          # Code generation/analysis
+│   ├── data/          # Data processing
+│   └── search/        # Search and retrieval
+└── templates/         # Reusable prompt templates
+```
+
+## Prompt Format
+```yaml
+metadata:
+  name: "prompt_name"
+  version: "1.0"
+  category: "agents/reasoning"
+  model: "gpt-4"
+  temperature: 0.7
+  tags: ["reasoning", "planning"]
+
+context:
+  description: "Purpose and context of the prompt"
+  input_format: "Expected input format"
+  output_format: "Expected output format"
+  examples:
+    - input: "Example input"
+      output: "Example output"
+
+template: |
+  {{system_message}}
+  
+  Context:
+  {{context}}
+  
+  Instructions:
+  {{instructions}}
+  
+  Input:
+  {{user_input}}
+
+validation:
+  required_fields: ["context", "instructions"]
+  constraints:
+    max_length: 2000
+    required_sections: ["Context", "Instructions"]
+```
+
+## Prompt Categories
+
+### 1. System Prompts
+- Define agent behavior and capabilities
+- Set operational constraints
+- Establish communication protocols
+
+### 2. Task Prompts
+- Specific task instructions
+- Input/output formats
+- Success criteria
+
+### 3. Template Prompts
+- Reusable prompt components
+- Customization points
+- Variable substitution
+
+## Usage Examples
+
+### Agent Reasoning
+```yaml
+name: react_planning
+template: |
+  You are a ReAct agent that thinks step by step.
+  
+  Goal: {{goal}}
+  
+  For each step:
+  1. Think: Analyze the current situation
+  2. Act: Choose an action to take
+  3. Observe: Evaluate the result
+  
+  Available actions:
+  {{available_actions}}
+  
+  Begin your reasoning:
+```
+
+### Code Generation
+```yaml
+name: code_implementation
+template: |
+  Task: Implement the following component
+  
+  Requirements:
+  {{requirements}}
+  
+  Technical Context:
+  - Language: {{language}}
+  - Framework: {{framework}}
+  - Testing: {{testing_framework}}
+  
+  Generate the implementation following these guidelines:
+  1. Start with imports and type definitions
+  2. Implement the main functionality
+  3. Add error handling
+  4. Include tests
+```
+
+## Best Practices
+
+1. **Modularity**
+   - Break prompts into reusable components
+   - Use template variables for customization
+   - Maintain single responsibility
+
+2. **Versioning**
+   - Track prompt versions
+   - Document changes
+   - Maintain backward compatibility
+
+3. **Testing**
+   - Include example inputs/outputs
+   - Validate prompt effectiveness
+   - Measure performance metrics
+
+4. **Documentation**
+   - Clear purpose and usage
+   - Input/output specifications
+   - Known limitations
+
+## Prompt Development
+
+1. **Design Phase**
+   - Define clear objectives
+   - Identify required context
+   - Plan output format
+
+2. **Implementation**
+   - Write base template
+   - Add examples
+   - Include validation
+
+3. **Testing**
+   - Verify with test cases
+   - Measure effectiveness
+   - Optimize based on results
+
+4. **Deployment**
+   - Version control
+   - Documentation
+   - Usage guidelines
+
+## Integration
+
+### With Configuration
+```python
+from pepperpy.prompts import PromptTemplate
+from pepperpy.common.config import config
+
+prompt = PromptTemplate.load(
+    "agents/reasoning/react.yaml",
+    model=config.agent.model_type,
+    temperature=config.agent.temperature
+)
+```
+
+### With Providers
+```python
+async def execute_prompt(
+    prompt: PromptTemplate,
+    provider: BaseProvider,
+    **kwargs: Any
+) -> str:
+    """Execute a prompt with a provider."""
+    formatted = prompt.format(**kwargs)
+    return await provider.generate(formatted)
+```
+
+## Monitoring
+
+1. **Usage Tracking**
+   - Prompt utilization
+   - Success rates
+   - Performance metrics
+
+2. **Quality Control**
+   - Output validation
+   - Error analysis
+   - Improvement tracking
+
+3. **Cost Management**
+   - Token usage
+   - API costs
+   - Optimization opportunities 
