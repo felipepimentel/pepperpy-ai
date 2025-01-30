@@ -1,0 +1,46 @@
+---
+title: Architecture Rules
+description: Validates project structure, prevents architectural anti-patterns, and ensures scalability.
+globs: pepperpy/**/*.py
+---
+
+# Project Structure Validation
+
+- Execute `./scripts/validate_structure.py` before starting any development or integration task.
+- If unexpected items or missing paths are found, do not automatically modify `project_structure.yml`.
+  - **Approval Required**: Any changes to `project_structure.yml` must be explicitly approved by the user.
+  - **Steps** to handle discrepancies:
+    1. Log the issue with a detailed explanation.
+    2. Propose a solution (justification, alternatives).
+    3. Wait for user confirmation before applying modifications.
+  - **Prohibited**: Avoid redundant directories (e.g., `data`, `data_store`). Consolidate them instead.
+- Rerun the validation script after user-approved changes.
+
+---
+
+## Anti-Patterns
+
+- **Hardcoded values**: Rejected (`CRITICAL-SECURITY`).
+- **Circular dependencies**: Refactor required (`ARCH-REFACTOR`).
+- **Duplicate code**: Extract shared components (`CODE-DUPLICATION`).
+
+| Violation             | Action               | Tag                  |
+|-----------------------|----------------------|----------------------|
+| Hardcoded Values      | Immediate rejection  | CRITICAL-SECURITY    |
+| Circular Dependencies | Refactor required    | ARCH-REFACTOR        |
+| Duplicate Code        | Extract components   | CODE-DUPLICATION     |
+
+```python
+# Bad Practice:
+API_KEY = "hardcoded_key"  # CRITICAL-SECURITY
+
+# Good Practice:
+import os
+API_KEY = os.getenv("API_KEY")
+```
+---
+
+# Scalability
+- Design features using building-block principles for modularity.
+- Avoid tight coupling or hardcoded dependencies.
+- Ensure systems support horizontal scaling and extensibility.

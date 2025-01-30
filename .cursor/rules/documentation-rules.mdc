@@ -1,0 +1,35 @@
+---
+title: Documentation Rules
+description: Enforces Google-style docstrings, usage examples, and versioned TODOs.
+globs: pepperpy/**/*.py
+---
+
+# Documentation Guidelines
+
+- Use **Google-style docstrings** for all public APIs.
+- Mandatory sections: **Args**, **Returns**, **Raises**, **Example**.
+- **Unversioned** TODOs are forbidden; use `TODO[v2]: description`.
+
+```python
+def add_numbers(a: int, b: int) -> int:
+    """
+    Add two integers.
+
+    Args:
+        a (int): The first number.
+        b (int): The second number.
+
+    Returns:
+        int: The sum of `a` and `b`.
+
+    Example:
+        >>> add_numbers(2, 3)
+        5
+
+    Raises:
+        ValueError: If inputs are invalid.
+    """
+    if not isinstance(a, int) or not isinstance(b, int):
+        raise ValueError("Both must be integers.")
+    return a + b
+```

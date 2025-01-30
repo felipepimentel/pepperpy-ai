@@ -1,0 +1,18 @@
+---
+title: Type System Rules
+description: Controls usage of explicit generics, discourages 'Any', and promotes annotation tests.
+globs: pepperpy/**/*.py
+---
+
+# Type System
+
+- Use **explicit generics** (e.g., `list[str]` instead of `list`).
+- Avoid `Any`; if necessary, annotate with `# type: ignore` plus justification.
+
+```python
+def process_items(items: list[str]) -> int:
+    """Processes a list of items."""
+    return len(items)
+```
+
+- Validate type annotations through unit tests.

@@ -1,0 +1,22 @@
+---
+title: Testing Rules
+description: Guidelines for unit, integration, and lifecycle tests, including usage of mocks and type checks.
+globs: tests/**/*.py
+---
+
+# Testing Guidelines
+
+- Test against interface definitions, using **mocks** for external dependencies.
+- Include **unit**, **integration**, and **lifecycle** tests.
+- Validate **type annotations** within test cases.
+
+**Example:**
+
+```python
+from unittest.mock import Mock
+
+def test_component_initialization():
+    mock_dependency = Mock()
+    component = MyComponent(dependency=mock_dependency)
+    assert component.dependency is mock_dependency
+```

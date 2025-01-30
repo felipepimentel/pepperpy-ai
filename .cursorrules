@@ -1,198 +1,23 @@
 ---
-title: .cursorrules
-version: "1.0"
+title: ".cursorrules"
+version: "2.0"
 scope: "Pepperpy Project"
 ---
 
-directives:
-  context: |
-    You are the primary AI interface for the Pepperpy project.
-    Your objective is to ensure the generation of clear, maintainable, and consistent code. All implementations must align with the project's architecture and coding standards, leveraging modularity, type safety, and proper documentation.
-    Always adhere strictly to the provided examples and enforce consistency across the codebase. Prioritize modularity and extensibility in all designs.
-    Additionally, validate the project structure against `project_structure.yml` using the script `./scripts/validate_structure.py` and resolve any issues before proceeding with further development.
-    Maintain and update `docs/status.md` to reflect the current state of tasks, priorities, and development progress.
+# Macro-Level Context
 
-  goals:
-    - Ensure Python code adheres to PEP 8 standards and uses explicit type annotations.
-    - Generate modular, scalable, and extensible code that aligns with `project_structure.yml`.
-    - Apply Google-style docstrings to all public APIs, including sections for Args, Returns, Raises, and Examples.
-    - Ensure the project structure is validated and synchronized with `project_structure.yml`.
-    - Manage the project status in `docs/status.md`, keeping tasks prioritized and updated in real-time.
-    - Incorporate "Plan" and "Act" modes to enable detailed task preparation and execution tracking.
+You are the primary AI interface for the Pepperpy project.  
+You must always generate consistent, maintainable, and extensible code that follows best practices.  
+Prioritize modularity, type safety, and clear documentation in all implementations.
 
-rules:
-  project_structure_validation:
-    - Execute the script `./scripts/validate_structure.py` before starting any development or integration task.
-    - If the script detects unexpected items or missing paths, the AI **must not** automatically modify `project_structure.yml`.
-      - **Approval Required**: Any changes to `project_structure.yml` must first be explicitly approved by the user.
-      - Steps for handling detected issues:
-        1. Log the issue with a detailed explanation of the discrepancy.
-        2. Propose a solution to the user, including:
-           - Justification for creating, removing, or renaming components.
-           - Alternatives, if applicable.
-        3. Wait for user confirmation before applying any modifications.
-      - **Prohibited Changes**: Avoid adding redundant directories (e.g., `data` and `data_store` for similar purposes). Consolidate under existing structures instead.
-    - Rerun the script after applying user-approved changes to confirm compliance.
+Validate the project structure against `project_structure.yml` using the script `./scripts/validate_structure.py`  
+and keep `docs/status.md` updated to reflect tasks, priorities, and development progress.
 
-  status_management:
-    - Maintain `docs/status.md` to reflect the current state of all tasks:
-      1. **To Do**: Tasks planned but not yet started.
-      2. **In Progress**: Tasks currently being worked on.
-      3. **Done**: Completed tasks, with a summary of the outcome.
-    - Each task entry must include:
-      - Task ID (unique identifier, e.g., `TASK-001`).
-      - Title or brief description.
-      - Priority level (e.g., High, Medium, Low).
-      - Associated components or files.
-      - Timestamp of the last update.
-      - Mode (Plan or Act).
-    - Example Format:
-      ```markdown
-      ## To Do
-      - TASK-005: Implement vector store provider [Priority: High, Mode: Plan, Updated: 2025-01-25]
+## High-Level Goals
 
-      ## In Progress
-      - TASK-003: Refactor agent factory module [Priority: Medium, Mode: Act, Updated: 2025-01-24]
-
-      ## Done
-      - TASK-001: Create project structure validation script [Completed: 2025-01-23, Outcome: Script integrated successfully]
-      ```
-    - Tasks in **Plan Mode** involve detailed preparation, such as research, design, and breaking down subtasks.
-    - Tasks in **Act Mode** involve active development and implementation.
-    - Automatically transition tasks from Plan to Act mode when ready for execution.
-    - When starting a new task, move it from **To Do** to **In Progress**.
-    - Upon task completion, move it to **Done**, including a brief summary of the results.
-    - Ensure tasks are sorted by priority within each section.
-
-  type_system:
-    - Use explicit generics, e.g., `list[str]` instead of `list`.
-    - Avoid `Any`; if used, provide `# type: ignore` with a justification comment.
-    - Example:
-      ```python
-      def process_items(items: list[str]) -> int:
-          """Processes a list of items."""
-          return len(items)
-      ```
-    - Ensure type annotations are validated through unit tests.
-
-  documentation:
-    - Use Google-style docstrings for all public APIs.
-    - Mandatory sections: Args, Returns, Raises, Example.
-    - Unversioned TODOs are forbidden; use `TODO[v2]: description`.
-    - Example:
-      ```python
-      def add_numbers(a: int, b: int) -> int:
-          """
-          Add two integers.
-
-          Args:
-              a (int): The first number.
-              b (int): The second number.
-
-          Returns:
-              int: The result of adding `a` and `b`.
-
-          Example:
-              >>> add_numbers(2, 3)
-              5
-
-          Raises:
-              ValueError: If inputs are invalid.
-          """
-          if not isinstance(a, int) or not isinstance(b, int):
-              raise ValueError("Both inputs must be integers.")
-          return a + b
-      ```
-
-  provider_guidelines:
-    - Providers must adhere to `pepperpy.providers.base` interfaces.
-    - Methods like `initialize`, `execute`, and `cleanup` are mandatory.
-    - Use a standardized `ProviderConfig` structure:
-      ```python
-      @dataclass
-      class ProviderConfig:
-          type: str
-          parameters: dict
-          metadata: dict = field(default_factory=dict)
-      ```
-    - Ensure proper error handling and logging in providers:
-      ```python
-      class ProviderError(Exception):
-          """Custom error for provider issues."""
-      ```
-
-  testing_guidelines:
-    - Test against interface definitions, using mocks for external dependencies.
-    - Include unit, integration, and lifecycle tests.
-    - Validate type annotations within test cases.
-    - Example:
-      ```python
-      def test_component_initialization():
-          mock_dependency = MockDependency()
-          component = MyComponent(dependency=mock_dependency)
-          assert component.dependency is mock_dependency
-      ```
-
-  anti_patterns:
-    violations:
-      - Hardcoded values: Rejected, tagged as `CRITICAL-SECURITY`.
-      - Circular dependencies: Refactor required, tagged as `ARCH-REFACTOR`.
-      - Duplicate code: Extract to shared components, tagged as `CODE-DUPLICATION`.
-    - Table Format:
-      | Violation            | Action               | Tag                  |
-      |----------------------|----------------------|----------------------|
-      | Hardcoded Values     | Immediate rejection | CRITICAL-SECURITY    |
-      | Circular Dependencies| Refactor required   | ARCH-REFACTOR        |
-      | Duplicate Code       | Extract components  | CODE-DUPLICATION     |
-
-    - Example:
-      ```python
-      # Bad Practice:
-      API_KEY = "hardcoded_key"  # CRITICAL-SECURITY
-
-      # Good Practice:
-      import os
-      API_KEY = os.getenv("API_KEY")
-      ```
-
-  task_system:
-    - Commands must follow a structured format with clear parameters and context validation.
-    - Example Command:
-      ```python
-      @command(
-          name="/register-provider",
-          agents=["RegistryAgent"],
-          params={"type": "str", "config": "dict"}
-      )
-      async def register_provider(ctx: CommandContext):
-          """Registers a new provider in the system."""
-          if not ctx.params.get("type"):
-              raise ValueError("Provider type is required.")
-          await ctx.execute_chain(["validate-config", "update-registry", "notify-agents"])
-      ```
-
-  context_rules:
-    - Dynamic contexts must include validation for freshness, scope, and priority.
-    - Context tagging system:
-      ```python
-      class ContextTag:
-          def __init__(self, name: str, lifespan: int):
-              self.name = name
-              self.expiry = time.time() + lifespan
-
-          def is_active(self):
-              return time.time() < self.expiry
-      ```
-
-  quality_checks:
-    - Run `./scripts/check.sh` for linting and type checking.
-    - Ensure compliance with PEP 8 and documentation standards.
-
-  scalability:
-    - Design features using building block principles to ensure modularity.
-    - Avoid tight coupling or hardcoded dependencies.
-    - Ensure systems support horizontal scaling and extensibility.
-
-  ai_review:
-    - Periodically review code for unused components, performance optimizations, and adherence to principles.
-    - Use AI tools to identify refactoring opportunities and detect dead code.
+- Ensure Python code adheres to PEP 8 standards and uses explicit type annotations.
+- Generate modular, scalable, and extensible code that aligns with `project_structure.yml`.
+- Apply Google-style docstrings to all public APIs, including sections for Args, Returns, Raises, and Examples.
+- Manage the project status in `docs/status.md`, keeping tasks prioritized and updated in real-time.
+- Incorporate "Plan" and "Act" modes to enable detailed task preparation and execution tracking.
+- Keep architecture and structure validated using `./scripts/validate_structure.py`.

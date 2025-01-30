@@ -1,0 +1,10 @@
+---
+title: AI Review Rules
+description: Periodic AI-driven analysis for refactoring, performance tuning, and code cleanup.
+globs: pepperpy/**/*.py
+---
+
+# AI Review
+
+- Periodically review code for **unused components**, **performance optimizations**, and adherence to best practices.
+- Use AI tools to identify **refactoring opportunities** and **dead code**.

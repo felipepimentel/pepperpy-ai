@@ -1,0 +1,29 @@
+---
+title: Providers Rules
+description: Specifies required methods and error handling for providers adhering to 'pepperpy.providers.base'.
+globs: pepperpy/providers/**/*.py
+---
+
+# Provider Guidelines
+
+- Providers must adhere to `pepperpy.providers.base` interfaces.
+- Methods like `initialize`, `execute`, and `cleanup` are **mandatory**.
+- Use a standardized `ProviderConfig` structure:
+
+```python
+from dataclasses import dataclass, field
+from typing import Dict
+
+@dataclass
+class ProviderConfig:
+    type: str
+    parameters: Dict[str, str]
+    metadata: Dict[str, str] = field(default_factory=dict)
+```
+
+- Ensure proper error handling and logging:
+
+```python
+class ProviderError(Exception):
+    """Custom error for provider issues."""
+```

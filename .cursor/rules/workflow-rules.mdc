@@ -1,0 +1,66 @@
+---
+title: Workflow Rules
+description: Manages task statuses, dynamic contexts, and structured commands for Pepperpy's process.
+globs: pepperpy/**/*.py
+---
+
+# Status Management
+
+- Maintain `docs/status.md` to reflect task progress:
+  1. **To Do**: Planned tasks, not started.
+  2. **In Progress**: Actively developed tasks.
+  3. **Done**: Completed tasks, with an outcome summary.
+- Each task entry should include:
+  - Task ID (e.g., `TASK-001`)
+  - Title or brief description
+  - Priority (High, Medium, Low)
+  - Associated components/files
+  - Timestamp of the last update
+  - Mode (Plan or Act)
+
+```markdown
+## To Do
+- TASK-005: Implement vector store provider [Priority: High, Mode: Plan, Updated: 2025-01-25]
+
+## In Progress
+- TASK-003: Refactor agent factory module [Priority: Medium, Mode: Act, Updated: 2025-01-24]
+
+## Done
+- TASK-001: Create project structure validation script [Completed: 2025-01-23, Outcome: Script integrated successfully]
+
+# Tasks in Plan Mode involve detailed prep; Act Mode is active coding.
+Sort tasks by priority within each section.
+
+# Task System
+Commands must follow a structured format with clear parameters and context validation.
+```python
+from typing import Dict
+from myapp.framework import command, CommandContext
+
+@command(
+    name="/register-provider",
+    agents=["RegistryAgent"],
+    params={"type": "str", "config": "dict"}
+)
+async def register_provider(ctx: CommandContext):
+    """Registers a new provider in the system."""
+    if not ctx.params.get("type"):
+        raise ValueError("Provider type is required.")
+    await ctx.execute_chain(["validate-config", "update-registry", "notify-agents"])
+```
+
+# Context Rules
+
+- Dynamic contexts must include validation for freshness, scope, and priority.
+
+```python
+import time
+
+class ContextTag:
+    def __init__(self, name: str, lifespan: int):
+        self.name = name
+        self.expiry = time.time() + lifespan
+
+    def is_active(self) -> bool:
+        return time.time() < self.expiry
+```
