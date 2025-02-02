@@ -1,124 +1,491 @@
 #!/usr/bin/env python3
-"""
-@file: validate_structure.py
-@purpose: Validate project structure against project_structure.yml
-@component: Development Tools
-@created: 2024-03-20
-@task: TASK-000
-@status: active
+"""Project structure validation script.
+
+This script validates the project structure against the defined schema.
 """
 
-from pathlib import Path
+import ast
+import fnmatch
 import sys
-from typing import Dict, List, Optional, Set
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 
 import yaml
 
 
-class StructureValidator:
-    """Validates project structure against definition."""
+@dataclass
+class ValidationStats:
+    """Statistics for a module."""
 
-    def __init__(self, project_root: Path):
-        """Initialize validator."""
-        self.project_root = project_root
-        self.structure_file = project_root / "project_structure.yml"
-        self.definition = self._load_definition()
-        self.errors: List[str] = []
-        self.warnings: List[str] = []
+    imports: set[str]
+    loc: int  # lines of code
+    complexity: int  # cyclomatic complexity
+    dependencies: set[str]
 
-    def _load_definition(self) -> Dict:
-        """Load structure definition."""
-        try:
-            with open(self.structure_file, "r") as f:
-                return yaml.safe_load(f)
-        except Exception as e:
-            print(f"Error loading structure definition: {e}")
-            sys.exit(1)
 
-    def _validate_component(
-        self, path: Path, definition: Dict, parent_path: str = ""
-    ) -> None:
-        """Validate a component against its definition."""
-        full_path = parent_path + "/" + path.name if parent_path else path.name
+class DependencyGraph:
+    """Simple dependency graph implementation."""
 
-        # Check if component exists
-        if not path.exists():
-            if definition.get("status") == "required":
-                self.errors.append(f"Missing required component: {full_path}")
-            elif definition.get("status") == "pending":
-                task = definition.get("task", "Unknown")
-                self.warnings.append(
-                    f"Pending component not yet created: {full_path} (Task: {task})"
-                )
-            return
+    def __init__(self) -> None:
+        self.graph: defaultdict[str, set[str]] = defaultdict(set)
 
-        # Check component type
-        if path.is_dir():
-            if "components" not in definition:
-                self.errors.append(
-                    f"Directory without components definition: {full_path}"
-                )
+    def add_node(self, node: str) -> None:
+        """Add a node to the graph."""
+        if node not in self.graph:
+            self.graph[node] = set()
+
+    def add_edge(self, from_node: str, to_node: str) -> None:
+        """Add a directed edge to the graph."""
+        self.add_node(from_node)
+        self.add_node(to_node)
+        self.graph[from_node].add(to_node)
+
+    def find_cycles(self) -> list[list[str]]:
+        """Find all cycles in the graph using DFS."""
+        cycles: list[list[str]] = []
+        visited = set()
+        path: list[str] = []
+
+        def dfs(node: str) -> None:
+            if node in path:
+                cycle_start = path.index(node)
+                cycles.append(path[cycle_start:] + [node])
                 return
 
-            # Check each subcomponent
-            for name, subdef in definition["components"].items():
-                subpath = path / name
-                self._validate_component(subpath, subdef, full_path)
+            if node in visited:
+                return
 
-            # Check for unexpected files
-            expected = set(definition["components"].keys())
-            actual = {p.name for p in path.iterdir() if not p.name.startswith(".")}
-            unexpected = actual - expected
+            visited.add(node)
+            path.append(node)
 
-            if unexpected:
-                self.warnings.append(
-                    f"Unexpected files in {full_path}: {', '.join(unexpected)}"
+            for neighbor in self.graph[node]:
+                dfs(neighbor)
+
+            path.pop()
+
+        for node in self.graph:
+            if node not in visited:
+                dfs(node)
+
+        return cycles
+
+    def generate_dot(self) -> str:
+        """Generate DOT format for graph visualization."""
+        dot = ["digraph G {"]
+        for node in self.graph:
+            for dep in self.graph[node]:
+                dot.append(f'    "{node}" -> "{dep}";')
+        dot.append("}")
+        return "\n".join(dot)
+
+
+class ValidationError(Exception):
+    """Validation specific error."""
+
+    pass
+
+
+class ImportVisitor(ast.NodeVisitor):
+    """AST visitor to collect imports and complexity metrics."""
+
+    def __init__(self) -> None:
+        """Initialize the import visitor."""
+        self.imports: set[str] = set()
+        self.from_imports: defaultdict[str, set] = defaultdict(set)
+        self.complexity = 1
+
+    def visit_import(self, node: ast.Import) -> None:
+        """Visit Import node.
+
+        Args:
+            node: The AST Import node
+        """
+        for name in node.names:
+            self.imports.add(name.name.split(".")[0])
+
+    def visit_importfrom(self, node: ast.ImportFrom) -> None:
+        """Visit ImportFrom node.
+
+        Args:
+            node: The AST ImportFrom node
+        """
+        if node.module:
+            module = node.module.split(".")[0]
+            for name in node.names:
+                self.from_imports[module].add(name.name)
+
+    def visit_if(self, node: ast.If) -> None:
+        """Visit If node.
+
+        Args:
+            node: The AST If node
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_while(self, node: ast.While) -> None:
+        """Visit While node.
+
+        Args:
+            node: The AST While node
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_for(self, node: ast.For) -> None:
+        """Visit For node.
+
+        Args:
+            node: The AST For node
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_excepthandler(self, node: ast.ExceptHandler) -> None:
+        """Visit ExceptHandler node.
+
+        Args:
+            node: The AST ExceptHandler node
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+
+class ComplexityVisitor(ast.NodeVisitor):
+    """AST visitor for calculating cyclomatic complexity."""
+
+    def __init__(self) -> None:
+        """Initialize the complexity visitor."""
+        self.complexity = 1
+
+    def visit_if(self, node: ast.If) -> None:
+        """Visit if statement.
+
+        Args:
+            node: The AST node to visit.
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_while(self, node: ast.While) -> None:
+        """Visit while statement.
+
+        Args:
+            node: The AST node to visit.
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_for(self, node: ast.For) -> None:
+        """Visit for statement.
+
+        Args:
+            node: The AST node to visit.
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+    def visit_except_handler(self, node: ast.ExceptHandler) -> None:
+        """Visit except handler.
+
+        Args:
+            node: The AST node to visit.
+        """
+        self.complexity += 1
+        self.generic_visit(node)
+
+
+class StructureValidator:
+    """Validates project structure and dependencies."""
+
+    def __init__(self, root: Path | None = None) -> None:
+        """Initialize the validator.
+
+        Args:
+            root: Root directory of the project.
+        """
+        self.root = root or Path(__file__).parent.parent.parent
+        self.config = self._load_config()
+        self.stats: dict[str, ValidationStats] = {}
+        self.errors: list[str] = []
+        self.warnings: list[str] = []
+        self.ignore_patterns = [
+            "__pycache__",
+            "*.pyc",
+            "*.pyo",
+            "*.pyd",
+            ".git",
+            ".env",
+            "*.egg-info",
+            "dist",
+            "build",
+        ]
+        self.dependency_graph = DependencyGraph()
+
+    def _load_config(self) -> dict[str, Any]:
+        """Load configuration from YAML.
+
+        Returns:
+            The loaded configuration.
+
+        Raises:
+            FileNotFoundError: If config file not found.
+            yaml.YAMLError: If config file is invalid.
+        """
+        config_path = self.root / "docs" / "project_structure.yml"
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+        with open(config_path) as f:
+            config: dict[str, Any] = yaml.safe_load(f)
+            return config
+
+    def validate_node(self, spec: dict[str, Any], path: Path) -> None:
+        """Validate a node in the project structure.
+
+        Args:
+            spec: Node specification from config.
+            path: Path to the node.
+        """
+        if not path.exists():
+            self.errors.append(f"Missing required path: {path}")
+            return
+
+        if path.is_file():
+            self._validate_file(spec, path)
+        else:
+            self._validate_directory(spec, path)
+
+    def _validate_file(self, spec: dict[str, Any], path: Path) -> None:
+        """Validate a file.
+
+        Args:
+            spec: File specification from config.
+            path: Path to the file.
+        """
+        if path.suffix == ".py":
+            self._analyze_python_file(path)
+
+    def _validate_directory(self, spec: dict[str, Any], path: Path) -> None:
+        """Validate a directory.
+
+        Args:
+            spec: Directory specification from config.
+            path: Path to the directory.
+        """
+        for child_name, child_spec in spec.get("children", {}).items():
+            child_path = path / child_name
+            self.validate_node(child_spec, child_path)
+
+    def _analyze_python_file(self, path: Path) -> None:
+        """Analyze a Python file.
+
+        Args:
+            path: Path to the file.
+        """
+        try:
+            with open(path) as f:
+                content = f.read()
+                tree = ast.parse(content)
+
+            visitor = ComplexityVisitor()
+            visitor.visit(tree)
+
+            self.stats[str(path)] = ValidationStats(
+                imports=set(),
+                loc=len(content.splitlines()),
+                complexity=visitor.complexity,
+                dependencies=set(),
+            )
+
+        except Exception as e:
+            self.errors.append(f"Error analyzing {path}: {e}")
+
+    def check_circular_dependencies(self) -> None:
+        """Check for circular dependencies in the project."""
+        try:
+            cycles = self.dependency_graph.find_cycles()
+            for cycle in cycles:
+                self.errors.append(
+                    f"Circular dependency detected: {' -> '.join(cycle)}"
                 )
+        except Exception as e:
+            self.warnings.append(f"Could not check circular dependencies: {e!s}")
+
+    def generate_dependency_graph(self) -> None:
+        """Generate a dependency graph visualization."""
+        try:
+            dot_content = self.dependency_graph.generate_dot()
+            with open("dependency_graph.dot", "w") as f:
+                f.write(dot_content)
+            print("\nDependency graph saved as 'dependency_graph.dot'")
+            print(
+                "To visualize, install Graphviz and run: "
+                "dot -Tpng dependency_graph.dot -o dependency_graph.png"
+            )
+        except Exception as e:
+            self.warnings.append(f"Could not generate dependency graph: {e!s}")
 
     def validate(self) -> bool:
-        """Validate entire project structure."""
-        self.errors = []
-        self.warnings = []
+        """Validate the project structure and dependencies.
 
-        # Validate version
-        if "version" not in self.definition:
-            self.errors.append("Missing version in structure definition")
+        Returns:
+            True if validation succeeds, False otherwise.
+        """
+        try:
+            root_spec = self.config.get("root", {})
+            if not root_spec:
+                raise ValueError("No root specification found in config")
+
+            project_root = self.root / root_spec.get("path", "pepperpy")
+            if not project_root.exists():
+                raise ValueError(f"Project root not found: {project_root}")
+
+            self.validate_node(root_spec, project_root)
+            self.check_circular_dependencies()
+            self.generate_dependency_graph()
+
+            return len(self.errors) == 0
+
+        except Exception as e:
+            self.errors.append(f"Validation error: {e}")
             return False
 
-        # Validate structure
-        if "structure" not in self.definition:
-            self.errors.append("Missing structure in definition")
-            return False
+    def should_ignore(self, name: str) -> bool:
+        """Check if a file/directory should be ignored.
 
-        # Validate each top-level component
-        for path_str, definition in self.definition["structure"].items():
-            path = self.project_root / path_str.rstrip("/")
-            self._validate_component(path, definition)
+        Args:
+            name: Name of the file/directory.
 
-        # Print results
+        Returns:
+            True if the file/directory should be ignored.
+        """
+        return any(fnmatch.fnmatch(name, pattern) for pattern in self.ignore_patterns)
+
+    def report(self) -> None:
+        """Print validation report."""
         if self.errors:
-            print("\n❌ Structure validation failed!")
-            print("\nErrors:")
-            for error in self.errors:
+            print("\nStructure and Dependency Validation Errors:")
+            for error in sorted(self.errors):
                 print(f"  - {error}")
-        else:
-            print("\n✅ Structure validation passed!")
 
         if self.warnings:
             print("\nWarnings:")
-            for warning in self.warnings:
+            for warning in sorted(self.warnings):
                 print(f"  - {warning}")
 
-        return len(self.errors) == 0
+        # Print statistics
+        print("\nCode Statistics:")
+        total_loc = sum(stats.loc for stats in self.stats.values())
+        avg_complexity = (
+            sum(stats.complexity for stats in self.stats.values()) / len(self.stats)
+            if self.stats
+            else 0
+        )
+        print(f"  Total Lines of Code: {total_loc}")
+        print(f"  Average Complexity: {avg_complexity:.2f}")
+        print(f"  Total Files: {len(self.stats)}")
+
+        if not self.errors and not self.warnings:
+            print("\nProject structure and dependency validation passed!")
+        else:
+            print(
+                "Please ensure your project structure and dependencies match "
+                "docs/project_structure.yml"
+            )
 
 
-def main():
+def load_structure_config(config_path: str) -> dict[str, Any]:
+    """Load the structure configuration from YAML.
+
+    Args:
+        config_path: Path to the configuration file.
+
+    Returns:
+        The loaded configuration dictionary.
+
+    Raises:
+        FileNotFoundError: If the configuration file does not exist.
+        yaml.YAMLError: If the configuration file is invalid.
+    """
+    with open(config_path) as f:
+        config = yaml.safe_load(f)
+        if not isinstance(config, dict):
+            raise yaml.YAMLError("Configuration must be a dictionary")
+        return config
+
+
+def validate_directory(path: Path, expected: list[str]) -> bool:
+    """Validate a directory against expected contents.
+
+    Args:
+        path: Path to the directory to validate.
+        expected: List of expected files/directories.
+
+    Returns:
+        True if validation succeeds, False otherwise.
+    """
+    actual = {p.name for p in path.iterdir()}
+    return all(e in actual for e in expected)
+
+
+def validate_structure(root_path: Path, config: dict) -> bool:
+    """Validate project structure against configuration.
+
+    Args:
+        root_path: Project root path
+        config: Configuration dictionary
+
+    Returns:
+        bool: True if validation passes, False otherwise
+    """
+    try:
+        # Check directories
+        print("Validating directories...")
+        for directory in config.get("directories", []):
+            dir_path = root_path / directory
+            if not dir_path.exists():
+                print(f"Missing directory: {directory}")
+                return False
+            print(f"Found directory: {directory}")
+
+        # Check files
+        print("Validating files...")
+        for file in config.get("files", []):
+            file_path = root_path / file
+            if not file_path.exists():
+                print(f"Missing file: {file}")
+                return False
+            print(f"Found file: {file}")
+
+        return True
+
+    except Exception as e:
+        print(f"Error during validation: {e!s}")
+        return False
+
+
+def main() -> None:
     """Main entry point."""
-    project_root = Path(__file__).parent.parent.parent
-    validator = StructureValidator(project_root)
+    try:
+        root_path = Path(__file__).parent.parent.parent
+        config_path = root_path / "docs" / "project_structure.yml"
 
-    if not validator.validate():
-        sys.exit(1)
+        print(f"Loading config from: {config_path}")
+        with open(config_path) as f:
+            config = yaml.safe_load(f)
+
+        if validate_structure(root_path, config):
+            print("✅ Project structure validation passed")
+            sys.exit(0)
+        else:
+            print("❌ Project structure validation failed")
+            sys.exit(1)
+
+    except Exception as e:
+        print(f"Error: {e!s}")
+        sys.exit(2)
 
 
 if __name__ == "__main__":

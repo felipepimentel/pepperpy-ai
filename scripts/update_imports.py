@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
-"""Script to update import paths after data module migration."""
+"""Import statement updater.
+
+Updates import statements in Python files to match new module structure.
+"""
 
 import os
 from pathlib import Path
-import re
 
 # Map of old imports to new imports
 IMPORT_MAP = {
-    "from pepperpy.providers.vector_store.base": "from pepperpy.providers.vector_store.base",
-    "from pepperpy.persistence.storage.document": "from pepperpy.persistence.storage.document",
-    "from pepperpy.persistence.storage.chunking": "from pepperpy.persistence.storage.chunking",
-    "from pepperpy.persistence.storage.conversation": "from pepperpy.persistence.storage.conversation",
+    "from pepperpy.providers.vector_store.base": (
+        "from pepperpy.providers.vector_store.base"
+    ),
+    "from pepperpy.persistence.storage.document": (
+        "from pepperpy.persistence.storage.document"
+    ),
+    "from pepperpy.persistence.storage.chunking": (
+        "from pepperpy.persistence.storage.chunking"
+    ),
+    "from pepperpy.persistence.storage.conversation": (
+        "from pepperpy.persistence.storage.conversation"
+    ),
     "from pepperpy.providers.memory": "from pepperpy.providers.memory",
-    "from pepperpy.persistence.storage.rag": "from pepperpy.persistence.storage.rag",
+    "from pepperpy.persistence.storage.rag": ("from pepperpy.persistence.storage.rag"),
     "from pepperpy.providers.embedding": "from pepperpy.providers.embedding",
-    "from pepperpy.providers.vector_store": "from pepperpy.providers.vector_store",
-    "from pepperpy.persistence.storage.document": "from pepperpy.persistence.storage.document",
+    "from pepperpy.providers.vector_store": ("from pepperpy.providers.vector_store"),
 }
 
 
@@ -25,7 +34,7 @@ def update_imports(file_path: str) -> None:
     Args:
         file_path: Path to file to update
     """
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         content = f.read()
 
     updated = False
@@ -40,7 +49,7 @@ def update_imports(file_path: str) -> None:
             f.write(content)
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     workspace = Path(__file__).parent.parent
 

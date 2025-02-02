@@ -45,6 +45,17 @@ scope: "Pepperpy Project"
   - Description: Implement event dispatcher and handler system
   - Branch: task/006-event-system
 
+- [ ] TASK-006: Fix code quality issues
+  - Priority: High
+  - Points: 2
+  - Dependencies: None
+  - Steps:
+    1. Run `./scripts/check.py` to identify issues
+    2. Fix any formatting issues with `./scripts/check.py --fix`
+    3. Address remaining linting and type errors
+    4. Ensure test coverage meets requirements
+    5. Validate project structure
+
 ### Agent Intelligence (Sprint 3)
 - [ ] TASK-007: Basic Reasoning System
   - Priority: Medium
@@ -52,13 +63,6 @@ scope: "Pepperpy Project"
   - Dependencies: [TASK-004, TASK-005]
   - Description: Implement basic ReAct pattern for agent reasoning
   - Branch: task/007-reasoning
-
-- [ ] TASK-008: Provider System
-  - Priority: High
-  - Points: 8
-  - Dependencies: TASK-004
-  - Description: Implement provider interface and basic providers (LLM, Embedding)
-  - Branch: task/008-providers
 
 - [ ] TASK-009: Agent Orchestration
   - Priority: Medium
@@ -96,6 +100,19 @@ scope: "Pepperpy Project"
   - Started: 2024-03-20
   - Description: Setup initial project structure following the specification
   - Branch: task/000-project-setup
+
+- [ ] TASK-008: Provider System
+  - Priority: High
+  - Points: 8
+  - Dependencies: TASK-004
+  - Description: Implement unified provider system with clean interfaces for multiple AI services (OpenAI, StackSpotAI, OpenRouter, Gemini)
+  - Branch: task/008-providers
+  - Started: 2024-03-21
+  - Progress:
+    - ✅ Core provider protocol
+    - ✅ Domain models and engine
+    - ✅ OpenAI implementation
+    - ⏳ Additional providers
 
 ## ✅ Done
 - [x] TASK-001: Core Configuration System

@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-"""
-@file: export_structure.py
-@purpose: Export project structure in a simplified format for LLM context
-@component: Development Tools
-@created: 2024-03-20
-@task: TASK-000
-@status: active
+"""Export project structure in a simplified format for LLM context.
+
+This script exports the project structure in a simplified format that can be used
+as context for language models. The output is designed to be easily parsed and
+understood by AI models.
+
+Component: Development Tools
+Created: 2024-03-20
+Task: TASK-000
+Status: active
 """
 
-import os
-from pathlib import Path
 import re
-from typing import Dict, List, Optional
+from pathlib import Path
 
 
-def extract_file_purpose(file_path: Path) -> Optional[str]:
+def extract_file_purpose(file_path: Path) -> str | None:
     """Extract purpose from file header."""
     if not file_path.is_file():
         return None
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             content = f.read(500)  # Read first 500 chars
             purpose_match = re.search(r"@purpose:\s*(.+)", content)
             return purpose_match.group(1).strip() if purpose_match else None
@@ -46,7 +47,7 @@ def should_ignore(path: str) -> bool:
 
 def export_structure(
     root_dir: Path, current_depth: int = 0, max_depth: int = 5
-) -> List[str]:
+) -> list[str]:
     """Export directory structure with purposes."""
     if current_depth > max_depth:
         return ["    " * current_depth + "..."]
@@ -75,7 +76,7 @@ def export_structure(
     return lines
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     project_root = Path(__file__).parent.parent.parent
     lines = export_structure(project_root)

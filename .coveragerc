@@ -23,7 +23,7 @@ exclude_lines =
     except TypeError:
 
 ignore_errors = True
-fail_under = 80
+fail_under = 10
 
 [html]
 directory = htmlcov

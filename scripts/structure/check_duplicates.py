@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""
-@file: check_duplicates.py
-@purpose: Check for potential duplicate files based on purpose and content
-@component: Development Tools
-@created: 2024-03-20
-@task: TASK-000
-@status: active
+"""Check for potential duplicate files based on purpose and content.
+
+This script checks for potential duplicate files by analyzing their purpose and content
+to help maintain a clean and organized codebase.
+
+Component: Development Tools
+Created: 2024-03-20
+Task: TASK-000
+Status: active
 """
 
+import hashlib
 from collections import defaultdict
 from difflib import SequenceMatcher
-import hashlib
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
 
 from validate_headers import parse_header, should_check_file
 
@@ -29,9 +30,9 @@ def get_file_hash(path: Path) -> str:
 def get_file_purpose(path: Path) -> str:
     """Extract purpose from file header."""
     try:
-        with open(path, "r") as f:
+        with open(path) as f:
             content = f.read()
-        fields = parse_header(content)
+        fields: dict[str, str] = parse_header(content)
         return fields.get("purpose", "").lower()
     except Exception:
         return ""
@@ -42,7 +43,7 @@ def similar(a: str, b: str, threshold: float = 0.8) -> bool:
     return SequenceMatcher(None, a, b).ratio() > threshold
 
 
-def find_exact_duplicates(files: List[Path]) -> List[Set[Path]]:
+def find_exact_duplicates(files: list[Path]) -> list[set[Path]]:
     """Find files with identical content."""
     hash_groups = defaultdict(set)
 
@@ -54,8 +55,8 @@ def find_exact_duplicates(files: List[Path]) -> List[Set[Path]]:
 
 
 def find_similar_purposes(
-    files: List[Path], threshold: float = 0.8
-) -> List[Tuple[Path, Path, float]]:
+    files: list[Path], threshold: float = 0.8
+) -> list[tuple[Path, Path, float]]:
     """Find files with similar purposes."""
     similar_files = []
     file_purposes = {path: get_file_purpose(path) for path in files}
@@ -85,8 +86,8 @@ def find_similar_purposes(
 
 
 def find_similar_names(
-    files: List[Path], threshold: float = 0.8
-) -> List[Tuple[Path, Path, float]]:
+    files: list[Path], threshold: float = 0.8
+) -> list[tuple[Path, Path, float]]:
     """Find files with similar names."""
     similar_names = []
     checked_pairs = set()
@@ -110,7 +111,7 @@ def find_similar_names(
     return similar_names
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     project_root = Path(__file__).parent.parent.parent
     python_files = [

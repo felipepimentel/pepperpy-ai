@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""
-@file: setup.py
-@purpose: Install project dependencies and setup development environment
-@component: Development Tools
-@created: 2024-03-20
-@task: TASK-000
-@status: active
+"""Setup script for the Pepperpy project.
+
+This script handles the initial setup and configuration of the Pepperpy project.
 """
 
 import os
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
 
 def run_command(cmd: str) -> bool:
@@ -84,14 +80,14 @@ def setup_git_hooks() -> bool:
         language: python
         pass_filenames: false
         always_run: true
-    
+
     -   id: validate-headers
         name: validate-headers
         entry: python scripts/structure/validate_headers.py
         language: python
         pass_filenames: false
         always_run: true
-    
+
     -   id: check-duplicates
         name: check-duplicates
         entry: python scripts/structure/check_duplicates.py
@@ -135,7 +131,16 @@ PEPPERPY_DEFAULT_MODEL=gpt-4"""
     return True
 
 
-def main():
+def setup_project() -> None:
+    """Set up the Pepperpy project.
+
+    Creates necessary directories and configuration files.
+    """
+    # TODO: Implement project setup
+    pass
+
+
+def main() -> None:
     """Main entry point."""
     print("Setting up development environment...")
 

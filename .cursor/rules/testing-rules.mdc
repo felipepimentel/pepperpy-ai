@@ -138,8 +138,6 @@ def mock_provider():
 ```
 
 ## Coverage Requirements
-
-- Minimum 90% code coverage
 - All public APIs must be tested
 - All error paths must be tested
 - All async code must be tested

@@ -1,20 +1,10 @@
-"""
-@file: __init__.py
-@purpose: Package initialization and version
-@component: Core
-@created: 2024-03-20
-@task: TASK-001
-@status: active
-"""
+"""Pepperpy package initialization.
 
-from pepperpy.common.config import config, get_config, initialize_config
+This module initializes the Pepperpy package and defines its version.
+"""
 
 __version__ = "0.1.0"
 __author__ = "Felipe Pimentel"
 __email__ = "felipe.pimentel@gmail.com"
 
-__all__ = [
-    "config",
-    "get_config",
-    "initialize_config",
-]
+__all__ = ["__version__"]

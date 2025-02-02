@@ -1,0 +1,277 @@
+"""Service providers for the Pepperpy library.
+
+This module contains the implementation of various service providers
+that can be used with Pepperpy, such as OpenAI, Anthropic, etc.
+
+This module also provides common functionality for provider implementations,
+reducing code duplication and standardizing error handling.
+"""
+
+from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from typing import Any, Final, Protocol, TypeVar, cast
+
+from pepperpy.common.errors import ProviderError
+from pepperpy.monitoring import logger
+
+from ..domain import (
+    ProviderAPIError,
+    ProviderInitError,
+    ProviderNotFoundError,
+    ProviderRateLimitError,
+)
+from ..engine import ProviderEngine
+from ..provider import Provider, ProviderConfig
+
+T = TypeVar("T")
+
+# Provider types
+OPENAI: Final[str] = "openai"
+ANTHROPIC: Final[str] = "anthropic"
+OPENROUTER: Final[str] = "openrouter"
+GEMINI: Final[str] = "gemini"
+STACKSPOT: Final[str] = "stackspot"
+
+REQUIRED_PROVIDERS: Final[list[str]] = [OPENAI]
+OPTIONAL_PROVIDERS: Final[list[str]] = [
+    GEMINI,
+    OPENROUTER,
+    STACKSPOT,
+]
+
+# Track registered providers
+REGISTERED_PROVIDERS: dict[str, type[Provider]] = {}
+
+def register_providers() -> dict[str, type[Provider]]:
+    """Register all available providers."""
+    registered: dict[str, type[Provider]] = {}
+
+    # Register required providers
+    try:
+        from .openai import OpenAIProvider
+
+        provider_class = cast(type[Provider], OpenAIProvider)
+        ProviderEngine.register_provider(OPENAI, provider_class)
+        registered[OPENAI] = provider_class
+    except ImportError as e:
+        raise ProviderInitError(f"Required provider 'openai' not available: {e}") from e
+
+    # Register optional providers
+    try:
+        from .gemini import GeminiProvider
+
+        provider_class = cast(type[Provider], GeminiProvider)
+        ProviderEngine.register_provider(GEMINI, provider_class)
+        registered[GEMINI] = provider_class
+    except ImportError as e:
+        logger.warning("Optional provider not available", provider=GEMINI, error=str(e))
+
+    try:
+        from .openrouter import OpenRouterProvider
+
+        provider_class = cast(type[Provider], OpenRouterProvider)
+        ProviderEngine.register_provider(OPENROUTER, provider_class)
+        registered[OPENROUTER] = provider_class
+    except ImportError as e:
+        logger.warning(
+            "Optional provider not available", provider=OPENROUTER, error=str(e)
+        )
+
+    try:
+        from .stackspot import StackSpotProvider
+
+        provider_class = cast(type[Provider], StackSpotProvider)
+        ProviderEngine.register_provider(STACKSPOT, provider_class)
+        registered[STACKSPOT] = provider_class
+    except ImportError as e:
+        logger.warning(
+            "Optional provider not available", provider=STACKSPOT, error=str(e)
+        )
+
+    return registered
+
+# Register providers on module import
+REGISTERED_PROVIDERS.update(register_providers())
+
+class BaseProviderMixin(Provider):
+    """Base mixin with common provider functionality."""
+
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize the base provider mixin."""
+        super().__init__(config)
+        self._logger = logger.bind(provider=self.__class__.__name__)  # type: ignore
+
+    async def _handle_api_error(
+        self, error: Exception, context: dict[str, Any]
+    ) -> None:
+        """Handle API errors in a standardized way.
+
+        Args:
+            error: The original error
+            context: Additional context about the error
+        """
+        self._logger.error("API error occurred", error=str(error), **context)  # type: ignore
+        if "rate" in str(error).lower():
+            raise ProviderRateLimitError(
+                message=str(error),
+                provider_type=self.config.provider_type,
+                details=context,
+            ) from error
+        raise ProviderAPIError(
+            message=str(error),
+            provider_type=self.config.provider_type,
+            details=context,
+        ) from error
+
+class ContentExtractor(Protocol):
+    """Protocol for content extraction functions."""
+
+    def __call__(self, chunk: Any) -> str:
+        """Extract content from a chunk.
+
+        Args:
+            chunk: The chunk to extract content from
+
+        Returns:
+            The extracted content as a string
+        """
+        ...
+
+class EmbedFunction(Protocol):
+    """Protocol for embedding functions."""
+
+    def __call__(self, text: str, model: str) -> Awaitable[list[float]]:
+        """Generate embeddings for text using a model.
+
+        Args:
+            text: The text to generate embeddings for
+            model: The model to use for generating embeddings
+
+        Returns:
+            A list of embedding values
+        """
+        ...
+
+class StreamingMixin(BaseProviderMixin):
+    """Mixin for handling streaming responses."""
+
+    async def _handle_streaming_response(
+        self,
+        response: AsyncIterator[Any],
+        extract_content: ContentExtractor,
+    ) -> AsyncGenerator[str, None]:
+        """Handle streaming responses in a standardized way.
+
+        Args:
+            response: The streaming response
+            extract_content: Function to extract content from each chunk
+
+        Yields:
+            Extracted content from each chunk
+        """
+        try:
+            async for chunk in response:
+                content = extract_content(chunk)
+                if content:
+                    yield content
+        except Exception as e:
+            await self._handle_api_error(e, {"streaming": True})
+
+class EmbeddingMixin(BaseProviderMixin):
+    """Mixin for handling embeddings."""
+
+    async def _handle_embedding_request(
+        self,
+        text: str,
+        model: str,
+        embed_func: EmbedFunction,
+    ) -> list[float]:
+        """Handle embedding requests in a standardized way.
+
+        Args:
+            text: Text to embed
+            model: Model to use for embedding
+            embed_func: Function to perform the embedding
+
+        Returns:
+            List of embedding values
+        """
+        try:
+            result = await embed_func(text, model)
+            return result
+        except Exception as e:
+            await self._handle_api_error(e, {"text": text, "model": model})
+            raise  # This will never be reached, but makes type checking happy
+
+class ProviderCallback(Protocol[T]):
+    """Protocol for provider callbacks."""
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> T:
+        """Execute the callback.
+
+        Args:
+            *args: Positional arguments for the callback
+            **kwargs: Keyword arguments for the callback
+
+        Returns:
+            The result of the callback execution
+        """
+        ...
+
+class ProviderStreamCallback(Protocol[T]):
+    """Protocol for provider stream callbacks."""
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> AsyncGenerator[T, None]:
+        """Execute the streaming callback.
+
+        Args:
+            *args: Positional arguments for the callback
+            **kwargs: Keyword arguments for the callback
+
+        Yields:
+            Generated items from the streaming callback
+        """
+        ...
+
+class BaseProvider(Provider, ABC):
+    """Base class for all providers."""
+
+    @abstractmethod
+    async def _call_api(
+        self,
+        callback: ProviderCallback[T],
+        *args: Any,
+        **kwargs: Any,
+    ) -> T:
+        """Call the provider API with error handling."""
+        ...
+
+    @abstractmethod
+    async def _stream_api(
+        self,
+        callback: ProviderStreamCallback[T],
+        *args: Any,
+        **kwargs: Any,
+    ) -> AsyncIterator[T]:
+        """Stream from the provider API with error handling."""
+        ...
+
+__all__ = [
+    "GEMINI",
+    "OPENAI",
+    "OPENROUTER",
+    "OPTIONAL_PROVIDERS",
+    "REGISTERED_PROVIDERS",
+    "REQUIRED_PROVIDERS",
+    "STACKSPOT",
+    "ProviderEngine",
+    "register_providers",
+    "BaseProvider",
+    "BaseProviderMixin",
+    "ContentExtractor",
+    "EmbedFunction",
+    "EmbeddingMixin",
+    "ProviderCallback",
+    "ProviderStreamCallback",
+    "StreamingMixin",
+] 

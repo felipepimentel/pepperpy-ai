@@ -1,0 +1,8 @@
+black>=24.1.1
+isort>=5.13.2
+mypy>=1.8.0
+pytest>=8.0.0
+pytest-cov>=4.1.0
+ruff>=0.2.1
+rich>=13.7.0
+click>=8.1.7 

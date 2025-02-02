@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
-"""
-@file: validate_headers.py
-@purpose: Validate file headers according to project rules
-@component: Development Tools
-@created: 2024-03-20
-@task: TASK-000
-@status: active
+"""Validate file headers according to project rules.
+
+This script validates that all file headers in the project follow the defined
+format and contain the required information.
+
+Component: Development Tools
+Created: 2024-03-20
+Task: TASK-000
+Status: active
 """
 
-from pathlib import Path
 import re
-from typing import Dict, List, Optional, Tuple
+from pathlib import Path
 
 REQUIRED_FIELDS = ["file", "purpose", "component", "created"]
 OPTIONAL_FIELDS = ["task", "status"]
 
 
-def parse_header(content: str) -> Dict[str, str]:
+def parse_header(content: str) -> dict[str, str]:
     """Parse file header into fields."""
-    fields = {}
+    fields: dict[str, str] = {}
     header_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
 
     if not header_match:
@@ -33,7 +34,7 @@ def parse_header(content: str) -> Dict[str, str]:
     return fields
 
 
-def validate_header(file_path: Path, fields: Dict[str, str]) -> List[str]:
+def validate_header(file_path: Path, fields: dict[str, str]) -> list[str]:
     """Validate header fields."""
     errors = []
 
@@ -87,7 +88,7 @@ def should_check_file(path: Path) -> bool:
     return True
 
 
-def check_files(root_dir: Path) -> List[Tuple[Path, List[str]]]:
+def check_files(root_dir: Path) -> list[tuple[Path, list[str]]]:
     """Check all files in directory."""
     issues = []
 
@@ -96,7 +97,7 @@ def check_files(root_dir: Path) -> List[Tuple[Path, List[str]]]:
             continue
 
         try:
-            with open(path, "r") as f:
+            with open(path) as f:
                 content = f.read()
 
             fields = parse_header(content)
@@ -106,12 +107,12 @@ def check_files(root_dir: Path) -> List[Tuple[Path, List[str]]]:
                 issues.append((path, errors))
 
         except Exception as e:
-            issues.append((path, [f"Error reading file: {str(e)}"]))
+            issues.append((path, [f"Error reading file: {e!s}"]))
 
     return issues
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     project_root = Path(__file__).parent.parent.parent
     issues = check_files(project_root)

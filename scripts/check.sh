@@ -1,38 +1,33 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 # Exit on error
 set -e
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+echo "Running code quality checks..."
 
-echo -e "${YELLOW}Running code quality checks...${NC}\n"
+# Format code with black
+echo "🎨 Running black formatter..."
+poetry run black .
 
-# Format code
-echo -e "${YELLOW}Running black...${NC}"
-poetry run black . tests
-echo -e "${GREEN}Black passed!${NC}\n"
+# Sort imports with isort
+echo "📦 Running isort..."
+poetry run isort .
 
-echo -e "${YELLOW}Running isort...${NC}"
-poetry run isort . tests
-echo -e "${GREEN}Isort passed!${NC}\n"
+# Run ruff linter
+echo "🔍 Running ruff linter..."
+poetry run ruff check . --fix
 
-# Lint code
-echo -e "${YELLOW}Running ruff...${NC}"
-poetry run ruff check . tests
-echo -e "${GREEN}Ruff passed!${NC}\n"
+# Run mypy type checker
+echo "🔎 Running mypy type checker..."
+poetry run mypy .
 
-# Type check
-echo -e "${YELLOW}Running mypy...${NC}"
-poetry run mypy pepperpy
-echo -e "${GREEN}Mypy passed!${NC}\n"
+# Run pytest with coverage
+echo "🧪 Running tests with coverage..."
+poetry run pytest
 
-# Run tests
-echo -e "${YELLOW}Running tests...${NC}"
-poetry run pytest tests -v --cov=pepperpy --cov-report=term-missing
-echo -e "${GREEN}Tests passed!${NC}\n"
+# Validate project structure
+echo "🏗️ Validating project structure..."
+poetry run python scripts/structure/validate_structure.py
 
-echo -e "${GREEN}All checks passed!${NC}" 
+# Print summary
+echo "✨ All checks completed!" 

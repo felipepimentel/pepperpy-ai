@@ -85,15 +85,32 @@ structure:
         description: "Project structure management"
         status: required
         components:
-          export_structure.py:
-            purpose: "Export project structure"
-            status: active
-          validate_headers.py:
-            purpose: "Validate file headers"
-            status: active
-          check_duplicates.py:
-            purpose: "Check for duplicate files"
-            status: active
+          validate_structure.py:
+            purpose: "Validate project structure and dependencies"
+            status: required
+          dependency_graph.py:
+            purpose: "Generate and analyze dependency graphs"
+            status: required
+      maintenance/:
+        description: "Project maintenance scripts"
+        status: required
+        components:
+          imports.py:
+            purpose: "Update and manage imports"
+            status: required
+          clean.py:
+            purpose: "Clean temporary and cache files"
+            status: required
+      dev/:
+        description: "Development support scripts"
+        status: required
+        components:
+          test_runner.py:
+            purpose: "Run tests with proper configuration"
+            status: required
+          setup_env.py:
+            purpose: "Setup development environment"
+            status: required
   
   # Tests
   tests/:
@@ -106,6 +123,31 @@ structure:
       conftest.py:
         purpose: "Pytest configuration"
         status: required
+      providers/:
+        description: "Provider tests"
+        status: required
+      common/:
+        description: "Common utilities tests"
+        status: required
+      agents/:
+        description: "Agent tests"
+        status: pending
+  
+  # Assets
+  assets/:
+    description: "Project assets and resources"
+    status: required
+    components:
+      prompts/:
+        description: "AI prompts and templates"
+        status: required
+        components:
+          agents/:
+            description: "Agent-specific prompts"
+            status: required
+          providers/:
+            description: "Provider-specific prompts"
+            status: required
   
   # Documentation
   docs/:
