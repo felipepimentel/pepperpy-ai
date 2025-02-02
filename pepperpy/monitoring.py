@@ -23,6 +23,9 @@ if not logger.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
 
+# Export logger directly
+__all__ = ["logger"]
+
 
 # Structured logging helper
 def log_structured(level: int, message: str, **kwargs: Any) -> None:

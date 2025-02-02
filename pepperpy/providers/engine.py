@@ -87,9 +87,9 @@ class ProviderEngine:
 
         cls._providers[provider_type] = provider_class
         logger.info(
-            "Registered provider",
-            provider_type=provider_type,
-            provider_class=provider_class.__name__,
+            "Registered provider '%s' (class: %s)",
+            provider_type,
+            provider_class.__name__,
         )
 
     @classmethod
@@ -160,9 +160,9 @@ class ProviderEngine:
         provider = provider_class(config)
 
         logger.debug(
-            "Created provider instance",
-            provider_type=provider_type,
-            provider_class=provider_class.__name__,
+            "Created provider instance '%s' (class: %s)",
+            provider_type,
+            provider_class.__name__,
         )
 
         return provider

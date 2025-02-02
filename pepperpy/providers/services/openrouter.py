@@ -4,12 +4,14 @@ This module provides integration with OpenRouter's API for accessing
 various language models through a unified interface.
 """
 
+import json
 from collections.abc import AsyncGenerator
 
 import httpx
+from httpx import HTTPError
 
 from pepperpy.monitoring import logger
-from pepperpy.providers.domain import ProviderAPIError
+from pepperpy.providers.domain import ProviderAPIError, ProviderError
 from pepperpy.providers.provider import BaseProvider, ProviderConfig
 
 
@@ -85,6 +87,7 @@ class OpenRouterProvider(BaseProvider):
                 "/chat/completions",
                 headers=headers,
                 json=data,
+                timeout=self.config.timeout,
             )
             response.raise_for_status()
 
@@ -94,13 +97,16 @@ class OpenRouterProvider(BaseProvider):
                 data = response.json()
                 return data["choices"][0]["message"]["content"]
 
-        except httpx.HTTPError as e:
+        except HTTPError as e:
             logger.error(
-                "OpenRouter API error",
-                error=str(e),
-                status_code=getattr(e.response, "status_code", None),
+                "OpenRouter API request failed: %s (status: %s)",
+                str(e),
+                e.response.status_code if hasattr(e, "response") else "unknown",
             )
-            raise ProviderAPIError(f"OpenRouter API error: {e}")
+            raise ProviderError(
+                f"OpenRouter API request failed: {e!s}",
+                provider_type=self.config.provider_type,
+            ) from e
 
     async def _stream_response(
         self,
@@ -122,10 +128,10 @@ class OpenRouterProvider(BaseProvider):
                 continue
 
             try:
-                data = line[6:]  # Remove "data: " prefix
+                data = json.loads(line[6:])  # Remove "data: " prefix and parse JSON
                 chunk = data["choices"][0]["delta"]["content"]
                 if chunk:
                     yield chunk
             except Exception as e:
-                logger.error("Error parsing stream chunk", error=str(e))
+                logger.error("Error parsing stream chunk: %s", str(e))
                 continue

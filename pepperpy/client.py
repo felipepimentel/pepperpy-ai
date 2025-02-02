@@ -6,7 +6,7 @@ with automatic configuration and provider management.
 
 from collections.abc import AsyncGenerator
 
-from pepperpy.config.auto import AutoConfig
+from pepperpy.common.config import AutoConfig
 from pepperpy.providers.manager import ProviderManager
 from pepperpy.providers.services.openrouter import OpenRouterProvider
 

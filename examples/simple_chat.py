@@ -13,20 +13,31 @@ async def main():
     """Run the chat example."""
     # Create client (automatically loads from environment)
     async with PepperpyClient() as client:
-        print("Chat started! Type 'exit' to quit.")
+        print("Chat started! Running example messages...")
         print("-" * 50)
 
-        while True:
-            # Get user input
-            user_input = input("\nYou: ").strip()
-            if user_input.lower() == "exit":
-                break
+        # Lista de mensagens de exemplo
+        example_messages = [
+            "Olá! Como você está?",
+            "Me conte uma curiosidade interessante sobre tecnologia",
+            "Explique de forma simples como funciona a inteligência artificial",
+        ]
 
-            # Stream the response
+        for message in example_messages:
+            # Mostra a mensagem do usuário
+            print(f"\nYou: {message}")
+
+            # Stream da resposta
             print("\nAssistant: ", end="", flush=True)
-            async for chunk in client.chat_stream(user_input):
+            async for chunk in client.chat_stream(message):
                 print(chunk, end="", flush=True)
-            print()  # New line after response
+            print("\n")  # Nova linha após a resposta
+
+            # Pequena pausa entre as mensagens
+            await asyncio.sleep(1)
+
+        print("-" * 50)
+        print("Example chat completed!")
 
 
 if __name__ == "__main__":
