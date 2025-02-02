@@ -1,366 +1,131 @@
-"""OpenRouter provider implementation for the Pepperpy framework.
+"""OpenRouter provider implementation for Pepperpy.
 
-This module implements the OpenRouter provider, supporting chat completions and
-embeddings using OpenRouter's API. It handles streaming responses, rate limiting,
-and proper error propagation. OpenRouter provides access to multiple AI models
-through a single API.
-
-Example:
-    ```python
-    config = ProviderConfig(
-        provider_type="openrouter",
-        api_key="your-api-key",
-        model="your-chosen-model"
-    )
-    provider = OpenRouterProvider(config)
-    await provider.initialize()
-    response = await provider.complete("Hello, how are you?")
-    print(response)
-    ```
+This module provides integration with OpenRouter's API for accessing
+various language models through a unified interface.
 """
 
-# Standard library imports
-import json
-from collections.abc import AsyncGenerator, AsyncIterator
-from typing import Any
+from collections.abc import AsyncGenerator
 
-# Third-party imports
-import aiohttp
-from aiohttp import ClientSession, ClientTimeout
+import httpx
 
-# Local imports
 from pepperpy.monitoring import logger
-
-from ..domain import (
-    ProviderAPIError,
-    ProviderError,
-    ProviderInitError,
-    ProviderRateLimitError,
-)
-from ..provider import Provider, ProviderConfig
-
-# Type aliases
-JsonDict = dict[str, Any]
+from pepperpy.providers.domain import ProviderAPIError
+from pepperpy.providers.provider import BaseProvider, ProviderConfig
 
 
-class OpenRouterProvider(Provider):
-    """Provider implementation for OpenRouter AI API.
+class OpenRouterProvider(BaseProvider):
+    """Provider implementation for OpenRouter.
 
-    This provider implements the Provider protocol for OpenRouter's API, supporting:
-    - Chat completions with GPT-4 and other models
-    - Streaming responses
-    - Rate limit handling
-    - Proper error propagation
-
-    Attributes:
-        config (ProviderConfig): The provider configuration
-        BASE_URL (str): OpenRouter API base URL
+    This provider allows access to various language models through
+    OpenRouter's unified API.
     """
-
-    BASE_URL: str = "https://api.openrouter.ai/api/v1"
 
     def __init__(self, config: ProviderConfig) -> None:
         """Initialize the OpenRouter provider.
 
         Args:
-            config: Provider configuration containing API key and other settings
-
-        Note:
-            The provider is not ready for use until initialize() is called.
+            config: Provider configuration
         """
         super().__init__(config)
-        self._session: ClientSession | None = None
-        self._model: str = config.model or "anthropic/claude-3-opus-20240229"
-        self._timeout: ClientTimeout = ClientTimeout(total=config.timeout)
+        self._client: httpx.AsyncClient | None = None
 
     async def initialize(self) -> None:
-        """Initialize the OpenRouter client.
+        """Initialize the provider.
 
-        This method sets up the aiohttp session with the required headers
-        and authentication for OpenRouter's API.
-
-        Raises:
-            ProviderInitError: If initialization fails
+        Creates the HTTP client and validates configuration.
         """
-        try:
-            self._session = ClientSession(
-                timeout=self._timeout,
-                headers={
-                    "Authorization": f"Bearer {self.config.api_key}",
-                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
-                    "X-Title": "Pepperpy Framework",
-                },
-            )
-        except Exception as e:
-            raise ProviderInitError(
-                f"Failed to initialize OpenRouter provider: {e!s}",
-                provider_type="openrouter",
-                details={"error": str(e)},
-            ) from e
+        self._client = httpx.AsyncClient(
+            base_url="https://openrouter.ai/api/v1",
+            timeout=self.config.timeout,
+        )
 
     async def cleanup(self) -> None:
-        """Clean up resources by closing the aiohttp session."""
-        if self._session:
-            await self._session.close()
+        """Clean up provider resources."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
 
     async def complete(
         self,
         prompt: str,
         *,
         temperature: float = 0.7,
-        max_tokens: int | None = None,
         stream: bool = False,
-        **kwargs: Any,
     ) -> str | AsyncGenerator[str, None]:
-        """Complete a prompt using the OpenRouter API.
+        """Complete a prompt using OpenRouter.
 
         Args:
             prompt: The prompt to complete
-            temperature: Controls randomness (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
+            temperature: Sampling temperature
             stream: Whether to stream the response
-            **kwargs: Additional provider-specific parameters
 
         Returns:
-            Generated text or async generator of text chunks if streaming
+            Either a string response or an async generator for streaming
 
         Raises:
-            ProviderError: If the API call fails
+            ProviderAPIError: If the API call fails
         """
-        if not self._session:
-            raise ProviderError(
-                "Client not initialized",
-                provider_type=self.config.provider_type,
-            )
+        if not self._client:
+            raise ProviderAPIError("Provider not initialized")
 
-        payload = {
+        headers = {
+            "Authorization": f"Bearer {self.config.api_key.get_secret_value()}",
+            "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+        }
+
+        data = {
             "model": self.config.model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
             "stream": stream,
         }
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
 
         try:
+            response = await self._client.post(
+                "/chat/completions",
+                headers=headers,
+                json=data,
+            )
+            response.raise_for_status()
+
             if stream:
+                return self._stream_response(response)
+            else:
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
 
-                async def response_generator() -> AsyncGenerator[str, None]:
-                    session = self._session
-                    if not session:
-                        raise ProviderError(
-                            "Session lost during streaming",
-                            provider_type=self.config.provider_type,
-                        )
+        except httpx.HTTPError as e:
+            logger.error(
+                "OpenRouter API error",
+                error=str(e),
+                status_code=getattr(e.response, "status_code", None),
+            )
+            raise ProviderAPIError(f"OpenRouter API error: {e}")
 
-                    async with session.post(
-                        f"{self.BASE_URL}/chat/completions",
-                        json=payload,
-                        raise_for_status=False,
-                    ) as response:
-                        if response.status != 200:
-                            error_data = await response.json()
-                            raise ProviderError(
-                                "OpenRouter API error: "
-                                f"{error_data.get('error', 'Unknown error')}",
-                                provider_type=self.config.provider_type,
-                                details=error_data,
-                            )
-
-                        async for line in response.content:
-                            if not line:
-                                continue
-
-                            line_str = line.decode("utf-8").strip()
-                            if line_str.startswith("data: "):
-                                data = line_str[6:]
-                                if data == "[DONE]":
-                                    break
-
-                                try:
-                                    chunk = json.loads(data)
-                                    if content := chunk["choices"][0]["delta"].get(
-                                        "content"
-                                    ):
-                                        yield content
-                                except json.JSONDecodeError:
-                                    logger.warning(
-                                        "Failed to decode streaming response",
-                                        extra={"data": data},
-                                    )
-                                    continue
-
-                return response_generator()
-
-            session = self._session
-            if not session:
-                raise ProviderError(
-                    "Session lost during request",
-                    provider_type=self.config.provider_type,
-                )
-
-            async with session.post(
-                f"{self.BASE_URL}/chat/completions",
-                json=payload,
-                raise_for_status=False,
-            ) as response:
-                if response.status != 200:
-                    error_data = await response.json()
-                    raise ProviderError(
-                        "OpenRouter API error: "
-                        f"{error_data.get('error', 'Unknown error')}",
-                        provider_type=self.config.provider_type,
-                        details=error_data,
-                    )
-
-                data = await response.json()
-                if not isinstance(data, dict):
-                    raise ProviderError(
-                        "Invalid response format",
-                        provider_type=self.config.provider_type,
-                        details={"response": data},
-                    )
-                content = data.get("choices", [{}])[0].get("message", {}).get("content")
-                if not isinstance(content, str):
-                    raise ProviderError(
-                        "Invalid response content",
-                        provider_type=self.config.provider_type,
-                        details={"content": content},
-                    )
-                return content
-
-        except Exception as e:
-            raise ProviderError(
-                f"Failed to complete prompt: {e!s}",
-                provider_type=self.config.provider_type,
-                details={"error": str(e)},
-            ) from e
-
-    async def embed(self, text: str, **kwargs: Any) -> list[float]:
-        """Generate embeddings for text using OpenRouter.
+    async def _stream_response(
+        self,
+        response: httpx.Response,
+    ) -> AsyncGenerator[str, None]:
+        """Stream the response from OpenRouter.
 
         Args:
-            text: Text to generate embeddings for
-            **kwargs: Additional provider-specific parameters.
-                     The 'model' parameter can be used to specify the embedding model.
-
-        Returns:
-            List of floating point values representing the text embedding
-
-        Raises:
-            ProviderAPIError: If the embedding generation fails
-            ProviderInitError: If the session is not initialized
-            ProviderRateLimitError: If rate limit is exceeded
-
-        Example:
-            ```python
-            # Default model (Ada)
-            embedding = await provider.embed("Hello world")
-
-            # Custom model
-            embedding = await provider.embed(
-                "Hello world",
-                model="openai/text-embedding-ada-002"
-            )
-            ```
-        """
-        if not self._session:
-            raise ProviderInitError(
-                "OpenRouter provider not initialized", provider_type="openrouter"
-            )
-
-        payload: JsonDict = {
-            "model": kwargs.get("model", "openai/text-embedding-ada-002"),
-            "input": text,
-        }
-
-        try:
-            async with self._session.post(
-                f"{self.BASE_URL}/embeddings", json=payload, raise_for_status=False
-            ) as response:
-                if response.status != 200:
-                    error_data = await response.json()
-                    raise ProviderAPIError(
-                        "OpenRouter API error: "
-                        f"{error_data.get('error', 'Unknown error')}",
-                        provider_type="openrouter",
-                        details=error_data,
-                    )
-
-                data = await response.json()
-                embeddings: list[float] = data["data"][0]["embedding"]
-                return embeddings
-
-        except ProviderRateLimitError:
-            raise
-        except Exception as e:
-            raise ProviderAPIError(
-                f"OpenRouter embedding error: {e!s}",
-                provider_type="openrouter",
-                details={"error": str(e)},
-            ) from e
-
-    async def _stream_response(self, payload: JsonDict) -> AsyncIterator[str]:
-        """Stream response from OpenRouter.
-
-        Args:
-            payload: Request payload containing model, messages, and other parameters
+            response: The streaming response
 
         Yields:
-            Text chunks as they are generated by the model
-
-        Raises:
-            ProviderInitError: If session is not initialized
-            ProviderAPIError: If the API call fails
-            ProviderRateLimitError: If rate limit is exceeded
+            Text chunks as they are generated
         """
-        if not self._session:
-            raise ProviderInitError(
-                "OpenRouter provider not initialized", provider_type="openrouter"
-            )
+        async for line in response.aiter_lines():
+            if not line or line.startswith("data: [DONE]"):
+                continue
 
-        payload["stream"] = True
+            if not line.startswith("data: "):
+                continue
 
-        try:
-            async with self._session.post(
-                f"{self.BASE_URL}/chat/completions",
-                json=payload,
-                raise_for_status=False,
-            ) as response:
-                if response.status != 200:
-                    error_data = await response.json()
-                    raise ProviderAPIError(
-                        "OpenRouter API error: "
-                        f"{error_data.get('error', 'Unknown error')}",
-                        provider_type="openrouter",
-                        details=error_data,
-                    )
-
-                async for line_bytes in response.content.iter_any():
-                    line = line_bytes.decode("utf-8").strip()
-                    if not line:
-                        continue
-
-                    if line.startswith("data: "):
-                        data = line[6:]
-                        if data == "[DONE]":
-                            break
-
-                        try:
-                            chunk = json.loads(data)
-                            if content := chunk["choices"][0]["delta"].get("content"):
-                                yield content
-                        except json.JSONDecodeError:
-                            logger.warning(
-                                "Failed to decode streaming response", data=data
-                            )
-                            continue
-
-        except ProviderRateLimitError:
-            raise
-        except Exception as e:
-            raise ProviderAPIError(
-                f"OpenRouter streaming error: {e!s}",
-                provider_type="openrouter",
-                details={"error": str(e)},
-            ) from e
+            try:
+                data = line[6:]  # Remove "data: " prefix
+                chunk = data["choices"][0]["delta"]["content"]
+                if chunk:
+                    yield chunk
+            except Exception as e:
+                logger.error("Error parsing stream chunk", error=str(e))
+                continue

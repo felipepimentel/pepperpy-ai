@@ -254,3 +254,9 @@ class ProviderRateLimitError(ProviderAPIError):
         ...     details={"retry_after": 30}
         ... )
     """
+
+
+class ProviderAuthError(ProviderAPIError):
+    """Raised when provider authentication fails."""
+
+    pass

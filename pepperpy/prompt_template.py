@@ -12,8 +12,6 @@ import yaml
 from jinja2 import Environment, StrictUndefined, Template
 from pydantic import BaseModel
 
-from pepperpy.providers.provider import Provider
-
 
 @dataclass
 class PromptMetadata:
@@ -103,17 +101,6 @@ class PromptTemplate(BaseModel):
         except Exception as e:
             raise TemplateRenderError(f"Failed to render template: {e}") from e
 
-    def validate_template(self) -> None:
-        """Validate the template.
-
-        Raises:
-            TemplateValidationError: If validation fails.
-        """
-        try:
-            self.render({})
-        except TemplateRenderError as e:
-            raise TemplateValidationError("Template validation failed") from e
-
     @classmethod
     def load(
         cls,
@@ -140,7 +127,7 @@ class PromptTemplate(BaseModel):
 
         if not path.is_absolute():
             # Use module directory as base for relative paths
-            module_dir = Path(__file__).parent.parent
+            module_dir = Path(__file__).parent
             path = module_dir / "prompts" / path
 
         if not path.exists():
@@ -228,38 +215,3 @@ class PromptTemplate(BaseModel):
         )
 
         return template, metadata, context, validation
-
-    async def execute(
-        self,
-        provider: Provider,
-        **kwargs: Any,
-    ) -> str:
-        """Execute the prompt with the given provider.
-
-        Args:
-            provider: The provider to execute the prompt with
-            **kwargs: Variables to substitute in the template
-
-        Returns:
-            The generated response
-
-        Raises:
-            ValueError: If template formatting fails
-            Exception: If provider execution fails
-        """
-        formatted = self.render(kwargs)
-        response = await provider.complete(
-            formatted,
-            model=self.variables.get("model", ""),
-            temperature=self.variables.get("temperature", 0.0),
-        )
-
-        # Handle both string and async iterator responses
-        if isinstance(response, str):
-            return response
-
-        # If it's an async iterator, collect all chunks
-        chunks = []
-        async for chunk in response:
-            chunks.append(chunk)
-        return "".join(chunks)

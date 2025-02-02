@@ -224,7 +224,7 @@ class StackSpotProvider(Provider):
                         provider_type=self.config.provider_type,
                         details={"response": data},
                     )
-                content = data.get("choices", [{}])[0].get("message", {}).get("content")
+                content = data.get("choices", [{}])[0].get("message", {}).get("content")  # type: ignore
                 if not isinstance(content, str):
                     raise ProviderError(
                         "Invalid response content",

@@ -1,17 +1,7 @@
-"""Provider base class and configuration.
+"""Base provider interface and configuration for Pepperpy.
 
-This module defines the base Provider class that all providers must implement,
-along with the configuration model used to initialize providers.
-
-Example:
-    >>> from pepperpy.providers import Provider, ProviderConfig
-    >>> class MyProvider(Provider):
-    ...     async def initialize(self) -> None:
-    ...         # Provider-specific initialization
-    ...         pass
-    ...     async def complete(self, prompt: str) -> str:
-    ...         # Provider-specific completion
-    ...         return "Response"
+This module defines the base provider interface that all providers must implement,
+as well as the standard configuration structure.
 """
 
 # Standard library imports
@@ -20,7 +10,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import datetime
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar, Dict, Final
 
 # Third-party imports
 from pydantic import BaseModel, Field, SecretStr
@@ -31,46 +21,72 @@ from pepperpy.common.errors import ProviderConfigError, ProviderError
 from pepperpy.monitoring import logger
 
 
-class ProviderConfig(BaseSettings):
-    """Configuration for a provider.
+class ProviderConfig(BaseModel):
+    """Standard configuration for providers.
 
-    Attributes:
-        provider_type: The type of provider.
-        api_key: The API key for authentication.
-        model: The model to use.
-        max_retries: Maximum number of retries for failed requests.
-        timeout: Timeout in seconds for requests.
-        enabled_providers: List of enabled provider types.
-        rate_limits: Rate limits per provider type.
+    All providers must be configured using this standard structure to ensure
+    consistent configuration across different implementations.
     """
 
-    provider_type: str = Field(
-        description="Type of provider (e.g., 'openai', 'gemini')"
-    )
-    api_key: SecretStr = Field(description="API key for the provider")
-    model: str = Field(description="Model to use (provider-specific)")
-    max_retries: int = Field(
-        3, description="Maximum number of retries for failed calls", ge=0
-    )
-    timeout: int = Field(30, description="Request timeout in seconds", ge=1)
-    enabled_providers: list[str] = Field(
-        default_factory=list, description="List of enabled provider types"
-    )
-    rate_limits: dict[str, int] = Field(
-        default_factory=dict, description="Rate limits per provider type"
-    )
+    provider_type: str
+    api_key: SecretStr
+    model: str
+    max_retries: int = 3
+    timeout: int = 30
 
-    model_config = SettingsConfigDict(
-        env_prefix="PEPPERPY_PROVIDER__",
-        case_sensitive=False,
-        env_file=".env",
-        env_file_encoding="utf-8",
-        validate_assignment=True,
-        extra="allow",
-        env_nested_delimiter="__",
-        json_schema_extra={"examples": []},
-        secrets_dir=None,
-    )
+
+class BaseProvider(ABC):
+    """Base class for all providers.
+
+    All providers must inherit from this class and implement its abstract methods
+    to ensure consistent behavior across different implementations.
+    """
+
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize the provider.
+
+        Args:
+            config: Provider configuration
+        """
+        self.config = config
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        This method should handle any setup required before the provider
+        can be used, such as validating credentials or establishing connections.
+        """
+        pass
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method should handle proper cleanup of any resources used
+        by the provider, such as closing connections.
+        """
+        pass
+
+    @abstractmethod
+    async def complete(
+        self,
+        prompt: str,
+        *,
+        temperature: float = 0.7,
+        stream: bool = False,
+    ) -> str | AsyncGenerator[str, None]:
+        """Complete a prompt using this provider.
+
+        Args:
+            prompt: The prompt to complete
+            temperature: Sampling temperature
+            stream: Whether to stream the response
+
+        Returns:
+            Either a string response or an async generator for streaming
+        """
+        pass
 
 
 class Provider(ABC):

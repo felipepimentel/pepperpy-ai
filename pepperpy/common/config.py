@@ -4,12 +4,110 @@ This module handles configuration loading and validation for the Pepperpy framew
 It supports loading from environment variables and configuration files.
 """
 
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from pepperpy.monitoring import logger
+
+
+class AutoConfig(BaseModel):
+    """Automatic configuration from environment variables.
+
+    This class automatically loads and validates configuration from environment
+    variables, providing sensible defaults when possible.
+
+    Environment Variables:
+        PEPPERPY_API_KEY: Primary API key
+        PEPPERPY_PROVIDER: Provider type (default: openrouter)
+        PEPPERPY_MODEL: Model name (default: google/gemini-2.0-flash-exp:free)
+        PEPPERPY_FALLBACK_API_KEY: Fallback API key (optional)
+        PEPPERPY_FALLBACK_PROVIDER: Fallback provider type (optional)
+        PEPPERPY_FALLBACK_MODEL: Fallback model name (optional)
+    """
+
+    # Primary provider settings
+    api_key: SecretStr
+    provider_type: str = Field(default="openrouter")
+    model: str = Field(default="google/gemini-2.0-flash-exp:free")
+
+    # Fallback provider settings
+    fallback_api_key: SecretStr | None = None
+    fallback_provider_type: str | None = None
+    fallback_model: str | None = None
+
+    # Common settings
+    max_retries: int = Field(default=3)
+    timeout: int = Field(default=30)
+
+    @classmethod
+    def from_env(cls, load_dotenv_file: bool = True) -> "AutoConfig":
+        """Create configuration from environment variables.
+
+        Args:
+            load_dotenv_file: Whether to load .env file if present
+
+        Returns:
+            AutoConfig: Configured instance
+
+        Raises:
+            ValueError: If required environment variables are missing
+        """
+        if load_dotenv_file:
+            load_dotenv()
+
+        # Get required primary API key
+        api_key = os.getenv("PEPPERPY_API_KEY")
+        if not api_key:
+            raise ValueError("PEPPERPY_API_KEY environment variable is required")
+
+        # Get optional settings with defaults
+        provider_type = os.getenv("PEPPERPY_PROVIDER", "openrouter")
+        model = os.getenv("PEPPERPY_MODEL", "google/gemini-2.0-flash-exp:free")
+
+        # Get optional fallback settings
+        fallback_api_key = os.getenv("PEPPERPY_FALLBACK_API_KEY")
+        fallback_provider = os.getenv("PEPPERPY_FALLBACK_PROVIDER")
+        fallback_model = os.getenv("PEPPERPY_FALLBACK_MODEL")
+
+        return cls(
+            api_key=SecretStr(api_key),
+            provider_type=provider_type,
+            model=model,
+            fallback_api_key=SecretStr(fallback_api_key) if fallback_api_key else None,
+            fallback_provider_type=fallback_provider,
+            fallback_model=fallback_model,
+        )
+
+    def get_provider_config(self, is_fallback: bool = False) -> "ProviderConfig":
+        """Convert to ProviderConfig for provider initialization.
+
+        Args:
+            is_fallback: Whether to return fallback configuration
+
+        Returns:
+            ProviderConfig: Configuration for provider initialization
+
+        Raises:
+            ValueError: If trying to get fallback config when not configured
+        """
+        if is_fallback and not self.fallback_api_key:
+            raise ValueError("Fallback provider not configured")
+
+        return ProviderConfig(
+            provider_type=self.fallback_provider_type
+            if is_fallback
+            else self.provider_type,
+            api_key=self.fallback_api_key if is_fallback else self.api_key,
+            model=self.fallback_model if is_fallback else self.model,
+            max_retries=self.max_retries,
+            timeout=self.timeout,
+        )
 
 
 class AgentConfig(BaseModel):
@@ -189,7 +287,8 @@ def initialize_config(env_file: Path | None = None, **kwargs: Any) -> None:
 
     except FileNotFoundError:
         raise
-    except Exception:
+    except Exception as e:
+        logger.error("Failed to initialize config", error=str(e))
         # If initialization fails for other reasons, create a default configuration
         _config = PepperpyConfig.create_default()
         raise

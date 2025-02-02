@@ -4,6 +4,25 @@ description: "Multi-agent AI framework with modular architecture"
 
 structure:
   pepperpy:
+    __init__.py: "Package initialization and exports"
+    monitoring.py: "Centralized monitoring and logging"
+    prompt_template.py: "Prompt template management"
+    client.py: "Main client interface"
+
+    common:
+      __init__.py: "Common utilities initialization"
+      config.py: "Configuration management"
+      errors.py: "Error definitions"
+      utils.py: "Shared utilities"
+
+    providers:
+      __init__.py: "Provider system initialization"
+      provider.py: "Base provider interface"
+      domain.py: "Provider domain models"
+      services:
+        __init__.py: "Provider services initialization"
+        openrouter.py: "OpenRouter provider implementation"
+
     agents:
       __init__.py: "Agent module initialization"
       agent.py: "Base agent implementation"
@@ -85,13 +104,6 @@ structure:
       rag.py: "Retrieval Augmented Generation"
       fine_tuning.py: "Model fine-tuning"
       context.py: "Learning context"
-    
-    monitoring:
-      __init__.py: "Monitoring initialization"
-      logging.py: "Structured logging"
-      tracing.py: "Distributed tracing"
-      metrics.py: "Performance metrics"
-      alerts.py: "Alert management"
 
     runtime:
       __init__.py: "Runtime initialization"
@@ -104,13 +116,6 @@ structure:
       validation.py: "Input validation"
       sanitizer.py: "Data sanitization"
       rate_limiter.py: "Rate limiting"
-
-    common:
-      __init__.py: "Common utilities initialization"
-      config.py: "Configuration management"
-      logger.py: "Logging configuration"
-      errors.py: "Error definitions"
-      utils.py: "Shared utilities"
 
   tests:
     unit:
@@ -163,4 +168,23 @@ dependencies:
   optional:
     torch: "^2.0.0"
     transformers: "^4.35.0"
-    langchain: "^0.0.300" 
+    langchain: "^0.0.300"
+
+rules:
+  # File Creation
+  file_creation:
+    - "Only create directories when implementing related tasks"
+    - "All Python files must have proper headers"
+    - "Follow naming conventions defined in rules"
+  
+  # Structure Evolution
+  evolution:
+    - "Update structure when starting new tasks"
+    - "Keep documentation in sync with changes"
+    - "Validate structure before commits"
+  
+  # Validation
+  validation:
+    - "Run structure validation scripts"
+    - "Check for duplicate files"
+    - "Verify file headers" 
