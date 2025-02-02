@@ -206,7 +206,7 @@ class StructureValidator:
         Args:
             root: Root directory of the project.
         """
-        self.root = root or Path(__file__).parent.parent.parent
+        self.root = root or Path(__file__).parent.parent
         self.config = self._load_config()
         self.stats: dict[str, ValidationStats] = {}
         self.errors: list[str] = []
@@ -234,7 +234,7 @@ class StructureValidator:
             FileNotFoundError: If config file not found.
             yaml.YAMLError: If config file is invalid.
         """
-        config_path = self.root / "docs" / "project_structure.yml"
+        config_path = self.root / ".product" / "project_structure.yml"
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
         with open(config_path) as f:
@@ -392,7 +392,7 @@ class StructureValidator:
         else:
             print(
                 "Please ensure your project structure and dependencies match "
-                "docs/project_structure.yml"
+                ".product/project_structure.yml"
             )
 
 
@@ -469,8 +469,8 @@ def validate_structure(root_path: Path, config: dict) -> bool:
 def main() -> None:
     """Main entry point."""
     try:
-        root_path = Path(__file__).parent.parent.parent
-        config_path = root_path / "docs" / "project_structure.yml"
+        root_path = Path(__file__).parent.parent  # Only go up two levels
+        config_path = root_path / ".product" / "project_structure.yml"
 
         print(f"Loading config from: {config_path}")
         with open(config_path) as f:

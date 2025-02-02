@@ -36,6 +36,9 @@ ignore = [
 ] # Optional embedding providers
 "pepperpy/providers/**/*" = ["F401", "F403"] # Optional LLM providers
 "pepperpy/teams/providers/**/*" = ["F401", "F403"] # Optional team providers
+"pepperpy/providers/provider.py" = [
+    "N805",
+] # Allow cls as first param for Pydantic validators
 
 [lint.mccabe]
 max-complexity = 10

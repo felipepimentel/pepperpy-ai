@@ -49,21 +49,21 @@ repos:
     hooks:
       - id: validate-structure
         name: validate-structure
-        entry: python scripts/structure/validate_structure.py
+        entry: python scripts/validate_structure.py
         language: python
         pass_filenames: false
         always_run: true
       
       - id: validate-headers
         name: validate-headers
-        entry: python scripts/structure/validate_headers.py
+        entry: python scripts/validate_headers.py
         language: python
         pass_filenames: false
         always_run: true
       
       - id: check-duplicates
         name: check-duplicates
-        entry: python scripts/structure/check_duplicates.py
+        entry: python scripts/check_duplicates.py
         language: python
         pass_filenames: false
         always_run: true 

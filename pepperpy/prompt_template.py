@@ -12,6 +12,8 @@ import yaml
 from jinja2 import Environment, StrictUndefined, Template
 from pydantic import BaseModel
 
+from pepperpy.providers.provider import Provider
+
 
 @dataclass
 class PromptMetadata:
@@ -100,6 +102,36 @@ class PromptTemplate(BaseModel):
             return self._jinja_template.render(**render_context)
         except Exception as e:
             raise TemplateRenderError(f"Failed to render template: {e}") from e
+
+    async def execute(
+        self, provider: "Provider", context: dict[str, Any] | None = None
+    ) -> str:
+        """Execute the template using the provided provider.
+
+        Args:
+            provider: The provider to use for completion.
+            context: Optional additional context for template rendering.
+
+        Returns:
+            The completion result from the provider.
+
+        Raises:
+            TemplateRenderError: If template rendering fails.
+        """
+        render_context = context or {}
+        prompt = self.render(render_context)
+        model = self.variables.get("model")
+        temperature = self.variables.get("temperature", 0.7)
+
+        kwargs = {"stream": False}  # Ensure we get a string response
+        if model:
+            kwargs["model"] = model
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+
+        result = await provider.complete(prompt, **kwargs)
+        assert isinstance(result, str)  # Type narrowing for mypy
+        return result
 
     @classmethod
     def load(

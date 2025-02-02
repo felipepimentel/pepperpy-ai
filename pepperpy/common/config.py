@@ -10,10 +10,12 @@ from typing import Any
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pepperpy.common.errors import ConfigError
 from pepperpy.monitoring import logger
+from pepperpy.providers.provider import ProviderConfig as BaseProviderConfig
 
 
 class AutoConfig(BaseModel):
@@ -96,15 +98,18 @@ class AutoConfig(BaseModel):
         Raises:
             ValueError: If trying to get fallback config when not configured
         """
-        if is_fallback and not self.fallback_api_key:
-            raise ValueError("Fallback provider not configured")
+        if is_fallback:
+            if not self.fallback_api_key or not self.fallback_provider_type:
+                raise ValueError("Fallback provider not configured")
 
         return ProviderConfig(
-            provider_type=self.fallback_provider_type
-            if is_fallback
-            else self.provider_type,
+            provider_type=(
+                self.fallback_provider_type if is_fallback else self.provider_type
+            )
+            or "openai",  # Default to openai if None
             api_key=self.fallback_api_key if is_fallback else self.api_key,
-            model=self.fallback_model if is_fallback else self.model,
+            model=(self.fallback_model if is_fallback else self.model)
+            or "gpt-3.5-turbo",  # Default model if None
             max_retries=self.max_retries,
             timeout=self.timeout,
         )
@@ -137,21 +142,22 @@ class MemoryConfig(BaseModel):
         return cls()
 
 
-class ProviderConfig(BaseModel):
+class ProviderConfig(BaseProviderConfig):
     """Provider configuration."""
 
-    provider_type: str = "openai"
-    api_key: SecretStr | None = None
-    model: str = "gpt-3.5-turbo"
-    timeout: int = Field(default=30, gt=0)
-    max_retries: int = Field(default=3, ge=0)
-    enabled_providers: list[str] = Field(default_factory=list)
-    rate_limits: dict[str, int] = Field(default_factory=dict)
+    provider_type: str = Field(default="openai", min_length=1)
+    model: str = Field(default="gpt-3.5-turbo")
+    enabled_providers: list[str] = Field(default_factory=lambda: [])
+    rate_limits: dict[str, int] = Field(default_factory=lambda: {})
 
     @classmethod
     def create_default(cls) -> "ProviderConfig":
         """Create default provider configuration."""
-        return cls()
+        return cls(
+            provider_type="openai",
+            api_key=SecretStr("default-key"),
+            model="gpt-3.5-turbo",
+        )
 
 
 class PepperpyConfig(BaseSettings):
@@ -168,7 +174,13 @@ class PepperpyConfig(BaseSettings):
     debug: bool = False
     agent: AgentConfig = Field(default_factory=AgentConfig)
     memory: MemoryConfig = Field(default_factory=MemoryConfig)
-    provider: ProviderConfig = Field(default_factory=ProviderConfig)
+    provider: ProviderConfig = Field(
+        default_factory=lambda: ProviderConfig(
+            provider_type="openai",
+            api_key=SecretStr("default-key"),
+            model="gpt-3.5-turbo",
+        )
+    )
 
     @classmethod
     def create_default(cls) -> "PepperpyConfig":
@@ -178,7 +190,11 @@ class PepperpyConfig(BaseSettings):
             debug=False,
             agent=AgentConfig.create_default(),
             memory=MemoryConfig.create_default(),
-            provider=ProviderConfig.create_default(),
+            provider=ProviderConfig(
+                provider_type="openai",
+                api_key=SecretStr("default-key"),
+                model="gpt-3.5-turbo",
+            ),
         )
 
 
@@ -288,10 +304,20 @@ def initialize_config(env_file: Path | None = None, **kwargs: Any) -> None:
     except FileNotFoundError:
         raise
     except Exception as e:
-        logger.error("Failed to initialize config", error=str(e))
+        logger.error("Failed to initialize config", extra={"error": str(e)})
         # If initialization fails for other reasons, create a default configuration
         _config = PepperpyConfig.create_default()
         raise
+
+    try:
+        if isinstance(_config, PepperpyConfig):
+            _config.model_dump()  # Validate the config
+    except ValidationError as e:
+        logger.error(
+            "Configuration validation failed",
+            extra={"error": str(e)},
+        )
+        raise ConfigError(f"Configuration validation failed: {e}") from e
 
 
 def get_config() -> PepperpyConfig:

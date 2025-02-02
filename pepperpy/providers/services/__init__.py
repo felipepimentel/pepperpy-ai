@@ -7,7 +7,7 @@ This module also provides common functionality for provider implementations,
 reducing code duplication and standardizing error handling.
 """
 
-from typing import Final
+from typing import Final, cast
 
 from pepperpy.common.errors import ProviderError
 from pepperpy.monitoring import logger
@@ -42,8 +42,9 @@ def register_providers() -> dict[str, type[Provider]]:
     try:
         from .openai import OpenAIProvider
 
-        ProviderEngine.register_provider(OPENAI, OpenAIProvider)
-        registered[OPENAI] = OpenAIProvider
+        provider_class = cast(type[Provider], OpenAIProvider)
+        ProviderEngine.register_provider(OPENAI, provider_class)
+        registered[OPENAI] = provider_class
     except ImportError as e:
         raise ProviderInitError(f"Required provider 'openai' not available: {e}") from e
 
@@ -51,29 +52,37 @@ def register_providers() -> dict[str, type[Provider]]:
     try:
         from .gemini import GeminiProvider
 
-        ProviderEngine.register_provider(GEMINI, GeminiProvider)
-        registered[GEMINI] = GeminiProvider
-    except ImportError as e:
-        logger.warning("Optional provider not available", provider=GEMINI, error=str(e))
-
-    try:
-        from .openrouter import OpenRouterProvider
-
-        ProviderEngine.register_provider(OPENROUTER, OpenRouterProvider)
-        registered[OPENROUTER] = OpenRouterProvider
+        provider_class = cast(type[Provider], GeminiProvider)
+        ProviderEngine.register_provider(GEMINI, provider_class)
+        registered[GEMINI] = provider_class
     except ImportError as e:
         logger.warning(
-            "Optional provider not available", provider=OPENROUTER, error=str(e)
+            "Optional provider not available",
+            extra={"provider": GEMINI, "error": str(e)},
+        )
+
+    try:
+        from pepperpy.providers.services.openrouter import OpenRouterProvider
+
+        provider_class = cast(type[Provider], OpenRouterProvider)
+        ProviderEngine.register_provider(OPENROUTER, provider_class)
+        registered[OPENROUTER] = provider_class
+    except ImportError as e:
+        logger.warning(
+            "Failed to import OpenRouter provider",
+            extra={"error": str(e)},
         )
 
     try:
         from .stackspot import StackSpotProvider
 
-        ProviderEngine.register_provider(STACKSPOT, StackSpotProvider)
-        registered[STACKSPOT] = StackSpotProvider
+        provider_class = cast(type[Provider], StackSpotProvider)
+        ProviderEngine.register_provider(STACKSPOT, provider_class)
+        registered[STACKSPOT] = provider_class
     except ImportError as e:
         logger.warning(
-            "Optional provider not available", provider=STACKSPOT, error=str(e)
+            "Optional provider not available",
+            extra={"provider": STACKSPOT, "error": str(e)},
         )
 
     return registered

@@ -9,7 +9,7 @@ import asyncio
 from pepperpy import PepperpyClient
 
 
-async def main():
+async def main() -> None:
     """Run the chat example."""
     # Create client (automatically loads from environment)
     async with PepperpyClient() as client:
@@ -27,11 +27,11 @@ async def main():
             # Mostra a mensagem do usuário
             print(f"\nYou: {message}")
 
-            # Stream da resposta
+            # Get response
             print("\nAssistant: ", end="", flush=True)
-            async for chunk in client.chat_stream(message):
-                print(chunk, end="", flush=True)
-            print("\n")  # Nova linha após a resposta
+            response = await client.chat(message)
+            print(response)
+            print()  # Nova linha após a resposta
 
             # Pequena pausa entre as mensagens
             await asyncio.sleep(1)

@@ -10,10 +10,10 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, AsyncIterator
 from datetime import datetime
-from typing import Any, ClassVar, Dict, Final
+from typing import Any, ClassVar, Final, Optional
 
 # Third-party imports
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Local imports
@@ -22,17 +22,50 @@ from pepperpy.monitoring import logger
 
 
 class ProviderConfig(BaseModel):
-    """Standard configuration for providers.
+    """Configuration for a provider."""
 
-    All providers must be configured using this standard structure to ensure
-    consistent configuration across different implementations.
-    """
+    provider_type: str = Field(description="The type of provider")
+    api_key: SecretStr | None = Field(
+        default=None, description="The API key for the provider"
+    )
+    model: str = Field(description="The model to use")
+    max_retries: int = Field(
+        default=3, ge=0, description="Maximum number of retries for failed requests"
+    )
+    timeout: int = Field(default=30, gt=0, description="Request timeout in seconds")
+    extra_config: dict[str, Any] = Field(default_factory=dict)
 
-    provider_type: str
-    api_key: SecretStr
-    model: str
-    max_retries: int = 3
-    timeout: int = 30
+    @field_validator("provider_type")
+    def validate_provider_type(cls, v: str) -> str:
+        """Validate provider type.
+
+        Args:
+            v: The provider type.
+
+        Returns:
+            The provider type.
+
+        Raises:
+            ValueError: If provider type is empty.
+        """
+        if not v:
+            raise ValueError("Provider type cannot be empty")
+        return v
+
+    @field_validator("api_key")
+    def validate_api_key(cls, v: SecretStr) -> SecretStr:
+        """Validate API key.
+
+        Args:
+            v: The API key.
+
+        Returns:
+            The API key.
+
+        Raises:
+            ValueError: If API key is required but empty.
+        """
+        return v
 
 
 class BaseProvider(ABC):
@@ -103,7 +136,7 @@ class Provider(ABC):
 
         Raises:
             ValueError: If config is None.
-            ProviderConfigError: If required fields are missing.
+            ProviderError: If required fields are missing.
 
         Example:
             >>> config = ProviderConfig(
@@ -115,18 +148,14 @@ class Provider(ABC):
         if not config:
             raise ValueError("Config cannot be None")
 
-        if not config.api_key or not config.api_key.get_secret_value():
+        if not config.provider_type:
+            raise ValueError("Provider type cannot be empty")
+
+        if not config.api_key:
             raise ProviderError(
                 "API key is required",
                 provider_type=config.provider_type,
                 details={"field": "api_key"},
-            )
-
-        if not config.provider_type:
-            raise ProviderError(
-                "Provider type is required",
-                provider_type=config.provider_type,
-                details={"field": "provider_type"},
             )
 
         self.config = config
@@ -136,9 +165,8 @@ class Provider(ABC):
         logger.debug(
             "Provider instance created",
             extra={
-                "provider_type": config.provider_type,
-                "model": config.model,
-                "timeout": config.timeout,
+                "provider_type": self.config.provider_type,
+                "model": self.config.model,
             },
         )
 

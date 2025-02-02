@@ -142,13 +142,14 @@ async def test_gemini_complete_api_error(
 @pytest.mark.asyncio
 async def test_gemini_embed(
     provider: GeminiProvider,
+    mock_client: AsyncMock,
 ) -> None:
     """Test Gemini embedding."""
     mock_embedding = [0.1, 0.2, 0.3]
     mock_response = {"embedding": mock_embedding}
 
     with patch(
-        "pepperpy.providers.services.gemini.embed_content",
+        "google.generativeai.embed_content",
         return_value=mock_response,
     ):
         embedding = await provider.embed("Hello")
@@ -158,17 +159,18 @@ async def test_gemini_embed(
 @pytest.mark.asyncio
 async def test_gemini_embed_error(
     provider: GeminiProvider,
+    mock_client: AsyncMock,
 ) -> None:
     """Test Gemini embedding error."""
     error_msg = "Embedding error"
 
     with patch(
-        "pepperpy.providers.services.gemini.embed_content",
+        "google.generativeai.embed_content",
         side_effect=Exception(error_msg),
     ):
         with pytest.raises(ProviderAPIError) as exc_info:
             await provider.embed("Hello")
-        assert str(exc_info.value) == f"Gemini embedding error: {error_msg}"
+        assert str(exc_info.value) == f"Gemini API error: {error_msg}"
         assert exc_info.value.provider_type == "gemini"
         assert exc_info.value.details == {"error": error_msg}
 
@@ -235,3 +237,74 @@ async def test_complete_with_options(
     assert call_args[1]["generation_config"].temperature == 0.5
     assert call_args[1]["generation_config"].max_output_tokens == 50
     assert call_args[1]["stream"] is False
+
+
+@pytest.fixture
+async def gemini_provider() -> AsyncGenerator[GeminiProvider, None]:
+    """Create a Gemini provider instance.
+
+    Returns:
+        An initialized Gemini provider instance.
+
+    Yields:
+        The Gemini provider instance.
+    """
+    config = ProviderConfig(
+        provider_type="gemini",
+        api_key=SecretStr("test-key"),
+        model="gemini-pro",
+    )
+    provider = GeminiProvider(config)
+    await provider.initialize()
+    yield provider
+    await provider.cleanup()
+
+
+async def test_gemini_provider_initialization() -> None:
+    """Test Gemini provider initialization."""
+    config = ProviderConfig(
+        provider_type="gemini",
+        api_key=SecretStr("test-key"),
+        model="gemini-pro",
+    )
+    provider = GeminiProvider(config)
+    await provider.initialize()
+    assert provider._client is not None
+    await provider.cleanup()
+
+
+async def test_gemini_provider_initialization_no_api_key() -> None:
+    """Test Gemini provider initialization without API key."""
+    config = ProviderConfig(provider_type="gemini", model="gemini-pro")
+    provider = GeminiProvider(config)
+    with pytest.raises(ProviderInitError):
+        await provider.initialize()
+
+
+async def test_gemini_provider_completion(gemini_provider: GeminiProvider) -> None:
+    """Test Gemini provider completion."""
+    response = await gemini_provider.complete("test prompt")
+    assert isinstance(response, str)
+
+
+async def test_gemini_provider_streaming(gemini_provider: GeminiProvider) -> None:
+    """Test Gemini provider streaming."""
+    response = await gemini_provider.complete("test prompt", stream=True)
+    assert isinstance(response, AsyncGenerator)
+
+    chunks = []
+    async for chunk in response:
+        chunks.append(chunk)
+        assert isinstance(chunk, str)
+
+
+async def test_gemini_provider_completion_not_initialized() -> None:
+    """Test Gemini provider completion without initialization."""
+    config = ProviderConfig(
+        provider_type="gemini",
+        api_key=SecretStr("test-key"),
+        model="gemini-pro",
+    )
+    provider = GeminiProvider(config)
+    with pytest.raises(ProviderInitError):
+        await provider.complete("test prompt")

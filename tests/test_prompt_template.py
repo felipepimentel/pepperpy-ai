@@ -9,7 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 # Local imports
-from pepperpy.prompts.template import (
+from pepperpy.prompt_template import (
     PromptTemplate,
 )
 from pepperpy.providers.provider import Provider
@@ -101,5 +101,5 @@ async def test_prompt_template_execute() -> None:
     result = await template.execute(mock_provider)
     assert result == "Hello test!"
     mock_provider.complete.assert_called_once_with(
-        "Hello test!", model="test-model", temperature=0.7
+        "Hello test!", stream=False, model="test-model", temperature=0.7
     )

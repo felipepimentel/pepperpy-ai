@@ -26,6 +26,14 @@ class PepperpyError(Exception):
         self.details = details or {}
 
 
+class ConfigError(PepperpyError):
+    """Raised when configuration is invalid.
+
+    Example:
+        >>> raise ConfigError("Invalid configuration", details={"field": "api_key"})
+    """
+
+
 class ProviderError(PepperpyError):
     """Base class for provider-related errors.
 

@@ -12,7 +12,11 @@ from openai.types.chat import ChatCompletionChunk
 from pydantic import SecretStr
 
 from pepperpy.common.errors import ProviderError
-from pepperpy.providers.domain import ProviderAPIError, ProviderRateLimitError
+from pepperpy.providers.domain import (
+    ProviderAPIError,
+    ProviderInitError,
+    ProviderRateLimitError,
+)
 from pepperpy.providers.provider import ProviderConfig
 from pepperpy.providers.services.openai import OpenAIProvider
 
@@ -51,14 +55,12 @@ class MockAsyncIterator:
 
 
 @pytest.fixture
-def provider_config() -> ProviderConfig:
-    """Create a test provider config."""
+def openai_config() -> ProviderConfig:
+    """Provide OpenAI test configuration."""
     return ProviderConfig(
         provider_type="openai",
         api_key=SecretStr("test-key"),
-        model="gpt-4",
-        max_retries=3,
-        timeout=30,
+        model="gpt-3.5-turbo",
     )
 
 
@@ -93,7 +95,7 @@ async def mock_client() -> AsyncMock:
 
 @pytest_asyncio.fixture
 async def provider(
-    provider_config: ProviderConfig,
+    openai_config: ProviderConfig,
     mock_client: AsyncMock,
 ) -> AsyncGenerator[OpenAIProvider, None]:
     """Create and initialize test provider."""
@@ -101,7 +103,7 @@ async def provider(
         "pepperpy.providers.services.openai.AsyncOpenAI",
         return_value=mock_client,
     ):
-        provider = OpenAIProvider(provider_config)
+        provider = OpenAIProvider(openai_config)
         await provider.initialize()
         try:
             yield provider
@@ -117,8 +119,6 @@ def test_initialization_with_defaults() -> None:
         model="gpt-3.5-turbo",
         max_retries=3,
         timeout=30,
-        enabled_providers=["openai"],
-        rate_limits={"openai": 100},
     )
     provider = OpenAIProvider(config)
     assert provider.config.model == "gpt-3.5-turbo"
@@ -132,8 +132,6 @@ def test_initialization_error() -> None:
         api_key=SecretStr(""),  # Empty API key should raise error
         max_retries=3,
         timeout=30,
-        enabled_providers=["openai"],
-        rate_limits={"openai": 100},
     )
     with pytest.raises(ProviderError) as exc_info:
         OpenAIProvider(config)
@@ -298,3 +296,74 @@ async def test_cleanup_not_initialized() -> None:
         )
     )
     await provider.cleanup()  # Should not raise any errors
+
+
+@pytest.fixture
+async def openai_provider() -> AsyncGenerator[OpenAIProvider, None]:
+    """Create an OpenAI provider instance.
+
+    Returns:
+        An initialized OpenAI provider instance.
+
+    Yields:
+        The OpenAI provider instance.
+    """
+    config = ProviderConfig(
+        provider_type="openai",
+        api_key=SecretStr("test-key"),
+        model="gpt-3.5-turbo",
+    )
+    provider = OpenAIProvider(config)
+    await provider.initialize()
+    yield provider
+    await provider.cleanup()
+
+
+async def test_openai_provider_initialization() -> None:
+    """Test OpenAI provider initialization."""
+    config = ProviderConfig(
+        provider_type="openai",
+        api_key=SecretStr("test-key"),
+        model="gpt-3.5-turbo",
+    )
+    provider = OpenAIProvider(config)
+    await provider.initialize()
+    assert provider._client is not None
+    await provider.cleanup()
+
+
+async def test_openai_provider_initialization_no_api_key() -> None:
+    """Test OpenAI provider initialization without API key."""
+    config = ProviderConfig(provider_type="openai", model="gpt-3.5-turbo")
+    provider = OpenAIProvider(config)
+    with pytest.raises(ProviderInitError):
+        await provider.initialize()
+
+
+async def test_openai_provider_completion(openai_provider: OpenAIProvider) -> None:
+    """Test OpenAI provider completion."""
+    response = await openai_provider.complete("test prompt")
+    assert isinstance(response, str)
+
+
+async def test_openai_provider_streaming(openai_provider: OpenAIProvider) -> None:
+    """Test OpenAI provider streaming."""
+    response = await openai_provider.complete("test prompt", stream=True)
+    assert isinstance(response, AsyncGenerator)
+
+    chunks = []
+    async for chunk in response:
+        chunks.append(chunk)
+        assert isinstance(chunk, str)
+
+
+async def test_openai_provider_completion_not_initialized() -> None:
+    """Test OpenAI provider completion without initialization."""
+    config = ProviderConfig(
+        provider_type="openai",
+        api_key=SecretStr("test-key"),
+        model="gpt-3.5-turbo",
+    )
+    provider = OpenAIProvider(config)
+    with pytest.raises(ProviderInitError):
+        await provider.complete("test prompt")

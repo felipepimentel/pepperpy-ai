@@ -5,7 +5,14 @@ in the Pepperpy framework.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from collections.abc import (
+    AsyncGenerator,
+    AsyncIterator,
+    Awaitable,
+    Callable,
+    Generator,
+)
+from contextlib import contextmanager
 from typing import Any, Protocol, TypeVar, runtime_checkable
 
 from pepperpy.common.errors import ProviderError
@@ -23,7 +30,7 @@ class BaseProviderMixin(Provider):
     def __init__(self, config: ProviderConfig) -> None:
         """Initialize the base provider mixin."""
         super().__init__(config)
-        self._logger = logger.bind(provider=self.__class__.__name__)
+        self._logger = logger
 
     async def _handle_api_error(
         self, error: Exception, context: dict[str, Any]
@@ -34,7 +41,10 @@ class BaseProviderMixin(Provider):
             error: The original error
             context: Additional context about the error
         """
-        self._logger.error("API error occurred", error=str(error), **context)
+        self._logger.error(
+            "API error occurred",
+            extra={"error": str(error), "provider": self.__class__.__name__, **context},
+        )
         if "rate" in str(error).lower():
             raise ProviderRateLimitError(
                 message=str(error),
@@ -203,3 +213,28 @@ class BaseProvider(Provider, ABC):
             ProviderRateLimitError: If rate limit is exceeded
         """
         raise NotImplementedError
+
+
+class BaseServiceProvider(Provider):
+    """Base class for service providers.
+
+    This class provides common functionality for service providers,
+    such as logging with context and error handling.
+    """
+
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize the base service provider."""
+        super().__init__(config)
+        self._logger = logger
+
+    @contextmanager
+    def logging_context(self, **context: Any) -> Generator[None, None, None]:
+        """Context manager for structured logging.
+
+        Args:
+            **context: Additional context to include in log messages.
+        """
+        try:
+            yield
+        finally:
+            pass

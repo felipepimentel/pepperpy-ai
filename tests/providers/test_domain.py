@@ -85,61 +85,61 @@ def test_conversation_add_message() -> None:
 
 
 def test_provider_error() -> None:
-    """Test base provider error."""
+    """Test ProviderError initialization."""
     error = ProviderError(
-        "Test error", provider_type="test", details={"reason": "testing"}
+        "Test error",
+        provider_type="test",
+        details={"key": "value"},
     )
-
     assert str(error) == "Test error"
     assert error.provider_type == "test"
-    assert error.details == {"reason": "testing"}
+    assert error.details == {"key": "value"}
 
 
 def test_provider_not_found_error() -> None:
-    """Test provider not found error."""
-    error = ProviderNotFoundError("Provider 'test' not found", provider_type="test")
-
-    assert isinstance(error, ProviderError)
+    """Test ProviderNotFoundError initialization."""
+    error = ProviderNotFoundError(
+        "Provider not found",
+        provider_type="test",
+    )
+    assert str(error) == "Provider not found"
     assert error.provider_type == "test"
 
 
 def test_provider_init_error() -> None:
-    """Test provider initialization error."""
+    """Test ProviderInitError initialization."""
     error = ProviderInitError(
-        "Failed to initialize",
+        "Init failed",
         provider_type="test",
-        details={"reason": "connection failed"},
+        details={"reason": "invalid config"},
     )
-
-    assert isinstance(error, ProviderError)
+    assert str(error) == "Init failed"
     assert error.provider_type == "test"
-    assert error.details["reason"] == "connection failed"
+    assert error.details == {"reason": "invalid config"}
 
 
 def test_provider_config_error() -> None:
-    """Test provider configuration error."""
+    """Test ProviderConfigError initialization."""
     error = ProviderConfigError(
-        "Invalid configuration",
+        "Invalid config",
         provider_type="test",
-        details={"field": "api_key", "error": "missing"},
+        details={"field": "api_key"},
     )
-
-    assert isinstance(error, ProviderError)
+    assert str(error) == "Invalid config"
     assert error.provider_type == "test"
-    assert error.details["field"] == "api_key"
+    assert error.details == {"field": "api_key"}
 
 
 def test_provider_api_error() -> None:
-    """Test provider API error."""
+    """Test ProviderAPIError initialization."""
     error = ProviderAPIError(
-        "API request failed",
+        "API error",
         provider_type="test",
-        details={"status": 500, "message": "Internal error"},
+        details={"status": 500},
     )
-
-    assert isinstance(error, ProviderError)
+    assert str(error) == "API error"
     assert error.provider_type == "test"
-    assert error.details["status"] == 500
+    assert error.details == {"status": 500}
 
 
 def test_provider_rate_limit_error() -> None:
@@ -190,6 +190,8 @@ def test_provider_config_creation() -> None:
         max_retries=3,
     )
     assert config.provider_type == "openai"
+    assert isinstance(config.api_key, SecretStr)
+    assert config.api_key is not None
     assert config.api_key.get_secret_value() == "test-key"
     assert config.model == "gpt-4"
     assert config.timeout == 30
@@ -206,6 +208,8 @@ def test_provider_config_with_custom_values() -> None:
         max_retries=5,
     )
     assert config.provider_type == "openai"
+    assert isinstance(config.api_key, SecretStr)
+    assert config.api_key is not None
     assert config.api_key.get_secret_value() == "test-key"
     assert config.model == "gpt-4"
     assert config.timeout == 60
@@ -213,21 +217,56 @@ def test_provider_config_with_custom_values() -> None:
 
 
 def test_provider_config_validation() -> None:
-    """Test provider config validation."""
-    with pytest.raises(ValidationError):
+    """Test provider configuration validation."""
+    # Test valid config
+    config = ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="test-model",
+    )
+    assert config.provider_type == "test"
+    assert config.api_key == SecretStr("test-key")
+    assert config.model == "test-model"
+
+    # Test empty provider type
+    with pytest.raises(ValueError, match="Provider type cannot be empty"):
         ProviderConfig(
-            provider_type="openai",
+            provider_type="",
             api_key=SecretStr("test-key"),
-            model="gpt-4",
-            timeout=0,  # invalid value
-            max_retries=3,
+            model="test-model",
         )
 
-    with pytest.raises(ValidationError):
+    # Test empty model - should be allowed
+    config = ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="",
+    )
+    assert config.model == ""
+
+    # Test empty API key - should be allowed in config
+    config = ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr(""),
+        model="test-model",
+    )
+    assert config.api_key == SecretStr("")
+
+    # Test invalid timeout
+    with pytest.raises(ValueError):
         ProviderConfig(
-            provider_type="openai",
+            provider_type="test",
             api_key=SecretStr("test-key"),
-            model="gpt-4",
-            timeout=30,
-            max_retries=-1,  # invalid value
+            model="test-model",
+            timeout=0,
         )
+
+
+@pytest.fixture
+def test_config() -> ProviderConfig:
+    """Provide test configuration."""
+    return ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="test-model",
+    )

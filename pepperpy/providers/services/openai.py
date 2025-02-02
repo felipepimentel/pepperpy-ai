@@ -74,28 +74,51 @@ class OpenAIProvider(StreamingMixin, EmbeddingMixin, BaseProvider):
         """Initialize the OpenAI provider.
 
         Args:
-            config: Provider configuration
+            config: The provider configuration.
+
+        Raises:
+            ProviderError: If initialization fails.
         """
         super().__init__(config)
-        self._client: AsyncOpenAI | None = None
+
+        if not self.config.api_key or not self.config.api_key.get_secret_value():
+            raise ProviderError(
+                provider_type=self.config.provider_type,
+                message="API key is required",
+            )
+
+        try:
+            self._client = AsyncOpenAI(
+                api_key=self.config.api_key.get_secret_value(),
+                timeout=self.config.timeout,
+                max_retries=self.config.max_retries,
+            )
+        except Exception as e:
+            raise ProviderError(
+                provider_type=self.config.provider_type,
+                message=f"Failed to initialize OpenAI client: {e}",
+            ) from e
 
     async def initialize(self) -> None:
         """Initialize the OpenAI client."""
         try:
             api_key = self.config.api_key
-            if not isinstance(api_key, SecretStr):
+            if not api_key or not isinstance(api_key, SecretStr):
                 raise ProviderInitError("API key must be a SecretStr")
 
             self._client = AsyncOpenAI(api_key=api_key.get_secret_value())
             await self._validate_client()
         except Exception as e:
-            raise ProviderInitError(f"Failed to initialize OpenAI client: {e}") from e
+            raise ProviderInitError(
+                f"Failed to initialize OpenAI client: {e}",
+                provider_type=self.config.provider_type,
+            ) from e
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        if self._client:
+        if self._client is not None:
             await self._client.close()
-            self._client = None
+            self._client = None  # type: ignore[assignment]
 
     async def _validate_client(self) -> None:
         """Validate the OpenAI client configuration."""

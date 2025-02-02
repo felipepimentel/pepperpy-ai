@@ -27,7 +27,7 @@ poetry run pytest
 
 # Validate project structure
 echo "🏗️ Validating project structure..."
-poetry run python scripts/structure/validate_structure.py
+poetry run python scripts/validate_structure.py
 
 # Print summary
 echo "✨ All checks completed!" 

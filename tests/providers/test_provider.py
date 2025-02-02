@@ -8,6 +8,7 @@ import pytest
 from pydantic import SecretStr
 
 from pepperpy.common.errors import ProviderError
+from pepperpy.providers.domain import ProviderInitError
 from pepperpy.providers.provider import Provider, ProviderConfig
 
 
@@ -94,7 +95,8 @@ class MockProvider(Provider):
         """
         if not self._initialized:
             raise ProviderError(
-                "Provider not initialized", provider_type=self.config.provider_type
+                "Provider not initialized",
+                provider_type=self.config.provider_type or "unknown",
             )
 
         if stream:
@@ -122,7 +124,8 @@ class MockProvider(Provider):
         """
         if not self._initialized:
             raise ProviderError(
-                "Provider not initialized", provider_type=self.config.provider_type
+                "Provider not initialized",
+                provider_type=self.config.provider_type or "unknown",
             )
 
         return [0.1, 0.2, 0.3]
@@ -141,8 +144,6 @@ def provider_config() -> ProviderConfig:
         model="test-model",
         max_retries=3,
         timeout=30,
-        enabled_providers=["local"],
-        rate_limits={"local": 100},
     )
 
 
@@ -194,3 +195,174 @@ async def test_embed(provider: MockProvider) -> None:
     assert isinstance(response, list)
     assert len(response) == 3
     assert all(isinstance(x, float) for x in response)
+
+
+class TestProvider(Provider):
+    """Test provider implementation."""
+
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize test provider."""
+        super().__init__(config)
+        self._initialized = False
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        if not self.config.api_key:
+            raise ProviderInitError(
+                "API key is required",
+                provider_type=self.config.provider_type or "unknown",
+            )
+        self._initialized = True
+
+    async def complete(
+        self,
+        prompt: str,
+        *,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        stream: bool = False,
+        **kwargs: Any,
+    ) -> str | AsyncGenerator[str, None]:
+        """Complete a prompt."""
+        if not self._initialized:
+            raise ProviderInitError(
+                "Provider not initialized",
+                provider_type=self.config.provider_type or "unknown",
+            )
+
+        if stream:
+
+            async def response_generator() -> AsyncGenerator[str, None]:
+                yield "Test"
+                yield " response"
+                yield " streaming"
+
+            return response_generator()
+
+        return "Test response"
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        self._initialized = False
+
+    async def embed(self, text: str, **kwargs: Any) -> list[float]:
+        """Generate embeddings for text."""
+        return [0.1, 0.2, 0.3]
+
+
+def test_provider_init_requires_config() -> None:
+    """Test that provider initialization requires config."""
+    with pytest.raises(ValueError, match="Config cannot be None"):
+        TestProvider(config=None)  # type: ignore
+
+
+def test_provider_init_requires_api_key() -> None:
+    """Test that provider initialization requires API key."""
+    config = ProviderConfig(
+        provider_type="test",
+        model="test-model",
+    )
+    with pytest.raises(ProviderError, match="API key is required"):
+        TestProvider(config=config)
+
+
+def test_provider_init_requires_provider_type() -> None:
+    """Test that provider initialization requires provider type."""
+    with pytest.raises(ValueError, match="Provider type cannot be empty"):
+        ProviderConfig(
+            api_key=SecretStr("test-key"),
+            model="test-model",
+            provider_type="",  # Empty provider type should raise error
+        )
+
+
+def test_provider_init_success() -> None:
+    """Test successful provider initialization."""
+    config = ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="test-model",
+    )
+    provider = TestProvider(config=config)
+    assert provider.config == config
+    assert not provider._initialized
+
+
+@pytest.fixture
+def test_config() -> ProviderConfig:
+    """Provide test configuration."""
+    return ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="test-model",
+    )
+
+
+@pytest.fixture
+async def test_provider(
+    test_config: ProviderConfig,
+) -> AsyncGenerator[TestProvider, None]:
+    """Provide initialized test provider.
+
+    Args:
+        test_config: The provider configuration.
+
+    Yields:
+        Initialized test provider.
+    """
+    provider = TestProvider(config=test_config)
+    await provider.initialize()
+    yield provider
+    await provider.cleanup()
+
+
+async def test_provider_initialization() -> None:
+    """Test provider initialization."""
+    config = ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="test-model",
+    )
+    provider = TestProvider(config)
+    await provider.initialize()
+    assert provider._initialized
+    await provider.cleanup()
+
+
+async def test_provider_initialization_no_api_key() -> None:
+    """Test provider initialization without API key."""
+    config = ProviderConfig(provider_type="test", model="test-model")
+    provider = TestProvider(config)
+    with pytest.raises(ProviderInitError):
+        await provider.initialize()
+
+
+async def test_provider_completion(test_provider: TestProvider) -> None:
+    """Test provider completion."""
+    response = await test_provider.complete("test prompt")
+    assert isinstance(response, str)
+    assert response == "Test response"
+
+
+async def test_provider_streaming(test_provider: TestProvider) -> None:
+    """Test provider streaming."""
+    response = await test_provider.complete("test prompt", stream=True)
+    assert isinstance(response, AsyncGenerator)
+
+    chunks = []
+    async for chunk in response:
+        chunks.append(chunk)
+
+    assert chunks == ["Test", " response", " streaming"]
+
+
+async def test_provider_completion_not_initialized() -> None:
+    """Test provider completion without initialization."""
+    config = ProviderConfig(
+        provider_type="test",
+        api_key=SecretStr("test-key"),
+        model="test-model",
+    )
+    provider = TestProvider(config)
+    with pytest.raises(ProviderInitError):
+        await provider.complete("test prompt")

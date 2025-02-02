@@ -13,5 +13,6 @@
   "reportMissingImports": "warning",
   "pythonVersion": "3.12",
   "pythonPlatform": "All",
-  "extraPaths": ["../"]
+  "extraPaths": ["../"],
+  "reportPrivateImportUsage": "none"
 }

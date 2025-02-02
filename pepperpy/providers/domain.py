@@ -186,15 +186,14 @@ class ProviderError(Exception):
             details: Additional error details
         """
         super().__init__(message)
+        logger.error(
+            "Provider error occurred: %s (provider: %s, details: %s)",
+            message,
+            provider_type,
+            details or {},
+        )
         self.provider_type = provider_type
         self.details = details or {}
-
-        logger.error(
-            "Provider error",
-            error=message,
-            provider_type=provider_type,
-            details=self.details,
-        )
 
 
 class ProviderNotFoundError(ProviderError):

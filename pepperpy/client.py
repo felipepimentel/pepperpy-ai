@@ -1,10 +1,11 @@
-"""Main client interface for Pepperpy.
+"""Pepperpy client for interacting with language models.
 
-This module provides a simple, high-level interface for using Pepperpy,
-with automatic configuration and provider management.
+This module provides the main client interface for interacting with
+language models through various providers.
 """
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from pepperpy.common.config import AutoConfig
 from pepperpy.providers.manager import ProviderManager
@@ -12,136 +13,80 @@ from pepperpy.providers.services.openrouter import OpenRouterProvider
 
 
 class PepperpyClient:
-    """Main client interface for Pepperpy.
+    """Main client for interacting with language models."""
 
-    This class provides a simple way to use Pepperpy with minimal configuration.
-    It automatically handles provider setup, fallback, and resource management.
-
-    Example:
-        ```python
-        from pepperpy import PepperpyClient
-
-        # Create client (uses environment variables)
-        client = PepperpyClient()
-
-        # Simple completion
-        response = await client.complete("Hello, how are you?")
-        print(response)
-
-        # Streaming completion
-        async for chunk in client.chat_stream("Tell me a story"):
-            print(chunk, end="")
-        ```
-    """
-
-    def __init__(
-        self,
-        config: AutoConfig | None = None,
-        load_dotenv: bool = True,
-    ) -> None:
-        """Initialize the Pepperpy client.
-
-        Args:
-            config: Optional explicit configuration
-            load_dotenv: Whether to load .env file
-        """
-        self.config = config or AutoConfig.from_env(load_dotenv_file=load_dotenv)
+    def __init__(self) -> None:
+        """Initialize the client."""
         self._manager: ProviderManager | None = None
 
+    async def __aenter__(self) -> "PepperpyClient":
+        """Initialize the client for use in async context."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Clean up resources when exiting async context."""
+        await self.cleanup()
+
     async def initialize(self) -> None:
-        """Initialize the client and providers.
+        """Initialize the client.
 
-        This is called automatically when needed, but can be called
-        explicitly to pre-initialize resources.
+        This loads configuration and sets up the provider manager.
         """
-        if self._manager is not None:
-            return
-
-        # Create primary provider
-        primary_config = self.config.get_provider_config(is_fallback=False)
-        primary_provider = OpenRouterProvider(primary_config)
-
-        # Create fallback provider if configured
-        fallback_provider = None
-        try:
-            fallback_config = self.config.get_provider_config(is_fallback=True)
-            fallback_provider = OpenRouterProvider(fallback_config)
-        except ValueError:
-            pass
-
-        # Create and initialize manager
-        self._manager = ProviderManager(primary_provider, fallback_provider)
+        config = AutoConfig.from_env()
+        provider_config = config.get_provider_config()
+        primary_provider = OpenRouterProvider(provider_config)
+        self._manager = ProviderManager(primary_provider)
         await self._manager.initialize()
 
     async def cleanup(self) -> None:
-        """Cleanup resources.
-
-        This should be called when done with the client to properly
-        clean up resources.
-        """
+        """Clean up client resources."""
         if self._manager:
             await self._manager.cleanup()
             self._manager = None
 
-    async def __aenter__(self) -> "PepperpyClient":
-        """Enter async context manager."""
-        await self.initialize()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Exit async context manager."""
-        await self.cleanup()
-
-    async def _ensure_initialized(self) -> None:
-        """Ensure client is initialized."""
-        if not self._manager:
-            await self.initialize()
-
-    async def complete(
-        self,
-        prompt: str,
-        *,
-        temperature: float = 0.7,
-    ) -> str:
-        """Complete a prompt.
+    async def chat(self, message: str) -> str:
+        """Send a chat message and get a response.
 
         Args:
-            prompt: The prompt to complete
-            temperature: Sampling temperature
+            message: The message to send
 
         Returns:
-            The completed text
-        """
-        await self._ensure_initialized()
-        return await self._manager.complete(
-            prompt=prompt,
-            temperature=temperature,
-            stream=False,
-        )
+            The response from the provider
 
-    async def chat_stream(
-        self,
-        prompt: str,
-        *,
-        temperature: float = 0.7,
-    ) -> AsyncGenerator[str, None]:
-        """Stream a chat completion.
+        Raises:
+            RuntimeError: If client is not initialized
+            TypeError: If provider returns a streaming response
+        """
+        if not self._manager:
+            raise RuntimeError("Client not initialized")
+
+        response = await self._manager.complete(message, stream=False)
+        if isinstance(response, AsyncGenerator):
+            raise TypeError("Provider returned a streaming response")
+        return response
+
+    async def chat_stream(self, message: str) -> AsyncGenerator[str, None]:
+        """Send a chat message and get a streaming response.
 
         Args:
-            prompt: The prompt to complete
-            temperature: Sampling temperature
+            message: The message to send
 
-        Yields:
-            Text chunks as they are generated
+        Returns:
+            An async generator yielding response chunks
+
+        Raises:
+            RuntimeError: If client is not initialized
         """
-        await self._ensure_initialized()
-        response = await self._manager.complete(
-            prompt=prompt,
-            temperature=temperature,
-            stream=True,
-        )
+        if not self._manager:
+            raise RuntimeError("Client not initialized")
+
+        response = await self._manager.complete(message, stream=True)
         if isinstance(response, AsyncGenerator):
-            async for chunk in response:
-                yield chunk
+            return response
         else:
-            yield response  # Fallback for non-streaming response
+            # If provider doesn't support streaming, yield the entire response
+            async def single_response() -> AsyncGenerator[str, None]:
+                yield response
+
+            return single_response()

@@ -76,9 +76,9 @@ class ProviderManager:
             )
         except ProviderAPIError as e:
             logger.warning(
-                "Primary provider failed, trying fallback",
-                error=str(e),
-                provider=self.primary.__class__.__name__,
+                "Primary provider %s failed: %s",
+                self.primary.__class__.__name__,
+                str(e),
             )
 
             if not self.fallback:

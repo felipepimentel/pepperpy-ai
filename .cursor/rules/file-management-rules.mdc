@@ -43,7 +43,7 @@ directory/              # Purpose: Brief description
 ```
 
 ## Structure Management Scripts
-Location: `scripts/structure/`
+Location: `scripts/`
 1. `export_structure.py`: Generates simplified structure overview
 2. `validate_headers.py`: Validates file headers
 3. `check_duplicates.py`: Checks for potential duplicate files
@@ -63,13 +63,13 @@ Location: `scripts/structure/`
 ## Validation Commands
 ```bash
 # Export current structure
-./scripts/structure/export_structure.py
+./scripts/export_structure.py
 
 # Validate file headers
-./scripts/structure/validate_headers.py
+./scripts/validate_headers.py
 
 # Check for duplicates
-./scripts/structure/check_duplicates.py
+./scripts/check_duplicates.py
 ```
 
 ## Structure Evolution Tracking

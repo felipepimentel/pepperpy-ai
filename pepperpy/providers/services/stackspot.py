@@ -28,6 +28,7 @@ from typing import Any
 # Third-party imports
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
+from pydantic import SecretStr
 
 # Local imports
 from pepperpy.monitoring import logger
@@ -77,6 +78,8 @@ class StackSpotProvider(Provider):
         self._session: ClientSession | None = None
         self._model: str = config.model or "gpt-4"
         self._timeout: ClientTimeout = ClientTimeout(total=config.timeout)
+        self._api_key: SecretStr | None = None
+        self._base_url = "https://api.stackspot.com"
 
     async def initialize(self) -> None:
         """Initialize the StackSpot client.
@@ -87,25 +90,34 @@ class StackSpotProvider(Provider):
         Raises:
             ProviderInitError: If initialization fails
         """
+        if not self.config.api_key:
+            raise ProviderInitError(
+                "API key is required",
+                provider_type="stackspot",
+            )
+
         try:
+            self._api_key = self.config.api_key
             self._session = ClientSession(
                 timeout=self._timeout,
                 headers={
-                    "Authorization": f"Bearer {self.config.api_key}",
+                    "Authorization": f"Bearer {self._api_key.get_secret_value()}",
                     "Content-Type": "application/json",
                 },
             )
+            logger.info("Initialized StackSpot provider")
         except Exception as e:
             raise ProviderInitError(
-                f"Failed to initialize StackSpot provider: {e!s}",
+                f"Failed to initialize StackSpot provider: {e}",
                 provider_type="stackspot",
-                details={"error": str(e)},
             ) from e
 
     async def cleanup(self) -> None:
         """Clean up resources by closing the aiohttp session."""
         if self._session:
             await self._session.close()
+            self._session = None
+            logger.info("StackSpot provider cleaned up")
 
     async def complete(
         self,
@@ -146,98 +158,131 @@ class StackSpotProvider(Provider):
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
 
+        if stream:
+            return self._stream_response(payload)
+        return await self._complete_sync(payload)
+
+    async def _complete_sync(self, payload: dict[str, Any]) -> str:
+        """Send a synchronous completion request.
+
+        Args:
+            payload: Request payload
+
+        Returns:
+            Generated text
+
+        Raises:
+            ProviderAPIError: If the API call fails
+        """
+        if not self._session:
+            raise ProviderInitError(
+                "StackSpot provider not initialized",
+                provider_type="stackspot",
+            )
+
         try:
-            if stream:
-
-                async def response_generator() -> AsyncGenerator[str, None]:
-                    session = self._session
-                    if not session:
-                        raise ProviderError(
-                            "Session lost during streaming",
-                            provider_type=self.config.provider_type,
-                        )
-
-                    async with session.post(
-                        f"{self.BASE_URL}/chat/completions",
-                        json=payload,
-                        raise_for_status=False,
-                    ) as response:
-                        if response.status != 200:
-                            error_data = await response.json()
-                            raise ProviderError(
-                                "StackSpot API error: "
-                                f"{error_data.get('error', 'Unknown error')}",
-                                provider_type=self.config.provider_type,
-                                details=error_data,
-                            )
-
-                        async for line in response.content:
-                            if not line:
-                                continue
-
-                            line_str = line.decode("utf-8").strip()
-                            if line_str.startswith("data: "):
-                                data = line_str[6:]
-                                if data == "[DONE]":
-                                    break
-
-                                try:
-                                    chunk = json.loads(data)
-                                    if content := chunk["choices"][0]["delta"].get(
-                                        "content"
-                                    ):
-                                        yield content
-                                except json.JSONDecodeError:
-                                    logger.warning(
-                                        "Failed to decode streaming response",
-                                        extra={"data": data},
-                                    )
-                                    continue
-
-                return response_generator()
-
-            session = self._session
-            if not session:
-                raise ProviderError(
-                    "Session lost during request",
-                    provider_type=self.config.provider_type,
-                )
-
-            async with session.post(
+            async with self._session.post(
                 f"{self.BASE_URL}/chat/completions",
                 json=payload,
-                raise_for_status=False,
             ) as response:
                 if response.status != 200:
-                    error_data = await response.json()
-                    raise ProviderError(
-                        "StackSpot API error: "
-                        f"{error_data.get('error', 'Unknown error')}",
-                        provider_type=self.config.provider_type,
-                        details=error_data,
+                    logger.warning(
+                        "StackSpot API error",
+                        extra={
+                            "status": response.status,
+                            "response": await response.text(),
+                        },
+                    )
+                    raise ProviderAPIError(
+                        f"StackSpot API error: {response.status}",
+                        provider_type="stackspot",
                     )
 
-                data = await response.json()
-                if not isinstance(data, dict):
-                    raise ProviderError(
-                        "Invalid response format",
-                        provider_type=self.config.provider_type,
-                        details={"response": data},
+                try:
+                    result = await response.json()
+                    content = result["choices"][0]["message"]["content"]
+                    if not isinstance(content, str):
+                        raise ProviderAPIError(
+                            "Unexpected response format: content is not a string",
+                            provider_type="stackspot",
+                        )
+                    return content
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(
+                        "Failed to parse StackSpot response",
+                        extra={
+                            "error": str(e),
+                            "response": await response.text(),
+                        },
                     )
-                content = data.get("choices", [{}])[0].get("message", {}).get("content")  # type: ignore
-                if not isinstance(content, str):
-                    raise ProviderError(
-                        "Invalid response content",
-                        provider_type=self.config.provider_type,
-                        details={"content": content},
-                    )
-                return content
+                    raise ProviderAPIError(
+                        f"Failed to parse StackSpot response: {e}",
+                        provider_type="stackspot",
+                    ) from e
 
-        except Exception as e:
-            raise ProviderError(
-                f"Failed to complete prompt: {e!s}",
-                provider_type=self.config.provider_type,
-                details={"error": str(e)},
+        except aiohttp.ClientError as e:
+            raise ProviderAPIError(
+                f"StackSpot API request failed: {e}",
+                provider_type="stackspot",
+            ) from e
+
+    async def _stream_response(
+        self, payload: dict[str, Any]
+    ) -> AsyncGenerator[str, None]:
+        """Stream response from StackSpot.
+
+        Args:
+            payload: Request payload
+
+        Yields:
+            Text chunks as they are generated
+
+        Raises:
+            ProviderAPIError: If streaming fails
+        """
+        if not self._session:
+            raise ProviderInitError(
+                "StackSpot provider not initialized",
+                provider_type="stackspot",
+            )
+
+        try:
+            async with self._session.post(
+                f"{self.BASE_URL}/chat/completions/stream",
+                json=payload,
+            ) as response:
+                if response.status != 200:
+                    logger.warning(
+                        "StackSpot API error",
+                        extra={
+                            "status": response.status,
+                            "response": await response.text(),
+                        },
+                    )
+                    raise ProviderAPIError(
+                        f"StackSpot API error: {response.status}",
+                        provider_type="stackspot",
+                    )
+
+                async for line in response.content.iter_any():
+                    if line:
+                        try:
+                            chunk = json.loads(line)
+                            if text := chunk["choices"][0]["delta"].get("content"):
+                                yield text
+                        except json.JSONDecodeError as e:
+                            logger.warning(
+                                "Failed to parse streaming chunk",
+                                extra={
+                                    "error": str(e),
+                                    "chunk": line.decode(),
+                                },
+                            )
+
+        except aiohttp.ClientError as e:
+            raise ProviderAPIError(
+                f"StackSpot streaming request failed: {e}",
+                provider_type="stackspot",
             ) from e
 
     async def embed(self, text: str, **kwargs: Any) -> list[float]:
@@ -282,13 +327,15 @@ class StackSpotProvider(Provider):
             async with self._session.post(
                 f"{self.BASE_URL}/embeddings", json=payload, raise_for_status=False
             ) as response:
-                if response.status != 200:
-                    error_data = await response.json()
-                    raise ProviderAPIError(
-                        "StackSpot API error: "
-                        f"{error_data.get('error', 'Unknown error')}",
+                if not response.ok:
+                    logger.warning(
+                        "StackSpot API request failed: %s (status: %s)",
+                        response.text,
+                        response.status,
+                    )
+                    raise ProviderError(
+                        f"StackSpot API request failed: {response.text}",
                         provider_type="stackspot",
-                        details=error_data,
                     )
 
                 data = await response.json()
@@ -300,71 +347,6 @@ class StackSpotProvider(Provider):
         except Exception as e:
             raise ProviderAPIError(
                 f"StackSpot embedding error: {e!s}",
-                provider_type="stackspot",
-                details={"error": str(e)},
-            ) from e
-
-    async def _stream_response(self, payload: JsonDict) -> AsyncIterator[str]:
-        """Stream response from StackSpot.
-
-        Args:
-            payload: Request payload containing model, messages, and other parameters
-
-        Yields:
-            Text chunks as they are generated by the model
-
-        Raises:
-            ProviderInitError: If session is not initialized
-            ProviderAPIError: If the API call fails
-            ProviderRateLimitError: If rate limit is exceeded
-        """
-        if not self._session:
-            raise ProviderInitError(
-                "StackSpot provider not initialized", provider_type="stackspot"
-            )
-
-        payload["stream"] = True
-
-        try:
-            async with self._session.post(
-                f"{self.BASE_URL}/chat/completions",
-                json=payload,
-                raise_for_status=False,
-            ) as response:
-                if response.status != 200:
-                    error_data = await response.json()
-                    raise ProviderAPIError(
-                        "StackSpot API error: "
-                        f"{error_data.get('error', 'Unknown error')}",
-                        provider_type="stackspot",
-                        details=error_data,
-                    )
-
-                async for line_bytes in response.content.iter_any():
-                    line = line_bytes.decode("utf-8").strip()
-                    if not line:
-                        continue
-
-                    if line.startswith("data: "):
-                        data = line[6:]
-                        if data == "[DONE]":
-                            break
-
-                        try:
-                            chunk = json.loads(data)
-                            if content := chunk["choices"][0]["delta"].get("content"):
-                                yield content
-                        except json.JSONDecodeError:
-                            logger.warning(
-                                "Failed to decode streaming response", data=data
-                            )
-                            continue
-
-        except ProviderRateLimitError:
-            raise
-        except Exception as e:
-            raise ProviderAPIError(
-                f"StackSpot streaming error: {e!s}",
                 provider_type="stackspot",
                 details={"error": str(e)},
             ) from e
