@@ -6,12 +6,11 @@ from unittest.mock import Mock
 
 # Third-party imports
 import pytest
+from jinja2 import UndefinedError
 from pydantic import ValidationError
 
 # Local imports
-from pepperpy.prompt_template import (
-    PromptTemplate,
-)
+from pepperpy.core.templates.prompt import PromptTemplate
 from pepperpy.providers.provider import Provider
 
 
@@ -103,3 +102,40 @@ async def test_prompt_template_execute() -> None:
     mock_provider.complete.assert_called_once_with(
         "Hello test!", stream=False, model="test-model", temperature=0.7
     )
+
+
+def test_prompt_template_basic():
+    """Test basic prompt template functionality."""
+    template = PromptTemplate(template="Hello {name}!")
+    result = template.render({"name": "World"})
+    assert result == "Hello World!"
+
+
+def test_prompt_template_missing_variable():
+    """Test prompt template with missing variable."""
+    template = PromptTemplate(template="Hello {name}!")
+    with pytest.raises(
+        UndefinedError
+    ):  # Jinja2's specific error for undefined variables
+        template.render({"wrong_name": "World"})
+
+
+def test_prompt_template_extra_variable():
+    """Test prompt template with extra variable."""
+    template = PromptTemplate(template="Hello {name}!")
+    result = template.render({"name": "World", "extra": "ignored"})
+    assert result == "Hello World!"
+
+
+def test_prompt_template_multiple_variables():
+    """Test prompt template with multiple variables."""
+    template = PromptTemplate(template="Hello {first} {last}!")
+    result = template.render({"first": "John", "last": "Doe"})
+    assert result == "Hello John Doe!"
+
+
+def test_prompt_template_repeated_variable():
+    """Test prompt template with repeated variable."""
+    template = PromptTemplate(template="{name}, {name}!")
+    result = template.render({"name": "Echo"})
+    assert result == "Echo, Echo!"

@@ -11,7 +11,7 @@ Example:
     >>> assert "openai" in providers
 """
 
-from typing import Any, ClassVar, Final, cast
+from typing import Any, ClassVar, Final
 
 from pepperpy.monitoring import logger
 
@@ -86,11 +86,10 @@ class ProviderEngine:
             )
 
         cls._providers[provider_type] = provider_class
-        logger.info(
-            "Registered provider '%s' (class: %s)",
-            provider_type,
-            provider_class.__name__,
+        provider_msg = (
+            f"Registered provider '{provider_type}' (class: {provider_class.__name__})"
         )
+        logger.info(message=provider_msg)
 
     @classmethod
     def create_provider(
@@ -159,11 +158,11 @@ class ProviderEngine:
         provider_class = cls._providers[provider_type]
         provider = provider_class(config)
 
-        logger.debug(
-            "Created provider instance '%s' (class: %s)",
-            provider_type,
-            provider_class.__name__,
+        instance_msg = (
+            f"Created provider instance '{provider_type}' "
+            f"(class: {provider_class.__name__})"
         )
+        logger.debug(message=instance_msg)
 
         return provider
 

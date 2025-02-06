@@ -1,190 +1,178 @@
 version: "2.0"
-project: "pepperpy"
-description: "Multi-agent AI framework with modular architecture"
+name: "pepperpy"
+description: "Framework modular para construção de agentes de IA"
 
 structure:
   pepperpy:
-    __init__.py: "Package initialization and exports"
-    monitoring.py: "Centralized monitoring and logging"
-    prompt_template.py: "Prompt template management"
-    client.py: "Main client interface"
-
-    common:
-      __init__.py: "Common utilities initialization"
-      config.py: "Configuration management"
-      errors.py: "Error definitions"
-      utils.py: "Shared utilities"
-
-    providers:
-      __init__.py: "Provider system initialization"
-      provider.py: "Base provider interface"
-      domain.py: "Provider domain models"
-      services:
-        __init__.py: "Provider services initialization"
-        openrouter.py: "OpenRouter provider implementation"
-
-    agents:
-      __init__.py: "Agent module initialization"
-      agent.py: "Base agent implementation"
-      types.py: "Agent-related type definitions"
-      config.py: "Agent configuration"
-      builder.py: "Agent factory and builder patterns"
-      service.py: "Agent service layer"
-
-    lifecycle:
-      __init__.py: "Lifecycle management initialization"
-      manager.py: "Component lifecycle management"
-      hooks.py: "Lifecycle hooks and events"
-
-    context:
-      __init__.py: "Context management initialization"
-      state.py: "State management"
-      history.py: "Historical context tracking"
-
-    profile:
-      __init__.py: "Profile management initialization"
-      preferences.py: "Agent preferences"
-      goals.py: "Goal management"
-
-    memory:
-      __init__.py: "Memory system initialization"
-      short_term.py: "Short-term memory implementation"
-      long_term.py: "Long-term memory storage"
-      vector_store.py: "Vector storage implementation"
-      cache.py: "Memory caching layer"
-
-    decision:
-      __init__.py: "Decision making initialization"
-      rules.py: "Decision rules engine"
-      evaluator.py: "Decision evaluation"
-      policies.py: "Decision policies"
-
-    data:
-      __init__.py: "Data management initialization"
-      ingestion:
-        __init__.py: "Data ingestion initialization"
-        processor.py: "Data processing pipeline"
-        validator.py: "Data validation"
-      embeddings:
-        __init__.py: "Embeddings initialization"
-        models.py: "Embedding models"
-        processor.py: "Embedding processing"
-      algorithms:
-        __init__.py: "Algorithms initialization"
-        clustering.py: "Data clustering"
-        ranking.py: "Result ranking"
-
-    events:
-      __init__.py: "Event system initialization"
-      protocol.py: "Communication protocol"
-      dispatcher.py: "Event dispatching"
-      handler.py: "Event handling"
-      types.py: "Event type definitions"
-
-    orchestrator:
-      __init__.py: "Orchestrator initialization"
-      coordinator.py: "Task coordination"
-      scheduler.py: "Task scheduling"
-      workflow.py: "Workflow management"
-
-    reasoning:
-      __init__.py: "Reasoning system initialization"
-      react.py: "ReAct implementation"
-      cot.py: "Chain of Thought"
-      tot.py: "Tree of Thoughts"
-
-    tools:
-      __init__.py: "Tools initialization"
-      api.py: "API integration tools"
-      executor.py: "Function execution"
-      database.py: "Database tools"
-
-    learning:
-      __init__.py: "Learning system initialization"
-      rag.py: "Retrieval Augmented Generation"
-      fine_tuning.py: "Model fine-tuning"
-      context.py: "Learning context"
-
-    runtime:
-      __init__.py: "Runtime initialization"
-      environment.py: "Runtime environment"
-      executor.py: "Task execution"
-
-    security:
-      __init__.py: "Security initialization"
-      auth.py: "Authentication"
-      validation.py: "Input validation"
-      sanitizer.py: "Data sanitization"
-      rate_limiter.py: "Rate limiting"
+    description: "Pacote principal do framework"
+    modules:
+      core:
+        description: "Núcleo fundamental do sistema"
+        files:
+          - base.py: "Classes e protocolos base"
+          - config.py: "Sistema de configuração"
+          - events.py: "Sistema de eventos"
+          - errors.py: "Tratamento de erros centralizado"
+          - types.py: "Tipos e protocolos compartilhados"
+          - registry.py: "Sistema de registro"
+          - utils.py: "Utilitários compartilhados"
+      
+      memory:
+        description: "Sistema de memória"
+        files:
+          - base.py: "Interface base de memória"
+          - manager.py: "Gerenciador de memória"
+          - config.py: "Configuração do sistema de memória"
+          - exceptions.py: "Exceções específicas de memória"
+          - factory.py: "Factory para criação de memória"
+          - types.py: "Tipos e protocolos de memória"
+        modules:
+          stores:
+            description: "Implementações de stores"
+            files:
+              - base.py: "Interface base de stores"
+              - composite.py: "Store composto"
+              - inmemory.py: "Store em memória"
+              - postgres.py: "Store PostgreSQL"
+              - redis.py: "Store Redis"
+              - vector.py: "Store vetorial"
+      
+      capabilities:
+        description: "Capacidades do sistema"
+        modules:
+          planning:
+            description: "Capacidade de planejamento"
+            files:
+              - base.py: "Interface base de planejamento"
+              - factory.py: "Factory para criação de planejadores"
+              - llm.py: "Implementação baseada em LLM"
+          learning:
+            description: "Capacidade de aprendizado"
+            files:
+              - base.py: "Interface base de aprendizado"
+              - factory.py: "Factory para criação de learners"
+              - llm.py: "Implementação baseada em LLM"
+          reasoning:
+            description: "Capacidade de raciocínio"
+            files:
+              - base.py: "Interface base de raciocínio"
+              - factory.py: "Factory para criação de reasoners"
+              - llm.py: "Implementação baseada em LLM"
+      
+      adapters:
+        description: "Adaptadores para frameworks externos"
+        files:
+          - base.py: "Interface base de adaptadores"
+          - langchain.py: "Adaptador LangChain"
+          - autogen.py: "Adaptador AutoGen"
+          - semantic_kernel.py: "Adaptador Semantic Kernel"
+          - crew.py: "Adaptador CrewAI"
+      
+      tools:
+        description: "Sistema de ferramentas"
+        files:
+          - base.py: "Interface base de ferramentas"
+          - registry.py: "Registro de ferramentas"
+          - security.py: "Segurança de ferramentas"
+      
+      providers:
+        description: "Provedores de LLM"
+        files:
+          - base.py: "Interface base de provedores"
+          - openai.py: "Provedor OpenAI"
+          - anthropic.py: "Provedor Anthropic"
+      
+      monitoring:
+        description: "Monitoramento e logging"
+        files:
+          - logger.py: "Sistema de logging"
+          - metrics.py: "Coleta de métricas"
+          - tracer.py: "Distributed tracing"
 
   tests:
-    unit:
-      test_agents.py: "Agent unit tests"
-      test_memory.py: "Memory system tests"
-      test_events.py: "Event system tests"
-    integration:
-      test_workflow.py: "Workflow integration tests"
-      test_providers.py: "Provider integration tests"
-    performance:
-      test_memory.py: "Memory performance tests"
-      test_agents.py: "Agent performance tests"
+    description: "Testes do framework"
+    modules:
+      core:
+        description: "Testes do núcleo"
+      memory:
+        description: "Testes do sistema de memória"
+      capabilities:
+        description: "Testes das capacidades"
+      adapters:
+        description: "Testes dos adaptadores"
+      tools:
+        description: "Testes das ferramentas"
+      providers:
+        description: "Testes dos provedores"
+      monitoring:
+        description: "Testes do sistema de monitoramento"
+
+  assets:
+    description: "Assets do projeto"
+    modules:
+      prompts:
+        description: "Templates de prompts"
+        modules:
+          providers:
+            description: "Prompts dos provedores"
+          adapters:
+            description: "Prompts dos adaptadores"
 
   docs:
-    README.md: "Project documentation"
-    CONTRIBUTING.md: "Contribution guidelines"
-    CHANGELOG.md: "Version history"
-    api:
-      agents.md: "Agent API documentation"
-      memory.md: "Memory system documentation"
-      events.md: "Event system documentation"
-    examples:
-      basic_agent.py: "Basic agent example"
-      custom_provider.py: "Custom provider example"
+    description: "Documentação do projeto"
+    files:
+      - api.md: "Documentação da API"
+      - architecture.md: "Documentação da arquitetura"
+      - contributing.md: "Guia de contribuição"
+      - deployment.md: "Guia de deployment"
 
   scripts:
-    validate_structure.py: "Structure validation script"
-    setup_environment.py: "Environment setup script"
-    run_benchmarks.py: "Performance benchmark script"
+    description: "Scripts de utilidade"
+    files:
+      - validate_structure.py: "Validação da estrutura do projeto"
+      - generate_docs.py: "Geração de documentação"
+      - run_benchmarks.py: "Execução de benchmarks"
 
-  .product:
-    architecture.mermaid: "System architecture diagrams"
-    project_structure.yml: "Project structure definition"
-    kanban.md: "Sprint and backlog management"
-    tasks:
-      stories: "User stories and epics"
-      specs: "Detailed specifications"
-      roadmap.md: "Product roadmap"
+validation_rules:
+  - rule: "no_tests_in_main"
+    description: "Nenhum teste no pacote principal"
+    pattern: "pepperpy/**/*test*.py"
+    allowed: false
+
+  - rule: "no_docs_in_code"
+    description: "Documentação deve estar em /docs"
+    pattern: "pepperpy/**/*.md"
+    allowed: false
+
+  - rule: "no_prompts_in_code"
+    description: "Prompts devem estar em /assets/prompts"
+    pattern: "pepperpy/**/*.prompt"
+    allowed: false
+
+  - rule: "proper_imports"
+    description: "Imports devem seguir a estrutura do projeto"
+    pattern: "from pepperpy"
+    required: true
 
 dependencies:
   required:
-    pydantic: "^2.0.0"
-    loguru: "^0.7.0"
-    opentelemetry-api: "^1.20.0"
-    opentelemetry-sdk: "^1.20.0"
-    redis: "^5.0.0"
-    faiss-cpu: "^1.7.4"
-    sqlalchemy: "^2.0.0"
-    
-  optional:
-    torch: "^2.0.0"
-    transformers: "^4.35.0"
-    langchain: "^0.0.300"
+    - python: ">=3.10"
+    - redis: ">=6.0"
+    - faiss-cpu: ">=1.7"
+    - pydantic: ">=2.0"
+    - opentelemetry-api: ">=1.0"
+    - prometheus-client: ">=0.9"
 
-rules:
-  # File Creation
-  file_creation:
-    - "Only create directories when implementing related tasks"
-    - "All Python files must have proper headers"
-    - "Follow naming conventions defined in rules"
-  
-  # Structure Evolution
-  evolution:
-    - "Update structure when starting new tasks"
-    - "Keep documentation in sync with changes"
-    - "Validate structure before commits"
-  
-  # Validation
-  validation:
-    - "Run structure validation scripts"
-    - "Check for duplicate files"
-    - "Verify file headers" 
+  optional:
+    - langchain: ">=0.1"
+    - autogen: ">=1.0"
+    - semantic-kernel: ">=0.3"
+    - crew-ai: ">=0.1"
+
+security:
+  rules:
+    - no_hardcoded_secrets
+    - validate_inputs
+    - secure_communications
+    - rate_limiting
+    - audit_logging 

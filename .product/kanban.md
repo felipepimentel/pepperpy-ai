@@ -23,6 +23,39 @@ scope: "Pepperpy Project"
   - Description: Implement structured logging with Loguru and basic tracing
   - Branch: task/003-logging-setup
 
+- [ ] TASK-005: Implementar Sistema de Agentes Multi-Framework
+  - Priority: High
+  - Points: 13
+  - Dependencies: [TASK-004, TASK-003, TASK-002]
+  - Description: Sistema modular e extensível para suporte a múltiplos frameworks de agentes
+  - Branch: task/005-agent-system
+  - Started: 2024-03-21
+  - Progress:
+    - ✅ TASK-005.1: Implementar Estrutura Base
+      - Estrutura de diretórios criada
+      - Interfaces base implementadas
+      - Sistema de eventos funcionando
+      - Factory pattern implementado
+      - Testes unitários implementados
+    - ✅ TASK-005.2: Sistema de Registro e Descoberta
+      - CapabilityRegistry implementado
+      - Sistema de descoberta dinâmica
+      - Controle de versão com compatibilidade
+      - Testes unitários implementados
+    - ✅ TASK-005.3: Sistema de Memória Unificado
+      - MemoryManager implementado
+      - RedisStorage para cache
+      - VectorStorage com FAISS
+      - Sistema de persistência
+    - ✅ TASK-005.4: Sistema de Ferramentas
+      - ToolRegistry implementado
+      - Sistema de execução segura
+      - Gerenciamento de permissões
+      - Testes unitários implementados
+    - ⏳ TASK-005.5: Adaptadores de Frameworks
+      - Em andamento: Implementação do adaptador LangChain
+    - TASK-005.6: Sistema de Métricas
+
 ### Core Features (Sprint 2)
 - [ ] TASK-004: Basic Agent Implementation
   - Priority: High
@@ -30,13 +63,6 @@ scope: "Pepperpy Project"
   - Dependencies: [TASK-001, TASK-002]
   - Description: Implement base agent class with lifecycle management
   - Branch: task/004-base-agent
-
-- [ ] TASK-005: Memory System Foundation
-  - Priority: High
-  - Points: 8
-  - Dependencies: TASK-001
-  - Description: Implement basic memory system with short-term and vector storage
-  - Branch: task/005-memory-system
 
 - [ ] TASK-006: Event System Core
   - Priority: High
@@ -92,6 +118,13 @@ scope: "Pepperpy Project"
   - Dependencies: TASK-003
   - Description: Implement performance metrics and monitoring
   - Branch: task/012-monitoring
+
+- [ ] TASK-006: Memory System Migration
+  - Priority: High
+  - Points: 5
+  - Dependencies: None
+  - Mode: Plan
+  - Updated: 2024-03-23
 
 ## 🏃 In Progress
 - [ ] TASK-000: Project Structure Setup

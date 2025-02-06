@@ -1,11 +1,19 @@
 [run]
-source = pepperpy
 branch = True
+source = pepperpy
 omit =
     tests/*
     setup.py
     conftest.py
     */__init__.py
+    */migrations/*
+    */settings/*
+    */wsgi.py
+    */asgi.py
+    */manage.py
+    */apps.py
+    */urls.py
+    */admin.py
 
 [report]
 exclude_lines =
@@ -15,16 +23,17 @@ exclude_lines =
     raise NotImplementedError
     if __name__ == .__main__.:
     pass
-    raise ImportError
-    raise ValueError
-    raise TypeError
-    except ImportError:
-    except ValueError:
-    except TypeError:
-
-ignore_errors = True
-fail_under = 10
+    raise AssertionError
+    raise NotImplementedError
+    if TYPE_CHECKING:
+    @abstractmethod
+    @overload
 
 [html]
-directory = htmlcov
-title = Pepperpy Coverage Report 
+directory = coverage_html
+
+[xml]
+output = coverage.xml
+
+ignore_errors = True
+fail_under = 10 

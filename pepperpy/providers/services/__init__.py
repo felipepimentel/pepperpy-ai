@@ -12,9 +12,15 @@ from typing import Final, cast
 from pepperpy.common.errors import ProviderError
 from pepperpy.monitoring import logger
 
+from ..base import BaseProvider, ProviderConfig
 from ..domain import ProviderInitError
 from ..engine import ProviderEngine
 from ..provider import Provider
+from .anthropic import AnthropicConfig, AnthropicProvider
+from .gemini import GeminiConfig, GeminiProvider
+from .openai import OpenAIConfig, OpenAIProvider
+from .openrouter import OpenRouterProvider
+from .stackspot import StackSpotProvider
 
 # Provider types
 OPENAI: Final[str] = "openai"
@@ -25,6 +31,7 @@ STACKSPOT: Final[str] = "stackspot"
 
 REQUIRED_PROVIDERS: Final[list[str]] = [OPENAI]
 OPTIONAL_PROVIDERS: Final[list[str]] = [
+    ANTHROPIC,
     GEMINI,
     OPENROUTER,
     STACKSPOT,
@@ -100,5 +107,16 @@ __all__ = [
     "REGISTERED_PROVIDERS",
     "REQUIRED_PROVIDERS",
     "STACKSPOT",
+    "AnthropicConfig",
+    "AnthropicProvider",
+    "BaseProvider",
+    "GeminiConfig",
+    "GeminiProvider",
+    "OpenAIConfig",
+    "OpenAIProvider",
+    "OpenRouterProvider",
+    "ProviderConfig",
+    "ProviderError",
+    "StackSpotProvider",
     "register_providers",
 ]

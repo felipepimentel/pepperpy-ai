@@ -593,4 +593,65 @@ state_management:
     enabled: true
     strategy: "resume_from_last_action"
     context_preservation: true
-``` 
+```
+
+# Task Execution Guidelines
+
+## Pre-execution Checklist
+1. Review task requirements and dependencies
+2. Check current project state
+3. Validate project structure:
+   ```bash
+   python scripts/validate_structure.py
+   ```
+   - If validation fails, fix structure issues before proceeding
+   - All code must follow the defined project structure
+
+## During Execution
+1. Follow task specifications
+2. Maintain project structure integrity
+3. Run structure validation after any file/directory changes:
+   ```bash
+   python scripts/validate_structure.py
+   ```
+4. Fix any structural violations immediately
+
+## Post-execution Checklist
+1. Verify all changes follow project structure
+2. Run final structure validation:
+   ```bash
+   python scripts/validate_structure.py
+   ```
+3. Update documentation if needed
+4. Commit changes with appropriate message
+
+## Structure Rules
+- All code must be in appropriate modules
+- Follow defined directory structure
+- No tests in main package
+- Each module must have __init__.py
+- Use correct import patterns
+- No direct model access outside providers
+- Use centralized logging
+
+## Common Issues
+1. Wrong module placement
+   - Check `.product/project_structure.yml`
+   - Move files to correct location
+2. Missing __init__.py
+   - Add to all package directories
+3. Incorrect imports
+   - Use proper import paths
+   - Follow dependency rules
+4. Direct model access
+   - Use provider abstractions
+   - No direct API calls
+
+## Validation Errors
+If structure validation fails:
+1. Read error messages carefully
+2. Fix each violation
+3. Re-run validation
+4. Do not proceed until all checks pass
+
+Remember: Structure validation is mandatory before, during, and after task execution. 

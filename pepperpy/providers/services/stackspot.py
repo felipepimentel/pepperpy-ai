@@ -1,51 +1,31 @@
-"""StackSpotAI provider implementation for the Pepperpy framework.
+"""StackSpot provider implementation for the Pepperpy framework.
 
-This module implements the StackSpot provider, supporting chat completions and
-embeddings using StackSpot's AI API. It handles streaming responses, rate limiting,
-and proper error propagation. StackSpot provides access to GPT-4 and other models
-through a unified API.
-
-Example:
-    ```python
-    config = ProviderConfig(
-        provider_type="stackspot",
-        api_key="your-api-key",
-        model="gpt-4"
-    )
-    provider = StackSpotProvider(config)
-    await provider.initialize()
-    response = await provider.complete("Hello, how are you?")
-    print(response)
-    ```
+This module provides integration with StackSpot's API, supporting both completion
+and streaming capabilities.
 """
 
-# Standard library imports
-import asyncio
 import json
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator
 from typing import Any
 
-# Third-party imports
 import aiohttp
 from aiohttp import ClientSession, ClientTimeout
 from pydantic import SecretStr
 
-# Local imports
 from pepperpy.monitoring import logger
-
-from ..domain import (
+from pepperpy.providers.base import BaseProvider, ProviderConfig
+from pepperpy.providers.domain import (
     ProviderAPIError,
     ProviderError,
     ProviderInitError,
     ProviderRateLimitError,
 )
-from ..provider import Provider, ProviderConfig
 
 # Type aliases
 JsonDict = dict[str, Any]
 
 
-class StackSpotProvider(Provider):
+class StackSpotProvider(BaseProvider):
     """Provider implementation for StackSpot AI API.
 
     This provider implements the Provider protocol for StackSpot's API, supporting:
@@ -328,11 +308,11 @@ class StackSpotProvider(Provider):
                 f"{self.BASE_URL}/embeddings", json=payload, raise_for_status=False
             ) as response:
                 if not response.ok:
-                    logger.warning(
-                        "StackSpot API request failed: %s (status: %s)",
-                        response.text,
-                        response.status,
+                    error_msg = (
+                        f"StackSpot API request failed: {response.text} "
+                        f"(status: {response.status})"
                     )
+                    logger.warning(message=error_msg)
                     raise ProviderError(
                         f"StackSpot API request failed: {response.text}",
                         provider_type="stackspot",

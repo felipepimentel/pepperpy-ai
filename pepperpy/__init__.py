@@ -14,9 +14,9 @@ Example:
 
 __version__ = "0.1.0"
 
-from pepperpy.client import PepperpyClient
 from pepperpy.common.config import AutoConfig, PepperpyConfig, ProviderConfig
-from pepperpy.prompt_template import PromptTemplate
+from pepperpy.core.client import PepperpyClient
+from pepperpy.core.templates.prompt import PromptTemplate
 
 __all__ = [
     "AutoConfig",

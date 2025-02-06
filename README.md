@@ -1,130 +1,175 @@
-# Pepperpy Provider System
+# Pepperpy Framework
 
-A unified, provider-agnostic interface for interacting with various AI services.
+Pepperpy is a powerful framework for building AI agents with modular components, extensible providers, and robust memory management.
 
 ## Features
 
-- Clean, provider-agnostic API
-- Type-safe implementation
-- Async/await support
-- Streaming support
-- Environment-based configuration
-- Comprehensive error handling
-- Rate limiting support
-
-## Supported Providers
-
-- OpenAI
-- StackSpotAI (coming soon)
-- OpenRouter (coming soon)
-- Gemini (coming soon)
+- **Modular Architecture**: Build agents using composable components
+- **Multiple Providers**: Support for OpenAI, Anthropic, and more
+- **Memory Management**: Redis and vector store support for persistent memory
+- **Framework Adapters**: Integrate with LangChain, AutoGen, and other frameworks
+- **Type Safety**: Full type hints and runtime validation
+- **Async Support**: Built for high-performance async operations
+- **Observability**: Comprehensive logging, metrics, and tracing
 
 ## Installation
 
 ```bash
-pip install -r requirements.txt
+# Install from PyPI
+pip install pepperpy
+
+# Install with all extras
+pip install pepperpy[all]
+
+# Install specific extras
+pip install pepperpy[redis,vector,monitoring]
 ```
 
-## Usage
-
-### Basic Usage
+## Quick Start
 
 ```python
-from pepperpy.providers import create_provider
+from pepperpy.core import Message
+from pepperpy.providers import OpenAIProvider
+from pepperpy.memory import RedisMemoryStore
 
-# Create a provider (using environment variable PEPPERPY_PROVIDER_OPENAI_API_KEY)
-async with create_provider("openai") as provider:
-    response = await provider.complete(
-        "Translate to Portuguese: Hello, world!",
-        temperature=0.7
+# Configure provider
+provider = OpenAIProvider(
+    config=OpenAIConfig(
+        model="gpt-4",
+        api_key="your-api-key",
     )
-    print(response)  # Olá, mundo!
+)
 
-# Or with explicit API key
-provider = create_provider("openai", api_key="your-api-key")
+# Configure memory store
+memory = RedisMemoryStore(
+    config=RedisConfig(
+        host="localhost",
+        port=6379,
+    )
+)
+
+# Initialize components
 await provider.initialize()
-try:
-    response = await provider.complete("Hello!")
-    print(response)
-finally:
-    await provider.cleanup()
-```
+await memory.initialize()
 
-### Streaming Responses
+# Process messages
+message = Message(
+    sender="user",
+    content={"query": "What's the weather?"},
+)
 
-```python
-async with create_provider("openai") as provider:
-    async for chunk in await provider.complete(
-        "Tell me a story",
-        stream=True
-    ):
-        print(chunk, end="", flush=True)
-```
-
-### Embeddings
-
-```python
-async with create_provider("openai") as provider:
-    embedding = await provider.embed("Hello, world!")
-    print(f"Embedding dimension: {len(embedding)}")
-```
-
-### Environment Configuration
-
-```bash
-# Provider API keys
-export PEPPERPY_PROVIDER_OPENAI_API_KEY="sk-..."
-export PEPPERPY_PROVIDER_GEMINI_API_KEY="..."
-
-# Optional provider configuration
-export PEPPERPY_PROVIDER_OPENAI_MODEL="gpt-4"
-export PEPPERPY_PROVIDER_TIMEOUT="60.0"
+response = await provider.generate([message])
+await memory.add_to_conversation("chat-1", message)
 ```
 
 ## Development
 
 ### Setup
 
-```bash
-# Install dependencies
-pip install -r requirements.txt
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/pepperpy.git
+   cd pepperpy
+   ```
 
-# Run tests
+2. Create a virtual environment:
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/macOS
+   venv\Scripts\activate     # Windows
+   ```
+
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   pip install -r tests/requirements.txt
+   ```
+
+### Testing
+
+Run tests with pytest:
+```bash
+# Run all tests
 pytest
 
-# Type checking
-mypy .
+# Run specific test categories
+pytest -m "not slow"        # Skip slow tests
+pytest -m integration       # Run integration tests
+pytest -m "memory or redis" # Run memory-related tests
 
-# Format code
-black .
-isort .
+# Run with coverage
+pytest --cov=pepperpy
+
+# Run in parallel
+pytest -n auto
 ```
 
-### Adding a New Provider
+### Code Quality
 
-1. Create provider implementation in `pepperpy/providers/services/`
-2. Implement the `Provider` protocol
-3. Register provider in `pepperpy/providers/services/__init__.py`
+1. Type checking:
+   ```bash
+   mypy pepperpy tests
+   ```
 
-Example:
+2. Linting:
+   ```bash
+   ruff check pepperpy tests
+   ```
 
-```python
-from pepperpy.providers import Provider, ProviderConfig
+3. Code formatting:
+   ```bash
+   ruff format pepperpy tests
+   ```
 
-class MyProvider(Provider):
-    async def initialize(self) -> None:
-        # Setup provider
-        await super().initialize()
-    
-    async def complete(self, prompt: str, **kwargs) -> str:
-        # Implement completion
-        return "Response"
-    
-    async def embed(self, text: str, **kwargs) -> list[float]:
-        # Implement embedding
-        return [0.1, 0.2, 0.3]
+## Project Structure
+
 ```
+pepperpy/
+├── core/               # Core framework components
+│   ├── base.py        # Base classes and interfaces
+│   ├── config.py      # Configuration management
+│   ├── errors.py      # Error definitions
+│   ├── events.py      # Event system
+│   ├── registry.py    # Component registry
+│   ├── types.py       # Core type definitions
+│   └── utils.py       # Utility functions
+│
+├── providers/         # Model providers
+│   ├── base.py       # Provider interface
+│   ├── openai.py     # OpenAI provider
+│   └── anthropic.py  # Anthropic provider
+│
+├── memory/           # Memory management
+│   ├── base.py      # Memory store interface
+│   ├── manager.py   # Memory manager
+│   └── storage/     # Store implementations
+│       ├── redis.py # Redis store
+│       └── vector.py # Vector store
+│
+├── adapters/         # Framework adapters
+│   ├── base.py      # Adapter interface
+│   ├── errors.py    # Adapter errors
+│   └── frameworks/  # Framework implementations
+│       ├── langchain.py
+│       ├── autogen.py
+│       └── crewai.py
+│
+└── monitoring/      # Observability
+    ├── logger.py   # Logging configuration
+    ├── metrics.py  # Metrics collection
+    └── tracing.py  # Distributed tracing
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linting
+5. Submit a pull request
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and development process.
 
 ## License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

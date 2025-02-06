@@ -5,11 +5,11 @@ fallback handling, and cleanup of providers.
 """
 
 from collections.abc import AsyncGenerator
-from typing import Optional
 
+from pepperpy.core.types import Message, MessageType, Response
 from pepperpy.monitoring import logger
+from pepperpy.providers.base import BaseProvider
 from pepperpy.providers.domain import ProviderAPIError
-from pepperpy.providers.provider import BaseProvider
 
 
 class ProviderManager:
@@ -51,41 +51,66 @@ class ProviderManager:
         *,
         temperature: float = 0.7,
         stream: bool = False,
-    ) -> str | AsyncGenerator[str, None]:
-        """Complete a prompt using available providers.
-
-        This method will try the primary provider first, and if it fails,
-        will automatically fall back to the fallback provider if configured.
+    ) -> Response | AsyncGenerator[Response, None]:
+        """Complete a prompt using the configured providers.
 
         Args:
             prompt: The prompt to complete
             temperature: Sampling temperature
-            stream: Whether to stream the response
+            stream: Whether to stream responses
 
         Returns:
-            Either a string response or an async generator for streaming
+            Generated completion response or stream
 
         Raises:
             ProviderAPIError: If all providers fail
         """
-        try:
-            return await self.primary.complete(
-                prompt=prompt,
-                temperature=temperature,
-                stream=stream,
-            )
-        except ProviderAPIError as e:
-            logger.warning(
-                "Primary provider %s failed: %s",
-                self.primary.__class__.__name__,
-                str(e),
-            )
+        message = Message(
+            type=MessageType.QUERY,
+            sender="user",
+            receiver="provider",
+            content={"text": prompt},
+        )
 
-            if not self.fallback:
-                raise
+        if not stream:
+            try:
+                response = await self.primary.generate(
+                    [message], temperature=temperature
+                )
+                return response
+            except ProviderAPIError as e:
+                warning_msg = (
+                    f"Primary provider {self.primary.__class__.__name__} failed: {e!s}"
+                )
+                logger.warning(message=warning_msg)
 
-            return await self.fallback.complete(
-                prompt=prompt,
-                temperature=temperature,
-                stream=stream,
-            )
+                if not self.fallback:
+                    raise
+
+                response = await self.fallback.generate(
+                    [message], temperature=temperature
+                )
+                return response
+
+        # Streaming response
+        async def stream_generator() -> AsyncGenerator[Response, None]:
+            try:
+                async for response in self.primary.stream(
+                    [message], temperature=temperature
+                ):
+                    yield response
+            except ProviderAPIError as e:
+                warning_msg = (
+                    f"Primary provider {self.primary.__class__.__name__} failed: {e!s}"
+                )
+                logger.warning(message=warning_msg)
+
+                if not self.fallback:
+                    raise
+
+                async for response in self.fallback.stream(
+                    [message], temperature=temperature
+                ):
+                    yield response
+
+        return stream_generator()

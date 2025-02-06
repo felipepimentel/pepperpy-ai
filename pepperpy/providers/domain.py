@@ -12,10 +12,11 @@ Example:
 """
 
 from datetime import datetime
-from typing import Any, ClassVar, Final
+from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from pepperpy.common.errors import PepperpyError
 from pepperpy.monitoring import logger
 
 # Message roles
@@ -156,21 +157,8 @@ class Conversation(BaseModel):
         self.messages.append(message)
 
 
-class ProviderError(Exception):
-    """Base exception for provider errors.
-
-    Attributes:
-        message: Error message
-        provider_type: Type of provider that raised the error
-        details: Additional error details
-
-    Example:
-        >>> raise ProviderError(
-        ...     "Something went wrong",
-        ...     provider_type="openai",
-        ...     details={"error": "API error"}
-        ... )
-    """
+class ProviderError(PepperpyError):
+    """Base class for provider errors."""
 
     def __init__(
         self,
@@ -186,12 +174,11 @@ class ProviderError(Exception):
             details: Additional error details
         """
         super().__init__(message)
-        logger.error(
-            "Provider error occurred: %s (provider: %s, details: %s)",
-            message,
-            provider_type,
-            details or {},
+        error_msg = (
+            f"Provider error occurred: {message} "
+            f"(provider: {provider_type}, details: {details or {}})"
         )
+        logger.error(message=error_msg)
         self.provider_type = provider_type
         self.details = details or {}
 

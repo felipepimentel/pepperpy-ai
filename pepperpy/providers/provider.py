@@ -6,19 +6,23 @@ as well as the standard configuration structure.
 
 # Standard library imports
 import asyncio
-import logging
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, AsyncIterator
-from datetime import datetime
-from typing import Any, ClassVar, Final, Optional
+from collections.abc import AsyncGenerator
+from typing import Any, Final
 
 # Third-party imports
 from pydantic import BaseModel, Field, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Local imports
-from pepperpy.common.errors import ProviderConfigError, ProviderError
+from pepperpy.common.errors import ProviderError
 from pepperpy.monitoring import logger
+
+VALID_PROVIDER_TYPES: Final[set[str]] = {
+    "openai",
+    "anthropic",
+    "stackspot",
+    "gemini",
+}
 
 
 class ProviderConfig(BaseModel):
@@ -36,35 +40,39 @@ class ProviderConfig(BaseModel):
     extra_config: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("provider_type")
-    def validate_provider_type(cls, v: str) -> str:
+    def validate_provider_type(self, v: str) -> str:
         """Validate provider type.
 
         Args:
-            v: The provider type.
+            v: Provider type to validate.
 
         Returns:
-            The provider type.
+            Validated provider type.
 
         Raises:
-            ValueError: If provider type is empty.
+            ValueError: If provider type is invalid.
         """
-        if not v:
-            raise ValueError("Provider type cannot be empty")
+        if v not in VALID_PROVIDER_TYPES:
+            raise ValueError(f"Invalid provider type: {v}")
         return v
 
     @field_validator("api_key")
-    def validate_api_key(cls, v: SecretStr) -> SecretStr:
+    def validate_api_key(self, v: SecretStr | None) -> SecretStr | None:
         """Validate API key.
 
         Args:
-            v: The API key.
+            v: API key to validate.
 
         Returns:
-            The API key.
+            Validated API key.
 
         Raises:
-            ValueError: If API key is required but empty.
+            ValueError: If API key is invalid.
         """
+        if v is None:
+            return None
+        if not v.get_secret_value():
+            raise ValueError("API key cannot be empty")
         return v
 
 

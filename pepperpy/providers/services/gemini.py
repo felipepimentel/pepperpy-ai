@@ -24,6 +24,7 @@ import google.generativeai as genai
 from google.generativeai.client import configure
 from google.generativeai.generative_models import GenerativeModel
 from google.generativeai.types import GenerationConfig
+from pydantic import Field
 
 from pepperpy.monitoring import logger
 
@@ -33,6 +34,24 @@ from ..domain import (
     ProviderRateLimitError,
 )
 from ..provider import Provider, ProviderConfig
+
+
+class GeminiConfig(ProviderConfig):
+    """Configuration for the Gemini provider.
+
+    Attributes:
+        model: Model to use (default: gemini-pro)
+        temperature: Sampling temperature (default: 0.7)
+        max_tokens: Maximum tokens per request (default: 2048)
+        top_p: Top-p sampling parameter (default: 1.0)
+        top_k: Top-k sampling parameter (default: 40)
+    """
+
+    model: str = Field(default="gemini-pro", description="Model to use")
+    temperature: float = Field(default=0.7, description="Sampling temperature")
+    max_tokens: int = Field(default=2048, description="Maximum tokens per request")
+    top_p: float = Field(default=1.0, description="Top-p sampling parameter")
+    top_k: int = Field(default=40, description="Top-k sampling parameter")
 
 
 class GeminiProvider(Provider):
@@ -47,7 +66,7 @@ class GeminiProvider(Provider):
 
     Attributes:
         config (ProviderConfig): The provider configuration
-        _client (Any): The Gemini client instance
+        _client (GenerativeModel): The Gemini client instance
         _model (str): The model to use for generation
     """
 
@@ -61,7 +80,7 @@ class GeminiProvider(Provider):
             The provider is not ready for use until initialize() is called
         """
         super().__init__(config)
-        self._client: Any = None
+        self._client: GenerativeModel | None = None
         self._model = config.model or "gemini-pro"
 
     async def initialize(self) -> None:
@@ -100,27 +119,31 @@ class GeminiProvider(Provider):
         stream: bool = False,
         **kwargs: Any,
     ) -> str | AsyncGenerator[str, None]:
-        """Complete a prompt using the Gemini API.
+        """Complete a text prompt using the Gemini model.
 
         Args:
-            prompt: The prompt to complete
-            temperature: Controls randomness (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response
-            **kwargs: Additional provider-specific parameters
+            prompt: The text prompt to complete
+            temperature: Sampling temperature (default: 0.7)
+            max_tokens: Maximum tokens to generate (default: None)
+            stream: Whether to stream the response (default: False)
+            **kwargs: Additional keyword arguments passed to the model
 
         Returns:
-            Generated text or async generator of text chunks if streaming
+            Either a string containing the complete response, or an async
+            generator yielding response chunks if streaming is enabled.
 
         Raises:
-            ProviderError: If the API call fails
+            ProviderAPIError: If the API request fails
+            ProviderRateLimitError: If rate limits are exceeded
+            ProviderInitError: If the provider is not initialized
         """
         if not self._client:
             raise ProviderInitError(
-                "Gemini provider not initialized",
+                "Provider not initialized",
                 provider_type="gemini",
             )
 
+        client = self._client  # Type guard
         try:
             generation_config = GenerationConfig(
                 temperature=temperature,
@@ -131,7 +154,7 @@ class GeminiProvider(Provider):
             if stream:
 
                 async def response_generator() -> AsyncGenerator[str, None]:
-                    response = await self._client.generate_content_async(
+                    response = await client.generate_content_async(
                         prompt,
                         generation_config=generation_config,
                         stream=True,
@@ -141,7 +164,7 @@ class GeminiProvider(Provider):
 
                 return response_generator()
 
-            response = await self._client.generate_content_async(
+            response = await client.generate_content_async(
                 prompt,
                 generation_config=generation_config,
                 stream=False,

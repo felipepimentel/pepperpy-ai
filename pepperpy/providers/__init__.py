@@ -1,60 +1,20 @@
-"""Provider package for the Pepperpy framework.
+"""Model providers for the Pepperpy framework.
 
-This package provides a unified interface for interacting with various
-AI providers (e.g., OpenAI, Gemini). It handles provider initialization,
-configuration, and error handling.
-
-Basic Usage:
-    >>> from pepperpy.providers import create_provider
-    >>> provider = create_provider("openai", api_key="...")
-    >>> response = await provider.complete("Hello, world!")
-    >>> print(response)
-
-Advanced Usage:
-    >>> from pepperpy.providers import Provider, ProviderConfig
-    >>> config = ProviderConfig(
-    ...     provider_type="openai",
-    ...     api_key="your-api-key",
-    ...     model="gpt-4",
-    ...     timeout=30.0
-    ... )
-    >>> async with Provider(config) as provider:
-    ...     response = await provider.complete(
-    ...         "Tell me a story",
-    ...         temperature=0.7,
-    ...         max_tokens=100
-    ...     )
-    ...     print(response)
+This module provides integrations with various AI model providers, including OpenAI
+and Anthropic, with a consistent interface for model interactions.
 """
 
-from typing import Any
-
-from .domain import (
-    Conversation,
-    Message,
-    ProviderAPIError,
-    ProviderConfigError,
-    ProviderError,
-    ProviderInitError,
-    ProviderNotFoundError,
-    ProviderRateLimitError,
-)
-from .engine import create_provider, list_providers
-from .provider import Provider, ProviderConfig
+from pepperpy.providers.base import BaseProvider, ProviderConfig
+from pepperpy.providers.services.anthropic import AnthropicConfig, AnthropicProvider
+from pepperpy.providers.services.openai import OpenAIConfig, OpenAIProvider
 
 __all__ = [
-    "Conversation",
-    "Message",
-    "Provider",
-    "ProviderAPIError",
+    "AnthropicConfig",
+    "AnthropicProvider",
+    "BaseProvider",
+    "OpenAIConfig",
+    "OpenAIProvider",
     "ProviderConfig",
-    "ProviderConfigError",
-    "ProviderError",
-    "ProviderInitError",
-    "ProviderNotFoundError",
-    "ProviderRateLimitError",
-    "create_provider",
-    "list_providers",
 ]
 
 # Version information

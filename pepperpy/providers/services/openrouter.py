@@ -4,19 +4,22 @@ This module provides integration with OpenRouter's API for accessing
 various language models through a unified interface.
 """
 
+import json
 from collections.abc import AsyncGenerator
 from typing import Any, cast
+from uuid import uuid4
 
 import aiohttp
 from pydantic import SecretStr
 
+from pepperpy.core.types import Message, Response, ResponseStatus
 from pepperpy.monitoring import logger
+from pepperpy.providers.base import BaseProvider, ProviderConfig
 from pepperpy.providers.domain import (
     ProviderAPIError,
     ProviderInitError,
     ProviderRateLimitError,
 )
-from pepperpy.providers.provider import BaseProvider, ProviderConfig
 
 
 class OpenRouterProvider(BaseProvider):
@@ -171,6 +174,66 @@ class OpenRouterProvider(BaseProvider):
                 provider_type="openrouter",
             ) from e
 
+    async def _handle_response_status(self, response: aiohttp.ClientResponse) -> None:
+        """Handle response status codes.
+
+        Args:
+            response: The HTTP response
+
+        Raises:
+            ProviderRateLimitError: If rate limit is exceeded
+            ProviderAPIError: If API returns an error
+        """
+        if response.status == 429:
+            raise ProviderRateLimitError(
+                "OpenRouter rate limit exceeded",
+                provider_type="openrouter",
+            )
+
+        if response.status != 200:
+            text = await response.text()
+            logger.warning(
+                "OpenRouter API error",
+                extra={
+                    "status": response.status,
+                    "response": text,
+                },
+            )
+            raise ProviderAPIError(
+                f"OpenRouter API error: {response.status}",
+                provider_type="openrouter",
+            )
+
+    async def _process_chunk(self, line: bytes) -> str | None:
+        """Process a single chunk from the stream.
+
+        Args:
+            line: Raw chunk data
+
+        Returns:
+            Processed content or None if chunk should be skipped
+        """
+        if not line.startswith(b"data: "):
+            return None
+
+        chunk = line[6:].decode("utf-8")
+        if chunk == "[DONE]":
+            return None
+
+        try:
+            result = json.loads(chunk)
+            content = result["choices"][0]["delta"].get("content")
+            return str(content) if content is not None else None
+        except Exception as e:
+            logger.warning(
+                "Failed to parse streaming chunk",
+                extra={
+                    "error": str(e),
+                    "chunk": chunk,
+                },
+            )
+            return None
+
     async def _stream_response(
         self,
         payload: dict[str, Any],
@@ -198,44 +261,11 @@ class OpenRouterProvider(BaseProvider):
                 f"{self._base_url}/chat/completions",
                 json=payload,
             ) as response:
-                if response.status == 429:
-                    raise ProviderRateLimitError(
-                        "OpenRouter rate limit exceeded",
-                        provider_type="openrouter",
-                    )
+                await self._handle_response_status(response)
 
-                if response.status != 200:
-                    text = await response.text()
-                    logger.warning(
-                        "OpenRouter API error",
-                        extra={
-                            "status": response.status,
-                            "response": text,
-                        },
-                    )
-                    raise ProviderAPIError(
-                        f"OpenRouter API error: {response.status}",
-                        provider_type="openrouter",
-                    )
-
-                async for line in response.content.iter_chunks():
-                    if line and line[0].startswith(b"data: "):
-                        try:
-                            chunk = line[0][6:].decode("utf-8")
-                            if chunk == "[DONE]":
-                                break
-
-                            result = await response.json()
-                            if content := result["choices"][0]["delta"].get("content"):
-                                yield content
-                        except Exception as e:
-                            logger.warning(
-                                "Failed to parse streaming chunk",
-                                extra={
-                                    "error": str(e),
-                                    "chunk": line[0].decode(),
-                                },
-                            )
+                async for line, _ in response.content.iter_chunks():
+                    if content := await self._process_chunk(line):
+                        yield content
 
         except aiohttp.ClientError as e:
             raise ProviderAPIError(
@@ -252,3 +282,89 @@ class OpenRouterProvider(BaseProvider):
             await self._session.close()
             self._session = None
             logger.info("OpenRouter provider cleaned up")
+
+    async def generate(self, messages: list[Message], **kwargs: Any) -> Response:
+        """Generate a response from the provider.
+
+        Args:
+            messages: List of messages to generate from
+            **kwargs: Additional arguments to pass to the provider
+
+        Returns:
+            Generated response
+
+        Raises:
+            ProviderInitError: If the provider is not initialized
+            ProviderAPIError: If the API request fails
+            ProviderError: If generation fails for other reasons
+        """
+        self._ensure_initialized()
+
+        # Convert messages to OpenRouter format
+        prompt = "\n".join(msg.content.get("text", "") for msg in messages)
+        response = await self.complete(prompt, stream=False, **kwargs)
+        if isinstance(response, AsyncGenerator):
+            raise TypeError("Provider returned a streaming response")
+
+        return Response(
+            id=uuid4(),
+            message_id=messages[-1].id if messages else uuid4(),
+            content={"text": response},
+            status=ResponseStatus.SUCCESS,
+            metadata={
+                "provider": self.name,
+                "model": self.config.model,
+            },
+        )
+
+    def stream(
+        self, messages: list[Message], **kwargs: Any
+    ) -> AsyncGenerator[Response, None]:
+        """Stream responses from the provider.
+
+        Args:
+            messages: List of messages to generate from
+            **kwargs: Additional arguments to pass to the provider
+
+        Returns:
+            AsyncIterator[Response]: Stream of responses
+
+        Raises:
+            ProviderInitError: If the provider is not initialized
+            ProviderAPIError: If the API request fails
+            ProviderError: If streaming fails for other reasons
+        """
+        self._ensure_initialized()
+
+        # Convert messages to OpenRouter format
+        prompt = "\n".join(msg.content.get("text", "") for msg in messages)
+
+        async def response_generator() -> AsyncGenerator[Response, None]:
+            response = await self.complete(prompt, stream=True, **kwargs)
+            if isinstance(response, AsyncGenerator):
+                async for chunk in response:
+                    if isinstance(chunk, str):
+                        yield Response(
+                            id=uuid4(),
+                            message_id=messages[-1].id if messages else uuid4(),
+                            content={"text": chunk},
+                            status=ResponseStatus.SUCCESS,
+                            metadata={
+                                "provider": self.name,
+                                "model": self.config.model,
+                            },
+                        )
+            else:
+                # If provider doesn't support streaming, yield the entire response
+                yield Response(
+                    id=uuid4(),
+                    message_id=messages[-1].id if messages else uuid4(),
+                    content={"text": response},
+                    status=ResponseStatus.SUCCESS,
+                    metadata={
+                        "provider": self.name,
+                        "model": self.config.model,
+                    },
+                )
+
+        return response_generator()

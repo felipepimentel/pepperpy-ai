@@ -12,6 +12,7 @@ from pepperpy import PepperpyClient
 async def main() -> None:
     """Run the chat example."""
     # Create client (automatically loads from environment)
+    client: PepperpyClient
     async with PepperpyClient() as client:
         print("Chat started! Running example messages...")
         print("-" * 50)
