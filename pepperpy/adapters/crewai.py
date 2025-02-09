@@ -1,55 +1,56 @@
 """CrewAI framework adapter.
 
-This module implements the adapter for the CrewAI framework.
+This module provides adapter classes for integrating with the CrewAI framework.
 """
 
-from typing import Any
-from uuid import UUID, uuid4
+from typing import Protocol
+from uuid import uuid4
 
-from crewai import Agent as CrewAIAgent
-
-from pepperpy.adapters.base import BaseFrameworkAdapter
 from pepperpy.adapters.errors import ConversionError
 from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
 
+from .base import BaseFrameworkAdapter
 
-class CrewAIAdapter(BaseFrameworkAdapter[CrewAIAgent]):
+
+class CrewAIMessage(Protocol):
+    """Protocol for CrewAI messages."""
+
+    content: str
+    role: str
+
+
+class CrewAIResponse(Protocol):
+    """Protocol for CrewAI responses."""
+
+    content: str
+    role: str
+
+
+class CrewAIAdapter(BaseFrameworkAdapter[str, CrewAIMessage, CrewAIResponse]):
     """Adapter for CrewAI framework.
 
-    This adapter allows Pepperpy agents to be used as CrewAI agents
-    and vice versa.
-
-    Args:
-        agent: The Pepperpy agent to adapt
-        **kwargs: Additional CrewAI-specific configuration
+    This adapter allows Pepperpy agents to be used with CrewAI.
     """
 
-    async def to_framework_agent(self) -> CrewAIAgent:
+    async def to_framework_agent(self) -> str:
         """Convert Pepperpy agent to CrewAI agent.
 
         Returns:
-            CrewAI agent instance
+            The CrewAI agent name
 
         Raises:
             ConversionError: If conversion fails
         """
         try:
-            return CrewAIAgent(
-                name=self.agent.name,
-                goal=self.agent.description,
-                backstory=self.agent.context.metadata.get("backstory", ""),
-                allow_delegation=self.agent.context.metadata.get(
-                    "allow_delegation", True
-                ),
-            )
-        except Exception as e:
+            return self.agent.name
+        except AttributeError as e:
             raise ConversionError(f"Failed to convert to CrewAI agent: {e}") from e
 
-    async def from_framework_message(self, message: Any) -> Message:
+    async def from_framework_message(self, message: CrewAIMessage) -> Message:
         """Convert CrewAI message to Pepperpy message.
 
         Args:
-            message: CrewAI message
+            message: CrewAI message to convert
 
         Returns:
             Pepperpy Message instance
@@ -60,39 +61,44 @@ class CrewAIAdapter(BaseFrameworkAdapter[CrewAIAgent]):
         try:
             return Message(
                 type=MessageType.QUERY,
-                sender=str(message.get("sender", "crewai")),
-                receiver=str(message.get("receiver", "pepperpy")),
-                content={"text": str(message.get("content", ""))},
+                sender=message.role,
+                receiver="pepperpy",
+                content={"text": message.content},
             )
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             raise ConversionError(f"Failed to convert from CrewAI message: {e}") from e
 
-    async def to_framework_message(self, message: Message) -> dict[str, Any]:
+    async def to_framework_message(self, message: Message) -> CrewAIMessage:
         """Convert Pepperpy message to CrewAI message.
 
         Args:
             message: Pepperpy Message instance
 
         Returns:
-            CrewAI message dict
+            CrewAI message
 
         Raises:
             ConversionError: If conversion fails
         """
         try:
-            return {
-                "content": message.content.get("text", ""),
-                "sender": message.sender,
-                "receiver": message.receiver,
-            }
-        except Exception as e:
+            # Create a simple object that matches the CrewAIMessage protocol
+            class SimpleCrewAIMessage:
+                def __init__(self, content: str, role: str) -> None:
+                    self.content = content
+                    self.role = role
+
+            return SimpleCrewAIMessage(
+                content=message.content.get("text", ""),
+                role=message.sender,
+            )
+        except (AttributeError, TypeError) as e:
             raise ConversionError(f"Failed to convert to CrewAI message: {e}") from e
 
-    async def from_framework_response(self, response: Any) -> Response:
+    async def from_framework_response(self, response: CrewAIResponse) -> Response:
         """Convert CrewAI response to Pepperpy response.
 
         Args:
-            response: CrewAI response
+            response: CrewAI response to convert
 
         Returns:
             Pepperpy Response instance
@@ -102,30 +108,35 @@ class CrewAIAdapter(BaseFrameworkAdapter[CrewAIAgent]):
         """
         try:
             return Response(
-                message_id=UUID(str(response.get("message_id", uuid4()))),
+                message_id=uuid4(),
                 status=ResponseStatus.SUCCESS,
-                content={"text": str(response.get("content", ""))},
+                content={"text": response.content},
             )
-        except Exception as e:
+        except (AttributeError, TypeError) as e:
             raise ConversionError(f"Failed to convert from CrewAI response: {e}") from e
 
-    async def to_framework_response(self, response: Response) -> dict[str, Any]:
+    async def to_framework_response(self, response: Response) -> CrewAIResponse:
         """Convert Pepperpy response to CrewAI response.
 
         Args:
             response: Pepperpy Response instance
 
         Returns:
-            CrewAI response dict
+            CrewAI response
 
         Raises:
             ConversionError: If conversion fails
         """
         try:
-            return {
-                "content": response.content.get("text", ""),
-                "message_id": str(response.message_id),
-                "status": response.status,
-            }
-        except Exception as e:
+            # Create a simple object that matches the CrewAIResponse protocol
+            class SimpleCrewAIResponse:
+                def __init__(self, content: str, role: str) -> None:
+                    self.content = content
+                    self.role = role
+
+            return SimpleCrewAIResponse(
+                content=response.content.get("text", ""),
+                role="assistant",
+            )
+        except (AttributeError, TypeError) as e:
             raise ConversionError(f"Failed to convert to CrewAI response: {e}") from e

@@ -5,11 +5,14 @@ fallback handling, and cleanup of providers.
 """
 
 from collections.abc import AsyncGenerator
+from typing import Any, TypeAlias
 
 from pepperpy.core.types import Message, MessageType, Response
-from pepperpy.monitoring import logger
+from pepperpy.monitoring.logger import structured_logger as logger
 from pepperpy.providers.base import BaseProvider
 from pepperpy.providers.domain import ProviderAPIError
+
+CompletionResult: TypeAlias = Response | AsyncGenerator[Response, None]
 
 
 class ProviderManager:
@@ -51,7 +54,7 @@ class ProviderManager:
         *,
         temperature: float = 0.7,
         stream: bool = False,
-    ) -> Response | AsyncGenerator[Response, None]:
+    ) -> CompletionResult:
         """Complete a prompt using the configured providers.
 
         Args:
@@ -60,7 +63,7 @@ class ProviderManager:
             stream: Whether to stream responses
 
         Returns:
-            Generated completion response or stream
+            CompletionResult: Generated completion response or stream
 
         Raises:
             ProviderAPIError: If all providers fail
@@ -75,7 +78,8 @@ class ProviderManager:
         if not stream:
             try:
                 response = await self.primary.generate(
-                    [message], temperature=temperature
+                    [message],
+                    model_params={"temperature": temperature},
                 )
                 return response
             except ProviderAPIError as e:
@@ -88,7 +92,8 @@ class ProviderManager:
                     raise
 
                 response = await self.fallback.generate(
-                    [message], temperature=temperature
+                    [message],
+                    model_params={"temperature": temperature},
                 )
                 return response
 
@@ -96,7 +101,8 @@ class ProviderManager:
         async def stream_generator() -> AsyncGenerator[Response, None]:
             try:
                 async for response in self.primary.stream(
-                    [message], temperature=temperature
+                    [message],
+                    model_params={"temperature": temperature},
                 ):
                     yield response
             except ProviderAPIError as e:
@@ -109,7 +115,8 @@ class ProviderManager:
                     raise
 
                 async for response in self.fallback.stream(
-                    [message], temperature=temperature
+                    [message],
+                    model_params={"temperature": temperature},
                 ):
                     yield response
 

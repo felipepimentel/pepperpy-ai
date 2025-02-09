@@ -11,11 +11,22 @@ It handles:
 import argparse
 import ast
 import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from typing import TypeVar
 
-from pepperpy.monitoring import logger
+from loguru import Logger
+
+from pepperpy.monitoring.logger import get_logger
+
+# Type aliases
+T = TypeVar("T")
+ImportPair = tuple[str, str]
+ImportList = list[ImportPair]
+
+logger: Logger = get_logger(__name__)
 
 
 class ImportType(Enum):
@@ -69,7 +80,7 @@ IMPORT_MAPPINGS: dict[ImportType, list[ImportMapping]] = {
 class ImportUpdater:
     """Handles import updates across the project."""
 
-    def __init__(self, workspace: Path):
+    def __init__(self, workspace: Path) -> None:
         """Initialize the updater.
 
         Args:
@@ -157,16 +168,16 @@ class ImportUpdater:
             logger.info("No files needed updating")
 
 
-def extract_imports(tree: ast.AST) -> list[tuple[str, str]]:
+def extract_imports(tree: ast.AST) -> ImportList:
     """Extract imports from an AST.
 
     Args:
         tree: The AST to extract imports from
 
     Returns:
-        A list of tuples containing (import_from, import_name)
+        List of (module, name) tuples
     """
-    imports = []
+    imports: ImportList = []
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for name in node.names:
@@ -178,17 +189,17 @@ def extract_imports(tree: ast.AST) -> list[tuple[str, str]]:
     return imports
 
 
-def organize_imports(content: str, imports: list[tuple[str, str]]) -> str:
-    """Organize imports in a file.
+def _group_imports(
+    imports: Sequence[ImportPair],
+) -> tuple[set[str], set[str], set[str]]:
+    """Group imports by type (stdlib, third-party, local).
 
     Args:
-        content: The file content
-        imports: List of imports to organize
+        imports: List of (module, name) tuples
 
     Returns:
-        The organized file content
+        Tuple of (stdlib_imports, third_party_imports, local_imports) sets
     """
-    # Group imports by type
     stdlib_imports: set[str] = set()
     third_party_imports: set[str] = set()
     local_imports: set[str] = set()
@@ -202,8 +213,25 @@ def organize_imports(content: str, imports: list[tuple[str, str]]) -> str:
         else:
             stdlib_imports.add(import_str)
 
-    # Build new imports section
-    new_imports = []
+    return stdlib_imports, third_party_imports, local_imports
+
+
+def _build_import_section(
+    stdlib_imports: set[str],
+    third_party_imports: set[str],
+    local_imports: set[str],
+) -> list[str]:
+    """Build the new imports section.
+
+    Args:
+        stdlib_imports: Set of standard library imports
+        third_party_imports: Set of third-party imports
+        local_imports: Set of local imports
+
+    Returns:
+        List of import lines
+    """
+    new_imports: list[str] = []
     if stdlib_imports:
         new_imports.extend(sorted(stdlib_imports))
         new_imports.append("")
@@ -213,9 +241,18 @@ def organize_imports(content: str, imports: list[tuple[str, str]]) -> str:
     if local_imports:
         new_imports.extend(sorted(local_imports))
         new_imports.append("")
+    return new_imports
 
-    # Replace old imports with new ones
-    lines = content.splitlines()
+
+def _find_import_bounds(lines: Sequence[str]) -> tuple[int, int]:
+    """Find the start and end lines of the imports section.
+
+    Args:
+        lines: The file lines
+
+    Returns:
+        Tuple of (start_line, end_line) indices
+    """
     start_line = 0
     end_line = 0
 
@@ -224,6 +261,33 @@ def organize_imports(content: str, imports: list[tuple[str, str]]) -> str:
             if start_line == 0:
                 start_line = i
             end_line = i + 1
+
+    return start_line, end_line
+
+
+def organize_imports(content: str, imports: ImportList) -> str:
+    """Organize imports in a file.
+
+    Args:
+        content: The file content
+        imports: List of imports to organize
+
+    Returns:
+        The organized file content
+    """
+    # Group imports by type
+    stdlib_imports, third_party_imports, local_imports = _group_imports(imports)
+
+    # Build new imports section
+    new_imports = _build_import_section(
+        stdlib_imports,
+        third_party_imports,
+        local_imports,
+    )
+
+    # Replace old imports with new ones
+    lines = content.splitlines()
+    start_line, end_line = _find_import_bounds(lines)
 
     if start_line == end_line:
         return content
@@ -248,67 +312,46 @@ def update_imports(file_path: str) -> None:
                 f.write(new_content)
             logger.info(
                 "Updated imports",
-                extra={
-                    "file": file_path,
-                    "old": content,
-                    "new": new_content,
-                },
+                extra={"file": file_path},
             )
 
     except Exception as e:
         logger.error(
             "Failed to update imports",
-            extra={
-                "file": file_path,
-                "error": str(e),
-            },
+            extra={"file": file_path, "error": str(e)},
         )
 
 
 def update_all_imports(directory: str) -> None:
-    """Update imports in all Python files in a directory."""
-    updated_files = []
-    files = []
-    for root, _, filenames in os.walk(directory):
-        for filename in filenames:
-            if filename.endswith(".py"):
-                file_path = os.path.join(root, filename)
-                files.append(file_path)
-                try:
-                    update_imports(file_path)
-                    updated_files.append(file_path)
-                except Exception as e:
-                    logger.error(f"Failed to update {file_path}: {e}")
+    """Update imports in all Python files in a directory.
 
-    logger.info(
-        "Import update completed",
-        extra={
-            "updated_files": len(updated_files),
-            "files": len(files),
-        },
-    )
+    Args:
+        directory: Directory to update
+    """
+    try:
+        for path in Path(directory).rglob("*.py"):
+            if path.is_file():
+                update_imports(str(path))
+    except Exception as e:
+        logger.error(
+            "Failed to update directory",
+            extra={"directory": directory, "error": str(e)},
+        )
 
 
 def main() -> None:
     """Main entry point."""
-    parser = argparse.ArgumentParser(description="Update imports across the project")
-    parser.add_argument(
-        "--type",
-        type=str,
-        choices=[t.value for t in ImportType],
-        help="Type of imports to update",
-    )
-    parser.add_argument(
-        "--workspace",
-        type=Path,
-        default=Path(__file__).parent.parent.parent,
-        help="Workspace root directory",
-    )
+    parser = argparse.ArgumentParser(description="Update imports in Python files")
+    parser.add_argument("path", help="File or directory to update")
     args = parser.parse_args()
 
-    updater = ImportUpdater(args.workspace)
-    updater.update_imports(ImportType(args.type))
-    updater.report()
+    path = Path(args.path)
+    if path.is_file():
+        update_imports(str(path))
+    elif path.is_dir():
+        update_all_imports(str(path))
+    else:
+        logger.error("Invalid path", extra={"path": str(path)})
 
 
 if __name__ == "__main__":

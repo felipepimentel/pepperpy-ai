@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID, uuid4
 
-from pepperpy.common.errors import ContextError
+from pepperpy.core.errors import ContextError
 from pepperpy.core.types import AgentState, ResourceId
 from pepperpy.monitoring.logger import get_logger
 

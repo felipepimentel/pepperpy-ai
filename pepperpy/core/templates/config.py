@@ -43,7 +43,7 @@ class ConfigTemplate(Template[str, dict[str, Any], dict[str, Any]]):
         metadata: TemplateMetadata,
         schema: dict[str, Any] | None = None,
         format: str = "yaml",
-    ):
+    ) -> None:
         """Initialize config template.
 
         Args:

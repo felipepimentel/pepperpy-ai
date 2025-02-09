@@ -9,13 +9,12 @@ reducing code duplication and standardizing error handling.
 
 from typing import Final, cast
 
-from pepperpy.common.errors import ProviderError
+from pepperpy.core.errors import ProviderError
 from pepperpy.monitoring import logger
 
 from ..base import BaseProvider, ProviderConfig
 from ..domain import ProviderInitError
 from ..engine import ProviderEngine
-from ..provider import Provider
 from .anthropic import AnthropicConfig, AnthropicProvider
 from .gemini import GeminiConfig, GeminiProvider
 from .openai import OpenAIConfig, OpenAIProvider
@@ -38,65 +37,128 @@ OPTIONAL_PROVIDERS: Final[list[str]] = [
 ]
 
 # Track registered providers
-REGISTERED_PROVIDERS: dict[str, type[Provider]] = {}
+REGISTERED_PROVIDERS: dict[str, type[BaseProvider]] = {}
 
 
-def register_providers() -> dict[str, type[Provider]]:
-    """Register all available providers."""
-    registered: dict[str, type[Provider]] = {}
+class ProviderRegistry:
+    """Registry for managing provider registration."""
 
-    # Register required providers
+    def __init__(self) -> None:
+        """Initialize the provider registry."""
+        self.engine = ProviderEngine()
+        self.providers: dict[str, type[BaseProvider]] = {}
+
+    async def initialize(self) -> None:
+        """Initialize the registry and engine."""
+        await self.engine.initialize()
+
+    async def cleanup(self) -> None:
+        """Clean up registry resources."""
+        await self.engine.cleanup()
+
+    async def register_provider(
+        self,
+        provider_type: str,
+        provider_class: type[BaseProvider],
+        config: ProviderConfig | None = None,
+    ) -> None:
+        """Register a provider with the registry.
+
+        Args:
+            provider_type: Type identifier for the provider
+            provider_class: Provider class to register
+            config: Optional provider configuration
+
+        Raises:
+            ProviderInitError: If registration fails
+        """
+        try:
+            # Create provider instance if config provided
+            if config:
+                provider = provider_class(config)
+                await self.engine.register_provider(provider, provider_type)
+
+            # Store provider class for later instantiation
+            self.providers[provider_type] = provider_class
+
+        except Exception as e:
+            raise ProviderInitError(
+                message=f"Failed to register provider {provider_type}: {e}",
+                provider_type=provider_type,
+            ) from e
+
+
+async def register_providers() -> dict[str, type[BaseProvider]]:
+    """Register all available providers.
+
+    Returns:
+        Dictionary mapping provider types to their classes
+
+    Raises:
+        ProviderInitError: If a required provider fails to register
+    """
+    registry = ProviderRegistry()
+    await registry.initialize()
+
     try:
-        from .openai import OpenAIProvider
+        # Register required providers
+        try:
+            from .openai import OpenAIProvider
 
-        provider_class = cast(type[Provider], OpenAIProvider)
-        ProviderEngine.register_provider(OPENAI, provider_class)
-        registered[OPENAI] = provider_class
-    except ImportError as e:
-        raise ProviderInitError(f"Required provider 'openai' not available: {e}") from e
+            provider_class = cast(type[BaseProvider], OpenAIProvider)
+            await registry.register_provider(OPENAI, provider_class)
+            registry.providers[OPENAI] = provider_class
+        except ImportError as e:
+            raise ProviderInitError(
+                message=f"Required provider 'openai' not available: {e}",
+                provider_type=OPENAI,
+            ) from e
 
-    # Register optional providers
-    try:
-        from .gemini import GeminiProvider
+        # Register optional providers
+        try:
+            from .gemini import GeminiProvider
 
-        provider_class = cast(type[Provider], GeminiProvider)
-        ProviderEngine.register_provider(GEMINI, provider_class)
-        registered[GEMINI] = provider_class
-    except ImportError as e:
-        logger.warning(
-            "Optional provider not available",
-            extra={"provider": GEMINI, "error": str(e)},
-        )
+            provider_class = cast(type[BaseProvider], GeminiProvider)
+            await registry.register_provider(GEMINI, provider_class)
+            registry.providers[GEMINI] = provider_class
+        except ImportError as e:
+            logger.warning(
+                "Optional provider not available",
+                extra={"provider": GEMINI, "error": str(e)},
+            )
 
-    try:
-        from pepperpy.providers.services.openrouter import OpenRouterProvider
+        try:
+            from pepperpy.providers.services.openrouter import OpenRouterProvider
 
-        provider_class = cast(type[Provider], OpenRouterProvider)
-        ProviderEngine.register_provider(OPENROUTER, provider_class)
-        registered[OPENROUTER] = provider_class
-    except ImportError as e:
-        logger.warning(
-            "Failed to import OpenRouter provider",
-            extra={"error": str(e)},
-        )
+            provider_class = cast(type[BaseProvider], OpenRouterProvider)
+            await registry.register_provider(OPENROUTER, provider_class)
+            registry.providers[OPENROUTER] = provider_class
+        except ImportError as e:
+            logger.warning(
+                "Failed to import OpenRouter provider",
+                extra={"error": str(e)},
+            )
 
-    try:
-        from .stackspot import StackSpotProvider
+        try:
+            from .stackspot import StackSpotProvider
 
-        provider_class = cast(type[Provider], StackSpotProvider)
-        ProviderEngine.register_provider(STACKSPOT, provider_class)
-        registered[STACKSPOT] = provider_class
-    except ImportError as e:
-        logger.warning(
-            "Optional provider not available",
-            extra={"provider": STACKSPOT, "error": str(e)},
-        )
+            provider_class = cast(type[BaseProvider], StackSpotProvider)
+            await registry.register_provider(STACKSPOT, provider_class)
+            registry.providers[STACKSPOT] = provider_class
+        except ImportError as e:
+            logger.warning(
+                "Optional provider not available",
+                extra={"provider": STACKSPOT, "error": str(e)},
+            )
 
-    return registered
+        return dict(registry.providers)
+
+    finally:
+        await registry.cleanup()
 
 
-# Register providers on module import
-REGISTERED_PROVIDERS.update(register_providers())
+# Initialize registry asynchronously
+REGISTRY = ProviderRegistry()
 
 
 __all__ = [
@@ -117,6 +179,7 @@ __all__ = [
     "OpenRouterProvider",
     "ProviderConfig",
     "ProviderError",
+    "ProviderRegistry",
     "StackSpotProvider",
     "register_providers",
 ]

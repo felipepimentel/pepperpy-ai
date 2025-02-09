@@ -168,7 +168,7 @@ template: |
 ### With Configuration
 ```python
 from pepperpy.prompts import PromptTemplate
-from pepperpy.common.config import config
+from pepperpy.core.config import config
 
 prompt = PromptTemplate.load(
     "agents/reasoning/react.yaml",

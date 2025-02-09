@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Enum
 from functools import wraps
-from typing import Any, Protocol, TypeVar
+from typing import ParamSpec, Protocol, TypeVar
 
 import langdetect
 from langdetect.detector_factory import DetectorFactory
@@ -21,21 +21,22 @@ from pepperpy.monitoring import logger, tracer
 DetectorFactory.seed = 0
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 
-def with_trace(name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator to add tracing to a function.
+def trace(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Decorator to trace function execution.
 
     Args:
-        name: Name of the trace
+        name: Name of the trace.
 
     Returns:
-        Decorated function
+        Decorated function.
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             with tracer.start_trace(name):
                 return func(*args, **kwargs)
 
@@ -174,7 +175,7 @@ class LanguageProcessor:
             )
             raise
 
-    @with_trace("detect_language")
+    @trace("detect_language")
     def detect_language(self, text: str) -> tuple[Language, float]:
         """Detect the language of a text.
 
@@ -210,7 +211,7 @@ class LanguageProcessor:
             )
             return self.config.fallback_language, 0.0
 
-    @with_trace("tokenize_text")
+    @trace("tokenize_text")
     def tokenize_text(
         self, text: str, language: Language | None = None
     ) -> TokenizationResult:
@@ -270,7 +271,7 @@ class LanguageProcessor:
             },
         )
 
-    @with_trace("get_supported_languages")
+    @trace("get_supported_languages")
     def get_supported_languages(self) -> dict[str, dict[str, bool]]:
         """Get information about supported languages and features.
 

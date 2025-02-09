@@ -6,26 +6,60 @@ language models through various providers and managing agent lifecycles.
 
 import time
 from collections.abc import AsyncGenerator, Callable, Mapping
-from typing import Any, Generic, TypeVar
+from types import TracebackType
+from typing import (
+    Any,
+    Generic,
+    TypeVar,
+    cast,
+)
 from uuid import UUID, uuid4
 
+from loguru import logger
 from pydantic import BaseModel, Field
 from pydantic.types import SecretStr
 
-from pepperpy.common.config import AutoConfig
-from pepperpy.common.errors import ConfigurationError, NotFoundError, StateError
 from pepperpy.core.base import AgentContext, AgentState, BaseAgent
+from pepperpy.core.errors import ConfigurationError, StateError
+from pepperpy.core.memory.store import MemoryStore, create_memory_store
+from pepperpy.core.prompt.template import PromptTemplate, create_prompt_template
 from pepperpy.core.types import Response
-from pepperpy.monitoring import logger
-from pepperpy.providers.base import BaseProvider, ProviderConfig
+from pepperpy.providers.base import (
+    BaseProvider,
+    ExtraConfig,
+    ProviderConfig,
+    ProviderConfigValue,
+)
+from pepperpy.providers.domain import (
+    ProviderError,
+)
+from pepperpy.providers.domain import (
+    ProviderNotFoundError as NotFoundError,
+)
 from pepperpy.providers.manager import ProviderManager
-from pepperpy.providers.services.openrouter import OpenRouterProvider
 
 # Type variables for generic implementations
 T_Input = TypeVar("T_Input")  # Input data type
 T_Output = TypeVar("T_Output")  # Output data type
 T_Config = TypeVar("T_Config", bound=Mapping[str, Any])  # Configuration type
 T_Context = TypeVar("T_Context")  # Context type
+
+# Error type aliases for better readability
+ProviderErrorType = type[ProviderError]
+ExceptionType = type[BaseException]
+
+# Valid hook event types
+VALID_HOOK_EVENTS = frozenset({
+    "initialize",
+    "cleanup",
+    "agent_created",
+    "agent_removed",
+})
+
+# Hook type alias for better readability
+HookCallbackType = Callable[
+    ["PepperpyClient[T_Input, T_Output, T_Config, T_Context]"], None
+]
 
 
 class ClientConfig(BaseModel):
@@ -37,6 +71,8 @@ class ClientConfig(BaseModel):
         retry_delay: Delay between retries in seconds
         provider_type: Type of provider to use
         provider_config: Provider-specific configuration
+        memory_config: Memory store configuration
+        prompt_config: Prompt template configuration
     """
 
     timeout: float = Field(default=30.0, gt=0)
@@ -44,6 +80,8 @@ class ClientConfig(BaseModel):
     retry_delay: float = Field(default=1.0, ge=0)
     provider_type: str = Field(default="openrouter")
     provider_config: dict[str, Any] = Field(default_factory=dict)
+    memory_config: dict[str, Any] = Field(default_factory=dict)
+    prompt_config: dict[str, Any] = Field(default_factory=dict)
 
 
 class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
@@ -77,12 +115,9 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             set[
                 Callable[[PepperpyClient[T_Input, T_Output, T_Config, T_Context]], None]
             ],
-        ] = {
-            "initialize": set(),
-            "cleanup": set(),
-            "agent_created": set(),
-            "agent_removed": set(),
-        }
+        ] = {event: set() for event in VALID_HOOK_EVENTS}
+        self._memory: MemoryStore | None = None
+        self._prompt: PromptTemplate | None = None
 
     @property
     def is_initialized(self) -> bool:
@@ -114,13 +149,18 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         await self.initialize()
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Clean up resources when exiting async context.
 
-        This ensures all resources are properly released, including:
-        - Provider manager cleanup
-        - Agent cleanup
-        - Connection cleanup
+        Args:
+            exc_type: The type of the exception that was raised
+            exc_val: The instance of the exception that was raised
+            exc_tb: The traceback of the exception that was raised
         """
         await self.cleanup()
 
@@ -140,8 +180,11 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
                 - "agent_created"
                 - "agent_removed"
             callback: Function to call on event
+
+        Raises:
+            ValueError: If event is invalid
         """
-        if event not in self._lifecycle_hooks:
+        if event not in VALID_HOOK_EVENTS:
             raise ValueError(f"Invalid event: {event}")
         self._lifecycle_hooks[event].add(callback)
 
@@ -157,86 +200,77 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         Args:
             event: Event to unhook
             callback: Function to remove
+
+        Raises:
+            ValueError: If event is invalid
         """
-        if event not in self._lifecycle_hooks:
+        if event not in VALID_HOOK_EVENTS:
             raise ValueError(f"Invalid event: {event}")
         self._lifecycle_hooks[event].discard(callback)
+
+    async def _trigger_hooks(
+        self,
+        event: str,
+        error_context: dict[str, Any] | None = None,
+    ) -> None:
+        """Trigger lifecycle hooks for an event.
+
+        Args:
+            event: Event that triggered the hooks
+            error_context: Optional context for error logging
+        """
+        for hook in self._lifecycle_hooks[event]:
+            try:
+                hook(self)
+            except Exception as hook_error:
+                # Get error type name safely
+                error_type = hook_error.__class__.__name__
+                logger.error(
+                    "Lifecycle hook failed",
+                    extra={
+                        "event": event,
+                        "error_type": error_type,
+                        "error_message": str(hook_error),
+                        **(error_context or {}),
+                    },
+                )
 
     async def initialize(self) -> None:
         """Initialize the client.
 
-        This method:
-        1. Loads configuration from environment
-        2. Sets up the provider manager
-        3. Initializes core services
+        This method must be called before using the client.
+        It initializes the provider and sets up the manager.
 
         Raises:
-            ConfigurationError: If configuration is invalid or initialization fails
-            TimeoutError: If initialization times out
+            RuntimeError: If initialization fails
+            ValueError: If provider is not set
         """
         try:
-            # Load and validate configuration
-            env_config = AutoConfig.from_env()
-            self._config = ClientConfig(**self._raw_config)
-            provider_config = {
-                **env_config.get_provider_config(),
-                **self._config.provider_config,
-            }
-
-            # Initialize provider
-            if self._config.provider_type == "openrouter":
-                api_key = provider_config.get("api_key")
-                if api_key is None:
-                    raise ConfigurationError("API key is required")
-                if isinstance(api_key, SecretStr):
-                    secret_key = api_key
-                elif isinstance(api_key, str):
-                    secret_key = SecretStr(api_key)
-                else:
-                    raise ConfigurationError("API key must be a string or SecretStr")
-
-                # Type assertion to help mypy understand the type
-                assert isinstance(secret_key, SecretStr)
-
-                config = ProviderConfig(
-                    provider_type=self._config.provider_type,
-                    timeout=int(self._config.timeout),
-                    max_retries=self._config.max_retries,
-                    model=provider_config.get("model", ""),
-                    api_key=secret_key,
-                    extra_config=provider_config,
-                )
-                provider = OpenRouterProvider(config)
-                await provider.initialize()
-                self._provider = provider
-            else:
-                raise ConfigurationError(
-                    f"Unsupported provider: {self._config.provider_type}"
-                )
-
             # Create and initialize manager with provider
             if self._provider is None:
-                raise ConfigurationError("Provider not initialized")
+                raise ValueError("Provider not initialized")
             self._manager = ProviderManager(primary_provider=self._provider)
             await self._manager.initialize()
 
-            # Update state
-            self._initialized = True
-            self._updated_at = time.time()
+            # Initialize memory store if configured
+            if self.config.memory_config:
+                self._memory = await create_memory_store(self.config.memory_config)
+                await self._memory.initialize()
 
-            # Trigger hooks
-            for hook in self._lifecycle_hooks["initialize"]:
-                try:
-                    hook(self)
-                except Exception as e:
-                    logger.error(
-                        "Lifecycle hook failed", event="initialize", error=str(e)
-                    )
+            # Initialize prompt template if configured
+            if self.config.prompt_config:
+                self._prompt = await create_prompt_template(self.config.prompt_config)
+                await self._prompt.initialize()
+
+            self._initialized = True
+            logger.info("Initialized client")
 
         except Exception as e:
-            if isinstance(e, TimeoutError):
-                raise
-            raise ConfigurationError(f"Failed to initialize client: {e!s}") from e
+            logger.error(
+                "Failed to initialize client",
+                error=str(e),
+            )
+            raise RuntimeError("Failed to initialize client") from e
 
     async def cleanup(self) -> None:
         """Clean up client resources.
@@ -251,11 +285,7 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """
         try:
             # Trigger hooks
-            for hook in self._lifecycle_hooks["cleanup"]:
-                try:
-                    hook(self)
-                except Exception as e:
-                    logger.error("Lifecycle hook failed", event="cleanup", error=str(e))
+            await self._trigger_hooks("cleanup")
 
             # Cleanup provider
             if self._manager:
@@ -266,9 +296,13 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             for agent in list(self._agents.values()):
                 try:
                     await agent.cleanup()
-                except Exception as e:
+                except Exception as agent_error:
                     logger.error(
-                        "Agent cleanup failed", agent_id=str(agent.id), error=str(e)
+                        "Agent cleanup failed",
+                        extra={
+                            "agent_id": str(agent.id),
+                            "error": str(agent_error),
+                        },
                     )
 
             self._agents.clear()
@@ -318,7 +352,7 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
                 raise TypeError("Provider returned invalid response format")
             return text
         except Exception as e:
-            if isinstance(e, StateError | NotFoundError | TimeoutError):
+            if isinstance(e, StateError | NotFoundError | TimeoutError | TypeError):
                 raise
             raise ConfigurationError(f"Chat completion failed: {e!s}") from e
 
@@ -408,13 +442,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             self._updated_at = time.time()
 
             # Trigger hooks
-            for hook in self._lifecycle_hooks["agent_created"]:
-                try:
-                    hook(self)
-                except Exception as e:
-                    logger.error(
-                        "Lifecycle hook failed", event="agent_created", error=str(e)
-                    )
+            await self._trigger_hooks(
+                "agent_created",
+                {"agent_id": str(agent.id), "agent_type": agent_type},
+            )
 
             return agent
 
@@ -482,13 +513,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             self._updated_at = time.time()
 
             # Trigger hooks
-            for hook in self._lifecycle_hooks["agent_removed"]:
-                try:
-                    hook(self)
-                except Exception as e:
-                    logger.error(
-                        "Lifecycle hook failed", event="agent_removed", error=str(e)
-                    )
+            await self._trigger_hooks(
+                "agent_removed",
+                {"agent_id": str(agent_id)},
+            )
 
         except Exception as e:
             if isinstance(e, StateError | NotFoundError):
@@ -533,11 +561,29 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             # Initialize provider (no config needed since it's passed in constructor)
             await provider.initialize()
 
-    def _create_provider_config(self, **kwargs: Any) -> ProviderConfig:
+    def _create_provider_config(
+        self,
+        *,
+        provider_type: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        timeout: float | None = None,
+        max_retries: int | None = None,
+        extra_config: dict[str, dict[str, str | int | float | bool]] | None = None,
+    ) -> ProviderConfig:
         """Create provider configuration.
 
         Args:
-            **kwargs: Provider configuration parameters.
+            provider_type: Type of provider
+            api_key: API key for authentication
+            model: Model to use
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens per request
+            timeout: Request timeout in seconds
+            max_retries: Maximum number of retries
+            extra_config: Additional configuration parameters
 
         Returns:
             Provider configuration.
@@ -545,17 +591,53 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         Raises:
             ConfigurationError: If required parameters are missing.
         """
-        api_key = kwargs.get("api_key")
         if api_key is None:
             raise ConfigurationError("API key is required")
-        if not isinstance(api_key, SecretStr):
-            api_key = SecretStr(api_key)
+
+        # Convert string API key to SecretStr
+        secret_key = SecretStr(api_key)
+
+        # Convert extra_config dict to ExtraConfig
+        extra_config_model = (
+            ExtraConfig(
+                model_params=(
+                    cast(
+                        dict[str, ProviderConfigValue],
+                        extra_config.get("model_params", {}),
+                    )
+                    if extra_config
+                    else {}
+                ),
+                api_params=(
+                    cast(
+                        dict[str, ProviderConfigValue],
+                        extra_config.get("api_params", {}),
+                    )
+                    if extra_config
+                    else {}
+                ),
+                custom_settings=(
+                    cast(
+                        dict[str, ProviderConfigValue],
+                        extra_config.get("custom_settings", {}),
+                    )
+                    if extra_config
+                    else {}
+                ),
+            )
+            if extra_config
+            else ExtraConfig(
+                model_params={},
+                api_params={},
+                custom_settings={},
+            )
+        )
 
         return ProviderConfig(
-            provider_type=kwargs.get("provider_type", ""),
-            model=kwargs.get("model", ""),
-            timeout=kwargs.get("timeout", 30),
-            max_retries=kwargs.get("max_retries", 3),
-            api_key=api_key,
-            extra_config=kwargs.get("extra_config", {}),
+            provider_type=provider_type or "",
+            model=model or "",
+            timeout=timeout or 30,
+            max_retries=max_retries or 3,
+            api_key=secret_key,
+            extra_config=extra_config_model,
         )

@@ -5,149 +5,115 @@ with support for context-aware logging and custom formatting.
 """
 
 import sys
+from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
-from loguru import Logger, logger
+from loguru import logger
 
 # Configure default logger
 logger.remove()
 logger.add(
     sys.stderr,
-    format=(
-        "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-        "<level>{message}</level>"
-    ),
+    format="{time} | {level} | {message} | {extra}",
     level="INFO",
 )
 
-# Add file handler for persistent logging
-logger.add(
-    "logs/pepperpy.log",
-    rotation="1 day",
-    retention="1 month",
-    compression="zip",
-    format=(
-        "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
-        "{level: <8} | "
-        "{name}:{function}:{line} | "
-        "{message}"
-    ),
-    level="DEBUG",
-)
+
+@contextmanager
+def contextualize(**context: str) -> Generator[None, None, None]:
+    """Add context to log messages.
+
+    Args:
+        **context: Context key-value pairs to add to log messages.
+
+    Yields:
+        None: Context manager that adds context to log messages.
+    """
+    token = logger.bind(**context)
+    try:
+        with token.contextualize():
+            yield
+    finally:
+        pass
 
 
-class ContextLogger:
-    """Context-aware logger that maintains context across log entries."""
+class StructuredLogger:
+    """Structured logger with context management."""
 
     def __init__(self) -> None:
-        """Initialize the context logger."""
-        self._context: dict[str, Any] = {}
+        """Initialize the logger."""
+        self._logger = logger
 
-    def bind(self, **kwargs: Any) -> None:
-        """Bind context values to the logger.
-
-        Args:
-            **kwargs: Context key-value pairs.
-        """
-        self._context.update(kwargs)
-
-    def unbind(self, *keys: str) -> None:
-        """Remove context values from the logger.
+    def bind(self, **context: str) -> Any:
+        """Bind context to logger.
 
         Args:
-            *keys: Context keys to remove.
-        """
-        for key in keys:
-            self._context.pop(key, None)
+            **context: Context key-value pairs to bind.
 
-    @contextmanager
-    def contextualize(self, **kwargs: Any) -> Any:
-        """Temporarily bind context values.
+        Returns:
+            Logger with bound context.
+        """
+        return self._logger.bind(**context)
+
+    def debug(self, message: str, **context: str) -> None:
+        """Log debug message.
 
         Args:
-            **kwargs: Context key-value pairs.
-
-        Yields:
-            None
+            message: Message to log.
+            **context: Additional context.
         """
-        original = self._context.copy()
-        self.bind(**kwargs)
-        try:
-            yield
-        finally:
-            self._context = original
+        self._logger.debug(message, **context)
 
-    def _log(self, level: str, message: str, **kwargs: Any) -> None:
-        """Internal logging method.
+    def info(self, message: str, **context: str) -> None:
+        """Log info message.
 
         Args:
-            level: Log level.
-            message: Log message.
-            **kwargs: Additional log fields.
+            message: Message to log.
+            **context: Additional context.
         """
-        context = {**self._context, **kwargs}
-        logger.opt(depth=1).log(level, message, **context)
+        self._logger.info(message, **context)
 
-    def debug(self, message: str, **kwargs: Any) -> None:
-        """Log a debug message.
+    def warning(self, message: str, **context: str) -> None:
+        """Log warning message.
 
         Args:
-            message: Log message.
-            **kwargs: Additional log fields.
+            message: Message to log.
+            **context: Additional context.
         """
-        self._log("DEBUG", message, **kwargs)
+        self._logger.warning(message, **context)
 
-    def info(self, message: str, **kwargs: Any) -> None:
-        """Log an info message.
+    def error(self, message: str, **context: str) -> None:
+        """Log error message.
 
         Args:
-            message: Log message.
-            **kwargs: Additional log fields.
+            message: Message to log.
+            **context: Additional context.
         """
-        self._log("INFO", message, **kwargs)
+        self._logger.error(message, **context)
 
-    def warning(self, message: str, **kwargs: Any) -> None:
-        """Log a warning message.
+    def exception(self, message: str, **context: str) -> None:
+        """Log exception message.
 
         Args:
-            message: Log message.
-            **kwargs: Additional log fields.
+            message: Message to log.
+            **context: Additional context.
         """
-        self._log("WARNING", message, **kwargs)
-
-    def error(self, message: str, **kwargs: Any) -> None:
-        """Log an error message.
-
-        Args:
-            message: Log message.
-            **kwargs: Additional log fields.
-        """
-        self._log("ERROR", message, **kwargs)
-
-    def critical(self, message: str, **kwargs: Any) -> None:
-        """Log a critical message.
-
-        Args:
-            message: Log message.
-            **kwargs: Additional log fields.
-        """
-        self._log("CRITICAL", message, **kwargs)
+        self._logger.exception(message, **context)
 
 
-# Create global context logger instance
-context_logger = ContextLogger()
+# Create default logger instances
+structured_logger = StructuredLogger()
+context_logger = logger.bind()
 
 
-def get_logger(name: str) -> Logger:
+def get_logger(name: str) -> Any:
     """Get a logger instance.
 
     Args:
-        name: Name of the logger
+        name: Logger name.
 
     Returns:
-        Logger instance
+        Logger instance.
     """
     return logger.bind(name=name)

@@ -20,8 +20,8 @@ from pepperpy.capabilities.learning.base import (
     PredictionContext,
     PredictionResult,
 )
-from pepperpy.common.errors import LearningError
-from pepperpy.providers.provider import Provider
+from pepperpy.core.errors import LearningError
+from pepperpy.providers.base import BaseProvider
 
 T = TypeVar("T")  # Input/output data type
 M = TypeVar("M", bound=dict[str, Any])  # Model type
@@ -60,8 +60,8 @@ class LLMLearning(BaseLearning[T, M, P], Generic[T, M, P]):
     def __init__(
         self,
         config: LLMConfig,
-        provider: Provider,
-    ):
+        provider: BaseProvider,
+    ) -> None:
         """Initialize language model learning.
 
         Args:
@@ -257,10 +257,12 @@ Provide your prediction in JSON format:
             # Call language model
             response = await self._provider.complete(
                 prompt=prompt,
-                model=self._config.model,
-                temperature=self._config.temperature,
-                max_tokens=self._config.max_tokens,
-                stop_sequences=self._config.stop_sequences,
+                kwargs={
+                    "model": self._config.model,
+                    "temperature": self._config.temperature,
+                    "max_tokens": self._config.max_tokens,
+                    "stop_sequences": self._config.stop_sequences,
+                },
             )
 
             # Get response text
@@ -329,10 +331,12 @@ Provide your prediction in JSON format:
             # Call language model
             response = await self._provider.complete(
                 prompt=prompt,
-                model=self._config.model,
-                temperature=self._config.temperature,
-                max_tokens=self._config.max_tokens,
-                stop_sequences=self._config.stop_sequences,
+                kwargs={
+                    "model": self._config.model,
+                    "temperature": self._config.temperature,
+                    "max_tokens": self._config.max_tokens,
+                    "stop_sequences": self._config.stop_sequences,
+                },
             )
 
             # Get response text
@@ -541,7 +545,9 @@ Provide your prediction in JSON format:
                 key: (
                     []
                     if isinstance(value, list)
-                    else {} if isinstance(value, dict) else None
+                    else {}
+                    if isinstance(value, dict)
+                    else None
                 )
                 for key, value in model.items()
             }
@@ -549,3 +555,14 @@ Provide your prediction in JSON format:
 
         except Exception as e:
             raise LearningError(f"Failed to reset model: {e!s}") from e
+
+    def update_context(self, context: LearningContext[T]) -> LearningContext[T]:
+        """Update context with new data.
+
+        Args:
+            context: Learning context to update
+
+        Returns:
+            Updated learning context
+        """
+        return context  # Default implementation just returns the context unchanged

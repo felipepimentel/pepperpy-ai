@@ -58,7 +58,7 @@ Prompts can be loaded and used with the `PromptTemplate` class:
 
 ```python
 from pepperpy.prompts import PromptTemplate
-from pepperpy.common.config import get_config
+from pepperpy.core.config import get_config
 
 # Load a prompt template
 prompt = PromptTemplate.load(

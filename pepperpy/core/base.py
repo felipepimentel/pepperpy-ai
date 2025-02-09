@@ -14,12 +14,13 @@ from typing import (
     ClassVar,
     Generic,
     Protocol,
+    TypedDict,
     TypeVar,
     runtime_checkable,
 )
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 
 class AgentState(str, Enum):
@@ -48,7 +49,7 @@ class AgentState(str, Enum):
         Returns:
             bool: Whether the transition is valid
         """
-        transitions = {
+        transitions: dict[AgentState, set[AgentState]] = {
             AgentState.CREATED: {AgentState.INITIALIZING},
             AgentState.INITIALIZING: {AgentState.READY, AgentState.ERROR},
             AgentState.READY: {
@@ -62,6 +63,16 @@ class AgentState(str, Enum):
             AgentState.TERMINATED: set(),
         }
         return target in transitions[self]
+
+
+# Define a TypedDict for metadata
+class AgentMetadata(TypedDict, total=False):
+    """Type definition for agent metadata."""
+
+    name: str
+    description: str
+    tags: list[str]
+    custom_data: dict[str, str | int | float | bool | None]
 
 
 class AgentContext(BaseModel):
@@ -84,7 +95,14 @@ class AgentContext(BaseModel):
     agent_id: UUID = Field(default_factory=uuid4)
     session_id: UUID = Field(default_factory=uuid4)
     memory_id: UUID | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    metadata: AgentMetadata = Field(
+        default_factory=lambda: AgentMetadata(
+            name="",
+            description="",
+            tags=[],
+            custom_data={},
+        )
+    )
     state: AgentState = Field(default=AgentState.CREATED)
     parent_id: UUID | None = None
     created_at: float = Field(default_factory=time.time)
@@ -94,33 +112,46 @@ class AgentContext(BaseModel):
         """Pydantic model configuration."""
 
         frozen = True
-        json_encoders: ClassVar[dict[type, Callable]] = {
+        json_encoders: ClassVar[dict[type, Callable[..., str]]] = {
             UUID: str,
             AgentState: str,
         }
 
-    @validator("metadata")
-    def validate_metadata(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: AgentMetadata) -> AgentMetadata:
         """Validate metadata dictionary."""
         return v.copy()
 
-    @validator("updated_at")
-    def validate_timestamps(self, v: float, values: dict[str, Any]) -> float:
+    @field_validator("updated_at")
+    @classmethod
+    def validate_timestamps(cls, v: float, info: ValidationInfo) -> float:
         """Validate that updated_at is not before created_at."""
-        if "created_at" in values and v < values["created_at"]:
+        if "created_at" in info.data and v < info.data["created_at"]:
             raise ValueError("updated_at cannot be before created_at")
         return v
 
-    def with_updates(self, **updates: Any) -> "AgentContext":
+    def with_updates(
+        self,
+        **updates: str | int | float | bool | UUID | AgentState | AgentMetadata | None,
+    ) -> "AgentContext":
         """Create a new context with updated values.
 
         Args:
-            **updates: Values to update in the context
+            **updates: Values to update in the context. Valid types are:
+                     - str: For string values
+                     - int: For integer values
+                     - float: For float values
+                     - bool: For boolean values
+                     - UUID: For UUID values
+                     - AgentState: For state values
+                     - AgentMetadata: For metadata updates
+                     - None: For optional fields
 
         Returns:
             A new AgentContext instance with updated values
         """
-        data = self.dict()
+        data = self.model_dump()
         data.update(updates)
         if "updated_at" not in updates:
             data["updated_at"] = time.time()
@@ -157,17 +188,19 @@ class AgentConfig(BaseModel):
         """Pydantic model configuration."""
 
         extra = "forbid"
-        json_encoders: ClassVar[dict[type, Callable]] = {
+        json_encoders: ClassVar[dict[type, Callable[..., str]]] = {
             UUID: str,
         }
 
-    @validator("settings")
-    def validate_settings(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("settings")
+    @classmethod
+    def validate_settings(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure settings is immutable."""
         return dict(v)
 
-    @validator("version")
-    def validate_version(self, v: str) -> str:
+    @field_validator("version")
+    @classmethod
+    def validate_version(cls, v: str) -> str:
         """Validate semantic version format."""
         try:
             major, minor, patch = map(int, v.split("."))

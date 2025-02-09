@@ -7,7 +7,7 @@ and execution tracking.
 import asyncio
 from typing import Any
 
-from pepperpy.common.errors import PermissionError, ToolError
+from pepperpy.core.errors import PermissionError, ToolError
 from pepperpy.monitoring import logger
 from pepperpy.tools.base import Tool
 

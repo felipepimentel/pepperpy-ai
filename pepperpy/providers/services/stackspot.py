@@ -1,19 +1,25 @@
 """StackSpot provider implementation for the Pepperpy framework.
 
-This module provides integration with StackSpot's API, supporting both completion
-and streaming capabilities.
+This module provides integration with StackSpot's API for accessing
+various language models through a unified interface.
 """
 
-import json
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
-from aiohttp import ClientSession, ClientTimeout
 from pydantic import SecretStr
 
-from pepperpy.monitoring import logger
-from pepperpy.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.types import Message, MetadataDict, Response, ResponseStatus
+from pepperpy.monitoring.logger import logger
+from pepperpy.providers.base import (
+    BaseProvider,
+    EmbeddingKwargs,
+    GenerateKwargs,
+    ProviderConfig,
+    ProviderKwargs,
+    StreamKwargs,
+)
 from pepperpy.providers.domain import (
     ProviderAPIError,
     ProviderError,
@@ -21,29 +27,17 @@ from pepperpy.providers.domain import (
     ProviderRateLimitError,
 )
 
-# Type aliases
-JsonDict = dict[str, Any]
-
 
 class StackSpotProvider(BaseProvider):
-    """Provider implementation for StackSpot AI API.
+    """Provider implementation for StackSpot's API.
 
-    This provider implements the Provider protocol for StackSpot's API, supporting:
-    - Chat completions with GPT-4 and other models
-    - Text embeddings with Ada
+    This provider implements the Provider protocol for StackSpot's API,
+    supporting:
+    - Text generation with various models
     - Streaming responses
     - Rate limit handling
     - Proper error propagation
-
-    Attributes:
-        config (ProviderConfig): The provider configuration
-        _session (ClientSession | None): The aiohttp session
-        _model (str): The model to use
-        _timeout (ClientTimeout): Request timeout configuration
-        BASE_URL (str): StackSpot API base URL
     """
-
-    BASE_URL: str = "https://api.stackspot.com/v1"
 
     def __init__(self, config: ProviderConfig) -> None:
         """Initialize the StackSpot provider.
@@ -52,70 +46,53 @@ class StackSpotProvider(BaseProvider):
             config: Provider configuration containing API key and other settings
 
         Note:
-            The provider is not ready for use until initialize() is called.
+            The provider is not ready for use until initialize() is called
         """
         super().__init__(config)
-        self._session: ClientSession | None = None
-        self._model: str = config.model or "gpt-4"
-        self._timeout: ClientTimeout = ClientTimeout(total=config.timeout)
+        self._session: aiohttp.ClientSession | None = None
         self._api_key: SecretStr | None = None
-        self._base_url = "https://api.stackspot.com"
+        self._base_url = "https://api.stackspot.com/v1"
 
     async def initialize(self) -> None:
         """Initialize the StackSpot client.
 
-        This method sets up the aiohttp session with the required headers
-        and authentication for StackSpot's API.
+        This method sets up the HTTP session and validates the API key.
 
         Raises:
             ProviderInitError: If initialization fails
         """
         if not self.config.api_key:
             raise ProviderInitError(
-                "API key is required",
+                message="API key is required",
                 provider_type="stackspot",
             )
 
         try:
             self._api_key = self.config.api_key
-            self._session = ClientSession(
-                timeout=self._timeout,
+            self._session = aiohttp.ClientSession(
                 headers={
                     "Authorization": f"Bearer {self._api_key.get_secret_value()}",
                     "Content-Type": "application/json",
-                },
+                }
             )
             logger.info("Initialized StackSpot provider")
         except Exception as e:
             raise ProviderInitError(
-                f"Failed to initialize StackSpot provider: {e}",
+                message=f"Failed to initialize StackSpot provider: {e}",
                 provider_type="stackspot",
             ) from e
-
-    async def cleanup(self) -> None:
-        """Clean up resources by closing the aiohttp session."""
-        if self._session:
-            await self._session.close()
-            self._session = None
-            logger.info("StackSpot provider cleaned up")
 
     async def complete(
         self,
         prompt: str,
         *,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        stream: bool = False,
-        **kwargs: Any,
+        kwargs: ProviderKwargs | None = None,
     ) -> str | AsyncGenerator[str, None]:
         """Complete a prompt using the StackSpot API.
 
         Args:
             prompt: The prompt to complete
-            temperature: Controls randomness (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response
-            **kwargs: Additional provider-specific parameters
+            kwargs: Provider-specific parameters defined in ProviderKwargs
 
         Returns:
             Generated text or async generator of text chunks if streaming
@@ -124,95 +101,65 @@ class StackSpotProvider(BaseProvider):
             ProviderError: If the API call fails
         """
         if not self._session:
-            raise ProviderError(
-                "Client not initialized",
-                provider_type=self.config.provider_type,
-            )
-
-        payload = {
-            "model": self.config.model,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": temperature,
-            "stream": stream,
-        }
-        if max_tokens is not None:
-            payload["max_tokens"] = max_tokens
-
-        if stream:
-            return self._stream_response(payload)
-        return await self._complete_sync(payload)
-
-    async def _complete_sync(self, payload: dict[str, Any]) -> str:
-        """Send a synchronous completion request.
-
-        Args:
-            payload: Request payload
-
-        Returns:
-            Generated text
-
-        Raises:
-            ProviderAPIError: If the API call fails
-        """
-        if not self._session:
             raise ProviderInitError(
-                "StackSpot provider not initialized",
+                message="StackSpot provider not initialized",
                 provider_type="stackspot",
             )
 
+        kwargs = kwargs or {}
+        model_params = self.config.extra_config.get("model_params", {})
+        payload = {
+            "model": model_params.get("model", self.config.model),
+            "prompt": prompt,
+            "temperature": kwargs.get("temperature", 0.7),
+            "max_tokens": kwargs.get("max_tokens"),
+            "stream": kwargs.get("stream", False),
+            **{k: v for k, v in kwargs.items() if k not in ("temperature", "max_tokens", "stream")},
+        }
+
         try:
             async with self._session.post(
-                f"{self.BASE_URL}/chat/completions",
+                f"{self._base_url}/completions",
                 json=payload,
             ) as response:
-                if response.status != 200:
-                    logger.warning(
-                        "StackSpot API error",
-                        extra={
-                            "status": response.status,
-                            "response": await response.text(),
-                        },
-                    )
-                    raise ProviderAPIError(
-                        f"StackSpot API error: {response.status}",
+                if response.status == 429:
+                    raise ProviderRateLimitError(
+                        message="StackSpot rate limit exceeded",
                         provider_type="stackspot",
                     )
 
-                try:
-                    result = await response.json()
-                    content = result["choices"][0]["message"]["content"]
-                    if not isinstance(content, str):
-                        raise ProviderAPIError(
-                            "Unexpected response format: content is not a string",
-                            provider_type="stackspot",
-                        )
-                    return content
-                except (json.JSONDecodeError, KeyError) as e:
+                if response.status != 200:
+                    text = await response.text()
                     logger.warning(
-                        "Failed to parse StackSpot response",
-                        extra={
-                            "error": str(e),
-                            "response": await response.text(),
-                        },
+                        "StackSpot API error",
+                        status=str(response.status),
+                        response=text,
                     )
                     raise ProviderAPIError(
-                        f"Failed to parse StackSpot response: {e}",
+                        message=f"StackSpot API error: {response.status}",
                         provider_type="stackspot",
-                    ) from e
+                    )
+
+                if kwargs.get("stream", False):
+                    return self._stream_response(response)
+
+                result = await response.json()
+                return cast(str, result["choices"][0]["text"])
 
         except aiohttp.ClientError as e:
             raise ProviderAPIError(
-                f"StackSpot API request failed: {e}",
+                message=f"StackSpot API request failed: {e}",
                 provider_type="stackspot",
             ) from e
 
     async def _stream_response(
-        self, payload: dict[str, Any]
+        self,
+        response: aiohttp.ClientResponse,
     ) -> AsyncGenerator[str, None]:
-        """Stream response from StackSpot.
+        """Process streaming response.
 
         Args:
-            payload: Request payload
+            response: The HTTP response
 
         Yields:
             Text chunks as they are generated
@@ -220,113 +167,81 @@ class StackSpotProvider(BaseProvider):
         Raises:
             ProviderAPIError: If streaming fails
         """
-        if not self._session:
-            raise ProviderInitError(
-                "StackSpot provider not initialized",
-                provider_type="stackspot",
-            )
-
         try:
-            async with self._session.post(
-                f"{self.BASE_URL}/chat/completions/stream",
-                json=payload,
-            ) as response:
-                if response.status != 200:
-                    logger.warning(
-                        "StackSpot API error",
-                        extra={
-                            "status": response.status,
-                            "response": await response.text(),
-                        },
-                    )
-                    raise ProviderAPIError(
-                        f"StackSpot API error: {response.status}",
-                        provider_type="stackspot",
-                    )
+            async for line in response.content:
+                if line:
+                    chunk = line.decode("utf-8").strip()
+                    if chunk and chunk != "[DONE]":
+                        yield chunk
 
-                async for line in response.content.iter_any():
-                    if line:
-                        try:
-                            chunk = json.loads(line)
-                            if text := chunk["choices"][0]["delta"].get("content"):
-                                yield text
-                        except json.JSONDecodeError as e:
-                            logger.warning(
-                                "Failed to parse streaming chunk",
-                                extra={
-                                    "error": str(e),
-                                    "chunk": line.decode(),
-                                },
-                            )
-
-        except aiohttp.ClientError as e:
+        except Exception as e:
             raise ProviderAPIError(
-                f"StackSpot streaming request failed: {e}",
+                message=f"StackSpot streaming failed: {e}",
                 provider_type="stackspot",
             ) from e
 
-    async def embed(self, text: str, **kwargs: Any) -> list[float]:
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self._session:
+            await self._session.close()
+            self._session = None
+            logger.info("StackSpot provider cleaned up")
+
+    async def embed(self, text: str, **kwargs: EmbeddingKwargs) -> list[float]:
         """Generate embeddings for text using StackSpot.
 
         Args:
             text: Text to generate embeddings for
-            **kwargs: Additional provider-specific parameters.
-                     The 'model' parameter can be used to specify the embedding model.
+            **kwargs: Additional provider-specific parameters defined in EmbeddingKwargs
 
         Returns:
-            List of floating point values representing the text embedding
+            List of embedding values
 
         Raises:
-            ProviderAPIError: If the embedding generation fails
-            ProviderInitError: If the session is not initialized
+            ProviderAPIError: If the API call fails
             ProviderRateLimitError: If rate limit is exceeded
-
-        Example:
-            ```python
-            # Default model (Ada)
-            embedding = await provider.embed("Hello world")
-
-            # Custom model
-            embedding = await provider.embed(
-                "Hello world",
-                model="text-embedding-ada-002"
-            )
-            ```
         """
         if not self._session:
             raise ProviderInitError(
-                "StackSpot provider not initialized", provider_type="stackspot"
+                message="StackSpot provider not initialized",
+                provider_type="stackspot",
             )
 
-        payload: JsonDict = {
-            "model": kwargs.get("model", "text-embedding-ada-002"),
+        model_params = kwargs.get("model_params", {})
+        payload = {
+            "model": model_params.get("model", self.config.model),
             "input": text,
+            **kwargs,
         }
 
         try:
             async with self._session.post(
-                f"{self.BASE_URL}/embeddings", json=payload, raise_for_status=False
+                f"{self._base_url}/embeddings",
+                json=payload,
             ) as response:
-                if not response.ok:
-                    error_msg = (
-                        f"StackSpot API request failed: {response.text} "
-                        f"(status: {response.status})"
-                    )
-                    logger.warning(message=error_msg)
-                    raise ProviderError(
-                        f"StackSpot API request failed: {response.text}",
+                if response.status == 429:
+                    raise ProviderRateLimitError(
+                        message="StackSpot rate limit exceeded",
                         provider_type="stackspot",
                     )
 
-                data = await response.json()
-                embeddings: list[float] = data["data"][0]["embedding"]
-                return embeddings
+                if response.status != 200:
+                    text = await response.text()
+                    logger.warning(
+                        "StackSpot API error",
+                        status=str(response.status),
+                        response=text,
+                    )
+                    raise ProviderAPIError(
+                        message=f"StackSpot API error: {response.status}",
+                        provider_type="stackspot",
+                    )
 
-        except ProviderRateLimitError:
-            raise
-        except Exception as e:
+                result = await response.json()
+                return cast(list[float], result["data"][0]["embedding"])
+
+        except aiohttp.ClientError as e:
             raise ProviderAPIError(
-                f"StackSpot embedding error: {e!s}",
+                message=f"StackSpot API request failed: {e}",
                 provider_type="stackspot",
-                details={"error": str(e)},
             ) from e

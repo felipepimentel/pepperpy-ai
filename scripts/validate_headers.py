@@ -13,12 +13,27 @@ Status: active
 import re
 from pathlib import Path
 
+# Constants
 REQUIRED_FIELDS = ["file", "purpose", "component", "created"]
 OPTIONAL_FIELDS = ["task", "status"]
+VALID_STATUSES = ["active", "deprecated", "experimental"]
+DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
+TASK_PATTERN = r"^TASK-\d{3}$"
+
+# Type aliases
+ErrorList = list[str]
+ValidationResult = list[tuple[Path, ErrorList]]
 
 
 def parse_header(content: str) -> dict[str, str]:
-    """Parse file header into fields."""
+    """Parse file header into fields.
+
+    Args:
+        content: File content to parse
+
+    Returns:
+        Dictionary of field names to values
+    """
     fields: dict[str, str] = {}
     header_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
 
@@ -34,41 +49,119 @@ def parse_header(content: str) -> dict[str, str]:
     return fields
 
 
-def validate_header(file_path: Path, fields: dict[str, str]) -> list[str]:
-    """Validate header fields."""
-    errors = []
+def _check_required_fields(fields: dict[str, str]) -> ErrorList:
+    """Check that all required fields are present and non-empty.
 
-    # Check required fields
+    Args:
+        fields: Dictionary of field names to values
+
+    Returns:
+        List of error messages
+    """
+    errors: ErrorList = []
     for field in REQUIRED_FIELDS:
         if field not in fields:
             errors.append(f"Missing required field @{field}")
         elif not fields[field]:
             errors.append(f"Empty required field @{field}")
+    return errors
 
-    # Validate specific fields
+
+def _validate_filename(file_path: Path, fields: dict[str, str]) -> ErrorList:
+    """Validate that the file name matches the header.
+
+    Args:
+        file_path: Path to the file
+        fields: Dictionary of field names to values
+
+    Returns:
+        List of error messages
+    """
+    errors: ErrorList = []
     if "file" in fields and fields["file"] != file_path.name:
         errors.append(f"File name mismatch: {fields['file']} != {file_path.name}")
+    return errors
 
+
+def _validate_date(fields: dict[str, str]) -> ErrorList:
+    """Validate the created date field.
+
+    Args:
+        fields: Dictionary of field names to values
+
+    Returns:
+        List of error messages
+    """
+    errors: ErrorList = []
     if "created" in fields:
-        date_pattern = r"^\d{4}-\d{2}-\d{2}$"
-        if not re.match(date_pattern, fields["created"]):
+        if not re.match(DATE_PATTERN, fields["created"]):
             errors.append("Invalid date format in @created (use YYYY-MM-DD)")
+    return errors
 
+
+def _validate_status(fields: dict[str, str]) -> ErrorList:
+    """Validate the status field.
+
+    Args:
+        fields: Dictionary of field names to values
+
+    Returns:
+        List of error messages
+    """
+    errors: ErrorList = []
     if "status" in fields:
-        valid_statuses = ["active", "deprecated", "experimental"]
-        if fields["status"] not in valid_statuses:
+        if fields["status"] not in VALID_STATUSES:
             errors.append(f"Invalid status: {fields['status']}")
+    return errors
 
+
+def _validate_task(fields: dict[str, str]) -> ErrorList:
+    """Validate the task field.
+
+    Args:
+        fields: Dictionary of field names to values
+
+    Returns:
+        List of error messages
+    """
+    errors: ErrorList = []
     if "task" in fields:
-        task_pattern = r"^TASK-\d{3}$"
-        if not re.match(task_pattern, fields["task"]):
+        if not re.match(TASK_PATTERN, fields["task"]):
             errors.append("Invalid task format (use TASK-XXX)")
+    return errors
+
+
+def validate_header(file_path: Path, fields: dict[str, str]) -> ErrorList:
+    """Validate header fields.
+
+    Args:
+        file_path: Path to the file
+        fields: Dictionary of field names to values
+
+    Returns:
+        List of error messages
+    """
+    errors: ErrorList = []
+
+    # Check each aspect of the header
+    errors.extend(_check_required_fields(fields))
+    errors.extend(_validate_filename(file_path, fields))
+    errors.extend(_validate_date(fields))
+    errors.extend(_validate_status(fields))
+    errors.extend(_validate_task(fields))
 
     return errors
 
 
 def should_check_file(path: Path) -> bool:
-    """Determine if file should be checked."""
+    """Determine if file should be checked.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if file should be checked, False otherwise
+    """
     if not path.is_file():
         return False
 
@@ -88,9 +181,16 @@ def should_check_file(path: Path) -> bool:
     return True
 
 
-def check_files(root_dir: Path) -> list[tuple[Path, list[str]]]:
-    """Check all files in directory."""
-    issues = []
+def check_files(root_dir: Path) -> ValidationResult:
+    """Check all files in directory.
+
+    Args:
+        root_dir: Root directory to check
+
+    Returns:
+        List of (path, errors) tuples
+    """
+    issues: ValidationResult = []
 
     for path in root_dir.rglob("*"):
         if not should_check_file(path):
@@ -102,32 +202,38 @@ def check_files(root_dir: Path) -> list[tuple[Path, list[str]]]:
 
             fields = parse_header(content)
             errors = validate_header(path, fields)
-
             if errors:
                 issues.append((path, errors))
 
         except Exception as e:
-            issues.append((path, [f"Error reading file: {e!s}"]))
+            issues.append((path, [f"Failed to check file: {e}"]))
 
     return issues
 
 
 def main() -> None:
     """Main entry point."""
-    project_root = Path(__file__).parent.parent.parent
-    issues = check_files(project_root)
+    import argparse
+    import sys
 
-    if not issues:
-        print("\n✅ All files have valid headers")
-        return
+    parser = argparse.ArgumentParser(description="Validate file headers")
+    parser.add_argument("path", help="File or directory to check")
+    args = parser.parse_args()
 
-    print("\n❌ Found header issues:")
-    print("=====================")
+    path = Path(args.path)
+    if not path.exists():
+        print(f"Path does not exist: {path}", file=sys.stderr)
+        sys.exit(1)
 
-    for path, errors in issues:
-        print(f"\n{path}:")
-        for error in errors:
-            print(f"  - {error}")
+    issues = check_files(path if path.is_dir() else path.parent)
+    if issues:
+        for path, errors in issues:
+            print(f"\n{path}:")
+            for error in errors:
+                print(f"  - {error}")
+        sys.exit(1)
+
+    print("All headers valid")
 
 
 if __name__ == "__main__":

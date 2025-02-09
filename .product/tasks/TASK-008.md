@@ -174,7 +174,7 @@ providers/
    - Rate limiting
 
 ### Dependencies
-- pepperpy.common.config
+- pepperpy.core.config
 - pepperpy.monitoring
 - provider-specific packages (openai, google-ai-generative, etc.)
 

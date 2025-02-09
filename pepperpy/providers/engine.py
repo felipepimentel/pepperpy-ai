@@ -1,224 +1,159 @@
-"""Engine for managing and creating providers.
+"""Provider engine for managing language model providers.
 
-This module implements the singleton pattern to ensure consistent provider
-management across the application. It maintains a registry of provider types
-and handles provider instantiation.
-
-Example:
-    >>> from pepperpy.providers import ProviderEngine
-    >>> engine = ProviderEngine()
-    >>> providers = engine.list_providers()
-    >>> assert "openai" in providers
+This module provides the provider engine functionality for:
+- Provider registration and discovery
+- Provider lifecycle management
+- Provider selection and routing
+- Error handling and recovery
 """
 
-from typing import Any, ClassVar, Final
+from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
+from datetime import datetime
+from enum import Enum
+from typing import Any, Protocol, TypeVar
+from uuid import UUID
 
+from pydantic import BaseModel, Field
+
+from pepperpy.core.errors import ProviderError, ValidationError
 from pepperpy.monitoring import logger
 
-from .domain import ProviderConfigError, ProviderError, ProviderNotFoundError
-from .provider import Provider, ProviderConfig
+from .provider import VALID_PROVIDER_TYPES, BaseProvider, ProviderConfig
 
-DEFAULT_TIMEOUT: Final[float] = 30.0
+# Type variables for generic implementations
+T = TypeVar("T")
 
 
 class ProviderEngine:
-    """Engine for managing and creating providers.
+    """Engine for managing language model providers.
 
-    This class implements the singleton pattern to ensure consistent
-    provider management across the application. It maintains a registry
-    of provider types and handles provider instantiation.
-
-    Attributes:
-        _instance: Singleton instance of the engine
-        _providers: Registry of provider types and their classes
-
-    Example:
-        >>> engine = ProviderEngine()
-        >>> providers = engine.list_providers()
-        >>> assert "openai" in providers
+    This class provides functionality for:
+    - Provider registration and discovery
+    - Provider lifecycle management
+    - Provider selection and routing
+    - Error handling and recovery
     """
 
-    _instance: ClassVar["ProviderEngine | None"] = None
-    _providers: ClassVar[dict[str, type[Provider]]] = {}
+    def __init__(self) -> None:
+        """Initialize the provider engine."""
+        self._providers: dict[str, BaseProvider] = {}
+        self._initialized = False
 
-    def __new__(cls) -> "ProviderEngine":
-        """Singleton pattern implementation.
+    @property
+    def is_initialized(self) -> bool:
+        """Check if engine is initialized."""
+        return self._initialized
 
-        Returns:
-            The singleton instance of ProviderEngine
+    async def initialize(self) -> None:
+        """Initialize the provider engine."""
+        if self._initialized:
+            raise ValidationError("Provider engine already initialized")
+        self._initialized = True
 
-        Example:
-            >>> engine1 = ProviderEngine()
-            >>> engine2 = ProviderEngine()
-            >>> assert engine1 is engine2
-        """
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-        return cls._instance
+    async def cleanup(self) -> None:
+        """Clean up provider engine resources."""
+        if not self._initialized:
+            raise ValidationError("Provider engine not initialized")
 
-    @classmethod
-    def register_provider(
-        cls, provider_type: str, provider_class: type[Provider]
+        # Clean up providers
+        for provider in self._providers.values():
+            try:
+                await provider.cleanup()
+            except Exception as e:
+                logger.error(
+                    "Provider cleanup failed",
+                    provider_type=provider.config.provider_type,
+                    error=str(e),
+                )
+
+        self._providers.clear()
+        self._initialized = False
+
+    def _ensure_initialized(self) -> None:
+        """Ensure engine is initialized."""
+        if not self._initialized:
+            raise ValidationError("Provider engine not initialized")
+
+    async def register_provider(
+        self,
+        provider: BaseProvider,
+        provider_type: str | None = None,
     ) -> None:
-        """Register a provider class.
+        """Register a provider.
 
         Args:
-            provider_type: Type identifier for the provider
-            provider_class: Provider class to register
+            provider: Provider instance to register
+            provider_type: Optional provider type override
 
         Raises:
-            ValueError: If provider_type is empty or provider_class is None
-            ProviderError: If provider_type is already registered
-
-        Example:
-            >>> ProviderEngine.register_provider("openai", OpenAIProvider)
+            ValueError: If provider is already registered
+            ValidationError: If engine is not initialized
         """
-        if not provider_type:
-            raise ValueError("Provider type cannot be empty")
+        self._ensure_initialized()
 
-        if provider_class is None:
-            raise ValueError("Provider class cannot be None")
+        provider_type = provider_type or provider.config.provider_type
+        if provider_type in self._providers:
+            raise ValueError(f"Provider already registered: {provider_type}")
 
-        if provider_type in cls._providers:
-            raise ProviderError(
-                f"Provider '{provider_type}' is already registered",
-                provider_type=provider_type,
-            )
+        await provider.initialize()
+        self._providers[provider_type] = provider
 
-        cls._providers[provider_type] = provider_class
-        provider_msg = (
-            f"Registered provider '{provider_type}' (class: {provider_class.__name__})"
-        )
-        logger.info(message=provider_msg)
-
-    @classmethod
-    def create_provider(
-        cls,
-        provider_type: str,
-        api_key: str | None = None,
-        *,
-        timeout: float = DEFAULT_TIMEOUT,
-        max_retries: int = 3,
-        **config_kwargs: Any,
-    ) -> Provider:
-        """Create a provider instance.
+    async def unregister_provider(self, provider_type: str) -> None:
+        """Unregister a provider.
 
         Args:
-            provider_type: Type of provider to create
-            api_key: API key for authentication
-            timeout: Request timeout in seconds
-            max_retries: Maximum number of retries for failed calls
-            **config_kwargs: Additional configuration parameters
+            provider_type: Type of provider to unregister
+
+        Raises:
+            ValueError: If provider is not registered
+            ValidationError: If engine is not initialized
+        """
+        self._ensure_initialized()
+
+        if provider_type not in self._providers:
+            raise ValueError(f"Provider not registered: {provider_type}")
+
+        provider = self._providers[provider_type]
+        try:
+            await provider.cleanup()
+            del self._providers[provider_type]
+        except Exception as e:
+            logger.error(
+                "Provider cleanup failed",
+                provider_type=provider_type,
+                error=str(e),
+            )
+            raise ProviderError(str(e), provider_type) from e
+
+    def get_provider(self, provider_type: str) -> BaseProvider:
+        """Get a registered provider.
+
+        Args:
+            provider_type: Type of provider to get
 
         Returns:
             Provider instance
 
         Raises:
-            ProviderNotFoundError: If provider type is not registered
-            ProviderConfigError: If configuration is invalid
-            ValueError: If provider_type is empty
-
-        Example:
-            >>> provider = ProviderEngine.create_provider(
-            ...     "openai",
-            ...     api_key="your-api-key",
-            ...     timeout=30
-            ... )
+            ValueError: If provider is not registered
+            ValidationError: If engine is not initialized
         """
-        if not provider_type:
-            raise ValueError("Provider type cannot be empty")
+        self._ensure_initialized()
 
-        if provider_type not in cls._providers:
-            available = ", ".join(cls._providers.keys())
-            raise ProviderNotFoundError(
-                f"Provider '{provider_type}' not found. "
-                f"Available providers: {available}",
-                provider_type=provider_type,
-            )
+        if provider_type not in self._providers:
+            raise ValueError(f"Provider not registered: {provider_type}")
 
-        config_data = {
-            "provider_type": provider_type,
-            "timeout": timeout,
-            "max_retries": max_retries,
-            **config_kwargs,
-        }
+        return self._providers[provider_type]
 
-        if api_key is not None:
-            config_data["api_key"] = api_key
-
-        try:
-            config = ProviderConfig(**config_data)
-        except Exception as e:
-            raise ProviderConfigError(
-                f"Invalid configuration for provider '{provider_type}': {e!s}",
-                provider_type=provider_type,
-                details={"error": str(e), "config": config_data},
-            ) from e
-
-        provider_class = cls._providers[provider_type]
-        provider = provider_class(config)
-
-        instance_msg = (
-            f"Created provider instance '{provider_type}' "
-            f"(class: {provider_class.__name__})"
-        )
-        logger.debug(message=instance_msg)
-
-        return provider
-
-    @classmethod
-    def list_providers(cls) -> list[str]:
-        """List available provider types.
+    def list_providers(self) -> list[BaseProvider]:
+        """Get all registered providers.
 
         Returns:
-            List of registered provider types
+            List of provider instances
 
-        Example:
-            >>> ProviderEngine.register_provider("openai", OpenAIProvider)
-            >>> providers = ProviderEngine.list_providers()
-            >>> assert "openai" in providers
-            >>> assert isinstance(providers, list)
+        Raises:
+            ValidationError: If engine is not initialized
         """
-        return sorted(cls._providers.keys())
-
-
-def create_provider(
-    provider_type: str,
-    api_key: str | None = None,
-    *,
-    timeout: float = DEFAULT_TIMEOUT,
-    max_retries: int = 3,
-    **config_kwargs: Any,
-) -> Provider:
-    """Create a provider instance.
-
-    This is a convenience function that delegates to ProviderEngine.
-    See ProviderEngine.create_provider for full documentation.
-
-    Example:
-        >>> provider = create_provider(
-        ...     "openai",
-        ...     api_key="your-api-key",
-        ...     timeout=30
-        ... )
-    """
-    return ProviderEngine().create_provider(
-        provider_type,
-        api_key,
-        timeout=timeout,
-        max_retries=max_retries,
-        **config_kwargs,
-    )
-
-
-def list_providers() -> list[str]:
-    """List available provider types.
-
-    This is a convenience function that delegates to ProviderEngine.
-    See ProviderEngine.list_providers for full documentation.
-
-    Example:
-        >>> providers = list_providers()
-        >>> assert isinstance(providers, list)
-    """
-    return ProviderEngine.list_providers()
+        self._ensure_initialized()
+        return list(self._providers.values())

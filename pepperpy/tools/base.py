@@ -5,19 +5,39 @@ including tool registration, execution, and permission management.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, runtime_checkable
+from typing import Protocol, TypedDict, TypeVar, runtime_checkable
+
+
+class ToolParams(TypedDict, total=False):
+    """Type definition for tool parameters."""
+
+    input: str | bytes | dict[str, str | int | float | bool]
+    options: dict[str, str | int | float | bool]
+    context: dict[str, str | int | float | bool]
+
+
+ToolResult = TypeVar(
+    "ToolResult", str, bytes, dict[str, str | int | float | bool], None, covariant=True
+)
 
 
 @runtime_checkable
-class Tool(Protocol):
+class Tool(Protocol[ToolResult]):
     """Protocol defining the interface for tools."""
 
     name: str
     description: str
     permissions: list[str]
 
-    async def execute(self, **kwargs: Any) -> Any:
-        """Execute the tool with the given parameters."""
+    async def execute(self, **kwargs: ToolParams) -> ToolResult:
+        """Execute the tool with the given parameters.
+
+        Args:
+            **kwargs: Tool-specific parameters defined in ToolParams
+
+        Returns:
+            Tool execution result of type ToolResult
+        """
         ...
 
 
@@ -37,16 +57,16 @@ class BaseTool(ABC):
         self.permissions = permissions
 
     @abstractmethod
-    async def execute(self, **kwargs: Any) -> Any:
+    async def execute(self, **kwargs: ToolParams) -> ToolResult:
         """Execute the tool with the given parameters.
 
         Args:
-            **kwargs: Tool-specific parameters
+            **kwargs: Tool-specific parameters defined in ToolParams
 
         Returns:
-            Tool execution result
+            Tool execution result of type ToolResult
 
         Raises:
             ToolError: If execution fails
         """
-        raise NotImplementedError
+        ...

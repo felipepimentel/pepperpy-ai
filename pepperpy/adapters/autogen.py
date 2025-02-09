@@ -3,18 +3,88 @@
 This module implements the adapter for the AutoGen framework.
 """
 
-from typing import Any
-from uuid import UUID, uuid4
-
-from autogen import Agent as AutoGenAgent
-from autogen import ConversableAgent
+from importlib.util import find_spec
+from typing import Any, NotRequired, Protocol, TypedDict, TypeVar, cast
+from uuid import uuid4
 
 from pepperpy.adapters.base import BaseFrameworkAdapter
 from pepperpy.adapters.errors import ConversionError
 from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
 
+# Define type variables for type checking
+T_AutoGenAgent = TypeVar("T_AutoGenAgent", bound="AutoGenAgent")
+T_ConversableAgent = TypeVar("T_ConversableAgent", bound="ConversableAgent")
 
-class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
+
+class AutoGenMessage(TypedDict):
+    """Type for AutoGen messages."""
+
+    sender: str
+    receiver: str
+    content: str
+
+
+class AutoGenConfig(TypedDict):
+    """Type for AutoGen configuration."""
+
+    name: str
+    max_consecutive_auto_reply: NotRequired[int]
+    human_input_mode: NotRequired[str]
+    llm_config: NotRequired[dict[str, Any]]
+    code_execution_config: NotRequired[dict[str, Any]]
+
+
+# Base Protocol classes for type checking
+class AutoGenAgent(Protocol):
+    """Protocol for AutoGen Agent."""
+
+    name: str
+
+    async def send(self, message: AutoGenMessage, recipient: "AutoGenAgent") -> None:
+        """Send message."""
+        ...
+
+    async def receive(self, message: AutoGenMessage, sender: "AutoGenAgent") -> None:
+        """Receive message."""
+        ...
+
+
+class ConversableAgent(Protocol):
+    """Protocol for AutoGen ConversableAgent."""
+
+    name: str
+
+    def __init__(self, name: str, **kwargs: dict[str, Any]) -> None:
+        """Initialize agent."""
+        ...
+
+    async def send(self, message: AutoGenMessage, recipient: AutoGenAgent) -> None:
+        """Send message."""
+        ...
+
+    async def receive(self, message: AutoGenMessage, sender: AutoGenAgent) -> None:
+        """Receive message."""
+        ...
+
+
+# Check if autogen is available
+has_autogen = bool(find_spec("autogen"))
+
+# Runtime imports - ignore type errors since autogen is optional
+if has_autogen:
+    try:
+        import autogen  # type: ignore
+
+        RuntimeAutoGenAgent = autogen.Agent  # type: ignore
+        RuntimeConversableAgent = autogen.ConversableAgent  # type: ignore
+    except ImportError:
+        RuntimeAutoGenAgent = None  # type: ignore
+        RuntimeConversableAgent = None  # type: ignore
+
+
+class AutoGenAdapter(
+    BaseFrameworkAdapter[T_AutoGenAgent, AutoGenMessage, AutoGenMessage]
+):
     """Adapter for AutoGen framework.
 
     This adapter allows Pepperpy agents to be used as AutoGen agents
@@ -25,7 +95,7 @@ class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
         **kwargs: Additional AutoGen-specific configuration
     """
 
-    async def to_framework_agent(self) -> AutoGenAgent:
+    async def to_framework_agent(self) -> T_AutoGenAgent:
         """Convert Pepperpy agent to AutoGen agent.
 
         Returns:
@@ -34,14 +104,34 @@ class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
         Raises:
             ConversionError: If conversion fails
         """
+        if not has_autogen:
+            raise ConversionError(
+                "AutoGen is not installed. Please install it with: pip install autogen"
+            )
+
         try:
             # Create a custom AutoGen agent class that wraps Pepperpy agent
-            class PepperpyAutoGenAgent(ConversableAgent):
-                def __init__(self, adapter: "AutoGenAdapter", **kwargs: Any) -> None:
-                    super().__init__(**kwargs)
+            class PepperpyAutoGenAgent(ConversableAgent):  # type: ignore
+                name: str
+
+                def __init__(
+                    self,
+                    adapter: "AutoGenAdapter[T_AutoGenAgent]",
+                    name: str,
+                    **kwargs: dict[str, Any],
+                ) -> None:
+                    self.name = name
                     self._adapter = adapter
 
-                async def receive(self, message: dict[str, Any], sender: Any) -> None:
+                async def send(
+                    self, message: AutoGenMessage, recipient: AutoGenAgent
+                ) -> None:
+                    """Send message."""
+                    pass
+
+                async def receive(
+                    self, message: AutoGenMessage, sender: AutoGenAgent
+                ) -> None:
                     """Process received message using Pepperpy agent.
 
                     Args:
@@ -69,12 +159,13 @@ class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
                         raise ConversionError(f"Failed to process message: {e}") from e
 
             # Create and return the agent instance
-            return PepperpyAutoGenAgent(self, name=self.agent.name)
+            agent = PepperpyAutoGenAgent(self, name=str(self.agent.name))
+            return cast(T_AutoGenAgent, agent)
 
         except Exception as e:
             raise ConversionError(f"Failed to convert to AutoGen agent: {e}") from e
 
-    async def from_framework_message(self, message: Any) -> Message:
+    async def from_framework_message(self, message: AutoGenMessage) -> Message:
         """Convert AutoGen message to Pepperpy message.
 
         Args:
@@ -89,35 +180,39 @@ class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
         try:
             return Message(
                 type=MessageType.QUERY,
-                sender=str(message.get("sender", "autogen")),
-                receiver=str(message.get("receiver", "pepperpy")),
-                content={"text": str(message.get("content", ""))},
+                sender=message["sender"],
+                receiver=message["receiver"],
+                content={"text": str(message["content"])},
+                id=uuid4(),
             )
         except Exception as e:
             raise ConversionError(f"Failed to convert from AutoGen message: {e}") from e
 
-    async def to_framework_message(self, message: Message) -> dict[str, Any]:
+    async def to_framework_message(self, message: Message) -> AutoGenMessage:
         """Convert Pepperpy message to AutoGen message.
 
         Args:
-            message: Pepperpy Message instance
+            message: Pepperpy message
 
         Returns:
-            AutoGen message dict
+            AutoGen message
 
         Raises:
             ConversionError: If conversion fails
         """
         try:
-            return {
-                "content": message.content.get("text", ""),
-                "sender": message.sender,
-                "receiver": message.receiver,
-            }
+            text = message.content.get("text")
+            if text is None:
+                text = ""
+            return AutoGenMessage(
+                sender=str(message.sender),
+                receiver=str(message.receiver),
+                content=str(text),
+            )
         except Exception as e:
             raise ConversionError(f"Failed to convert to AutoGen message: {e}") from e
 
-    async def from_framework_response(self, response: Any) -> Response:
+    async def from_framework_response(self, response: AutoGenMessage) -> Response:
         """Convert AutoGen response to Pepperpy response.
 
         Args:
@@ -130,17 +225,19 @@ class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
             ConversionError: If conversion fails
         """
         try:
+            message_id = uuid4()
             return Response(
-                message_id=UUID(str(response.get("message_id", uuid4()))),
+                message_id=message_id,
                 status=ResponseStatus.SUCCESS,
-                content={"text": str(response.get("content", ""))},
+                content={"text": str(response["content"])},
+                id=uuid4(),
             )
         except Exception as e:
             raise ConversionError(
                 f"Failed to convert from AutoGen response: {e}"
             ) from e
 
-    async def to_framework_response(self, response: Response) -> dict[str, Any]:
+    async def to_framework_response(self, response: Response) -> AutoGenMessage:
         """Convert Pepperpy response to AutoGen response.
 
         Args:
@@ -153,10 +250,10 @@ class AutoGenAdapter(BaseFrameworkAdapter[AutoGenAgent]):
             ConversionError: If conversion fails
         """
         try:
-            return {
-                "content": response.content.get("text", ""),
-                "message_id": str(response.message_id),
-                "status": response.status,
-            }
+            return AutoGenMessage(
+                sender=str(response.message_id),
+                receiver="",
+                content=str(response.content.get("text", "")),
+            )
         except Exception as e:
             raise ConversionError(f"Failed to convert to AutoGen response: {e}") from e

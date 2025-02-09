@@ -1,244 +1,361 @@
-"""Runtime agent lifecycle management.
+"""Lifecycle management for Pepperpy components.
 
-This module provides lifecycle management for runtime agents, handling state
-transitions, resource cleanup, and error recovery.
+This module provides lifecycle management for components, including:
+- Component registration and initialization
+- State transitions and validation
+- Cleanup and resource management
 """
 
-from collections.abc import Callable
-from typing import Any
-from uuid import UUID
+import asyncio
+import logging
+from collections import defaultdict
+from enum import Enum, auto
+from typing import Any, Callable, TypeVar
+from uuid import UUID, uuid4
 
-from pepperpy.common.errors import LifecycleError
-from pepperpy.core.types import AgentState
-from pepperpy.monitoring.logger import get_logger
-from pepperpy.runtime.context import ExecutionContext
+from pepperpy.core.errors import LifecycleError, StateError
+from pepperpy.monitoring.logger import structured_logger
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")  # Component type
+
+
+class ComponentState(Enum):
+    """States that a component can be in."""
+
+    UNREGISTERED = auto()
+    REGISTERED = auto()
+    INITIALIZING = auto()
+    INITIALIZED = auto()
+    STARTING = auto()
+    RUNNING = auto()
+    STOPPING = auto()
+    STOPPED = auto()
+    ERROR = auto()
+    TERMINATED = auto()
 
 
 class LifecycleManager:
-    """Manages the lifecycle of runtime agents.
+    """Manages component lifecycle states and transitions.
 
-    Handles state transitions, resource cleanup, error recovery,
-    and monitoring integration.
+    This class handles:
+    - Component registration and tracking
+    - State transitions and validation
+    - Dependency management
+    - Error handling and recovery
     """
 
     def __init__(self) -> None:
         """Initialize the lifecycle manager."""
-        self._contexts: dict[UUID, ExecutionContext] = {}
-        self._state_handlers: dict[AgentState, dict[str, Callable]] = {}
-        self._cleanup_handlers: dict[str, Callable] = {}
-        self._error_handlers: dict[str, Callable] = {}
+        self._components: dict[UUID, Any] = {}
+        self._states: dict[UUID, ComponentState] = {}
+        self._dependencies: dict[UUID, set[UUID]] = defaultdict(set)
+        self._handlers: dict[ComponentState, set[Callable]] = defaultdict(set)
+        self._lock = asyncio.Lock()
+        self._logger = structured_logger
 
-    def register_agent(self, context: ExecutionContext) -> None:
-        """Register an agent for lifecycle management.
-
-        Args:
-            context: The agent's execution context
-
-        Raises:
-            LifecycleError: If the agent is already registered
-        """
-        if context.context_id in self._contexts:
-            raise LifecycleError(f"Agent {context.context_id} already registered")
-
-        self._contexts[context.context_id] = context
-        logger.info(f"Registered agent {context.context_id} for lifecycle management")
-
-    def transition_state(
-        self, agent_id: UUID, target_state: AgentState, **kwargs: Any
-    ) -> None:
-        """Transition an agent to a new state.
-
-        Args:
-            agent_id: The UUID of the agent to transition
-            target_state: The target state to transition to
-            **kwargs: Additional arguments for state handlers
-
-        Raises:
-            LifecycleError: If the transition fails
-        """
-        try:
-            context = self._get_context(agent_id)
-
-            # Validate transition
-            if not self._is_valid_transition(context.state, target_state):
-                raise LifecycleError(
-                    f"Invalid transition from {context.state} to {target_state}"
-                )
-
-            # Execute state handlers
-            self._execute_state_handlers(context, target_state, **kwargs)
-
-            # Update state
-            context.set_state(target_state)
-            logger.info(f"Transitioned agent {agent_id} to state {target_state}")
-
-        except Exception as e:
-            self._handle_error(agent_id, e)
-
-    def cleanup_agent(self, agent_id: UUID) -> None:
-        """Clean up agent resources.
-
-        Args:
-            agent_id: The UUID of the agent to clean up
-
-        Raises:
-            LifecycleError: If cleanup fails
-        """
-        try:
-            context = self._get_context(agent_id)
-
-            # Execute cleanup handlers
-            for handler in self._cleanup_handlers.values():
-                handler(context)
-
-            # Remove context
-            del self._contexts[agent_id]
-            logger.info(f"Cleaned up agent {agent_id}")
-
-        except Exception as e:
-            self._handle_error(agent_id, e)
-
-    def register_state_handler(
+    def _validate_transition(
         self,
-        state: AgentState,
-        handler_id: str,
-        handler: Callable[[ExecutionContext, Any], None],
+        component_id: UUID,
+        current_state: ComponentState,
+        target_state: ComponentState,
     ) -> None:
-        """Register a handler for state transitions.
+        """Validate a state transition.
 
         Args:
-            state: The state to handle
-            handler_id: Unique identifier for the handler
-            handler: The handler function
-        """
-        if state not in self._state_handlers:
-            self._state_handlers[state] = {}
-
-        self._state_handlers[state][handler_id] = handler
-        logger.debug(f"Registered state handler {handler_id} for state {state}")
-
-    def register_cleanup_handler(
-        self, handler_id: str, handler: Callable[[ExecutionContext], None]
-    ) -> None:
-        """Register a handler for agent cleanup.
-
-        Args:
-            handler_id: Unique identifier for the handler
-            handler: The handler function
-        """
-        self._cleanup_handlers[handler_id] = handler
-        logger.debug(f"Registered cleanup handler {handler_id}")
-
-    def register_error_handler(
-        self, handler_id: str, handler: Callable[[ExecutionContext, Exception], None]
-    ) -> None:
-        """Register a handler for error recovery.
-
-        Args:
-            handler_id: Unique identifier for the handler
-            handler: The handler function
-        """
-        self._error_handlers[handler_id] = handler
-        logger.debug(f"Registered error handler {handler_id}")
-
-    def _get_context(self, agent_id: UUID) -> ExecutionContext:
-        """Get an agent's execution context.
-
-        Args:
-            agent_id: The UUID of the agent
-
-        Returns:
-            The agent's execution context
+            component_id: Component identifier
+            current_state: Current state
+            target_state: Target state
 
         Raises:
-            LifecycleError: If the agent is not found
+            StateError: If transition is invalid
         """
-        if agent_id not in self._contexts:
-            raise LifecycleError(f"Agent {agent_id} not found")
-
-        return self._contexts[agent_id]
-
-    def _is_valid_transition(
-        self, current_state: AgentState, target_state: AgentState
-    ) -> bool:
-        """Check if a state transition is valid.
-
-        Args:
-            current_state: The current state
-            target_state: The target state
-
-        Returns:
-            True if the transition is valid
-        """
-        # Define valid state transitions
         valid_transitions = {
-            AgentState.INITIALIZED: {AgentState.STARTING, AgentState.ERROR},
-            AgentState.STARTING: {AgentState.RUNNING, AgentState.ERROR},
-            AgentState.RUNNING: {
-                AgentState.PAUSED,
-                AgentState.STOPPING,
-                AgentState.ERROR,
+            ComponentState.UNREGISTERED: {ComponentState.REGISTERED},
+            ComponentState.REGISTERED: {
+                ComponentState.INITIALIZING,
+                ComponentState.ERROR,
+                ComponentState.TERMINATED,
             },
-            AgentState.PAUSED: {
-                AgentState.RUNNING,
-                AgentState.STOPPING,
-                AgentState.ERROR,
+            ComponentState.INITIALIZING: {
+                ComponentState.INITIALIZED,
+                ComponentState.ERROR,
             },
-            AgentState.STOPPING: {AgentState.STOPPED, AgentState.ERROR},
-            AgentState.STOPPED: {AgentState.STARTING, AgentState.ERROR},
-            AgentState.ERROR: {AgentState.STARTING, AgentState.STOPPED},
+            ComponentState.INITIALIZED: {
+                ComponentState.STARTING,
+                ComponentState.ERROR,
+                ComponentState.TERMINATED,
+            },
+            ComponentState.STARTING: {
+                ComponentState.RUNNING,
+                ComponentState.ERROR,
+            },
+            ComponentState.RUNNING: {
+                ComponentState.STOPPING,
+                ComponentState.ERROR,
+            },
+            ComponentState.STOPPING: {
+                ComponentState.STOPPED,
+                ComponentState.ERROR,
+            },
+            ComponentState.STOPPED: {
+                ComponentState.STARTING,
+                ComponentState.TERMINATED,
+                ComponentState.ERROR,
+            },
+            ComponentState.ERROR: {
+                ComponentState.INITIALIZING,
+                ComponentState.TERMINATED,
+            },
+            ComponentState.TERMINATED: set(),
         }
 
-        return target_state in valid_transitions.get(current_state, set())
+        if target_state not in valid_transitions[current_state]:
+            raise StateError(
+                f"Invalid transition from {current_state} to {target_state}",
+                current_state=current_state.name,
+                expected_state=target_state.name,
+                details={"component_id": str(component_id)},
+            )
 
-    def _execute_state_handlers(
-        self, context: ExecutionContext, target_state: AgentState, **kwargs: Any
+    async def _update_state(
+        self,
+        component_id: UUID,
+        target_state: ComponentState,
     ) -> None:
-        """Execute handlers for a state transition.
+        """Update component state with validation.
 
         Args:
-            context: The agent's execution context
-            target_state: The target state
-            **kwargs: Additional arguments for handlers
+            component_id: Component identifier
+            target_state: Target state
 
         Raises:
-            LifecycleError: If handler execution fails
+            StateError: If state transition is invalid
+            LifecycleError: If state update fails
         """
-        try:
-            handlers = self._state_handlers.get(target_state, {})
-            for handler in handlers.values():
-                handler(context, **kwargs)
+        async with self._lock:
+            try:
+                current_state = self._states[component_id]
+                self._validate_transition(component_id, current_state, target_state)
+                self._states[component_id] = target_state
 
-        except Exception as e:
-            raise LifecycleError(f"State handler execution failed: {e!s}") from e
+                # Trigger state change handlers
+                handlers = self._handlers[target_state]
+                for handler in handlers:
+                    try:
+                        handler(component_id)
+                    except Exception as e:
+                        self._logger.error(
+                            "State change handler failed",
+                            component_id=str(component_id),
+                            state=target_state.name,
+                            error=str(e),
+                        )
 
-    def _handle_error(self, agent_id: UUID, error: Exception) -> None:
-        """Handle an error during lifecycle management.
+            except Exception as e:
+                raise LifecycleError(
+                    f"Failed to update state: {e}",
+                    component=str(component_id),
+                    state=target_state.name,
+                ) from e
+
+    def register(self, component: Any) -> UUID:
+        """Register a new component.
 
         Args:
-            agent_id: The UUID of the affected agent
-            error: The error that occurred
+            component: Component to register
+
+        Returns:
+            Component identifier
+
+        Raises:
+            LifecycleError: If registration fails
         """
+        component_id = uuid4()
         try:
-            context = self._get_context(agent_id)
-
-            # Execute error handlers
-            for handler in self._error_handlers.values():
-                try:
-                    handler(context, error)
-                except Exception as e:
-                    logger.error(
-                        f"Error handler failed for agent {agent_id}: {e!s}",
-                        exc_info=True,
-                    )
-
-            # Transition to error state
-            context.set_state(AgentState.ERROR)
-            logger.error(f"Agent {agent_id} transitioned to error state: {error!s}")
+            self._components[component_id] = component
+            self._states[component_id] = ComponentState.REGISTERED
+            return component_id
 
         except Exception as e:
-            logger.critical(
-                f"Failed to handle error for agent {agent_id}: {e!s}", exc_info=True
-            )
+            raise LifecycleError(
+                f"Failed to register component: {e}",
+                component=str(component_id),
+            ) from e
+
+    async def initialize(self, component_id: UUID) -> None:
+        """Initialize a component.
+
+        Args:
+            component_id: Component identifier
+
+        Raises:
+            StateError: If component is in invalid state
+            LifecycleError: If initialization fails
+        """
+        try:
+            component = self._components[component_id]
+            await self._update_state(component_id, ComponentState.INITIALIZING)
+            await component.initialize()
+            await self._update_state(component_id, ComponentState.INITIALIZED)
+
+        except Exception as e:
+            await self._update_state(component_id, ComponentState.ERROR)
+            raise LifecycleError(
+                f"Failed to initialize component: {e}",
+                component=str(component_id),
+            ) from e
+
+    async def start(self, component_id: UUID) -> None:
+        """Start a component.
+
+        Args:
+            component_id: Component identifier
+
+        Raises:
+            StateError: If component is in invalid state
+            LifecycleError: If start fails
+        """
+        try:
+            component = self._components[component_id]
+            await self._update_state(component_id, ComponentState.STARTING)
+            await component.start()
+            await self._update_state(component_id, ComponentState.RUNNING)
+
+        except Exception as e:
+            await self._update_state(component_id, ComponentState.ERROR)
+            raise LifecycleError(
+                f"Failed to start component: {e}",
+                component=str(component_id),
+            ) from e
+
+    async def stop(self, component_id: UUID) -> None:
+        """Stop a component.
+
+        Args:
+            component_id: Component identifier
+
+        Raises:
+            StateError: If component is in invalid state
+            LifecycleError: If stop fails
+        """
+        try:
+            component = self._components[component_id]
+            await self._update_state(component_id, ComponentState.STOPPING)
+            await component.stop()
+            await self._update_state(component_id, ComponentState.STOPPED)
+
+        except Exception as e:
+            await self._update_state(component_id, ComponentState.ERROR)
+            raise LifecycleError(
+                f"Failed to stop component: {e}",
+                component=str(component_id),
+            ) from e
+
+    async def terminate(self, component_id: UUID) -> None:
+        """Terminate a component.
+
+        Args:
+            component_id: Component identifier
+
+        Raises:
+            StateError: If component is in invalid state
+            LifecycleError: If termination fails
+        """
+        try:
+            await self._update_state(component_id, ComponentState.TERMINATED)
+            del self._components[component_id]
+            del self._states[component_id]
+            self._dependencies.pop(component_id, None)
+
+        except Exception as e:
+            raise LifecycleError(
+                f"Failed to terminate component: {e}",
+                component=str(component_id),
+            ) from e
+
+    def add_dependency(self, component_id: UUID, dependency_id: UUID) -> None:
+        """Add a dependency between components.
+
+        Args:
+            component_id: Dependent component identifier
+            dependency_id: Dependency component identifier
+
+        Raises:
+            LifecycleError: If dependency addition fails
+        """
+        try:
+            if component_id not in self._components:
+                raise ValueError(f"Component {component_id} not found")
+            if dependency_id not in self._components:
+                raise ValueError(f"Dependency {dependency_id} not found")
+            self._dependencies[component_id].add(dependency_id)
+
+        except Exception as e:
+            raise LifecycleError(
+                f"Failed to add dependency: {e}",
+                component=str(component_id),
+            ) from e
+
+    def add_state_handler(
+        self,
+        state: ComponentState,
+        handler: Callable[[UUID], None],
+    ) -> None:
+        """Add a handler for state changes.
+
+        Args:
+            state: State to handle
+            handler: Handler function
+        """
+        self._handlers[state].add(handler)
+
+    def remove_state_handler(
+        self,
+        state: ComponentState,
+        handler: Callable[[UUID], None],
+    ) -> None:
+        """Remove a state change handler.
+
+        Args:
+            state: State to handle
+            handler: Handler function
+        """
+        self._handlers[state].discard(handler)
+
+    def get_state(self, component_id: UUID) -> ComponentState:
+        """Get current state of a component.
+
+        Args:
+            component_id: Component identifier
+
+        Returns:
+            Current component state
+
+        Raises:
+            KeyError: If component not found
+        """
+        return self._states[component_id]
+
+    def get_dependencies(self, component_id: UUID) -> set[UUID]:
+        """Get dependencies of a component.
+
+        Args:
+            component_id: Component identifier
+
+        Returns:
+            Set of dependency identifiers
+        """
+        return self._dependencies[component_id].copy()
+
+    def is_running(self, component_id: UUID) -> bool:
+        """Check if a component is running.
+
+        Args:
+            component_id: Component identifier
+
+        Returns:
+            True if component is running
+        """
+        return self._states.get(component_id) == ComponentState.RUNNING

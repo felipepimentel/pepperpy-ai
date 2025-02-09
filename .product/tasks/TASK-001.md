@@ -67,7 +67,7 @@ class PepperpyConfig(BaseSettings):
 
 ### Usage Example
 ```python
-from pepperpy.common.config import config
+from pepperpy.core.config import config
 
 # Access configuration
 model = config.agent.model_type

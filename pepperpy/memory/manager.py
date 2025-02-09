@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from typing import Any, Generic, TypeVar
 from uuid import UUID
 
-from pepperpy.common.errors import ConfigurationError
+from pepperpy.core.errors import ConfigurationError
 
 from .base import (
     BaseMemory,
@@ -45,7 +45,7 @@ class MemoryManager(Generic[K]):
         long_term: BaseMemory[K, dict[str, Any]] | None = None,
         cleanup_interval: int = 300,  # 5 minutes
         reindex_interval: int = 3600,  # 1 hour
-    ):
+    ) -> None:
         """Initialize memory manager.
 
         Args:

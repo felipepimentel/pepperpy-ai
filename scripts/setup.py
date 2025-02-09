@@ -8,136 +8,104 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Tuple
+
+# Define trusted commands and their allowed arguments
+TRUSTED_COMMANDS: dict[str, Tuple[List[str], List[str]]] = {
+    "pip": (
+        ["python", "-m", "pip"],
+        ["install", "--upgrade", "-r"],
+    ),
+    "pre-commit": (
+        ["pre-commit"],
+        ["install"],
+    ),
+    "poetry": (
+        ["poetry"],
+        ["install", "update", "add", "remove", "--dev", "--with", "--without"],
+    ),
+}
 
 
-def run_command(cmd: str) -> bool:
-    """Run a shell command."""
-    try:
-        subprocess.run(cmd, shell=True, check=True)
-        return True
-    except subprocess.CalledProcessError as e:
-        print(f"Error running command: {cmd}")
-        print(f"Error: {e}")
+def validate_command(cmd: List[str]) -> bool:
+    """Validate that a command is trusted and its arguments are allowed.
+
+    Args:
+        cmd: Command to validate as a list of arguments
+
+    Returns:
+        True if command is trusted and arguments are allowed
+    """
+    if not cmd:
         return False
 
+    # Get command name and base command
+    cmd_name = cmd[0] if cmd[0] != "python" else "pip"
+    if cmd_name not in TRUSTED_COMMANDS:
+        return False
 
-def install_dependencies() -> bool:
-    """Install Python dependencies."""
-    print("\nInstalling Python dependencies...")
+    # Get trusted base command and allowed arguments
+    base_cmd, allowed_args = TRUSTED_COMMANDS[cmd_name]
 
-    # Core dependencies
-    core_deps = [
-        "pydantic>=2.6.1",
-        "pyyaml>=6.0.1",
-        "loguru>=0.7.2",
-        "pytest>=8.0.0",
-        "pytest-cov>=4.1.0",
-        "mypy>=1.8.0",
-        "black>=24.1.1",
-        "isort>=5.13.2",
-        "pylint>=3.0.3",
-        "pre-commit>=3.6.0",
-    ]
+    # Check if command starts with trusted base command
+    if not cmd[: len(base_cmd)] == base_cmd:
+        return False
 
-    # Create requirements.txt
-    requirements_file = Path("requirements.txt")
-    with open(requirements_file, "w") as f:
-        f.write("\n".join(core_deps))
-
-    # Install dependencies
-    return run_command("pip install -r requirements.txt")
+    # Check if all arguments are allowed
+    args = cmd[len(base_cmd) :]
+    return all(
+        arg.startswith(tuple(allowed_args)) or os.path.exists(arg) for arg in args
+    )
 
 
-def setup_git_hooks() -> bool:
-    """Setup git hooks using pre-commit."""
-    print("\nSetting up git hooks...")
+def run_command(cmd: List[str], check: bool = True) -> subprocess.CompletedProcess:
+    """Run a command safely.
 
-    # Create pre-commit config
-    precommit_config = """repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
-    -   id: check-added-large-files
+    Args:
+        cmd: Command to run as a list of strings
+        check: Whether to check return code
 
--   repo: https://github.com/psf/black
-    rev: 24.1.1
-    hooks:
-    -   id: black
-
--   repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-    -   id: isort
-
--   repo: local
-    hooks:
-    -   id: validate-structure
-        name: validate-structure
-        entry: python scripts/validate_structure.py
-        language: python
-        pass_filenames: false
-        always_run: true
-
-    -   id: validate-headers
-        name: validate-headers
-        entry: python scripts/validate_headers.py
-        language: python
-        pass_filenames: false
-        always_run: true
-
-    -   id: check-duplicates
-        name: check-duplicates
-        entry: python scripts/check_duplicates.py
-        language: python
-        pass_filenames: false
-        always_run: true"""
-
-    with open(".pre-commit-config.yaml", "w") as f:
-        f.write(precommit_config)
-
-    # Install pre-commit hooks
-    return run_command("pre-commit install")
-
-
-def create_env_template() -> bool:
-    """Create .env.example template."""
-    print("\nCreating .env template...")
-
-    env_template = """# Environment Configuration
-PEPPERPY_ENV=development
-PEPPERPY_DEBUG=true
-
-# OpenAI Configuration
-OPENAI_API_KEY=your-api-key-here
-
-# Logging Configuration
-PEPPERPY_LOG_LEVEL=DEBUG
-PEPPERPY_LOG_FORMAT="{time} | {level} | {message}"
-
-# Memory Configuration
-PEPPERPY_MEMORY_STORE=faiss
-PEPPERPY_MEMORY_EMBEDDING_SIZE=512
-
-# Provider Configuration
-PEPPERPY_ENABLED_PROVIDERS=["openai", "local"]
-PEPPERPY_DEFAULT_MODEL=gpt-4"""
-
-    with open(".env.example", "w") as f:
-        f.write(env_template)
-
-    return True
-
-
-def setup_project() -> None:
-    """Set up the Pepperpy project.
-
-    Creates necessary directories and configuration files.
+    Returns:
+        CompletedProcess instance
     """
-    # TODO: Implement project setup
-    pass
+    if not validate_command(cmd):
+        raise ValueError("Command not trusted")
+
+    try:
+        result = subprocess.run(  # noqa: S603 - Commands are validated through validate_command()
+            cmd,
+            check=check,
+            capture_output=True,
+            text=True,
+        )
+        return result
+    except subprocess.CalledProcessError as e:
+        print(f"Command failed with exit code {e.returncode}")
+        print(f"Error output: {e.stderr}")
+        raise
+
+
+def install_dependencies() -> None:
+    """Install project dependencies."""
+    print("Installing dependencies...")
+    run_command(["poetry", "install"])
+
+
+def install_pre_commit() -> None:
+    """Install pre-commit hooks."""
+    print("Installing pre-commit hooks...")
+    run_command(["pre-commit", "install"])
+
+
+def setup_environment() -> None:
+    """Set up the development environment."""
+    try:
+        install_dependencies()
+        install_pre_commit()
+        print("Environment setup completed successfully!")
+    except Exception as e:
+        print(f"Environment setup failed: {e}")
+        sys.exit(1)
 
 
 def main() -> None:
@@ -151,18 +119,18 @@ def main() -> None:
     # Run setup steps
     steps = [
         ("Installing dependencies", install_dependencies),
-        ("Setting up git hooks", setup_git_hooks),
-        ("Creating .env template", create_env_template),
+        ("Installing pre-commit hooks", install_pre_commit),
     ]
 
     success = True
     for step_name, step_func in steps:
         print(f"\n=== {step_name} ===")
-        if not step_func():
-            print(f"❌ {step_name} failed!")
-            success = False
-        else:
+        try:
+            step_func()
             print(f"✅ {step_name} completed!")
+        except Exception as e:
+            print(f"❌ {step_name} failed: {e}")
+            success = False
 
     if success:
         print("\n✨ Development environment setup complete!")

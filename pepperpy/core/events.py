@@ -1,17 +1,20 @@
 """Core event system for the Pepperpy framework.
 
-This module provides the event system infrastructure, including event types,
-handlers, and the event bus for communication between components.
+This module provides the event system functionality for:
+- Event bus implementation
+- Event handlers and callbacks
+- Event prioritization
+- Event filtering
 """
 
 import asyncio
 import os
 import time
-from abc import ABC, abstractmethod
-from collections.abc import Callable
+from abc import abstractmethod
+from collections.abc import Callable, Protocol
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from enum import Enum, auto
+from enum import Enum
 from pathlib import Path
 from typing import Any, ClassVar, Generic, TypeVar
 from uuid import UUID, uuid4
@@ -20,45 +23,57 @@ import aiofiles
 import aiofiles.os
 from pydantic import BaseModel, Field, validator
 
-from pepperpy.core.protocols import MetricType
-from pepperpy.monitoring import logger, metrics, tracer
+from pepperpy.core.enums import MetricType
+from pepperpy.monitoring import logger, metrics
 
 T = TypeVar("T")
 
 
-class EventType(Enum):
-    """Types of system events."""
-
-    # Agent lifecycle events
-    AGENT_CREATED = auto()
-    AGENT_INITIALIZED = auto()
-    AGENT_STARTED = auto()
-    AGENT_STOPPED = auto()
-    AGENT_ERROR = auto()
-
-    # Provider events
-    PROVIDER_REGISTERED = auto()
-    PROVIDER_UNREGISTERED = auto()
-    PROVIDER_ERROR = auto()
-
-    # Framework events
-    FRAMEWORK_INITIALIZED = auto()
-    FRAMEWORK_ERROR = auto()
+class EventType(str, Enum):
+    """Types of events in the system."""
 
     # System events
-    SYSTEM_EVENT = auto()
-    SYSTEM_STARTED = auto()
-    SYSTEM_STOPPED = auto()
-    SYSTEM_ERROR = auto()
+    SYSTEM_STARTED = "system_started"
+    SYSTEM_STOPPED = "system_stopped"
+    SYSTEM_ERROR = "system_error"
+
+    # Provider events
+    PROVIDER_REGISTERED = "provider_registered"
+    PROVIDER_UNREGISTERED = "provider_unregistered"
+    PROVIDER_ERROR = "provider_error"
+
+    # Agent events
+    AGENT_CREATED = "agent_created"
+    AGENT_REMOVED = "agent_removed"
+    AGENT_ERROR = "agent_error"
+
+    # Component events
+    COMPONENT_CREATED = "component_created"
+    COMPONENT_REMOVED = "component_removed"
+    COMPONENT_ERROR = "component_error"
+
+    # Task events
+    TASK_STARTED = "task_started"
+    TASK_COMPLETED = "task_completed"
+    TASK_FAILED = "task_failed"
+
+    # Memory events
+    MEMORY_STORED = "memory_stored"
+    MEMORY_RETRIEVED = "memory_retrieved"
+    MEMORY_CLEARED = "memory_cleared"
+
+    # Metric events
+    METRIC_RECORDED = "metric_recorded"
+    METRIC_CLEARED = "metric_cleared"
 
 
-class EventPriority(Enum):
-    """Priority levels for events."""
+class EventPriority(str, Enum):
+    """Event priority levels."""
 
-    LOW = 0
-    MEDIUM = 1
-    HIGH = 2
-    CRITICAL = 3
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
 
 
 @dataclass
@@ -88,74 +103,40 @@ class EventMetrics:
         self.last_event_time = time.time()
 
 
-class EventFilter(BaseModel):
-    """Filter criteria for events.
+class EventFilter(Protocol):
+    """Protocol for event filters."""
 
-    Attributes:
-        event_types: Types of events to include
-        priority_threshold: Minimum priority level
-        source_ids: Source IDs to include
-        time_window: Time window for events
-        custom_filter: Custom filter function
-    """
-
-    event_types: set[EventType] | None = None
-    priority_threshold: EventPriority | None = None
-    source_ids: set[str] | None = None
-    time_window: timedelta | None = None
-    custom_filter: Callable[[dict[str, Any]], bool] | None = None
-
+    @abstractmethod
     def matches(self, event: "Event") -> bool:
-        """Check if an event matches the filter criteria."""
-        if self.event_types and event.type not in self.event_types:
-            return False
+        """Check if event matches filter.
 
-        if (
-            self.priority_threshold
-            and event.priority.value < self.priority_threshold.value
-        ):
-            return False
+        Args:
+            event: Event to check
 
-        if self.source_ids and event.source_id not in self.source_ids:
-            return False
-
-        if self.time_window and (
-            datetime.utcnow() - event.timestamp > self.time_window
-        ):
-            return False
-
-        if self.custom_filter and not self.custom_filter(event.data):
-            return False
-
-        return True
+        Returns:
+            True if event matches filter
+        """
+        pass
 
 
 class Event(BaseModel):
-    """Represents a system event.
+    """Base event model.
 
     Attributes:
         id: Unique event identifier
         type: Type of event
-        source_id: Identifier of the event source
-        timestamp: Time the event occurred
+        source_id: Identifier of event source
         priority: Event priority level
-        data: Additional event data
-        error: Optional error information
-        correlation_id: Optional correlation ID for event grouping
-        parent_id: Optional parent event ID
-        metadata: Additional event metadata
+        timestamp: Event creation time
+        data: Event payload data
     """
 
     id: UUID = Field(default_factory=uuid4)
     type: EventType
     source_id: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
     priority: EventPriority = Field(default=EventPriority.MEDIUM)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
     data: dict[str, Any] = Field(default_factory=dict)
-    error: dict[str, Any] | None = Field(default=None)
-    correlation_id: UUID | None = Field(default=None)
-    parent_id: UUID | None = Field(default=None)
-    metadata: dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         """Pydantic model configuration."""
@@ -175,10 +156,10 @@ class Event(BaseModel):
             raise ValueError("source_id cannot be empty")
         return v
 
-    @validator("data", "error", "metadata")
-    def validate_dict(self, v: dict[str, Any] | None) -> dict[str, Any]:
+    @validator("data")
+    def validate_dict(self, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
-        return dict(v) if v is not None else {}
+        return dict(v)
 
     def to_json(self) -> str:
         """Convert event to JSON string."""
@@ -210,7 +191,7 @@ class EventBuffer(Generic[T]):
         max_size: int = 100,
         flush_interval: float = 1.0,
         on_flush: Callable[[list[T]], None] | None = None,
-    ):
+    ) -> None:
         """Initialize the buffer.
 
         Args:
@@ -249,7 +230,7 @@ class EventStore:
         storage_path: Path to event storage directory
     """
 
-    def __init__(self, storage_path: Path):
+    def __init__(self, storage_path: Path) -> None:
         """Initialize the event store.
 
         Args:
@@ -324,105 +305,8 @@ class EventStore:
             return []
 
 
-class EventHandler(ABC):
-    """Base class for event handlers."""
-
-    def __init__(self) -> None:
-        """Initialize the event handler."""
-        self._queue: asyncio.Queue[Event] = asyncio.Queue()
-        self._active = False
-        self._task: asyncio.Task[None] | None = None
-        self._metrics = EventMetrics()
-        self._batch_size = 10
-        self._batch_timeout = 1.0
-
-    @property
-    def is_active(self) -> bool:
-        """Whether the handler is active."""
-        return self._active
-
-    @property
-    def metrics(self) -> EventMetrics:
-        """Get handler metrics."""
-        return self._metrics
-
-    async def start(self) -> None:
-        """Start the event handler."""
-        if self.is_active:
-            return
-        self._active = True
-        self._task = asyncio.create_task(self._process_events())
-
-    async def stop(self) -> None:
-        """Stop the event handler."""
-        self._active = False
-        if self._task is not None:
-            await self._task
-        await self._queue.join()
-
-    async def _process_events(self) -> None:
-        """Process events from the queue."""
-        while self.is_active:
-            try:
-                tracer.start_trace("process_events")
-                # Get next batch of events
-                events: list[Event] = []
-                try:
-                    while len(events) < self._batch_size:
-                        event = await asyncio.wait_for(
-                            self._queue.get(),
-                            timeout=self._batch_timeout,
-                        )
-                        events.append(event)
-                except TimeoutError:
-                    if not events:
-                        continue
-
-                # Process batch
-                for event in events:
-                    start_time = time.time()
-                    try:
-                        tracer.start_trace("handle_event")
-                        tracer.set_attribute("event_type", event.type.name)
-                        tracer.set_attribute("event_id", str(event.id))
-                        await self.handle_event(event)
-                        processing_time = time.time() - start_time
-                        self._metrics.update(processing_time)
-                        metrics.record_metric(
-                            name="event_processing_time",
-                            value=processing_time,
-                            type=MetricType.HISTOGRAM,
-                            labels={"event_type": event.type.name},
-                        )
-                        self._queue.task_done()
-                    except Exception as e:
-                        logger.error(f"Error handling event: {e}")
-                        self._metrics.update(0.0, success=False)
-                        metrics.record_metric(
-                            name="event_processing_errors",
-                            value=1,
-                            type=MetricType.COUNTER,
-                            labels={"event_type": event.type.name},
-                        )
-                    finally:
-                        tracer.end_trace()
-
-                # Update metrics
-                metrics.record_metric(
-                    name="event_batches_processed",
-                    value=1,
-                    type=MetricType.COUNTER,
-                    labels={"batch_size": str(len(events))},
-                )
-            except Exception as e:
-                logger.error(f"Error processing events: {e}")
-                metrics.record_metric(
-                    name="event_processing_errors",
-                    value=1,
-                    type=MetricType.COUNTER,
-                )
-            finally:
-                tracer.end_trace()
+class EventHandler(Protocol):
+    """Protocol for event handlers."""
 
     @abstractmethod
     async def handle_event(self, event: Event) -> None:
@@ -462,7 +346,7 @@ class EventCorrelator:
         patterns: list[dict[str, Any]],
         window_size: timedelta = timedelta(minutes=5),
         min_confidence: float = 0.8,
-    ):
+    ) -> None:
         """Initialize event correlator.
 
         Args:
@@ -517,7 +401,7 @@ class EventCorrelator:
 
 
 class EventBus:
-    """Central event bus for event distribution."""
+    """Event bus for managing event subscriptions and delivery."""
 
     def __init__(
         self,
@@ -532,7 +416,8 @@ class EventBus:
         """
         self.event_store = event_store
         self.correlator = correlator
-        self.handlers: dict[UUID, tuple[EventHandler, EventFilter]] = {}
+        self._handlers: dict[EventType, set[EventHandler]] = {}
+        self._filters: dict[EventHandler, set[EventFilter]] = {}
         self.queue: asyncio.Queue[Event] = asyncio.Queue()  # Add type annotation
         self._active = False
         self._task: asyncio.Task | None = None
@@ -659,9 +544,11 @@ class EventBus:
                 )
 
         # Dispatch to handlers
-        for handler_id, (handler, filter_criteria) in self.handlers.items():
-            if not filter_criteria.matches(event):
-                continue
+        for handler in self._handlers.get(event.type, set()):
+            # Check filters
+            if handler in self._filters:
+                if not any(f.matches(event) for f in self._filters[handler]):
+                    continue
 
             try:
                 await handler.handle_event(event)
@@ -669,7 +556,7 @@ class EventBus:
                 logger.error(
                     "Handler failed to process event",
                     extra={
-                        "handler_id": str(handler_id),
+                        "handler_id": str(id(handler)),
                         "event_id": str(event.id),
                         "error": str(e),
                     },
@@ -677,30 +564,63 @@ class EventBus:
 
     def subscribe(
         self,
-        handler: "EventHandler",
-        filter_criteria: EventFilter,
-    ) -> UUID:
+        handler: EventHandler,
+        event_type: EventType | None = None,
+        filters: list[EventFilter] | None = None,
+    ) -> None:
         """Subscribe to events.
 
         Args:
             handler: Event handler
-            filter_criteria: Filter criteria for events
-
-        Returns:
-            Subscription ID
+            event_type: Optional specific event type to subscribe to
+            filters: Optional event filters
         """
-        sub_id = uuid4()
-        self.handlers[sub_id] = (handler, filter_criteria)
-        return sub_id
+        if event_type:
+            if event_type not in self._handlers:
+                self._handlers[event_type] = set()
+            self._handlers[event_type].add(handler)
+        else:
+            # Subscribe to all event types
+            for evt_type in EventType:
+                if evt_type not in self._handlers:
+                    self._handlers[evt_type] = set()
+                self._handlers[evt_type].add(handler)
 
-    def unsubscribe(self, sub_id: UUID) -> None:
+        if filters:
+            if handler not in self._filters:
+                self._filters[handler] = set()
+            self._filters[handler].update(filters)
+
+    def unsubscribe(
+        self,
+        handler: EventHandler,
+        event_type: EventType | None = None,
+    ) -> None:
         """Unsubscribe from events.
 
         Args:
-            sub_id: Subscription ID to remove
+            handler: Event handler to unsubscribe
+            event_type: Optional specific event type to unsubscribe from
         """
-        if sub_id in self.handlers:
-            del self.handlers[sub_id]
+        if event_type:
+            if event_type in self._handlers:
+                self._handlers[event_type].discard(handler)
+                if not self._handlers[event_type]:
+                    del self._handlers[event_type]
+        else:
+            # Unsubscribe from all event types
+            for handlers in self._handlers.values():
+                handlers.discard(handler)
+            # Clean up empty handler sets
+            self._handlers = {
+                evt_type: handlers
+                for evt_type, handlers in self._handlers.items()
+                if handlers
+            }
+
+        # Remove filters
+        if handler in self._filters:
+            del self._filters[handler]
 
     async def publish(
         self,

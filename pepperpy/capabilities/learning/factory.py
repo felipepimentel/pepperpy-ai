@@ -9,7 +9,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from pepperpy.providers.provider import Provider
+from pepperpy.providers.base import BaseProvider
 
 from .base import BaseLearning
 from .llm import LLMConfig, LLMLearning
@@ -41,7 +41,7 @@ class LearningConfig(BaseModel):
 class LearningFactory(Generic[T, M, P]):
     """Factory for creating learning instances."""
 
-    def __init__(self, config: LearningConfig | None = None):
+    def __init__(self, config: LearningConfig | None = None) -> None:
         """Initialize the learning factory.
 
         Args:
@@ -49,7 +49,7 @@ class LearningFactory(Generic[T, M, P]):
         """
         self._config = config or LearningConfig()
 
-    def create(self, provider: Provider) -> BaseLearning[T, M, P]:
+    def create(self, provider: BaseProvider) -> BaseLearning[T, M, P]:
         """Create a learning instance.
 
         Args:

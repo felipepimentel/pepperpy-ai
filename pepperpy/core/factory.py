@@ -15,7 +15,7 @@ from typing import Any, Generic, TypeVar, cast
 
 from pydantic import BaseModel, Field, validator
 
-from pepperpy.common.errors import FactoryError, NotFoundError, ValidationError
+from pepperpy.core.errors import FactoryError, NotFoundError, ValidationError
 
 from .base import (
     BaseAgent,
@@ -257,7 +257,7 @@ class AgentFactory(Factory[BaseAgent[T_Input, T_Output, T_Config, T_Context]]):
         if "type" not in config:
             raise ValidationError(
                 "Missing required field: type",
-                validation_type="config",
+                details={"field": "type"},
             )
 
         agent_type = config["type"]
@@ -316,31 +316,27 @@ class ComponentFactory(Factory[T]):
         if "type" not in config:
             raise ValidationError(
                 "Missing required field: type",
-                validation_type="config",
+                details={"field": "type"},
             )
 
         component_type = config["type"]
         if component_type not in self._component_types:
-            raise NotFoundError(
+            raise ValidationError(
                 f"Component type not found: {component_type}",
-                resource_type="component_type",
-                resource_id=component_type,
+                details={"component_type": component_type},
             )
 
         component_class = self._component_types[component_type]
         try:
-            component = component_class(**config.get("config", {}))
+            component = component_class(**config)
             await self._run_hooks("component_created", component)
 
             if self._event_bus:
                 await self._event_bus.publish(
                     Event(
-                        type=EventType.SYSTEM_EVENT,
+                        type=EventType.COMPONENT_CREATED,
                         source_id=component_type,
-                        data={
-                            "component_type": component_type,
-                            "config": config,
-                        },
+                        data={"component_type": component_type, "config": config},
                     )
                 )
 

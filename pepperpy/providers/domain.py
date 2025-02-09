@@ -11,13 +11,14 @@ Example:
     >>> conversation.add_message("user", "Hello!")
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Final
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from pepperpy.common.errors import PepperpyError
-from pepperpy.monitoring import logger
+from pepperpy.core.errors import PepperpyError
+from pepperpy.core.types import MetadataDict, MetadataValue
+from pepperpy.monitoring.logger import structured_logger as logger
 
 # Message roles
 ROLE_SYSTEM: Final[str] = "system"
@@ -54,10 +55,10 @@ class Message(BaseModel):
     role: str
     content: str
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         description="When the message was created (UTC)",
     )
-    metadata: dict[str, Any] = Field(
+    metadata: MetadataDict = Field(
         default_factory=dict, description="Additional message metadata"
     )
     name: str | None = None
@@ -128,11 +129,11 @@ class Conversation(BaseModel):
     messages: list[Message] = Field(
         default_factory=list, description="List of messages in the conversation"
     )
-    metadata: dict[str, Any] = Field(
+    metadata: MetadataDict = Field(
         default_factory=dict, description="Additional conversation metadata"
     )
 
-    def add_message(self, role: str, content: str, **metadata: Any) -> None:
+    def add_message(self, role: str, content: str, **metadata: MetadataValue) -> None:
         """Add a message to the conversation.
 
         Args:

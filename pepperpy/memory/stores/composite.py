@@ -1,18 +1,17 @@
 """Composite memory store implementation."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any, TypeVar
 
-from pepperpy.common.errors import MemoryError
 from pepperpy.memory.base import (
     BaseMemoryStore,
     MemoryEntry,
     MemoryQuery,
     MemorySearchResult,
 )
-from pepperpy.memory.store_config import CompositeConfig
-from pepperpy.monitoring import logger
+from pepperpy.memory.config import MemoryConfig
+from pepperpy.monitoring.logger import structured_logger as logger
 
 T = TypeVar("T", bound=dict[str, Any])
 
@@ -28,7 +27,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
 
     def __init__(
         self,
-        config: CompositeConfig,
+        config: MemoryConfig,
         primary_store: BaseMemoryStore[T],
     ) -> None:
         """Initialize composite store.
@@ -37,7 +36,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
             config: Store configuration
             primary_store: Primary store for persistence
         """
-        super().__init__("composite")
+        super().__init__(name="composite")
         self._config = config
         self._primary_store = primary_store
         self._stores: list[BaseMemoryStore[T]] = [primary_store]
@@ -60,7 +59,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
             entry: Entry to store
 
         Raises:
-            MemoryError: If storage fails
+            RuntimeError: If storage fails
         """
         async with self._lock:
             try:
@@ -74,11 +73,11 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
                     except Exception as e:
                         logger.error(
                             "Failed to store in secondary store",
-                            store=str(store),
+                            store_type=store.__class__.__name__,
                             error=str(e),
                         )
             except Exception as e:
-                raise MemoryError(f"Failed to store in primary store: {e}") from e
+                raise RuntimeError(f"Failed to store in primary store: {e}") from e
 
     async def _retrieve(
         self,
@@ -102,10 +101,8 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to retrieve from primary store",
-                extra={
-                    "error": str(e),
-                    "store": self._primary_store.__class__.__name__,
-                },
+                store_type=self._primary_store.__class__.__name__,
+                error=str(e),
             )
 
         # Then get results from additional stores
@@ -119,33 +116,10 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
                 except Exception as e:
                     logger.error(
                         "Failed to retrieve from store",
-                        extra={"error": str(e), "store": store.__class__.__name__},
+                        store_type=store.__class__.__name__,
+                        error=str(e),
                     )
                     continue  # Continue with other stores on error
-
-    async def _retrieve_from_store(
-        self,
-        store: BaseMemoryStore[T],
-        query: MemoryQuery,
-    ) -> AsyncIterator[MemorySearchResult[T]]:
-        """Retrieve memories from a single store.
-
-        Args:
-            store: Memory store to retrieve from.
-            query: Memory query parameters.
-
-        Returns:
-            Memory search results from the store.
-        """
-        try:
-            async for result in store._retrieve(query):
-                yield result
-        except Exception as e:
-            logger.error(
-                "Failed to retrieve from store",
-                extra={"error": str(e), "store": store.__class__.__name__},
-            )
-            # Continue with other stores on error
 
     async def _delete(self, key: str) -> None:
         """Delete an entry from memory.
@@ -168,23 +142,97 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
                     except Exception as e:
                         logger.error(
                             "Failed to delete from secondary store",
-                            store=str(store),
+                            store_type=store.__class__.__name__,
                             error=str(e),
                         )
             except Exception as e:
-                raise MemoryError(f"Failed to delete from primary store: {e}") from e
+                logger.error(
+                    "Failed to delete from primary store",
+                    store_type=self.__class__.__name__,
+                    error=str(e),
+                )
+                raise RuntimeError("Failed to delete from primary store") from e
 
     async def add_store(self, store: BaseMemoryStore[T]) -> None:
         """Add a store to the composite.
 
         Args:
-            store: Memory store to add
+            store: Store to add
         """
         async with self._lock:
             if store not in self._stores:
                 self._stores.append(store)
                 logger.debug(
                     "Added store to composite",
-                    store=str(store),
-                    total_stores=len(self._stores),
+                    store_type=store.__class__.__name__,
+                    total_stores=str(len(self._stores)),
                 )
+
+    async def retrieve(
+        self,
+        query: MemoryQuery,
+    ) -> AsyncGenerator[MemorySearchResult[T], None]:
+        """Retrieve entries from memory.
+
+        Args:
+            query: Query parameters
+
+        Returns:
+            Generator of memory results
+
+        Raises:
+            ValueError: If query is invalid
+            RuntimeError: If retrieval fails
+        """
+        if not query:
+            raise ValueError("Query cannot be empty")
+
+        async for result in self._retrieve(query):
+            yield result
+
+    async def search(self, query: MemoryQuery) -> AsyncIterator[MemorySearchResult[T]]:
+        """Search memory entries.
+
+        Args:
+            query: Search parameters
+
+        Yields:
+            Search results ordered by relevance
+
+        Raises:
+            ValueError: If query is invalid
+            MemoryError: If search fails
+        """
+        async for result in self._retrieve(query):
+            yield result
+
+    async def similar(
+        self,
+        key: str,
+        limit: int = 10,
+        min_score: float = 0.0,
+    ) -> AsyncIterator[MemorySearchResult[T]]:
+        """Find similar entries.
+
+        Args:
+            key: Memory key to find similar entries for
+            limit: Maximum number of results
+            min_score: Minimum similarity score
+
+        Yields:
+            Similar entries ordered by similarity
+
+        Raises:
+            KeyError: If key not found
+            ValueError: If parameters are invalid
+            MemoryError: If similarity search fails
+        """
+        # For now, just return entries with the same key
+        query = MemoryQuery(
+            query="",
+            key=key,
+            limit=limit,
+            min_score=min_score,
+        )
+        async for result in self._retrieve(query):
+            yield result

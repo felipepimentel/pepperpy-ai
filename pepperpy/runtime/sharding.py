@@ -8,30 +8,31 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from functools import wraps
-from typing import Any, TypeVar
+from typing import ParamSpec, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel
 
-from pepperpy.common.errors import ShardingError
+from pepperpy.core.errors import ShardingError
 from pepperpy.monitoring import logger, tracer
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 
-def with_trace(name: str) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator to add tracing to a function.
+def trace(name: str) -> Callable[[Callable[P, T]], Callable[P, T]]:
+    """Decorator to trace function execution.
 
     Args:
-        name: Name of the trace
+        name: Name of the trace.
 
     Returns:
-        Decorated function
+        Decorated function.
     """
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: Callable[P, T]) -> Callable[P, T]:
         @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
+        def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
             with tracer.start_trace(name):
                 return func(*args, **kwargs)
 
@@ -68,7 +69,7 @@ class ShardManager:
         self._shards: dict[str, ShardInfo] = {}
         self._agent_locations: dict[UUID, str] = {}
 
-    @with_trace("register_shard")
+    @trace("register_shard")
     def register_shard(self, config: ShardConfig) -> None:
         """Register a new shard.
 
@@ -93,7 +94,7 @@ class ShardManager:
         )
         logger.info("Registered new shard", shard_id=config.shard_id)
 
-    @with_trace("assign_agent")
+    @trace("assign_agent")
     def assign_agent(self, agent_id: UUID, shard_id: str | None = None) -> str:
         """Assign an agent to a shard.
 
@@ -149,7 +150,7 @@ class ShardManager:
         )
         return best_shard[0]
 
-    @with_trace("rebalance_shards")
+    @trace("rebalance_shards")
     def rebalance_shards(self) -> None:
         """Rebalance agents across shards."""
         if len(self._shards) < 2:
@@ -238,7 +239,7 @@ class ShardManager:
         # TODO: Implement actual load calculation based on agent metrics
         return 0.5
 
-    @with_trace("handle_shard_failure")
+    @trace("handle_shard_failure")
     def handle_shard_failure(self, shard_id: str) -> None:
         """Handle failure of a shard.
 
@@ -274,7 +275,7 @@ class ShardManager:
                     error=str(e),
                 )
 
-    @with_trace("update_shard_metrics")
+    @trace("update_shard_metrics")
     def update_shard_metrics(self, shard_id: str, metrics: dict[str, float]) -> None:
         """Update metrics for a shard.
 

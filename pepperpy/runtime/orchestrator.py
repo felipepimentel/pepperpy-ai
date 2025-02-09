@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
-from pepperpy.common.errors import OrchestratorError
+from pepperpy.core.errors import OrchestratorError
 from pepperpy.core.types import ResourceId
 from pepperpy.monitoring.logger import get_logger
 from pepperpy.runtime.lifecycle import LifecycleManager

@@ -5,7 +5,7 @@ This module implements the tool registry system for managing and accessing tools
 
 from typing import Any
 
-from pepperpy.common.errors import ToolError
+from pepperpy.core.errors import ToolError
 from pepperpy.tools.base import Tool
 
 

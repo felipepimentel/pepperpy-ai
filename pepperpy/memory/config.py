@@ -1,6 +1,7 @@
 """Memory configuration."""
 
 from enum import Enum
+from pathlib import Path
 from typing import Any, TypeVar, Union
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -58,7 +59,7 @@ class PostgresConfig(BaseConfig):
     user: str = Field(default="postgres")
     password: str = Field(default="postgres")
     database: str = Field(default="pepperpy")
-    schema: str = Field(default="public")
+    db_schema: str = Field(default="public")
     table: str = Field(default="memory")
     min_connections: int = Field(default=1)
     max_connections: int = Field(default=10)
@@ -68,7 +69,9 @@ class PostgresConfig(BaseConfig):
 class VectorStoreConfig(BaseConfig):
     """Vector store configuration model."""
 
-    store_type: StoreType = Field(default=StoreType.REDIS)
+    store_type: StoreType = Field(default=StoreType.VECTOR)
+    model_name: str = Field(default="all-MiniLM-L6-v2")
+    storage_path: Path | None = Field(default=None)
     redis_config: RedisConfig | None = Field(default=None)
     postgres_config: PostgresConfig | None = Field(default=None)
 

@@ -12,10 +12,14 @@ structure:
           - base.py: "Classes e protocolos base"
           - config.py: "Sistema de configuração"
           - events.py: "Sistema de eventos"
-          - errors.py: "Tratamento de erros centralizado"
+          - errors.py: "Sistema centralizado de erros"
           - types.py: "Tipos e protocolos compartilhados"
+          - protocols.py: "Protocolos do sistema"
           - registry.py: "Sistema de registro"
           - utils.py: "Utilitários compartilhados"
+          - client.py: "Cliente base do sistema"
+          - factory.py: "Factories compartilhados"
+          - monitoring.py: "Monitoramento base"
       
       memory:
         description: "Sistema de memória"
@@ -92,7 +96,7 @@ structure:
   tests:
     description: "Testes do framework"
     modules:
-      core:
+      common:
         description: "Testes do núcleo"
       memory:
         description: "Testes do sistema de memória"

@@ -5,98 +5,191 @@ and streaming capabilities.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 
-from anthropic import AsyncAnthropic
-from anthropic.types import MessageParam
-from pydantic import SecretStr
+from anthropic import AsyncAnthropic, AsyncStream
+from anthropic._types import NotGiven
+from anthropic.types import (
+    ContentBlock,
+    ContentBlockDeltaEvent,
+    ContentBlockStartEvent,
+    ContentBlockStopEvent,
+    Message,
+    MessageDeltaEvent,
+    MessageParam,
+    MessageStartEvent,
+    MessageStopEvent,
+)
+from loguru import logger
+from pydantic import ConfigDict, Field, SecretStr
 
-from pepperpy.core.types import Message, Response, ResponseStatus
-from pepperpy.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.types import Message as PepperpyMessage
+from pepperpy.core.types import MessageType, Response, ResponseStatus
+from pepperpy.providers.base import (
+    BaseProvider,
+    GenerateKwargs,
+    ProviderConfig,
+    StreamKwargs,
+)
+from pepperpy.providers.domain import (
+    ProviderAPIError,
+    ProviderConfigError,
+    ProviderError,
+)
+
+MessageRole = Literal["user", "assistant"]
 
 
 class AnthropicConfig(ProviderConfig):
     """Anthropic provider configuration."""
 
-    api_key: SecretStr
-    model: str = "claude-3-opus-20240229"
-    temperature: float = 0.7
-    max_tokens: int = 2048
+    provider_type: str = Field(default="anthropic", description="The type of provider")
+    api_key: SecretStr = Field(..., description="Anthropic API key")
+    model: str = Field(default="claude-3-opus-20240229", description="Model to use")
+    temperature: float = Field(default=0.7, description="Sampling temperature")
+    max_tokens: int = Field(default=2048, description="Maximum tokens to generate")
+    stop_sequences: list[str] | None = Field(
+        default=None, description="Optional stop sequences"
+    )
+    timeout: float = Field(default=30.0, description="Request timeout in seconds")
+    max_retries: int = Field(default=3, description="Maximum number of retries")
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class AnthropicProvider(BaseProvider):
-    """Provider implementation for Anthropic's API."""
+    """Anthropic provider implementation."""
 
-    def __init__(self, config: AnthropicConfig):
-        """Initialize Anthropic provider with configuration."""
-        super().__init__(config)
-        self.config = config
-        self.client = AsyncAnthropic(api_key=config.api_key.get_secret_value())
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize provider.
 
-    def _convert_messages(self, messages: list[Message]) -> list[MessageParam]:
-        """Convert internal message format to Anthropic format."""
+        Args:
+            config: Provider configuration
+        """
+        # Convert to AnthropicConfig if needed
+        anthropic_config = (
+            config
+            if isinstance(config, AnthropicConfig)
+            else AnthropicConfig(**config.model_dump())
+        )
+        super().__init__(anthropic_config)
+        self._client: AsyncAnthropic | None = None
+        self._config = anthropic_config
+
+    async def initialize(self) -> None:
+        """Initialize provider resources.
+
+        Raises:
+            ProviderError: If initialization fails
+        """
+        try:
+            self._client = AsyncAnthropic(
+                api_key=self._config.api_key.get_secret_value(),
+            )
+            logger.info("Initialized Anthropic provider", model=self._config.model)
+        except Exception as e:
+            msg = str(e)
+            raise ProviderError(msg) from e
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        if self._client:
+            try:
+                await self._client.close()
+                self._client = None
+                logger.info("Cleaned up Anthropic provider")
+            except Exception as e:
+                logger.error("Error during cleanup", error=str(e))
+                raise ProviderError(f"Cleanup failed: {e}") from e
+
+    def _convert_messages(self, messages: list[PepperpyMessage]) -> list[MessageParam]:
+        """Convert internal message format to Anthropic format.
+
+        Args:
+            messages: List of messages to convert
+
+        Returns:
+            List of Anthropic message parameters
+        """
         converted: list[MessageParam] = []
         for msg in messages:
-            role = "user" if msg.sender == "user" else "assistant"
-            converted.append(
-                cast(MessageParam, {"role": role, "content": str(msg.content)})
-            )
+            content = str(msg.content.get("text", ""))
+            if msg.type == MessageType.QUERY:
+                converted.append({"role": "user", "content": content})
+            elif msg.type == MessageType.RESPONSE:
+                converted.append({"role": "assistant", "content": content})
+            # Skip system messages as they're not supported by Anthropic
         return converted
 
-    def _extract_text_content(self, content: list[Any]) -> str:
-        """Extract text content from Anthropic response."""
-        if not content:
-            return ""
-        text_parts = []
-        for block in content:
-            # Handle both dictionary and object formats
-            if isinstance(block, dict):
-                text = block.get("text", "")
-                if text:
-                    text_parts.append(text)
-            else:
-                # Try to get text content from object attributes
-                try:
-                    text = getattr(block, "text", None)
-                    if text:
-                        text_parts.append(str(text))
-                except (AttributeError, TypeError):
-                    continue
-        return " ".join(text_parts)
+    async def generate(
+        self, messages: list[PepperpyMessage], **kwargs: GenerateKwargs
+    ) -> Response:
+        """Generate a response from Anthropic.
 
-    async def generate(self, messages: list[Message], **kwargs: Any) -> Response:
-        """Generate a response from Anthropic."""
+        Args:
+            messages: List of messages to generate from
+            **kwargs: Additional arguments to pass to the API
+
+        Returns:
+            Generated response
+
+        Raises:
+            ProviderError: If generation fails
+        """
         try:
-            response = await self.client.messages.create(
-                messages=self._convert_messages(messages),
-                model=kwargs.get("model", self.config.model),
-                temperature=kwargs.get("temperature", self.config.temperature),
-                max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
+            if not self._client:
+                raise ProviderError("Provider not initialized")
+
+            model_params = kwargs.get("model_params", {})
+            stop_sequences = kwargs.get("stop_sequences")
+            stop: list[str] | NotGiven = (
+                cast(list[str], stop_sequences)
+                if isinstance(stop_sequences, list)
+                else NotGiven()
             )
 
-            content = self._extract_text_content(response.content)
+            response = await self._client.messages.create(
+                messages=self._convert_messages(messages),
+                model=str(model_params.get("model", self._config.model)),
+                max_tokens=int(model_params.get("max_tokens", self._config.max_tokens)),
+                temperature=float(
+                    model_params.get("temperature", self._config.temperature)
+                ),
+                stop_sequences=stop if stop is not NotGiven() else NotGiven(),
+                stream=False,
+            )
+
+            # Extract text from the first content block
+            content_text = ""
+            if response.content and len(response.content) > 0:
+                first_block = response.content[0]
+                if isinstance(first_block, ContentBlock):
+                    content_text = getattr(first_block, "text", "") or ""
+
             return Response(
-                id=UUID(response.id),
+                id=uuid4(),  # Anthropic doesn't provide message IDs
                 message_id=messages[-1].id,
-                content={"text": content},
+                content={"text": content_text},
                 status=ResponseStatus.SUCCESS,
                 metadata={
                     "model": response.model,
-                    "usage": response.usage.dict() if response.usage else {},
+                    "usage": response.usage.model_dump() if response.usage else {},
                 },
             )
 
-        except Exception as e:
+        except Exception as error:
             return Response(
                 id=uuid4(),
                 message_id=messages[-1].id if messages else uuid4(),
-                content={"error": str(e)},
+                content={"error": str(error)},
                 status=ResponseStatus.ERROR,
-                metadata={"error": str(e)},
+                metadata={"error": str(error)},
             )
 
-    def stream(self, messages: list[Message], **kwargs: Any) -> AsyncIterator[Response]:
+    async def stream(
+        self, messages: list[PepperpyMessage], **kwargs: StreamKwargs
+    ) -> AsyncIterator[Response]:
         """Stream responses from Anthropic.
 
         Args:
@@ -107,60 +200,57 @@ class AnthropicProvider(BaseProvider):
             AsyncIterator[Response]: Stream of responses
 
         Raises:
-            Exception: If streaming fails
+            ProviderError: If streaming fails
         """
+        try:
+            if not self._client:
+                raise ProviderError("Provider not initialized")
 
-        async def stream_impl() -> AsyncIterator[Response]:
-            try:
-                stream = await self.client.messages.create(
-                    messages=self._convert_messages(messages),
-                    model=kwargs.get("model", self.config.model),
-                    temperature=kwargs.get("temperature", self.config.temperature),
-                    max_tokens=kwargs.get("max_tokens", self.config.max_tokens),
-                    stream=True,
-                )
+            model_params = kwargs.get("model_params", {})
+            stop_sequences = kwargs.get("stop_sequences")
+            stop: list[str] | NotGiven = (
+                cast(list[str], stop_sequences)
+                if isinstance(stop_sequences, list)
+                else NotGiven()
+            )
 
-                message_id = None
-                model = None
+            stream = await self._client.messages.create(
+                messages=self._convert_messages(messages),
+                model=str(model_params.get("model", self._config.model)),
+                max_tokens=int(model_params.get("max_tokens", self._config.max_tokens)),
+                temperature=float(
+                    model_params.get("temperature", self._config.temperature)
+                ),
+                stop_sequences=stop if stop is not NotGiven() else NotGiven(),
+                stream=True,
+            )
 
-                async for event in stream:
-                    # Check if event is a MessageStreamEvent
-                    if not hasattr(event, "type"):
-                        continue
+            async for event in stream:
+                if isinstance(event, (MessageStartEvent, MessageStopEvent)):
+                    continue
+                if isinstance(event, MessageDeltaEvent):
+                    delta = event.delta
+                    if hasattr(delta, "content") and delta.content:
+                        for content_block in delta.content:
+                            if isinstance(content_block, ContentBlock):
+                                text = getattr(content_block, "text", "")
+                                if text:
+                                    yield Response(
+                                        id=uuid4(),
+                                        message_id=messages[-1].id,
+                                        content={"text": text},
+                                        status=ResponseStatus.SUCCESS,
+                                        metadata={
+                                            "model": getattr(event, "model", "unknown"),
+                                            "type": "delta",
+                                        },
+                                    )
 
-                    if event.type == "message_start":
-                        message_id = event.message.id
-                        model = event.message.model
-                    elif event.type == "content_block_delta":
-                        # Extract text content from the delta event
-                        # Use Any type to handle different delta types
-                        delta: Any = event.delta
-                        text = None
-
-                        # Try to get text content from the delta
-                        if hasattr(delta, "text"):
-                            text = str(delta.text)
-
-                        if text:
-                            yield Response(
-                                id=uuid4(),  # Each chunk gets a unique ID
-                                message_id=messages[-1].id,
-                                content={"text": text},
-                                status=ResponseStatus.SUCCESS,
-                                metadata={
-                                    "model": model,
-                                    "message_id": message_id,
-                                    "index": 0,
-                                },
-                            )
-
-            except Exception as e:
-                yield Response(
-                    id=uuid4(),
-                    message_id=messages[-1].id if messages else uuid4(),
-                    content={"error": str(e)},
-                    status=ResponseStatus.ERROR,
-                    metadata={"error": str(e)},
-                )
-
-        return stream_impl()
+        except Exception as error:
+            yield Response(
+                id=uuid4(),
+                message_id=messages[-1].id if messages else uuid4(),
+                content={"error": str(error)},
+                status=ResponseStatus.ERROR,
+                metadata={"error": str(error)},
+            )

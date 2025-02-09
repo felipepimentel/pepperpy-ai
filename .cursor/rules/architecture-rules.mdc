@@ -84,7 +84,7 @@ globs: pepperpy/**/*.py
 API_KEY = "hardcoded_key"  # CRITICAL-SECURITY
 
 # Good Practice:
-from pepperpy.common.config import config
+from pepperpy.core.config import config
 API_KEY = config.api_keys.openai
 ```
 
@@ -94,7 +94,7 @@ API_KEY = config.api_keys.openai
 
 ## 1. Configuration Management
 ```python
-from pepperpy.common.config import PepperpyConfig
+from pepperpy.core.config import PepperpyConfig
 
 config = PepperpyConfig()
 assert config.model_type in ["gpt-4", "claude-3"]  # Validate at startup

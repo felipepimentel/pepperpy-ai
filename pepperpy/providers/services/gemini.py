@@ -18,22 +18,29 @@ Example:
 """
 
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import cast
 
-import google.generativeai as genai
-from google.generativeai.client import configure
-from google.generativeai.generative_models import GenerativeModel
-from google.generativeai.types import GenerationConfig
+import google.generativeai as genai  # type: ignore[import]
+from google.generativeai.client import configure  # type: ignore[import]
+from google.generativeai.generative_models import (
+    GenerativeModel,  # type: ignore[import]
+)
+from google.generativeai.types import GenerationConfig  # type: ignore[import]
 from pydantic import Field
 
-from pepperpy.monitoring import logger
+from pepperpy.monitoring.logger import structured_logger as logger
 
 from ..domain import (
     ProviderAPIError,
     ProviderInitError,
     ProviderRateLimitError,
 )
-from ..provider import Provider, ProviderConfig
+from ..provider import (
+    EmbeddingKwargs,
+    Provider,
+    ProviderConfig,
+    ProviderKwargs,
+)
 
 
 class GeminiConfig(ProviderConfig):
@@ -82,6 +89,7 @@ class GeminiProvider(Provider):
         super().__init__(config)
         self._client: GenerativeModel | None = None
         self._model = config.model or "gemini-pro"
+        self.config = cast(GeminiConfig, config)
 
     async def initialize(self) -> None:
         """Initialize the Gemini client.
@@ -99,10 +107,10 @@ class GeminiProvider(Provider):
             )
 
         try:
-            configure(api_key=self.config.api_key.get_secret_value())
+            configure(api_key=self.config.api_key.get_secret_value())  # type: ignore[call-arg]
             self._client = GenerativeModel(self._model)
             self._initialized = True  # Set initialized flag
-            logger.info("Initialized Gemini provider", extra={"model": self._model})
+            logger.info("Initialized Gemini provider", model=self._model)
         except Exception as e:
             raise ProviderInitError(
                 f"Failed to initialize Gemini provider: {e}",
@@ -117,7 +125,7 @@ class GeminiProvider(Provider):
         temperature: float = 0.7,
         max_tokens: int | None = None,
         stream: bool = False,
-        **kwargs: Any,
+        **kwargs: ProviderKwargs,
     ) -> str | AsyncGenerator[str, None]:
         """Complete a text prompt using the Gemini model.
 
@@ -145,16 +153,18 @@ class GeminiProvider(Provider):
 
         client = self._client  # Type guard
         try:
+            model_params = kwargs.get("model_params", {})
             generation_config = GenerationConfig(
                 temperature=temperature,
                 max_output_tokens=max_tokens,
-                **kwargs,
+                top_p=model_params.get("top_p", 1.0),
+                top_k=model_params.get("top_k", 40),
             )
 
             if stream:
 
                 async def response_generator() -> AsyncGenerator[str, None]:
-                    response = await client.generate_content_async(
+                    response = await client.generate_content_async(  # type: ignore[call-arg]
                         prompt,
                         generation_config=generation_config,
                         stream=True,
@@ -164,7 +174,7 @@ class GeminiProvider(Provider):
 
                 return response_generator()
 
-            response = await client.generate_content_async(
+            response = await client.generate_content_async(  # type: ignore[call-arg]
                 prompt,
                 generation_config=generation_config,
                 stream=False,
@@ -187,10 +197,10 @@ class GeminiProvider(Provider):
     async def cleanup(self) -> None:
         """Clean up resources."""
         self._client = None
-        logger.info("Gemini provider cleaned up", extra={"model": self._model})
+        logger.info("Gemini provider cleaned up", model=self._model)
 
-    async def embed(self, text: str, **kwargs: Any) -> list[float]:
-        """Generate embeddings for the given text.
+    async def embed(self, text: str, **kwargs: EmbeddingKwargs) -> list[float]:
+        """Generate embeddings for text using Gemini.
 
         Args:
             text: Text to generate embeddings for
@@ -206,12 +216,13 @@ class GeminiProvider(Provider):
         self._check_initialized()
 
         try:
-            result = genai.embed_content(
-                model="models/embedding-001",
+            model_name = str(kwargs.get("model", "models/embedding-001"))
+            result = genai.embed_content(  # type: ignore[attr-defined]
+                model=model_name,  # type: ignore[arg-type]
                 content=text,
                 task_type="retrieval_document",
             )
-            return result["embedding"]
+            return result["embedding"]  # type: ignore[index]
         except Exception as e:
             if "quota exceeded" in str(e).lower():
                 raise ProviderRateLimitError(

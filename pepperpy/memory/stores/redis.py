@@ -1,14 +1,14 @@
 """Redis memory store implementation."""
 
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar
 
 import redis.asyncio as redis
 from redis.asyncio.client import Redis
 
-from pepperpy.common.errors import MemoryError
+from pepperpy.core.errors import ErrorCategory, PepperpyError
 from pepperpy.memory.base import (
     BaseMemoryStore,
     MemoryEntry,
@@ -16,10 +16,34 @@ from pepperpy.memory.base import (
     MemorySearchResult,
 )
 from pepperpy.memory.config import RedisConfig
-from pepperpy.monitoring.logger import get_logger
+from pepperpy.monitoring.logger import structured_logger as logger
 
 T = TypeVar("T", bound=dict[str, Any])
-logger = get_logger(__name__)
+
+
+class RedisMemoryError(PepperpyError):
+    """Error raised by RedisMemoryStore."""
+
+    def __init__(
+        self,
+        message: str,
+        store_type: str = "redis",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize error.
+
+        Args:
+            message: Error message
+            store_type: Type of store that raised the error
+            details: Additional error details
+        """
+        super().__init__(
+            message=message,
+            category=ErrorCategory.RESOURCE,
+            # Using RESOURCE category for storage errors
+            # since it's a resource access issue
+            details={"store_type": store_type, **(details or {})},
+        )
 
 
 class RedisMemoryStore(BaseMemoryStore[T]):
@@ -31,25 +55,27 @@ class RedisMemoryStore(BaseMemoryStore[T]):
         Args:
             config: Redis configuration.
         """
+        super().__init__(name="redis")
         self.config = config
+        self._pool: redis.ConnectionPool | None = None
         self._client: Redis | None = None
 
     @asynccontextmanager
-    async def _get_client(self) -> AsyncIterator[Redis]:
+    async def _get_client(self) -> AsyncGenerator[Redis, None]:
         """Get Redis client.
 
         Yields:
             Redis client instance.
 
         Raises:
-            MemoryError: If client is not initialized.
+            RedisMemoryError: If client is not initialized.
         """
         if not self._client:
-            raise MemoryError("Redis client not initialized", store_type="redis")
+            raise RedisMemoryError("Redis client not initialized", store_type="redis")
         try:
             yield self._client
         except Exception as e:
-            raise MemoryError(
+            raise RedisMemoryError(
                 "Redis operation failed",
                 store_type="redis",
                 details={"error": str(e)},
@@ -66,7 +92,7 @@ class RedisMemoryStore(BaseMemoryStore[T]):
         """
         return f"{self.config.prefix}:*"
 
-    def _retrieve(
+    async def _retrieve(
         self,
         query: MemoryQuery,
     ) -> AsyncIterator[MemorySearchResult[T]]:
@@ -79,39 +105,37 @@ class RedisMemoryStore(BaseMemoryStore[T]):
             Memory search results matching the query.
 
         Raises:
-            MemoryError: If retrieval fails.
+            RedisMemoryError: If retrieval fails.
         """
+        if not self._client:
+            raise RedisMemoryError("Redis client not initialized", store_type="redis")
 
-        async def retrieve_generator() -> AsyncIterator[MemorySearchResult[T]]:
-            if not self._client:
-                raise MemoryError("Redis client not initialized", store_type="redis")
+        try:
+            pattern = self._get_key_pattern(query)
+            async with self._get_client() as client:
+                keys = await self._scan_keys(pattern)
 
-            try:
-                pattern = self._get_key_pattern(query)
-                async with self._get_client() as client:
-                    keys = await self._scan_keys(pattern)
+                for key in keys:
+                    entry = await self._load_entry(key, client)
+                    if entry is None:
+                        continue
 
-                    for key in keys:
-                        entry = await self._load_entry(key, client)
-                        if entry is None:
-                            continue
+                    if not self._matches_filters(entry, query):
+                        continue
 
-                        if not self._matches_filters(entry, query):
-                            continue
+                    yield MemorySearchResult(
+                        entry=entry,
+                        score=1.0,  # No scoring in basic retrieval
+                        highlights=[],
+                        metadata={},
+                    )
 
-                        yield MemorySearchResult(
-                            entry=entry,
-                            score=1.0,
-                        )
-
-            except Exception as e:
-                raise MemoryError(
-                    "Failed to retrieve from Redis",
-                    store_type="redis",
-                    details={"error": str(e)},
-                ) from e
-
-        return retrieve_generator()
+        except Exception as e:
+            raise RedisMemoryError(
+                "Failed to retrieve from Redis",
+                store_type="redis",
+                details={"error": str(e)},
+            ) from e
 
     async def _initialize(self) -> None:
         """Initialize Redis client."""
@@ -141,12 +165,19 @@ class RedisMemoryStore(BaseMemoryStore[T]):
 
             # Test connection
             if self._client is None:
-                raise RuntimeError("Failed to initialize Redis client")
+                raise RedisMemoryError("Failed to initialize Redis client")
             await self._client.ping()
 
         except Exception as e:
-            logger.error(f"Failed to initialize Redis client: {e}")
-            raise RuntimeError(f"Failed to initialize Redis client: {e}") from e
+            logger.error(
+                "Failed to initialize Redis client",
+                store_type=self.__class__.__name__,
+                error=str(e),
+            )
+            raise RedisMemoryError(
+                "Failed to initialize Redis client",
+                details={"error": str(e)},
+            ) from e
 
     async def _cleanup(self) -> None:
         """Clean up Redis client."""
@@ -161,32 +192,35 @@ class RedisMemoryStore(BaseMemoryStore[T]):
             entry: Entry to store
 
         Raises:
-            RuntimeError: If storage fails
+            RedisMemoryError: If storage fails
         """
         if not self._client:
-            raise RuntimeError("Redis client not initialized")
+            raise RedisMemoryError("Redis client not initialized")
 
         try:
             # Store entry
-            data = entry.model_dump()
+            data = json.dumps(entry.model_dump())
 
             if self.config.ttl:
                 await self._client.setex(
                     f"{self.config.prefix}:{entry.key}",
                     self.config.ttl,
-                    json.dumps(data),
+                    data,
                 )
             else:
                 await self._client.set(
                     f"{self.config.prefix}:{entry.key}",
-                    json.dumps(data),
+                    data,
                 )
 
         except Exception as e:
-            logger.error(f"Failed to store in Redis: {e}")
-            raise MemoryError(
+            logger.error(
                 "Failed to store in Redis",
-                store_type="redis",
+                store_type=self.__class__.__name__,
+                error=str(e),
+            )
+            raise RedisMemoryError(
+                "Failed to store in Redis",
                 details={"error": str(e)},
             ) from e
 
@@ -248,7 +282,12 @@ class RedisMemoryStore(BaseMemoryStore[T]):
             return MemoryEntry[T].model_validate(entry_data)
 
         except Exception as e:
-            logger.warning(f"Failed to load entry {key}: {e}")
+            logger.warning(
+                "Failed to load entry",
+                store_type=self.__class__.__name__,
+                key=key,
+                error=str(e),
+            )
             return None
 
     async def _scan_keys(
@@ -264,10 +303,10 @@ class RedisMemoryStore(BaseMemoryStore[T]):
             List of matching keys
 
         Raises:
-            RuntimeError: If Redis client is not initialized
+            RedisMemoryError: If Redis client is not initialized
         """
         if not self._client:
-            raise RuntimeError("Redis client not initialized")
+            raise RedisMemoryError("Redis client not initialized")
 
         keys = []
         cursor = 0
@@ -287,21 +326,95 @@ class RedisMemoryStore(BaseMemoryStore[T]):
             key: Key to delete
 
         Raises:
-            RuntimeError: If deletion fails
+            RedisMemoryError: If deletion fails
         """
         if not self._client:
-            raise RuntimeError("Redis client not initialized")
+            raise RedisMemoryError("Redis client not initialized")
 
         try:
             await self._client.delete(f"{self.config.prefix}:{key}")
             logger.debug(
                 "Deleted memory entry",
-                extra={"store": "redis", "key": key},
+                store_type=self.__class__.__name__,
+                key=key,
             )
 
         except Exception as e:
             logger.error(
                 "Failed to delete from Redis",
-                extra={"error": str(e)},
+                store_type=self.__class__.__name__,
+                error=str(e),
             )
-            raise RuntimeError(f"Failed to delete from Redis: {e}") from e
+            raise RedisMemoryError(
+                "Failed to delete from Redis",
+                details={"error": str(e), "key": key},
+            ) from e
+
+    async def retrieve(
+        self,
+        query: MemoryQuery,
+    ) -> AsyncGenerator[MemorySearchResult[T], None]:
+        """Retrieve entries from memory.
+
+        Args:
+            query: Query parameters
+
+        Returns:
+            Generator of memory results
+
+        Raises:
+            ValueError: If query is invalid
+            RuntimeError: If retrieval fails
+        """
+        if not query:
+            raise ValueError("Query cannot be empty")
+
+        async for result in self._retrieve(query):
+            yield result
+
+    async def search(self, query: MemoryQuery) -> AsyncIterator[MemorySearchResult[T]]:
+        """Search memory entries.
+
+        Args:
+            query: Search parameters
+
+        Yields:
+            Search results ordered by relevance
+
+        Raises:
+            ValueError: If query is invalid
+            RedisMemoryError: If search fails
+        """
+        async for result in self._retrieve(query):
+            yield result
+
+    async def similar(
+        self,
+        key: str,
+        limit: int = 10,
+        min_score: float = 0.0,
+    ) -> AsyncIterator[MemorySearchResult[T]]:
+        """Find similar entries.
+
+        Args:
+            key: Memory key to find similar entries for
+            limit: Maximum number of results
+            min_score: Minimum similarity score
+
+        Yields:
+            Similar entries ordered by similarity
+
+        Raises:
+            KeyError: If key not found
+            ValueError: If parameters are invalid
+            RedisMemoryError: If similarity search fails
+        """
+        # For now, just return entries with the same key
+        query = MemoryQuery(
+            query="",
+            key=key,
+            limit=limit,
+            min_score=min_score,
+        )
+        async for result in self._retrieve(query):
+            yield result

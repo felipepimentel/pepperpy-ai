@@ -6,13 +6,13 @@ with support for span creation, context propagation, and trace sampling.
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
 
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.trace import Span, Status, StatusCode
+from opentelemetry.util.types import Attributes
 
 # Configure tracer provider
 provider = TracerProvider(resource=Resource.create({"service.name": "pepperpy"}))
@@ -38,8 +38,8 @@ class TracingManager:
     def start_span(
         self,
         name: str,
-        attributes: dict[str, Any] | None = None,
-        kind: trace.SpanKind | None = None,
+        attributes: Attributes | None = None,
+        kind: trace.SpanKind = trace.SpanKind.INTERNAL,
     ) -> Iterator[Span]:
         """Start a new span.
 
@@ -51,10 +51,9 @@ class TracingManager:
         Yields:
             Span: The created span.
         """
-        attributes = attributes or {}
         with self.tracer.start_as_current_span(
             name,
-            attributes=attributes,
+            attributes=attributes or {},
             kind=kind,
         ) as span:
             yield span
@@ -63,7 +62,7 @@ class TracingManager:
         self,
         span: Span,
         exception: Exception,
-        attributes: dict[str, Any] | None = None,
+        attributes: Attributes | None = None,
     ) -> None:
         """Record an exception in a span.
 
@@ -72,15 +71,14 @@ class TracingManager:
             exception: The exception to record.
             attributes: Optional exception attributes.
         """
-        attributes = attributes or {}
-        span.record_exception(exception, attributes=attributes)
+        span.record_exception(exception, attributes=attributes or {})
         span.set_status(Status(StatusCode.ERROR))
 
     def add_event(
         self,
         span: Span,
         name: str,
-        attributes: dict[str, Any] | None = None,
+        attributes: Attributes | None = None,
     ) -> None:
         """Add an event to a span.
 
@@ -89,8 +87,7 @@ class TracingManager:
             name: Name of the event.
             attributes: Optional event attributes.
         """
-        attributes = attributes or {}
-        span.add_event(name, attributes=attributes)
+        span.add_event(name, attributes=attributes or {})
 
 
 # Create global tracing manager instance

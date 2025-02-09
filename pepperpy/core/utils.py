@@ -240,7 +240,7 @@ def get_env_int(name: str, default: int = 0) -> int:
 
 
 # Type conversion utilities
-def parse_bool(value: Any) -> bool:
+def parse_bool(value: str | int | bool | None) -> bool:
     """Parse a boolean value from various types.
 
     Args:
@@ -258,7 +258,7 @@ def parse_bool(value: Any) -> bool:
     return False
 
 
-def parse_int(value: Any, default: int = 0) -> int:
+def parse_int(value: str | int | float | None, default: int = 0) -> int:
     """Parse an integer value from various types.
 
     Args:
@@ -357,7 +357,7 @@ async def async_resource_timer() -> AsyncIterator[float]:
         _ = time.time() - start_time  # Calculate elapsed time but don't store it
 
 
-def to_dict(obj: Any) -> dict[str, Any]:
+def to_dict(obj: object) -> dict[str, Any]:
     """Convert an object to a dictionary.
 
     Args:

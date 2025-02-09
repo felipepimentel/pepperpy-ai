@@ -83,7 +83,17 @@ For each iteration:
 - **Mypy errors**: Investigate missing or incorrect type hints.
 - **Test failures**: Verify test logic, especially assertion correctness.
 - **Coverage gaps**: Add or refine tests to increase coverage.
-- **Structure issues**: Validate against `project_structure.yml` or your preferred project layout.
+- **Structure issues**: 
+  - Strictly validate against `project_structure.yml`
+  - Do not create directories not defined in the structure
+  - All code must be organized within existing defined modules
+  - No ad-hoc creation of new top-level directories
+  - Use only the defined module structure (core, memory, capabilities, etc.)
+  - Report any structural violations immediately
+  - Ensure all imports follow the defined structure
+  - No duplicate functionality between modules
+  - Core functionality must stay in core module
+  - No creation of alternative core-like modules (e.g., common, shared, etc.)
 
 ---
 

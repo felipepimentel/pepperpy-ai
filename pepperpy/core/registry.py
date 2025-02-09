@@ -18,8 +18,12 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, validator
 
-from pepperpy.common.errors import NotFoundError
-from pepperpy.core.errors import RegistryError, StateError, ValidationError
+from pepperpy.core.errors import (
+    NotFoundError,
+    RegistryError,
+    StateError,
+    ValidationError,
+)
 from pepperpy.core.events import Event, EventBus, EventHandler, EventPriority, EventType
 
 logger = logging.getLogger(__name__)
@@ -184,7 +188,7 @@ class Registry(Generic[T]):
             event_bus: Optional event bus for registry events
         """
         self._name = name
-        self._items: dict[str, dict[str, RegistryMetadata]] = {}
+        self._items: dict[str, dict[str, RegistryMetadata[T]]] = {}
         self._event_bus = event_bus
         self._lock = asyncio.Lock()
         self._active = False
@@ -254,7 +258,7 @@ class Registry(Generic[T]):
                 )
 
             try:
-                item = RegistryMetadata(
+                item = RegistryMetadata[T](
                     key=key,
                     type=item_type,
                     version=version,
@@ -532,6 +536,13 @@ class Registry(Generic[T]):
             raise RegistryError("Component type must be a string")
         if component_type in self._items:
             raise RegistryError(f"Component type already registered: {component_type}")
+
+        item: type[T] = component_class
+        if not isinstance(item, type):
+            raise ValidationError(
+                f"Invalid component type: {component_type}",
+                details={"type": str(type(item))},
+            )
 
 
 class CapabilityRegistry(Registry[Any]):

@@ -40,7 +40,7 @@ class ReasoningConfig(BaseModel):
 class ReasoningFactory(Generic[T, R]):
     """Factory for creating reasoning instances."""
 
-    def __init__(self, config: ReasoningConfig | None = None):
+    def __init__(self, config: ReasoningConfig | None = None) -> None:
         """Initialize the reasoning factory.
 
         Args:

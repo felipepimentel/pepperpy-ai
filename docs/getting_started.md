@@ -118,7 +118,7 @@ async def main():
 ## Error Handling
 
 ```python
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 
 try:
     agent = await service.create_agent("chat", config)

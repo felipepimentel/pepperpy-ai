@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from pepperpy.common.errors import ReasoningError
+from pepperpy.core.errors import ReasoningError
 from pepperpy.core.types import Message, MessageType
 from pepperpy.monitoring.tracing import tracer
 from pepperpy.providers.base import BaseProvider
@@ -53,11 +53,13 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
     def __init__(
         self,
         provider: BaseProvider,
-    ):
+        config: LLMConfig | None = None,
+    ) -> None:
         """Initialize the reasoning implementation.
 
         Args:
             provider: Provider instance for language model
+            config: Language model configuration
 
         Raises:
             ValueError: If config is invalid
@@ -120,11 +122,12 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
             except Exception as e:
                 span.record_exception(e)
                 span.set_attribute(
-                    "error",
-                    {
-                        "type": type(e).__name__,
-                        "message": str(e),
-                    },
+                    "error.type",
+                    type(e).__name__,
+                )
+                span.set_attribute(
+                    "error.message",
+                    str(e),
                 )
                 if isinstance(e, TypeError | ValueError | ReasoningError):
                     raise
@@ -168,11 +171,12 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
             except Exception as e:
                 span.record_exception(e)
                 span.set_attribute(
-                    "error",
-                    {
-                        "type": type(e).__name__,
-                        "message": str(e),
-                    },
+                    "error.type",
+                    type(e).__name__,
+                )
+                span.set_attribute(
+                    "error.message",
+                    str(e),
                 )
                 raise ReasoningError(f"Validation failed: {e}") from e
 

@@ -6,13 +6,16 @@ supporting multiple formats (Markdown, reStructuredText, HTML, AsciiDoc) and sty
 
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, TypeVar
 
-from jinja2 import Environment, StrictUndefined
+from jinja2 import Environment, StrictUndefined, select_autoescape
 from jinja2 import Template as JinjaTemplate
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from .base import Template, TemplateContext, TemplateError, TemplateMetadata
+
+# Type variable for template content
+T_Content = TypeVar("T_Content")
 
 
 class DocFormat(str, Enum):
@@ -32,8 +35,9 @@ class DocExample(BaseModel):
     language: str = Field(default="python")
     code: str = Field(..., min_length=1)
 
-    @validator("language")
-    def validate_language(self, v: str) -> str:
+    @field_validator("language")
+    @classmethod
+    def validate_language(cls, v: str) -> str:
         """Validate language identifier."""
         if not v.strip():
             raise ValueError("Language cannot be empty")
@@ -80,15 +84,16 @@ class DocContext(BaseModel):
     api: list[DocAPIItem] = Field(default_factory=list)
     license: str | None = None
 
-    @validator("title", "description", "overview", "usage")
-    def validate_required_text(self, v: str) -> str:
+    @field_validator("title", "description", "overview", "usage")
+    @classmethod
+    def validate_required_text(cls, v: str) -> str:
         """Validate required text fields."""
         if not v.strip():
             raise ValueError("Required text field cannot be empty")
         return v.strip()
 
 
-class DocsTemplate(Template[str, dict[str, Any], str]):
+class DocTemplate(Template[str, dict[str, Any], str]):
     """Template for documentation generation.
 
     This template type handles documentation file generation with support
@@ -410,7 +415,7 @@ License
         metadata: TemplateMetadata,
         format: DocFormat = DocFormat.MARKDOWN,
         style_guide: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize docs template.
 
         Args:
@@ -425,7 +430,12 @@ License
             undefined=StrictUndefined,
             trim_blocks=True,
             lstrip_blocks=True,
+            autoescape=select_autoescape(
+                enabled_extensions=("html", "xml", "jinja2"),
+                default_for_string=True,
+            ),
         )
+        self._template: str | None = None
 
     @property
     def format(self) -> DocFormat:
@@ -472,13 +482,16 @@ License
             # Get or compile template
             cache_key = f"{self._format}:{self.metadata.id}"
             if cache_key not in self._template_cache:
-                self._template_cache[cache_key] = self._env.from_string(
-                    self._template or ""
-                )
+                if not self._template:
+                    raise TemplateError(
+                        "Template not loaded",
+                        template_id=self.metadata.id,
+                    )
+                self._template_cache[cache_key] = self._env.from_string(self._template)
 
             # Render template
             template = self._template_cache[cache_key]
-            rendered = template.render(**doc_context.dict())
+            rendered = template.render(**doc_context.model_dump())
 
             # Apply style guide if provided
             if self._style_guide:
@@ -527,8 +540,14 @@ License
             file_path = Path(path)
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
+            if not self._template:
+                raise TemplateError(
+                    "Template not loaded",
+                    template_id=self.metadata.id,
+                )
+
             with file_path.open("w") as f:
-                f.write(self._template or "")
+                f.write(self._template)
         except Exception as e:
             raise TemplateError(
                 f"Failed to save template: {e}",
@@ -546,32 +565,27 @@ License
         """
         return self._format_content(content)
 
-    def _format_content(self, content: Any) -> str:
+    def _format_content(
+        self,
+        content: (
+            str
+            | int
+            | float
+            | bool
+            | dict[str, str | int | float | bool]
+            | list[str | int | float | bool]
+            | None
+        ),
+    ) -> str:
         """Format documentation content.
 
         Args:
-            content: Documentation content
+            content: Documentation content to format, can be a string or a value
+                that can be converted to string
 
         Returns:
             Formatted content as a string
         """
         if not isinstance(content, str):
             return str(content)
-
-        if self._format != DocFormat.MARKDOWN:
-            return str(content)
-
-        try:
-            import mdformat
-
-            formatted = mdformat.text(
-                content,
-                options={
-                    "wrap": self._style_guide.get("wrap", "keep"),
-                    "number": self._style_guide.get("number", False),
-                },
-            )
-            return str(formatted)
-        except Exception:
-            # If formatting fails, return original content as string
-            return str(content)
+        return content

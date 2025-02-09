@@ -6,61 +6,90 @@ It includes logging, metrics, tracing, and health check functionality.
 
 import logging
 import sys
-from collections.abc import Mapping
-from typing import Any
+from pathlib import Path
+
+from pepperpy.monitoring.logger import logger as pepperpy_logger
 
 # Configure root logger
-logger = logging.getLogger("pepperpy")
-logger.setLevel(logging.INFO)
+root_logger = logging.getLogger("pepperpy")
+root_logger.setLevel(logging.INFO)
 
-# Add console handler if none exists
-if not logger.handlers:
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.INFO)
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
+# Create logs directory if it doesn't exist
+logs_dir = Path("logs")
+logs_dir.mkdir(exist_ok=True)
 
-# Export logger directly
-__all__ = ["logger"]
+# Add console handler
+console_handler = logging.StreamHandler(sys.stdout)
+console_handler.setLevel(logging.INFO)
+console_formatter = logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+console_handler.setFormatter(console_formatter)
+root_logger.addHandler(console_handler)
+
+# Add file handler
+file_handler = logging.FileHandler(logs_dir / "pepperpy.log")
+file_handler.setLevel(logging.DEBUG)
+file_formatter = logging.Formatter(
+    "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+)
+file_handler.setFormatter(file_formatter)
+root_logger.addHandler(file_handler)
+
+# Configure metrics
+metrics_enabled = True
+metrics_port = 8000
+
+# Configure tracing
+tracing_enabled = True
+tracing_port = 8001
+
+# Export configuration
+__all__ = [
+    "metrics_enabled",
+    "metrics_port",
+    "pepperpy_logger",
+    "root_logger",
+    "tracing_enabled",
+    "tracing_port",
+]
+
+LogContext = dict[str, str | int | float | bool | None]
 
 
 # Structured logging helper
-def log_structured(level: int, message: str, **kwargs: Any) -> None:
+def log_structured(level: int, message: str, **kwargs: LogContext) -> None:
     """Log a structured message with additional context.
 
     Args:
-        level: The log level to use
-        message: The log message
-        **kwargs: Additional context fields
+        level: Log level.
+        message: Log message.
+        **kwargs: Additional context values.
     """
-    extra = {k: v if not isinstance(v, Mapping) else dict(v) for k, v in kwargs.items()}
-    logger.log(level, message, extra=extra)
+    root_logger.opt(depth=1).log(level, message, **kwargs)
 
 
 # Add convenience methods
-def debug(message: str, **kwargs: Any) -> None:
+def debug(message: str, **kwargs: LogContext) -> None:
     """Log a debug message."""
     log_structured(logging.DEBUG, message, **kwargs)
 
 
-def info(message: str, **kwargs: Any) -> None:
+def info(message: str, **kwargs: LogContext) -> None:
     """Log an info message."""
     log_structured(logging.INFO, message, **kwargs)
 
 
-def warning(message: str, **kwargs: Any) -> None:
+def warning(message: str, **kwargs: LogContext) -> None:
     """Log a warning message."""
     log_structured(logging.WARNING, message, **kwargs)
 
 
-def error(message: str, **kwargs: Any) -> None:
+def error(message: str, **kwargs: LogContext) -> None:
     """Log an error message."""
     log_structured(logging.ERROR, message, **kwargs)
 
 
-def critical(message: str, **kwargs: Any) -> None:
+def critical(message: str, **kwargs: LogContext) -> None:
     """Log a critical message."""
     log_structured(logging.CRITICAL, message, **kwargs)

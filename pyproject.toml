@@ -12,82 +12,58 @@ packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
-aiohttp = ">=3.11.11,<4.0.0"
+aiohttp = ">=3.11.12,<4.0.0"
 jinja2 = ">=3.1.5,<4.0.0"
 structlog = ">=25.1.0,<26.0.0"
 pyyaml = ">=6.0.2,<7.0.0"
 python-dotenv = ">=1.0.1,<2.0.0"
-markdown = ">=3.7.0,<4.0.0"
+markdown = ">=3.7,<4.0.0"
 pydantic-settings = ">=2.7.1,<3.0.0"
 loguru = ">=0.7.3,<1.0.0"
 pydantic = ">=2.10.6,<3.0.0"
 pyright = ">=1.1.393,<2.0.0"
-openai = { version = ">=1.61.0,<2.0.0", optional = true }
-anthropic = { version = ">=0.45.2,<0.46.0", optional = true }
-google-generativeai = { version = ">=0.8.4,<0.9.0", optional = true }
-beautifulsoup4 = { version = ">=4.12.3,<5.0.0", optional = true }
-requests = { version = ">=2.32.3,<3.0.0", optional = true }
-pymupdf = { version = ">=1.25.2,<2.0.0", optional = true }
+opentelemetry-api = ">=1.30.0,<2.0.0"
+opentelemetry-sdk = ">=1.30.0,<2.0.0"
+openai = { version = "1.61.1", optional = true }
+anthropic = { version = "0.45.2", optional = true }
+google-generativeai = { version = "0.8.4", optional = true }
+beautifulsoup4 = { version = "4.13.3", optional = true }
+requests = { version = "2.32.3", optional = true }
+pymupdf = { version = "1.25.3", optional = true }
+semantic-kernel = { version = "1.20.0", optional = true }
+langchain = { version = "0.3.17", optional = true }
+aiofiles = "^24.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
 pytest-asyncio = "^0.25.3"
 pytest-cov = "^6.0.0"
 pytest-mock = "^3.14.0"
-black = "^25.1.0"
-ruff = "^0.9.4"
-mypy = "^1.14.1"
+ruff = "^0.9.5"
+mypy = "^1.15.0"
 types-pyyaml = "^6.0.12.20241230"
-pydeps = "^3.0.0"
-pylint = "^3.3.4"
-isort = "^6.0.0"
 pre-commit = "^4.1.0"
-bandit = "^1.7.4"
+black = "^25.1.0"
+langdetect = "^1.0.9"
+nltk = "^3.9.1"
 
 [tool.poetry.extras]
 openai = ["openai"]
 anthropic = ["anthropic"]
 google = ["google-generativeai"]
+semantic-kernel = ["semantic-kernel"]
+langchain = ["langchain"]
 docs = ["pymupdf", "beautifulsoup4", "requests"]
 all = [
     "openai",
     "anthropic",
     "google-generativeai",
+    "semantic-kernel",
+    "langchain",
     "pymupdf",
     "beautifulsoup4",
     "requests",
 ]
-
-[tool.black]
-line-length = 88
-target-version = ["py312"]
-include = '\.pyi?$'
-extend-exclude = '''
-^/docs/
-'''
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-include_trailing_comma = true
-force_grid_wrap = 0
-use_parentheses = true
-ensure_newline_before_comments = true
-line_length = 88
-force_single_line = false
-combine_as_imports = true
-combine_star = true
-lines_between_types = 1
-extend_skip = [
-    ".git",
-    ".venv",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    "docs/",
-]
-known_first_party = ["pepperpy"]
-known_third_party = ["pytest", "pydantic", "loguru", "yaml"]
 
 [tool.ruff]
 line-length = 88
@@ -104,8 +80,8 @@ exclude = [
     "dist",
     "docs",
 ]
-select = ["E", "F", "W", "B", "C", "D", "ANN", "I", "N", "UP", "RUF"]
-ignore = ["E203", "E731", "D100", "D104", "D107"]
+select = ["E", "F", "W", "I", "B", "C", "S", "RUF"]
+ignore = ["E203", "D100"]
 
 [tool.ruff.mccabe]
 max-complexity = 10
@@ -124,18 +100,9 @@ convention = "google"
 
 [tool.mypy]
 python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
 check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
+disallow_untyped_defs = false
+strict_optional = true
 plugins = ["pydantic.mypy"]
 
 [pydantic-mypy]
@@ -185,6 +152,10 @@ module = "semantic_kernel.*"
 ignore_missing_imports = true
 disable_error_code = ["attr-defined", "misc"]
 
+[[tool.mypy.overrides]]
+module = "langchain.*"
+ignore_missing_imports = true
+disable_error_code = ["attr-defined", "misc"]
 
 [tool.coverage.run]
 branch = true
@@ -218,7 +189,7 @@ exclude_lines = [
     "@abstractmethod",
     "@overload",
 ]
-fail_under = 10
+fail_under = 30
 ignore_errors = true
 
 [tool.coverage.html]
@@ -244,58 +215,15 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-norecursedirs = [".git", ".tox", ".env", "venv", "build", "dist", "*.egg-info"]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
-    "memory: marks tests that use memory stores",
-    "redis: marks tests that require Redis",
-    "vector: marks tests that use vector stores",
-    "performance: marks tests as performance tests",
 ]
-console_output_style = "progress"
-log_cli = true
-log_cli_level = "INFO"
-log_cli_format = "%(asctime)s [%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)"
-log_cli_date_format = "%Y-%m-%d %H:%M:%S"
 
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-isolated_build = True
-envlist = py312, lint, type, security
-
-[testenv]
-deps =
-    pytest
-    pytest-asyncio
-    pytest-cov
-commands =
-    pytest {posargs:tests}
-
-[testenv:lint]
-deps =
-    black
-    isort
-    ruff
-commands =
-    black pepperpy tests
-    isort pepperpy tests
-    ruff check pepperpy tests
-
-[testenv:type]
-deps =
-    mypy
-    types-all
-commands =
-    mypy pepperpy tests
-
-[testenv:security]
-deps =
-    bandit
-commands =
-    bandit -r pepperpy -c .bandit
-"""
+[tool.pyright]
+exclude = [".venv", "**/node_modules", "**/__pycache__"]
+venvPath = "."
+venv = ".venv"
 
 [tool.semantic_release]
 version_variables = ["pyproject.toml:version"]

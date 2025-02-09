@@ -7,14 +7,20 @@ for compatibility with the language model interface.
 
 import json
 import uuid
-from typing import Any, TypeVar, cast
+from typing import Any, TypedDict, TypeVar, cast
 
 from pydantic import BaseModel, Field, validator
 
-from pepperpy.common.errors import PlanningError
-from pepperpy.core.types import Message, MessageType
+from pepperpy.capabilities.planning.base import PlanningCapability
+from pepperpy.core.errors import PlanningError
+from pepperpy.core.types import (
+    JsonSerializable,
+    Message,
+    Response,
+)
 from pepperpy.monitoring.tracing import tracer
 from pepperpy.providers.base import BaseProvider
+from pepperpy.providers.provider import Provider
 
 from .base import (
     BasePlanning,
@@ -24,8 +30,20 @@ from .base import (
 )
 
 # Type variables with constraints
-T = TypeVar("T", dict, str)  # Input/State type - must be dict or str
-A = TypeVar("A")  # Action type
+T = TypeVar("T", bound=JsonSerializable)  # Input/output data type
+A = TypeVar("A", bound=JsonSerializable)  # Action type
+
+# Type alias for JSON-serializable data
+JsonSerializable = dict[str, Any] | list[Any] | str | int | float | bool | None
+
+
+class ProviderKwargs(TypedDict):
+    """Provider keyword arguments."""
+
+    model: str
+    temperature: float
+    max_tokens: int
+    stop_sequences: list[str]
 
 
 class LLMConfig(BaseModel):
@@ -44,26 +62,22 @@ class LLMConfig(BaseModel):
         - max_tokens must be positive
     """
 
-    provider: str = Field(
-        description="Provider to use for language model",
-    )
-    model: str = Field(
-        description="Model to use for planning",
-    )
+    provider: str = Field(..., description="Provider name")
+    model: str = Field(..., description="Model name")
     temperature: float = Field(
         default=0.7,
         ge=0.0,
         le=1.0,
-        description="Temperature for model sampling",
+        description="Sampling temperature",
     )
     max_tokens: int = Field(
-        default=1000,
+        default=1024,
         gt=0,
         description="Maximum tokens to generate",
     )
-    stop_sequences: list[str] | None = Field(
-        default=None,
-        description="Optional sequences to stop generation",
+    stop_sequences: list[str] = Field(
+        default_factory=list,
+        description="Stop sequences for generation",
     )
 
     @validator("provider")
@@ -122,45 +136,30 @@ class LLMPlanning(BasePlanning[T, T, A]):
         self,
         config: LLMConfig,
         provider: BaseProvider,
-    ):
-        """Initialize the planning implementation.
+    ) -> None:
+        """Initialize language model planning.
 
         Args:
-            config: Language model configuration
-            provider: Provider instance for language model
-
-        Raises:
-            ValueError: If config is invalid
-            TypeError: If provider is not compatible with config
+            config: Planning configuration
+            provider: Language model provider
         """
-        if not isinstance(config, LLMConfig):
-            raise TypeError("Config must be an instance of LLMConfig")
-        if not isinstance(provider, BaseProvider):
-            raise TypeError("Provider must be an instance of BaseProvider")
-        if provider.name != config.provider:
-            msg = (
-                f"Provider {provider.name} does not match "
-                f"config provider {config.provider}"
-            )
-            raise ValueError(msg)
-
-        self.config = config
-        self.provider = provider
+        self._config = config
+        self._provider = provider
 
     def _validate_json_serializable(self, data: Any, name: str) -> None:
-        """Validate that data is JSON-serializable.
+        """Validate that data is JSON serializable.
 
         Args:
             data: Data to validate
-            name: Name of the data for error messages
+            name: Name of data for error messages
 
         Raises:
-            TypeError: If data is not JSON-serializable
+            PlanningError: If data is not JSON serializable
         """
         try:
             json.dumps(data)
         except (TypeError, ValueError) as e:
-            raise TypeError(f"{name} must be JSON-serializable: {e}") from e
+            raise PlanningError(f"{name} is not JSON serializable: {e!s}")
 
     def _serialize_data(self, data: T | A, name: str = "data") -> str:
         r"""Serialize data to JSON string.
@@ -294,61 +293,58 @@ class LLMPlanning(BasePlanning[T, T, A]):
                 raise PlanningError(f"Failed to parse plan steps: {e}") from e
 
     async def plan(self, input_data: T, state: T) -> Plan[A]:
-        """Create a plan from input data and current state.
+        """Generate a plan.
 
         Args:
-            input_data: Input data to plan from
-            state: Current state to plan for
+            input_data: Input data
+            state: Current state
 
         Returns:
             Generated plan
 
         Raises:
             PlanningError: If planning fails
-            TypeError: If state or input_data are invalid types
         """
-        with tracer.start_as_current_span("plan") as span:
+        with tracer.start_as_current_span("llm_planning") as span:
             try:
-                # Generate plan using language model
+                # Generate prompt
                 prompt = self._make_prompt(input_data, state)
-                response = await self.provider.generate(
-                    messages=[
-                        Message(
-                            type=MessageType.QUERY,
-                            sender="planner",
-                            receiver=None,
-                            content={"prompt": prompt},
-                        )
-                    ],
-                    model=self.config.model,
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
-                    stop_sequences=self.config.stop_sequences,
+
+                # Call language model
+                response = await self._provider.complete(
+                    prompt=prompt,
+                    kwargs=ProviderKwargs(
+                        model=self._config.model,
+                        temperature=self._config.temperature,
+                        max_tokens=self._config.max_tokens,
+                        stop_sequences=list(self._config.stop_sequences),
+                    ),
                 )
 
                 # Parse response
                 try:
-                    result = response.content
+                    plan_json = json.loads(response)
                 except json.JSONDecodeError as e:
-                    raise PlanningError(f"Invalid JSON response: {e}") from e
+                    raise PlanningError(
+                        f"Failed to parse language model response as JSON: {e!s}"
+                    ) from e
 
                 # Extract and validate steps
-                steps = self._parse_steps(result["steps"])
+                steps = self._parse_steps(plan_json["steps"])
+                for step in steps:
+                    self._validate_step_dependencies(step, steps)
 
-                return Plan[A](steps=steps)
+                # Create plan
+                return Plan[A](
+                    steps=steps,
+                    metadata=plan_json.get("metadata", {}),
+                )
 
             except Exception as e:
-                span.record_exception(e)
-                span.set_attribute(
-                    "error",
-                    {
-                        "type": type(e).__name__,
-                        "message": str(e),
-                    },
-                )
+                span.set_attribute("error", str(e))
                 if isinstance(e, TypeError | ValueError | PlanningError):
                     raise
-                raise PlanningError(f"Planning failed: {e}") from e
+                raise PlanningError(f"Planning failed: {e!s}") from e
 
     async def validate(self, plan: Plan[A], state: T) -> bool:
         """Validate a plan against the current state.
@@ -373,24 +369,19 @@ class LLMPlanning(BasePlanning[T, T, A]):
                 )
 
                 # Get response from language model
-                response = await self.provider.generate(
-                    messages=[
-                        Message(
-                            type=MessageType.QUERY,
-                            sender="planner",
-                            receiver=None,
-                            content={"prompt": prompt},
-                        )
-                    ],
-                    model=self.config.model,
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
-                    stop_sequences=self.config.stop_sequences,
+                response = await self._provider.complete(
+                    prompt=prompt,
+                    kwargs=ProviderKwargs(
+                        model=self._config.model,
+                        temperature=self._config.temperature,
+                        max_tokens=self._config.max_tokens,
+                        stop_sequences=list(self._config.stop_sequences),
+                    ),
                 )
 
                 # Parse response
                 try:
-                    result = response.content
+                    result = json.loads(response)
                     return bool(result.get("valid", False))
                 except KeyError as e:
                     raise PlanningError(f"Invalid validation response: {e}") from e
@@ -430,24 +421,19 @@ class LLMPlanning(BasePlanning[T, T, A]):
                             input_data=state,  # Use state as input data
                             state=state,
                         )
-                        response = await self.provider.generate(
-                            messages=[
-                                Message(
-                                    type=MessageType.QUERY,
-                                    sender="planner",
-                                    receiver=None,
-                                    content={"prompt": prompt},
-                                )
-                            ],
-                            model=self.config.model,
-                            temperature=self.config.temperature,
-                            max_tokens=self.config.max_tokens,
-                            stop_sequences=self.config.stop_sequences,
+                        response = await self._provider.complete(
+                            prompt=prompt,
+                            kwargs=ProviderKwargs(
+                                model=self._config.model,
+                                temperature=self._config.temperature,
+                                max_tokens=self._config.max_tokens,
+                                stop_sequences=list(self._config.stop_sequences),
+                            ),
                         )
 
                         # Parse response
                         try:
-                            result_json = response.content
+                            result_json = json.loads(response)
                         except KeyError as e:
                             raise PlanningError(f"Invalid JSON response: {e}") from e
 
@@ -513,24 +499,19 @@ class LLMPlanning(BasePlanning[T, T, A]):
                 )
 
                 # Get response from language model
-                response = await self.provider.generate(
-                    messages=[
-                        Message(
-                            type=MessageType.QUERY,
-                            sender="planner",
-                            receiver=None,
-                            content={"prompt": prompt},
-                        )
-                    ],
-                    model=self.config.model,
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
-                    stop_sequences=self.config.stop_sequences,
+                response = await self._provider.complete(
+                    prompt=prompt,
+                    kwargs=ProviderKwargs(
+                        model=self._config.model,
+                        temperature=self._config.temperature,
+                        max_tokens=self._config.max_tokens,
+                        stop_sequences=list(self._config.stop_sequences),
+                    ),
                 )
 
                 # Parse response
                 try:
-                    result = response.content
+                    result = json.loads(response)
                 except json.JSONDecodeError as e:
                     raise PlanningError(f"Invalid JSON response: {e}") from e
 
@@ -573,24 +554,19 @@ class LLMPlanning(BasePlanning[T, T, A]):
                 )
 
                 # Get response from language model
-                response = await self.provider.generate(
-                    messages=[
-                        Message(
-                            type=MessageType.QUERY,
-                            sender="planner",
-                            receiver=None,
-                            content={"prompt": prompt},
-                        )
-                    ],
-                    model=self.config.model,
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
-                    stop_sequences=self.config.stop_sequences,
+                response = await self._provider.complete(
+                    prompt=prompt,
+                    kwargs=ProviderKwargs(
+                        model=self._config.model,
+                        temperature=self._config.temperature,
+                        max_tokens=self._config.max_tokens,
+                        stop_sequences=list(self._config.stop_sequences),
+                    ),
                 )
 
                 # Parse response
                 try:
-                    result = response.content
+                    result = json.loads(response)
                 except json.JSONDecodeError as e:
                     raise PlanningError(f"Invalid JSON response: {e}") from e
 
@@ -641,3 +617,35 @@ class LLMPlanning(BasePlanning[T, T, A]):
                 if isinstance(e, TypeError | ValueError | PlanningError):
                     raise
                 raise PlanningError(f"Replanning failed: {e}") from e
+
+
+class LLMPlanner(PlanningCapability[Message, Response]):
+    """LLM-based planning capability.
+
+    This planner uses a language model to generate plans.
+    """
+
+    def __init__(self, provider: Provider, config: LLMConfig | None = None) -> None:
+        """Initialize the planner.
+
+        Args:
+            provider: Provider instance to use for planning
+            config: LLM configuration
+        """
+        self.config = config or LLMConfig()
+        self.provider = provider
+
+    def _validate_json_serializable(self, data: Any, name: str) -> None:
+        """Validate that data is JSON-serializable.
+
+        Args:
+            data: Data to validate
+            name: Name of the data for error messages
+
+        Raises:
+            ValueError: If data is not JSON-serializable
+        """
+        try:
+            json.dumps(data)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"{name} must be JSON-serializable: {e}") from e

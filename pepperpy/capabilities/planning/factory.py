@@ -46,13 +46,13 @@ class PlanningFactory(Generic[T, A]):
         A: Action type
     """
 
-    def __init__(self, config: PlanningConfig | None = None):
+    def __init__(self, config: PlanningConfig | None = None) -> None:
         """Initialize the planning factory.
 
         Args:
-            config: Optional planning configuration
+            config: Planning configuration
         """
-        self._config = config or PlanningConfig()
+        self.config = config or PlanningConfig()
 
     def create(self, provider: BaseProvider) -> BasePlanning[T, T, A]:
         """Create a planning instance.
@@ -66,20 +66,20 @@ class PlanningFactory(Generic[T, A]):
         Raises:
             ValueError: If configuration is invalid
         """
-        if self._config.type == PlanningImplType.LLM:
-            if not self._config.llm:
+        if self.config.type == PlanningImplType.LLM:
+            if not self.config.llm:
                 raise ValueError(
                     "Language model configuration is required for LLM planning"
                 )
             # Create LLMPlanning with correct type parameters
             # LLMPlanning uses T for both input and state types
             planner: BasePlanning[T, T, A] = LLMPlanning[T, A](
-                config=self._config.llm,
+                config=self.config.llm,
                 provider=provider,
             )
             return planner
 
-        raise ValueError(f"Unknown planning type: {self._config.type}")
+        raise ValueError(f"Unknown planning type: {self.config.type}")
 
 
 def create_planning(

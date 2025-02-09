@@ -5,7 +5,7 @@ This guide helps you migrate your code to the new PepperPy structure.
 ## Import Changes
 
 ### Core Module Changes
-- `from pepperpy.common` → `from pepperpy.core.utils`
+- `from pepperpy.core` → `from pepperpy.core.utils`
 - `from pepperpy.config` → `from pepperpy.core.config`
 - `from pepperpy.context` → `from pepperpy.core.context`
 - `from pepperpy.lifecycle` → `from pepperpy.core.lifecycle`

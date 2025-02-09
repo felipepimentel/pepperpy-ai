@@ -4,15 +4,22 @@ This module provides the core functionality for loading, validating,
 and executing prompt templates in the Pepperpy system.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar, cast
+from uuid import uuid4
 
 import yaml
-from jinja2 import Environment, StrictUndefined, Template
-from pydantic import BaseModel
+from jinja2 import Environment, StrictUndefined, Template, select_autoescape
+from pydantic import BaseModel, Field, field_validator
 
-from pepperpy.providers.provider import Provider
+from pepperpy.core.types import Message, MessageType
+from pepperpy.providers.base import BaseProvider
+
+# Type variables for generic implementations
+T_Input = TypeVar("T_Input")
+T_Output = TypeVar("T_Output")
 
 
 @dataclass
@@ -48,6 +55,16 @@ class PromptValidation:
 class TemplateError(Exception):
     """Base class for template-related errors."""
 
+    def __init__(self, message: str, template_id: str | None = None) -> None:
+        """Initialize template error.
+
+        Args:
+            message: Error message
+            template_id: Optional template identifier
+        """
+        super().__init__(message)
+        self.template_id = template_id
+
 
 class TemplateValidationError(TemplateError):
     """Raised when template validation fails."""
@@ -63,14 +80,33 @@ class PromptTemplate(BaseModel):
     Attributes:
         template: The template string.
         variables: Variables used in the template.
+        _jinja_env: Jinja2 environment for template rendering
+        _jinja_template: Compiled Jinja2 template
     """
 
-    template: str
-    variables: dict[str, Any] = {}
-    _jinja_env: Environment = Environment(undefined=StrictUndefined)
+    template: str = Field(..., min_length=1)
+    variables: dict[str, Any] = Field(default_factory=dict)
+    _jinja_env: Environment = Environment(
+        undefined=StrictUndefined,
+        autoescape=select_autoescape(
+            enabled_extensions=("html", "xml", "jinja2"),
+            default_for_string=True,
+        ),
+    )
     _jinja_template: Template | None = None
 
-    def __init__(self, **data: Any) -> None:
+    def __init__(
+        self,
+        **data: (
+            str
+            | int
+            | float
+            | bool
+            | Mapping[str, Any]
+            | list[str | int | float | bool]
+            | None
+        ),
+    ) -> None:
         """Initialize the template.
 
         Args:
@@ -79,7 +115,37 @@ class PromptTemplate(BaseModel):
         super().__init__(**data)
         self._jinja_template = self._jinja_env.from_string(self.template)
 
-    def render(self, context: dict[str, Any]) -> str:
+    @field_validator("template")
+    @classmethod
+    def validate_template(cls, v: str) -> str:
+        """Validate template string.
+
+        Args:
+            v: Template string to validate
+
+        Returns:
+            Validated template string
+
+        Raises:
+            ValueError: If template is empty or invalid
+        """
+        if not v.strip():
+            raise ValueError("Template cannot be empty")
+        return v.strip()
+
+    def render(
+        self,
+        context: Mapping[
+            str,
+            str
+            | int
+            | float
+            | bool
+            | Mapping[str, Any]
+            | list[str | int | float | bool]
+            | None,
+        ],
+    ) -> str:
         """Render the template with the given context.
 
         Args:
@@ -104,7 +170,9 @@ class PromptTemplate(BaseModel):
             raise TemplateRenderError(f"Failed to render template: {e}") from e
 
     async def execute(
-        self, provider: "Provider", context: dict[str, Any] | None = None
+        self,
+        provider: BaseProvider,
+        context: dict[str, Any] | None = None,
     ) -> str:
         """Execute the template using the provided provider.
 
@@ -121,17 +189,35 @@ class PromptTemplate(BaseModel):
         render_context = context or {}
         prompt = self.render(render_context)
         model = self.variables.get("model")
-        temperature = self.variables.get("temperature", 0.7)
+        temperature = cast(float, self.variables.get("temperature", 0.7))
 
-        kwargs = {"stream": False}  # Ensure we get a string response
-        if model:
-            kwargs["model"] = model
-        if temperature is not None:
-            kwargs["temperature"] = temperature
+        # Create message for provider
+        message = Message(
+            id=uuid4(),
+            type=MessageType.COMMAND,
+            sender="prompt_template",
+            receiver="provider",
+            content={"text": prompt},
+            metadata={
+                "model": str(model) if model else None,
+                "temperature": temperature,
+            },
+        )
 
-        result = await provider.complete(prompt, **kwargs)
-        assert isinstance(result, str)  # Type narrowing for mypy
-        return result
+        # Prepare provider arguments
+        kwargs: dict[str, Any] = {"temperature": temperature}
+
+        # Execute generation
+        try:
+            response = await provider.generate([message], **kwargs)
+            text = response.content.get("text")
+            if not isinstance(text, str):
+                raise TemplateRenderError("Provider response missing text content")
+            return text
+        except Exception as e:
+            if isinstance(e, TemplateRenderError):
+                raise
+            raise TemplateRenderError(f"Provider execution failed: {e}") from e
 
     @classmethod
     def load(
@@ -153,6 +239,7 @@ class PromptTemplate(BaseModel):
         Raises:
             FileNotFoundError: If template file doesn't exist
             ValueError: If template is invalid
+            yaml.YAMLError: If YAML parsing fails
         """
         if isinstance(path, str):
             path = Path(path)
@@ -165,43 +252,50 @@ class PromptTemplate(BaseModel):
         if not path.exists():
             raise FileNotFoundError(f"Template not found: {path}")
 
-        with path.open() as f:
-            data = yaml.safe_load(f)
+        try:
+            with path.open() as f:
+                data = yaml.safe_load(f)
 
-        # Create metadata with optional overrides
-        metadata = PromptMetadata(
-            name=data["metadata"]["name"],
-            version=data["metadata"]["version"],
-            category=data["metadata"]["category"],
-            model=model or data["metadata"]["model"],
-            temperature=temperature or data["metadata"]["temperature"],
-            tags=data["metadata"]["tags"],
-        )
+            # Create metadata with optional overrides
+            metadata = PromptMetadata(
+                name=data["metadata"]["name"],
+                version=data["metadata"]["version"],
+                category=data["metadata"]["category"],
+                model=model or data["metadata"]["model"],
+                temperature=temperature or data["metadata"]["temperature"],
+                tags=data["metadata"]["tags"],
+            )
 
-        context = PromptContext(
-            description=data["context"]["description"],
-            input_format=data["context"]["input_format"],
-            output_format=data["context"]["output_format"],
-            examples=data["context"]["examples"],
-        )
+            context = PromptContext(
+                description=data["context"]["description"],
+                input_format=data["context"]["input_format"],
+                output_format=data["context"]["output_format"],
+                examples=data["context"]["examples"],
+            )
 
-        validation = PromptValidation(
-            required_fields=data["validation"]["required_fields"],
-            constraints=data["validation"]["constraints"],
-        )
+            validation = PromptValidation(
+                required_fields=data["validation"]["required_fields"],
+                constraints=data["validation"]["constraints"],
+            )
 
-        template = cls(
-            template=data["template"],
-            variables={
-                **data.get("variables", {}),
-                "model": metadata.model,
-                "temperature": metadata.temperature,
-                "context": context,
-                "validation": validation,
-            },
-        )
+            template = cls(
+                template=data["template"],
+                variables={
+                    **data.get("variables", {}),
+                    "model": metadata.model,
+                    "temperature": metadata.temperature,
+                    "context": context,
+                    "validation": validation,
+                },
+            )
 
-        return template
+            return template
+        except yaml.YAMLError as e:
+            raise ValueError(f"Invalid YAML format: {e}") from e
+        except KeyError as e:
+            raise ValueError(f"Missing required field: {e}") from e
+        except Exception as e:
+            raise ValueError(f"Failed to load template: {e}") from e
 
     @classmethod
     def load_from_dict(
@@ -218,32 +312,40 @@ class PromptTemplate(BaseModel):
             - The PromptMetadata instance
             - The PromptContext instance
             - The PromptValidation instance
+
+        Raises:
+            ValueError: If required data is missing or invalid
         """
-        # Create metadata with optional overrides
-        metadata = PromptMetadata(
-            name=data["metadata"]["name"],
-            version=data["metadata"]["version"],
-            category=data["metadata"]["category"],
-            model=data["metadata"]["model"],
-            temperature=data["metadata"]["temperature"],
-            tags=data["metadata"]["tags"],
-        )
+        try:
+            # Create metadata with optional overrides
+            metadata = PromptMetadata(
+                name=data["metadata"]["name"],
+                version=data["metadata"]["version"],
+                category=data["metadata"]["category"],
+                model=data["metadata"]["model"],
+                temperature=data["metadata"]["temperature"],
+                tags=data["metadata"]["tags"],
+            )
 
-        context = PromptContext(
-            description=data["context"]["description"],
-            input_format=data["context"]["input_format"],
-            output_format=data["context"]["output_format"],
-            examples=data["context"]["examples"],
-        )
+            context = PromptContext(
+                description=data["context"]["description"],
+                input_format=data["context"]["input_format"],
+                output_format=data["context"]["output_format"],
+                examples=data["context"]["examples"],
+            )
 
-        validation = PromptValidation(
-            required_fields=data["validation"]["required_fields"],
-            constraints=data["validation"]["constraints"],
-        )
+            validation = PromptValidation(
+                required_fields=data["validation"]["required_fields"],
+                constraints=data["validation"]["constraints"],
+            )
 
-        template = cls(
-            template=data["template"],
-            variables=data.get("variables", {}),
-        )
+            template = cls(
+                template=data["template"],
+                variables=data.get("variables", {}),
+            )
 
-        return template, metadata, context, validation
+            return template, metadata, context, validation
+        except KeyError as e:
+            raise ValueError(f"Missing required field: {e}") from e
+        except Exception as e:
+            raise ValueError(f"Failed to load template: {e}") from e

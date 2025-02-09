@@ -1,28 +1,29 @@
-"""Type protocols for the multi-framework agent system.
+"""Core protocols for the Pepperpy framework.
 
-This module defines the core type protocols that establish contracts
-between different components of the agent system, with support for:
-- Runtime type validation
-- Enhanced permission system
-- Detailed metrics collection
-- Event system integration
+This module defines core protocols (interfaces) used throughout the framework
+for dependency injection and loose coupling between components.
 """
 
 from abc import abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import datetime
-from enum import Enum, auto
-from typing import (
-    Any,
-    Protocol,
-    TypeVar,
-    runtime_checkable,
-)
+from enum import Enum
+from typing import Any, TypeVar, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field, validator
+from typing_extensions import Protocol, runtime_checkable
 
+from pepperpy.core.enums import MetricType
 from pepperpy.core.events import EventBus, EventType
+
+# Type variables for generic implementations
+T = TypeVar("T")
+T_co = TypeVar("T_co", covariant=True)
+
+# Type aliases for better readability
+MetricLabels = dict[str, str]
+MetricCallback = Callable[[], Union[int, float]]
 
 # Define type variables with proper variance
 K_contra = TypeVar("K_contra", contravariant=True)  # For input keys
@@ -31,20 +32,27 @@ V_in = TypeVar("V_in")  # For input values (invariant)
 
 
 class MemoryScope(str, Enum):
-    """Memory storage scope."""
+    """Memory scope types."""
 
     SESSION = "session"
+    CONVERSATION = "conversation"
     GLOBAL = "global"
-    TEMPORARY = "temporary"
 
 
-class ToolPermission(Enum):
+class ToolScope(str, Enum):
+    """Tool scope types."""
+
+    SESSION = "session"
+    CONVERSATION = "conversation"
+    GLOBAL = "global"
+
+
+class ToolPermission(str, Enum):
     """Tool permission levels."""
 
-    READ = auto()  # Read-only access
-    WRITE = auto()  # Write access
-    EXECUTE = auto()  # Execution access
-    ADMIN = auto()  # Administrative access
+    READ = "read"
+    WRITE = "write"
+    EXECUTE = "execute"
 
 
 class MemoryEntry(Protocol[V_co]):
@@ -183,14 +191,6 @@ class Memory(Protocol[K_contra, V_co]):
         ...
 
 
-class ToolScope(str, Enum):
-    """Tool scope levels."""
-
-    AGENT = "agent"  # Agent-specific scope
-    SESSION = "session"  # Session-specific scope
-    GLOBAL = "global"  # Global scope
-
-
 class ToolMetadata(BaseModel):
     """Tool metadata."""
 
@@ -198,7 +198,7 @@ class ToolMetadata(BaseModel):
     description: str = Field(..., min_length=1)
     version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
     permissions: list[ToolPermission] = Field(default_factory=list)
-    scope: ToolScope = Field(default=ToolScope.AGENT)
+    scope: ToolScope = Field(default=ToolScope.SESSION)
     parameters: dict[str, Any] = Field(default_factory=dict)
     examples: list[dict[str, Any]] = Field(default_factory=list)
     metrics: dict[str, Any] = Field(default_factory=dict)
@@ -313,25 +313,30 @@ class Tool(Protocol):
         ...
 
 
-class MetricType(Enum):
-    """Types of metrics that can be collected."""
-
-    COUNTER = auto()
-    GAUGE = auto()
-    HISTOGRAM = auto()
-    SUMMARY = auto()
-    TIMER = auto()
-
-
 class MetricValue(BaseModel):
-    """Value of a recorded metric."""
+    """Value of a recorded metric.
 
-    name: str
-    type: MetricType
-    value: float
-    timestamp: datetime
-    labels: dict[str, str] = {}
-    metadata: dict[str, Any] = {}
+    Attributes:
+        name: Name of the metric
+        type: Type of metric
+        value: Current value
+        timestamp: Time of recording
+        labels: Additional metric labels
+        metadata: Additional metadata
+    """
+
+    name: str = Field(description="Name of the metric")
+    type: MetricType = Field(description="Type of metric")
+    value: Union[int, float] = Field(description="Current value")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Time of recording"
+    )
+    labels: MetricLabels = Field(
+        default_factory=dict, description="Additional metric labels"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
 
 
 class MetricsCollector(Protocol):
@@ -341,7 +346,7 @@ class MetricsCollector(Protocol):
         self,
         name: str,
         value: float,
-        type: MetricType,
+        metric_type: MetricType,
         labels: dict[str, str] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> MetricValue:
@@ -350,7 +355,7 @@ class MetricsCollector(Protocol):
         Args:
             name: Metric name
             value: Metric value
-            type: Metric type
+            metric_type: Type of metric
             labels: Optional metric labels
             metadata: Optional metric metadata
 
@@ -381,14 +386,14 @@ class MetricsCollector(Protocol):
     def list_metrics(
         self,
         pattern: str | None = None,
-        type: MetricType | None = None,
+        metric_type: MetricType | None = None,
         labels: dict[str, str] | None = None,
     ) -> list[MetricValue]:
         """List metrics.
 
         Args:
             pattern: Optional name pattern filter
-            type: Optional type filter
+            metric_type: Optional type filter
             labels: Optional metric labels
 
         Returns:
@@ -399,14 +404,14 @@ class MetricsCollector(Protocol):
     def clear_metrics(
         self,
         pattern: str | None = None,
-        type: MetricType | None = None,
+        metric_type: MetricType | None = None,
         labels: dict[str, str] | None = None,
     ) -> int:
         """Clear metrics.
 
         Args:
             pattern: Optional name pattern filter
-            type: Optional type filter
+            metric_type: Optional type filter
             labels: Optional metric labels
 
         Returns:

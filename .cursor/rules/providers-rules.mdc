@@ -52,7 +52,7 @@ async def handle_message(self, message: Message) -> Message:
 ## Error Handling
 
 ```python
-from pepperpy.common.errors import ProviderError
+from pepperpy.core.errors import ProviderError
 from pepperpy.monitoring import logger
 
 class ProviderExecutionError(ProviderError):

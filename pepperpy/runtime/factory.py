@@ -7,7 +7,7 @@ with proper resource initialization and validation.
 from typing import Any
 from uuid import UUID
 
-from pepperpy.common.errors import FactoryError
+from pepperpy.core.errors import FactoryError
 from pepperpy.monitoring.logger import get_logger
 from pepperpy.runtime.context import ExecutionContext
 
@@ -63,7 +63,10 @@ class AgentFactory:
             return context.context_id
 
         except Exception as e:
-            raise FactoryError(f"Failed to create agent: {e!s}") from e
+            raise FactoryError(
+                message=f"Failed to create agent: {e!s}",
+                component_type="agent",
+            ) from e
 
     def get_agent(self, agent_id: UUID) -> ExecutionContext:
         """Retrieve an agent's execution context.
@@ -78,7 +81,10 @@ class AgentFactory:
             FactoryError: If the agent is not found
         """
         if agent_id not in self._contexts:
-            raise FactoryError(f"Agent {agent_id} not found")
+            raise FactoryError(
+                message=f"Agent {agent_id} not found",
+                component_type="agent",
+            )
 
         return self._contexts[agent_id]
 
@@ -111,12 +117,15 @@ class AgentFactory:
             validated = schema.validate(config)
             if not isinstance(validated, dict):
                 raise FactoryError(
-                    f"Schema validation returned {type(validated)}, expected dict"
+                    f"Schema validation returned {type(validated)}, expected dict",
+                    component_type="agent",
                 )
             return validated
 
         except Exception as e:
-            raise FactoryError(f"Configuration validation failed: {e!s}") from e
+            raise FactoryError(
+                f"Configuration validation failed: {e!s}", component_type="agent"
+            ) from e
 
     def _initialize_resources(
         self, context: ExecutionContext, config: dict[str, Any]
@@ -142,7 +151,9 @@ class AgentFactory:
             logger.debug(f"Initialized resources for agent {context.context_id}")
 
         except Exception as e:
-            raise FactoryError(f"Resource initialization failed: {e!s}") from e
+            raise FactoryError(
+                f"Resource initialization failed: {e!s}", component_type="resource"
+            ) from e
 
     def _create_resource(self, config: dict[str, Any]) -> Any:
         """Create a resource handler from configuration.
@@ -171,4 +182,6 @@ class AgentFactory:
             return resource_class(**config.get("config", {}))
 
         except Exception as e:
-            raise FactoryError(f"Failed to create resource: {e!s}") from e
+            raise FactoryError(
+                f"Failed to create resource: {e!s}", component_type="resource"
+            ) from e

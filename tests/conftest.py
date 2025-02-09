@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 from _pytest.logging import LogCaptureFixture
 
-from pepperpy.common.config import PepperpyConfig
+from pepperpy.core.config import PepperpyConfig
 from pepperpy.memory.store_config import PostgresConfig
 
 # Configure logging

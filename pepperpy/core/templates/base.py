@@ -105,7 +105,7 @@ class Template(ABC, Generic[T, C, R]):
     providing methods for template loading, rendering, and validation.
     """
 
-    def __init__(self, metadata: TemplateMetadata):
+    def __init__(self, metadata: TemplateMetadata) -> None:
         """Initialize template.
 
         Args:

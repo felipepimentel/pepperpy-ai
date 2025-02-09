@@ -34,7 +34,7 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
     async def _store_impl(
         self,
         key: str,
-        value: dict[str, Any],
+        content: dict[str, Any],
         scope: MemoryScope,
         metadata: dict[str, str] | None,
     ) -> MemoryEntry[dict[str, Any]]:
@@ -42,7 +42,7 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
 
         Args:
             key: Key to store under
-            value: Value to store
+            content: Content to store
             scope: Storage scope
             metadata: Optional metadata
 
@@ -53,9 +53,9 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
             RuntimeError: If storage fails
         """
         try:
-            entry = MemoryEntry(
+            entry: MemoryEntry[dict[str, Any]] = MemoryEntry(
                 key=key,
-                value=value,
+                value=content,
                 scope=scope,
                 metadata=metadata or {},
                 type=MemoryType.SHORT_TERM,
@@ -105,20 +105,19 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         Returns:
             True if entry matches all filters
         """
-        # Check scope filter
-        if query.scope and query.scope != entry.scope:
-            return False
-
-        # Check type filter
-        if query.type and query.type != entry.type:
-            return False
+        # Check filters
+        if query.filters:
+            if "scope" in query.filters and query.filters["scope"] != entry.scope:
+                return False
+            if "type" in query.filters and query.filters["type"] != entry.type:
+                return False
 
         # Check metadata filter
-        if query.metadata_filter:
+        if query.metadata:
             if not entry.metadata:
                 return False
             metadata = entry.metadata or {}
-            if not all(metadata.get(k) == v for k, v in query.metadata_filter.items()):
+            if not all(metadata.get(k) == v for k, v in query.metadata.items()):
                 return False
 
         return True

@@ -7,7 +7,7 @@ supporting multiple languages and code generation patterns.
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, StrictUndefined
+from jinja2 import Environment, StrictUndefined, select_autoescape
 
 from .base import Template, TemplateContext, TemplateError, TemplateMetadata
 
@@ -24,7 +24,7 @@ class CodeTemplate(Template[str, dict[str, Any], str]):
         metadata: TemplateMetadata,
         language: str = "python",
         style_guide: dict[str, Any] | None = None,
-    ):
+    ) -> None:
         """Initialize code template.
 
         Args:
@@ -35,7 +35,13 @@ class CodeTemplate(Template[str, dict[str, Any], str]):
         super().__init__(metadata)
         self._language = language.lower()
         self._style_guide = style_guide or {}
-        self._env = Environment(undefined=StrictUndefined)
+        self._env = Environment(
+            undefined=StrictUndefined,
+            autoescape=select_autoescape(
+                enabled_extensions=("html", "xml", "jinja2"),
+                default_for_string=True,
+            ),
+        )
 
     async def load(self) -> None:
         """Load the template.

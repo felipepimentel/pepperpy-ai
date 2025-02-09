@@ -6,16 +6,31 @@ like LangChain, AutoGen, Semantic Kernel, and CrewAI.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar
+from collections.abc import Mapping
+from typing import Generic, Protocol, TypeVar
 
 from pepperpy.core.base import AgentProtocol
 from pepperpy.core.types import Message, Response
 
-# Type variable for framework-specific agent types
-T = TypeVar("T")
+# Type variables for framework-specific types
+T = TypeVar("T")  # Framework agent type
+M = TypeVar("M")  # Framework message type
+R = TypeVar("R")  # Framework response type
+
+# Type aliases for configuration values
+ConfigValue = str | int | float | bool | dict[str, "ConfigValue"] | None
+ConfigDict = dict[str, ConfigValue]
 
 
-class BaseFrameworkAdapter(Generic[T], ABC):
+class FrameworkConfig(Protocol):
+    """Protocol for framework-specific configuration."""
+
+    def __getitem__(self, key: str) -> ConfigValue:
+        """Get configuration value."""
+        ...
+
+
+class BaseFrameworkAdapter(Generic[T, M, R], ABC):
     """Base class for framework adapters.
 
     Framework adapters provide a bridge between Pepperpy's agent system
@@ -26,7 +41,11 @@ class BaseFrameworkAdapter(Generic[T], ABC):
         **kwargs: Additional framework-specific configuration
     """
 
-    def __init__(self, agent: AgentProtocol[Any, Any, Any, Any], **kwargs: Any) -> None:
+    def __init__(
+        self,
+        agent: AgentProtocol[Message, Response, Mapping[str, ConfigValue], Message],
+        **kwargs: ConfigValue,
+    ) -> None:
         """Initialize the adapter.
 
         Args:
@@ -34,7 +53,7 @@ class BaseFrameworkAdapter(Generic[T], ABC):
             **kwargs: Additional framework-specific configuration
         """
         self.agent = agent
-        self.config = kwargs
+        self.config: ConfigDict = kwargs
 
     @abstractmethod
     async def to_framework_agent(self) -> T:
@@ -49,7 +68,7 @@ class BaseFrameworkAdapter(Generic[T], ABC):
         pass
 
     @abstractmethod
-    async def from_framework_message(self, message: Any) -> Message:
+    async def from_framework_message(self, message: M) -> Message:
         """Convert framework message to Pepperpy message.
 
         Args:
@@ -64,7 +83,7 @@ class BaseFrameworkAdapter(Generic[T], ABC):
         pass
 
     @abstractmethod
-    async def to_framework_message(self, message: Message) -> Any:
+    async def to_framework_message(self, message: Message) -> M:
         """Convert Pepperpy message to framework message.
 
         Args:
@@ -79,7 +98,7 @@ class BaseFrameworkAdapter(Generic[T], ABC):
         pass
 
     @abstractmethod
-    async def from_framework_response(self, response: Any) -> Response:
+    async def from_framework_response(self, response: R) -> Response:
         """Convert framework response to Pepperpy response.
 
         Args:
@@ -94,7 +113,7 @@ class BaseFrameworkAdapter(Generic[T], ABC):
         pass
 
     @abstractmethod
-    async def to_framework_response(self, response: Response) -> Any:
+    async def to_framework_response(self, response: Response) -> R:
         """Convert Pepperpy response to framework response.
 
         Args:

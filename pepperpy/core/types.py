@@ -10,7 +10,7 @@ This module provides a comprehensive type system for the framework, including:
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import (
     Any,
@@ -23,7 +23,7 @@ from typing import (
 )
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 # Type variables for generic implementations
 T = TypeVar("T")
@@ -31,6 +31,11 @@ T_Input = TypeVar("T_Input")  # Input data type
 T_Output = TypeVar("T_Output")  # Output data type
 T_Config = TypeVar("T_Config", bound=BaseModel)  # Configuration type
 T_Context = TypeVar("T_Context", bound=BaseModel)  # Context type
+V = TypeVar("V")
+
+# Type aliases for common types
+MetadataValue = str | int | float | bool | None | list[str] | dict[str, str]  # type: ignore[valid-type]
+MetadataDict = dict[str, MetadataValue]  # type: ignore[valid-type]
 
 
 class MessageType(str, Enum):
@@ -98,14 +103,14 @@ class ToolScope(str, Enum):
     GLOBAL = "global"  # Global scope
 
 
-class MetricType(str, Enum):
-    """Types of metrics."""
+class MetricType(Enum):
+    """Types of metrics that can be collected."""
 
-    COUNTER = "counter"  # Monotonically increasing counter
-    GAUGE = "gauge"  # Value that can go up and down
-    HISTOGRAM = "histogram"  # Distribution of values
-    SUMMARY = "summary"  # Statistical summary
-    TIMER = "timer"  # Duration measurements
+    COUNTER = auto()
+    GAUGE = auto()
+    HISTOGRAM = auto()
+    SUMMARY = auto()
+    TIMER = auto()  # Added for completeness, but not used in the original file
 
 
 class ErrorCategory(str, Enum):
@@ -131,11 +136,10 @@ class Message(BaseModel):
     sender: str = Field(..., description="Message sender identifier")
     receiver: str | None = Field(None, description="Message receiver identifier")
     content: dict[str, Any] = Field(..., description="Message content")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Message metadata"
-    )
+    metadata: MetadataDict = Field(default_factory=dict, description="Message metadata")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Message timestamp"
+        default_factory=lambda: datetime.now(UTC),
+        description="Message timestamp",
     )
 
     class Config:
@@ -148,15 +152,17 @@ class Message(BaseModel):
             MessageType: lambda v: v.value,
         }
 
-    @validator("sender", "receiver")
-    def validate_identifiers(self, v: str | None) -> str | None:
+    @field_validator("sender", "receiver")
+    @classmethod
+    def validate_identifiers(cls, v: str | None) -> str | None:
         """Validate sender and receiver identifiers."""
         if v is not None and not v.strip():
             raise ValueError("Identifier cannot be empty")
         return v
 
-    @validator("content", "metadata")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("content", "metadata")
+    @classmethod
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
@@ -168,11 +174,12 @@ class Response(BaseModel):
     message_id: UUID = Field(..., description="ID of the message being responded to")
     status: ResponseStatus = Field(..., description="Response status")
     content: dict[str, Any] = Field(..., description="Response content")
-    metadata: dict[str, Any] = Field(
+    metadata: MetadataDict = Field(
         default_factory=dict, description="Response metadata"
     )
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Response timestamp"
+        default_factory=lambda: datetime.now(UTC),
+        description="Response timestamp",
     )
 
     class Config:
@@ -185,8 +192,9 @@ class Response(BaseModel):
             ResponseStatus: lambda v: v.value,
         }
 
-    @validator("content", "metadata")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("content", "metadata")
+    @classmethod
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
@@ -243,13 +251,15 @@ class AgentConfig(BaseModel):
             AgentState: lambda v: v.value,
         }
 
-    @validator("capabilities")
-    def validate_capabilities(self, v: list[str]) -> list[str]:
+    @field_validator("capabilities")
+    @classmethod
+    def validate_capabilities(cls, v: list[str]) -> list[str]:
         """Validate capability names."""
         return [cap.strip() for cap in v if cap.strip()]
 
-    @validator("settings", "metadata")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("settings", "metadata")
+    @classmethod
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
@@ -268,8 +278,9 @@ class ComponentConfig(BaseModel):
 
         frozen = True
 
-    @validator("settings", "metadata")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("settings", "metadata")
+    @classmethod
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
@@ -290,15 +301,17 @@ class ProviderConfig(BaseModel):
 
         frozen = True
 
-    @validator("api_key", "base_url")
-    def validate_optional_strings(self, v: str | None) -> str | None:
+    @field_validator("api_key", "base_url")
+    @classmethod
+    def validate_optional_strings(cls, v: str | None) -> str | None:
         """Validate optional string fields."""
         if v is not None and not v.strip():
             raise ValueError("Value cannot be empty")
         return v
 
-    @validator("settings", "metadata")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("settings", "metadata")
+    @classmethod
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
@@ -312,8 +325,14 @@ class AgentContext(BaseModel):
     state: AgentState = Field(default=AgentState.INITIALIZED)
     settings: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Creation timestamp",
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(UTC),
+        description="Last update timestamp",
+    )
 
     class Config:
         """Pydantic model configuration."""
@@ -325,90 +344,80 @@ class AgentContext(BaseModel):
             AgentState: lambda v: v.value,
         }
 
-    @validator("settings", "metadata")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("settings", "metadata")
+    @classmethod
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
 
-class Context:
-    """Context for operations.
+@dataclass
+class Context(Generic[V]):
+    """Base context class for managing key-value data.
 
-    A context object that carries request-scoped values.
+    Args:
+        data: Initial key-value pairs.
     """
 
-    def __init__(self, **kwargs: Any) -> None:
+    _data: dict[str, V]
+
+    def __init__(self, **kwargs: V) -> None:
         """Initialize context.
 
         Args:
-            **kwargs: Initial context values
+            **kwargs: Initial key-value pairs.
         """
-        self._data: dict[str, Any] = kwargs
+        self._data = kwargs
 
-    def get(self, key: str, default: Any = None) -> Any:
+    def get(self, key: str, default: V | None = None) -> V | None:
         """Get value from context.
 
         Args:
-            key: Context key
-            default: Default value if key not found
+            key: Key to get.
+            default: Default value if key not found.
 
         Returns:
-            Value from context or default
+            Value for key or default if not found.
         """
         return self._data.get(key, default)
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: V) -> None:
         """Set value in context.
 
         Args:
-            key: Context key
-            value: Value to set
+            key: Key to set.
+            value: Value to set.
         """
         self._data[key] = value
 
-    def update(self, **kwargs: Any) -> None:
+    def update(self, **kwargs: V) -> None:
         """Update context with new values.
 
         Args:
-            **kwargs: Values to update
+            **kwargs: Key-value pairs to update.
         """
         self._data.update(kwargs)
 
-    def clear(self) -> None:
-        """Clear all values from context."""
-        self._data.clear()
-
-    def __contains__(self, key: str) -> bool:
-        """Check if key exists in context.
-
-        Args:
-            key: Context key
-
-        Returns:
-            True if key exists, False otherwise
-        """
-        return key in self._data
-
-    def __getitem__(self, key: str) -> Any:
+    def __getitem__(self, key: str) -> V:
         """Get value from context.
 
         Args:
-            key: Context key
+            key: Key to get.
 
         Returns:
-            Value from context
+            Value for key.
 
         Raises:
-            KeyError: If key not found
+            KeyError: If key not found.
         """
         return self._data[key]
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: V) -> None:
         """Set value in context.
 
         Args:
-            key: Context key
-            value: Value to set
+            key: Key to set.
+            value: Value to set.
         """
         self._data[key] = value
 
