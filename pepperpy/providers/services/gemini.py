@@ -30,16 +30,18 @@ from pydantic import Field
 
 from pepperpy.monitoring.logger import structured_logger as logger
 
+from ..base import (
+    BaseProvider as Provider,
+)
+from ..base import (
+    EmbeddingKwargs,
+    ProviderConfig,
+    ProviderKwargs,
+)
 from ..domain import (
     ProviderAPIError,
     ProviderInitError,
     ProviderRateLimitError,
-)
-from ..provider import (
-    EmbeddingKwargs,
-    Provider,
-    ProviderConfig,
-    ProviderKwargs,
 )
 
 

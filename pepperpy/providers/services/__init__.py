@@ -15,26 +15,15 @@ from pepperpy.monitoring import logger
 from ..base import BaseProvider, ProviderConfig
 from ..domain import ProviderInitError
 from ..engine import ProviderEngine
-from .anthropic import AnthropicConfig, AnthropicProvider
 from .gemini import GeminiConfig, GeminiProvider
 from .openai import OpenAIConfig, OpenAIProvider
-from .openrouter import OpenRouterProvider
-from .stackspot import StackSpotProvider
 
 # Provider types
 OPENAI: Final[str] = "openai"
-ANTHROPIC: Final[str] = "anthropic"
-OPENROUTER: Final[str] = "openrouter"
 GEMINI: Final[str] = "gemini"
-STACKSPOT: Final[str] = "stackspot"
 
 REQUIRED_PROVIDERS: Final[list[str]] = [OPENAI]
-OPTIONAL_PROVIDERS: Final[list[str]] = [
-    ANTHROPIC,
-    GEMINI,
-    OPENROUTER,
-    STACKSPOT,
-]
+OPTIONAL_PROVIDERS: Final[list[str]] = [GEMINI]
 
 # Track registered providers
 REGISTERED_PROVIDERS: dict[str, type[BaseProvider]] = {}
@@ -127,30 +116,6 @@ async def register_providers() -> dict[str, type[BaseProvider]]:
                 extra={"provider": GEMINI, "error": str(e)},
             )
 
-        try:
-            from pepperpy.providers.services.openrouter import OpenRouterProvider
-
-            provider_class = cast(type[BaseProvider], OpenRouterProvider)
-            await registry.register_provider(OPENROUTER, provider_class)
-            registry.providers[OPENROUTER] = provider_class
-        except ImportError as e:
-            logger.warning(
-                "Failed to import OpenRouter provider",
-                extra={"error": str(e)},
-            )
-
-        try:
-            from .stackspot import StackSpotProvider
-
-            provider_class = cast(type[BaseProvider], StackSpotProvider)
-            await registry.register_provider(STACKSPOT, provider_class)
-            registry.providers[STACKSPOT] = provider_class
-        except ImportError as e:
-            logger.warning(
-                "Optional provider not available",
-                extra={"provider": STACKSPOT, "error": str(e)},
-            )
-
         return dict(registry.providers)
 
     finally:
@@ -164,22 +129,16 @@ REGISTRY = ProviderRegistry()
 __all__ = [
     "GEMINI",
     "OPENAI",
-    "OPENROUTER",
     "OPTIONAL_PROVIDERS",
     "REGISTERED_PROVIDERS",
     "REQUIRED_PROVIDERS",
-    "STACKSPOT",
-    "AnthropicConfig",
-    "AnthropicProvider",
     "BaseProvider",
     "GeminiConfig",
     "GeminiProvider",
     "OpenAIConfig",
     "OpenAIProvider",
-    "OpenRouterProvider",
     "ProviderConfig",
     "ProviderError",
     "ProviderRegistry",
-    "StackSpotProvider",
     "register_providers",
 ]

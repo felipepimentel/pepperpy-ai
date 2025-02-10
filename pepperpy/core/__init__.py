@@ -30,7 +30,7 @@ from pepperpy.core.errors import (
     StateError,
     ToolError,
 )
-from pepperpy.core.events import Event, EventBus, EventHandler
+from pepperpy.core.events import Event, EventBus, EventHandler, EventType
 from pepperpy.core.factory import AgentFactory, ComponentFactory
 from pepperpy.core.protocols import FrameworkAdapter, Memory, Tool
 from pepperpy.core.registry import Registry
@@ -50,6 +50,7 @@ __all__ = [
     "Event",
     "EventBus",
     "EventHandler",
+    "EventType",
     "FactoryError",
     "FrameworkAdapter",
     "LifecycleError",

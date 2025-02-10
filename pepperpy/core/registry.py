@@ -16,7 +16,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Generic, TypeVar
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from pepperpy.core.errors import (
     NotFoundError,
@@ -86,15 +86,17 @@ class RegistryItem(BaseModel):
             type: lambda v: f"{v.__module__}.{v.__qualname__}",
         }
 
-    @validator("key")
-    def validate_key(self, v: str) -> str:
+    @classmethod
+    @field_validator("key")
+    def validate_key(cls, v: str) -> str:
         """Validate registry key."""
         if not v.strip():
             raise ValueError("key cannot be empty")
         return v
 
-    @validator("metadata")
-    def validate_metadata(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("metadata")
+    def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure metadata is immutable."""
         return dict(v)
 

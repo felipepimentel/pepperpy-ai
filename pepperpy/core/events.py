@@ -8,25 +8,33 @@ This module provides the event system functionality for:
 """
 
 import asyncio
-import os
 import time
 from abc import abstractmethod
-from collections.abc import Callable, Protocol
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from pathlib import Path
-from typing import Any, ClassVar, Generic, TypeVar
+from typing import (
+    Any,
+    ClassVar,
+    ForwardRef,
+    Generic,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 from uuid import UUID, uuid4
 
 import aiofiles
 import aiofiles.os
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from pepperpy.core.enums import MetricType
 from pepperpy.monitoring import logger, metrics
 
 T = TypeVar("T")
+Event = ForwardRef("Event")
 
 
 class EventType(str, Enum):
@@ -103,20 +111,20 @@ class EventMetrics:
         self.last_event_time = time.time()
 
 
+@runtime_checkable
 class EventFilter(Protocol):
     """Protocol for event filters."""
 
-    @abstractmethod
-    def matches(self, event: "Event") -> bool:
-        """Check if event matches filter.
+    def matches(self, event: Event) -> bool:
+        """Check if event matches filter criteria.
 
         Args:
             event: Event to check
 
         Returns:
-            True if event matches filter
+            True if event matches criteria, False otherwise
         """
-        pass
+        ...
 
 
 class Event(BaseModel):
@@ -136,7 +144,7 @@ class Event(BaseModel):
     source_id: str
     priority: EventPriority = Field(default=EventPriority.MEDIUM)
     timestamp: datetime = Field(default_factory=datetime.utcnow)
-    data: dict[str, Any] = Field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=lambda: {})
 
     class Config:
         """Pydantic model configuration."""
@@ -149,15 +157,17 @@ class Event(BaseModel):
             EventPriority: lambda v: v.name,
         }
 
-    @validator("source_id")
-    def validate_source_id(self, v: str) -> str:
+    @field_validator("source_id")
+    @classmethod
+    def validate_source_id(cls, v: str) -> str:
         """Validate source_id is not empty."""
         if not v.strip():
             raise ValueError("source_id cannot be empty")
         return v
 
-    @validator("data")
-    def validate_dict(self, v: dict[str, Any]) -> dict[str, Any]:
+    @field_validator("data")
+    @classmethod
+    def validate_dict(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 
@@ -223,21 +233,77 @@ class EventBuffer(Generic[T]):
         return time.time() - self._last_flush >= self.flush_interval
 
 
+class EventFilterImpl:
+    """Implementation of the EventFilter protocol.
+
+    Attributes:
+        source_ids: Optional list of source IDs to filter by
+        event_types: Optional list of event types to filter by
+        time_window: Optional time window (start, end) to filter by
+        custom_filter: Optional custom filter function
+    """
+
+    def __init__(
+        self,
+        source_ids: list[str] | None = None,
+        event_types: list[EventType] | None = None,
+        time_window: tuple[datetime, datetime] | None = None,
+        custom_filter: Callable[[Event], bool] | None = None,
+    ) -> None:
+        """Initialize event filter.
+
+        Args:
+            source_ids: Optional list of source IDs to filter by
+            event_types: Optional list of event types to filter by
+            time_window: Optional time window (start, end) to filter by
+            custom_filter: Optional custom filter function
+        """
+        self.source_ids = source_ids
+        self.event_types = event_types
+        self.time_window = time_window
+        self.custom_filter = custom_filter
+
+    def matches(self, event: Event) -> bool:
+        """Check if event matches filter criteria.
+
+        Args:
+            event: Event to check
+
+        Returns:
+            True if event matches criteria, False otherwise
+        """
+        if self.source_ids and event.source_id not in self.source_ids:
+            return False
+        if self.event_types and event.type not in self.event_types:
+            return False
+        if self.time_window:
+            start, end = self.time_window
+            if not (start <= event.timestamp <= end):
+                return False
+        if self.custom_filter and not self.custom_filter(event):
+            return False
+        return True
+
+
 class EventStore:
-    """Store for persisting and retrieving events.
+    """Event storage and retrieval.
 
     Attributes:
         storage_path: Path to event storage directory
     """
 
-    def __init__(self, storage_path: Path) -> None:
-        """Initialize the event store.
+    def __init__(self, storage_path: str | None = None):
+        """Initialize event store.
 
         Args:
-            storage_path: Path to event storage directory
+            storage_path: Optional path to event storage directory
         """
-        self.storage_path = storage_path
-        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self._events: list[Event] = []
+        if storage_path:
+            self._storage_path = Path(storage_path)
+            self._storage_path.mkdir(parents=True, exist_ok=True)
+        else:
+            self._storage_path = None
 
     async def store_event(self, event: Event) -> None:
         """Store an event.
@@ -245,7 +311,7 @@ class EventStore:
         Args:
             event: Event to store
         """
-        path = self.storage_path / f"{event.id}.json"
+        path = self._storage_path / f"{event.id}.json"
         async with aiofiles.open(path, "w") as f:
             await f.write(event.to_json())
 
@@ -258,7 +324,7 @@ class EventStore:
         Returns:
             Event if found, None otherwise
         """
-        path = self.storage_path / f"{event_id}.json"
+        path = self._storage_path / f"{event_id}.json"
         try:
             async with aiofiles.open(path) as f:
                 data = await f.read()
@@ -268,41 +334,36 @@ class EventStore:
 
     async def get_events(
         self,
-        filter_criteria: EventFilter | None = None,
-        limit: int | None = None,
+        source_ids: list[str] | None = None,
+        event_types: list[EventType] | None = None,
+        time_window: tuple[datetime, datetime] | None = None,
+        custom_filter: Callable[[Event], bool] | None = None,
     ) -> list[Event]:
-        """Retrieve events matching filter criteria.
+        """Get events matching filter criteria.
 
         Args:
-            filter_criteria: Criteria to filter events
-            limit: Maximum number of events to return
+            source_ids: Optional list of source IDs to filter by
+            event_types: Optional list of event types to filter by
+            time_window: Optional time window (start, end) to filter by
+            custom_filter: Optional custom filter function
 
         Returns:
             List of matching events
         """
-        events: list[Event] = []
-        try:
-            # Get list of JSON files synchronously first
-            paths = [
-                self.storage_path / f
-                for f in os.listdir(self.storage_path)
-                if f.endswith(".json")
-            ]
-
-            for path in paths:
-                if limit and len(events) >= limit:
-                    break
-
-                async with aiofiles.open(path) as f:
-                    data = await f.read()
-                    event = Event.from_json(data)
-                    if not filter_criteria or filter_criteria.matches(event):
-                        events.append(event)
-
-            return events
-        except Exception as e:
-            logger.error(f"Error retrieving events: {e}")
-            return []
+        events = []
+        for event in self._events:
+            if source_ids and event.source_id not in source_ids:
+                continue
+            if event_types and event.type not in event_types:
+                continue
+            if time_window:
+                start, end = time_window
+                if not (start <= event.timestamp <= end):
+                    continue
+            if custom_filter and not custom_filter(event):
+                continue
+            events.append(event)
+        return events
 
 
 class EventHandler(Protocol):
@@ -394,7 +455,7 @@ class EventCorrelator:
     def _create_composite_event(self, pattern: dict[str, Any]) -> CompositeEvent:
         """Create composite event from matched pattern."""
         return CompositeEvent(
-            type=EventType.SYSTEM_EVENT,
+            type=EventType.SYSTEM_STARTED,  # Using a valid event type
             source_id="correlator",
             sub_events=self.events.copy(),
         )
@@ -429,19 +490,19 @@ class EventBus:
         metrics.record_metric(
             name="event_bus_queue_size",
             value=0,
-            type=MetricType.GAUGE,
+            metric_type=MetricType.GAUGE,
             labels={"bus_id": str(id(self))},
         )
         metrics.record_metric(
             name="event_bus_processed_count",
             value=0,
-            type=MetricType.COUNTER,
+            metric_type=MetricType.COUNTER,
             labels={"bus_id": str(id(self))},
         )
         metrics.record_metric(
             name="event_bus_error_count",
             value=0,
-            type=MetricType.COUNTER,
+            metric_type=MetricType.COUNTER,
             labels={"bus_id": str(id(self))},
         )
 
@@ -458,20 +519,17 @@ class EventBus:
     async def start(self) -> None:
         """Start the event bus."""
         if self._active:
-            return
+            raise ValidationError("Event bus already started")
         self._active = True
-        self._task = asyncio.create_task(self._process_events())
-        logger.info("Event bus started")
+        self._setup_monitoring()
+        logger.info("Event bus started", extra={})
 
     async def stop(self) -> None:
         """Stop the event bus."""
         if not self._active:
-            return
+            raise ValidationError("Event bus not started")
         self._active = False
-        if self._task:
-            await self._task
-            self._task = None
-        logger.info("Event bus stopped")
+        logger.info("Event bus stopped", extra={})
 
     async def _process_events(self) -> None:
         """Process events from the queue."""
@@ -652,35 +710,25 @@ class EventBus:
         # Add to queue
         await self.queue.put(new_event)
 
-    async def get_correlated_events(self, correlation_id: UUID) -> list[Event]:
-        """Get all events with the given correlation ID.
+    async def get_correlated_events(self, correlation_id: str) -> list[Event]:
+        """Get events with matching correlation ID.
 
         Args:
             correlation_id: Correlation ID to match
 
         Returns:
-            List of correlated events
+            List of events with matching correlation ID
+
+        Raises:
+            ValueError: If correlation_id is empty
         """
-        events: list[Event] = []
-        if self.event_store:
-            try:
-                # Get events from store with matching correlation ID
-                filter_criteria = EventFilter(
-                    source_ids=None,  # Match any source
-                    event_types=None,  # Match any type
-                    time_window=None,  # No time limit
-                    custom_filter=lambda data: data.get("correlation_id")
-                    == str(correlation_id),
-                )
-                events = await self.event_store.get_events(filter_criteria)
-            except Exception as e:
-                logger.error(
-                    "Failed to get correlated events",
-                    extra={
-                        "correlation_id": str(correlation_id),
-                        "error": str(e),
-                    },
-                )
+        if not correlation_id.strip():
+            raise ValueError("correlation_id cannot be empty")
+
+        events = []
+        for event in self._events:
+            if event.data.get("correlation_id") == correlation_id:
+                events.append(event)
         return events
 
 

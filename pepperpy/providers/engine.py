@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from pepperpy.core.errors import ProviderError, ValidationError
 from pepperpy.monitoring import logger
 
-from .provider import VALID_PROVIDER_TYPES, BaseProvider, ProviderConfig
+from .base import VALID_PROVIDER_TYPES, BaseProvider, ProviderConfig
 
 # Type variables for generic implementations
 T = TypeVar("T")

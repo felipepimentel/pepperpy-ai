@@ -5,12 +5,9 @@ and Anthropic, with a consistent interface for model interactions.
 """
 
 from pepperpy.providers.base import BaseProvider, ProviderConfig
-from pepperpy.providers.services.anthropic import AnthropicConfig, AnthropicProvider
 from pepperpy.providers.services.openai import OpenAIConfig, OpenAIProvider
 
 __all__ = [
-    "AnthropicConfig",
-    "AnthropicProvider",
     "BaseProvider",
     "OpenAIConfig",
     "OpenAIProvider",

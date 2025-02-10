@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, TypeVar, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing_extensions import Protocol, runtime_checkable
 
 from pepperpy.core.enums import MetricType
@@ -204,15 +204,17 @@ class ToolMetadata(BaseModel):
     metrics: dict[str, Any] = Field(default_factory=dict)
     events: list[EventType] = Field(default_factory=list)
 
-    @validator("permissions")
-    def validate_permissions(self, v: list[ToolPermission]) -> list[ToolPermission]:
+    @classmethod
+    @field_validator("permissions")
+    def validate_permissions(cls, v: list[ToolPermission]) -> list[ToolPermission]:
         """Validate permissions list."""
         if not v:
             v = [ToolPermission.READ]  # Default to read-only
         return sorted(set(v), key=lambda x: x.value)
 
-    @validator("events")
-    def validate_events(self, v: list[EventType]) -> list[EventType]:
+    @classmethod
+    @field_validator("events")
+    def validate_events(cls, v: list[EventType]) -> list[EventType]:
         """Validate event types."""
         return sorted(set(v), key=lambda x: x.name)
 
@@ -546,13 +548,15 @@ class AdapterConfig(BaseModel):
     events: list[EventType] = Field(default_factory=list)
     metrics: dict[str, Any] = Field(default_factory=dict)
 
-    @validator("settings", "metadata", "metrics")
-    def validate_dicts(self, v: dict[str, Any]) -> dict[str, Any]:
-        """Ensure dictionaries are immutable."""
+    @classmethod
+    @field_validator("settings", "metadata", "metrics")
+    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
+        """Validate dictionary fields."""
         return dict(v)
 
-    @validator("events")
-    def validate_events(self, v: list[EventType]) -> list[EventType]:
+    @classmethod
+    @field_validator("events")
+    def validate_events(cls, v: list[EventType]) -> list[EventType]:
         """Validate event types."""
         return sorted(set(v), key=lambda x: x.name)
 

@@ -1,10 +1,12 @@
 """Tracing functionality for the Pepperpy framework."""
 
+import logging
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from typing import TypedDict
 
-from loguru import logger
+# Configure logger
+logger = logging.getLogger(__name__)
 
 
 class TraceAttributeValue(TypedDict, total=False):

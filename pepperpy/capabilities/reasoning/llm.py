@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.errors import ReasoningError
+from pepperpy.core.capability_errors import ReasoningError
 from pepperpy.core.types import Message, MessageType
 from pepperpy.monitoring.tracing import tracer
 from pepperpy.providers.base import BaseProvider

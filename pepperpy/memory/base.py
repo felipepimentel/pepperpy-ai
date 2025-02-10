@@ -11,7 +11,7 @@ from enum import Enum
 from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from pepperpy.monitoring import logger
 
@@ -75,25 +75,29 @@ class MemoryQuery(BaseModel):
     order_by: str | None = Field(default=None)
     order: str | None = Field(default=None)
 
-    @validator("query")
-    def validate_query(self, v: str) -> str:
+    @classmethod
+    @field_validator("query")
+    def validate_query(cls, v: str) -> str:
         """Validate search query."""
         if not v.strip():
             raise ValueError("Query cannot be empty")
         return v.strip()
 
-    @validator("filters")
-    def validate_filters(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("filters")
+    def validate_filters(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure filters are immutable."""
         return dict(v)
 
-    @validator("metadata")
-    def validate_metadata(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("metadata")
+    def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure metadata is immutable."""
         return dict(v)
 
-    @validator("order")
-    def validate_order(self, v: str | None) -> str | None:
+    @classmethod
+    @field_validator("order")
+    def validate_order(cls, v: str | None) -> str | None:
         """Validate order direction."""
         if v is not None and v.upper() not in ["ASC", "DESC"]:
             raise ValueError("Order must be ASC or DESC")
@@ -121,8 +125,9 @@ class MemoryEntry(BaseModel, Generic[T]):
     expires_at: datetime | None = Field(default=None)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @validator("metadata")
-    def validate_metadata(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("metadata")
+    def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure metadata is immutable."""
         return dict(v)
 
@@ -142,8 +147,9 @@ class MemorySearchResult(BaseModel, Generic[T]):
     highlights: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @validator("score")
-    def validate_score(self, v: float) -> float:
+    @classmethod
+    @field_validator("score")
+    def validate_score(cls, v: float) -> float:
         """Validate similarity score."""
         if not 0.0 <= v <= 1.0:
             raise ValueError("Score must be between 0.0 and 1.0")

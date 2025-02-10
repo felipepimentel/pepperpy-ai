@@ -17,6 +17,8 @@ from pydantic import BaseModel
 
 from pepperpy.monitoring import logger, tracer
 
+__all__ = ["Language", "LanguageConfig", "LanguageProcessor"]
+
 # Set seed for consistent language detection
 DetectorFactory.seed = 0
 
@@ -68,16 +70,34 @@ class Language(str, Enum):
 class Stemmer(Protocol):
     """Protocol for stemmers."""
 
-    def stem(self, word: str) -> str:
+    def stem(self, token: str) -> str:
         """Stem a word.
 
         Args:
-            word: Word to stem
+            token: Word to stem
 
         Returns:
             Stemmed word
         """
         ...
+
+
+class StemmerWrapper:
+    """Wrapper for NLTK stemmers to ensure protocol compatibility."""
+
+    def __init__(self, stemmer: PorterStemmer | SnowballStemmer) -> None:
+        self._stemmer = stemmer
+
+    def stem(self, token: str) -> str:
+        """Stem a word.
+
+        Args:
+            token: Word to stem
+
+        Returns:
+            Stemmed word
+        """
+        return self._stemmer.stem(token)
 
 
 class Lemmatizer(Protocol):
@@ -93,6 +113,24 @@ class Lemmatizer(Protocol):
             Lemmatized word
         """
         ...
+
+
+class LemmatizerWrapper:
+    """Wrapper for NLTK lemmatizers to ensure protocol compatibility."""
+
+    def __init__(self, lemmatizer: WordNetLemmatizer) -> None:
+        self._lemmatizer = lemmatizer
+
+    def lemmatize(self, word: str) -> str:
+        """Lemmatize a word.
+
+        Args:
+            word: Word to lemmatize
+
+        Returns:
+            Lemmatized word
+        """
+        return self._lemmatizer.lemmatize(word)
 
 
 @dataclass
@@ -138,21 +176,21 @@ class LanguageProcessor:
             from nltk.corpus import stopwords
             from nltk.tokenize import word_tokenize
 
-            # Initialize stemmers
+            # Initialize stemmers with wrappers
             self._stemmers = {
-                Language.ENGLISH: PorterStemmer(),
-                Language.SPANISH: SnowballStemmer("spanish"),
-                Language.FRENCH: SnowballStemmer("french"),
-                Language.GERMAN: SnowballStemmer("german"),
-                Language.ITALIAN: SnowballStemmer("italian"),
-                Language.PORTUGUESE: SnowballStemmer("portuguese"),
-                Language.DUTCH: SnowballStemmer("dutch"),
-                Language.RUSSIAN: SnowballStemmer("russian"),
+                Language.ENGLISH: StemmerWrapper(PorterStemmer()),
+                Language.SPANISH: StemmerWrapper(SnowballStemmer("spanish")),
+                Language.FRENCH: StemmerWrapper(SnowballStemmer("french")),
+                Language.GERMAN: StemmerWrapper(SnowballStemmer("german")),
+                Language.ITALIAN: StemmerWrapper(SnowballStemmer("italian")),
+                Language.PORTUGUESE: StemmerWrapper(SnowballStemmer("portuguese")),
+                Language.DUTCH: StemmerWrapper(SnowballStemmer("dutch")),
+                Language.RUSSIAN: StemmerWrapper(SnowballStemmer("russian")),
             }
 
-            # Initialize lemmatizers
+            # Initialize lemmatizers with wrappers
             self._lemmatizers = {
-                Language.ENGLISH: WordNetLemmatizer(),
+                Language.ENGLISH: LemmatizerWrapper(WordNetLemmatizer()),
             }
 
             # Load stopwords for supported languages
@@ -270,19 +308,3 @@ class LanguageProcessor:
                 "stopwords_removed": str(self.config.remove_stopwords),
             },
         )
-
-    @trace("get_supported_languages")
-    def get_supported_languages(self) -> dict[str, dict[str, bool]]:
-        """Get information about supported languages and features.
-
-        Returns:
-            Dictionary mapping language codes to feature support
-        """
-        return {
-            lang.value: {
-                "stemming": lang in self._stemmers,
-                "lemmatization": lang in self._lemmatizers,
-                "stopwords": lang in self._stopwords,
-            }
-            for lang in Language
-        }

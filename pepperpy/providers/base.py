@@ -22,6 +22,14 @@ from pepperpy.providers.domain import (
 
 T = TypeVar("T", covariant=True)
 
+# Valid provider types
+VALID_PROVIDER_TYPES = frozenset({
+    "openai",
+    "anthropic",
+    "openrouter",
+    "local",
+    "stackspot",
+})
 
 class LogContext(TypedDict, total=False):
     """Type definition for logging context information."""

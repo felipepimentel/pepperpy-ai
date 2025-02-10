@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Generic, TypeVar
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 T = TypeVar("T")  # Template type
 C = TypeVar("C")  # Context type
@@ -60,8 +60,9 @@ class TemplateMetadata(BaseModel):
             UUID: str,
         }
 
-    @validator("metadata")
-    def validate_metadata(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("metadata")
+    def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Validate metadata dictionary."""
         return dict(v)
 
@@ -92,8 +93,9 @@ class TemplateContext(BaseModel, Generic[C]):
             UUID: str,
         }
 
-    @validator("metadata")
-    def validate_metadata(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("metadata")
+    def validate_metadata(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Validate metadata dictionary."""
         return dict(v)
 

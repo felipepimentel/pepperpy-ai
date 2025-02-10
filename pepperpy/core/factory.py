@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import Any, Generic, TypeVar, cast
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 from pepperpy.core.errors import FactoryError, NotFoundError, ValidationError
 
@@ -46,8 +46,9 @@ class FactoryMetadata(BaseModel):
     version: str = Field(default="0.1.0", pattern=r"^\d+\.\d+\.\d+$")
     metrics: dict[str, Any] = Field(default_factory=dict)
 
-    @validator("metrics")
-    def validate_metrics(self, v: dict[str, Any]) -> dict[str, Any]:
+    @classmethod
+    @field_validator("metrics")
+    def validate_metrics(cls, v: dict[str, Any]) -> dict[str, Any]:
         """Ensure metrics dictionary is immutable."""
         return dict(v)
 

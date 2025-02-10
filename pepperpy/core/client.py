@@ -4,6 +4,7 @@ This module provides the main client interface for interacting with
 language models through various providers and managing agent lifecycles.
 """
 
+import logging
 import time
 from collections.abc import AsyncGenerator, Callable, Mapping
 from types import TracebackType
@@ -15,7 +16,6 @@ from typing import (
 )
 from uuid import UUID, uuid4
 
-from loguru import logger
 from pydantic import BaseModel, Field
 from pydantic.types import SecretStr
 
@@ -37,6 +37,9 @@ from pepperpy.providers.domain import (
     ProviderNotFoundError as NotFoundError,
 )
 from pepperpy.providers.manager import ProviderManager
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # Type variables for generic implementations
 T_Input = TypeVar("T_Input")  # Input data type
@@ -79,9 +82,9 @@ class ClientConfig(BaseModel):
     max_retries: int = Field(default=3, ge=0)
     retry_delay: float = Field(default=1.0, ge=0)
     provider_type: str = Field(default="openrouter")
-    provider_config: dict[str, Any] = Field(default_factory=dict)
-    memory_config: dict[str, Any] = Field(default_factory=dict)
-    prompt_config: dict[str, Any] = Field(default_factory=dict)
+    provider_config: dict[str, Any] = Field(default_factory=lambda: {})
+    memory_config: dict[str, Any] = Field(default_factory=lambda: {})
+    prompt_config: dict[str, Any] = Field(default_factory=lambda: {})
 
 
 class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
@@ -225,15 +228,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             except Exception as hook_error:
                 # Get error type name safely
                 error_type = hook_error.__class__.__name__
-                logger.error(
-                    "Lifecycle hook failed",
-                    extra={
-                        "event": event,
-                        "error_type": error_type,
-                        "error_message": str(hook_error),
-                        **(error_context or {}),
-                    },
-                )
+                error_msg = f"Lifecycle hook failed - Event: {event}, Error Type: {error_type}, Message: {hook_error!s}"
+                if error_context:
+                    error_msg += f", Context: {error_context}"
+                logger.error(error_msg)
 
     async def initialize(self) -> None:
         """Initialize the client.
@@ -266,10 +264,8 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             logger.info("Initialized client")
 
         except Exception as e:
-            logger.error(
-                "Failed to initialize client",
-                error=str(e),
-            )
+            error_msg = f"Failed to initialize client: {e!s}"
+            logger.error(error_msg)
             raise RuntimeError("Failed to initialize client") from e
 
     async def cleanup(self) -> None:
@@ -297,13 +293,8 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
                 try:
                     await agent.cleanup()
                 except Exception as agent_error:
-                    logger.error(
-                        "Agent cleanup failed",
-                        extra={
-                            "agent_id": str(agent.id),
-                            "error": str(agent_error),
-                        },
-                    )
+                    error_msg = f"Agent cleanup failed - Agent ID: {agent.id}, Error: {agent_error!s}"
+                    logger.error(error_msg)
 
             self._agents.clear()
             self._initialized = False

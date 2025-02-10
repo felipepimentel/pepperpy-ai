@@ -4,14 +4,13 @@ This module provides integration with OpenAI's API, supporting both chat complet
 and streaming capabilities.
 """
 
+import logging
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from typing import Any, Literal, Mapping, TypeAlias, TypeVar, cast
 from uuid import UUID, uuid4
 
-from loguru import logger
-from openai import AsyncOpenAI, AsyncStream
+from openai import APIError, AsyncOpenAI, AsyncStream, OpenAIError
 from openai._types import NotGiven, Omit
-from openai.errors import APIError, OpenAIError  # type: ignore
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -26,6 +25,7 @@ from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from pydantic import ConfigDict, Field, SecretStr
 
 from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
+from pepperpy.monitoring import logger
 from pepperpy.providers.base import (
     BaseProvider,
     GenerateKwargs,
@@ -38,6 +38,9 @@ from pepperpy.providers.domain import (
     ProviderError,
     ProviderInitError,
 )
+
+# Configure logger
+logger = logger.bind()
 
 # Type variable for OpenAI response types
 ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
@@ -108,12 +111,18 @@ class OpenAIProvider(BaseProvider):
             ProviderAPIError: If API connection fails
         """
         try:
+            base_url = (
+                "https://openrouter.ai/api/v1"
+                if self._config.provider_type == "openrouter"
+                else None
+            )
             self._client = AsyncOpenAI(
                 api_key=self._config.api_key.get_secret_value(),
                 timeout=self._config.timeout,
                 max_retries=self._config.max_retries,
+                base_url=base_url,
             )
-            logger.info("Initialized OpenAI provider", model=self._config.model)
+            logger.info(f"Initialized OpenAI provider - Model: {self._config.model}")
         except OpenAIError as api_error:  # type: ignore
             msg = str(api_error)  # type: ignore
             raise ProviderAPIError(msg) from api_error
@@ -123,9 +132,7 @@ class OpenAIProvider(BaseProvider):
         except Exception as exc:
             msg = str(exc)
             raise ProviderInitError(
-                message=msg,
-                provider_type="openai",
-                details={"error": str(exc)}
+                message=msg, provider_type="openai", details={"error": str(exc)}
             ) from exc
 
     async def cleanup(self) -> None:
@@ -136,11 +143,11 @@ class OpenAIProvider(BaseProvider):
                 self._client = None
                 logger.info("Cleaned up OpenAI provider")
             except Exception as exc:  # type: ignore
-                logger.error("Error during cleanup", error=str(exc))
+                logger.error(f"Error during cleanup: {exc!r}")
                 raise ProviderError(
                     message=f"Cleanup failed: {exc}",
                     provider_type="openai",
-                    details={"error": str(exc)}
+                    details={"error": str(exc)},
                 ) from exc
 
     def _convert_messages(
@@ -191,8 +198,7 @@ class OpenAIProvider(BaseProvider):
         try:
             if not self._client:
                 raise ProviderInitError(
-                    message="Provider not initialized",
-                    provider_type="openai"
+                    message="Provider not initialized", provider_type="openai"
                 )
 
             model_params = kwargs.get("model_params", {})
@@ -219,14 +225,34 @@ class OpenAIProvider(BaseProvider):
                 stop=stop,
             )
 
+            # Try to parse response ID as UUID, fallback to new UUID if invalid
+            try:
+                response_id = UUID(response.id)
+            except ValueError:
+                response_id = uuid4()
+                logger.debug(
+                    "Invalid UUID from provider, generated new one",
+                    original_id=response.id,
+                    new_id=str(response_id),
+                )
+
+            # Convert usage data to strings
+            usage_data = {}
+            if response.usage:
+                usage_data = {
+                    k: str(v) if v is not None else ""
+                    for k, v in response.usage.model_dump().items()
+                }
+
             return Response(
-                id=UUID(response.id),
+                id=response_id,
                 message_id=messages[-1].id,
                 content={"text": response.choices[0].message.content},
                 status=ResponseStatus.SUCCESS,
                 metadata={
                     "model": response.model,
-                    "usage": response.usage.model_dump() if response.usage else {},
+                    "usage": usage_data,
+                    "original_id": response.id,  # Store original ID in metadata
                 },
             )
 
@@ -257,8 +283,7 @@ class OpenAIProvider(BaseProvider):
         try:
             if not self._client:
                 raise ProviderInitError(
-                    message="Provider not initialized",
-                    provider_type="openai"
+                    message="Provider not initialized", provider_type="openai"
                 )
 
             model_params = kwargs.get("model_params", {})
@@ -291,14 +316,35 @@ class OpenAIProvider(BaseProvider):
                     continue
                 choice = chunk_choices[0]
                 if choice.delta and choice.delta.content:
+                    # Try to parse chunk ID as UUID, fallback to new UUID if invalid
+                    try:
+                        chunk_id = UUID(chunk.id)
+                    except ValueError:
+                        chunk_id = uuid4()
+                        logger.debug(
+                            "Invalid UUID from provider in stream, generated new one",
+                            original_id=chunk.id,
+                            new_id=str(chunk_id),
+                        )
+
+                    # Convert usage data to strings if present
+                    usage_data = {}
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        usage_data = {
+                            k: str(v) if v is not None else ""
+                            for k, v in chunk.usage.model_dump().items()
+                        }
+
                     yield Response(
-                        id=UUID(chunk.id),
+                        id=chunk_id,
                         message_id=messages[-1].id,
                         content={"text": str(choice.delta.content)},
                         status=ResponseStatus.SUCCESS,
                         metadata={
                             "model": chunk.model,
                             "index": choice.index,
+                            "usage": usage_data,
+                            "original_id": chunk.id,  # Store original ID in metadata
                         },
                     )
 
@@ -357,8 +403,7 @@ class OpenAIProvider(BaseProvider):
         """
         if not self._client:
             raise ProviderInitError(
-                message="Provider not initialized",
-                provider_type="openai"
+                message="Provider not initialized", provider_type="openai"
             )
 
         try:
@@ -435,8 +480,7 @@ class OpenAIProvider(BaseProvider):
         """
         if not self._client:
             raise ProviderInitError(
-                message="Provider not initialized",
-                provider_type="openai"
+                message="Provider not initialized", provider_type="openai"
             )
 
         try:

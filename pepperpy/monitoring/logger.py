@@ -1,23 +1,39 @@
 """Logging configuration for the Pepperpy framework.
 
-This module provides structured logging functionality using loguru,
+This module provides structured logging functionality using Python's standard logging,
 with support for context-aware logging and custom formatting.
 """
 
+import logging
 import sys
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
 
-from loguru import logger
-
 # Configure default logger
-logger.remove()
-logger.add(
-    sys.stderr,
-    format="{time} | {level} | {message} | {extra}",
-    level="INFO",
-)
+logger = logging.getLogger("pepperpy")
+logger.setLevel(logging.INFO)
+
+# Configure handler with custom format
+handler = logging.StreamHandler(sys.stderr)
+formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s | %(context)s")
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+
+# Context filter to add extra context to log records
+class ContextFilter(logging.Filter):
+    def __init__(self):
+        super().__init__()
+        self.context = {}
+
+    def filter(self, record):
+        record.context = str(self.context)
+        return True
+
+
+context_filter = ContextFilter()
+logger.addFilter(context_filter)
 
 
 @contextmanager
@@ -30,12 +46,12 @@ def contextualize(**context: str) -> Generator[None, None, None]:
     Yields:
         None: Context manager that adds context to log messages.
     """
-    token = logger.bind(**context)
+    old_context = context_filter.context.copy()
+    context_filter.context.update(context)
     try:
-        with token.contextualize():
             yield
     finally:
-        pass
+        context_filter.context = old_context
 
 
 class StructuredLogger:
@@ -44,6 +60,7 @@ class StructuredLogger:
     def __init__(self) -> None:
         """Initialize the logger."""
         self._logger = logger
+        self._context = {}
 
     def bind(self, **context: str) -> Any:
         """Bind context to logger.
@@ -54,7 +71,10 @@ class StructuredLogger:
         Returns:
             Logger with bound context.
         """
-        return self._logger.bind(**context)
+        new_logger = StructuredLogger()
+        new_logger._context = self._context.copy()
+        new_logger._context.update(context)
+        return new_logger
 
     def debug(self, message: str, **context: str) -> None:
         """Log debug message.
@@ -63,7 +83,8 @@ class StructuredLogger:
             message: Message to log.
             **context: Additional context.
         """
-        self._logger.debug(message, **context)
+        with contextualize(**{**self._context, **context}):
+            self._logger.debug(message)
 
     def info(self, message: str, **context: str) -> None:
         """Log info message.
@@ -72,7 +93,8 @@ class StructuredLogger:
             message: Message to log.
             **context: Additional context.
         """
-        self._logger.info(message, **context)
+        with contextualize(**{**self._context, **context}):
+            self._logger.info(message)
 
     def warning(self, message: str, **context: str) -> None:
         """Log warning message.
@@ -81,7 +103,8 @@ class StructuredLogger:
             message: Message to log.
             **context: Additional context.
         """
-        self._logger.warning(message, **context)
+        with contextualize(**{**self._context, **context}):
+            self._logger.warning(message)
 
     def error(self, message: str, **context: str) -> None:
         """Log error message.
@@ -90,7 +113,8 @@ class StructuredLogger:
             message: Message to log.
             **context: Additional context.
         """
-        self._logger.error(message, **context)
+        with contextualize(**{**self._context, **context}):
+            self._logger.error(message)
 
     def exception(self, message: str, **context: str) -> None:
         """Log exception message.
@@ -99,12 +123,13 @@ class StructuredLogger:
             message: Message to log.
             **context: Additional context.
         """
-        self._logger.exception(message, **context)
+        with contextualize(**{**self._context, **context}):
+            self._logger.exception(message)
 
 
 # Create default logger instances
 structured_logger = StructuredLogger()
-context_logger = logger.bind()
+context_logger = StructuredLogger().bind()
 
 
 def get_logger(name: str) -> Any:
@@ -116,4 +141,4 @@ def get_logger(name: str) -> Any:
     Returns:
         Logger instance.
     """
-    return logger.bind(name=name)
+    return StructuredLogger().bind(name=name)

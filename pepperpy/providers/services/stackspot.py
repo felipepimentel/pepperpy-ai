@@ -108,13 +108,15 @@ class StackSpotProvider(BaseProvider):
 
         kwargs = kwargs or {}
         model_params = self.config.extra_config.get("model_params", {})
+        excluded_params = ("temperature", "max_tokens", "stream")
+        extra_params = {k: v for k, v in kwargs.items() if k not in excluded_params}
         payload = {
             "model": model_params.get("model", self.config.model),
             "prompt": prompt,
             "temperature": kwargs.get("temperature", 0.7),
             "max_tokens": kwargs.get("max_tokens"),
             "stream": kwargs.get("stream", False),
-            **{k: v for k, v in kwargs.items() if k not in ("temperature", "max_tokens", "stream")},
+            **extra_params,
         }
 
         try:
