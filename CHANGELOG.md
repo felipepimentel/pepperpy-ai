@@ -1,6 +1,51 @@
 # CHANGELOG
 
 
+## v1.5.0 (2025-02-11)
+
+### Chores
+
+- Update dependencies and project configuration
+  ([`e07618a`](https://github.com/felipepimentel/pepperpy-ai/commit/e07618ae70d7761fedea193b8987c68719d29ddc))
+
+* Upgraded Black to version 25.1.0 * Updated Ruff to version 0.9.6 * Upgraded OpenAI, Jinja2,
+  Pydantic, Rich, Click, and other dependencies * Updated Pytest and MyPy to latest versions *
+  Simplified BaseAgent initialization by removing optional context parameter * Refactored agent
+  factory to handle configuration conversion more explicitly
+
+### Features
+
+- Enhance research assistant agent with advanced workflow methods
+  ([`ef1fa26`](https://github.com/felipepimentel/pepperpy-ai/commit/ef1fa269a1bba8120a621e8d7e0939c3146ec2ff))
+
+* Expanded research assistant agent configuration with new methods: - analyze_topic: Comprehensive
+  research topic analysis - find_sources: Academic source discovery - analyze_sources: Multi-source
+  information synthesis * Added type, tags, and more detailed method descriptions * Updated example
+  research assistant script to demonstrate new workflow capabilities * Removed deprecated workflow
+  and prompt configuration files * Simplified project structure by consolidating research-related
+  artifacts
+
+### Refactoring
+
+- Simplify README and update project structure
+  ([`a301dcb`](https://github.com/felipepimentel/pepperpy-ai/commit/a301dcb835aea9791ba3835b6dc90ad313250c6d))
+
+* Completely rewrote README to reflect new Pepperpy framework vision * Simplified project
+  description and key features * Updated example code to demonstrate new high-level agent
+  initialization * Removed deprecated agent, prompt, and workflow configuration files * Consolidated
+  research-related artifacts and examples * Streamlined project structure and removed unnecessary
+  files
+
+- Update project configuration and dependencies
+  ([`5057e35`](https://github.com/felipepimentel/pepperpy-ai/commit/5057e358be00a0f927116fb36da4147d66b9ee18))
+
+* Added asyncpg and redis to project dependencies * Updated poetry.lock with new package versions *
+  Moved project configuration files to `.product/` directory * Simplified project structure and
+  removed deprecated files * Updated README with more concise project description * Consolidated
+  core modules and updated import paths * Enhanced research assistant agent with new workflow
+  methods
+
+
 ## v1.4.0 (2025-02-11)
 
 ### Features
