@@ -19,7 +19,7 @@ Analyze the current test coverage for the project.
 - Identify files or modules with insufficient coverage (<90%).
 - Suggest new test cases for edge scenarios and error conditions.
 - Add missing tests to critical modules (e.g., `pepperpy/core` and `pepperpy/providers`).
-- Update `/docs/status.md` to reflect test improvements.
+- Update `.product/status.md` to reflect test improvements.
 
 Run the following to validate coverage:
 ```bash

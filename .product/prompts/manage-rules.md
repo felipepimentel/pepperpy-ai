@@ -80,7 +80,7 @@ output:
       status: pass
       issues: []
     next_steps:
-      - "Update project_structure.yml"
+      - "Update .product/project_structure.yml"
       - "Create provider base interface"
       - "Add rule to documentation"
 ```

@@ -14,7 +14,7 @@ description: |
   and proper categorization in the project's task management system.
 ---
 
-Please create a new task in the `docs/status.md` file under the **To Do** section.  
+Please create a new task in the `.product/status.md` file under the **To Do** section.  
 Details to include:
 - Unique task ID.
 - Task title.

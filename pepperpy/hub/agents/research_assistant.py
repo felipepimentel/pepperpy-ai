@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from pepperpy.core.client import PepperpyClient
+from pepperpy.core.types import PepperpyClientProtocol
 from pepperpy.monitoring import logger
 
 log = logger.bind(agent="research_assistant")
@@ -32,7 +32,7 @@ class ResearchAssistantAgent:
     to provide comprehensive research outputs.
     """
 
-    def __init__(self, client: PepperpyClient, config: Dict[str, Any]) -> None:
+    def __init__(self, client: PepperpyClientProtocol, config: Dict[str, Any]) -> None:
         """Initialize the research assistant agent.
 
         Args:

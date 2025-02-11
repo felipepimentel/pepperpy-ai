@@ -12,14 +12,22 @@ import os
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable, Dict, List
 
 import yaml
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, Field
 
+from pepperpy.monitoring import logger as log
 from pepperpy.providers.base import ProviderConfig
 
 from .errors import ConfigurationError
+
+# Default configuration paths
+DEFAULT_CONFIG_PATHS = [
+    Path.home() / ".pepperpy/config.yml",
+    Path.cwd() / ".pepperpy/config.yml",
+    Path.cwd() / "pepperpy.yml",
+]
 
 
 class LogLevel(str, Enum):
@@ -32,53 +40,161 @@ class LogLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-class PepperpyConfig(BaseModel):
-    """Central configuration class for Pepperpy.
+# Type aliases for better readability
+ConfigCallback = Callable[["PepperpyConfig"], None]
 
-    This class handles all configuration aspects of the library, including provider settings,
-    logging preferences, and default behaviors. It can be instantiated from environment
-    variables or explicitly via constructor.
+
+class PepperpyConfig(BaseModel):
+    """Configuration for the Pepperpy client.
+
+    Attributes
+    ----------
+        provider_type: Type of provider to use
+        provider_config: Provider-specific configuration
+        memory_config: Memory store configuration
+        prompt_config: Prompt template configuration
+        timeout: Operation timeout in seconds
+        max_retries: Maximum number of retries
+        retry_delay: Delay between retries in seconds
+
     """
 
-    provider: ProviderConfig = Field(description="Configuration for the AI provider")
-    log_level: str = Field(default="INFO", description="Logging level for the library")
-    report_progress: bool = Field(
-        default=True, description="Whether to report progress during operations"
-    )
+    provider_type: str = Field(default="openrouter")
+    provider_config: Dict[str, Any] = Field(default_factory=lambda: {})
+    memory_config: Dict[str, Any] = Field(default_factory=lambda: {"type": "inmemory"})
+    prompt_config: Dict[str, Any] = Field(default_factory=lambda: {"type": "jinja2"})
+    timeout: float = Field(default=30.0, gt=0)
+    max_retries: int = Field(default=3, ge=0)
+    retry_delay: float = Field(default=1.0, ge=0)
+
+    # Lifecycle hooks
+    on_load_hooks: List[ConfigCallback] = Field(default_factory=list)
+    on_save_hooks: List[ConfigCallback] = Field(default_factory=list)
+    on_update_hooks: List[ConfigCallback] = Field(default_factory=list)
 
     @classmethod
-    def from_env(cls, prefix: str = "PEPPERPY_") -> "PepperpyConfig":
-        """Create a configuration instance from environment variables.
+    def auto(cls) -> "PepperpyConfig":
+        """Create a configuration instance automatically.
+
+        This method attempts to load configuration from:
+        1. Environment variables
+        2. Configuration files in standard locations
+        3. Default values
+
+        Returns
+        -------
+            A configured PepperpyConfig instance
+
+        """
+        # Start with environment configuration
+        config = cls._load_from_env()
+
+        # Try to load from config files
+        for path in DEFAULT_CONFIG_PATHS:
+            if path.exists():
+                file_config = cls._load_from_yaml(path)
+                config.update(file_config)
+                break
+
+        # Create instance with merged configuration
+        try:
+            instance = cls(**config)
+            log.info("Created configuration automatically", sources=list(config.keys()))
+            return instance
+        except Exception as e:
+            raise ConfigurationError(
+                f"Failed to create configuration automatically: {e}"
+            ) from e
+
+    @classmethod
+    def _load_from_env(cls) -> Dict[str, Any]:
+        """Load configuration from environment variables.
+
+        Returns
+        -------
+            Dictionary with configuration from environment
+
+        """
+        config = {}
+
+        # Map environment variables to configuration
+        env_mapping = {
+            "PEPPERPY_PROVIDER": "provider_type",
+            "PEPPERPY_API_KEY": ("provider_config", "api_key"),
+            "PEPPERPY_MODEL": ("provider_config", "model"),
+            "PEPPERPY_TIMEOUT": "timeout",
+            "PEPPERPY_MAX_RETRIES": "max_retries",
+            "PEPPERPY_RETRY_DELAY": "retry_delay",
+            "PEPPERPY_CACHE_ENABLED": "cache_enabled",
+            "PEPPERPY_CACHE_STORE": "cache_store",
+        }
+
+        for env_var, config_key in env_mapping.items():
+            value = os.getenv(env_var)
+            if value is not None:
+                if isinstance(config_key, tuple):
+                    # Handle nested configuration
+                    current = config
+                    for key in config_key[:-1]:
+                        current = current.setdefault(key, {})
+                    current[config_key[-1]] = value
+                else:
+                    config[config_key] = value
+
+        return config
+
+    @classmethod
+    def _load_from_yaml(cls, path: Path) -> Dict[str, Any]:
+        """Load configuration from a YAML file.
 
         Args:
         ----
-            prefix: Prefix for environment variables. Defaults to "PEPPERPY_".
+            path: Path to the YAML file
 
         Returns:
         -------
-            PepperpyConfig: Configured instance
-
-        Example:
-        -------
-            ```python
-            config = PepperpyConfig.from_env()
-            ```
+            Dictionary with configuration from YAML
 
         """
-        provider_config = ProviderConfig(
-            provider_type=os.getenv(f"{prefix}PROVIDER", "openrouter"),
-            model=os.getenv(f"{prefix}MODEL", "openai/gpt-4-turbo"),
-            temperature=float(os.getenv(f"{prefix}TEMPERATURE", "0.7")),
-            max_tokens=int(os.getenv(f"{prefix}MAX_TOKENS", "1000")),
-            api_key=SecretStr(os.getenv(f"{prefix}API_KEY", "")),
-        )
+        try:
+            with path.open("r") as f:
+                return yaml.safe_load(f) or {}
+        except Exception as e:
+            log.warning(f"Failed to load config from {path}: {e}")
+            return {}
 
-        return cls(
-            provider=provider_config,
-            log_level=os.getenv(f"{prefix}LOG_LEVEL", "INFO"),
-            report_progress=os.getenv(f"{prefix}REPORT_PROGRESS", "true").lower()
-            == "true",
-        )
+    @property
+    def on_load(self) -> List[ConfigCallback]:
+        """Get the list of load hooks.
+
+        Returns
+        -------
+            List of callback functions to run when configuration is loaded.
+
+        """
+        return self.on_load_hooks
+
+    @property
+    def on_save(self) -> List[ConfigCallback]:
+        """Get the list of save hooks.
+
+        Returns
+        -------
+            List of callback functions to run before configuration is saved.
+
+        """
+        return self.on_save_hooks
+
+    @property
+    def on_update(self) -> List[ConfigCallback]:
+        """Get the list of update hooks.
+
+        Returns
+        -------
+            List of callback functions to run when configuration is updated.
+
+        """
+        return self.on_update_hooks
 
 
 class AutoConfig:

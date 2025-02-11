@@ -74,7 +74,7 @@ plan:
     planning:
       - Review and adjust this plan
       - Create task documentation in .product/tasks/
-      - Update kanban.md with new task
+      - Update .product/kanban.md with new task
     implementation:
       - Create feature branch
       - Follow steps sequence
@@ -85,7 +85,7 @@ plan:
       - Architecture validation
     completion:
       - Merge to main
-      - Update kanban.md status
+      - Update .product/kanban.md status
       - Document outcomes
 ```
 
@@ -167,7 +167,7 @@ output:
       planning:
         - "Review plan with team"
         - "Create task/004-provider-system.md in .product/tasks/"
-        - "Add task to kanban.md in To Do section"
+        - "Add task to .product/kanban.md in To Do section"
       implementation:
         - "Create task/004-provider-system branch"
         - "Follow implementation steps sequence"
@@ -178,7 +178,7 @@ output:
         - "Update architecture diagrams"
       completion:
         - "Merge to main branch"
-        - "Move task to Done in kanban.md"
+        - "Move task to Done in .product/kanban.md"
         - "Document implementation details"
 ```
 
@@ -191,13 +191,13 @@ output:
 4. Validate against project structure
 
 ## 2. Kanban Integration
-1. Add task to kanban.md in To Do section
+1. Add task to .product/kanban.md in To Do section
 2. Include all required metadata
 3. Create detailed task doc in .product/tasks/
 4. Link related documentation
 
 ## 3. Implementation Tracking
-1. Move task to In Progress in kanban.md
+1. Move task to In Progress in .product/kanban.md
 2. Update progress regularly
 3. Track completion of steps
 4. Document challenges/decisions
@@ -205,7 +205,7 @@ output:
 ## 4. Completion Process
 1. Verify all validation criteria
 2. Update documentation
-3. Move to Done in kanban.md
+3. Move to Done in .product/kanban.md
 4. Record final outcome
 
 # Guidelines
@@ -232,7 +232,7 @@ output:
 - Include security considerations
 
 ## Progress Tracking
-- Update kanban.md status
+- Update .product/kanban.md status
 - Document step completion
 - Track time and points
 - Record decisions made
@@ -240,5 +240,5 @@ output:
 # Next Steps
 1. Review and adjust the plan
 2. Create task documentation in .product/tasks/
-3. Update kanban.md with new task
+3. Update .product/kanban.md with new task
 4. Begin implementation following lifecycle steps 

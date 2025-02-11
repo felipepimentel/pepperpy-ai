@@ -18,8 +18,10 @@ from pathlib import Path
 from typing import (
     Any,
     ClassVar,
+    Dict,
     ForwardRef,
     Generic,
+    Optional,
     Protocol,
     TypeVar,
     runtime_checkable,
@@ -31,6 +33,7 @@ import aiofiles.os
 from pydantic import BaseModel, Field, field_validator
 
 from pepperpy.core.enums import MetricType
+from pepperpy.core.exceptions import ValidationError
 from pepperpy.monitoring import logger, metrics
 
 T = TypeVar("T")
@@ -88,11 +91,13 @@ class EventPriority(str, Enum):
 class EventMetrics:
     """Metrics for event processing.
 
-    Attributes:
+    Attributes
+    ----------
         processed_count: Number of events processed
         error_count: Number of processing errors
         avg_processing_time: Average processing time in seconds
         last_event_time: Timestamp of last processed event
+
     """
 
     processed_count: int = 0
@@ -119,10 +124,13 @@ class EventFilter(Protocol):
         """Check if event matches filter criteria.
 
         Args:
+        ----
             event: Event to check
 
         Returns:
+        -------
             True if event matches criteria, False otherwise
+
         """
         ...
 
@@ -130,13 +138,15 @@ class EventFilter(Protocol):
 class Event(BaseModel):
     """Base event model.
 
-    Attributes:
+    Attributes
+    ----------
         id: Unique event identifier
         type: Type of event
         source_id: Identifier of event source
         priority: Event priority level
         timestamp: Event creation time
         data: Event payload data
+
     """
 
     id: UUID = Field(default_factory=uuid4)
@@ -180,10 +190,13 @@ class Event(BaseModel):
         """Create event from JSON string.
 
         Args:
+        ----
             json_str: JSON string representation of event
 
         Returns:
+        -------
             Event instance
+
         """
         return cls.parse_raw(json_str)
 
@@ -191,9 +204,11 @@ class Event(BaseModel):
 class EventBuffer(Generic[T]):
     """Buffer for batching events.
 
-    Attributes:
+    Attributes
+    ----------
         max_size: Maximum number of events to buffer
         flush_interval: Time interval for automatic flush
+
     """
 
     def __init__(
@@ -205,9 +220,11 @@ class EventBuffer(Generic[T]):
         """Initialize the buffer.
 
         Args:
+        ----
             max_size: Maximum number of events to buffer
             flush_interval: Time interval for automatic flush in seconds
             on_flush: Callback function when buffer is flushed
+
         """
         self.max_size = max_size
         self.flush_interval = flush_interval
@@ -236,11 +253,13 @@ class EventBuffer(Generic[T]):
 class EventFilterImpl:
     """Implementation of the EventFilter protocol.
 
-    Attributes:
+    Attributes
+    ----------
         source_ids: Optional list of source IDs to filter by
         event_types: Optional list of event types to filter by
         time_window: Optional time window (start, end) to filter by
         custom_filter: Optional custom filter function
+
     """
 
     def __init__(
@@ -253,10 +272,12 @@ class EventFilterImpl:
         """Initialize event filter.
 
         Args:
+        ----
             source_ids: Optional list of source IDs to filter by
             event_types: Optional list of event types to filter by
             time_window: Optional time window (start, end) to filter by
             custom_filter: Optional custom filter function
+
         """
         self.source_ids = source_ids
         self.event_types = event_types
@@ -267,10 +288,13 @@ class EventFilterImpl:
         """Check if event matches filter criteria.
 
         Args:
+        ----
             event: Event to check
 
         Returns:
+        -------
             True if event matches criteria, False otherwise
+
         """
         if self.source_ids and event.source_id not in self.source_ids:
             return False
@@ -288,15 +312,19 @@ class EventFilterImpl:
 class EventStore:
     """Event storage and retrieval.
 
-    Attributes:
+    Attributes
+    ----------
         storage_path: Path to event storage directory
+
     """
 
     def __init__(self, storage_path: str | None = None):
         """Initialize event store.
 
         Args:
+        ----
             storage_path: Optional path to event storage directory
+
         """
         self._events: list[Event] = []
         if storage_path:
@@ -309,7 +337,9 @@ class EventStore:
         """Store an event.
 
         Args:
+        ----
             event: Event to store
+
         """
         path = self._storage_path / f"{event.id}.json"
         async with aiofiles.open(path, "w") as f:
@@ -319,10 +349,13 @@ class EventStore:
         """Retrieve an event by ID.
 
         Args:
+        ----
             event_id: ID of event to retrieve
 
         Returns:
+        -------
             Event if found, None otherwise
+
         """
         path = self._storage_path / f"{event_id}.json"
         try:
@@ -342,13 +375,16 @@ class EventStore:
         """Get events matching filter criteria.
 
         Args:
+        ----
             source_ids: Optional list of source IDs to filter by
             event_types: Optional list of event types to filter by
             time_window: Optional time window (start, end) to filter by
             custom_filter: Optional custom filter function
 
         Returns:
+        -------
             List of matching events
+
         """
         events = []
         for event in self._events:
@@ -374,7 +410,9 @@ class EventHandler(Protocol):
         """Handle an event.
 
         Args:
+        ----
             event: Event to handle
+
         """
         pass
 
@@ -382,10 +420,12 @@ class EventHandler(Protocol):
 class CompositeEvent(Event):
     """Represents a composite event made up of multiple sub-events.
 
-    Attributes:
+    Attributes
+    ----------
         sub_events: List of sub-events that make up this composite event
         completion_criteria: Function that determines when composite event is complete
         timeout: Optional timeout for composite event completion
+
     """
 
     sub_events: list[Event] = Field(default_factory=list)
@@ -411,9 +451,11 @@ class EventCorrelator:
         """Initialize event correlator.
 
         Args:
+        ----
             patterns: List of event patterns to match
             window_size: Time window for correlation
             min_confidence: Minimum confidence threshold
+
         """
         self.patterns = patterns
         self.window_size = window_size
@@ -425,10 +467,13 @@ class EventCorrelator:
         """Add event and check for pattern matches.
 
         Args:
+        ----
             event: Event to add
 
         Returns:
+        -------
             List of detected composite events
+
         """
         now = datetime.utcnow()
         cutoff = now - self.window_size
@@ -464,42 +509,32 @@ class EventCorrelator:
 class EventBus:
     """Event bus for managing event subscriptions and delivery."""
 
-    def __init__(
-        self,
-        event_store: "EventStore | None" = None,
-        correlator: "EventCorrelator | None" = None,
-    ) -> None:
-        """Initialize event bus.
-
-        Args:
-            event_store: Optional event store for persistence
-            correlator: Optional event correlator for pattern matching
-        """
-        self.event_store = event_store
-        self.correlator = correlator
-        self._handlers: dict[EventType, set[EventHandler]] = {}
-        self._filters: dict[EventHandler, set[EventFilter]] = {}
-        self.queue: asyncio.Queue[Event] = asyncio.Queue()  # Add type annotation
-        self._active = False
-        self._task: asyncio.Task | None = None
+    def __init__(self) -> None:
+        """Initialize event bus."""
+        self.event_store: Optional["EventStore"] = None
+        self.correlator: Optional["EventCorrelator"] = None
+        self._handlers: Dict[EventType, set[EventHandler]] = {}
+        self._filters: Dict[EventHandler, set[EventFilter]] = {}
+        self._queue: asyncio.Queue[Event] = asyncio.Queue()
+        self._running: bool = False
+        self._task: Optional[asyncio.Task] = None
         self._metrics = EventMetrics()
-        self._setup_monitoring()
 
-    def _setup_monitoring(self) -> None:
+    async def _setup_monitoring(self) -> None:
         """Setup monitoring for the event bus."""
-        metrics.record_metric(
+        await metrics.record_metric(
             name="event_bus_queue_size",
             value=0,
             metric_type=MetricType.GAUGE,
             labels={"bus_id": str(id(self))},
         )
-        metrics.record_metric(
+        await metrics.record_metric(
             name="event_bus_processed_count",
             value=0,
             metric_type=MetricType.COUNTER,
             labels={"bus_id": str(id(self))},
         )
-        metrics.record_metric(
+        await metrics.record_metric(
             name="event_bus_error_count",
             value=0,
             metric_type=MetricType.COUNTER,
@@ -509,7 +544,7 @@ class EventBus:
     @property
     def is_active(self) -> bool:
         """Whether the event bus is active."""
-        return self._active
+        return self._running
 
     @property
     def metrics(self) -> EventMetrics:
@@ -518,24 +553,24 @@ class EventBus:
 
     async def start(self) -> None:
         """Start the event bus."""
-        if self._active:
+        if self._running:
             raise ValidationError("Event bus already started")
-        self._active = True
-        self._setup_monitoring()
+        self._running = True
+        await self._setup_monitoring()
         logger.info("Event bus started", extra={})
 
     async def stop(self) -> None:
         """Stop the event bus."""
-        if not self._active:
+        if not self._running:
             raise ValidationError("Event bus not started")
-        self._active = False
+        self._running = False
         logger.info("Event bus stopped", extra={})
 
     async def _process_events(self) -> None:
         """Process events from the queue."""
-        while self._active:
+        while self._running:
             try:
-                event = await self.queue.get()
+                event = await self._queue.get()
                 start_time = time.time()
                 success = True
 
@@ -557,7 +592,7 @@ class EventBus:
                     success=success,
                 )
 
-                self.queue.task_done()
+                self._queue.task_done()
 
             except asyncio.CancelledError:
                 break
@@ -571,7 +606,9 @@ class EventBus:
         """Dispatch event to handlers.
 
         Args:
+        ----
             event: Event to dispatch
+
         """
         # Store event if we have a store
         if self.event_store:
@@ -629,9 +666,11 @@ class EventBus:
         """Subscribe to events.
 
         Args:
+        ----
             handler: Event handler
             event_type: Optional specific event type to subscribe to
             filters: Optional event filters
+
         """
         if event_type:
             if event_type not in self._handlers:
@@ -657,8 +696,10 @@ class EventBus:
         """Unsubscribe from events.
 
         Args:
+        ----
             handler: Event handler to unsubscribe
             event_type: Optional specific event type to unsubscribe from
+
         """
         if event_type:
             if event_type in self._handlers:
@@ -690,10 +731,12 @@ class EventBus:
         """Publish an event.
 
         Args:
+        ----
             event: Event to publish
             correlation_id: Optional correlation ID
             parent_id: Optional parent event ID
             priority: Optional priority override
+
         """
         # Update event metadata
         event_data = event.dict()
@@ -708,19 +751,23 @@ class EventBus:
         new_event = Event(**event_data)
 
         # Add to queue
-        await self.queue.put(new_event)
+        await self._queue.put(new_event)
 
     async def get_correlated_events(self, correlation_id: str) -> list[Event]:
         """Get events with matching correlation ID.
 
         Args:
+        ----
             correlation_id: Correlation ID to match
 
         Returns:
+        -------
             List of events with matching correlation ID
 
         Raises:
+        ------
             ValueError: If correlation_id is empty
+
         """
         if not correlation_id.strip():
             raise ValueError("correlation_id cannot be empty")
@@ -732,11 +779,117 @@ class EventBus:
         return events
 
 
-# Global event bus instance with correlator
-event_bus = EventBus(
-    correlator=EventCorrelator(
-        patterns=[
-            # Add default patterns here
-        ]
+async def create_event_bus(
+    event_store: Optional["EventStore"] = None,
+    correlator: Optional["EventCorrelator"] = None,
+    event_handlers: Optional[Dict[EventType, set[EventHandler]]] = None,
+    max_queue_size: int = 1000,
+) -> EventBus:
+    """Create and initialize a new event bus instance.
+
+    Args:
+    ----
+        event_store: Optional event store for persistence
+        correlator: Optional event correlator for pattern matching
+        event_handlers: A dictionary mapping event types to a list of event handlers
+        max_queue_size: The maximum size of the event queue
+
+    Returns:
+    -------
+        EventBus: A new initialized event bus instance
+
+    """
+    bus = EventBus()
+    bus.event_store = event_store
+    bus.correlator = correlator
+    bus._handlers = event_handlers or {}
+    bus._queue = asyncio.Queue(maxsize=max_queue_size)
+    bus._running = False
+    bus._task = None
+    await bus._setup_monitoring()
+    return bus
+
+
+# Initialize the default event bus
+event_bus = asyncio.run(
+    create_event_bus(
+        correlator=EventCorrelator(
+            patterns=[
+                # Add default patterns here
+            ]
+        )
     )
 )
+
+
+class EventEmitter:
+    """Event emitter for tracking and emitting events."""
+
+    def __init__(self) -> None:
+        """Initialize the event emitter."""
+        self._event_count = 0
+        self._error_count = 0
+        self._warning_count = 0
+
+    async def emit(
+        self, event_type: str, data: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Emit an event.
+
+        Args:
+        ----
+            event_type: Type of event
+            data: Optional event data
+
+        """
+        self._event_count += 1
+        await metrics.record_metric(
+            "events_total",
+            self._event_count,
+            MetricType.COUNTER,
+            {"type": event_type},
+        )
+
+    async def emit_error(
+        self, error_type: str, error: Exception, data: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Emit an error event.
+
+        Args:
+        ----
+            error_type: Type of error
+            error: The error that occurred
+            data: Optional error data
+
+        """
+        self._error_count += 1
+        await metrics.record_metric(
+            "errors_total",
+            self._error_count,
+            MetricType.COUNTER,
+            {"type": error_type},
+        )
+
+    async def emit_warning(
+        self, warning_type: str, message: str, data: Optional[Dict[str, Any]] = None
+    ) -> None:
+        """Emit a warning event.
+
+        Args:
+        ----
+            warning_type: Type of warning
+            message: Warning message
+            data: Optional warning data
+
+        """
+        self._warning_count += 1
+        await metrics.record_metric(
+            "warnings_total",
+            self._warning_count,
+            MetricType.COUNTER,
+            {"type": warning_type},
+        )
+
+
+# Global event emitter instance
+event_emitter = EventEmitter()

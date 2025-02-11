@@ -364,7 +364,7 @@ output:
 - **MUST** check ALL validation criteria
 - **MUST** verify ALL documentation is updated
 - **MUST** confirm task file reflects completion
-- **MUST** update kanban.md with completion status
+- **MUST** update .product/kanban.md with completion status
 
 ## 2. Completion Markers
 ```yaml
@@ -473,7 +473,7 @@ execution:
 - Verify EVERY validation criteria
 - Confirm ALL documentation updated
 - Ensure task file reflects completion
-- Update kanban.md status
+- Update .product/kanban.md status
 
 ## 2. Scope Control
 - Stop execution if task complete

@@ -57,7 +57,7 @@ Location: `scripts/`
 ## Evolution Guidelines
 1. Start with minimal structure required by current sprint
 2. Add directories only when implementing related tasks
-3. Keep `project_structure.yml` as source of truth
+3. Keep `.product/project_structure.yml` as source of truth
 4. Update architecture diagrams with structural changes
 
 ## Integration with Task Workflow
@@ -81,5 +81,5 @@ Location: `scripts/`
 ## Structure Evolution Tracking
 Keep track of structural changes in:
 1. `CHANGELOG.md`
-2. `architecture.mermaid`
-3. `project_structure.yml` 
+2. `.product/architecture.mermaid`
+3. `.product/project_structure.yml` 

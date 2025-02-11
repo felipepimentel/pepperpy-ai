@@ -19,4 +19,4 @@ Periodically review the codebase for:
 - Dead or unused code.
 - Performance optimizations.
 - Opportunities for modularization or refactoring.
-Log findings and recommendations in `docs/status.md`. 
+Log findings and recommendations in `.product/status.md`. 

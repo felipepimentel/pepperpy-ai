@@ -15,7 +15,7 @@ description: |
   direction for new tasks.
 ---
 
-Select and initiate a new task from `/docs/status.md`:
+Select and initiate a new task from `.product/status.md`:
 
 1. Task Selection:
    - Review **To Do** section

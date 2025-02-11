@@ -22,6 +22,6 @@ ruff .
 black --check .
 ```
 - Suggest corrections for any non-compliance.
-- Log significant findings in `/docs/status.md`.
+- Log significant findings in `.product/status.md`.
 
 If major style inconsistencies are detected, propose automation scripts or Git hooks for enforcement. 

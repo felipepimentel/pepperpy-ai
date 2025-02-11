@@ -4,6 +4,7 @@ This module provides prompt template functionality for generating prompts
 for language models with dynamic content.
 """
 
+from .jinja import Jinja2Template
 from .template import (
     BaseTemplate,
     PromptTemplate,
@@ -16,4 +17,5 @@ __all__ = [
     "PromptTemplate",
     "create_prompt_template",
     "register_template",
+    "Jinja2Template",
 ]

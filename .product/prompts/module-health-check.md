@@ -35,4 +35,4 @@ Perform a health check on project modules:
    - Improvement recommendations
    - Priority of fixes
 
-4. Update `/docs/status.md` with findings and create tasks for critical issues. 
+4. Update `.product/status.md` with findings and create tasks for critical issues. 

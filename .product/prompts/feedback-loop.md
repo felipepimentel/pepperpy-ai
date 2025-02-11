@@ -15,7 +15,7 @@ description: |
   for project improvement.
 ---
 
-Review recently completed tasks in `/docs/status.md`:
+Review recently completed tasks in `.product/status.md`:
 
 1. Task Review:
    - List recently completed tasks

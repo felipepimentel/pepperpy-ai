@@ -1,75 +1,55 @@
-"""Pepperpy client for interacting with language models.
+"""Core client implementation for the Pepperpy framework.
 
-This module provides the main client interface for interacting with
-language models through various providers and managing agent lifecycles.
+This module provides the main client interface for interacting with the framework,
+including configuration management, agent creation, and workflow execution.
 """
 
 import logging
 import time
-from collections.abc import AsyncGenerator, Callable, Mapping
-from types import TracebackType
-from typing import (
-    Any,
-    Dict,
-    Generic,
-    Optional,
-    TypeVar,
-    cast,
-)
-from uuid import UUID, uuid4
+from collections.abc import AsyncGenerator
+from typing import Any, Callable, Dict, Optional, Set, cast
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 from pydantic.types import SecretStr
 
-from pepperpy.core.base import AgentContext, AgentState, BaseAgent
+from pepperpy.agents.factory import AgentFactory
+from pepperpy.core.base import BaseAgent
 from pepperpy.core.config import PepperpyConfig
 from pepperpy.core.errors import ConfigurationError, StateError
-from pepperpy.core.memory.store import MemoryStore, create_memory_store
+from pepperpy.core.factory import Factory
+from pepperpy.core.memory.store import BaseMemoryStore, create_memory_store
+from pepperpy.core.messages import Response
 from pepperpy.core.prompt.template import PromptTemplate, create_prompt_template
-from pepperpy.core.types import Response
+from pepperpy.core.types import (
+    PepperpyClientProtocol,
+)
 from pepperpy.hub.registry import AgentRegistry
-from pepperpy.monitoring import logger
+from pepperpy.monitoring import logger as log
 from pepperpy.providers.base import (
     BaseProvider,
     ExtraConfig,
     ProviderConfig,
     ProviderConfigValue,
+    Response,
 )
-from pepperpy.providers.domain import (
-    ProviderError,
-)
-from pepperpy.providers.domain import (
-    ProviderNotFoundError as NotFoundError,
-)
+from pepperpy.providers.domain import ProviderError
+from pepperpy.providers.domain import ProviderNotFoundError as NotFoundError
+from pepperpy.providers.factory import create_provider_factory
 from pepperpy.providers.manager import ProviderManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
-
-# Type variables for generic implementations
-T_Input = TypeVar("T_Input")  # Input data type
-T_Output = TypeVar("T_Output")  # Output data type
-T_Config = TypeVar("T_Config", bound=Mapping[str, Any])  # Configuration type
-T_Context = TypeVar("T_Context")  # Context type
 
 # Error type aliases for better readability
 ProviderErrorType = type[ProviderError]
 ExceptionType = type[BaseException]
 
 # Valid hook event types
-VALID_HOOK_EVENTS = frozenset(
-    {
-        "initialize",
-        "cleanup",
-        "agent_created",
-        "agent_removed",
-    }
-)
+VALID_HOOK_EVENTS = ["before_request", "after_request", "on_error"]
 
-# Hook type alias for better readability
-HookCallbackType = Callable[
-    ["PepperpyClient[T_Input, T_Output, T_Config, T_Context]"], None
-]
+# Type alias for lifecycle hooks
+HookCallback = Callable[["PepperpyClient"], None]
 
 
 class ClientConfig(BaseModel):
@@ -96,133 +76,140 @@ class ClientConfig(BaseModel):
     prompt_config: dict[str, Any] = Field(default_factory=lambda: {})
 
 
-class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
-    """Main client for interacting with the Pepperpy system.
+class PepperpyClient(PepperpyClientProtocol):
+    """Main client interface for the Pepperpy framework.
 
-    This class provides the primary interface for:
-    - Managing agent lifecycles
-    - Interacting with language models
-    - Handling configuration and resources
+    This class provides a high-level interface for:
+    - Creating and managing agents
+    - Executing workflows
+    - Managing configuration
+    - Handling lifecycle events
     """
 
-    def __init__(self, config: Optional[PepperpyConfig] = None) -> None:
-        """Initialize the Pepperpy client.
+    def __init__(
+        self,
+        config: Optional[PepperpyConfig] = None,
+        cache_enabled: bool = True,
+        cache_store: str = "memory",
+    ) -> None:
+        """Initialize the client.
 
         Args:
         ----
-            config: Optional configuration instance. If not provided, will load from
-                environment variables.
+            config: Optional configuration instance
+            cache_enabled: Whether to enable caching
+            cache_store: Type of cache store to use
 
         """
-        self.config = config or PepperpyConfig.from_env()
-        self._provider = None
-        self._agents: Dict[UUID, Any] = {}
-        self._agent_factory: (
-            Callable[
-                [str, AgentContext, T_Config],
-                BaseAgent[T_Input, T_Output, T_Config, T_Context],
-            ]
-            | None
-        ) = None
-        self._manager: ProviderManager | None = None
+        self.config = config or PepperpyConfig.auto()
         self._initialized = False
-        self._created_at = time.time()
-        self._updated_at = self._created_at
-        self._lifecycle_hooks: dict[
-            str,
-            set[
-                Callable[[PepperpyClient[T_Input, T_Output, T_Config, T_Context]], None]
-            ],
-        ] = {event: set() for event in VALID_HOOK_EVENTS}
-        self._memory: MemoryStore | None = None
-        self._prompt: PromptTemplate | None = None
+        self._lifecycle_hooks: Dict[str, Set[HookCallback]] = {
+            "before_request": set(),
+            "after_request": set(),
+            "on_error": set(),
+        }
+        self._agent_factory: Optional[Factory] = None
+        self._cache_enabled = cache_enabled
+        self._cache_store = cache_store
+        self._provider: Optional[BaseProvider] = None
+        self._agents: Dict[UUID, BaseAgent] = {}
+        self._memory: Optional[BaseMemoryStore] = None
+        self._prompt: Optional[PromptTemplate] = None
+        self._manager: Optional[ProviderManager] = None
+        self._updated_at = time.time()
 
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the client is initialized."""
-        return self._initialized
+    @classmethod
+    async def auto(cls) -> "PepperpyClient":
+        """Create and initialize a client automatically.
 
-    @property
-    def config(self) -> ClientConfig:
-        """Get current client configuration.
+        This method creates a client with automatic configuration and
+        initializes it for immediate use.
 
-        Raises
-        ------
-            StateError: If client is not initialized
-
-        """
-        if not self._config:
-            raise StateError("Client not initialized")
-        return self._config
-
-    async def __aenter__(
-        self,
-    ) -> "PepperpyClient[T_Input, T_Output, T_Config, T_Context]":
-        """Initialize the client for use in async context.
-
-        Returns
+        Returns:
         -------
-            Initialized client instance
+            An initialized PepperpyClient instance
 
-        Raises
-        ------
-            ConfigurationError: If initialization fails
+        Example:
+        -------
+            ```python
+            async with PepperpyClient.auto() as client:
+                agent = await client.get_agent("research_assistant")
+                result = await agent.process(...)
+            ```
 
         """
-        await self.initialize()
-        return self
+        client = cls()
+        await client.initialize()
+        return client
 
-    async def __aexit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Clean up resources when exiting async context.
+    async def initialize(self, config: Optional[PepperpyConfig] = None) -> None:
+        """Initialize the client.
 
         Args:
         ----
-            exc_type: The type of the exception that was raised
-            exc_val: The instance of the exception that was raised
-            exc_tb: The traceback of the exception that was raised
-
-        """
-        await self.cleanup()
-
-    def add_lifecycle_hook(
-        self,
-        event: str,
-        callback: Callable[
-            ["PepperpyClient[T_Input, T_Output, T_Config, T_Context]"], None
-        ],
-    ) -> None:
-        """Add event hook.
-
-        Args:
-        ----
-            event: Event to hook. Valid events:
-                - "initialize"
-                - "cleanup"
-                - "agent_created"
-                - "agent_removed"
-            callback: Function to call on event
+            config: Optional client configuration
 
         Raises:
         ------
-            ValueError: If event is invalid
+            ConfigurationError: If configuration is invalid
 
         """
-        if event not in VALID_HOOK_EVENTS:
+        if self._initialized:
+            return
+
+        try:
+            # Set configuration
+            self._config = config or PepperpyConfig()
+
+            # Initialize components
+            self._agent_factory = AgentFactory(self)
+            self._provider_factory = await create_provider_factory(self._config.dict())
+            self._memory = await create_memory_store(self._config.dict())
+            self._prompt = await create_prompt_template(self._config.dict())
+
+            # Register built-in agent types
+            from pepperpy.agents.research import ResearchAgent
+
+            self._agent_factory.register_agent_type("research_assistant", ResearchAgent)
+
+            # Mark as initialized
+            self._initialized = True
+            self._updated_at = time.time()
+
+            log.info("Client initialized successfully")
+
+        except Exception as e:
+            log.error("Failed to initialize client", error=str(e))
+            raise ConfigurationError(f"Failed to initialize client: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up client resources."""
+        if not self._initialized:
+            return
+
+        try:
+            # Clean up components
+            await self._cleanup_components()
+            self._initialized = False
+            log.info("Client cleaned up successfully")
+        except Exception as e:
+            log.error("Failed to clean up client", error=str(e))
+            raise
+
+    def add_lifecycle_hook(self, event: str, callback: HookCallback) -> None:
+        """Add a lifecycle hook.
+
+        Args:
+        ----
+            event: Event to hook
+            callback: Function to call on event
+
+        """
+        if event not in self._lifecycle_hooks:
             raise ValueError(f"Invalid event: {event}")
         self._lifecycle_hooks[event].add(callback)
 
-    def remove_lifecycle_hook(
-        self,
-        event: str,
-        callback: Callable[
-            ["PepperpyClient[T_Input, T_Output, T_Config, T_Context]"], None
-        ],
-    ) -> None:
+    def remove_lifecycle_hook(self, event: str, callback: HookCallback) -> None:
         """Remove a lifecycle hook.
 
         Args:
@@ -230,123 +217,178 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             event: Event to unhook
             callback: Function to remove
 
-        Raises:
-        ------
-            ValueError: If event is invalid
-
         """
-        if event not in VALID_HOOK_EVENTS:
+        if event not in self._lifecycle_hooks:
             raise ValueError(f"Invalid event: {event}")
         self._lifecycle_hooks[event].discard(callback)
 
-    async def _trigger_hooks(
+    async def get_agent(
         self,
-        event: str,
-        error_context: dict[str, Any] | None = None,
-    ) -> None:
-        """Trigger lifecycle hooks for an event.
+        agent_type: str,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> BaseAgent:
+        """Get an agent instance.
+
+        This is a high-level method that creates and initializes an agent
+        in a single call.
 
         Args:
         ----
-            event: Event that triggered the hooks
-            error_context: Optional context for error logging
+            agent_type: Type of agent to create
+            config: Optional agent configuration
+
+        Returns:
+        -------
+            An initialized agent instance
+
+        Example:
+        -------
+            ```python
+            agent = await client.get_agent("research_assistant")
+            result = await agent.process(...)
+            ```
 
         """
-        for hook in self._lifecycle_hooks[event]:
-            try:
-                hook(self)
-            except Exception as hook_error:
-                # Get error type name safely
-                error_type = hook_error.__class__.__name__
-                error_msg = f"Lifecycle hook failed - Event: {event}, Error Type: {error_type}, Message: {hook_error!s}"
-                if error_context:
-                    error_msg += f", Context: {error_context}"
-                logger.error(error_msg)
+        if not self._agent_factory:
+            raise ConfigurationError("Agent factory not set")
 
-    async def initialize(self) -> None:
-        """Initialize the client.
+        agent_config = {
+            "type": agent_type,
+            **(config or {}),
+        }
 
-        This method must be called before using the client.
-        It initializes the provider and sets up the manager.
+        agent = await self._agent_factory.create(agent_config)
+        await agent.initialize(agent_config)
+        return agent
 
-        Raises
-        ------
-            RuntimeError: If initialization fails
-            ValueError: If provider is not set
+    async def run(
+        self,
+        agent_type: str,
+        action: str,
+        **kwargs: Any,
+    ) -> Any:
+        """Run an agent action directly.
+
+        This is a high-level method that handles agent creation, initialization,
+        action execution, and cleanup in a single call.
+
+        Args:
+        ----
+            agent_type: Type of agent to use
+            action: Action to execute
+            **kwargs: Arguments for the action
+
+        Returns:
+        -------
+            Result of the action
+
+        Example:
+        -------
+            ```python
+            result = await client.run(
+                "research_assistant",
+                "analyze_topic",
+                topic="AI in Healthcare"
+            )
+            ```
 
         """
+        agent = await self.get_agent(agent_type)
         try:
-            # Create and initialize manager with provider
-            if self._provider is None:
-                raise ValueError("Provider not initialized")
-            self._manager = ProviderManager(primary_provider=self._provider)
-            await self._manager.initialize()
+            if not hasattr(agent, action):
+                raise ValueError(f"Action not found: {action}")
+            method = getattr(agent, action)
+            return await method(**kwargs)
+        finally:
+            await agent.cleanup()
 
-            # Initialize memory store if configured
-            if self.config.memory_config:
-                self._memory = await create_memory_store(self.config.memory_config)
-                await self._memory.initialize()
+    async def run_workflow(
+        self,
+        workflow_name: str,
+        **kwargs: Any,
+    ) -> Any:
+        """Run a predefined workflow.
 
-            # Initialize prompt template if configured
-            if self.config.prompt_config:
-                self._prompt = await create_prompt_template(self.config.prompt_config)
-                await self._prompt.initialize()
+        This method executes a workflow defined in the .pepper_hub directory.
 
-            self._initialized = True
-            logger.info("Initialized client")
+        Args:
+        ----
+            workflow_name: Name of the workflow to run
+            **kwargs: Arguments for the workflow
 
-        except Exception as e:
-            error_msg = f"Failed to initialize client: {e!s}"
-            logger.error(error_msg)
-            raise RuntimeError("Failed to initialize client") from e
+        Returns:
+        -------
+            Result of the workflow
 
-    async def cleanup(self) -> None:
-        """Clean up client resources.
-
-        This method ensures proper cleanup of:
-        1. Provider manager
-        2. All active agents
-        3. Any open connections
-
-        Raises
-        ------
-            RuntimeError: If cleanup fails
-
-        """
-        try:
-            # Trigger hooks
-            await self._trigger_hooks("cleanup")
-
-            # Cleanup provider
-            if self._manager:
-                await self._manager.cleanup()
-                self._manager = None
-
-            # Cleanup agents
-            for agent in list(self._agents.values()):
-                try:
-                    await agent.cleanup()
-                except Exception as agent_error:
-                    error_msg = f"Agent cleanup failed - Agent ID: {agent.id}, Error: {agent_error!s}"
-                    logger.error(error_msg)
-
-            self._agents.clear()
-            self._initialized = False
-            self._updated_at = time.time()
-
-        except Exception as e:
-            raise RuntimeError(f"Failed to cleanup client: {e!s}") from e
-
-    def _ensure_initialized(self) -> None:
-        """Ensure the client is initialized.
-
-        Raises
-        ------
-            StateError: If client is not initialized
+        Example:
+        -------
+            ```python
+            result = await client.run_workflow(
+                "research_simple",
+                topic="AI in Healthcare",
+                max_sources=5
+            )
+            ```
 
         """
+        # TODO: Implement workflow execution
+        raise NotImplementedError("Workflow execution not implemented yet")
+
+    def set_agent_factory(self, factory: Factory) -> None:
+        """Set the agent factory.
+
+        Args:
+        ----
+            factory: Factory instance for creating agents
+
+        """
+        self._agent_factory = factory
+
+    async def _initialize_components(self) -> None:
+        """Initialize client components."""
+        self._manager = ProviderManager()
+        self._provider = await self._manager.get_provider(
+            self.config.provider_type,
+            self.config.provider_config,
+        )
+        self._memory = await create_memory_store(self.config.memory_config)
+        self._prompt = await create_prompt_template(self.config.prompt_config)
+
+        await self._provider.initialize()
+
+    async def _cleanup_components(self) -> None:
+        """Clean up client components."""
+        for hook in self._lifecycle_hooks.get("cleanup", set()):
+            hook(self)
+
+        for agent in self._agents.values():
+            await agent.cleanup()
+
+        self._agents.clear()
+        self._provider = None
+        self._memory = None
+        self._prompt = None
+        self._manager = None
+
+    async def __aenter__(self) -> "PepperpyClient":
+        """Enter async context."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context."""
+        await self.cleanup()
+
+    async def send_message(self, message: str) -> str:
+        """Send a message and get a response."""
         if not self._initialized:
-            raise StateError("Client not initialized")
+            await self.initialize()
+
+        if not self._provider:
+            raise StateError("Provider not initialized")
+
+        response = await self._provider.send_message(message)
+        return response.content
 
     async def chat(self, message: str) -> str:
         """Send a chat message and get a response.
@@ -430,72 +472,40 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     async def create_agent(
         self,
         agent_type: str,
-        config: T_Config,
-    ) -> BaseAgent[T_Input, T_Output, T_Config, T_Context]:
-        """Create a new agent instance.
+        config: Optional[Dict[str, Any]] = None,
+    ) -> BaseAgent:
+        """Create an agent instance.
 
         Args:
         ----
             agent_type: Type of agent to create
-            config: Agent configuration
+            config: Optional agent configuration
 
         Returns:
         -------
-            Created and initialized agent instance
+            Created agent instance
 
         Raises:
         ------
-            StateError: If client is not initialized
-            ConfigurationError: If configuration is invalid
-            NotFoundError: If agent type is not found
-            TimeoutError: If operation times out
+            ConfigurationError: If agent type is not supported
 
         """
-        self._ensure_initialized()
+        if not self._agent_factory:
+            raise ConfigurationError("Agent factory not set")
+
+        agent_config = {
+            "type": agent_type,
+            **(config or {}),
+        }
 
         try:
-            # Create context with timestamps
-            context = AgentContext(
-                agent_id=uuid4(),
-                session_id=uuid4(),
-                state=AgentState.CREATED,
-                created_at=time.time(),
-                updated_at=time.time(),
-                memory_id=None,  # Optional field
-                metadata={},  # Empty metadata
-                parent_id=None,  # No parent
-            )
-
-            if not self._agent_factory:
-                raise RuntimeError("Agent factory not set")
-
-            # Create and initialize agent
-            agent = self._agent_factory(
-                agent_type,
-                context,
-                config,
-            )
-
-            # Store agent
-            self._agents[agent.id] = agent
-            self._updated_at = time.time()
-
-            # Trigger hooks
-            await self._trigger_hooks(
-                "agent_created",
-                {"agent_id": str(agent.id), "agent_type": agent_type},
-            )
-
+            agent = await self._agent_factory.create(agent_config)
+            await agent.initialize(agent_config)
             return agent
-
         except Exception as e:
-            if isinstance(e, StateError | NotFoundError | TimeoutError):
-                raise
-            raise ConfigurationError(f"Failed to create agent: {e!s}") from e
+            raise ConfigurationError(f"Failed to create agent: {e}") from e
 
-    def get_agent(
-        self, agent_id: UUID
-    ) -> BaseAgent[T_Input, T_Output, T_Config, T_Context]:
+    def get_agent(self, agent_id: UUID) -> BaseAgent:
         """Get an existing agent by ID.
 
         Args:
@@ -519,7 +529,7 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             raise NotFoundError(f"Agent not found: {agent_id}")
         return agent
 
-    def list_agents(self) -> list[BaseAgent[T_Input, T_Output, T_Config, T_Context]]:
+    def list_agents(self) -> list[BaseAgent]:
         """Get a list of all active agents.
 
         Returns
@@ -582,39 +592,80 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """
         return self._provider
 
-    def set_agent_factory(
-        self,
-        factory: Callable[
-            [str, AgentContext, T_Config],
-            BaseAgent[T_Input, T_Output, T_Config, T_Context],
-        ],
-    ) -> None:
-        """Set the agent factory.
+    def _ensure_initialized(self) -> None:
+        """Ensure the client is initialized.
+
+        Raises
+        ------
+            StateError: If client is not initialized
+
+        """
+        if not self._initialized:
+            raise StateError("Client not initialized")
+
+    async def _get_cached_result(self, key: str) -> Any:
+        """Get a cached result if available.
 
         Args:
         ----
-            factory: Factory function for creating agents
+            key: Cache key
+
+        Returns:
+        -------
+            Cached result if found and valid, None otherwise
 
         """
-        self._agent_factory = factory
+        if not self._cache_enabled or not self._memory:
+            return None
 
-    async def setup_provider(
-        self,
-        provider: BaseProvider,
-        config: ProviderConfig | None = None,
-    ) -> None:
-        """Set up a provider for the client.
+        try:
+            entry = await self._memory.get(key)
+            if entry and hasattr(entry, "value"):
+                return entry.value
+        except Exception as e:
+            logger.warning(f"Failed to get cached result: {e}")
+        return None
+
+    async def _cache_result(self, key: str, value: Any) -> None:
+        """Cache a result.
 
         Args:
         ----
-            provider: Provider instance to use
-            config: Optional provider configuration
+            key: Cache key
+            value: Value to cache
 
         """
-        self._provider = provider
-        if config is not None:
-            # Initialize provider (no config needed since it's passed in constructor)
-            await provider.initialize()
+        if not self._cache_enabled or not self._memory:
+            return
+
+        try:
+            await self._memory.set(key, value)
+        except Exception as e:
+            logger.warning(f"Failed to cache result: {e}")
+
+    async def _trigger_hooks(
+        self,
+        event: str,
+        error_context: dict[str, Any] | None = None,
+    ) -> None:
+        """Trigger lifecycle hooks for an event.
+
+        Args:
+        ----
+            event: Event that triggered the hooks
+            error_context: Optional context for error logging
+
+        """
+        for hook in self._lifecycle_hooks[event]:
+            try:
+                hook(self)
+            except Exception as hook_error:
+                # Get error type name safely
+                error_type = hook_error.__class__.__name__
+                error_msg = f"Lifecycle hook failed - Event: {event}, Error Type: {error_type}, Message: {hook_error!s}"
+                if error_context:
+                    error_msg += f", Context: {error_context}"
+                logger.error(error_msg)
 
     def _create_provider_config(
         self,

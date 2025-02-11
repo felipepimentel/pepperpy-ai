@@ -15,6 +15,6 @@ description: |
   proper preparation before moving to implementation.
 ---
 
-For tasks in the `docs/status.md` file:
+For tasks in the `.product/status.md` file:
 - Identify tasks in Plan Mode and suggest the next steps for transitioning to Act Mode.
 - Update the task status as necessary, ensuring accurate timestamps and priorities. 

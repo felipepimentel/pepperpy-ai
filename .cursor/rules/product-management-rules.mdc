@@ -65,7 +65,7 @@ Brief description of what needs to be done and why.
 ## Project Structure Management
 
 ### Structure Validation
-- All changes to `project_structure.yml` must be reviewed
+- All changes to `.product/project_structure.yml` must be reviewed
 - Structure must align with architecture diagrams
 - Changes must be documented in changelog
 
@@ -98,8 +98,8 @@ Related to: TASK-001
 ## Task Lifecycle
 
 1. **Creation**
-   - Add task to kanban.md
-   - Create task specification in tasks/
+   - Add task to .product/kanban.md
+   - Create task specification in .product/tasks/
    - Define requirements and validation criteria
 
 2. **Implementation**
@@ -114,7 +114,7 @@ Related to: TASK-001
 
 4. **Completion**
    - Merge to main
-   - Update kanban.md
+   - Update .product/kanban.md
    - Document outcome
 
 ## Integration with Rules

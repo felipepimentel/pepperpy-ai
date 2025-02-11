@@ -1,176 +1,173 @@
-# Pepperpy: A Modern AI Agent Framework
+# Pepperpy
 
-Pepperpy is a powerful and flexible framework for building AI-powered applications using large language models. It provides a high-level, declarative API for creating and managing AI agents and workflows.
+A powerful AI agent framework with zero-config capabilities.
 
-## Key Features
+## Features
 
-- **Unified Configuration**: Simple initialization and configuration management
-- **Declarative Workflows**: Define complex AI workflows using YAML
-- **High-Level API**: Work with agents and workflows without dealing with low-level details
-- **Type Safety**: Full type hints and validation throughout the codebase
-- **Extensible**: Plugin system for custom providers, capabilities, and integrations
+- 🚀 **Zero-Config Setup**: Get started quickly with sensible defaults
+- 🤖 **Flexible Agent System**: Create and manage AI agents with ease
+- 🔄 **Built-in Workflows**: Pre-defined workflows for common tasks
+- 💾 **Automatic Caching**: Reduce costs and improve performance
+- 🔌 **Plugin Architecture**: Extend functionality through hooks
+- 📊 **Integrated Monitoring**: Built-in logging and metrics
+- 🛠️ **CLI Tools**: Command-line interface for quick testing
 
-## Quick Start
+## Installation
 
-1. Install the package:
 ```bash
+# Install using Poetry (recommended)
+poetry add pepperpy
+
+# Or using pip
 pip install pepperpy
 ```
 
-2. Set up your environment:
-```bash
-export PEPPERPY_API_KEY="your-api-key"
-export PEPPERPY_PROVIDER="openrouter"  # or other supported provider
-```
-
-3. Create a simple research workflow:
+## Quick Start
 
 ```python
-from pepperpy import Pepperpy
+from pepperpy import PepperpyClient
 
-# Initialize the framework
-pepper = Pepperpy.init(storage_dir=".pepper_hub")
+async def main():
+    # Auto-configured client
+    async with PepperpyClient.auto() as client:
+        # Simple research example
+        results = await client.run(
+            "research_assistant",
+            "analyze",
+            topic="AI in Healthcare",
+            max_sources=5
+        )
+        print(results.summary)
 
-# Run a research workflow
-async def research_topic():
-    results = await pepper.hub.workflow_engine.run(
-        workflow_name="research",
-        input_data={
-            "topic": "AI Safety",
-            "max_sources": 5
-        }
-    )
-    return results
+        # Advanced workflow example
+        results = await client.run_workflow(
+            "research/comprehensive",
+            topic="AI in Healthcare",
+            requirements={
+                "depth": "expert",
+                "focus": ["academic", "industry"]
+            }
+        )
+        print(results.key_findings)
 
-# Run synchronously if preferred
-results = pepper.hub.workflow_engine.run_sync(
-    workflow_name="research",
-    input_data={"topic": "AI Safety"}
-)
-```
-
-## Workflow Definitions
-
-Pepperpy uses YAML files to define workflows. Here's an example research workflow:
-
-```yaml
-name: research_workflow
-version: "0.1.0"
-description: "Research assistant workflow for analyzing topics"
-
-agent:
-  name: research_assistant
-  version: "0.1.0"
-
-steps:
-  - name: analyze_topic
-    method: analyze_topic
-    inputs:
-      - name: topic
-        type: str
-        description: "Research topic to analyze"
-    outputs:
-      - name: summary
-        type: str
-        description: "Initial topic analysis"
-
-flow:
-  - step: analyze_topic
-    inputs:
-      topic: "${workflow.input.topic}"
-    outputs:
-      summary: "${workflow.output.summary}"
-
-validation:
-  input_schema:
-    type: object
-    required: ["topic"]
-    properties:
-      topic:
-        type: string
-        description: "Research topic to analyze"
-```
-
-## Project Structure
-
-```
-pepperpy/
-├── __init__.py           # Main package initialization
-├── core/                 # Core framework components
-├── hub/                  # Asset and workflow management
-├── providers/            # AI provider implementations
-├── agents/              # Built-in agent implementations
-└── monitoring/          # Logging and observability
+# Run the example
+import asyncio
+asyncio.run(main())
 ```
 
 ## Configuration
 
-Pepperpy can be configured through environment variables, YAML files, or programmatically:
+Pepperpy can be configured through:
+
+1. Environment variables (`.env` file)
+2. Configuration file (`.pepperpy/config.yml`)
+3. Programmatic configuration
+
+Example `.env` file:
+```bash
+PEPPERPY_API_KEY=your-api-key
+PEPPERPY_PROVIDER=openai
+PEPPERPY_MODEL=gpt-4-turbo-preview
+```
+
+Example `config.yml`:
+```yaml
+provider:
+  type: openai
+  model: gpt-4-turbo-preview
+  temperature: 0.7
+
+memory:
+  type: redis
+  url: redis://localhost:6379
+
+cache:
+  enabled: true
+  store: memory
+```
+
+## CLI Usage
+
+```bash
+# Run a research task
+pepperpy run agent research_assistant --topic "AI in Healthcare"
+
+# Execute a workflow
+pepperpy run workflow research/comprehensive --topic "AI in Healthcare"
+
+# List available agents
+pepperpy list agents
+
+# Show configuration
+pepperpy config show
+```
+
+## Advanced Usage
+
+### Custom Hooks
 
 ```python
-# Environment variables
-PEPPERPY_STORAGE_DIR=".pepper_hub"
-PEPPERPY_PROVIDER="openrouter"
-PEPPERPY_MODEL="openai/gpt-4-turbo"
-PEPPERPY_API_KEY="your-api-key"
+def my_logger_hook(context):
+    print(f"Processing: {context.current_step}")
 
-# Or programmatically
-pepper = Pepperpy.init(
-    storage_dir=".pepper_hub",
-    provider_type="openrouter",
-    model="openai/gpt-4-turbo",
-    api_key="your-api-key"
+client.register_hook("after_agent_call", my_logger_hook)
+```
+
+### Cache Configuration
+
+```python
+# Enable caching with Redis
+client = PepperpyClient(
+    cache_enabled=True,
+    cache_store="redis",
+    cache_config={
+        "url": "redis://localhost:6379"
+    }
 )
 ```
 
-## Creating Custom Agents
-
-1. Define the agent class:
+### Custom Workflows
 
 ```python
-from pepperpy.hub.agents import Agent
-from typing import Any
+# Define a workflow in .pepper_hub/workflows/custom.yml
+name: my_workflow
+steps:
+  - agent: research_assistant
+    action: analyze
+    params:
+      depth: comprehensive
+  - agent: summarizer
+    action: summarize
+    params:
+      style: concise
 
-class CustomAgent(Agent[str]):
-    """Custom agent implementation."""
-
-    async def run(self, input_data: str) -> Any:
-        """Implement the agent's main functionality."""
-        # Your implementation here
-        result = await self.execute(f"Process: {input_data}")
-        return result
+# Run the workflow
+results = await client.run_workflow("my_workflow", topic="...")
 ```
 
-2. Register the agent:
+## Development
 
-```python
-from pepperpy.hub.agents import AgentRegistry
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/pepperpy.git
+cd pepperpy
 
-# Register the agent
-agent = CustomAgent(config)
-AgentRegistry.register("custom_agent", agent)
+# Install dependencies
+poetry install
 
-# Use the agent
-agent = pepper.get_agent("custom_agent")
-result = await agent.run("some input")
+# Run tests
+poetry run pytest
+
+# Run linters
+poetry run black .
+poetry run ruff check .
+poetry run mypy .
 ```
-
-## Examples
-
-Check out the `examples/` directory for more detailed examples:
-
-- `research_workflow_example.py`: Demonstrates the workflow system
-- `simple_chat.py`: Basic chat agent implementation
-- `custom_agent.py`: Creating custom agents
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests: `pytest`
-5. Submit a pull request
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

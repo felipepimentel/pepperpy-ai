@@ -50,4 +50,4 @@ pip-audit
    - Update dependency list
    - Note breaking changes
    - Update setup instructions
-   - Update `/docs/status.md` 
+   - Update `.product/status.md` 

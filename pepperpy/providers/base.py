@@ -5,7 +5,7 @@ must implement, ensuring consistent behavior across different implementations.
 """
 
 from abc import ABC, abstractmethod
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, Callable
 from types import TracebackType
 from typing import (
     Any,
@@ -18,17 +18,21 @@ from typing import (
     TypeVar,
     Union,
 )
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, SecretStr
+from pydantic import BaseModel
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.core.types import Message, Response
+from pepperpy.core.messages import Message, Response
 from pepperpy.monitoring import bind_logger, logger
 from pepperpy.providers.domain import (
     ProviderError,
 )
 
 T = TypeVar("T", covariant=True)
+
+# Type alias for provider callback
+ProviderCallback = Callable[[Dict[str, Any]], None]
 
 # Valid provider types
 VALID_PROVIDER_TYPES = frozenset(
@@ -58,11 +62,20 @@ class LogContext(TypedDict, total=True):
     extra: NotRequired[Dict[str, Union[str, int, float, bool]]]
 
 
-class Message(TypedDict):
-    """Message type for chat completion."""
+class Message(BaseModel):
+    """A message that can be exchanged with providers."""
 
-    role: str
+    id: str
     content: str
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class Response(BaseModel):
+    """A response from a provider."""
+
+    id: UUID
+    content: str
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class LoggerProtocol(Protocol):
@@ -128,18 +141,10 @@ class ExtraConfig(TypedDict, total=False):
 class ProviderConfig(BaseModel):
     """Configuration for a provider."""
 
-    provider_type: str = "openai"
-    api_key: SecretStr | None = None
-    model: str = "gpt-4-turbo-preview"
+    api_key: Optional[str] = None
+    model: Optional[str] = None
     temperature: float = 0.7
-    max_tokens: int = 4000
-    timeout: int = 30
-    max_retries: int = 3
-
-    model_config = ConfigDict(
-        frozen=True,
-        extra="allow",
-    )
+    max_tokens: int = 1000
 
 
 class GenerateKwargs(TypedDict, total=False):
@@ -186,29 +191,17 @@ class StreamKwargs(TypedDict, total=False):
 
 
 class BaseProvider(ABC):
-    """Base class for all providers.
+    """Base class for provider implementations."""
 
-    All providers must inherit from this class and implement its abstract methods
-    to ensure consistent behavior across different implementations.
-
-    Attributes
-    ----------
-        config (ProviderConfig): Provider configuration
-        name (str): Provider name (class name)
-        _initialized (bool): Whether the provider is initialized
-        _logger (LoggerProtocol): Logger instance with context support
-
-    """
-
-    def __init__(self, config: ProviderConfig) -> None:
-        """Initialize provider with configuration.
+    def __init__(self, config: Dict[str, Any]) -> None:
+        """Initialize the provider.
 
         Args:
         ----
-            config: Provider configuration
+            config: Provider configuration.
 
         """
-        self.config = config
+        self.config = ProviderConfig(**config)
         self.name = self.__class__.__name__
         self._initialized = False
         self._logger = bind_logger(provider=self.name)
@@ -219,26 +212,14 @@ class BaseProvider(ABC):
         return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize provider.
-
-        Raises
-        ------
-            ValidationError: If provider is already initialized
-
-        """
+        """Initialize the provider."""
         if self._initialized:
             raise ValidationError("Provider already initialized")
         self._initialized = True
         self._logger.info("Provider initialized successfully")
 
     async def cleanup(self) -> None:
-        """Clean up provider resources.
-
-        Raises
-        ------
-            ValidationError: If provider is not initialized
-
-        """
+        """Clean up resources."""
         if not self._initialized:
             raise ValidationError("Provider not initialized")
         self._initialized = False
@@ -256,76 +237,53 @@ class BaseProvider(ABC):
             raise ValidationError("Provider not initialized")
 
     @abstractmethod
-    async def complete(
-        self,
-        prompt: str,
-        *,
-        kwargs: ProviderKwargs | None = None,
-    ) -> str | AsyncGenerator[str, None]:
-        """Complete a prompt using the provider.
+    async def send_message(self, message: str) -> Response:
+        """Send a message and get a response.
 
         Args:
         ----
-            prompt: The prompt to complete
-            kwargs: Additional provider-specific parameters
+            message: Message to send.
 
         Returns:
         -------
-            Generated text or async generator of text chunks if streaming
-
-        Raises:
-        ------
-            ValidationError: If provider is not initialized
-            ProviderError: If text generation fails
+            Response: Provider response.
 
         """
         raise NotImplementedError
 
     @abstractmethod
     async def generate(
-        self, messages: list[Message], **kwargs: GenerateKwargs
+        self, messages: List[Message], model_params: Optional[Dict[str, Any]] = None
     ) -> Response:
         """Generate a response from the provider.
 
         Args:
         ----
-            messages: List of messages to generate from
-            **kwargs: Additional arguments to pass to the provider
+            messages: List of messages to process.
+            model_params: Optional model parameters.
 
         Returns:
         -------
-            Generated response
-
-        Raises:
-        ------
-            ProviderInitError: If the provider is not initialized
-            ProviderAPIError: If the API request fails
-            ProviderError: If generation fails for other reasons
+            Response: Provider response.
 
         """
         self._ensure_initialized()
         raise NotImplementedError
 
     @abstractmethod
-    def stream(
-        self, messages: list[Message], **kwargs: StreamKwargs
-    ) -> AsyncIterator[Response]:
+    async def stream(
+        self, messages: List[Message], model_params: Optional[Dict[str, Any]] = None
+    ) -> AsyncGenerator[Response, None]:
         """Stream responses from the provider.
 
         Args:
         ----
-            messages: List of messages to generate from
-            **kwargs: Additional arguments to pass to the provider
+            messages: List of messages to process.
+            model_params: Optional model parameters.
 
-        Returns:
-        -------
-            AsyncIterator[Response]: Stream of responses
-
-        Raises:
+        Yields:
         ------
-            ProviderInitError: If the provider is not initialized
-            ProviderAPIError: If the API request fails
-            ProviderError: If streaming fails for other reasons
+            Response: Provider responses.
 
         """
         self._ensure_initialized()

@@ -18,7 +18,7 @@ description: |
 Review the documentation for the following components or features:
 - Ensure accuracy and clarity.
 - Add examples where applicable.
-- Update `/docs/status.md` to reflect changes in documentation status.
+- Update `.product/status.md` to reflect changes in documentation status.
 - Highlight sections that may require further review.
 
-If new features have been added, ensure their documentation is synchronized with `/docs/project_structure.yml` and `/docs/architecture.mermaid`. 
+If new features have been added, ensure their documentation is synchronized with `.product/project_structure.yml` and `.product/architecture.mermaid`. 

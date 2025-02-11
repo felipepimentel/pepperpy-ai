@@ -490,9 +490,20 @@ class ResourceNotFoundError(PepperpyError):
             details: Optional additional error details
 
         """
-        super().__init__(message, error_code=code, details=details)
-        self.resource_type = resource_type
-        self.resource_id = resource_id
+        super().__init__(
+            message,
+            category=ErrorCategory.RESOURCE,
+            error_code=code,
+            details={
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                **(details or {}),
+            },
+        )
+
+
+# Alias for backward compatibility
+NotFoundError = ResourceNotFoundError
 
 
 class OperationError(PepperpyError):
@@ -614,5 +625,23 @@ class WorkflowError(PepperpyError):
 
 class AgentError(PepperpyError):
     """Raised when there is an agent-related error."""
+
+    pass
+
+
+class CacheError(PepperpyError):
+    """Raised when there is an error with the caching system."""
+
+    pass
+
+
+class ExecutionError(PepperpyError):
+    """Raised when there is an error executing a workflow or agent."""
+
+    pass
+
+
+class TemplateError(PepperpyError):
+    """Raised when there is an error rendering a template."""
 
     pass

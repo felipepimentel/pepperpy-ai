@@ -17,6 +17,8 @@ from typing import (
     ClassVar,
     Dict,
     Generic,
+    List,
+    Literal,
     NewType,
     Protocol,
     TypedDict,
@@ -31,35 +33,79 @@ from pydantic import BaseModel, Field, field_validator
 T = TypeVar("T")
 T_Input = TypeVar("T_Input")  # Input data type
 T_Output = TypeVar("T_Output")  # Output data type
-T_Config = TypeVar("T_Config", bound=BaseModel)  # Configuration type
-T_Context = TypeVar("T_Context", bound=BaseModel)  # Context type
+T_Config = TypeVar("T_Config", bound=Dict[str, Any])  # Configuration type
+T_Context = TypeVar("T_Context")  # Context type
 V = TypeVar("V")
 
 # Type aliases for common types
 MetadataValue = str | int | float | bool | None | list[str] | dict[str, str]  # type: ignore[valid-type]
 MetadataDict = dict[str, MetadataValue]  # type: ignore[valid-type]
 
+# Research-specific types
+ResearchDepth = Literal["basic", "comprehensive", "deep"]
+ResearchFocus = Literal["general", "academic", "industry", "technical", "business"]
+
+
+class ResearchResults(BaseModel):
+    """Results from a research operation.
+
+    Attributes
+    ----------
+        topic: Research topic
+        summary: Summary of findings
+        sources: List of sources used
+        confidence: Confidence score (0-1)
+        metadata: Additional metadata
+
+    """
+
+    topic: str = Field(..., min_length=1)
+    summary: str = Field(..., min_length=1)
+    sources: List[str] = Field(default_factory=list)
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        """Pydantic model configuration."""
+
+        frozen = True
+
+    @field_validator("sources")
+    @classmethod
+    def validate_sources(cls, v: List[str]) -> List[str]:
+        """Validate source URLs."""
+        return [src.strip() for src in v if src.strip()]
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure metadata is immutable."""
+        return dict(v)
+
 
 class MessageType(str, Enum):
     """Types of messages that can be exchanged."""
 
-    QUERY = "query"
-    RESPONSE = "response"
+    USER = "user"
+    ASSISTANT = "assistant"
+    SYSTEM = "system"
     COMMAND = "command"
+    RESPONSE = "response"
 
 
 class MessageContent(TypedDict):
     """Content of a message."""
 
-    text: str
+    type: MessageType
+    content: Dict[str, Any]
 
 
-class Message(TypedDict):
+class Message(BaseModel):
     """A message that can be exchanged between components."""
 
     id: str
     type: MessageType
-    content: MessageContent
+    content: Dict[str, Any]
 
 
 class ResponseStatus(str, Enum):
@@ -73,12 +119,12 @@ class ResponseStatus(str, Enum):
 class AgentState(Enum):
     """Represents the possible states of an agent."""
 
-    INITIALIZED = auto()
-    STARTING = auto()
-    RUNNING = auto()
-    PAUSED = auto()
-    STOPPING = auto()
-    STOPPED = auto()
+    CREATED = auto()
+    INITIALIZING = auto()
+    READY = auto()
+    PROCESSING = auto()
+    CLEANING = auto()
+    TERMINATED = auto()
     ERROR = auto()
 
 
@@ -141,33 +187,13 @@ class ErrorCategory(str, Enum):
     UNKNOWN = "unknown"  # Uncategorized errors
 
 
-class Response:
-    """A response from a provider."""
+class Response(BaseModel):
+    """A response from the system."""
 
-    def __init__(
-        self,
-        id: UUID,
-        message_id: str,
-        content: Dict[str, Any],
-        status: ResponseStatus,
-        metadata: Dict[str, Any],
-    ) -> None:
-        """Initialize a response.
-
-        Args:
-        ----
-            id: Unique identifier for the response
-            message_id: ID of the message this is responding to
-            content: Response content
-            status: Response status
-            metadata: Additional metadata about the response
-
-        """
-        self.id = id
-        self.message_id = message_id
-        self.content = content
-        self.status = status
-        self.metadata = metadata
+    id: UUID = Field(default_factory=uuid4)
+    message_id: str
+    content: MessageContent
+    status: ResponseStatus = ResponseStatus.SUCCESS
 
 
 @runtime_checkable
@@ -298,7 +324,7 @@ class AgentContext(BaseModel):
     agent_id: UUID = Field(default_factory=uuid4)
     session_id: UUID = Field(default_factory=uuid4)
     parent_id: UUID | None = Field(None)
-    state: AgentState = Field(default=AgentState.INITIALIZED)
+    state: AgentState = Field(default=AgentState.CREATED)
     settings: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(
@@ -434,3 +460,39 @@ class Result(Generic[T]):
 
 # Type alias for resource identifiers
 ResourceId = NewType("ResourceId", str)
+
+
+class PepperpyClientProtocol(Protocol):
+    """Protocol defining the interface for PepperpyClient."""
+
+    async def send_message(self, message: str) -> str:
+        """Send a message and get a response."""
+        ...
+
+    async def get_agent(self, agent_type: str) -> Any:
+        """Get an agent instance."""
+        ...
+
+
+# Type aliases for better readability
+HookCallbackType = "Callable[['PepperpyClient'], None]"  # type: ignore
+AgentFactoryType = "Callable[[str, AgentContext, Dict[str, Any]], BaseAgent]"  # type: ignore
+
+# Re-export provider types
+__all__ = [
+    "Message",
+    "MessageType",
+    "MessageContent",
+    "Response",
+    "ResponseStatus",
+    "AgentState",
+    "AgentCapability",
+    "AgentConfig",
+    "AgentContext",
+    "ProviderConfig",
+    "ComponentConfig",
+    "Context",
+    "Result",
+    "ResourceId",
+    "PepperpyClientProtocol",
+]

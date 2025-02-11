@@ -18,4 +18,4 @@ description: |
 Debug issues in the project with the following steps:
 1. Identify the source of the issue (e.g., logs, error messages).
 2. Suggest potential fixes or improvements.
-3. Update `docs/status.md` with the debug progress and outcomes. 
+3. Update `.product/status.md` with the debug progress and outcomes. 

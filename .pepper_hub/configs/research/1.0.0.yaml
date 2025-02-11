@@ -1,0 +1,65 @@
+name: research
+version: "1.0.0"
+description: "Research assistant configuration"
+
+content:
+  # Output formats for different research depths
+  output_formats:
+    basic:
+      - summary
+      - key_points
+      - recommendations
+    comprehensive:
+      - summary
+      - key_points
+      - recommendations
+      - sources
+      - analysis
+    expert:
+      - summary
+      - key_points
+      - recommendations
+      - sources
+      - analysis
+      - methodology
+      - limitations
+      - future_work
+
+# Default research requirements
+validation:
+  defaults:
+    depth: "comprehensive"
+    focus: "general"
+    max_sources: 5
+    min_confidence: 0.7
+    include_metadata: true
+    source_types:
+      - "academic"
+      - "industry"
+      - "news"
+      - "blog"
+
+# Workflow configurations
+workflows:
+  simple:
+    name: "simple_research"
+    description: "Basic research workflow"
+    steps:
+      - analyze_topic
+      - find_sources
+      - synthesize_information
+  advanced:
+    name: "advanced_research"
+    description: "Advanced research workflow with validation"
+    steps:
+      - analyze_topic
+      - find_sources
+      - validate_sources
+      - analyze_methodology
+      - synthesize_information
+      - validate_findings
+
+metadata:
+  author: "PepperPy Team"
+  created_at: "2024-03-21"
+  updated_at: "2024-03-21" 

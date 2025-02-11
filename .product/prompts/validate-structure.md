@@ -5,7 +5,7 @@ scope: "Pepperpy Project"
 description: |
   A tool for validating and maintaining project structure integrity.
   Use this prompt to:
-  - Validate compliance with `project_structure.yml`.
+  - Validate compliance with `.product/project_structure.yml`.
   - Propose and log changes to the architecture.
   - Prevent unapproved structural drift.
   - Maintain a consistent and scalable project organization.
@@ -13,7 +13,7 @@ description: |
 
 ### **Workflow**
 1. **Run Validation Script**  
-   Execute `./scripts/validate_structure.py` to verify compliance with `project_structure.yml`.
+   Execute `./scripts/validate_structure.py` to verify compliance with `.product/project_structure.yml`.
 
 2. **Handle Discrepancies**  
    If the validation script detects issues:
@@ -24,7 +24,7 @@ description: |
    - Wait for user approval before making any changes.
 
 3. **Log Changes**  
-   - Record all proposed and approved changes in `docs/status.md` under the relevant task.
+   - Record all proposed and approved changes in `.product/status.md` under the relevant task.
    - Example log entry:
      ```markdown
      ## In Progress

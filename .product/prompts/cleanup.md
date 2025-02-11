@@ -48,4 +48,4 @@ find . -type f -name "*.pyd" -delete
    - Update README
    - Clean up examples
 
-6. Update `/docs/status.md` with cleanup summary. 
+6. Update `.product/status.md` with cleanup summary. 

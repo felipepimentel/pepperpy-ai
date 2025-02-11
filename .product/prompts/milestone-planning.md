@@ -53,7 +53,7 @@ Plan and document project milestones:
    - Set review points
 
 6. Documentation:
-   - Update `/docs/status.md`:
+   - Update `.product/status.md`:
      - Add milestone details
      - Create task entries
      - Set priorities

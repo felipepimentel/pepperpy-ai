@@ -84,7 +84,7 @@ For each iteration:
 - **Test failures**: Verify test logic, especially assertion correctness.
 - **Coverage gaps**: Add or refine tests to increase coverage.
 - **Structure issues**: 
-  - Strictly validate against `project_structure.yml`
+  - Strictly validate against `.product/project_structure.yml`
   - Do not create directories not defined in the structure
   - All code must be organized within existing defined modules
   - No ad-hoc creation of new top-level directories

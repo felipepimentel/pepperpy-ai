@@ -15,7 +15,7 @@ description: |
   systematically addressing blockers.
 ---
 
-Review and resolve blockers for tasks in `/docs/status.md`:
+Review and resolve blockers for tasks in `.product/status.md`:
 
 1. Blocker Identification:
    - Review **In Progress** tasks

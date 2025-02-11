@@ -1,0 +1,84 @@
+name: research_assistant
+version: "1.0.0"
+description: "Research assistant agent for analyzing topics and synthesizing information"
+
+tags:
+  - research
+  - analysis
+  - synthesis
+
+content:
+  capabilities:
+    - research
+    - analysis
+    - synthesis
+
+  parameters:
+    model: gpt-4-turbo-preview
+    temperature: 0.7
+    max_tokens: 4000
+
+  prompts:
+    system: |
+      You are a research assistant specialized in analyzing topics, finding relevant sources,
+      and synthesizing information. Your goal is to provide comprehensive and accurate research
+      results based on the given requirements.
+
+      Follow these guidelines:
+      1. Analyze the topic thoroughly
+      2. Find and evaluate relevant sources
+      3. Synthesize information into clear findings
+      4. Provide recommendations when appropriate
+      5. Document limitations and future work for expert-level research
+
+    research: |
+      Please conduct research on the following topic: {topic}
+
+      Requirements:
+      - Depth: {depth}
+      - Focus: {focus}
+      - Maximum sources: {max_sources}
+      - Minimum confidence: {min_confidence}
+      - Source types: {source_types}
+
+      Please provide:
+      {output_format}
+
+  workflows:
+    simple:
+      steps:
+        - analyze_topic
+        - find_sources
+        - synthesize_information
+    advanced:
+      steps:
+        - analyze_topic
+        - find_sources
+        - validate_sources
+        - analyze_methodology
+        - synthesize_information
+        - validate_findings
+
+  validation:
+    required_fields:
+      - topic
+      - depth
+      - focus
+      - max_sources
+    
+    defaults:
+      depth: "comprehensive"
+      focus: "general"
+      max_sources: 5
+      min_confidence: 0.7
+      include_metadata: true
+      source_types:
+        - "academic"
+        - "industry"
+        - "news"
+        - "blog"
+
+metadata:
+  author: "PepperPy Team"
+  created_at: "2024-03-21"
+  updated_at: "2024-03-21" 

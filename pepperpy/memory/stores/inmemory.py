@@ -9,7 +9,7 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Any
 
-from pepperpy.memory.store import BaseMemoryStore
+from pepperpy.core.memory.store import BaseMemoryStore, register_memory_store
 from pepperpy.memory.types import (
     MemoryEntry,
     MemoryQuery,
@@ -22,14 +22,110 @@ from pepperpy.monitoring.logger import get_logger
 logger = get_logger(__name__)
 
 
-class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
+@register_memory_store("inmemory")
+class InMemoryStore(BaseMemoryStore):
     """In-memory store implementation."""
 
-    def __init__(self) -> None:
-        """Initialize the in-memory store."""
-        super().__init__()
+    def __init__(self, config: dict[str, Any]) -> None:
+        """Initialize the in-memory store.
+
+        Args:
+        ----
+            config: Store configuration
+
+        """
+        super().__init__(config)
         self._entries: dict[str, MemoryEntry[dict[str, Any]]] = {}
         self._lock = asyncio.Lock()
+
+    async def initialize(self) -> None:
+        """Initialize the memory store."""
+        pass
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        async with self._lock:
+            self._entries.clear()
+
+    async def get(self, key: str) -> MemoryEntry[dict[str, Any]] | None:
+        """Get an entry by key.
+
+        Args:
+        ----
+            key: Key to retrieve
+
+        Returns:
+        -------
+            Entry if found, None otherwise
+
+        """
+        async with self._lock:
+            return self._entries.get(key)
+
+    async def set(
+        self,
+        key: str,
+        value: dict[str, Any],
+        scope: MemoryScope = MemoryScope.SESSION,
+        metadata: dict[str, str] | None = None,
+    ) -> MemoryEntry[dict[str, Any]]:
+        """Set an entry.
+
+        Args:
+        ----
+            key: Key to store under
+            value: Value to store
+            scope: Storage scope
+            metadata: Optional metadata
+
+        Returns:
+        -------
+            Created memory entry
+
+        """
+        return await self._store_impl(key, value, scope, metadata)
+
+    async def delete(self, key: str) -> bool:
+        """Delete an entry.
+
+        Args:
+        ----
+            key: Key to delete
+
+        Returns:
+        -------
+            True if deleted, False if not found
+
+        """
+        return await self._delete_impl(key)
+
+    async def exists(self, key: str) -> bool:
+        """Check if key exists.
+
+        Args:
+        ----
+            key: Key to check
+
+        Returns:
+        -------
+            True if exists, False otherwise
+
+        """
+        return await self._exists_impl(key)
+
+    async def clear(self, scope: MemoryScope | None = None) -> int:
+        """Clear entries.
+
+        Args:
+        ----
+            scope: Optional scope to clear
+
+        Returns:
+        -------
+            Number of entries cleared
+
+        """
+        return await self._clear_impl(scope)
 
     async def _store_impl(
         self,
@@ -41,16 +137,20 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Store content in memory.
 
         Args:
+        ----
             key: Key to store under
             content: Content to store
             scope: Storage scope
             metadata: Optional metadata
 
         Returns:
+        -------
             Created memory entry
 
         Raises:
+        ------
             RuntimeError: If storage fails
+
         """
         try:
             entry: MemoryEntry[dict[str, Any]] = MemoryEntry(
@@ -83,11 +183,14 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Check if an entry is expired.
 
         Args:
+        ----
             entry: Entry to check
             now: Current time
 
         Returns:
+        -------
             True if entry is expired
+
         """
         return bool(entry.expires_at and now > entry.expires_at)
 
@@ -99,11 +202,14 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Check if entry matches query filters.
 
         Args:
+        ----
             entry: Entry to check
             query: Query containing filters
 
         Returns:
+        -------
             True if entry matches all filters
+
         """
         # Check filters
         if query.filters:
@@ -130,11 +236,14 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Check if entry matches text search.
 
         Args:
+        ----
             entry: Entry to check
             query_text: Text to search for
 
         Returns:
+        -------
             True if entry matches text search
+
         """
         if not query_text:
             return True
@@ -149,13 +258,17 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Retrieve entries from memory.
 
         Args:
+        ----
             query: Query parameters
 
         Returns:
+        -------
             Iterator of memory results
 
         Raises:
+        ------
             RuntimeError: If retrieval fails
+
         """
         try:
             count = 0
@@ -196,13 +309,17 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Delete an entry from memory.
 
         Args:
+        ----
             key: Key to delete
 
         Returns:
+        -------
             True if deleted, False if not found
 
         Raises:
+        ------
             RuntimeError: If deletion fails
+
         """
         try:
             async with self._lock:
@@ -226,13 +343,17 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Check if key exists in memory.
 
         Args:
+        ----
             key: Key to check
 
         Returns:
+        -------
             True if exists, False otherwise
 
         Raises:
+        ------
             RuntimeError: If check fails
+
         """
         try:
             async with self._lock:
@@ -252,13 +373,17 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
         """Clear entries from memory.
 
         Args:
+        ----
             scope: Optional scope to clear
 
         Returns:
+        -------
             Number of entries cleared
 
         Raises:
+        ------
             RuntimeError: If clearing fails
+
         """
         try:
             async with self._lock:

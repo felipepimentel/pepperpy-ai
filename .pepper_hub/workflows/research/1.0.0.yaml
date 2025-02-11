@@ -1,106 +1,81 @@
-name: "research"
+name: "comprehensive_research"
 type: "workflow"
 version: "1.0.0"
-description: "Research assistant workflow for analyzing topics and finding sources"
-tags: ["research", "analysis", "sources"]
+description: "Advanced research workflow combining multiple agents and steps"
+tags: ["research", "academic", "comprehensive"]
 
 content:
-  agent:
-    name: research_assistant
-    version: "0.1.0"
+  input_schema:
+    topic:
+      type: "string"
+      description: "The research topic to analyze"
+    requirements:
+      type: "object"
+      properties:
+        depth:
+          type: "string"
+          enum: ["basic", "comprehensive", "expert"]
+        focus:
+          type: "array"
+          items:
+            type: "string"
+        max_sources:
+          type: "integer"
+          minimum: 1
+          maximum: 50
 
   steps:
-    - name: analyze_topic
-      method: analyze_topic
+    - name: "initial_analysis"
+      agent: "research_assistant"
+      action: "analyze_topic"
       inputs:
-        - name: topic
-          type: str
-          description: "Research topic to analyze"
+        topic: "{{inputs.topic}}"
       outputs:
-        - name: summary
-          type: str
-          description: "Initial topic analysis"
+        key_concepts: "{{result.concepts}}"
+        research_directions: "{{result.directions}}"
 
-    - name: find_sources
-      method: find_sources
+    - name: "source_discovery"
+      agent: "research_assistant"
+      action: "find_sources"
       inputs:
-        - name: topic
-          type: str
-          description: "Research topic to find sources for"
-        - name: max_sources
-          type: int
-          default: 5
-          description: "Maximum number of sources to find"
+        topic: "{{inputs.topic}}"
+        focus_areas: "{{inputs.requirements.focus}}"
+        max_sources: "{{inputs.requirements.max_sources}}"
       outputs:
-        - name: sources
-          type: list
-          description: "List of relevant sources"
+        sources: "{{result.sources}}"
+        relevance_scores: "{{result.scores}}"
 
-    - name: analyze_sources
-      method: analyze_sources
+    - name: "expert_review"
+      agent: "research_assistant"
+      action: "analyze_sources"
       inputs:
-        - name: sources
-          type: list
-          description: "Sources to analyze"
+        sources: "{{steps.source_discovery.outputs.sources}}"
+        depth: "{{inputs.requirements.depth}}"
       outputs:
-        - name: synthesis
-          type: str
-          description: "Synthesized findings and recommendations"
+        analysis: "{{result.analysis}}"
+        recommendations: "{{result.recommendations}}"
+        gaps: "{{result.knowledge_gaps}}"
 
-  flow:
-    - step: analyze_topic
-      inputs:
-        topic: "${workflow.input.topic}"
-      outputs:
-        summary: "${workflow.output.summary}"
-
-    - step: find_sources
-      inputs:
-        topic: "${workflow.input.topic}"
-        max_sources: "${workflow.input.max_sources}"
-      outputs:
-        sources: "${workflow.output.sources}"
-
-    - step: analyze_sources
-      inputs:
-        sources: "${workflow.output.sources}"
-      outputs:
-        synthesis: "${workflow.output.recommendations}"
-
-  validation:
-    input_schema:
-      type: object
-      required: ["topic"]
-      properties:
-        topic:
-          type: string
-          description: "Research topic to analyze"
-        max_sources:
-          type: integer
-          default: 5
-          minimum: 1
-          maximum: 10
-          description: "Maximum number of sources to find"
-
-    output_schema:
-      type: object
-      required: ["summary", "sources", "recommendations"]
-      properties:
-        summary:
-          type: string
-          description: "Initial topic analysis"
-        sources:
-          type: array
-          items:
-            type: string
-          description: "List of relevant sources"
-        recommendations:
-          type: string
-          description: "Synthesized findings and recommendations"
+  output_schema:
+    type: "object"
+    properties:
+      summary:
+        type: "object"
+        properties:
+          key_concepts: "array"
+          research_directions: "array"
+      sources:
+        type: "array"
+      analysis:
+        type: "object"
+      recommendations:
+        type: "array"
+      gaps:
+        type: "array"
 
 metadata:
-  created_at: "2024-02-11"
-  updated_at: "2024-02-11"
-  author: "Pepperpy Team"
-  dependencies:
-    - research_assistant@0.1.0 
+  author: "PepperPy Team"
+  requires_agents:
+    - research_assistant
+  estimated_duration: "5-10 minutes"
+  typical_token_usage: 5000 

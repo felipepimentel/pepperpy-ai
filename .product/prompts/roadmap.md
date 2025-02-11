@@ -34,6 +34,6 @@ Review and update the project roadmap:
    - Define success criteria
 
 4. Document updates in:
-   - `/docs/roadmap.md`
-   - `/docs/status.md` (new tasks)
+   - `.product/roadmap.md`
+   - `.product/status.md` (new tasks)
    - Release planning documents 

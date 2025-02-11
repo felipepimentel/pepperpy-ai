@@ -8,14 +8,14 @@ This module provides factory classes for creating system components with:
 - Version tracking
 """
 
-from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping
+from abc import abstractmethod
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Dict, Generic, Type, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
-from pepperpy.core.errors import FactoryError, NotFoundError, ValidationError
+from pepperpy.core.errors import ConfigurationError, FactoryError, ValidationError
 
 from .base import (
     BaseAgent,
@@ -27,18 +27,20 @@ from .monitoring import logger
 T = TypeVar("T")
 T_Input = TypeVar("T_Input")
 T_Output = TypeVar("T_Output")
-T_Config = TypeVar("T_Config", bound=Mapping[str, Any])
+T_Config = TypeVar("T_Config", bound=Dict[str, Any])
 T_Context = TypeVar("T_Context")
 
 
 class FactoryMetadata(BaseModel):
     """Metadata for factory operations.
 
-    Attributes:
+    Attributes
+    ----------
         created_at: When the factory was created
         updated_at: When the factory was last updated
         version: Factory version
         metrics: Factory metrics
+
     """
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -53,7 +55,7 @@ class FactoryMetadata(BaseModel):
         return dict(v)
 
 
-class Factory(ABC, Generic[T]):
+class Factory(Generic[T]):
     """Base factory class for creating components.
 
     This class provides common functionality for component factories:
@@ -67,7 +69,9 @@ class Factory(ABC, Generic[T]):
         """Initialize the factory.
 
         Args:
+        ----
             event_bus: Optional event bus for factory events
+
         """
         self._event_bus = event_bus
         self._hooks: dict[str, set[Callable[[T], None]]] = {}
@@ -82,8 +86,10 @@ class Factory(ABC, Generic[T]):
         """Add a hook for factory events.
 
         Args:
+        ----
             event: Event to hook into
             hook: Callback to execute
+
         """
         if event not in self._hooks:
             self._hooks[event] = set()
@@ -93,8 +99,10 @@ class Factory(ABC, Generic[T]):
         """Remove a hook for factory events.
 
         Args:
+        ----
             event: Event to remove hook from
             hook: Callback to remove
+
         """
         if event in self._hooks:
             self._hooks[event].discard(hook)
@@ -103,8 +111,10 @@ class Factory(ABC, Generic[T]):
         """Run hooks for an event.
 
         Args:
+        ----
             event: Event that occurred
             component: Component the event is for
+
         """
         if event in self._hooks:
             for hook in self._hooks[event]:
@@ -119,153 +129,102 @@ class Factory(ABC, Generic[T]):
                     )
 
     @abstractmethod
-    async def create(self, config: dict[str, Any]) -> T:
+    async def create(self, config: T_Config) -> T:
         """Create a component from configuration.
 
         Args:
+        ----
             config: Component configuration
 
         Returns:
+        -------
             Created component
 
         Raises:
+        ------
             ValidationError: If configuration is invalid
             FactoryError: If component creation fails
+
         """
         pass
 
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up factory resources."""
+        pass
 
-class AgentFactory(Factory[BaseAgent[T_Input, T_Output, T_Config, T_Context]]):
-    """Factory for creating agents.
 
-    This factory manages agent creation with:
-    - Type-safe agent instantiation
-    - Configuration validation
-    - Lifecycle hooks
-    - Error handling
+class AgentFactory(Factory[BaseAgent]):
+    """Factory for creating agent instances.
+
+    This factory is responsible for creating and managing agent instances
+    based on configuration.
     """
 
-    def __init__(self, event_bus: EventBus | None = None) -> None:
+    def __init__(self, client: Any) -> None:
         """Initialize the agent factory.
 
         Args:
-            event_bus: Optional event bus for factory events
-        """
-        super().__init__(event_bus)
-        self._agent_types: dict[
-            str,
-            type[BaseAgent[T_Input, T_Output, T_Config, T_Context]],
-        ] = {}
+        ----
+            client: The Pepperpy client instance
 
-    def register(
-        self,
-        agent_type: str,
-        agent_class: type[BaseAgent[T_Input, T_Output, T_Config, T_Context]],
-    ) -> None:
+        """
+        self.client = client
+        self._agent_types: Dict[str, Type[BaseAgent]] = {}
+
+    def register_agent_type(self, name: str, agent_class: Type[BaseAgent]) -> None:
         """Register an agent type.
 
         Args:
-            agent_type: Unique identifier for the agent type
+        ----
+            name: Name of the agent type
             agent_class: Agent class to register
 
-        Raises:
-            ValueError: If agent type is already registered
         """
-        if agent_type in self._agent_types:
-            raise ValueError(f"Agent type already registered: {agent_type}")
-        self._agent_types[agent_type] = agent_class
+        self._agent_types[name] = agent_class
+        logger.info(f"Registered agent type: {name}")
 
-    async def create_agent(
-        self,
-        agent_type: str,
-        context: T_Context,
-        config: T_Config | None = None,
-    ) -> BaseAgent[T_Input, T_Output, T_Config, T_Context]:
+    async def create(self, config: T_Config) -> BaseAgent:
         """Create an agent instance.
 
         Args:
-            agent_type: Type of agent to create
-            context: Agent context
-            config: Optional agent configuration
-
-        Returns:
-            Created agent instance
-
-        Raises:
-            NotFoundError: If agent type is not registered
-            ValidationError: If configuration is invalid
-            FactoryError: If agent creation fails
-        """
-        if agent_type not in self._agent_types:
-            raise NotFoundError(
-                f"Agent type not found: {agent_type}",
-                resource_type="agent_type",
-                resource_id=agent_type,
-            )
-
-        agent_class = self._agent_types[agent_type]
-        try:
-            agent = agent_class(
-                name=config.get("name", agent_type) if config else agent_type,
-                description=(
-                    config.get("description", "") if config else "No description"
-                ),
-                version=config.get("version", "0.1.0") if config else "0.1.0",
-                capabilities=config.get("capabilities", []) if config else [],
-            )
-
-            if config:
-                await agent.initialize(config)
-
-            await self._run_hooks("agent_created", agent)
-
-            if self._event_bus:
-                await self._event_bus.publish(
-                    Event(
-                        type=EventType.AGENT_CREATED,
-                        source_id=str(agent.id),
-                        data={
-                            "agent_id": str(agent.id),
-                            "agent_type": agent_type,
-                            "config": config,
-                        },
-                    )
-                )
-
-            return agent
-        except Exception as e:
-            raise FactoryError(
-                f"Failed to create agent: {e!s}",
-                component_type="agent",
-            ) from e
-
-    async def create(
-        self,
-        config: dict[str, Any],
-    ) -> BaseAgent[T_Input, T_Output, T_Config, T_Context]:
-        """Create an agent from configuration.
-
-        Args:
+        ----
             config: Agent configuration
 
         Returns:
+        -------
             Created agent instance
 
         Raises:
-            ValidationError: If configuration is invalid
-            FactoryError: If agent creation fails
+        ------
+            ConfigurationError: If agent type is not supported
+
         """
-        if "type" not in config:
-            raise ValidationError(
-                "Missing required field: type",
-                details={"field": "type"},
+        agent_type = config.get("type")
+        if not agent_type:
+            raise ConfigurationError("Agent type not specified")
+
+        agent_class = self._agent_types.get(agent_type)
+        if not agent_class:
+            raise ConfigurationError(f"Unsupported agent type: {agent_type}")
+
+        try:
+            agent = agent_class(client=self.client, config=config)
+            logger.info(f"Created agent of type: {agent_type}")
+            return agent
+        except Exception as e:
+            logger.error(
+                "Failed to create agent",
+                error=str(e),
+                agent_type=agent_type,
+                config=config,
             )
+            raise ConfigurationError(f"Failed to create agent: {e}") from e
 
-        agent_type = config["type"]
-        context = cast(T_Context, config.get("context"))
-        agent_config = cast(T_Config, config.get("config"))
-
-        return await self.create_agent(agent_type, context, agent_config)
+    async def cleanup(self) -> None:
+        """Clean up factory resources."""
+        self._agent_types.clear()
+        logger.info("Agent factory cleaned up")
 
 
 class ComponentFactory(Factory[T]):
@@ -282,7 +241,9 @@ class ComponentFactory(Factory[T]):
         """Initialize the component factory.
 
         Args:
+        ----
             event_bus: Optional event bus for factory events
+
         """
         super().__init__(event_bus)
         self._component_types: dict[str, type[T]] = {}
@@ -291,11 +252,14 @@ class ComponentFactory(Factory[T]):
         """Register a component type.
 
         Args:
+        ----
             component_type: Unique identifier for the component type
             component_class: Component class to register
 
         Raises:
+        ------
             ValueError: If component type is already registered
+
         """
         if component_type in self._component_types:
             raise ValueError(f"Component type already registered: {component_type}")
@@ -305,14 +269,18 @@ class ComponentFactory(Factory[T]):
         """Create a component from configuration.
 
         Args:
+        ----
             config: Component configuration
 
         Returns:
+        -------
             Created component instance
 
         Raises:
+        ------
             ValidationError: If configuration is invalid
             FactoryError: If component creation fails
+
         """
         if "type" not in config:
             raise ValidationError(
@@ -347,3 +315,8 @@ class ComponentFactory(Factory[T]):
                 f"Failed to create component: {e!s}",
                 component_type=component_type,
             ) from e
+
+    async def cleanup(self) -> None:
+        """Clean up factory resources."""
+        self._component_types.clear()
+        logger.info("Component factory cleaned up")

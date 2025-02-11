@@ -1,24 +1,51 @@
-"""Base interfaces and protocols for the Pepperpy system.
+"""Base classes and protocols for the Pepperpy framework.
 
-This module defines the core interfaces and base classes that form the foundation
-of the Pepperpy system, including agent states, contexts, configurations, and
-capability protocols.
+This module provides the foundational classes and protocols that define
+the core functionality of the framework, including:
+
+- BaseAgent: Abstract base class for all agents
+- BaseProvider: Abstract base class for providers
+- BaseMemoryStore: Abstract base class for memory stores
+- BasePromptTemplate: Abstract base class for prompt templates
 """
+
+import logging
+from dataclasses import dataclass, field
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Type,
+    TypeVar,
+    runtime_checkable,
+)
+from uuid import UUID, uuid4
+
+from pepperpy.core.errors import ConfigurationError, StateError
+from pepperpy.core.types import (
+    Message,
+    MessageContent,
+    MessageType,
+    Response,
+    ResponseStatus,
+)
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
 
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable, Mapping
 from enum import Enum
 from typing import (
-    Any,
     ClassVar,
-    Generic,
-    Protocol,
     TypedDict,
     TypeVar,
-    runtime_checkable,
 )
-from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
@@ -44,10 +71,13 @@ class AgentState(str, Enum):
         """Check if a state transition is valid.
 
         Args:
+        ----
             target: The target state to transition to
 
         Returns:
+        -------
             bool: Whether the transition is valid
+
         """
         transitions: dict[AgentState, set[AgentState]] = {
             AgentState.CREATED: {AgentState.INITIALIZING},
@@ -81,7 +111,8 @@ class AgentContext(BaseModel):
     This class maintains the execution context of an agent, including its
     identifiers, state, and metadata.
 
-    Attributes:
+    Attributes
+    ----------
         agent_id: Unique identifier for the agent
         session_id: Current session identifier
         memory_id: Optional memory context identifier
@@ -90,6 +121,7 @@ class AgentContext(BaseModel):
         parent_id: Optional parent agent identifier
         created_at: Creation timestamp
         updated_at: Last update timestamp
+
     """
 
     agent_id: UUID = Field(default_factory=uuid4)
@@ -138,6 +170,7 @@ class AgentContext(BaseModel):
         """Create a new context with updated values.
 
         Args:
+        ----
             **updates: Values to update in the context. Valid types are:
                      - str: For string values
                      - int: For integer values
@@ -149,7 +182,9 @@ class AgentContext(BaseModel):
                      - None: For optional fields
 
         Returns:
+        -------
             A new AgentContext instance with updated values
+
         """
         data = self.model_dump()
         data.update(updates)
@@ -158,57 +193,17 @@ class AgentContext(BaseModel):
         return AgentContext(**data)
 
 
-class AgentConfig(BaseModel):
-    """Base configuration for agents.
+@dataclass
+class AgentConfig:
+    """Configuration for creating an agent."""
 
-    This class defines the basic configuration parameters that all agents
-    must support.
-
-    Attributes:
-        name: Human-readable name for the agent
-        description: Detailed description of the agent
-        version: Semantic version string (MAJOR.MINOR.PATCH)
-        capabilities: List of required capabilities
-        settings: Additional configuration settings
-        timeout: Operation timeout in seconds
-        max_retries: Maximum number of retries
-        retry_delay: Delay between retries in seconds
-    """
-
-    name: str = Field(..., min_length=1)
-    description: str = Field(..., min_length=1)
-    version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
-    capabilities: list[str] = Field(default_factory=list)
-    settings: dict[str, Any] = Field(default_factory=dict)
-    timeout: float = Field(default=30.0, gt=0)
-    max_retries: int = Field(default=3, ge=0)
-    retry_delay: float = Field(default=1.0, ge=0)
-
-    class Config:
-        """Pydantic model configuration."""
-
-        extra = "forbid"
-        json_encoders: ClassVar[dict[type, Callable[..., str]]] = {
-            UUID: str,
-        }
-
-    @field_validator("settings")
-    @classmethod
-    def validate_settings(cls, v: dict[str, Any]) -> dict[str, Any]:
-        """Ensure settings is immutable."""
-        return dict(v)
-
-    @field_validator("version")
-    @classmethod
-    def validate_version(cls, v: str) -> str:
-        """Validate semantic version format."""
-        try:
-            major, minor, patch = map(int, v.split("."))
-            if major < 0 or minor < 0 or patch < 0:
-                raise ValueError
-        except (ValueError, TypeError) as e:
-            raise ValueError("Invalid semantic version format") from e
-        return v
+    type: str
+    name: str
+    description: str
+    version: str
+    capabilities: List[str] = field(default_factory=list)
+    settings: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 # Type variables for generic agent types
@@ -236,11 +231,13 @@ class AgentCapability(Protocol):
     This protocol defines the interface that all agent capabilities must
     implement. Capabilities provide additional functionality to agents.
 
-    Attributes:
+    Attributes
+    ----------
         name: Capability name
         version: Capability version
         description: Capability description
         requirements: Required dependencies
+
     """
 
     name: str
@@ -252,15 +249,18 @@ class AgentCapability(Protocol):
         """Check if the capability is available in current environment."""
         ...
 
-    async def initialize(self, config: Mapping[str, Any]) -> None:
+    async def initialize(self, config: dict[str, Any]) -> None:
         """Initialize the capability with configuration.
 
         Args:
+        ----
             config: Configuration parameters for the capability
 
         Raises:
+        ------
             ValueError: If configuration is invalid
             RuntimeError: If initialization fails
+
         """
         ...
 
@@ -340,12 +340,15 @@ class AgentProtocol(
         """Initialize the agent with configuration.
 
         Args:
+        ----
             config: Agent configuration
 
         Raises:
+        ------
             ValueError: If configuration is invalid
             RuntimeError: If initialization fails
             TimeoutError: If initialization times out
+
         """
         pass
 
@@ -358,16 +361,20 @@ class AgentProtocol(
         """Process input data and return results.
 
         Args:
+        ----
             input_data: Data to process
             context: Optional processing context
 
         Returns:
+        -------
             Processing results
 
         Raises:
+        ------
             ValueError: If input data is invalid
             RuntimeError: If processing fails
             TimeoutError: If processing times out
+
         """
         pass
 
@@ -377,8 +384,10 @@ class AgentProtocol(
 
         This method should release any resources held by the agent.
 
-        Raises:
+        Raises
+        ------
             RuntimeError: If cleanup fails
+
         """
         pass
 
@@ -405,10 +414,13 @@ class AgentProtocol(
         """Validate a state transition.
 
         Args:
+        ----
             target_state: The target state
 
         Raises:
+        ------
             ValueError: If the transition is invalid
+
         """
         pass
 
@@ -417,6 +429,7 @@ class AgentProtocol(
         """Handle an error that occurred during agent operation.
 
         Args:
+        ----
             error: The error that occurred
 
         This method should:
@@ -424,219 +437,254 @@ class AgentProtocol(
         2. Update agent state
         3. Trigger error hooks
         4. Clean up resources if necessary
+
         """
         pass
 
 
-class BaseAgent(ABC, Generic[T_Input, T_Output, T_Config, T_Context]):
-    """Base class for all Pepperpy agents.
+class BaseAgent:
+    """Base class for all agents.
 
-    This class provides a foundation for implementing agents with common
-    functionality like state management and lifecycle hooks.
+    This class defines the core functionality that all agents must implement.
+    It provides methods for initialization, message processing, and cleanup.
     """
+
+    name: str
+    description: str
+    version: str
+    capabilities: Set[str]
+    _client: "PepperpyClientProtocol"
+    _config: AgentConfig
+    _context: AgentContext
+    _initialized: bool
 
     def __init__(
         self,
-        name: str,
-        description: str,
-        version: str,
-        capabilities: list[str] | None = None,
-        id: UUID | None = None,
+        client: "PepperpyClientProtocol",
+        config: AgentConfig,
+        context: Optional[AgentContext] = None,
     ) -> None:
         """Initialize the agent.
 
         Args:
-            name: Human-readable name for the agent
-            description: Detailed description of the agent
-            version: Agent version string
-            capabilities: List of required capabilities
-            id: Optional unique identifier
+        ----
+            client: The Pepperpy client instance
+            config: Agent configuration
+            context: Optional agent context
+
+        Raises:
+        ------
+            ConfigurationError: If configuration is invalid
+
         """
-        self._id = id or uuid4()
-        self._name = name
-        self._description = description
-        self._version = version
-        self._capabilities = capabilities or []
+        if not config.type:
+            raise ConfigurationError("Agent type must be specified")
+
+        self.name = config.name
+        self.description = config.description
+        self.version = config.version
+        self.capabilities = set(config.capabilities)
+        self._client = client
+        self._config = config
+        self._context = context or AgentContext()
+        self._initialized = False
         self._state = AgentState.CREATED
-        self._context = AgentContext(agent_id=self._id)
-        self._lifecycle_hooks: dict[AgentState, set[AgentCallback]] = {
-            state: set() for state in AgentState
-        }
+
+        logger.info(
+            "Created agent %s (type=%s, version=%s)",
+            self.name,
+            config.type,
+            self.version,
+        )
+
+    async def initialize(self) -> None:
+        """Initialize the agent.
+
+        This method should be called after instantiation to set up any
+        resources needed by the agent.
+
+        Raises
+        ------
+            StateError: If agent is already initialized
+            ConfigurationError: If initialization fails
+
+        """
+        if self._initialized:
+            raise StateError("Agent is already initialized")
+
+        try:
+            self._state = AgentState.INITIALIZING
+            # Initialize capabilities
+            for capability in self.capabilities:
+                logger.debug("Initializing capability %s", capability)
+                # Initialize capability here
+
+            self._initialized = True
+            self._state = AgentState.READY
+            logger.info("Agent %s initialized successfully", self.name)
+
+        except Exception as e:
+            self._state = AgentState.ERROR
+            logger.error("Failed to initialize agent %s: %s", self.name, e)
+            raise ConfigurationError(f"Failed to initialize agent: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up agent resources.
+
+        This method should be called when the agent is no longer needed
+        to clean up any resources.
+
+        Raises
+        ------
+            StateError: If agent is not initialized
+
+        """
+        if not self._initialized:
+            raise StateError("Agent is not initialized")
+
+        try:
+            self._state = AgentState.CLEANING
+            # Cleanup capabilities
+            for capability in self.capabilities:
+                logger.debug("Cleaning up capability %s", capability)
+                # Cleanup capability here
+
+            self._initialized = False
+            self._state = AgentState.TERMINATED
+            logger.info("Agent %s cleaned up successfully", self.name)
+
+        except Exception as e:
+            self._state = AgentState.ERROR
+            logger.error("Failed to clean up agent %s: %s", self.name, e)
+            raise StateError(f"Failed to clean up agent: {e}") from e
+
+    async def process_message(self, message: Message) -> Response:
+        """Process an incoming message.
+
+        Args:
+        ----
+            message: The message to process
+
+        Returns:
+        -------
+            The response to the message
+
+        Raises:
+        ------
+            StateError: If agent is not initialized
+
+        """
+        if not self._initialized:
+            raise StateError("Agent is not initialized")
+
+        try:
+            self._state = AgentState.PROCESSING
+            logger.debug("Processing message: %s", message)
+
+            # Default implementation just echoes the message
+            response = Response(
+                message_id=message.id,
+                content=MessageContent(
+                    type=MessageType.RESPONSE,
+                    content={"text": f"Echo: {message.content}"},
+                ),
+                status=ResponseStatus.SUCCESS,
+            )
+
+            self._state = AgentState.READY
+            return response
+
+        except Exception as e:
+            self._state = AgentState.ERROR
+            logger.error("Failed to process message: %s", e)
+            return Response(
+                message_id=message.id,
+                content=MessageContent(
+                    type=MessageType.RESPONSE,
+                    content={"error": str(e)},
+                ),
+                status=ResponseStatus.ERROR,
+            )
 
     @property
-    def id(self) -> UUID:
-        """Get the agent's unique identifier."""
-        return self._id
+    def is_initialized(self) -> bool:
+        """Check if agent is initialized.
 
-    @property
-    def name(self) -> str:
-        """Get the agent's name."""
-        return self._name
+        Returns
+        -------
+            True if initialized, False otherwise
 
-    @property
-    def description(self) -> str:
-        """Get the agent's description."""
-        return self._description
-
-    @property
-    def version(self) -> str:
-        """Get the agent's version."""
-        return self._version
-
-    @property
-    def capabilities(self) -> list[str]:
-        """Get the agent's capabilities."""
-        return self._capabilities.copy()
+        """
+        return self._initialized
 
     @property
     def state(self) -> AgentState:
-        """Get the agent's current state."""
+        """Get the current agent state.
+
+        Returns
+        -------
+            The current agent state
+
+        """
         return self._state
 
-    async def _update_state(self, new_state: AgentState) -> None:
-        """Update the agent's state and trigger lifecycle hooks.
+    def add_capability(self, capability: Type[AgentCapability]) -> None:
+        """Add a capability to the agent.
 
         Args:
-            new_state: The new state to transition to
-        """
-        if not self._state.can_transition_to(new_state):
-            raise ValueError(f"Invalid state transition: {self._state} -> {new_state}")
-
-        self._state = new_state
-        self._context = self._context.with_updates(state=new_state)
-
-        # Trigger lifecycle hooks
-        hooks = self._lifecycle_hooks[new_state]
-        for hook in hooks:
-            await hook(self.id, new_state)
-
-    def add_lifecycle_hook(
-        self,
-        state: AgentState,
-        callback: AgentCallback,
-    ) -> None:
-        """Add a lifecycle hook for state changes.
-
-        Args:
-            state: The state to hook into
-            callback: The callback to execute
-        """
-        self._lifecycle_hooks[state].add(callback)
-
-    def remove_lifecycle_hook(
-        self,
-        state: AgentState,
-        callback: AgentCallback,
-    ) -> None:
-        """Remove a lifecycle hook.
-
-        Args:
-            state: The state to remove the hook from
-            callback: The callback to remove
-        """
-        self._lifecycle_hooks[state].discard(callback)
-
-    @abstractmethod
-    async def initialize(self, config: T_Config) -> None:
-        """Initialize the agent with configuration.
-
-        Args:
-            config: Agent configuration
+        ----
+            capability: The capability class to add
 
         Raises:
-            ValueError: If configuration is invalid
-            RuntimeError: If initialization fails
-            TimeoutError: If initialization times out
-        """
-        await self._update_state(AgentState.INITIALIZING)
-        try:
-            await self._initialize_impl(config)
-            await self._update_state(AgentState.READY)
-        except Exception as e:
-            await self._update_state(AgentState.ERROR)
-            raise e
+        ------
+            StateError: If agent is already initialized
+            ValueError: If capability is invalid
 
-    @abstractmethod
-    async def _initialize_impl(self, config: T_Config) -> None:
-        """Implementation of agent initialization.
+        """
+        if self._initialized:
+            raise StateError("Cannot add capability after initialization")
+
+        if not hasattr(capability, "name"):
+            raise ValueError("Capability must have a name attribute")
+
+        self.capabilities.add(capability.name)
+        logger.debug("Added capability %s to agent %s", capability.name, self.name)
+
+    def remove_capability(self, capability_name: str) -> None:
+        """Remove a capability from the agent.
 
         Args:
-            config: Agent configuration
-        """
-        pass
+        ----
+            capability_name: Name of capability to remove
 
-    @abstractmethod
-    async def process(
-        self,
-        input_data: T_Input,
-        context: T_Context | None = None,
-    ) -> T_Output:
-        """Process input data and return results.
+        Raises:
+        ------
+            StateError: If agent is already initialized
+            ValueError: If capability not found
+
+        """
+        if self._initialized:
+            raise StateError("Cannot remove capability after initialization")
+
+        if capability_name not in self.capabilities:
+            raise ValueError(f"Capability {capability_name} not found")
+
+        self.capabilities.remove(capability_name)
+        logger.debug("Removed capability %s from agent %s", capability_name, self.name)
+
+    def has_capability(self, capability_name: str) -> bool:
+        """Check if agent has a capability.
 
         Args:
-            input_data: Data to process
-            context: Optional processing context
+        ----
+            capability_name: Name of capability to check
 
         Returns:
-            Processing results
+        -------
+            True if agent has capability, False otherwise
 
-        Raises:
-            ValueError: If input data is invalid
-            RuntimeError: If processing fails
-            TimeoutError: If processing times out
         """
-        if self._state != AgentState.READY:
-            raise RuntimeError(
-                f"Agent must be in READY state to process, current state: {self._state}"
-            )
-
-        await self._update_state(AgentState.PROCESSING)
-        try:
-            result = await self._process_impl(input_data, context)
-            await self._update_state(AgentState.READY)
-            return result
-        except Exception as e:
-            await self._update_state(AgentState.ERROR)
-            raise e
-
-    @abstractmethod
-    async def _process_impl(
-        self,
-        input_data: T_Input,
-        context: T_Context | None = None,
-    ) -> T_Output:
-        """Implementation of input processing.
-
-        Args:
-            input_data: Data to process
-            context: Optional processing context
-
-        Returns:
-            Processing results
-        """
-        pass
-
-    @abstractmethod
-    async def cleanup(self) -> None:
-        """Cleanup resources used by the agent.
-
-        This method should release any resources held by the agent.
-
-        Raises:
-            RuntimeError: If cleanup fails
-        """
-        await self._update_state(AgentState.CLEANING)
-        try:
-            await self._cleanup_impl()
-            await self._update_state(AgentState.TERMINATED)
-        except Exception as e:
-            await self._update_state(AgentState.ERROR)
-            raise e
-
-    @abstractmethod
-    async def _cleanup_impl(self) -> None:
-        """Implementation of resource cleanup."""
-        pass
+        return capability_name in self.capabilities
 
 
 class AgentFactory(ABC):
@@ -648,15 +696,147 @@ class AgentFactory(ABC):
         agent_type: str,
         context: AgentContext,
         config: AgentConfig | None = None,
-    ) -> BaseAgent[Any, Any, Any, Any]:
+    ) -> BaseAgent:
         """Create a new agent instance.
 
         Args:
+        ----
             agent_type: Type of agent to create
             context: Agent context
             config: Optional configuration
 
         Returns:
+        -------
             BaseAgent: New agent instance
+
         """
         pass
+
+
+class PepperpyClientProtocol(Protocol):
+    """Protocol defining the interface for PepperpyClient."""
+
+    async def send_message(self, message: str) -> str:
+        """Send a message and get a response."""
+        ...
+
+    async def get_agent(self, agent_type: str) -> Any:
+        """Get an agent instance."""
+        ...
+
+
+class Agent(BaseAgent):
+    """Base implementation of the BaseAgent protocol.
+
+    This class provides a default implementation of the BaseAgent protocol
+    that can be extended by concrete agent implementations.
+    """
+
+    async def initialize(self) -> None:
+        """Initialize the agent.
+
+        This method should be called after instantiation to set up any
+        resources needed by the agent.
+
+        Raises
+        ------
+            StateError: If agent is already initialized
+            ConfigurationError: If initialization fails
+
+        """
+        if self._initialized:
+            raise StateError("Agent is already initialized")
+
+        try:
+            self._state = AgentState.INITIALIZING
+            # Initialize capabilities
+            for capability in self.capabilities:
+                logger.debug("Initializing capability %s", capability)
+                # Initialize capability here
+
+            self._initialized = True
+            self._state = AgentState.READY
+            logger.info("Agent %s initialized successfully", self.name)
+
+        except Exception as e:
+            self._state = AgentState.ERROR
+            logger.error("Failed to initialize agent %s: %s", self.name, e)
+            raise ConfigurationError(f"Failed to initialize agent: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up agent resources.
+
+        This method should be called when the agent is no longer needed
+        to clean up any resources.
+
+        Raises
+        ------
+            StateError: If agent is not initialized
+
+        """
+        if not self._initialized:
+            raise StateError("Agent is not initialized")
+
+        try:
+            self._state = AgentState.CLEANING
+            # Cleanup capabilities
+            for capability in self.capabilities:
+                logger.debug("Cleaning up capability %s", capability)
+                # Cleanup capability here
+
+            self._initialized = False
+            self._state = AgentState.TERMINATED
+            logger.info("Agent %s cleaned up successfully", self.name)
+
+        except Exception as e:
+            self._state = AgentState.ERROR
+            logger.error("Failed to clean up agent %s: %s", self.name, e)
+            raise StateError(f"Failed to clean up agent: {e}") from e
+
+    async def process_message(self, message: Message) -> Response:
+        """Process an incoming message.
+
+        Args:
+        ----
+            message: The message to process
+
+        Returns:
+        -------
+            The response to the message
+
+        Raises:
+        ------
+            StateError: If agent is not initialized
+
+        """
+        if not self._initialized:
+            raise StateError("Agent is not initialized")
+
+        try:
+            self._state = AgentState.PROCESSING
+            logger.debug("Processing message: %s", message)
+
+            # Default implementation just echoes the message
+            response = Response(
+                message_id=message.id,
+                content=MessageContent(
+                    type=MessageType.RESPONSE,
+                    content={"text": f"Echo: {message.content}"},
+                ),
+                status=ResponseStatus.SUCCESS,
+            )
+
+            self._state = AgentState.READY
+            return response
+
+        except Exception as e:
+            self._state = AgentState.ERROR
+            logger.error("Failed to process message: %s", e)
+            return Response(
+                message_id=message.id,
+                content=MessageContent(
+                    type=MessageType.RESPONSE,
+                    content={"error": str(e)},
+                ),
+                status=ResponseStatus.ERROR,
+            )

@@ -4,6 +4,14 @@ This module provides memory store functionality for persisting agent state,
 conversation history, and other data needed for agent operation.
 """
 
+from pepperpy.memory.stores import (
+    CompositeMemoryStore,
+    InMemoryStore,
+    PostgresMemoryStore,
+    RedisMemoryStore,
+    VectorMemoryStore,
+)
+
 from .store import (
     BaseMemoryStore,
     MemoryStore,
@@ -16,4 +24,9 @@ __all__ = [
     "MemoryStore",
     "create_memory_store",
     "register_memory_store",
+    "CompositeMemoryStore",
+    "InMemoryStore",
+    "PostgresMemoryStore",
+    "RedisMemoryStore",
+    "VectorMemoryStore",
 ]
