@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v1.4.0 (2025-02-11)
+
+### Features
+
+- Add Google Generative AI provider and update research assistant agent
+  ([`d2d1703`](https://github.com/felipepimentel/pepperpy-ai/commit/d2d170313a28db336f62fc4f9e96755f8813962e))
+
+* Added google-generativeai package to project dependencies * Updated research assistant agent to
+  support more modular and flexible agent workflows * Implemented new methods in research assistant
+  agent: analyze_topic, find_sources, analyze_sources * Enhanced provider initialization and cleanup
+  in agent implementation * Removed deprecated test files and simplified project structure * Updated
+  example research assistant script to demonstrate new agent capabilities
+
+
 ## v1.3.0 (2025-02-11)
 
 ### Features
