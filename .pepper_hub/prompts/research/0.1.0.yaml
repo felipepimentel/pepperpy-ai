@@ -1,5 +1,12 @@
+name: research
+description: Research-related prompts for analyzing topics and sources
+version: 0.1.0
+type: prompt_collection
+tags: ["research", "academic", "analysis"]
+
 prompts:
-  - name: research.analyze
+  analyze:
+    name: research.analyze
     description: Analyze a research topic
     template: |
       Please analyze the following research topic: {{topic}}
@@ -13,8 +20,14 @@ prompts:
       Provide:
       - A comprehensive summary
       - A list of specific recommendations for further research
+    parameters:
+      topic:
+        type: string
+        description: The research topic to analyze
+        required: true
 
-  - name: research.sources
+  sources:
+    name: research.sources
     description: Find and analyze sources for a topic
     template: |
       Please find and analyze up to {{max_sources}} relevant sources for the topic: {{topic}}
@@ -29,4 +42,13 @@ prompts:
       Focus on:
       - Recent publications (last 5 years preferred)
       - High-impact venues
-      - Diverse perspectives on the topic 
+      - Diverse perspectives on the topic
+    parameters:
+      topic:
+        type: string
+        description: The research topic to analyze
+        required: true
+      max_sources:
+        type: integer
+        description: Maximum number of sources to analyze
+        default: 5 

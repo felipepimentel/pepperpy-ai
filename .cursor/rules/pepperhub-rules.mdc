@@ -1,0 +1,177 @@
+---
+title: ".pepper_hub Asset Management Rules"
+description: "Defines standards for storing and managing local AI assets (prompts, agents, workflows, etc.) in a unified structure."
+globs: .pepper_hub/**/*
+---
+
+# .pepper_hub Asset Management Rules
+
+## Overview
+
+This document establishes a **unified local storage strategy** for all AI artifacts (e.g., prompts, agents, workflows, plugins) under a single folder named `.pepper_hub/`.  
+By adhering to these rules, teams can easily version, track, and maintain consistency across different types of assets.
+
+---
+
+## 1. Directory Structure
+
+```plaintext
+.pepper_hub/
+├── prompts/
+│   └── (prompt_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+├── agents/
+│   └── (agent_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.1.0.yaml
+├── workflows/
+│   └── (workflow_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+└── plugins/
+    └── (plugin_name)/
+        ├── 1.0.0.yaml
+        └── 1.0.1.yaml
+```
+
+1. **Root Folder**  
+   - `.pepper_hub/` serves as the top-level directory for all asset types.
+
+2. **Asset Type Subfolders**  
+   - Within `.pepper_hub/`, create subfolders for each major asset category: `prompts/`, `agents/`, `workflows/`, and so on.  
+   - Each subfolder contains one or more assets, with each asset having its own dedicated folder.
+
+3. **Versioned Files**  
+   - Each asset folder may contain multiple version files (e.g., `1.0.0.yaml`, `1.1.0.yaml`).  
+   - Increment version numbers whenever significant changes are made.
+
+---
+
+## 2. Asset File Format
+
+A typical file (YAML/JSON) should include at least the following keys:
+
+```yaml
+name: "example_asset"
+type: "prompt"  # or agent, workflow, plugin, etc.
+version: "1.0.0"
+content: |
+  # Main body, definitions, configuration, or instructions
+
+# Optional metadata fields
+description: "Brief explanation of the asset"
+tags: ["example", "demo"]
+```
+
+- **name**: Unique identifier for the asset (folder name usually matches this).  
+- **type**: The asset category (`prompt`, `agent`, `workflow`, etc.).  
+- **version**: Current version of this asset.  
+- **content**: Core data or instructions relevant to the asset.  
+- **metadata** (optional): Could include fields like `description`, `tags`, `author`, or any other context.
+
+---
+
+## 3. Adding or Updating Assets
+
+1. **Create/Modify a File**  
+   - Draft or edit a YAML/JSON file with the required fields (`name`, `type`, `version`, etc.).  
+2. **Choose the Correct Folder**  
+   - For an agent named `my_agent`, place it under:  
+     ```
+     .pepper_hub/agents/my_agent/1.0.0.yaml
+     ```
+3. **Increment Versions**  
+   - Upon updating significant content, increment the version (e.g., from `1.0.0` to `1.1.0`).  
+4. **Maintain Change History**  
+   - Older versions remain accessible for reference or rollback.
+
+---
+
+## 4. Retrieval and Listing
+
+- **Listing**  
+  - Use a CLI or simply inspect the subfolders to view available artifacts.  
+  - Each folder will show the specific asset versions.  
+- **Retrieving a Version**  
+  - Point to the exact file path for the desired version (e.g., `1.0.1.yaml`).  
+  - Alternatively, define a convention for the “latest” version (like sorting by version number or using a `latest.yaml` symlink).
+
+---
+
+## 5. Best Practices
+
+1. **Consistency**  
+   - Follow a clear naming convention for both folders and files.  
+   - Keep type labels (`prompt`, `agent`, etc.) consistent across all YAML/JSON definitions.
+
+2. **Documentation & Metadata**  
+   - Include a `description` and `tags` array to help identify the purpose of each asset.  
+   - Provide “example usage” or “expected inputs/outputs” if relevant.
+
+3. **Version Control**  
+   - Consider using semantic versioning (e.g., `1.0.0 → 1.1.0 → 2.0.0`).  
+   - Record changes in a changelog or comments within the file.
+
+4. **Testing & Validation**  
+   - For complex assets (like prompts or workflows), include sample inputs/outputs or test scenarios.  
+   - Validate new versions before replacing existing ones in production or advanced environments.
+
+5. **Scalability**  
+   - If subfolders become large, subdivide them by domain or feature (e.g., `prompts/agents/reasoning/`, `agents/assistant/expert/`).  
+   - Keep only active or widely used versions accessible, archiving older files as needed.
+
+---
+
+## 6. Examples
+
+### Example Prompt Asset
+
+```yaml
+name: "brainstorm_prompt"
+type: "prompt"
+version: "1.0.0"
+description: "A prompt to encourage creative thinking."
+tags: ["brainstorming", "creativity"]
+content: |
+  Generate five distinct ideas for {{topic}}. 
+  Provide each idea as a short paragraph.
+```
+
+### Example Agent Asset
+
+```yaml
+name: "customer_service_agent"
+type: "agent"
+version: "1.1.0"
+description: "Handles user inquiries with a friendly tone."
+tags: ["customer_service", "support"]
+content: |
+  # Agent configuration details, memory handling, role definitions, etc.
+```
+
+### Example Workflow Asset
+
+```yaml
+name: "order_processing_workflow"
+type: "workflow"
+version: "2.0.0"
+description: "Multi-step process to validate and fulfill orders."
+tags: ["ecommerce", "process"]
+content: |
+  1. Validate the incoming order data
+  2. Check inventory status
+  3. Confirm payment processing
+  4. Update order status in the system
+```
+
+---
+
+## 7. Maintenance and Monitoring
+
+1. **Periodic Review**  
+   - Regularly review the `.pepper_hub/` directory for outdated or unused versions.  
+2. **Cleanup**  
+   - Delete stale assets or versions to reduce clutter.  
+3. **Auditing**  
+   - Track usage and changes to understand the evolution and performance of assets over time.

@@ -1,10 +1,14 @@
-name: Research Workflow
+name: research
 description: A workflow for conducting research on a given topic
+version: 0.1.0
+type: workflow
+tags: ["research", "academic", "analysis"]
 
 inputs:
   topic:
     type: string
     description: The research topic to investigate
+    required: true
   max_sources:
     type: integer
     description: Maximum number of sources to analyze
@@ -25,7 +29,10 @@ steps:
   initial_research:
     description: Initial research and topic analysis
     agent: research_assistant
+    agent_version: 0.1.0
+    method: analyze_topic
     prompt: research.analyze
+    prompt_version: 0.1.0
     inputs:
       topic: inputs.topic
     outputs:
@@ -35,7 +42,10 @@ steps:
   source_analysis:
     description: Analyze and compile sources
     agent: research_assistant
+    agent_version: 0.1.0
+    method: find_sources
     prompt: research.sources
+    prompt_version: 0.1.0
     inputs:
       topic: inputs.topic
       max_sources: inputs.max_sources
