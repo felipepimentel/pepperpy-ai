@@ -1,0 +1,106 @@
+name: "research"
+type: "workflow"
+version: "1.0.0"
+description: "Research assistant workflow for analyzing topics and finding sources"
+tags: ["research", "analysis", "sources"]
+
+content:
+  agent:
+    name: research_assistant
+    version: "0.1.0"
+
+  steps:
+    - name: analyze_topic
+      method: analyze_topic
+      inputs:
+        - name: topic
+          type: str
+          description: "Research topic to analyze"
+      outputs:
+        - name: summary
+          type: str
+          description: "Initial topic analysis"
+
+    - name: find_sources
+      method: find_sources
+      inputs:
+        - name: topic
+          type: str
+          description: "Research topic to find sources for"
+        - name: max_sources
+          type: int
+          default: 5
+          description: "Maximum number of sources to find"
+      outputs:
+        - name: sources
+          type: list
+          description: "List of relevant sources"
+
+    - name: analyze_sources
+      method: analyze_sources
+      inputs:
+        - name: sources
+          type: list
+          description: "Sources to analyze"
+      outputs:
+        - name: synthesis
+          type: str
+          description: "Synthesized findings and recommendations"
+
+  flow:
+    - step: analyze_topic
+      inputs:
+        topic: "${workflow.input.topic}"
+      outputs:
+        summary: "${workflow.output.summary}"
+
+    - step: find_sources
+      inputs:
+        topic: "${workflow.input.topic}"
+        max_sources: "${workflow.input.max_sources}"
+      outputs:
+        sources: "${workflow.output.sources}"
+
+    - step: analyze_sources
+      inputs:
+        sources: "${workflow.output.sources}"
+      outputs:
+        synthesis: "${workflow.output.recommendations}"
+
+  validation:
+    input_schema:
+      type: object
+      required: ["topic"]
+      properties:
+        topic:
+          type: string
+          description: "Research topic to analyze"
+        max_sources:
+          type: integer
+          default: 5
+          minimum: 1
+          maximum: 10
+          description: "Maximum number of sources to find"
+
+    output_schema:
+      type: object
+      required: ["summary", "sources", "recommendations"]
+      properties:
+        summary:
+          type: string
+          description: "Initial topic analysis"
+        sources:
+          type: array
+          items:
+            type: string
+          description: "List of relevant sources"
+        recommendations:
+          type: string
+          description: "Synthesized findings and recommendations"
+
+metadata:
+  created_at: "2024-02-11"
+  updated_at: "2024-02-11"
+  author: "Pepperpy Team"
+  dependencies:
+    - research_assistant@0.1.0 

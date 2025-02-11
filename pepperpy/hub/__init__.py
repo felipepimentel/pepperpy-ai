@@ -9,10 +9,13 @@ from typing import Any, Dict, List, Optional, Union
 
 from structlog import get_logger
 
+from pepperpy.core.errors import ConfigurationError
 from pepperpy.hub.agents import Agent, AgentConfig, AgentRegistry
 from pepperpy.hub.prompts import PromptRegistry
 from pepperpy.hub.storage import LocalStorage
+from pepperpy.hub.workflow import WorkflowEngine
 from pepperpy.hub.workflows import Workflow, WorkflowConfig, WorkflowRegistry
+from pepperpy.monitoring import logger
 
 # Configure logger
 logger = get_logger()
@@ -29,18 +32,25 @@ __all__ = [
 
 
 class Hub:
-    """Central hub for managing and loading AI artifacts."""
+    """Central hub for managing Pepperpy artifacts and workflows."""
 
-    def __init__(self, storage_dir: Optional[Union[str, Path]] = None):
-        """Initialize the hub with local storage.
+    def __init__(self, storage_dir: Union[str, Path]) -> None:
+        """Initialize the hub.
 
         Args:
         ----
-            storage_dir: Optional directory for storing artifacts locally.
-                If None, uses default (~/.pepper_hub).
+            storage_dir: Directory for storing artifacts.
 
         """
-        self.storage = LocalStorage(storage_dir or Path.home() / ".pepper_hub")
+        self.storage_dir = Path(storage_dir)
+        self.storage = LocalStorage(self.storage_dir)
+        self.workflow_engine = WorkflowEngine(self.storage_dir / "workflows")
+        self.log = logger.bind(component="hub")
+
+        # Ensure directories exist
+        self.storage_dir.mkdir(parents=True, exist_ok=True)
+        (self.storage_dir / "workflows").mkdir(exist_ok=True)
+        (self.storage_dir / "agents").mkdir(exist_ok=True)
 
     def save_artifact(
         self,
@@ -48,22 +58,18 @@ class Hub:
         artifact_id: str,
         data: Dict[str, Any],
         version: Optional[str] = None,
-    ) -> str:
-        """Save an artifact.
+    ) -> None:
+        """Save an artifact to the hub.
 
         Args:
         ----
-            artifact_type: Type of artifact (agent, prompt, workflow)
-            artifact_id: ID of the artifact
-            data: Artifact data/configuration
-            version: Optional version string. If None, auto-generates.
-
-        Returns:
-        -------
-            The version string used
+            artifact_type: Type of artifact (e.g., "agents", "workflows").
+            artifact_id: ID of the artifact.
+            data: Artifact data to save.
+            version: Optional version string.
 
         """
-        return self.storage.save_artifact(artifact_type, artifact_id, data, version)
+        self.storage.save_artifact(artifact_type, artifact_id, data, version)
 
     def load_artifact(
         self,
@@ -71,65 +77,59 @@ class Hub:
         artifact_id: str,
         version: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Load an artifact.
+        """Load an artifact from the hub.
 
         Args:
         ----
-            artifact_type: Type of artifact (agent, prompt, workflow)
-            artifact_id: ID of the artifact
-            version: Optional version to load. If None, loads latest.
+            artifact_type: Type of artifact (e.g., "agents", "workflows").
+            artifact_id: ID of the artifact.
+            version: Optional version string.
 
         Returns:
         -------
-            The artifact data
+            Dict[str, Any]: Loaded artifact data.
+
+        Raises:
+        ------
+            ConfigurationError: If artifact cannot be loaded.
 
         """
-        return self.storage.load_artifact(artifact_type, artifact_id, version)
+        try:
+            return self.storage.load_artifact(artifact_type, artifact_id, version)
+        except Exception as e:
+            raise ConfigurationError(f"Failed to load artifact {artifact_id}: {str(e)}")
 
     def list_artifacts(
-        self, artifact_type: Optional[str] = None
+        self,
+        artifact_type: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """List all artifacts of a given type or all types.
+        """List available artifacts of a given type.
 
         Args:
         ----
-            artifact_type: Optional type to filter by (agent, prompt, workflow)
+            artifact_type: Type of artifacts to list (optional).
 
         Returns:
         -------
-            List of artifact metadata
+            List[Dict[str, Any]]: List of artifact metadata including name,
+            type, latest version, and all available versions.
 
         """
         return self.storage.list_artifacts(artifact_type)
 
-    def list_versions(self, artifact_type: str, artifact_name: str) -> List[str]:
-        """List all versions of a specific artifact.
-
-        Args:
-        ----
-            artifact_type: Type of artifact
-            artifact_name: Name of the artifact
-
-        Returns:
-        -------
-            List of version strings
-
-        """
-        return self.storage.list_versions(artifact_type, artifact_name)
-
     def delete_artifact(
         self,
         artifact_type: str,
-        artifact_name: str,
+        artifact_id: str,
         version: Optional[str] = None,
     ) -> None:
-        """Delete an artifact or specific version.
+        """Delete an artifact from the hub.
 
         Args:
         ----
-            artifact_type: Type of artifact
-            artifact_name: Name of the artifact
-            version: Optional version to delete. If None, deletes all versions.
+            artifact_type: Type of artifact to delete.
+            artifact_id: ID of the artifact.
+            version: Optional version to delete.
 
         """
-        self.storage.delete_artifact(artifact_type, artifact_name, version)
+        self.storage.delete_artifact(artifact_type, artifact_id, version)

@@ -10,7 +10,9 @@ from collections.abc import AsyncGenerator, Callable, Mapping
 from types import TracebackType
 from typing import (
     Any,
+    Dict,
     Generic,
+    Optional,
     TypeVar,
     cast,
 )
@@ -20,10 +22,13 @@ from pydantic import BaseModel, Field
 from pydantic.types import SecretStr
 
 from pepperpy.core.base import AgentContext, AgentState, BaseAgent
+from pepperpy.core.config import PepperpyConfig
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.memory.store import MemoryStore, create_memory_store
 from pepperpy.core.prompt.template import PromptTemplate, create_prompt_template
 from pepperpy.core.types import Response
+from pepperpy.hub.registry import AgentRegistry
+from pepperpy.monitoring import logger
 from pepperpy.providers.base import (
     BaseProvider,
     ExtraConfig,
@@ -52,12 +57,14 @@ ProviderErrorType = type[ProviderError]
 ExceptionType = type[BaseException]
 
 # Valid hook event types
-VALID_HOOK_EVENTS = frozenset({
-    "initialize",
-    "cleanup",
-    "agent_created",
-    "agent_removed",
-})
+VALID_HOOK_EVENTS = frozenset(
+    {
+        "initialize",
+        "cleanup",
+        "agent_created",
+        "agent_removed",
+    }
+)
 
 # Hook type alias for better readability
 HookCallbackType = Callable[
@@ -68,7 +75,8 @@ HookCallbackType = Callable[
 class ClientConfig(BaseModel):
     """Configuration for the Pepperpy client.
 
-    Attributes:
+    Attributes
+    ----------
         timeout: Operation timeout in seconds
         max_retries: Maximum number of retries
         retry_delay: Delay between retries in seconds
@@ -76,6 +84,7 @@ class ClientConfig(BaseModel):
         provider_config: Provider-specific configuration
         memory_config: Memory store configuration
         prompt_config: Prompt template configuration
+
     """
 
     timeout: float = Field(default=30.0, gt=0)
@@ -96,8 +105,18 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     - Handling configuration and resources
     """
 
-    def __init__(self) -> None:
-        """Initialize the Pepperpy client."""
+    def __init__(self, config: Optional[PepperpyConfig] = None) -> None:
+        """Initialize the Pepperpy client.
+
+        Args:
+        ----
+            config: Optional configuration instance. If not provided, will load from
+                environment variables.
+
+        """
+        self.config = config or PepperpyConfig.from_env()
+        self._provider = None
+        self._agents: Dict[UUID, Any] = {}
         self._agent_factory: (
             Callable[
                 [str, AgentContext, T_Config],
@@ -105,10 +124,6 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             ]
             | None
         ) = None
-        self._provider: BaseProvider | None = None
-        self._config: ClientConfig | None = None
-        self._raw_config: dict[str, Any] = {}
-        self._agents: dict[UUID, BaseAgent[T_Input, T_Output, T_Config, T_Context]] = {}
         self._manager: ProviderManager | None = None
         self._initialized = False
         self._created_at = time.time()
@@ -131,8 +146,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     def config(self) -> ClientConfig:
         """Get current client configuration.
 
-        Raises:
+        Raises
+        ------
             StateError: If client is not initialized
+
         """
         if not self._config:
             raise StateError("Client not initialized")
@@ -143,11 +160,14 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     ) -> "PepperpyClient[T_Input, T_Output, T_Config, T_Context]":
         """Initialize the client for use in async context.
 
-        Returns:
+        Returns
+        -------
             Initialized client instance
 
-        Raises:
+        Raises
+        ------
             ConfigurationError: If initialization fails
+
         """
         await self.initialize()
         return self
@@ -161,9 +181,11 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Clean up resources when exiting async context.
 
         Args:
+        ----
             exc_type: The type of the exception that was raised
             exc_val: The instance of the exception that was raised
             exc_tb: The traceback of the exception that was raised
+
         """
         await self.cleanup()
 
@@ -177,6 +199,7 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Add event hook.
 
         Args:
+        ----
             event: Event to hook. Valid events:
                 - "initialize"
                 - "cleanup"
@@ -185,7 +208,9 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             callback: Function to call on event
 
         Raises:
+        ------
             ValueError: If event is invalid
+
         """
         if event not in VALID_HOOK_EVENTS:
             raise ValueError(f"Invalid event: {event}")
@@ -201,11 +226,14 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Remove a lifecycle hook.
 
         Args:
+        ----
             event: Event to unhook
             callback: Function to remove
 
         Raises:
+        ------
             ValueError: If event is invalid
+
         """
         if event not in VALID_HOOK_EVENTS:
             raise ValueError(f"Invalid event: {event}")
@@ -219,8 +247,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Trigger lifecycle hooks for an event.
 
         Args:
+        ----
             event: Event that triggered the hooks
             error_context: Optional context for error logging
+
         """
         for hook in self._lifecycle_hooks[event]:
             try:
@@ -239,9 +269,11 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         This method must be called before using the client.
         It initializes the provider and sets up the manager.
 
-        Raises:
+        Raises
+        ------
             RuntimeError: If initialization fails
             ValueError: If provider is not set
+
         """
         try:
             # Create and initialize manager with provider
@@ -276,8 +308,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         2. All active agents
         3. Any open connections
 
-        Raises:
+        Raises
+        ------
             RuntimeError: If cleanup fails
+
         """
         try:
             # Trigger hooks
@@ -306,8 +340,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     def _ensure_initialized(self) -> None:
         """Ensure the client is initialized.
 
-        Raises:
+        Raises
+        ------
             StateError: If client is not initialized
+
         """
         if not self._initialized:
             raise StateError("Client not initialized")
@@ -319,16 +355,20 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         simple chat interactions.
 
         Args:
+        ----
             message: The message to send
 
         Returns:
+        -------
             The text response from the provider
 
         Raises:
+        ------
             StateError: If client is not initialized
             TypeError: If provider returns a streaming response
             ConfigurationError: If provider configuration is invalid
             TimeoutError: If operation times out
+
         """
         self._ensure_initialized()
         if not self._manager:
@@ -354,15 +394,19 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         streaming chat interactions.
 
         Args:
+        ----
             message: The message to send
 
         Returns:
+        -------
             An async generator yielding response chunks
 
         Raises:
+        ------
             StateError: If client is not initialized
             ConfigurationError: If provider configuration is invalid
             TimeoutError: If operation times out
+
         """
         self._ensure_initialized()
         if not self._manager:
@@ -391,17 +435,21 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Create a new agent instance.
 
         Args:
+        ----
             agent_type: Type of agent to create
             config: Agent configuration
 
         Returns:
+        -------
             Created and initialized agent instance
 
         Raises:
+        ------
             StateError: If client is not initialized
             ConfigurationError: If configuration is invalid
             NotFoundError: If agent type is not found
             TimeoutError: If operation times out
+
         """
         self._ensure_initialized()
 
@@ -451,14 +499,18 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Get an existing agent by ID.
 
         Args:
+        ----
             agent_id: Unique identifier of the agent
 
         Returns:
+        -------
             The requested agent instance
 
         Raises:
+        ------
             StateError: If client is not initialized
             NotFoundError: If agent is not found
+
         """
         self._ensure_initialized()
 
@@ -470,11 +522,14 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     def list_agents(self) -> list[BaseAgent[T_Input, T_Output, T_Config, T_Context]]:
         """Get a list of all active agents.
 
-        Returns:
+        Returns
+        -------
             List of active agent instances
 
-        Raises:
+        Raises
+        ------
             StateError: If client is not initialized
+
         """
         self._ensure_initialized()
         return list(self._agents.values())
@@ -485,12 +540,15 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         This method ensures proper cleanup of the agent before removal.
 
         Args:
+        ----
             agent_id: Unique identifier of the agent to remove
 
         Raises:
+        ------
             StateError: If client is not initialized
             NotFoundError: If agent is not found
             RuntimeError: If cleanup fails
+
         """
         self._ensure_initialized()
 
@@ -517,8 +575,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
     def get_provider(self) -> BaseProvider | None:
         """Get the current provider.
 
-        Returns:
+        Returns
+        -------
             Current provider instance or None if not set
+
         """
         return self._provider
 
@@ -532,7 +592,9 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Set the agent factory.
 
         Args:
+        ----
             factory: Factory function for creating agents
+
         """
         self._agent_factory = factory
 
@@ -544,8 +606,10 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Set up a provider for the client.
 
         Args:
+        ----
             provider: Provider instance to use
             config: Optional provider configuration
+
         """
         self._provider = provider
         if config is not None:
@@ -567,6 +631,7 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
         """Create provider configuration.
 
         Args:
+        ----
             provider_type: Type of provider
             api_key: API key for authentication
             model: Model to use
@@ -577,10 +642,13 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             extra_config: Additional configuration parameters
 
         Returns:
+        -------
             Provider configuration.
 
         Raises:
+        ------
             ConfigurationError: If required parameters are missing.
+
         """
         if api_key is None:
             raise ConfigurationError("API key is required")
@@ -632,3 +700,51 @@ class PepperpyClient(Generic[T_Input, T_Output, T_Config, T_Context]):
             api_key=secret_key,
             extra_config=extra_config_model,
         )
+
+    async def get_agent(
+        self, agent_type: str, version: Optional[str] = None, **kwargs: Any
+    ) -> Any:
+        """Get or create an agent of the specified type.
+
+        This method handles agent creation and configuration automatically.
+        If no version is specified, it will use the latest available version.
+
+        Args:
+        ----
+            agent_type: Type of agent to get/create (e.g., "research_assistant")
+            version: Optional specific version to use (e.g., "1.2.3")
+            **kwargs: Additional configuration overrides
+
+        Returns:
+        -------
+            The requested agent instance
+
+        Example:
+        -------
+            ```python
+            # Get latest version
+            agent = await client.get_agent("research_assistant")
+
+            # Get specific version
+            agent = await client.get_agent("research_assistant", version="1.2.3")
+            ```
+
+        Raises:
+        ------
+            ValueError: If agent_type is invalid or version not found
+
+        """
+        # Get agent configuration from registry
+        registry = AgentRegistry()
+        agent_config = await registry.get_agent_config(
+            agent_type=agent_type,
+            version=version,  # None means latest
+        )
+
+        # Merge with any overrides
+        agent_config.update(kwargs)
+
+        # Create the agent
+        agent = await self.create_agent(agent_type=agent_type, config=agent_config)
+
+        return agent

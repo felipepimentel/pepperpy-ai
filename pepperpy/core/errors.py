@@ -14,7 +14,7 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypedDict
+from typing import Any, Dict, Optional, TypedDict
 
 
 class ErrorCategory(str, Enum):
@@ -53,13 +53,15 @@ class ErrorMetadata:
 class PepperpyError(Exception):
     """Base class for all Pepperpy errors.
 
-    Attributes:
+    Attributes
+    ----------
         message: Error message
         error_type: Type of error that occurred
         details: Additional error details
         user_message: User-friendly error message
         recovery_hint: Hint for recovering from the error
         context: Error context information
+
     """
 
     def __init__(
@@ -76,6 +78,7 @@ class PepperpyError(Exception):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             category: Error category
             error_code: Error code
@@ -83,6 +86,7 @@ class PepperpyError(Exception):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         super().__init__(message)
         self.message = message
@@ -107,35 +111,30 @@ class PepperpyError(Exception):
 
 
 class ValidationError(PepperpyError):
-    """Raised when validation fails."""
+    """Raised when input validation fails."""
 
     def __init__(
         self,
         message: str,
-        *,
-        details: dict[str, Any] | None = None,
-        user_message: str | None = None,
-        recovery_hint: str | None = None,
-        context: ErrorContext | None = None,
+        field: Optional[str] = None,
+        value: Optional[Any] = None,
+        code: str = "VALIDATION_ERROR",
+        details: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize the error.
+        """Initialize the validation error.
 
         Args:
+        ----
             message: Error message
-            details: Additional error details
-            user_message: User-friendly error message
-            recovery_hint: Hint for recovering from the error
-            context: Error context information
+            field: Optional name of the field that failed validation
+            value: Optional invalid value
+            code: Error code
+            details: Optional additional error details
+
         """
-        super().__init__(
-            message,
-            category=ErrorCategory.VALIDATION,
-            error_code="VAL001",
-            details=details,
-            user_message=user_message,
-            recovery_hint=recovery_hint,
-            context=context,
-        )
+        super().__init__(message, error_code=code, details=details)
+        self.field = field
+        self.value = value
 
 
 class StateError(PepperpyError):
@@ -155,6 +154,7 @@ class StateError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             current_state: Current state when error occurred
             expected_state: Expected state for operation
@@ -162,6 +162,7 @@ class StateError(PepperpyError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         details = details or {}
         if current_state:
@@ -181,41 +182,27 @@ class StateError(PepperpyError):
 
 
 class ConfigurationError(PepperpyError):
-    """Raised when there is a configuration error."""
+    """Raised when there is an error in configuration."""
 
     def __init__(
         self,
         message: str,
-        *,
-        config_key: str | None = None,
-        details: dict[str, Any] | None = None,
-        user_message: str | None = None,
-        recovery_hint: str | None = None,
-        context: ErrorContext | None = None,
+        config_key: Optional[str] = None,
+        code: str = "CONFIG_ERROR",
+        details: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize the error.
+        """Initialize the configuration error.
 
         Args:
+        ----
             message: Error message
-            config_key: Configuration key that caused the error
-            details: Additional error details
-            user_message: User-friendly error message
-            recovery_hint: Hint for recovering from the error
-            context: Error context information
-        """
-        if config_key:
-            details = details or {}
-            details["config_key"] = config_key
+            config_key: Optional configuration key that caused the error
+            code: Error code
+            details: Optional additional error details
 
-        super().__init__(
-            message,
-            category=ErrorCategory.VALIDATION,
-            error_code="CFG001",
-            details=details,
-            user_message=user_message,
-            recovery_hint=recovery_hint,
-            context=context,
-        )
+        """
+        super().__init__(message, error_code=code, details=details)
+        self.config_key = config_key
 
 
 class ProviderError(PepperpyError):
@@ -235,6 +222,7 @@ class ProviderError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             provider: Provider that caused the error
             operation: Operation that failed
@@ -242,6 +230,7 @@ class ProviderError(PepperpyError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         details = details or {}
         if provider:
@@ -275,11 +264,13 @@ class RuntimeError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             details: Additional error details
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         super().__init__(
             message,
@@ -309,6 +300,7 @@ class ToolError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             tool_name: Name of the tool that caused the error
             operation: Operation that failed
@@ -316,6 +308,7 @@ class ToolError(PepperpyError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         details = details or {}
         if tool_name:
@@ -351,6 +344,7 @@ class PermissionError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             resource: Resource that was being accessed
             action: Action that was attempted
@@ -358,6 +352,7 @@ class PermissionError(PepperpyError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         details = details or {}
         if resource:
@@ -383,8 +378,10 @@ class ContextError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: The error message
             context: Optional context information about the error
+
         """
         super().__init__(message)
         self.context = context or ErrorContext()
@@ -397,9 +394,11 @@ class LifecycleError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: The error message
             component: The name of the component that encountered the error
             state: Optional lifecycle state when the error occurred
+
         """
         super().__init__(message)
         self.component = component
@@ -415,9 +414,11 @@ class FactoryError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: The error message
             component_type: The type of component that failed to be created
             config: Optional configuration that caused the error
+
         """
         super().__init__(message)
         self.component_type = component_type
@@ -436,9 +437,11 @@ class OrchestratorError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: The error message
             task_id: Optional ID of the task that encountered the error
             state: Optional orchestrator state when the error occurred
+
         """
         super().__init__(message)
         self.task_id = task_id
@@ -454,55 +457,66 @@ class ShardingError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: The error message
             shard_key: Optional key used for sharding that caused the error
             operation: Optional operation that failed
+
         """
         super().__init__(message)
         self.shard_key = shard_key
         self.operation = operation
 
 
-class NotFoundError(PepperpyError):
+class ResourceNotFoundError(PepperpyError):
     """Raised when a requested resource is not found."""
 
     def __init__(
         self,
         message: str,
-        *,
-        resource_type: str | None = None,
-        resource_id: str | None = None,
-        details: dict[str, Any] | None = None,
-        user_message: str | None = None,
-        recovery_hint: str | None = None,
-        context: ErrorContext | None = None,
+        resource_type: Optional[str] = None,
+        resource_id: Optional[str] = None,
+        code: str = "NOT_FOUND",
+        details: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """Initialize the error.
+        """Initialize the resource not found error.
 
         Args:
+        ----
             message: Error message
-            resource_type: Type of resource that was not found
-            resource_id: ID of the resource that was not found
-            details: Additional error details
-            user_message: User-friendly error message
-            recovery_hint: Hint for recovering from the error
-            context: Error context information
-        """
-        details = details or {}
-        if resource_type:
-            details["resource_type"] = resource_type
-        if resource_id:
-            details["resource_id"] = resource_id
+            resource_type: Optional type of resource that was not found
+            resource_id: Optional ID of the resource that was not found
+            code: Error code
+            details: Optional additional error details
 
-        super().__init__(
-            message,
-            category=ErrorCategory.RESOURCE,
-            error_code="RES001",
-            details=details,
-            user_message=user_message,
-            recovery_hint=recovery_hint,
-            context=context,
-        )
+        """
+        super().__init__(message, error_code=code, details=details)
+        self.resource_type = resource_type
+        self.resource_id = resource_id
+
+
+class OperationError(PepperpyError):
+    """Raised when an operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        operation: Optional[str] = None,
+        code: str = "OPERATION_ERROR",
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the operation error.
+
+        Args:
+        ----
+            message: Error message
+            operation: Optional name of the operation that failed
+            code: Error code
+            details: Optional additional error details
+
+        """
+        super().__init__(message, error_code=code, details=details)
+        self.operation = operation
 
 
 class RegistryError(PepperpyError):
@@ -522,6 +536,7 @@ class RegistryError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             registry_name: Name of the registry where the error occurred
             operation: Operation that failed
@@ -529,6 +544,7 @@ class RegistryError(PepperpyError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         details = details or {}
         if registry_name:
@@ -562,11 +578,13 @@ class LearningError(PepperpyError):
         """Initialize the error.
 
         Args:
+        ----
             message: Error message
             context: Learning context that caused the error
             details: Additional error details
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
+
         """
         error_context = (
             ErrorContext(
@@ -586,3 +604,15 @@ class LearningError(PepperpyError):
             recovery_hint=recovery_hint,
             context=error_context,
         )
+
+
+class WorkflowError(PepperpyError):
+    """Raised when there is a workflow-related error."""
+
+    pass
+
+
+class AgentError(PepperpyError):
+    """Raised when there is an agent-related error."""
+
+    pass

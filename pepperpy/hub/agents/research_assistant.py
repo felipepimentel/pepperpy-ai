@@ -1,219 +1,153 @@
-"""Research Assistant Agent for conducting research tasks.
+"""Research assistant agent implementation.
 
-This module provides an agent specialized in conducting research tasks, including
-topic analysis, source gathering, and synthesis of findings.
+This module provides a specialized agent for conducting research tasks, including
+topic analysis, source discovery, and information synthesis.
 """
 
+from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
-from pepperpy.hub.agents.base import AgentConfig
+from pydantic import BaseModel
+
+from pepperpy.core.client import PepperpyClient
 from pepperpy.monitoring import logger
-from pepperpy.providers.base import BaseProvider
 
 log = logger.bind(agent="research_assistant")
 
 
-class ResearchAssistantAgent:
-    """Research assistant agent implementation."""
+class ResearchAssistantConfig(BaseModel):
+    """Configuration for the research assistant agent."""
 
-    def __init__(self, config: AgentConfig):
+    name: str
+    description: str
+    version: str
+    max_sources: int = 5
+    min_confidence: float = 0.7
+
+
+class ResearchAssistantAgent:
+    """Agent specialized in conducting research tasks.
+
+    This agent can analyze topics, find relevant sources, and synthesize information
+    to provide comprehensive research outputs.
+    """
+
+    def __init__(self, client: PepperpyClient, config: Dict[str, Any]) -> None:
         """Initialize the research assistant agent.
 
         Args:
         ----
+            client: The Pepperpy client instance
             config: Agent configuration
 
         """
-        self.config = config
-        if not config.provider:
-            raise ValueError("No provider configured for agent")
-        self.provider: BaseProvider = config.provider
-        self._initialized = False
+        self.id = uuid4()
+        self.client = client
+        self.config = ResearchAssistantConfig(**config)
 
-    async def _ensure_initialized(self) -> None:
-        """Ensure the provider is initialized."""
-        if not self._initialized and not self.provider.is_initialized:
-            await self.provider.initialize()
-            self._initialized = True
+    async def research(
+        self,
+        topic: str,
+        max_sources: Optional[int] = None,
+        report_progress: bool = True,
+    ) -> Dict[str, Any]:
+        """Conduct comprehensive research on a topic.
 
-    async def cleanup(self) -> None:
-        """Cleanup the agent's resources."""
-        if self._initialized:
-            await self.provider.cleanup()
-            self._initialized = False
-
-    async def analyze_topic(self, topic: str) -> dict:
-        """Analyze a research topic.
+        This high-level method orchestrates the entire research workflow, including
+        topic analysis, source discovery, and synthesis.
 
         Args:
         ----
             topic: The research topic to analyze
+            max_sources: Maximum number of sources to find (overrides config)
+            report_progress: Whether to report progress during execution
 
         Returns:
         -------
-            A dictionary containing the analysis results
+            Dictionary containing research outputs (summary, sources, recommendations)
 
         """
-        log.info("Analyzing research topic", topic=topic)
+        outputs = {}
+        max_sources = max_sources or self.config.max_sources
 
-        # Create system message to guide the analysis
-        system_message = Message(
-            id=str(uuid4()),
-            type=MessageType.COMMAND,
-            content={
-                "text": """You are a research assistant tasked with analyzing research topics.
-                For the given topic, identify:
-                1. Key concepts and terms that need to be understood
-                2. Main research directions and questions to explore
-                3. Potential challenges and limitations in the field
-                
-                Format your response as a structured analysis that can be easily parsed.
-                Use clear sections and bullet points."""
-            },
-        )
+        # Step 1: Initial research
+        if report_progress:
+            log.info("Performing initial research...")
+        analysis = await self.analyze_topic(topic=topic)
+        outputs["summary"] = analysis
+        if report_progress:
+            log.info("Topic analysis complete", topic=topic)
 
-        # Create user message with the topic
-        user_message = Message(
-            id=str(uuid4()),
-            type=MessageType.QUERY,
-            content={"text": f"Please analyze the following research topic: {topic}"},
-        )
+        # Step 2: Source analysis
+        if report_progress:
+            log.info("Finding and analyzing sources...")
+        sources = await self.find_sources(topic=topic, max_sources=max_sources)
+        outputs["sources"] = sources
+        if report_progress:
+            log.info("Source analysis complete", num_sources=len(sources))
 
-        # Ensure provider is initialized
-        await self._ensure_initialized()
+        # Step 3: Synthesize findings
+        if sources:
+            if report_progress:
+                log.info("Synthesizing findings...")
+            synthesis = await self.analyze_sources(sources=sources)
+            outputs["recommendations"] = synthesis
+            if report_progress:
+                log.info("Synthesis complete")
 
-        # Generate analysis
-        response: Response = await self.provider.generate(
-            [system_message, user_message]
-        )
+        return outputs
 
-        # Parse response into structured format
-        if response.status == ResponseStatus.SUCCESS:
-            analysis = {
-                "topic": topic,
-                "key_concepts": [],  # TODO: Parse from response
-                "research_directions": [],  # TODO: Parse from response
-                "challenges": [],  # TODO: Parse from response
-            }
-            return analysis
-        else:
-            raise Exception(
-                f"Failed to analyze topic: {response.content.get('error', 'Unknown error')}"
-            )
-
-    async def find_sources(self, topic: str, max_sources: int = 5) -> list[dict]:
-        """Find relevant sources for a research topic.
+    async def analyze_topic(self, topic: str) -> str:
+        """Analyze a research topic.
 
         Args:
         ----
-            topic: The research topic
-            max_sources: Maximum number of sources to return
+            topic: The topic to analyze
 
         Returns:
         -------
-            A list of source dictionaries
+            Analysis of the topic
 
         """
-        log.info("Finding sources", topic=topic, max_sources=max_sources)
+        prompt = f"Analyze the following research topic: {topic}"
+        response = await self.client.send_message(prompt)
+        return response
 
-        # Create system message to guide source finding
-        system_message = Message(
-            id=str(uuid4()),
-            type=MessageType.COMMAND,
-            content={
-                "text": f"""You are a research assistant tasked with finding relevant academic sources.
-                For the given topic, suggest up to {max_sources} high-quality academic sources.
-                For each source, provide:
-                - Title
-                - Authors
-                - Year
-                - Brief description of relevance
-                - Key findings or contributions
-                
-                Format your response as a structured list that can be easily parsed."""
-            },
-        )
-
-        # Create user message with the topic
-        user_message = Message(
-            id=str(uuid4()),
-            type=MessageType.QUERY,
-            content={"text": f"Please find relevant sources for: {topic}"},
-        )
-
-        # Ensure provider is initialized
-        await self._ensure_initialized()
-
-        # Generate source suggestions
-        response: Response = await self.provider.generate(
-            [system_message, user_message]
-        )
-
-        # Parse response into structured format
-        if response.status == ResponseStatus.SUCCESS:
-            sources = []  # TODO: Parse from response
-            return sources
-        else:
-            raise Exception(
-                f"Failed to find sources: {response.content.get('error', 'Unknown error')}"
-            )
-
-    async def analyze_sources(self, sources: list[dict]) -> dict:
-        """Analyze and synthesize findings from sources.
+    async def find_sources(
+        self, topic: str, max_sources: Optional[int] = None
+    ) -> List[str]:
+        """Find relevant sources for a topic.
 
         Args:
         ----
-            sources: List of source dictionaries
+            topic: The topic to find sources for
+            max_sources: Maximum number of sources to find
 
         Returns:
         -------
-            A dictionary containing the synthesis
+            List of relevant sources
 
         """
-        log.info("Analyzing sources", num_sources=len(sources))
+        max_sources = max_sources or self.config.max_sources
+        prompt = f"Find up to {max_sources} relevant sources for: {topic}"
+        response = await self.client.send_message(prompt)
+        return response.split("\n")
 
-        # Create system message to guide synthesis
-        system_message = Message(
-            id=str(uuid4()),
-            type=MessageType.COMMAND,
-            content={
-                "text": """You are a research assistant tasked with analyzing academic sources.
-                For the given sources, provide:
-                1. Common themes and patterns
-                2. Key findings and insights
-                3. Areas of consensus and disagreement
-                4. Gaps in current research
-                
-                Format your response as a structured analysis that can be easily parsed."""
-            },
+    async def analyze_sources(self, sources: List[str]) -> str:
+        """Analyze and synthesize information from sources.
+
+        Args:
+        ----
+            sources: List of sources to analyze
+
+        Returns:
+        -------
+            Synthesis of the information
+
+        """
+        sources_text = "\n".join(sources)
+        prompt = (
+            f"Analyze and synthesize information from these sources:\n{sources_text}"
         )
-
-        # Create user message with the sources
-        user_message = Message(
-            id=str(uuid4()),
-            type=MessageType.QUERY,
-            content={"text": f"Please analyze these sources: {sources}"},
-        )
-
-        # Ensure provider is initialized
-        await self._ensure_initialized()
-
-        # Generate synthesis
-        response: Response = await self.provider.generate(
-            [system_message, user_message]
-        )
-
-        # Parse response into structured format
-        if response.status == ResponseStatus.SUCCESS:
-            synthesis = {
-                "themes": [],  # TODO: Parse from response
-                "findings": [],  # TODO: Parse from response
-                "consensus": [],  # TODO: Parse from response
-                "gaps": [],  # TODO: Parse from response
-            }
-            return synthesis
-        else:
-            raise Exception(
-                f"Failed to analyze sources: {response.content.get('error', 'Unknown error')}"
-            )
+        response = await self.client.send_message(prompt)
+        return response

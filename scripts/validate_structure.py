@@ -6,17 +6,19 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from termcolor import colored
 
 
 def load_structure(path: Path) -> dict[str, Any]:
     """Load project structure from YAML file.
 
     Args:
+    ----
         path: Path to structure YAML file
 
     Returns:
+    -------
         Dictionary containing structure specification
+
     """
     with open(path) as f:
         data = yaml.safe_load(f)
@@ -34,10 +36,12 @@ def validate_directory(
     """Validate a directory against specification.
 
     Args:
+    ----
         path: Directory path to validate
         spec: Directory specification
         errors: List to collect validation errors
         parent: Parent directory name
+
     """
     if not path.exists():
         errors.append(f"Missing directory: {path}")
@@ -74,22 +78,24 @@ def validate_directory(
 def main() -> int:
     """Validate project structure.
 
-    Returns:
+    Returns
+    -------
         Exit code (0 for success, 1 for failure)
+
     """
     # Find project root (contains .product directory)
     root = Path.cwd()
     while not (root / ".product").exists():
         root = root.parent
         if root == root.parent:
-            print(colored("Error: Could not find project root", "red"))
+            print("Error: Could not find project root")
             return 1
 
     # Load structure specification
     try:
         spec = load_structure(root / ".product/project_structure.yml")
     except Exception as e:
-        print(colored(f"Error loading structure specification: {e}", "red"))
+        print(f"Error loading structure specification: {e}")
         return 1
 
     # Validate structure
@@ -100,12 +106,12 @@ def main() -> int:
     if errors:
         print("\nValidation Errors:")
         for error in errors:
-            print(f"  {colored('❌', 'red')} {error}")
-        print(f"\n{colored('❌', 'red')} Project structure validation failed!")
+            print(f"  ❌ {error}")
+        print("\n❌ Project structure validation failed!")
         print("Please fix the errors and try again.")
         return 1
 
-    print(f"\n{colored('✓', 'green')} Project structure validation passed!")
+    print("\n✓ Project structure validation passed!")
     return 0
 
 

@@ -10,13 +10,14 @@ This module provides a centralized configuration system with support for:
 
 import os
 import time
-from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field, SecretStr
+
+from pepperpy.providers.base import ProviderConfig
 
 from .errors import ConfigurationError
 
@@ -31,101 +32,53 @@ class LogLevel(str, Enum):
     CRITICAL = "CRITICAL"
 
 
-class ProviderConfig(BaseModel):
-    """Configuration for a provider."""
-
-    model_config = ConfigDict(extra="allow")
-
-    api_key: str | None = Field(default=None, description="API key for the provider")
-    base_url: str | None = Field(default=None, description="Base URL for API calls")
-    timeout: float = Field(default=30.0, description="Timeout for API calls in seconds")
-    max_retries: int = Field(default=3, description="Maximum number of retries")
-    retry_delay: float = Field(
-        default=1.0, description="Delay between retries in seconds"
-    )
-
-
 class PepperpyConfig(BaseModel):
-    """Main configuration for the Pepperpy system."""
+    """Central configuration class for Pepperpy.
 
-    model_config = ConfigDict(extra="allow")
+    This class handles all configuration aspects of the library, including provider settings,
+    logging preferences, and default behaviors. It can be instantiated from environment
+    variables or explicitly via constructor.
+    """
 
-    # Core settings
-    debug: bool = Field(default=False, description="Enable debug mode")
-    log_level: LogLevel = Field(default=LogLevel.INFO, description="Logging level")
-    enable_logging: bool = Field(default=True, description="Enable logging")
-    log_file: str | None = Field(default=None, description="Log file path")
-
-    # Performance settings
-    max_requests_per_minute: int = Field(
-        default=60, description="Maximum requests per minute"
-    )
-    cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
-    max_cache_size: int = Field(default=1000, description="Maximum cache size")
-
-    # Provider configurations
-    provider_configs: dict[str, ProviderConfig] = Field(
-        default_factory=dict, description="Provider-specific configurations"
+    provider: ProviderConfig = Field(description="Configuration for the AI provider")
+    log_level: str = Field(default="INFO", description="Logging level for the library")
+    report_progress: bool = Field(
+        default=True, description="Whether to report progress during operations"
     )
 
-    # Security settings
-    enable_rate_limiting: bool = Field(default=True, description="Enable rate limiting")
-    enable_auth: bool = Field(default=True, description="Enable authentication")
-    auth_token: str | None = Field(default=None, description="Authentication token")
-
-    # Feature flags
-    enable_telemetry: bool = Field(default=True, description="Enable telemetry")
-    enable_metrics: bool = Field(default=True, description="Enable metrics collection")
-    enable_tracing: bool = Field(default=True, description="Enable distributed tracing")
-
-    # Lifecycle hooks
-    on_load: list[Callable[["PepperpyConfig"], None]] = Field(
-        default_factory=list, description="Hooks called when config is loaded"
-    )
-    on_save: list[Callable[["PepperpyConfig"], None]] = Field(
-        default_factory=list, description="Hooks called when config is saved"
-    )
-    on_update: list[Callable[["PepperpyConfig"], None]] = Field(
-        default_factory=list, description="Hooks called when config is updated"
-    )
-
-    def add_hook(self, event: str, hook: Callable[["PepperpyConfig"], None]) -> None:
-        """Add a lifecycle hook.
+    @classmethod
+    def from_env(cls, prefix: str = "PEPPERPY_") -> "PepperpyConfig":
+        """Create a configuration instance from environment variables.
 
         Args:
-            event: Event to hook into (load, save, update)
-            hook: Hook function to call
+        ----
+            prefix: Prefix for environment variables. Defaults to "PEPPERPY_".
 
-        Raises:
-            ValueError: If event is invalid
+        Returns:
+        -------
+            PepperpyConfig: Configured instance
+
+        Example:
+        -------
+            ```python
+            config = PepperpyConfig.from_env()
+            ```
+
         """
-        if event == "load":
-            self.on_load.append(hook)
-        elif event == "save":
-            self.on_save.append(hook)
-        elif event == "update":
-            self.on_update.append(hook)
-        else:
-            raise ValueError(f"Invalid hook event: {event}")
+        provider_config = ProviderConfig(
+            provider_type=os.getenv(f"{prefix}PROVIDER", "openrouter"),
+            model=os.getenv(f"{prefix}MODEL", "openai/gpt-4-turbo"),
+            temperature=float(os.getenv(f"{prefix}TEMPERATURE", "0.7")),
+            max_tokens=int(os.getenv(f"{prefix}MAX_TOKENS", "1000")),
+            api_key=SecretStr(os.getenv(f"{prefix}API_KEY", "")),
+        )
 
-    def remove_hook(self, event: str, hook: Callable[["PepperpyConfig"], None]) -> None:
-        """Remove a lifecycle hook.
-
-        Args:
-            event: Event to remove hook from (load, save, update)
-            hook: Hook function to remove
-
-        Raises:
-            ValueError: If event is invalid
-        """
-        if event == "load":
-            self.on_load.remove(hook)
-        elif event == "save":
-            self.on_save.remove(hook)
-        elif event == "update":
-            self.on_update.remove(hook)
-        else:
-            raise ValueError(f"Invalid hook event: {event}")
+        return cls(
+            provider=provider_config,
+            log_level=os.getenv(f"{prefix}LOG_LEVEL", "INFO"),
+            report_progress=os.getenv(f"{prefix}REPORT_PROGRESS", "true").lower()
+            == "true",
+        )
 
 
 class AutoConfig:
@@ -140,13 +93,17 @@ class AutoConfig:
         """Load configuration from environment variables.
 
         Args:
+        ----
             prefix: Environment variable prefix (default: PEPPERPY_)
 
         Returns:
+        -------
             Loaded configuration
 
         Raises:
+        ------
             ConfigurationError: If required configuration is missing
+
         """
         config_dict: dict[str, Any] = {}
 
@@ -186,13 +143,17 @@ class AutoConfig:
         """Load configuration from file.
 
         Args:
+        ----
             path: Path to configuration file
 
         Returns:
+        -------
             Loaded configuration
 
         Raises:
+        ------
             ConfigurationError: If file cannot be loaded
+
         """
         try:
             with open(path) as f:
@@ -214,11 +175,14 @@ class ConfigManager:
     def config(self) -> PepperpyConfig:
         """Get the current configuration.
 
-        Returns:
+        Returns
+        -------
             Current configuration
 
-        Raises:
+        Raises
+        ------
             ConfigurationError: If configuration is not loaded
+
         """
         if self._config is None:
             raise ConfigurationError("Configuration not loaded")
@@ -228,13 +192,17 @@ class ConfigManager:
         """Load configuration from file and environment.
 
         Args:
+        ----
             path: Optional path to configuration file
 
         Returns:
+        -------
             Loaded configuration
 
         Raises:
+        ------
             ConfigurationError: If configuration is invalid
+
         """
         config_dict = self._load_from_sources(path)
 
@@ -258,10 +226,13 @@ class ConfigManager:
         """Save configuration to file.
 
         Args:
+        ----
             path: Path to save configuration to
 
         Raises:
+        ------
             ConfigurationError: If saving fails
+
         """
         if self._config is None:
             raise ConfigurationError("No configuration to save")
@@ -284,10 +255,13 @@ class ConfigManager:
         """Update configuration with new values.
 
         Args:
+        ----
             updates: Configuration updates
 
         Raises:
+        ------
             ConfigurationError: If update is invalid
+
         """
         if self._config is None:
             raise ConfigurationError("No configuration to update")
@@ -310,13 +284,17 @@ class ConfigManager:
         """Load configuration from all sources.
 
         Args:
+        ----
             path: Optional path to configuration file
 
         Returns:
+        -------
             Loaded configuration dictionary
 
         Raises:
+        ------
             ConfigurationError: If configuration loading fails
+
         """
         config_dict: dict[str, Any] = {}
 
@@ -363,13 +341,17 @@ def load_config(path: Path | None = None) -> PepperpyConfig:
     This is a convenience function that uses the global config manager.
 
     Args:
+    ----
         path: Optional path to configuration file
 
     Returns:
+    -------
         Loaded configuration
 
     Raises:
+    ------
         ConfigurationError: If configuration is invalid
+
     """
     return config_manager.load(path)
 
@@ -380,11 +362,14 @@ def save_config(config: PepperpyConfig, path: Path) -> None:
     This is a convenience function that uses the global config manager.
 
     Args:
+    ----
         config: Configuration to save
         path: Path to save configuration to
 
     Raises:
+    ------
         ConfigurationError: If saving fails
+
     """
     # Update the global manager's config
     config_manager._config = config

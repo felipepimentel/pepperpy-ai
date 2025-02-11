@@ -1,207 +1,176 @@
-# Pepper Hub
+# Pepperpy: A Modern AI Agent Framework
 
-A centralized hub for managing and loading AI artifacts like agents, prompts, and workflows. Pepper Hub provides a robust and extensible framework for building AI-powered applications with a focus on modularity, type safety, and maintainability.
+Pepperpy is a powerful and flexible framework for building AI-powered applications using large language models. It provides a high-level, declarative API for creating and managing AI agents and workflows.
 
-## Core Concepts
+## Key Features
 
-### The Hub Architecture
-
-Pepper Hub is built around the concept of a centralized repository of AI artifacts that can be easily shared, versioned, and reused across projects. The hub consists of three main components:
-
-1. **Artifacts**: Pre-built, tested, and documented AI components that can be easily integrated into your applications
-2. **Registry**: A central system for managing and loading artifacts
-3. **Provider System**: A pluggable system for integrating with different AI providers (OpenAI, Anthropic, etc.)
-
-### Types of Artifacts
-
-- **Agents**: Intelligent components that can perform specific tasks (e.g., Research Assistant, Code Reviewer)
-- **Prompts**: Carefully crafted templates for interacting with AI models
-- **Workflows**: Reusable sequences of operations combining multiple agents and prompts
-
-## Features
-
-### Core Features
-
-- **Artifact Management**
-  - Centralized registry for agents, prompts, and workflows
-  - Version control and dependency management
-  - Hot-reloading of artifacts during development
-
-- **Type Safety & Validation**
-  - Full type hints and runtime validation
-  - Automatic validation of configurations
-  - Type-safe prompt templates
-
-- **Provider System**
-  - Unified interface for multiple AI providers
-  - Easy provider switching and fallback
-  - Automatic rate limiting and retries
-
-### Advanced Features
-
-- **Memory Management**
-  - Built-in support for different memory types
-  - Configurable memory scopes
-  - Memory persistence and serialization
-
-- **Event System**
-  - Rich event system for monitoring and logging
-  - Custom event handlers and middleware
-  - Telemetry and analytics support
-
-- **Workflow Engine**
-  - Complex workflow orchestration
-  - Parallel and sequential execution
-  - Error handling and recovery
-
-## Installation
-
-```bash
-pip install pepper-hub
-```
-
-Or with Poetry:
-
-```bash
-poetry add pepper-hub
-```
+- **Unified Configuration**: Simple initialization and configuration management
+- **Declarative Workflows**: Define complex AI workflows using YAML
+- **High-Level API**: Work with agents and workflows without dealing with low-level details
+- **Type Safety**: Full type hints and validation throughout the codebase
+- **Extensible**: Plugin system for custom providers, capabilities, and integrations
 
 ## Quick Start
 
-### Using Pre-built Artifacts
-
-```python
-from pepper_hub import Hub
-
-# Initialize the hub
-hub = Hub()
-
-# Load a pre-built research assistant
-agent = hub.load_agent(
-    "research_assistant",
-    config={
-        "provider": {
-            "api_key": "your-api-key"
-        }
-    }
-)
-
-# Use the agent
-result = await agent.analyze_paper(paper)
+1. Install the package:
+```bash
+pip install pepperpy
 ```
 
-### Creating Custom Artifacts
+2. Set up your environment:
+```bash
+export PEPPERPY_API_KEY="your-api-key"
+export PEPPERPY_PROVIDER="openrouter"  # or other supported provider
+```
+
+3. Create a simple research workflow:
 
 ```python
-from pepper_hub.agents import BaseAgent
-from pepper_hub.decorators import register_agent
+from pepperpy import Pepperpy
 
-@register_agent("custom_assistant")
-class CustomAssistant(BaseAgent):
-    async def analyze(self, data):
-        prompt = self.prompt_registry.get_prompt("custom.analyze")
-        return await self.provider.generate(prompt.render(data=data))
+# Initialize the framework
+pepper = Pepperpy.init(storage_dir=".pepper_hub")
+
+# Run a research workflow
+async def research_topic():
+    results = await pepper.hub.workflow_engine.run(
+        workflow_name="research",
+        input_data={
+            "topic": "AI Safety",
+            "max_sources": 5
+        }
+    )
+    return results
+
+# Run synchronously if preferred
+results = pepper.hub.workflow_engine.run_sync(
+    workflow_name="research",
+    input_data={"topic": "AI Safety"}
+)
+```
+
+## Workflow Definitions
+
+Pepperpy uses YAML files to define workflows. Here's an example research workflow:
+
+```yaml
+name: research_workflow
+version: "0.1.0"
+description: "Research assistant workflow for analyzing topics"
+
+agent:
+  name: research_assistant
+  version: "0.1.0"
+
+steps:
+  - name: analyze_topic
+    method: analyze_topic
+    inputs:
+      - name: topic
+        type: str
+        description: "Research topic to analyze"
+    outputs:
+      - name: summary
+        type: str
+        description: "Initial topic analysis"
+
+flow:
+  - step: analyze_topic
+    inputs:
+      topic: "${workflow.input.topic}"
+    outputs:
+      summary: "${workflow.output.summary}"
+
+validation:
+  input_schema:
+    type: object
+    required: ["topic"]
+    properties:
+      topic:
+        type: string
+        description: "Research topic to analyze"
 ```
 
 ## Project Structure
 
 ```
-pepper_hub/
-├── artifacts/                # Pre-built artifacts
-│   ├── research_assistant/
-│   │   ├── agent.py         # Agent implementation
-│   │   ├── config.yml       # Agent configuration
-│   │   └── prompts/         # Agent-specific prompts
-│   └── code_reviewer/
-│       └── ...
-├── agents/
-│   ├── base.py              # Base agent classes
-│   ├── registry.py          # Agent registry
-│   └── providers/           # Provider implementations
-├── prompts/
-│   ├── base.py              # Base prompt classes
-│   ├── registry.py          # Prompt registry
-│   └── templates/           # Shared prompt templates
-└── workflows/
-    ├── base.py              # Base workflow classes
-    ├── registry.py          # Workflow registry
-    └── engine.py            # Workflow execution engine
+pepperpy/
+├── __init__.py           # Main package initialization
+├── core/                 # Core framework components
+├── hub/                  # Asset and workflow management
+├── providers/            # AI provider implementations
+├── agents/              # Built-in agent implementations
+└── monitoring/          # Logging and observability
 ```
 
 ## Configuration
 
-### Agent Configuration
+Pepperpy can be configured through environment variables, YAML files, or programmatically:
 
-```yaml
-name: Research Assistant
-description: An intelligent research assistant
+```python
+# Environment variables
+PEPPERPY_STORAGE_DIR=".pepper_hub"
+PEPPERPY_PROVIDER="openrouter"
+PEPPERPY_MODEL="openai/gpt-4-turbo"
+PEPPERPY_API_KEY="your-api-key"
 
-provider:
-  type: openai
-  model: gpt-4
-  temperature: 0.7
-  max_tokens: 2000
-
-memory:
-  type: in_memory
-  scope: session
-
-prompts:
-  - name: research.analyze
-    template: |
-      Analyze the following paper:
-      {{ paper }}
+# Or programmatically
+pepper = Pepperpy.init(
+    storage_dir=".pepper_hub",
+    provider_type="openrouter",
+    model="openai/gpt-4-turbo",
+    api_key="your-api-key"
+)
 ```
 
-### Provider Configuration
+## Creating Custom Agents
 
-```yaml
-providers:
-  openai:
-    api_key: ${OPENAI_API_KEY}
-    default_model: gpt-4
-    timeout: 30
-    retries: 3
+1. Define the agent class:
+
+```python
+from pepperpy.hub.agents import Agent
+from typing import Any
+
+class CustomAgent(Agent[str]):
+    """Custom agent implementation."""
+
+    async def run(self, input_data: str) -> Any:
+        """Implement the agent's main functionality."""
+        # Your implementation here
+        result = await self.execute(f"Process: {input_data}")
+        return result
 ```
 
-## Development
+2. Register the agent:
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/pepper-hub.git
-   cd pepper-hub
-   ```
+```python
+from pepperpy.hub.agents import AgentRegistry
 
-2. Install dependencies:
-   ```bash
-   poetry install
-   ```
+# Register the agent
+agent = CustomAgent(config)
+AgentRegistry.register("custom_agent", agent)
 
-3. Run tests:
-   ```bash
-   poetry run pytest
-   ```
+# Use the agent
+agent = pepper.get_agent("custom_agent")
+result = await agent.run("some input")
+```
 
-4. Start development server:
-   ```bash
-   poetry run pepper-hub dev
-   ```
+## Examples
+
+Check out the `examples/` directory for more detailed examples:
+
+- `research_workflow_example.py`: Demonstrates the workflow system
+- `simple_chat.py`: Basic chat agent implementation
+- `custom_agent.py`: Creating custom agents
 
 ## Contributing
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-### Development Process
-
 1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Write tests for your changes
-4. Implement your changes
-5. Run tests and linting (`poetry run pytest && poetry run ruff check .`)
-6. Commit your changes (`git commit -m 'Add some amazing feature'`)
-7. Push to the branch (`git push origin feature/amazing-feature`)
-8. Open a Pull Request
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `pytest`
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the LICENSE file for details.
