@@ -1,6 +1,140 @@
 # CHANGELOG
 
 
+## v1.3.0 (2025-02-11)
+
+### Features
+
+- Add asyncpg and redis dependencies, update project configuration
+  ([`e5f2fc9`](https://github.com/felipepimentel/pepperpy-ai/commit/e5f2fc9a56bbcce6ba6b68c4c933cbdcd5a044fc))
+
+* Added asyncpg and redis to project dependencies in pyproject.toml * Updated poetry.lock with new
+  package versions * Migrated ruff configuration to use new lint section syntax * Removed
+  examples/README.md file * Simplified provider and services module imports * Updated logging and
+  tracing implementations to use standard Python logging
+
+### Refactoring
+
+- Clean up project structure and remove deprecated examples and modules
+  ([`9fcd420`](https://github.com/felipepimentel/pepperpy-ai/commit/9fcd420826ea30437a7f0deb403773d54a1515ec))
+
+* Systematically removed entire `examples/` directory containing outdated demonstration scripts *
+  Deleted multiple deprecated modules in `pepperpy/` including agents, capabilities, core, and
+  providers * Removed unnecessary initialization and configuration files across project structure *
+  Simplified project imports and module organization * Preserved core architectural principles while
+  reducing code complexity
+
+- Consolidate and modernize project configuration and testing infrastructure
+  ([`33fbae8`](https://github.com/felipepimentel/pepperpy-ai/commit/33fbae875223742e90350a8b3c6f87bd110e5bd5))
+
+* Updated multiple configuration files for pytest, mypy, and coverage * Simplified project structure
+  validation and testing scripts * Removed deprecated test modules and providers * Enhanced logging
+  and error handling across providers * Standardized configuration management and type checking *
+  Cleaned up project structure and import management
+
+- Consolidate and simplify project configuration files
+  ([`713b46a`](https://github.com/felipepimentel/pepperpy-ai/commit/713b46a1440d7c322c1410bb700900fb1a1989f4))
+
+* Removed multiple configuration files like .coveragerc, .editorconfig, .flake8, .isort.cfg,
+  .pylintrc, mypy.ini, pytest.ini, ruff.toml, and tox.ini * Migrated configuration settings into
+  pyproject.toml for centralized management * Simplified and standardized development tool
+  configurations * Cleaned up redundant configuration artifacts and reduced project complexity *
+  Updated Poetry dependencies and development tool configurations
+
+- Consolidate core modules and update import paths
+  ([`eb4cbf2`](https://github.com/felipepimentel/pepperpy-ai/commit/eb4cbf260917258c7534843959d25d63ee4258d1))
+
+* Migrated common modules to core directory * Updated import paths from `pepperpy.common` to
+  `pepperpy.core` * Removed deprecated `common/` directory * Standardized error handling and
+  configuration imports * Simplified project structure by centralizing core functionality * Updated
+  references across project to use new core module paths
+
+- Consolidate project scripts and update configuration
+  ([`5090d13`](https://github.com/felipepimentel/pepperpy-ai/commit/5090d13cccdddbc5b24b681dff6771786193da89))
+
+* Moved structure validation scripts from `scripts/structure/` to `scripts/` * Removed deprecated
+  development and maintenance scripts * Updated pre-commit configuration to reflect new script
+  locations * Simplified project script management and removed redundant files * Cleaned up import
+  and configuration paths in various project files
+
+- Consolidate project structure and remove redundant configuration files
+  ([`22e9cdf`](https://github.com/felipepimentel/pepperpy-ai/commit/22e9cdf0d313d85d576c83abc274eef17a14a329))
+
+* Removed multiple project_structure.yml files from different project directories * Updated
+  .product/project_structure.yml with more precise and current project structure * Simplified
+  project configuration by centralizing structure definition * Cleaned up deprecated and duplicate
+  configuration artifacts * Maintained core project architecture while reducing structural
+  complexity
+
+- Modernize Milvus and Pinecone vector store providers
+  ([`2e5acbf`](https://github.com/felipepimentel/pepperpy-ai/commit/2e5acbf9b67fab9e79b43cd8d5e3872558e44fd6))
+
+* Completely restructured vector store provider implementations with modular design * Introduced
+  dedicated manager classes for search, connection, schema, and entity management * Simplified
+  initialization and cleanup processes with more focused methods * Enhanced search and add
+  operations with improved error handling and flexibility * Standardized return types and processing
+  of vector search results * Improved UUID generation and metadata handling across providers
+
+- Modularize decision strategies and scoring logic
+  ([`f2d9abb`](https://github.com/felipepimentel/pepperpy-ai/commit/f2d9abbe540569edf6b43dcffb6d59f5a68f90a2))
+
+* Extracted scoring and probability calculation into separate utility modules * Simplified decision
+  strategy implementations by moving complex logic to utility classes * Added new utils.py and
+  scoring.py files to improve code organization * Updated project structure documentation to reflect
+  new decision module components * Streamlined decision strategy methods with more focused,
+  single-responsibility implementations
+
+- Optimize project configuration and dependency management
+  ([`2da6643`](https://github.com/felipepimentel/pepperpy-ai/commit/2da6643f4049922d65c2c4a8c64d204c589d2adf))
+
+* Updated project dependencies and configuration files * Refined package management and version
+  specifications * Enhanced project setup for improved compatibility and development workflow *
+  Streamlined dependency integration and version control
+
+- Remove deprecated modules and optimize project structure
+  ([`0842834`](https://github.com/felipepimentel/pepperpy-ai/commit/084283469c7b98cc6ef6ceba2241f75782da97a5))
+
+* Systematically removed multiple deprecated and unused modules across the project * Cleaned up
+  various submodules in agents, capabilities, core, providers, and other directories * Updated
+  __init__.py files to maintain clean import and export interfaces * Simplified project structure by
+  eliminating redundant and empty files * Preserved essential base classes and core functionality
+  during module cleanup
+
+- Update project configuration and development tools
+  ([`f11128a`](https://github.com/felipepimentel/pepperpy-ai/commit/f11128a9a114f6ad104037e9a6076f6dd5e6a0fd))
+
+* Modernized configuration files for linting, testing, and code quality * Updated pre-commit hooks
+  with more comprehensive checks and validation * Enhanced mypy, pytest, and isort configurations
+  for stricter type checking and import management * Simplified README with clearer project overview
+  and contribution guidelines * Removed deprecated documentation prompts and scripts * Standardized
+  development tool configurations across the project
+
+- Update project configuration and testing infrastructure
+  ([`2b6408d`](https://github.com/felipepimentel/pepperpy-ai/commit/2b6408dd4eb8d68c2d144b41b7b2f5ec814c5986))
+
+* Modernized configuration files for pytest, coverage, and type checking * Updated Python version to
+  3.12 across configuration files * Simplified and standardized development tool configurations *
+  Reduced code coverage threshold and updated testing parameters * Cleaned up deprecated test files
+  and scripts * Enhanced project structure validation and import management
+
+- Update project name and core configuration
+  ([`3e72e5a`](https://github.com/felipepimentel/pepperpy-ai/commit/3e72e5a90b1d953e1e35a8acdd4ecf6724b7994f))
+
+* Renamed project from "Pepperpy" to "Pepper Hub" * Updated LICENSE to reflect new project name *
+  Simplified project dependencies and configuration in pyproject.toml * Reduced project scope and
+  removed multiple optional dependencies * Updated README with new project description and core
+  concepts * Streamlined providers and core type definitions * Prepared project for more focused AI
+  artifact management
+
+- Update simple chat example and improve provider logging
+  ([`ec87989`](https://github.com/felipepimentel/pepperpy-ai/commit/ec87989cc0212462062870e12d6b42cfecf3a70c))
+
+* Modified simple_chat.py to demonstrate example messages with streaming * Updated client.py import
+  path for AutoConfig * Enhanced monitoring.py with direct logger export * Improved logging in
+  providers/engine.py with more readable log messages * Refactored OpenRouter provider error
+  handling and logging * Removed temporary services/__init__.py.tmp file
+
+
 ## v1.2.0 (2025-01-25)
 
 ### Chores
