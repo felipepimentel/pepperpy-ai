@@ -1,3 +1,9 @@
+---
+title: File Management Rules
+description: Enforces file management rules, including file headers, directory structure, and file naming conventions.
+globs:
+---
+
 # File Management Rules
 
 ## File Header Template

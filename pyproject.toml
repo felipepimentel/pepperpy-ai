@@ -20,6 +20,7 @@ pydantic = "^2.6.3"
 structlog = "^24.1.0"
 loguru = "^0.7.2"
 python-dotenv = "^1.0.1"
+google-generativeai = "^0.8.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.1.1"

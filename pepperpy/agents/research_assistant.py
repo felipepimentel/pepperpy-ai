@@ -3,6 +3,7 @@
 This module provides a research assistant agent that helps with academic research.
 """
 
+import os
 from typing import Any, Dict
 from uuid import uuid4
 
@@ -41,8 +42,12 @@ class ResearchAssistant(BaseAgent):
 
         # Get the model configuration
         model_config = self.config.get("model", {})
-        provider = model_config.get("provider", "openrouter")
-        model = model_config.get("name", "openai/gpt-4-turbo-preview")
+        provider = model_config.get(
+            "provider", os.getenv("PEPPERPY_PROVIDER", "openrouter")
+        )
+        model = model_config.get(
+            "name", os.getenv("PEPPERPY_MODEL", "openai/gpt-4o-mini")
+        )
 
         # Get the prompts
         system_prompt = self._get_prompt("system")

@@ -129,6 +129,9 @@ class OpenRouterProvider(BaseProvider):
 
         """
         try:
+            # Initialize the base provider first
+            await super().initialize()
+
             self._client = AsyncOpenAI(
                 api_key=self._config.api_key.get_secret_value(),
                 timeout=self._config.timeout,
@@ -156,6 +159,7 @@ class OpenRouterProvider(BaseProvider):
             try:
                 await self._client.close()
                 self._client = None
+                await super().cleanup()
                 logger.info("Cleaned up OpenRouter provider")
             except Exception as exc:  # type: ignore
                 logger.error(f"Error during cleanup: {exc!r}")
