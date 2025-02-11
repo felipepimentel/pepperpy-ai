@@ -7,31 +7,45 @@ must implement, ensuring consistent behavior across different implementations.
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator, AsyncIterator
 from types import TracebackType
-from typing import Any, NotRequired, Protocol, TypedDict, TypeVar
+from typing import (
+    Any,
+    Dict,
+    List,
+    NotRequired,
+    Optional,
+    Protocol,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
-from pydantic import BaseModel, Field, SecretStr
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 from pepperpy.core.errors import ValidationError
 from pepperpy.core.types import Message, Response
-from pepperpy.monitoring import logger
-from pepperpy.monitoring.logger import structured_logger
+from pepperpy.monitoring import bind_logger, logger
 from pepperpy.providers.domain import (
     ProviderError,
-    ProviderInitError,
 )
 
 T = TypeVar("T", covariant=True)
 
 # Valid provider types
-VALID_PROVIDER_TYPES = frozenset({
-    "openai",
-    "anthropic",
-    "openrouter",
-    "local",
-    "stackspot",
-})
+VALID_PROVIDER_TYPES = frozenset(
+    {
+        "openai",
+        "anthropic",
+        "openrouter",
+        "local",
+        "stackspot",
+    }
+)
 
-class LogContext(TypedDict, total=False):
+# Configure logger
+logger = bind_logger(module="providers.base")
+
+
+class LogContext(TypedDict, total=True):
     """Type definition for logging context information."""
 
     error: NotRequired[str | Exception]
@@ -41,7 +55,14 @@ class LogContext(TypedDict, total=False):
     duration: NotRequired[float]
     tokens: NotRequired[int]
     request_id: NotRequired[str]
-    extra: NotRequired[dict[str, str | int | float | bool]]
+    extra: NotRequired[Dict[str, Union[str, int, float, bool]]]
+
+
+class Message(TypedDict):
+    """Message type for chat completion."""
+
+    role: str
+    content: str
 
 
 class LoggerProtocol(Protocol):
@@ -51,8 +72,10 @@ class LoggerProtocol(Protocol):
         """Log an error message.
 
         Args:
+        ----
             message: The error message to log.
             **context: Additional context information as string values.
+
         """
         ...
 
@@ -60,8 +83,10 @@ class LoggerProtocol(Protocol):
         """Log an info message.
 
         Args:
+        ----
             message: The info message to log.
             **context: Additional context information as string values.
+
         """
         ...
 
@@ -69,8 +94,10 @@ class LoggerProtocol(Protocol):
         """Log a debug message.
 
         Args:
+        ----
             message: The debug message to log.
             **context: Additional context information as string values.
+
         """
         ...
 
@@ -78,8 +105,10 @@ class LoggerProtocol(Protocol):
         """Log a warning message.
 
         Args:
+        ----
             message: The warning message to log.
             **context: Additional context information as string values.
+
         """
         ...
 
@@ -97,22 +126,19 @@ class ExtraConfig(TypedDict, total=False):
 
 
 class ProviderConfig(BaseModel):
-    """Base configuration for providers."""
+    """Configuration for a provider."""
 
-    provider_type: str = Field(..., description="Type of provider")
-    api_key: SecretStr = Field(..., description="API key for authentication")
-    model: str = Field(..., description="Model to use")
-    temperature: float = Field(default=0.7, description="Sampling temperature")
-    max_tokens: int = Field(default=2048, description="Maximum tokens per request")
-    timeout: float = Field(default=30.0, description="Request timeout in seconds")
-    max_retries: int = Field(default=3, description="Maximum number of retries")
-    extra_config: ExtraConfig = Field(
-        default_factory=lambda: ExtraConfig(
-            model_params={},
-            api_params={},
-            custom_settings={},
-        ),
-        description="Additional configuration",
+    provider_type: str = "openai"
+    api_key: SecretStr | None = None
+    model: str = "gpt-4-turbo-preview"
+    temperature: float = 0.7
+    max_tokens: int = 4000
+    timeout: int = 30
+    max_retries: int = 3
+
+    model_config = ConfigDict(
+        frozen=True,
+        extra="allow",
     )
 
 
@@ -165,23 +191,27 @@ class BaseProvider(ABC):
     All providers must inherit from this class and implement its abstract methods
     to ensure consistent behavior across different implementations.
 
-    Attributes:
+    Attributes
+    ----------
         config (ProviderConfig): Provider configuration
         name (str): Provider name (class name)
         _initialized (bool): Whether the provider is initialized
         _logger (LoggerProtocol): Logger instance with context support
+
     """
 
     def __init__(self, config: ProviderConfig) -> None:
         """Initialize provider with configuration.
 
         Args:
+        ----
             config: Provider configuration
+
         """
         self.config = config
         self.name = self.__class__.__name__
         self._initialized = False
-        self._logger: LoggerProtocol = structured_logger
+        self._logger = bind_logger(provider=self.name)
 
     @property
     def is_initialized(self) -> bool:
@@ -191,28 +221,36 @@ class BaseProvider(ABC):
     async def initialize(self) -> None:
         """Initialize provider.
 
-        Raises:
+        Raises
+        ------
             ValidationError: If provider is already initialized
+
         """
         if self._initialized:
             raise ValidationError("Provider already initialized")
         self._initialized = True
+        self._logger.info("Provider initialized successfully")
 
     async def cleanup(self) -> None:
         """Clean up provider resources.
 
-        Raises:
+        Raises
+        ------
             ValidationError: If provider is not initialized
+
         """
         if not self._initialized:
             raise ValidationError("Provider not initialized")
         self._initialized = False
+        self._logger.info("Provider cleaned up successfully")
 
     def _ensure_initialized(self) -> None:
         """Ensure provider is initialized.
 
-        Raises:
+        Raises
+        ------
             ValidationError: If provider is not initialized
+
         """
         if not self._initialized:
             raise ValidationError("Provider not initialized")
@@ -227,15 +265,19 @@ class BaseProvider(ABC):
         """Complete a prompt using the provider.
 
         Args:
+        ----
             prompt: The prompt to complete
             kwargs: Additional provider-specific parameters
 
         Returns:
+        -------
             Generated text or async generator of text chunks if streaming
 
         Raises:
+        ------
             ValidationError: If provider is not initialized
             ProviderError: If text generation fails
+
         """
         raise NotImplementedError
 
@@ -246,16 +288,20 @@ class BaseProvider(ABC):
         """Generate a response from the provider.
 
         Args:
+        ----
             messages: List of messages to generate from
             **kwargs: Additional arguments to pass to the provider
 
         Returns:
+        -------
             Generated response
 
         Raises:
+        ------
             ProviderInitError: If the provider is not initialized
             ProviderAPIError: If the API request fails
             ProviderError: If generation fails for other reasons
+
         """
         self._ensure_initialized()
         raise NotImplementedError
@@ -267,16 +313,20 @@ class BaseProvider(ABC):
         """Stream responses from the provider.
 
         Args:
+        ----
             messages: List of messages to generate from
             **kwargs: Additional arguments to pass to the provider
 
         Returns:
+        -------
             AsyncIterator[Response]: Stream of responses
 
         Raises:
+        ------
             ProviderInitError: If the provider is not initialized
             ProviderAPIError: If the API request fails
             ProviderError: If streaming fails for other reasons
+
         """
         self._ensure_initialized()
         raise NotImplementedError
@@ -287,10 +337,13 @@ class BaseProvider(ABC):
         """Convert all context values to strings.
 
         Args:
+        ----
             context: Dictionary with mixed-type values
 
         Returns:
+        -------
             Dictionary with all string values
+
         """
         return {k: str(v) for k, v in context.items()}
 
@@ -300,17 +353,22 @@ class BaseProvider(ABC):
         """Handle API errors in a consistent way.
 
         Args:
+        ----
             error: The original error
             context: Additional context about the error
 
         Raises:
+        ------
             ProviderError: With appropriate error details
+
         """
-        log_context = self._stringify_context({
-            "error": str(error),
-            "provider": self.name,
-            **context,
-        })
+        log_context = self._stringify_context(
+            {
+                "error": str(error),
+                "provider": self.name,
+                **context,
+            }
+        )
         self._logger.error("API error occurred", **log_context)
         raise ProviderError(
             message=str(error), provider_type=self.name, details=context
@@ -319,8 +377,10 @@ class BaseProvider(ABC):
     def _check_initialized(self) -> None:
         """Check if provider is initialized.
 
-        Raises:
+        Raises
+        ------
             RuntimeError: If provider is not initialized
+
         """
         if not self._initialized:
             raise RuntimeError(
@@ -340,3 +400,57 @@ class BaseProvider(ABC):
     ) -> None:
         """Async context manager exit."""
         await self.cleanup()
+
+    @abstractmethod
+    async def chat_completion(
+        self,
+        model: str,
+        messages: List[Message],
+        **kwargs: Any,
+    ) -> str:
+        """Run a chat completion with the given parameters.
+
+        Args:
+        ----
+            model: The model to use
+            messages: The messages to send to the model
+            **kwargs: Additional parameters for the model
+
+        Returns:
+        -------
+            The model's response
+
+        """
+        raise NotImplementedError
+
+
+class Provider(ABC):
+    """Base class for AI providers."""
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the provider.
+
+        Args:
+        ----
+            config: Optional configuration for the provider.
+
+        """
+        self.config = config or {}
+
+    @abstractmethod
+    async def generate(
+        self, prompt: str, parameters: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Generate a response for the given prompt.
+
+        Args:
+        ----
+            prompt: The prompt to generate a response for.
+            parameters: Optional parameters for the generation.
+
+        Returns:
+        -------
+            The generated response.
+
+        """
+        pass

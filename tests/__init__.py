@@ -19,3 +19,5 @@ Created: 2024-03-20
 Task: TASK-001
 Status: active
 """
+
+"""Test package for pepper-hub."""

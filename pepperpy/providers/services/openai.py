@@ -4,13 +4,12 @@ This module provides integration with OpenAI's API, supporting both chat complet
 and streaming capabilities.
 """
 
-import logging
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
-from typing import Any, Literal, Mapping, TypeAlias, TypeVar, cast
+from typing import Any, Literal, TypeAlias, TypeVar, cast
 from uuid import UUID, uuid4
 
 from openai import APIError, AsyncOpenAI, AsyncStream, OpenAIError
-from openai._types import NotGiven, Omit
+from openai._types import NotGiven
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -25,7 +24,7 @@ from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from pydantic import ConfigDict, Field, SecretStr
 
 from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
-from pepperpy.monitoring import logger
+from pepperpy.monitoring import bind_logger
 from pepperpy.providers.base import (
     BaseProvider,
     GenerateKwargs,
@@ -40,7 +39,7 @@ from pepperpy.providers.domain import (
 )
 
 # Configure logger
-logger = logger.bind()
+logger = bind_logger(provider="openai")
 
 # Type variable for OpenAI response types
 ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
@@ -67,6 +66,7 @@ class OpenAIConfig(ProviderConfig):
         stop_sequences: Optional stop sequences
         timeout: Request timeout in seconds
         max_retries: Maximum number of retries
+
     """
 
     provider_type: str = Field(default="openai", description="The type of provider")
@@ -91,6 +91,7 @@ class OpenAIProvider(BaseProvider):
 
         Args:
             config: Provider configuration
+
         """
         # Convert to OpenAIConfig if needed
         openai_config = (
@@ -109,6 +110,7 @@ class OpenAIProvider(BaseProvider):
             ProviderError: If initialization fails due to invalid credentials
             ProviderConfigError: If configuration is invalid
             ProviderAPIError: If API connection fails
+
         """
         try:
             base_url = (
@@ -160,6 +162,7 @@ class OpenAIProvider(BaseProvider):
 
         Returns:
             List of OpenAI chat completion messages
+
         """
         converted: list[ChatCompletionMessageParam] = []
         for msg in messages:
@@ -194,6 +197,7 @@ class OpenAIProvider(BaseProvider):
 
         Raises:
             ProviderError: If generation fails
+
         """
         try:
             if not self._client:
@@ -250,20 +254,24 @@ class OpenAIProvider(BaseProvider):
                 content={"text": response.choices[0].message.content},
                 status=ResponseStatus.SUCCESS,
                 metadata={
-                    "model": response.model,
+                    "model": model,
+                    "temperature": str(temperature),
+                    "max_tokens": str(max_tokens),
                     "usage": usage_data,
-                    "original_id": response.id,  # Store original ID in metadata
                 },
             )
 
-        except Exception as error:
-            return Response(
-                id=uuid4(),
-                message_id=messages[-1].id if messages else uuid4(),
-                content={"error": str(error)},
-                status=ResponseStatus.ERROR,
-                metadata={"error": str(error)},
-            )
+        except OpenAIError as api_error:  # type: ignore
+            msg = str(api_error)  # type: ignore
+            raise ProviderAPIError(msg) from api_error
+        except ValueError as val_error:
+            msg = str(val_error)
+            raise ProviderConfigError(msg) from val_error
+        except Exception as exc:
+            msg = str(exc)
+            raise ProviderError(
+                message=msg, provider_type="openai", details={"error": str(exc)}
+            ) from exc
 
     async def stream(
         self, messages: list[Message], **kwargs: StreamKwargs
@@ -279,6 +287,7 @@ class OpenAIProvider(BaseProvider):
 
         Raises:
             Exception: If streaming fails
+
         """
         try:
             if not self._client:
@@ -367,6 +376,7 @@ class OpenAIProvider(BaseProvider):
 
         Returns:
             AsyncGenerator[str, None]: Stream of text chunks
+
         """
         async for chunk in response:
             chunk_choices: list[ChunkChoice] = chunk.choices
@@ -400,6 +410,7 @@ class OpenAIProvider(BaseProvider):
         Raises:
             ProviderError: If the API call fails or rate limit is exceeded
             RuntimeError: If provider is not initialized
+
         """
         if not self._client:
             raise ProviderInitError(
@@ -477,6 +488,7 @@ class OpenAIProvider(BaseProvider):
         Raises:
             ProviderError: If the API call fails
             RuntimeError: If provider is not initialized
+
         """
         if not self._client:
             raise ProviderInitError(

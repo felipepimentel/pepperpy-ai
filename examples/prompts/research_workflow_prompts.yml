@@ -1,0 +1,32 @@
+prompts:
+  - name: research.analyze
+    description: Analyze a research topic
+    template: |
+      Please analyze the following research topic: {{topic}}
+      
+      Focus on:
+      1. Key concepts and definitions
+      2. Recent developments
+      3. Major challenges and open questions
+      4. Potential future directions
+      
+      Provide:
+      - A comprehensive summary
+      - A list of specific recommendations for further research
+
+  - name: research.sources
+    description: Find and analyze sources for a topic
+    template: |
+      Please find and analyze up to {{max_sources}} relevant sources for the topic: {{topic}}
+      
+      For each source, provide:
+      - Title
+      - Authors
+      - Publication date
+      - Source (journal, conference, etc.)
+      - Brief summary of key findings
+      
+      Focus on:
+      - Recent publications (last 5 years preferred)
+      - High-impact venues
+      - Diverse perspectives on the topic 

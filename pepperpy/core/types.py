@@ -15,9 +15,11 @@ from enum import Enum, auto
 from typing import (
     Any,
     ClassVar,
+    Dict,
     Generic,
     NewType,
     Protocol,
+    TypedDict,
     TypeVar,
     runtime_checkable,
 )
@@ -39,22 +41,33 @@ MetadataDict = dict[str, MetadataValue]  # type: ignore[valid-type]
 
 
 class MessageType(str, Enum):
-    """Types of messages in the system."""
+    """Types of messages that can be exchanged."""
 
-    COMMAND = "command"  # Command messages
-    QUERY = "query"  # Query messages
-    RESPONSE = "response"  # Response messages
-    EVENT = "event"  # Event messages
-    ERROR = "error"  # Error messages
+    QUERY = "query"
+    RESPONSE = "response"
+    COMMAND = "command"
+
+
+class MessageContent(TypedDict):
+    """Content of a message."""
+
+    text: str
+
+
+class Message(TypedDict):
+    """A message that can be exchanged between components."""
+
+    id: str
+    type: MessageType
+    content: MessageContent
 
 
 class ResponseStatus(str, Enum):
-    """Possible response statuses."""
+    """Status of a response."""
 
-    SUCCESS = "success"  # Operation succeeded
-    ERROR = "error"  # Operation failed
-    PENDING = "pending"  # Operation in progress
-    CANCELLED = "cancelled"  # Operation cancelled
+    SUCCESS = "success"
+    ERROR = "error"
+    PENDING = "pending"
 
 
 class AgentState(Enum):
@@ -128,75 +141,33 @@ class ErrorCategory(str, Enum):
     UNKNOWN = "unknown"  # Uncategorized errors
 
 
-class Message(BaseModel):
-    """Represents a message in the system."""
+class Response:
+    """A response from a provider."""
 
-    id: UUID = Field(default_factory=uuid4, description="Unique message identifier")
-    type: MessageType = Field(..., description="Type of message")
-    sender: str = Field(..., description="Message sender identifier")
-    receiver: str | None = Field(None, description="Message receiver identifier")
-    content: dict[str, Any] = Field(..., description="Message content")
-    metadata: MetadataDict = Field(default_factory=dict, description="Message metadata")
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        description="Message timestamp",
-    )
+    def __init__(
+        self,
+        id: UUID,
+        message_id: str,
+        content: Dict[str, Any],
+        status: ResponseStatus,
+        metadata: Dict[str, Any],
+    ) -> None:
+        """Initialize a response.
 
-    class Config:
-        """Pydantic model configuration."""
+        Args:
+        ----
+            id: Unique identifier for the response
+            message_id: ID of the message this is responding to
+            content: Response content
+            status: Response status
+            metadata: Additional metadata about the response
 
-        frozen = True
-        json_encoders: ClassVar[dict[Any, Any]] = {
-            UUID: str,
-            datetime: lambda v: v.isoformat(),
-            MessageType: lambda v: v.value,
-        }
-
-    @field_validator("sender", "receiver")
-    @classmethod
-    def validate_identifiers(cls, v: str | None) -> str | None:
-        """Validate sender and receiver identifiers."""
-        if v is not None and not v.strip():
-            raise ValueError("Identifier cannot be empty")
-        return v
-
-    @field_validator("content", "metadata")
-    @classmethod
-    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
-        """Ensure dictionaries are immutable."""
-        return dict(v)
-
-
-class Response(BaseModel):
-    """Represents a response in the system."""
-
-    id: UUID = Field(default_factory=uuid4, description="Unique response identifier")
-    message_id: UUID = Field(..., description="ID of the message being responded to")
-    status: ResponseStatus = Field(..., description="Response status")
-    content: dict[str, Any] = Field(..., description="Response content")
-    metadata: MetadataDict = Field(
-        default_factory=dict, description="Response metadata"
-    )
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
-        description="Response timestamp",
-    )
-
-    class Config:
-        """Pydantic model configuration."""
-
-        frozen = True
-        json_encoders: ClassVar[dict[Any, Any]] = {
-            UUID: str,
-            datetime: lambda v: v.isoformat(),
-            ResponseStatus: lambda v: v.value,
-        }
-
-    @field_validator("content", "metadata")
-    @classmethod
-    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
-        """Ensure dictionaries are immutable."""
-        return dict(v)
+        """
+        self.id = id
+        self.message_id = message_id
+        self.content = content
+        self.status = status
+        self.metadata = metadata
 
 
 @runtime_checkable
@@ -288,11 +259,16 @@ class ComponentConfig(BaseModel):
 class ProviderConfig(BaseModel):
     """Configuration for a provider."""
 
-    type: str = Field(..., min_length=1)
-    name: str = Field(..., min_length=1)
-    version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
+    provider_type: str = Field(default="openai", min_length=1)
+    name: str = Field(default="default", min_length=1)
+    version: str = Field(default="1.0.0", pattern=r"^\d+\.\d+\.\d+$")
     api_key: str | None = Field(None, min_length=1)
     base_url: str | None = Field(None, min_length=1)
+    model: str = Field(default="gpt-4-turbo-preview")
+    temperature: float = Field(default=0.7)
+    max_tokens: int = Field(default=1000)
+    timeout: int = Field(default=30)
+    max_retries: int = Field(default=3)
     settings: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -356,7 +332,9 @@ class Context(Generic[V]):
     """Base context class for managing key-value data.
 
     Args:
+    ----
         data: Initial key-value pairs.
+
     """
 
     _data: dict[str, V]
@@ -365,7 +343,9 @@ class Context(Generic[V]):
         """Initialize context.
 
         Args:
+        ----
             **kwargs: Initial key-value pairs.
+
         """
         self._data = kwargs
 
@@ -373,11 +353,14 @@ class Context(Generic[V]):
         """Get value from context.
 
         Args:
+        ----
             key: Key to get.
             default: Default value if key not found.
 
         Returns:
+        -------
             Value for key or default if not found.
+
         """
         return self._data.get(key, default)
 
@@ -385,8 +368,10 @@ class Context(Generic[V]):
         """Set value in context.
 
         Args:
+        ----
             key: Key to set.
             value: Value to set.
+
         """
         self._data[key] = value
 
@@ -394,7 +379,9 @@ class Context(Generic[V]):
         """Update context with new values.
 
         Args:
+        ----
             **kwargs: Key-value pairs to update.
+
         """
         self._data.update(kwargs)
 
@@ -402,13 +389,17 @@ class Context(Generic[V]):
         """Get value from context.
 
         Args:
+        ----
             key: Key to get.
 
         Returns:
+        -------
             Value for key.
 
         Raises:
+        ------
             KeyError: If key not found.
+
         """
         return self._data[key]
 
@@ -416,8 +407,10 @@ class Context(Generic[V]):
         """Set value in context.
 
         Args:
+        ----
             key: Key to set.
             value: Value to set.
+
         """
         self._data[key] = value
 
@@ -426,10 +419,12 @@ class Context(Generic[V]):
 class Result(Generic[T]):
     """Result of an operation.
 
-    Attributes:
+    Attributes
+    ----------
         value: The operation result value
         success: Whether the operation succeeded
         error: Optional error if operation failed
+
     """
 
     value: T

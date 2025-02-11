@@ -1,174 +1,206 @@
-# Pepperpy Framework
+# Pepper Hub
 
-Pepperpy is a powerful framework for building AI agents with modular components, extensible providers, and robust memory management.
+A centralized hub for managing and loading AI artifacts like agents, prompts, and workflows. Pepper Hub provides a robust and extensible framework for building AI-powered applications with a focus on modularity, type safety, and maintainability.
+
+## Core Concepts
+
+### The Hub Architecture
+
+Pepper Hub is built around the concept of a centralized repository of AI artifacts that can be easily shared, versioned, and reused across projects. The hub consists of three main components:
+
+1. **Artifacts**: Pre-built, tested, and documented AI components that can be easily integrated into your applications
+2. **Registry**: A central system for managing and loading artifacts
+3. **Provider System**: A pluggable system for integrating with different AI providers (OpenAI, Anthropic, etc.)
+
+### Types of Artifacts
+
+- **Agents**: Intelligent components that can perform specific tasks (e.g., Research Assistant, Code Reviewer)
+- **Prompts**: Carefully crafted templates for interacting with AI models
+- **Workflows**: Reusable sequences of operations combining multiple agents and prompts
 
 ## Features
 
-- **Modular Architecture**: Build agents using composable components
-- **Multiple Providers**: Support for OpenAI, Anthropic, and more
-- **Memory Management**: Redis and vector store support for persistent memory
-- **Framework Adapters**: Integrate with LangChain, AutoGen, and other frameworks
-- **Type Safety**: Full type hints and runtime validation
-- **Async Support**: Built for high-performance async operations
-- **Observability**: Comprehensive logging, metrics, and tracing
+### Core Features
+
+- **Artifact Management**
+  - Centralized registry for agents, prompts, and workflows
+  - Version control and dependency management
+  - Hot-reloading of artifacts during development
+
+- **Type Safety & Validation**
+  - Full type hints and runtime validation
+  - Automatic validation of configurations
+  - Type-safe prompt templates
+
+- **Provider System**
+  - Unified interface for multiple AI providers
+  - Easy provider switching and fallback
+  - Automatic rate limiting and retries
+
+### Advanced Features
+
+- **Memory Management**
+  - Built-in support for different memory types
+  - Configurable memory scopes
+  - Memory persistence and serialization
+
+- **Event System**
+  - Rich event system for monitoring and logging
+  - Custom event handlers and middleware
+  - Telemetry and analytics support
+
+- **Workflow Engine**
+  - Complex workflow orchestration
+  - Parallel and sequential execution
+  - Error handling and recovery
 
 ## Installation
 
 ```bash
-# Install from PyPI
-pip install pepperpy
+pip install pepper-hub
+```
 
-# Install with all extras
-pip install pepperpy[all]
+Or with Poetry:
 
-# Install specific extras
-pip install pepperpy[redis,vector,monitoring]
+```bash
+poetry add pepper-hub
 ```
 
 ## Quick Start
 
+### Using Pre-built Artifacts
+
 ```python
-from pepperpy.core import Message
-from pepperpy.providers import OpenAIProvider
-from pepperpy.memory import RedisMemoryStore
+from pepper_hub import Hub
 
-# Configure provider
-provider = OpenAIProvider(
-    config=OpenAIConfig(
-        model="gpt-4",
-        api_key="your-api-key",
-    )
+# Initialize the hub
+hub = Hub()
+
+# Load a pre-built research assistant
+agent = hub.load_agent(
+    "research_assistant",
+    config={
+        "provider": {
+            "api_key": "your-api-key"
+        }
+    }
 )
 
-# Configure memory store
-memory = RedisMemoryStore(
-    config=RedisConfig(
-        host="localhost",
-        port=6379,
-    )
-)
-
-# Initialize components
-await provider.initialize()
-await memory.initialize()
-
-# Process messages
-message = Message(
-    sender="user",
-    content={"query": "What's the weather?"},
-)
-
-response = await provider.generate([message])
-await memory.add_to_conversation("chat-1", message)
+# Use the agent
+result = await agent.analyze_paper(paper)
 ```
 
-## Development
+### Creating Custom Artifacts
 
-### Setup
+```python
+from pepper_hub.agents import BaseAgent
+from pepper_hub.decorators import register_agent
 
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/yourusername/pepperpy.git
-   cd pepperpy
-   ```
-
-2. Create a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # Linux/macOS
-   venv\Scripts\activate     # Windows
-   ```
-
-3. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   pip install -r tests/requirements.txt
-   ```
-
-### Testing
-
-Run tests with pytest:
-```bash
-# Run all tests
-pytest
-
-# Run specific test categories
-pytest -m "not slow"        # Skip slow tests
-pytest -m integration       # Run integration tests
-pytest -m "memory or redis" # Run memory-related tests
-
-# Run with coverage
-pytest --cov=pepperpy
-
-# Run in parallel
-pytest -n auto
+@register_agent("custom_assistant")
+class CustomAssistant(BaseAgent):
+    async def analyze(self, data):
+        prompt = self.prompt_registry.get_prompt("custom.analyze")
+        return await self.provider.generate(prompt.render(data=data))
 ```
-
-### Code Quality
-
-1. Type checking:
-   ```bash
-   mypy pepperpy tests
-   ```
-
-2. Linting:
-   ```bash
-   ruff check pepperpy tests
-   ```
-
-3. Code formatting:
-   ```bash
-   ruff format pepperpy tests
-   ```
 
 ## Project Structure
 
 ```
-pepperpy/
-├── core/               # Core framework components
-│   ├── base.py        # Base classes and interfaces
-│   ├── config.py      # Configuration management
-│   ├── errors.py      # Error definitions
-│   ├── events.py      # Event system
-│   ├── registry.py    # Component registry
-│   ├── types.py       # Core type definitions
-│   └── utils.py       # Utility functions
-│
-├── providers/         # Model providers
-│   ├── base.py       # Provider interface
-│   ├── openai.py     # OpenAI provider
-│   └── anthropic.py  # Anthropic provider
-│
-├── memory/           # Memory management
-│   ├── base.py      # Memory store interface
-│   ├── manager.py   # Memory manager
-│   └── storage/     # Store implementations
-│       ├── redis.py # Redis store
-│       └── vector.py # Vector store
-│
-├── adapters/         # Framework adapters
-│   ├── base.py      # Adapter interface
-│   ├── errors.py    # Adapter errors
-│   └── frameworks/  # Framework implementations
-│       ├── langchain.py
-│       ├── autogen.py
-│       └── crewai.py
-│
-└── monitoring/      # Observability
-    ├── logger.py   # Logging configuration
-    ├── metrics.py  # Metrics collection
-    └── tracing.py  # Distributed tracing
+pepper_hub/
+├── artifacts/                # Pre-built artifacts
+│   ├── research_assistant/
+│   │   ├── agent.py         # Agent implementation
+│   │   ├── config.yml       # Agent configuration
+│   │   └── prompts/         # Agent-specific prompts
+│   └── code_reviewer/
+│       └── ...
+├── agents/
+│   ├── base.py              # Base agent classes
+│   ├── registry.py          # Agent registry
+│   └── providers/           # Provider implementations
+├── prompts/
+│   ├── base.py              # Base prompt classes
+│   ├── registry.py          # Prompt registry
+│   └── templates/           # Shared prompt templates
+└── workflows/
+    ├── base.py              # Base workflow classes
+    ├── registry.py          # Workflow registry
+    └── engine.py            # Workflow execution engine
 ```
+
+## Configuration
+
+### Agent Configuration
+
+```yaml
+name: Research Assistant
+description: An intelligent research assistant
+
+provider:
+  type: openai
+  model: gpt-4
+  temperature: 0.7
+  max_tokens: 2000
+
+memory:
+  type: in_memory
+  scope: session
+
+prompts:
+  - name: research.analyze
+    template: |
+      Analyze the following paper:
+      {{ paper }}
+```
+
+### Provider Configuration
+
+```yaml
+providers:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    default_model: gpt-4
+    timeout: 30
+    retries: 3
+```
+
+## Development
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/pepper-hub.git
+   cd pepper-hub
+   ```
+
+2. Install dependencies:
+   ```bash
+   poetry install
+   ```
+
+3. Run tests:
+   ```bash
+   poetry run pytest
+   ```
+
+4. Start development server:
+   ```bash
+   poetry run pepper-hub dev
+   ```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting
-5. Submit a pull request
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and development process.
+### Development Process
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Write tests for your changes
+4. Implement your changes
+5. Run tests and linting (`poetry run pytest && poetry run ruff check .`)
+6. Commit your changes (`git commit -m 'Add some amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
 
 ## License
 

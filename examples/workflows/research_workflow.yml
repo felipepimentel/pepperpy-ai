@@ -1,0 +1,43 @@
+name: Research Workflow
+description: A workflow for conducting research on a given topic
+
+inputs:
+  topic:
+    type: string
+    description: The research topic to investigate
+  max_sources:
+    type: integer
+    description: Maximum number of sources to analyze
+    default: 5
+
+outputs:
+  summary:
+    type: string
+    description: Research summary
+  recommendations:
+    type: array
+    description: List of recommendations
+  sources:
+    type: array
+    description: List of sources used
+
+steps:
+  initial_research:
+    description: Initial research and topic analysis
+    agent: research_assistant
+    prompt: research.analyze
+    inputs:
+      topic: inputs.topic
+    outputs:
+      summary: outputs.summary
+      recommendations: outputs.recommendations
+
+  source_analysis:
+    description: Analyze and compile sources
+    agent: research_assistant
+    prompt: research.sources
+    inputs:
+      topic: inputs.topic
+      max_sources: inputs.max_sources
+    outputs:
+      sources: outputs.sources 

@@ -12,6 +12,8 @@ from typing import Union
 
 from pepperpy.core.enums import MetricType
 
+__all__ = ["Metrics", "metrics"]
+
 # Type aliases for better readability
 MetricValue = Union[int, float]
 MetricLabels = dict[str, str]
@@ -35,9 +37,11 @@ class Metrics:
         """Register a callback for collecting metrics.
 
         Args:
+        ----
             name: Metric name
             callback: Function that returns the metric value
             metric_type: Type of metric to collect
+
         """
         self._callbacks[name] = (metric_type, callback)
 
@@ -51,10 +55,12 @@ class Metrics:
         """Record a metric value.
 
         Args:
+        ----
             name: Metric name
             value: Metric value
             metric_type: Type of metric
             labels: Optional metric labels
+
         """
         self._metrics[name] = (metric_type, value)
 
@@ -62,10 +68,13 @@ class Metrics:
         """Get a metric value.
 
         Args:
+        ----
             name: Metric name
 
         Returns:
+        -------
             Tuple of metric type and value, or None if not found
+
         """
         if name in self._metrics:
             return self._metrics[name]
@@ -79,7 +88,9 @@ class Metrics:
         """Clear a metric.
 
         Args:
+        ----
             name: Metric name
+
         """
         self._metrics.pop(name, None)
         self._callbacks.pop(name, None)

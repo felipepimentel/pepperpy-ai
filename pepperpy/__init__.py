@@ -10,6 +10,7 @@ Example:
     >>> async with PepperpyClient() as client:
     ...     response = await client.complete("Tell me a joke")
     ...     print(response)
+
 """
 
 __version__ = "0.1.0"
@@ -17,6 +18,7 @@ __version__ = "0.1.0"
 from pepperpy.core.client import PepperpyClient
 from pepperpy.core.config import AutoConfig, PepperpyConfig, ProviderConfig
 from pepperpy.core.templates.prompt import PromptTemplate
+from pepperpy.hub import Hub
 
 __all__ = [
     "AutoConfig",
@@ -24,4 +26,5 @@ __all__ = [
     "PepperpyConfig",
     "PromptTemplate",
     "ProviderConfig",
+    "Hub",
 ]

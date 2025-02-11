@@ -1,16 +1,15 @@
-"""OpenRouter provider implementation for the Pepperpy framework.
+"""Perplexity provider implementation for the Pepperpy framework.
 
-This module provides integration with OpenRouter's API, supporting both chat completion
+This module provides integration with Perplexity's API, supporting both chat completion
 and streaming capabilities.
 """
 
-import os
 from collections.abc import AsyncGenerator, AsyncIterator, Sequence
-from typing import Any, List, TypeAlias, TypeVar, cast
-from uuid import uuid4
+from typing import Any, Literal, Mapping, TypeAlias, TypeVar, cast
+from uuid import UUID, uuid4
 
 from openai import APIError, AsyncOpenAI, AsyncStream, OpenAIError
-from openai._types import NotGiven
+from openai._types import NotGiven, Omit
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -42,38 +41,38 @@ from pepperpy.providers.domain import (
 # Configure logger
 logger = logger.bind()
 
-# Type variable for OpenRouter response types
+# Type variable for Perplexity response types
 ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
 
-# Type alias for OpenRouter errors
-OpenRouterErrorType = OpenAIError | APIError | ValueError | Exception  # type: ignore
+# Type alias for Perplexity errors
+PerplexityErrorType = OpenAIError | APIError | ValueError | Exception  # type: ignore
 
-# Type aliases for OpenRouter parameters
-OpenRouterMessages = Sequence[ChatCompletionMessageParam]
-OpenRouterStop = list[str] | NotGiven
+# Type aliases for Perplexity parameters
+PerplexityMessages = Sequence[ChatCompletionMessageParam]
+PerplexityStop = list[str] | NotGiven
 ModelParam: TypeAlias = str
 TemperatureParam: TypeAlias = float
 MaxTokensParam: TypeAlias = int
 
 
-class OpenRouterConfig(ProviderConfig):
-    """OpenRouter provider configuration.
+class PerplexityConfig(ProviderConfig):
+    """Perplexity provider configuration.
 
-    Attributes
-    ----------
-        api_key: OpenRouter API key
-        model: Model to use
+    Attributes:
+        api_key: Perplexity API key
+        model: Model to use (e.g. llama-3.1-sonar-small-128k-online)
         temperature: Sampling temperature
         max_tokens: Maximum tokens to generate
         stop_sequences: Optional stop sequences
         timeout: Request timeout in seconds
         max_retries: Maximum number of retries
-
     """
 
-    provider_type: str = Field(default="openrouter", description="The type of provider")
-    api_key: SecretStr = Field(default=SecretStr(""), description="OpenRouter API key")
-    model: str = Field(default="openai/gpt-4", description="Model to use")
+    provider_type: str = Field(default="perplexity", description="The type of provider")
+    api_key: SecretStr = Field(..., description="Perplexity API key")
+    model: str = Field(
+        default="llama-3.1-sonar-small-128k-online", description="Model to use"
+    )
     temperature: float = Field(default=0.7, description="Sampling temperature")
     max_tokens: int = Field(default=2048, description="Maximum tokens to generate")
     stop_sequences: list[str] | None = Field(
@@ -85,58 +84,42 @@ class OpenRouterConfig(ProviderConfig):
     model_config = ConfigDict(extra="forbid")
 
 
-class OpenRouterProvider(BaseProvider):
-    """OpenRouter provider implementation."""
+class PerplexityProvider(BaseProvider):
+    """Perplexity provider implementation."""
 
     def __init__(self, config: ProviderConfig) -> None:
         """Initialize the provider.
 
         Args:
-        ----
             config: Provider configuration
-
         """
-        # Get API key from config or environment variable
-        api_key = (
-            config.api_key
-            if config.api_key
-            else SecretStr(os.getenv("PEPPERPY_API_KEY", ""))
-        )
-
-        # Convert to OpenRouterConfig if needed
-        openrouter_config = (
+        # Convert to PerplexityConfig if needed
+        perplexity_config = (
             config
-            if isinstance(config, OpenRouterConfig)
-            else OpenRouterConfig(
-                **{
-                    **config.model_dump(),
-                    "api_key": api_key,
-                }
-            )
+            if isinstance(config, PerplexityConfig)
+            else PerplexityConfig(**config.model_dump())
         )
-        super().__init__(openrouter_config)
+        super().__init__(perplexity_config)
         self._client: AsyncOpenAI | None = None
-        self._config = openrouter_config
+        self._config = perplexity_config
 
     async def initialize(self) -> None:
         """Initialize the provider with configuration.
 
-        Raises
-        ------
+        Raises:
             ProviderError: If initialization fails due to invalid credentials
             ProviderConfigError: If configuration is invalid
             ProviderAPIError: If API connection fails
-
         """
         try:
             self._client = AsyncOpenAI(
                 api_key=self._config.api_key.get_secret_value(),
                 timeout=self._config.timeout,
                 max_retries=self._config.max_retries,
-                base_url="https://openrouter.ai/api/v1",
+                base_url="https://api.perplexity.ai",
             )
             logger.info(
-                f"Initialized OpenRouter provider - Model: {self._config.model}"
+                f"Initialized Perplexity provider - Model: {self._config.model}"
             )
         except OpenAIError as api_error:  # type: ignore
             msg = str(api_error)  # type: ignore
@@ -147,7 +130,7 @@ class OpenRouterProvider(BaseProvider):
         except Exception as exc:
             msg = str(exc)
             raise ProviderInitError(
-                message=msg, provider_type="openrouter", details={"error": str(exc)}
+                message=msg, provider_type="perplexity", details={"error": str(exc)}
             ) from exc
 
     async def cleanup(self) -> None:
@@ -156,44 +139,40 @@ class OpenRouterProvider(BaseProvider):
             try:
                 await self._client.close()
                 self._client = None
-                logger.info("Cleaned up OpenRouter provider")
+                logger.info("Cleaned up Perplexity provider")
             except Exception as exc:  # type: ignore
                 logger.error(f"Error during cleanup: {exc!r}")
                 raise ProviderError(
                     message=f"Cleanup failed: {exc}",
-                    provider_type="openrouter",
+                    provider_type="perplexity",
                     details={"error": str(exc)},
                 ) from exc
 
     def _convert_messages(
         self, messages: list[Message]
     ) -> list[ChatCompletionMessageParam]:
-        """Convert messages to OpenAI format.
+        """Convert internal message format to Perplexity format.
 
         Args:
-        ----
             messages: List of messages to convert
 
         Returns:
-        -------
-            List of messages in OpenAI format
-
+            List of Perplexity chat completion messages
         """
         converted: list[ChatCompletionMessageParam] = []
         for msg in messages:
-            content = str(msg["content"]["text"])
-            msg_type = msg["type"]
-            if msg_type == MessageType.QUERY:
+            content = str(msg.content.get("text", ""))
+            if msg.type == MessageType.QUERY:
                 converted.append(
                     ChatCompletionUserMessageParam(role="user", content=content)
                 )
-            elif msg_type == MessageType.RESPONSE:
+            elif msg.type == MessageType.RESPONSE:
                 converted.append(
                     ChatCompletionAssistantMessageParam(
                         role="assistant", content=content
                     )
                 )
-            elif msg_type == MessageType.COMMAND:
+            elif msg.type == MessageType.COMMAND:
                 converted.append(
                     ChatCompletionSystemMessageParam(role="system", content=content)
                 )
@@ -202,154 +181,179 @@ class OpenRouterProvider(BaseProvider):
     async def generate(
         self, messages: list[Message], **kwargs: GenerateKwargs
     ) -> Response:
-        """Generate a response using OpenRouter's API.
+        """Generate a response from Perplexity.
 
         Args:
-        ----
             messages: List of messages to generate from
-            **kwargs: Additional generation parameters
+            **kwargs: Additional arguments to pass to the API
 
         Returns:
-        -------
-            The generated response
+            Generated response
 
         Raises:
-        ------
             ProviderError: If generation fails
-
         """
-        self._check_initialized()
-
         try:
             if not self._client:
-                raise ProviderError("OpenRouter client not initialized")
+                raise ProviderInitError(
+                    message="Provider not initialized", provider_type="perplexity"
+                )
 
-            # Convert messages to OpenRouter format
-            openai_messages = self._convert_messages(messages)
+            model_params = kwargs.get("model_params", {})
+            stop_sequences = kwargs.get("stop_sequences")
 
-            # Get generation parameters
-            model = str(kwargs.get("model", self._config.model))
-            temperature = (
-                float(self._config.temperature)
-                if "temperature" not in kwargs
-                else float(kwargs["temperature"])
-            )  # type: ignore
-            max_tokens = (
-                int(self._config.max_tokens)
-                if "max_tokens" not in kwargs
-                else int(kwargs["max_tokens"])
-            )  # type: ignore
-
-            # Generate response
-            response = await self._client.chat.completions.create(
-                model=model,
-                messages=openai_messages,
-                temperature=temperature,
-                max_tokens=max_tokens,
+            converted_messages = self._convert_messages(messages)
+            model = str(model_params.get("model", self._config.model))
+            temperature = float(
+                model_params.get("temperature", self._config.temperature)
+            )
+            max_tokens = int(model_params.get("max_tokens", self._config.max_tokens))
+            stop = (
+                cast(list[str], stop_sequences)
+                if stop_sequences is not None
+                else NotGiven()
             )
 
-            # Extract response text
-            text = response.choices[0].message.content or ""
+            response = await self._client.chat.completions.create(
+                messages=converted_messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                stream=False,
+                stop=stop,
+            )
 
-            # Create response object
+            # Try to parse response ID as UUID, fallback to new UUID if invalid
+            try:
+                response_id = UUID(response.id)
+            except ValueError:
+                response_id = uuid4()
+                logger.debug(
+                    "Invalid UUID from provider, generated new one",
+                    original_id=response.id,
+                    new_id=str(response_id),
+                )
+
+            # Convert usage data to strings
+            usage_data = {}
+            if response.usage:
+                usage_data = {
+                    k: str(v) if v is not None else ""
+                    for k, v in response.usage.model_dump().items()
+                }
+
             return Response(
-                id=uuid4(),
-                message_id=messages[-1]["id"],
-                content={"text": text},
+                id=response_id,
+                message_id=messages[-1].id,
+                content={"text": response.choices[0].message.content},
                 status=ResponseStatus.SUCCESS,
                 metadata={
-                    "model": model,
-                    "temperature": str(temperature),
-                    "max_tokens": str(max_tokens),
+                    "model": response.model,
+                    "usage": usage_data,
+                    "original_id": response.id,  # Store original ID in metadata
                 },
             )
 
-        except Exception as e:
-            self._logger.error(
-                "OpenRouter generation failed",
-                error=str(e),
-                model=self._config.model,
+        except Exception as error:
+            return Response(
+                id=uuid4(),
+                message_id=messages[-1].id if messages else uuid4(),
+                content={"error": str(error)},
+                status=ResponseStatus.ERROR,
+                metadata={"error": str(error)},
             )
-            raise ProviderAPIError(str(e)) from e
 
     async def stream(
         self, messages: list[Message], **kwargs: StreamKwargs
     ) -> AsyncIterator[Response]:
-        """Stream responses from OpenRouter's API.
+        """Stream responses from Perplexity.
 
         Args:
-        ----
             messages: List of messages to generate from
-            **kwargs: Additional generation parameters
+            **kwargs: Additional arguments to pass to the API
 
         Returns:
-        -------
-            An async iterator of response chunks
+            AsyncIterator[Response]: Stream of responses
 
         Raises:
-        ------
-            ProviderError: If streaming fails
-
+            Exception: If streaming fails
         """
-        self._check_initialized()
-
         try:
             if not self._client:
-                raise ProviderError("OpenRouter client not initialized")
+                raise ProviderInitError(
+                    message="Provider not initialized", provider_type="perplexity"
+                )
 
-            # Convert messages to OpenRouter format
-            openai_messages = self._convert_messages(messages)
+            model_params = kwargs.get("model_params", {})
+            stop_sequences = kwargs.get("stop_sequences")
 
-            # Get generation parameters
-            model = str(kwargs.get("model", self._config.model))
-            temperature = (
-                float(self._config.temperature)
-                if "temperature" not in kwargs
-                else float(kwargs["temperature"])
-            )  # type: ignore
-            max_tokens = (
-                int(self._config.max_tokens)
-                if "max_tokens" not in kwargs
-                else int(kwargs["max_tokens"])
-            )  # type: ignore
+            converted_messages = self._convert_messages(messages)
+            model = str(model_params.get("model", self._config.model))
+            temperature = float(
+                model_params.get("temperature", self._config.temperature)
+            )
+            max_tokens = int(model_params.get("max_tokens", self._config.max_tokens))
+            stop = (
+                cast(list[str], stop_sequences)
+                if stop_sequences is not None
+                else NotGiven()
+            )
 
-            # Create streaming response
             stream = await self._client.chat.completions.create(
+                messages=converted_messages,
                 model=model,
-                messages=openai_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
+                stop=stop,
             )
 
-            # Stream response chunks
             async for chunk in stream:
-                if not chunk.choices:
+                chunk_choices: Sequence[ChunkChoice] = chunk.choices
+                if not chunk_choices:
                     continue
+                choice = chunk_choices[0]
+                if choice.delta and choice.delta.content:
+                    # Try to parse chunk ID as UUID, fallback to new UUID if invalid
+                    try:
+                        chunk_id = UUID(chunk.id)
+                    except ValueError:
+                        chunk_id = uuid4()
+                        logger.debug(
+                            "Invalid UUID from provider in stream, generated new one",
+                            original_id=chunk.id,
+                            new_id=str(chunk_id),
+                        )
 
-                delta = chunk.choices[0].delta
-                if not delta.content:
-                    continue
+                    # Convert usage data to strings if present
+                    usage_data = {}
+                    if hasattr(chunk, "usage") and chunk.usage:
+                        usage_data = {
+                            k: str(v) if v is not None else ""
+                            for k, v in chunk.usage.model_dump().items()
+                        }
 
-                yield Response(
-                    id=uuid4(),
-                    message_id=messages[-1]["id"],
-                    content={"text": delta.content},
-                    status=ResponseStatus.SUCCESS,
-                    metadata={
-                        "model": model,
-                        "temperature": str(temperature),
-                        "max_tokens": str(max_tokens),
-                    },
-                )
+                    yield Response(
+                        id=chunk_id,
+                        message_id=messages[-1].id,
+                        content={"text": str(choice.delta.content)},
+                        status=ResponseStatus.SUCCESS,
+                        metadata={
+                            "model": chunk.model,
+                            "index": choice.index,
+                            "usage": usage_data,
+                            "original_id": chunk.id,  # Store original ID in metadata
+                        },
+                    )
 
-        except Exception as e:
-            self._logger.error(
-                "OpenRouter streaming failed",
-                error=str(e),
-                model=self._config.model,
+        except Exception as error:
+            yield Response(
+                id=uuid4(),
+                message_id=messages[-1].id if messages else uuid4(),
+                content={"error": str(error)},
+                status=ResponseStatus.ERROR,
+                metadata={"error": str(error)},
             )
-            raise ProviderAPIError(str(e)) from e
 
     async def complete(
         self,
@@ -363,7 +367,6 @@ class OpenRouterProvider(BaseProvider):
         """Complete a prompt using the provider's model.
 
         Args:
-        ----
             prompt: The prompt to complete
             temperature: Controls randomness (0.0 to 1.0)
             max_tokens: Maximum tokens to generate
@@ -371,18 +374,15 @@ class OpenRouterProvider(BaseProvider):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-        -------
             Generated text or async generator of text chunks if streaming
 
         Raises:
-        ------
             ProviderError: If the API call fails or rate limit is exceeded
             RuntimeError: If provider is not initialized
-
         """
         if not self._client:
             raise ProviderInitError(
-                message="Provider not initialized", provider_type="openrouter"
+                message="Provider not initialized", provider_type="perplexity"
             )
 
         try:
@@ -420,7 +420,7 @@ class OpenRouterProvider(BaseProvider):
                 return completion.choices[0].message.content or ""
 
         except OpenAIError as api_error:  # type: ignore[misc,attr-defined]
-            error_msg: str = "OpenRouter API error"
+            error_msg: str = "Perplexity API error"
             if hasattr(api_error, "message"):  # type: ignore[attr-defined]
                 error_msg = f"{error_msg}: {api_error.message}"  # type: ignore[attr-defined]
             elif hasattr(api_error, "code"):  # type: ignore[attr-defined]
@@ -438,13 +438,10 @@ class OpenRouterProvider(BaseProvider):
         """Process streaming response.
 
         Args:
-        ----
             response: Raw streaming response
 
         Returns:
-        -------
             AsyncGenerator[str, None]: Stream of text chunks
-
         """
         async for chunk in response:
             chunk_choices: list[ChunkChoice] = chunk.choices
@@ -453,66 +450,3 @@ class OpenRouterProvider(BaseProvider):
             delta = chunk_choices[0].delta
             if delta.content:
                 yield delta.content
-
-    async def chat_completion(
-        self,
-        model: str,
-        messages: List[Message],
-        **kwargs: Any,
-    ) -> str:
-        """Run a chat completion with the given parameters.
-
-        Args:
-        ----
-            model: The model to use
-            messages: The messages to send to the model
-            **kwargs: Additional parameters for the model
-
-        Returns:
-        -------
-            The model's response
-
-        Raises:
-        ------
-            ProviderError: If the chat completion fails
-
-        """
-        if not self._client:
-            raise ProviderInitError(
-                message="Provider not initialized", provider_type="openrouter"
-            )
-
-        try:
-            temperature = float(kwargs.get("temperature", self._config.temperature))
-            max_tokens = int(kwargs.get("max_tokens", self._config.max_tokens))
-            stop_sequences = kwargs.get("stop_sequences")
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
-
-            converted_messages = self._convert_messages(messages)
-            response = await self._client.chat.completions.create(
-                messages=converted_messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=False,
-                stop=stop,
-            )
-
-            return response.choices[0].message.content or ""
-
-        except OpenAIError as api_error:  # type: ignore[misc,attr-defined]
-            error_msg: str = "OpenRouter API error"
-            if hasattr(api_error, "message"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg}: {api_error.message}"  # type: ignore[attr-defined]
-            elif hasattr(api_error, "code"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg} (code: {api_error.code})"  # type: ignore[attr-defined]
-            else:
-                error_msg = f"{error_msg}: {api_error!s}"
-            raise ProviderError(error_msg) from api_error
-        except Exception as exc:
-            msg = str(exc)
-            raise ProviderError(f"Unexpected error: {msg}") from exc

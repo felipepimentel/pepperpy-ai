@@ -1,19 +1,46 @@
-"""Model providers for the Pepperpy framework.
+"""Providers package for AI model interactions.
 
-This module provides integrations with various AI model providers, including OpenAI
-and Anthropic, with a consistent interface for model interactions.
+This package provides base classes and implementations for different AI providers.
 """
 
-from pepperpy.providers.base import BaseProvider, ProviderConfig
-from pepperpy.providers.services.openai import OpenAIConfig, OpenAIProvider
+from typing import Dict, Type
 
-__all__ = [
-    "BaseProvider",
-    "OpenAIConfig",
-    "OpenAIProvider",
-    "ProviderConfig",
-]
+from pepperpy.monitoring import logger as logger
+from pepperpy.providers.base import BaseProvider, Provider, ProviderConfig
+from pepperpy.providers.openai import OpenAIProvider
+from pepperpy.providers.services.openrouter import OpenRouterProvider
 
-# Version information
-__version__ = "1.0.0"
-__author__ = "Pepperpy Team"
+# Registry of available providers
+PROVIDERS: Dict[str, Type[BaseProvider]] = {
+    "openai": OpenAIProvider,
+    "openrouter": OpenRouterProvider,
+}
+
+
+def get_provider(
+    provider_name: str, config: ProviderConfig | None = None
+) -> BaseProvider:
+    """Get a provider instance by name.
+
+    Args:
+    ----
+        provider_name: Name of the provider to get
+        config: Optional provider configuration
+
+    Returns:
+    -------
+        An instance of the provider
+
+    Raises:
+    ------
+        ValueError: If the provider is not found
+
+    """
+    if provider_name not in PROVIDERS:
+        raise ValueError(f"Provider '{provider_name}' not found")
+
+    provider_class = PROVIDERS[provider_name]
+    return provider_class(config or ProviderConfig())
+
+
+__all__ = ["Provider"]

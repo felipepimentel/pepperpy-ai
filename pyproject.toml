@@ -4,50 +4,29 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pepperpy"
-version = "1.2.0"
-description = "A Python library for building AI agents"
-authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
+version = "0.1.0"
+description = "A centralized hub for managing and loading AI artifacts like agents, prompts, and workflows"
+authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<3.13"
-aiohttp = ">=3.11.12,<4.0.0"
-jinja2 = ">=3.1.5,<4.0.0"
-structlog = ">=25.1.0,<26.0.0"
-pyyaml = ">=6.0.2,<7.0.0"
-python-dotenv = ">=1.0.1,<2.0.0"
-markdown = ">=3.7,<4.0.0"
-pydantic-settings = ">=2.7.1,<3.0.0"
-loguru = ">=0.7.3,<1.0.0"
-pydantic = ">=2.10.6,<3.0.0"
-pyright = ">=1.1.393,<2.0.0"
-opentelemetry-api = ">=1.30.0,<2.0.0"
-opentelemetry-sdk = ">=1.30.0,<2.0.0"
-openai = { version = "1.61.1", optional = true }
-anthropic = { version = "0.45.2", optional = true }
-google-generativeai = { version = "0.8.4", optional = true }
-beautifulsoup4 = { version = "4.13.3", optional = true }
-requests = { version = "2.32.3", optional = true }
-pymupdf = { version = "1.25.3", optional = true }
-semantic-kernel = { version = "1.20.0", optional = true }
-langchain = { version = "0.3.17", optional = true }
+python = ">=3.12,<4.0"
 aiofiles = "^24.1.0"
-asyncpg = "^0.30.0"
-redis = "^5.2.1"
+openai = "^1.12.0"
+pyyaml = "^6.0.1"
+jinja2 = "^3.1.3"
+pydantic = "^2.6.3"
+structlog = "^24.1.0"
+loguru = "^0.7.2"
+python-dotenv = "^1.0.1"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.4"
-pytest-asyncio = "^0.25.3"
-pytest-cov = "^6.0.0"
-pytest-mock = "^3.14.0"
-ruff = "^0.9.5"
-mypy = "^1.15.0"
-types-pyyaml = "^6.0.12.20241230"
-pre-commit = "^4.1.0"
-black = "^25.1.0"
-langdetect = "^1.0.9"
-nltk = "^3.9.1"
+pytest = "^8.1.1"
+pytest-asyncio = "^0.23.5"
+black = "^24.2.0"
+ruff = "^0.3.2"
+mypy = "^1.9.0"
 
 [tool.poetry.extras]
 openai = ["openai"]
@@ -70,96 +49,20 @@ all = [
 [tool.ruff]
 line-length = 88
 target-version = "py312"
-fix = true
-unsafe-fixes = false
-exclude = [
-    ".git",
-    ".venv",
-    "__pycache__",
-    ".pytest_cache",
-    ".mypy_cache",
-    "build",
-    "dist",
-    "docs",
-]
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "C", "S", "RUF"]
-ignore = ["E203", "D100"]
-
-[tool.ruff.lint.mccabe]
-max-complexity = 10
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101", "ANN", "D"]
-"pepperpy/types.py" = ["D"]
-"pepperpy/capabilities/rag/**/*" = ["F401", "F403"]
-"pepperpy/embeddings/providers/**/*" = ["F401", "F403"]
-"pepperpy/providers/**/*" = ["F401", "F403"]
-"pepperpy/teams/providers/**/*" = ["F401", "F403"]
-"pepperpy/providers/provider.py" = ["N805"]
+select = ["E", "F", "I", "N", "W", "B", "C", "D"]
+ignore = ["D100", "D104", "D107"]
 
 [tool.mypy]
 python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
 check_untyped_defs = true
-disallow_untyped_defs = false
-strict_optional = true
-plugins = ["pydantic.mypy"]
 
-[pydantic-mypy]
-init_forbid_extra = true
-init_typed = true
-warn_required_dynamic_aliases = true
-warn_untyped_fields = true
-
-[[tool.mypy.overrides]]
-module = "pytest.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "loguru.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "google.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "pepperpy.memory.stores.*"
-disable_error_code = ["type-arg", "attr-defined"]
-
-[[tool.mypy.overrides]]
-module = "pepperpy.core.*"
-disable_error_code = ["attr-defined"]
-
-[[tool.mypy.overrides]]
-module = "pepperpy.providers.*"
-disable_error_code = ["attr-defined", "union-attr"]
-
-[[tool.mypy.overrides]]
-module = "pepperpy.monitoring.*"
-disable_error_code = ["attr-defined"]
-
-[[tool.mypy.overrides]]
-module = "pepperpy.capabilities.*"
-disable_error_code = ["attr-defined", "misc"]
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disable_error_code = ["no-untyped-def", "misc", "arg-type", "union-attr"]
-
-[[tool.mypy.overrides]]
-module = "semantic_kernel.*"
-ignore_missing_imports = true
-disable_error_code = ["attr-defined", "misc"]
-
-[[tool.mypy.overrides]]
-module = "langchain.*"
-ignore_missing_imports = true
-disable_error_code = ["attr-defined", "misc"]
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
 
 [tool.coverage.run]
 branch = true
@@ -223,6 +126,7 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
 ]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
 
 [tool.pyright]
 exclude = [".venv", "**/node_modules", "**/__pycache__"]

@@ -21,6 +21,29 @@ structure:
           - factory.py: "Factories compartilhados"
           - monitoring.py: "Monitoramento base"
       
+      cli:
+        description: "Interface de linha de comando"
+        files:
+          - __init__.py: "Inicialização do CLI"
+          - hub.py: "Comandos para gerenciar artefatos locais"
+          - config.py: "Comandos de configuração"
+          - utils.py: "Utilitários do CLI"
+      
+      hub:
+        description: "Sistema de gerenciamento de artefatos"
+        files:
+          - __init__.py: "Interface principal do hub"
+          - local.py: "Integração com armazenamento local (.pepper_hub)"
+          - storage.py: "Gerenciamento de armazenamento de artefatos"
+          - types.py: "Tipos e protocolos do hub"
+          - utils.py: "Utilitários do hub"
+        modules:
+          agents:
+            description: "Agentes disponíveis"
+            files:
+              - base.py: "Interface base de agentes"
+              - research_assistant.py: "Agente de pesquisa"
+      
       memory:
         description: "Sistema de memória"
         files:
@@ -166,6 +189,8 @@ dependencies:
     - pydantic: ">=2.0"
     - opentelemetry-api: ">=1.0"
     - prometheus-client: ">=0.9"
+    - click: ">=8.0"
+    - pyyaml: ">=6.0"
 
   optional:
     - langchain: ">=0.1"
