@@ -15,7 +15,6 @@ from typing import (
     Any,
     Dict,
     List,
-    Optional,
     Protocol,
     Set,
     Type,
@@ -26,6 +25,7 @@ from uuid import UUID, uuid4
 
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.types import (
+    AgentConfig,
     Message,
     MessageContent,
     MessageType,
@@ -462,18 +462,14 @@ class BaseAgent:
         self,
         client: "PepperpyClientProtocol",
         config: AgentConfig,
-        context: Optional[AgentContext] = None,
     ) -> None:
         """Initialize the agent.
 
         Args:
-        ----
             client: The Pepperpy client instance
             config: Agent configuration
-            context: Optional agent context
 
         Raises:
-        ------
             ConfigurationError: If configuration is invalid
 
         """
@@ -486,7 +482,6 @@ class BaseAgent:
         self.capabilities = set(config.capabilities)
         self._client = client
         self._config = config
-        self._context = context or AgentContext()
         self._initialized = False
         self._state = AgentState.CREATED
 
@@ -503,8 +498,7 @@ class BaseAgent:
         This method should be called after instantiation to set up any
         resources needed by the agent.
 
-        Raises
-        ------
+        Raises:
             StateError: If agent is already initialized
             ConfigurationError: If initialization fails
 
@@ -534,8 +528,7 @@ class BaseAgent:
         This method should be called when the agent is no longer needed
         to clean up any resources.
 
-        Raises
-        ------
+        Raises:
             StateError: If agent is not initialized
 
         """
@@ -562,15 +555,12 @@ class BaseAgent:
         """Process an incoming message.
 
         Args:
-        ----
             message: The message to process
 
         Returns:
-        -------
             The response to the message
 
         Raises:
-        ------
             StateError: If agent is not initialized
 
         """
@@ -610,8 +600,7 @@ class BaseAgent:
     def is_initialized(self) -> bool:
         """Check if agent is initialized.
 
-        Returns
-        -------
+        Returns:
             True if initialized, False otherwise
 
         """
@@ -621,8 +610,7 @@ class BaseAgent:
     def state(self) -> AgentState:
         """Get the current agent state.
 
-        Returns
-        -------
+        Returns:
             The current agent state
 
         """
@@ -632,11 +620,9 @@ class BaseAgent:
         """Add a capability to the agent.
 
         Args:
-        ----
             capability: The capability class to add
 
         Raises:
-        ------
             StateError: If agent is already initialized
             ValueError: If capability is invalid
 
@@ -654,11 +640,9 @@ class BaseAgent:
         """Remove a capability from the agent.
 
         Args:
-        ----
             capability_name: Name of capability to remove
 
         Raises:
-        ------
             StateError: If agent is already initialized
             ValueError: If capability not found
 
@@ -676,11 +660,9 @@ class BaseAgent:
         """Check if agent has a capability.
 
         Args:
-        ----
             capability_name: Name of capability to check
 
         Returns:
-        -------
             True if agent has capability, False otherwise
 
         """

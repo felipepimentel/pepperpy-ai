@@ -22,6 +22,7 @@ from .base import (
 )
 from .events import Event, EventBus, EventType
 from .monitoring import logger
+from .types import AgentConfig
 
 # Type variables for generic implementations
 T = TypeVar("T")
@@ -184,12 +185,12 @@ class AgentFactory(Factory[BaseAgent]):
         self._agent_types[name] = agent_class
         logger.info(f"Registered agent type: {name}")
 
-    async def create(self, config: T_Config) -> BaseAgent:
+    async def create(self, config: Dict[str, Any]) -> BaseAgent:
         """Create an agent instance.
 
         Args:
         ----
-            config: Agent configuration
+            config: Agent configuration dictionary
 
         Returns:
         -------
@@ -209,7 +210,18 @@ class AgentFactory(Factory[BaseAgent]):
             raise ConfigurationError(f"Unsupported agent type: {agent_type}")
 
         try:
-            agent = agent_class(client=self.client, config=config)
+            # Convert dictionary config to AgentConfig
+            agent_config = AgentConfig(
+                type=agent_type,
+                name=config.get("name", agent_type),
+                description=config.get("description", ""),
+                version=config.get("version", "0.1.0"),
+                capabilities=config.get("capabilities", []),
+                settings=config.get("settings", {}),
+                metadata=config.get("metadata", {}),
+            )
+
+            agent = agent_class(client=self.client, config=agent_config)
             logger.info(f"Created agent of type: {agent_type}")
             return agent
         except Exception as e:
