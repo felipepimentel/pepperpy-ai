@@ -9,44 +9,43 @@ import logging
 import time
 from collections.abc import AsyncGenerator, Sequence
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Set, TypeVar, cast
+from typing import Any, Dict, Optional, Set, TypeVar, Union
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
-from pydantic.types import SecretStr
 
 from pepperpy.agents.factory import AgentFactory
-from pepperpy.agents.research_assistant import ResearchAssistant
 from pepperpy.core.base import BaseAgent
-from pepperpy.core.config import PepperpyConfig
 from pepperpy.core.errors import ConfigurationError, StateError
-from pepperpy.core.factory import Factory
-from pepperpy.core.hooks import HookCallback
+from pepperpy.core.hooks import HookCallback as HookCallbackType
 from pepperpy.core.memory.store import BaseMemoryStore, create_memory_store
 from pepperpy.core.messages import Response
 from pepperpy.core.prompt.template import PromptTemplate, create_prompt_template
 from pepperpy.core.types import (
+    Message as CoreMessage,
+)
+from pepperpy.core.types import (
     PepperpyClientProtocol,
+    ProviderConfig,
 )
 from pepperpy.hub.registry import AgentRegistry
 from pepperpy.monitoring import logger as log
 from pepperpy.providers.base import (
     BaseProvider,
-    ExtraConfig,
-    ProviderConfig,
-    ProviderConfigValue,
+)
+from pepperpy.providers.base import (
+    Message as ProviderMessage,
 )
 from pepperpy.providers.base import (
     Response as ProviderResponse,
 )
 from pepperpy.providers.domain import ProviderError, ProviderNotFoundError
-from pepperpy.providers.factory import create_provider_factory
 from pepperpy.providers.manager import ProviderManager
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Error type aliases for better readability
+# Type aliases for better readability
 ProviderErrorType = type[ProviderError]
 ExceptionType = type[BaseException]
 
@@ -54,7 +53,7 @@ ExceptionType = type[BaseException]
 VALID_HOOK_EVENTS = ["before_request", "after_request", "on_error"]
 
 # Type alias for lifecycle hooks
-HookCallback = Callable[["PepperpyClient"], None]
+HookCallback = HookCallbackType
 AgentType = TypeVar("AgentType", bound=BaseAgent)
 
 
@@ -92,35 +91,10 @@ class PepperpyClient(PepperpyClientProtocol):
     - Plugin/hook system for customization
     """
 
-    def __init__(
-        self,
-        config: Optional[PepperpyConfig] = None,
-        *,
-        cache_enabled: bool = True,
-        cache_store: str = "memory",
-    ) -> None:
-        """Initialize the client.
-
-        Args:
-            config: Optional configuration instance
-            cache_enabled: Whether to enable caching
-            cache_store: Type of cache store to use
-
-        Example:
-            ```python
-            # Auto-configured client
-            client = PepperpyClient.auto()
-
-            # Custom configuration
-            client = PepperpyClient(
-                config=my_config,
-                cache_enabled=True,
-                cache_store="redis"
-            )
-            ```
-
-        """
-        self.config = config or PepperpyConfig.auto()
+    def __init__(self, config: Dict[str, Any]) -> None:
+        """Initialize the client."""
+        self._raw_config = config
+        self._provider: Optional[BaseProvider] = None
         self._initialized = False
         self._lifecycle_hooks: Dict[str, Set[HookCallback]] = {
             "before_request": set(),
@@ -128,69 +102,44 @@ class PepperpyClient(PepperpyClientProtocol):
             "on_error": set(),
         }
         self._agent_factory: Optional[AgentFactory] = None
-        self._cache_enabled = cache_enabled
-        self._cache_store = cache_store
-        self._provider: Optional[BaseProvider] = None
+        self._cache_enabled = True
+        self._cache_store = "memory"
         self._agents: Dict[UUID, BaseAgent] = {}
         self._memory: Optional[BaseMemoryStore] = None
         self._prompt: Optional[PromptTemplate] = None
         self._updated_at = time.time()
+        self._manager: Optional[ProviderManager] = None
 
     @classmethod
     async def auto(cls) -> "PepperpyClient":
-        """Create and initialize a client automatically.
-
-        This method creates a client with automatic configuration and
-        initializes it for immediate use.
-
-        Returns:
-            An initialized PepperpyClient instance
-
-        Example:
-            ```python
-            async with PepperpyClient.auto() as client:
-                result = await client.run(
-                    "research_assistant",
-                    "analyze",
-                    topic="AI in Healthcare"
-                )
-            ```
-
-        """
-        client = cls()
+        """Create and initialize a client automatically."""
+        client = cls({})  # Initialize with empty config
         await client.initialize()
         return client
 
     async def initialize(self) -> None:
         """Initialize the client."""
         if self._initialized:
-            return
+            raise StateError("Client already initialized")
 
-        try:
-            # Initialize components
-            self._agent_factory = AgentFactory(self)
-            self._provider = create_provider_factory(
-                default_provider=self.config.provider_type,
-                default_config=self.config.provider_config,
-            )
-            await self._provider.initialize()
-            self._memory = await create_memory_store(self.config.memory_config)
-            self._prompt = await create_prompt_template(self.config.prompt_config)
+        # Initialize provider manager and get provider
+        self._manager = ProviderManager()
+        provider_type = self._raw_config.get("provider_type", "openrouter")
+        provider_config = self._raw_config.get("provider_config", {})
 
-            # Register built-in agent types
-            self._agent_factory.register_agent_type(
-                "research_assistant", ResearchAssistant
-            )
+        provider = await self._manager.get_provider(
+            provider_type,
+            provider_config,
+        )
 
-            # Mark as initialized
-            self._initialized = True
-            self._updated_at = time.time()
+        if provider is None:
+            raise ConfigurationError("Failed to initialize provider")
 
-            log.info("Client initialized successfully")
-
-        except Exception as e:
-            log.error("Failed to initialize client", error=str(e))
-            raise ConfigurationError(f"Failed to initialize client: {e}") from e
+        # Initialize provider
+        await provider.initialize()
+        self._provider = provider
+        self._initialized = True
+        self._updated_at = time.time()
 
     async def cleanup(self) -> None:
         """Clean up client resources."""
@@ -330,11 +279,10 @@ class PepperpyClient(PepperpyClientProtocol):
             )
             raise
 
-    def set_agent_factory(self, factory: Factory) -> None:
+    def set_agent_factory(self, factory: AgentFactory) -> None:
         """Set the agent factory.
 
         Args:
-        ----
             factory: Factory instance for creating agents
 
         """
@@ -344,11 +292,15 @@ class PepperpyClient(PepperpyClientProtocol):
         """Initialize client components."""
         self._manager = ProviderManager()
         self._provider = await self._manager.get_provider(
-            self.config.provider_type,
-            self.config.provider_config,
+            self._raw_config.get("provider_type", "openrouter"),
+            self._raw_config.get("provider_config", {}),
         )
-        self._memory = await create_memory_store(self.config.memory_config)
-        self._prompt = await create_prompt_template(self.config.prompt_config)
+        self._memory = await create_memory_store(
+            self._raw_config.get("memory_config", {})
+        )
+        self._prompt = await create_prompt_template(
+            self._raw_config.get("prompt_config", {})
+        )
 
         await self._provider.initialize()
 
@@ -386,22 +338,20 @@ class PepperpyClient(PepperpyClientProtocol):
         response = await self._provider.send_message(message)
         return response.content
 
-    async def chat(self, message: str) -> str:
+    async def chat(self, message: str, **kwargs: Any) -> str:
         """Send a chat message and get a response.
 
         This method provides direct access to the language model for
         simple chat interactions.
 
         Args:
-        ----
             message: The message to send
+            **kwargs: Additional parameters like temperature, max_tokens etc.
 
         Returns:
-        -------
             The text response from the provider
 
         Raises:
-        ------
             StateError: If client is not initialized
             TypeError: If provider returns a streaming response
             ConfigurationError: If provider configuration is invalid
@@ -413,12 +363,21 @@ class PepperpyClient(PepperpyClientProtocol):
             raise StateError("Provider manager not available")
 
         try:
-            response = await self._manager.complete(message, stream=False)
+            # Apply kwargs to provider config
+            provider_kwargs = {
+                "temperature": kwargs.get("temperature", 0.7),
+                "max_tokens": kwargs.get("max_tokens", 2048),
+                "stream": False,
+                **kwargs,
+            }
+
+            response = await self._manager.complete(message, **provider_kwargs)
             if isinstance(response, AsyncGenerator):
                 raise TypeError("Provider returned a streaming response")
-            text = response.content.get("text")
-            if not isinstance(text, str):
-                raise TypeError("Provider returned invalid response format")
+            if isinstance(response.content, dict):
+                text = response.content.get("text", "")
+            else:
+                text = str(response.content)
             return text
         except Exception as e:
             if isinstance(
@@ -475,13 +434,13 @@ class PepperpyClient(PepperpyClientProtocol):
         try:
             # Get agent configuration from registry
             registry = AgentRegistry()
-            agent_config = await registry.get_agent_config(agent_type)
+            config = await registry.get_agent_config(agent_type)
 
             # Create and initialize the agent
-            agent = await self._agent_factory.create(agent_config)
+            agent = await self._agent_factory.create(agent_type)
             agent_id = uuid4()
             self._agents[agent_id] = agent
-            await asyncio.create_task(agent.initialize())
+            await agent.initialize()
             return agent
 
         except Exception as e:
@@ -492,8 +451,27 @@ class PepperpyClient(PepperpyClientProtocol):
             )
             raise
 
-    async def get_agent(self, agent_id: UUID) -> BaseAgent:
-        """Get an existing agent instance by ID."""
+    async def get_agent(self, agent_id: Union[str, UUID]) -> BaseAgent:
+        """Get an existing agent instance by ID.
+
+        Args:
+            agent_id: Agent identifier (string or UUID)
+
+        Returns:
+            The agent instance
+
+        Raises:
+            ValueError: If agent not found
+
+        """
+        if isinstance(agent_id, str):
+            # Try to convert string to UUID
+            try:
+                agent_id = UUID(agent_id)
+            except ValueError:
+                # If not a valid UUID, try to create agent by type
+                return await self.create_agent(agent_id)
+
         if agent_id not in self._agents:
             raise ValueError(f"Agent not found: {agent_id}")
         return self._agents[agent_id]
@@ -519,11 +497,9 @@ class PepperpyClient(PepperpyClientProtocol):
         This method ensures proper cleanup of the agent before removal.
 
         Args:
-        ----
             agent_id: Unique identifier of the agent to remove
 
         Raises:
-        ------
             StateError: If client is not initialized
             NotFoundError: If agent is not found
             RuntimeError: If cleanup fails
@@ -531,10 +507,11 @@ class PepperpyClient(PepperpyClientProtocol):
         """
         self._ensure_initialized()
 
-        agent = self.get_agent(agent_id)
+        agent = await self.get_agent(agent_id)
         try:
             # Cleanup agent
-            await agent.cleanup()
+            if hasattr(agent, "cleanup"):
+                await agent.cleanup()
 
             # Remove from storage
             del self._agents[agent_id]
@@ -633,87 +610,37 @@ class PepperpyClient(PepperpyClientProtocol):
     def _create_provider_config(
         self,
         *,
-        provider_type: str | None = None,
         api_key: str | None = None,
         model: str | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
         timeout: float | None = None,
         max_retries: int | None = None,
-        extra_config: dict[str, dict[str, str | int | float | bool]] | None = None,
+        base_url: str | None = None,
+        extra: dict[str, dict[str, str | int | float | bool]] | None = None,
     ) -> ProviderConfig:
-        """Create provider configuration.
-
-        Args:
-        ----
-            provider_type: Type of provider
-            api_key: API key for authentication
-            model: Model to use
-            temperature: Sampling temperature
-            max_tokens: Maximum tokens per request
-            timeout: Request timeout in seconds
-            max_retries: Maximum number of retries
-            extra_config: Additional configuration parameters
-
-        Returns:
-        -------
-            Provider configuration.
-
-        Raises:
-        ------
-            ConfigurationError: If required parameters are missing.
-
-        """
+        """Create provider configuration."""
         if api_key is None:
             raise ConfigurationError("API key is required")
 
-        # Convert string API key to SecretStr
-        secret_key = SecretStr(api_key)
-
-        # Convert extra_config dict to ExtraConfig
-        extra_config_model = (
-            ExtraConfig(
-                model_params=(
-                    cast(
-                        dict[str, ProviderConfigValue],
-                        extra_config.get("model_params", {}),
-                    )
-                    if extra_config
-                    else {}
-                ),
-                api_params=(
-                    cast(
-                        dict[str, ProviderConfigValue],
-                        extra_config.get("api_params", {}),
-                    )
-                    if extra_config
-                    else {}
-                ),
-                custom_settings=(
-                    cast(
-                        dict[str, ProviderConfigValue],
-                        extra_config.get("custom_settings", {}),
-                    )
-                    if extra_config
-                    else {}
-                ),
-            )
-            if extra_config
-            else ExtraConfig(
-                model_params={},
-                api_params={},
-                custom_settings={},
-            )
-        )
-
-        return ProviderConfig(
-            provider_type=provider_type or "",
-            model=model or "",
-            timeout=timeout or 30,
+        # Create base config with required fields
+        config = ProviderConfig(
+            api_key=api_key,
+            provider_type="openai",  # Default provider
+            timeout=int(timeout or 30),  # Convert to int
             max_retries=max_retries or 3,
-            api_key=secret_key,
-            extra_config=extra_config_model,
+            model=model or "gpt-4-turbo-preview",
+            temperature=temperature or 0.7,
+            max_tokens=max_tokens or 1000,
+            base_url=base_url,  # Can be None
+            settings={},  # Initialize empty settings
         )
+
+        # Add extra parameters if provided
+        if extra:
+            config.settings.update(extra)
+
+        return config
 
     async def stream_chat(
         self,
@@ -727,9 +654,80 @@ class PepperpyClient(PepperpyClientProtocol):
             raise StateError("Provider not initialized")
 
         try:
-            async for response in self._provider.stream_chat(messages, **kwargs):
+            # Convert dict messages to provider messages
+            provider_messages = [
+                ProviderMessage(
+                    id=str(uuid4()),
+                    content=msg.get("content", ""),
+                    metadata={"role": msg.get("role", "user")},
+                )
+                for msg in messages
+            ]
+
+            # Use provider's streaming interface
+            async for response in await self._provider.stream(
+                provider_messages, **kwargs
+            ):
                 yield response
         except Exception as e:
             if isinstance(e, StateError | ProviderNotFoundError | TimeoutError):
                 raise
             raise ConfigurationError(f"Streaming chat completion failed: {e!s}") from e
+
+    async def stream(
+        self, messages: Sequence[CoreMessage], **kwargs: Any
+    ) -> AsyncGenerator[Response, None]:
+        """Stream responses from the provider.
+
+        Args:
+            messages: List of messages to send
+            **kwargs: Additional provider-specific arguments
+
+        Yields:
+            Response tokens as they are generated
+
+        Raises:
+            ConfigurationError: If client is not initialized
+            ProviderError: If provider fails to generate response
+
+        """
+        if not self._initialized:
+            raise ConfigurationError("Client not initialized")
+
+        if not self._provider:
+            raise StateError("Provider not initialized")
+
+        provider_messages = [
+            ProviderMessage(
+                id=str(uuid4()),
+                content=str(msg.content.get("text", "")),  # Extract text content
+                metadata={"role": msg.type.value},
+            )
+            for msg in messages
+        ]
+
+        try:
+            async for response in await self._provider.stream(
+                provider_messages, **kwargs
+            ):
+                yield Response(
+                    id=uuid4(),
+                    content=response.content,
+                    metadata={"original_id": str(response.id)},
+                )
+        except Exception as e:
+            raise ProviderError(f"Failed to stream response: {str(e)}") from e
+
+    async def clear_history(self) -> None:
+        """Clear the conversation history.
+
+        This method resets the conversation state, removing all previous
+        messages and context.
+
+        Example:
+            >>> await client.clear_history()  # Reset conversation
+
+        """
+        self._ensure_initialized()
+        if self._memory:
+            await self._memory.clear()

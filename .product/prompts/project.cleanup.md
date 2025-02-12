@@ -1,74 +1,287 @@
 ---
-title: "Repository Cleanup"
-version: "1.1"
-scope: "Pepperpy Project"
-description: |
-  A systematic guide for cleaning up the repository without 
-  prompting for user confirmation. The cleanup process is 
-  performed automatically following these steps:
-    - Removing unused code
-    - Organizing project files
-    - Cleaning up dependencies
-    - Removing temporary files
-    - Preparing for releases
-  
-  This prompt ensures a clean and efficient codebase,
-  applying best practices without requiring additional
-  manual input.
+title: Repository Cleanup
+description: ALWAYS use when performing repository cleanup to ensure systematic and safe maintenance. This prompt guides automated cleanup operations.
+version: 1.2
+category: maintenance
+tags: [cleanup, optimization, maintenance]
 ---
 
-Perform the following cleanup tasks automatically, without asking for confirmation:
+# Context
+Guides the automated cleanup of repository while maintaining project integrity and following established patterns.
 
-1. **Remove Python Artifacts**
-   ```bash
-   find . -type d -name "__pycache__" -exec rm -r {} +
-   find . -type f -name "*.pyc" -delete
-   find . -type f -name "*.pyo" -delete
-   find . -type f -name "*.pyd" -delete
-   ```
-   - Also remove any `.egg-info` or similar directories.
+# Pre-cleanup Validation
+```yaml
+validate:
+  structure:
+    file: ".product/project_structure.yml"
+    required: true
+  
+  knowledge_base:
+    query:
+      - cleanup_patterns
+      - safe_removals
+      - known_issues
+  
+  backup:
+    create:
+      - important_logs
+      - custom_artifacts
+      - local_configs
+```
 
-2. **Delete Temporary and Test Files**
-   - Remove known cache directories and test artifacts:
-     ```bash
-     rm -rf .pytest_cache/ .mypy_cache/ .ruff_cache/ htmlcov/ coverage.xml
-     ```
-   - Delete any additional temporary or OS-specific files (e.g., `.tmp`, `.swp`) found in the repository.
+# Cleanup Operations
 
-3. **Clean Up Virtual Environments**
-   - If the project uses a dedicated virtual environment (e.g., `.venv/`), remove it to ensure a fresh environment can be created on the next setup:
-     ```bash
-     rm -rf .venv/
-     ```
-   - If you need to keep a virtual environment for immediate use, skip this step or rename it for clarity.
+## 1. Python Artifacts
+```yaml
+cleanup:
+  python:
+    find_remove:
+      directories:
+        - "__pycache__"
+        - "*.egg-info"
+        - ".pytest_cache"
+        - ".mypy_cache"
+        - ".ruff_cache"
+      files:
+        - "*.pyc"
+        - "*.pyo"
+        - "*.pyd"
+    
+    preserve:
+      - ".gitignore"
+      - "py.typed"
+```
 
-4. **Remove or Archive Log Files**
-   - Check for log files in `logs/` or elsewhere. 
-   - If **active** logs need preservation, archive them (e.g., compress and move to an archive folder). 
-   - If logs are disposable or empty, remove them:
-     ```bash
-     tar -czf logs/archive-$(date +%Y%m%d).tar.gz logs/*.log 2>/dev/null || true
-     rm -f logs/*.log
-     ```
+## 2. Environment Cleanup
+```yaml
+environment:
+  virtual_env:
+    action: "remove"
+    target: ".venv"
+    backup: false
+  
+  dependencies:
+    analyze:
+      file: "pyproject.toml"
+      check:
+        - unused_deps
+        - outdated_deps
+    update:
+      - remove_unused
+      - sort_groups
+```
 
-5. **Review and Remove Unused Dependencies**
-   - Examine `pyproject.toml` (or equivalent) for dependencies not used in the codebase.
-   - Remove any such dependencies and keep the file tidy.  
-   - Ensure that main, dev, and extras remain organized.
+## 3. Log Management
+```yaml
+logs:
+  analyze:
+    path: "logs/"
+    patterns:
+      - "*.log"
+      - "*.log.*"
+  
+  archive:
+    active_logs:
+      target: "logs/archive"
+      format: "tar.gz"
+      date_suffix: true
+  
+  cleanup:
+    remove:
+      - empty_logs
+      - archived_logs
+      - temp_logs
+```
 
-6. **Delete Dead or Unused Code**
-   - Remove any commented-out sections or "dead code" blocks that no longer serve a purpose.
-   - Eliminate repeated or duplicate functions if they are not used anywhere.
+## 4. Code Cleanup
+```yaml
+code:
+  analyze:
+    find:
+      - dead_code
+      - unused_imports
+      - commented_code
+      - duplicate_functions
+    
+    tools:
+      - ruff
+      - vulture
+      - pyflakes
+    
+    preserve:
+      - important_comments
+      - documentation
+      - type_hints
+```
 
-7. **Update Documentation**
-   - Remove or update any outdated documentation files.
-   - Ensure the main `README` reflects the **current project state**.
-   - Clean up obsolete examples or references.
+## 5. Documentation Update
+```yaml
+documentation:
+  check:
+    - README.md
+    - docs/**/*.md
+    - **/README.md
+  
+  update:
+    - remove_outdated
+    - sync_contents
+    - verify_links
+```
 
-8. **Summarize Actions**
-   - Update `.product/kanban.md` with a brief summary of all cleanup actions performed (e.g., "Removed __pycache__, removed logs, updated dependencies, etc.").
-   - Note any follow-up steps if further cleanup or refactoring is recommended.
+# Safety Measures
 
-9. **Confirm Successful Completion**
-   - Conclude with a statement indicating the cleanup has been completed.
-   - If any issues arise, **resolve them** automatically and continue until the repository is successfully cleaned.
+## 1. Backup Strategy
+```yaml
+backup:
+  pre_cleanup:
+    critical:
+      - .env
+      - logs/important/
+      - custom_configs/
+    
+    temporary:
+      path: ".cleanup_backup"
+      format: "tar.gz"
+      retention: "24h"
+```
+
+## 2. Validation Steps
+```yaml
+validate:
+  pre_cleanup:
+    - project_structure
+    - essential_files
+    - git_status
+  
+  post_cleanup:
+    - project_integrity
+    - test_suite
+    - documentation
+```
+
+## 3. Recovery Process
+```yaml
+recovery:
+  triggers:
+    - test_failure
+    - missing_essential
+    - broken_imports
+  
+  actions:
+    - restore_backup
+    - log_issue
+    - notify_system
+```
+
+# Execution Flow
+
+## 1. Initial Setup
+```yaml
+setup:
+  steps:
+    - validate_structure
+    - create_backup
+    - analyze_state
+```
+
+## 2. Cleanup Execution
+```yaml
+execute:
+  sequence:
+    - python_artifacts
+    - virtual_env
+    - dependencies
+    - logs
+    - code
+    - documentation
+  
+  monitoring:
+    - track_changes
+    - validate_steps
+    - log_actions
+```
+
+## 3. Verification
+```yaml
+verify:
+  checks:
+    - project_structure
+    - dependencies
+    - tests
+    - documentation
+  
+  report:
+    generate:
+      - actions_taken
+      - space_freed
+      - improvements
+```
+
+# Example Usage
+```yaml
+# Cleanup Execution
+cleanup:
+  validate:
+    structure: valid
+    backup: created
+  
+  operations:
+    python:
+      removed:
+        - "__pycache__ directories"
+        - "*.pyc files"
+    
+    environment:
+      cleaned:
+        - ".venv"
+        - "unused dependencies"
+    
+    logs:
+      archived:
+        - "active logs"
+      removed:
+        - "empty logs"
+    
+    code:
+      optimized:
+        - "removed dead code"
+        - "fixed imports"
+    
+    documentation:
+      updated:
+        - "README.md"
+        - "API docs"
+
+  verification:
+    status: "success"
+    tests: "passing"
+    structure: "valid"
+```
+
+# Guidelines
+
+## Execution Strategy
+- Run validations first
+- Create safety backups
+- Execute systematically
+- Verify each step
+
+## Safety First
+- Preserve essential files
+- Maintain structure
+- Keep backups
+- Validate changes
+
+## Documentation
+- Update READMEs
+- Sync API docs
+- Remove outdated
+- Maintain clarity
+
+## Verification
+- Run test suite
+- Check structure
+- Validate imports
+- Verify functionality
+
+Remember: Reference project_structure rule for valid structure and ai_knowledge_base_management for cleanup patterns.

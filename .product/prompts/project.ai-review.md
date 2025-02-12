@@ -14,6 +14,7 @@ description: |
   This prompt leverages AI capabilities to systematically analyze
   and enhance the codebase while upholding project standards and 
   adopting a visionary approach for future maintainability.
+yolo: true
 ---
 
 1. **Initial Assessment**

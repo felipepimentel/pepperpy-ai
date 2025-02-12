@@ -1,7 +1,7 @@
 ---
-title: "Examples Execution Guidelines"
-description: "Simple instructions on how to install and run the Python example scripts via Poetry."
-globs: examples/*.py
+title: examples-rules
+description: Simple instructions on how to install and run the Python example scripts via Poetry.
+globs: examples/**/*.py
 ---
 
 # Examples Execution Guidelines

@@ -1,139 +1,256 @@
 ---
-title: Validate Project Structure
-version: "1.2"
-scope: "Pepperpy Project"
-description: |
-  A tool for validating and maintaining project structure integrity.
-  Use this prompt to:
-  - Validate compliance with `.product/project_structure.yml`.
-  - Propose and log changes to the architecture.
-  - Prevent unapproved structural drift.
-  - Maintain a consistent and scalable project organization.
+title: Project Structure Validation
+description: ALWAYS use when validating or modifying project structure to ensure compliance with standards. This prompt guides structural validation and maintenance.
+version: 1.3
+category: validation
+tags: [structure, validation, architecture]
 ---
 
-## Current Project Structure
+# Context
+Guides the validation and maintenance of project structure according to established standards and patterns.
 
-```plaintext
-pepperpy/
-├── __init__.py
-├── py.typed
-├── adapters/         # External system adapters
-├── agents/          # Agent implementations
-├── capabilities/    # Agent capabilities
-├── cli/            # Command-line interface
-├── core/           # Core functionality
-├── hub/            # Asset management
-├── memory/         # Memory systems
-├── monitoring/     # Logging and metrics
-├── providers/      # AI provider integrations
-├── runtime/        # Runtime environment
-├── search/         # Search functionality
-└── tools/          # Utility tools
-
-# Support Directories
-.product/           # Project management
-├── tasks/         # Task specifications
-├── kanban.md      # Project tracking and status
-└── architecture.mermaid  # Architecture diagrams
-
-docs/              # Documentation
-├── api_reference/
-├── development/
-└── user_guides/
-
-tests/             # Test suite
-├── unit/
-├── integration/
-└── e2e/
-
-examples/          # Example code
-scripts/           # Utility scripts
-assets/            # Project assets
-logs/              # Log files
-.pepper_hub/       # Local AI assets
+# Pre-validation Setup
+```yaml
+validate:
+  required_files:
+    structure: ".product/project_structure.yml"
+    architecture: ".product/architecture.mermaid"
+    knowledge_base: ".product/ai/knowledge.json"
+  
+  knowledge_base:
+    query:
+      - structure_patterns
+      - common_violations
+      - approved_changes
 ```
 
-## Validation Rules
+# Structure Definition
 
-### 1. Core Package Structure
-- All Python modules must be in `pepperpy/`
-- Each module must have `__init__.py`
-- All public modules must have type hints
-- `py.typed` must be present in root package
+## 1. Core Package
+```yaml
+pepperpy:
+  required:
+    files:
+      - __init__.py
+      - py.typed
+    
+    modules:
+      adapters:
+        purpose: "External system adapters"
+        requires: ["__init__.py", "README.md"]
+      
+      agents:
+        purpose: "Agent implementations"
+        requires: ["__init__.py", "README.md"]
+      
+      capabilities:
+        purpose: "Agent capabilities"
+        requires: ["__init__.py", "README.md"]
+      
+      core:
+        purpose: "Core functionality"
+        requires: ["__init__.py", "README.md"]
+      
+      providers:
+        purpose: "AI provider integrations"
+        requires: ["__init__.py", "README.md"]
+```
 
-### 2. Documentation
-- API documentation in `docs/api_reference/`
-- Development guides in `docs/development/`
-- User guides in `docs/user_guides/`
-- Each module must have README.md
+## 2. Support Directories
+```yaml
+support:
+  .product:
+    required:
+      - tasks/
+      - kanban.md
+      - architecture.mermaid
+      - project_structure.yml
+  
+  docs:
+    required:
+      - api_reference/
+      - development/
+      - user_guides/
+      - README.md
+  
+  tests:
+    required:
+      - unit/
+      - integration/
+      - e2e/
+      - conftest.py
+  
+  config:
+    required:
+      - pyproject.toml
+      - .env.example
+    optional:
+      - .env
+```
 
-### 3. Testing
-- Unit tests in `tests/unit/`
-- Integration tests in `tests/integration/`
-- E2E tests in `tests/e2e/`
-- Test files must mirror package structure
+# Validation Process
 
-### 4. Project Management
-- Tasks in `.product/tasks/`
-- Project tracking in `.product/kanban.md`
-- Architecture in `.product/architecture.mermaid`
+## 1. Structure Check
+```yaml
+validation:
+  command: "./scripts/validate_structure.py"
+  checks:
+    directories:
+      - existence
+      - permissions
+      - naming
+    
+    files:
+      - required_presence
+      - proper_location
+      - naming_convention
+    
+    modules:
+      - init_files
+      - type_hints
+      - documentation
+```
 
-### 5. Examples and Scripts
-- Example code in `examples/`
-- Utility scripts in `scripts/`
-- Each example must have documentation
+## 2. Issue Analysis
+```yaml
+analyze:
+  violations:
+    categorize:
+      critical:
+        - missing_required
+        - wrong_location
+      warning:
+        - missing_optional
+        - documentation
+      info:
+        - style_suggestions
+        - optimizations
+  
+  patterns:
+    check:
+      - common_issues
+      - recurring_problems
+      - known_solutions
+```
 
-### 6. Configuration
-- Environment variables in `.env`
-- Example config in `.env.example`
-- Poetry config in `pyproject.toml`
+## 3. Resolution Process
+```yaml
+resolve:
+  steps:
+    - document_issue
+    - analyze_impact
+    - propose_solution
+    - get_approval
+    - implement_fix
+    - verify_change
+  
+  tracking:
+    - log_changes
+    - update_docs
+    - record_pattern
+```
 
-### 7. Assets and Logs
-- Project assets in `assets/`
-- Log files in `logs/`
-- AI assets in `.pepper_hub/`
+# Validation Rules
 
-## Validation Process
-
-1. **Run Validation Script**  
-   ```bash
-   ./scripts/validate_structure.py
-   ```
-
-2. **Handle Discrepancies**  
-   - Log unexpected items
-   - Analyze issues
-   - Propose solutions
-   - Get approval for changes
-
-3. **Update Documentation**  
-   - Record changes in kanban.md
-   - Update architecture diagrams
-   - Revise documentation
-
-4. **Revalidate**  
-   - Run validation again
-   - Confirm all issues resolved
-   - Update kanban board
+## File Organization
+```yaml
+rules:
+  naming:
+    modules: snake_case
+    directories: snake_case
+    test_files: test_*.py
+  
+  location:
+    source: pepperpy/
+    tests: tests/
+    docs: docs/
+    config: ./
+  
+  content:
+    python:
+      - proper_imports
+      - type_hints
+      - docstrings
+    
+    documentation:
+      - clear_purpose
+      - usage_examples
+      - api_reference
+```
 
 ## Prohibited Actions
-- Creating redundant directories
-- Bypassing validation rules
-- Modifying structure without approval
-- Mixing test and source code
-- Storing sensitive data in repo
+```yaml
+prohibited:
+  structure:
+    - redundant_directories
+    - mixed_test_source
+    - invalid_locations
+  
+  content:
+    - sensitive_data
+    - compiled_files
+    - temporary_files
+  
+  process:
+    - unauthorized_changes
+    - bypass_validation
+    - undocumented_changes
+```
 
----
+# Example Usage
+```yaml
+# Validation Run
+validation:
+  command: "./scripts/validate_structure.py"
+  output:
+    issues:
+      - type: "critical"
+        issue: "Missing __init__.py in pepperpy/providers/new_module"
+        fix: "Create missing file"
+      
+      - type: "warning"
+        issue: "Incomplete documentation in providers/README.md"
+        fix: "Update documentation with required sections"
+    
+    actions:
+      - create_file:
+          path: "pepperpy/providers/new_module/__init__.py"
+          content: |
+            """New module initialization."""
+            from typing import Any
+      
+      - update_docs:
+          path: "providers/README.md"
+          sections:
+            - Purpose
+            - Usage
+            - API Reference
+```
 
-### **Example Workflow**
-- Validation Script Output:
-- Unexpected item in pepperpy: data
-- Missing optional path: pepperpy/providers/vector_store/implementations/milvus.py
+# Guidelines
 
-- Suggested Actions:
-1. Remove the redundant `data` directory (log the action and reasoning).
-2. Add `milvus.py` under `pepperpy/providers/vector_store/implementations/` (log justification).
+## Validation Strategy
+- Run validation regularly
+- Address issues promptly
+- Document all changes
+- Maintain consistency
 
-- User Confirmation Required:
-- Await explicit approval for all proposed actions.
+## Documentation Updates
+- Keep README files current
+- Update architecture diagrams
+- Maintain API documentation
+- Track changes in kanban
 
+## Change Management
+- Get approval for changes
+- Update knowledge base
+- Follow naming conventions
+- Maintain hierarchy
+
+## Quality Assurance
+- Verify all changes
+- Run test suite
+- Check documentation
+- Update diagrams
+
+Remember: Reference project_structure rule for details and ai_knowledge_base_management for pattern learning.

@@ -1,7 +1,7 @@
 ---
-title: "CLI Module Rules"
-version: "1.0.0"
-scope: "Pepperpy CLI"
+title: CLI Module Rules
+description: Standards and best practices for the Pepperpy CLI module.
+globs: pepperpy/cli/**/*.py
 ---
 
 # CLI Module Guidelines

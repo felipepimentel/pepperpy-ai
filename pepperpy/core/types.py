@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from enum import Enum, auto
 from typing import (
     Any,
+    AsyncIterator,
     ClassVar,
     Dict,
     Generic,
@@ -477,6 +478,10 @@ class PepperpyClientProtocol(Protocol):
 
     async def get_agent(self, agent_type: str) -> Any:
         """Get an agent instance."""
+        ...
+
+    async def stream(self, message: str) -> AsyncIterator[str]:
+        """Stream a response token by token."""
         ...
 
 

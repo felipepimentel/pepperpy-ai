@@ -1,7 +1,6 @@
 ---
-title: ".cursorrules"
-version: "2.0"
-scope: "Pepperpy Project"
+description: General rules for the Pepperpy project
+globs: 
 ---
 
 # Macro-Level Context

@@ -1,173 +1,148 @@
 # Pepperpy
 
-A powerful AI agent framework with zero-config capabilities.
-
-## Features
-
-- 🚀 **Zero-Config Setup**: Get started quickly with sensible defaults
-- 🤖 **Flexible Agent System**: Create and manage AI agents with ease
-- 🔄 **Built-in Workflows**: Pre-defined workflows for common tasks
-- 💾 **Automatic Caching**: Reduce costs and improve performance
-- 🔌 **Plugin Architecture**: Extend functionality through hooks
-- 📊 **Integrated Monitoring**: Built-in logging and metrics
-- 🛠️ **CLI Tools**: Command-line interface for quick testing
-
-## Installation
-
-```bash
-# Install using Poetry (recommended)
-poetry add pepperpy
-
-# Or using pip
-pip install pepperpy
-```
+A Python library for building AI-powered research assistants.
 
 ## Quick Start
 
 ```python
-from pepperpy import PepperpyClient
+from pepperpy import Pepperpy
 
-async def main():
-    # Auto-configured client
-    async with PepperpyClient.auto() as client:
-        # Simple research example
-        results = await client.run(
-            "research_assistant",
-            "analyze",
-            topic="AI in Healthcare",
-            max_sources=5
-        )
-        print(results.summary)
+# Quick setup with interactive wizard
+pepper = Pepperpy.quick_start()
 
-        # Advanced workflow example
-        results = await client.run_workflow(
-            "research/comprehensive",
-            topic="AI in Healthcare",
-            requirements={
-                "depth": "expert",
-                "focus": ["academic", "industry"]
-            }
-        )
-        print(results.key_findings)
-
-# Run the example
-import asyncio
-asyncio.run(main())
+# Or configure programmatically
+async with await Pepperpy.create(api_key="your-key") as pepper:
+    # Ask simple questions
+    result = await pepper.ask("What is AI?")
+    print(result)
+    
+    # Research topics in depth
+    result = await pepper.research("Impact of AI in Healthcare")
+    print(result.tldr)  # Short summary
+    print(result.full)  # Full report
+    print(result.bullets)  # Key points
+    print(result.references)  # Sources
+    
+    # Use pre-configured teams
+    team = await pepper.hub.team("research-team")
+    async with team.run("Analyze AI trends") as session:
+        print(f"Current step: {session.current_step}")
+        print(f"Progress: {session.progress * 100:.0f}%")
 ```
 
-## Configuration
+## Features
 
-Pepperpy can be configured through:
+- 🚀 Zero-config setup with smart defaults
+- 🤖 Pre-configured agents and teams
+- 📚 Built-in research capabilities
+- 🔄 Flexible workflows
+- 🎯 Progress monitoring
+- 🔌 Easy integration
 
-1. Environment variables (`.env` file)
-2. Configuration file (`.pepperpy/config.yml`)
-3. Programmatic configuration
-
-Example `.env` file:
-```bash
-PEPPERPY_API_KEY=your-api-key
-PEPPERPY_PROVIDER=openai
-PEPPERPY_MODEL=gpt-4-turbo-preview
-```
-
-Example `config.yml`:
-```yaml
-provider:
-  type: openai
-  model: gpt-4-turbo-preview
-  temperature: 0.7
-
-memory:
-  type: redis
-  url: redis://localhost:6379
-
-cache:
-  enabled: true
-  store: memory
-```
-
-## CLI Usage
+## Installation
 
 ```bash
-# Run a research task
-pepperpy run agent research_assistant --topic "AI in Healthcare"
-
-# Execute a workflow
-pepperpy run workflow research/comprehensive --topic "AI in Healthcare"
-
-# List available agents
-pepperpy list agents
-
-# Show configuration
-pepperpy config show
+pip install pepperpy
 ```
 
-## Advanced Usage
+## Documentation
 
-### Custom Hooks
+### Basic Usage
 
-```python
-def my_logger_hook(context):
-    print(f"Processing: {context.current_step}")
+The simplest way to get started is with the interactive setup:
 
-client.register_hook("after_agent_call", my_logger_hook)
+```bash
+# Run interactive setup
+$ pepperpy init
+
+# Test it out
+$ pepperpy test "What is AI?"
 ```
 
-### Cache Configuration
+Or in your code:
 
 ```python
-# Enable caching with Redis
-client = PepperpyClient(
-    cache_enabled=True,
-    cache_store="redis",
-    cache_config={
-        "url": "redis://localhost:6379"
-    }
+from pepperpy import Pepperpy
+
+# Auto-configuration
+pepper = await Pepperpy.create()
+
+# With custom settings
+pepper = await Pepperpy.create(
+    api_key="your-key",
+    model="openai/gpt-4"
 )
 ```
 
-### Custom Workflows
+### Research Assistant
 
 ```python
-# Define a workflow in .pepper_hub/workflows/custom.yml
-name: my_workflow
-steps:
-  - agent: research_assistant
-    action: analyze
-    params:
-      depth: comprehensive
-  - agent: summarizer
-    action: summarize
-    params:
-      style: concise
+# Simple research
+result = await pepper.research("Quantum Computing")
+print(result.tldr)  # Short summary
+print(result.full)  # Full report
 
-# Run the workflow
-results = await client.run_workflow("my_workflow", topic="...")
+# With custom parameters
+result = await pepper.research(
+    topic="Quantum Computing",
+    depth="academic",
+    max_sources=10
+)
 ```
 
-## Development
+### Teams & Workflows
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/pepperpy.git
-cd pepperpy
-
-# Install dependencies
-poetry install
-
-# Run tests
-poetry run pytest
-
-# Run linters
-poetry run black .
-poetry run ruff check .
-poetry run mypy .
+```python
+# Use a pre-configured team
+team = await pepper.hub.team("research-team")
+async with team.run("Analyze AI trends") as session:
+    # Monitor progress
+    print(f"Step: {session.current_step}")
+    print(f"Progress: {session.progress * 100:.0f}%")
+    
+    # Provide input if needed
+    if session.needs_input:
+        value = input(f"{session.input_prompt}: ")
+        session.provide_input(value)
 ```
+
+### Custom Agents
+
+```python
+# Create a custom agent
+agent = await pepper.hub.create_agent(
+    name="custom-researcher",
+    base="researcher",  # Inherit from base agent
+    config={
+        "style": "technical",
+        "depth": "deep"
+    }
+)
+
+# Use the agent
+result = await agent.research("Topic")
+
+# Share with others
+await pepper.hub.publish("custom-researcher")
+```
+
+## Examples
+
+Check out the `examples/` directory for more usage examples:
+
+- `quick_start.py`: Basic usage with interactive setup
+- `research_workflow.py`: Advanced research workflow
+- `custom_agent.py`: Creating custom agents
+- `team_collaboration.py`: Using teams and workflows
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `pytest`
+5. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT License - see LICENSE file for details.

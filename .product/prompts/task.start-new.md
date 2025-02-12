@@ -1,48 +1,141 @@
 ---
 title: Start New Task
-version: "1.0"
-scope: "Pepperpy Project"
-description: |
-  A guide for initiating new tasks effectively.
-  Use this prompt when:
-  - Starting a new task
-  - Breaking down work items
-  - Planning implementation steps
-  - Setting up task tracking
-  - Documenting requirements
-  
-  The prompt ensures thorough preparation and clear
-  direction for new tasks.
+description: ALWAYS use when initiating a new task to ensure proper setup and tracking. This prompt guides task selection and initialization process.
+version: 1.1
+category: task-management
+tags: [task-initialization, planning]
+yolo: true
 ---
 
-Select and initiate a new task from `.product/kanban.md`:
+# Context
+Guides the process of selecting and initiating new tasks from the kanban board while maintaining alignment with established rules.
 
-1. Task Selection:
-   - Review **To Do** section
-   - Identify highest priority task
-   - Check dependencies and prerequisites
-   - Verify task is ready to start
+# Pre-start Validation
+```yaml
+validate:
+  kanban:
+    file: ".product/kanban.md"
+    required: true
+  
+  knowledge_base:
+    query:
+      - similar_tasks
+      - common_patterns
+      - estimation_metrics
+```
 
-2. Task Preparation:
-   - Break down into subtasks
-   - Identify key deliverables
-   - List required resources
-   - Note potential challenges
+# Task Selection Process
 
-3. Implementation Planning:
-   - Create step-by-step plan
-   - Set milestones if needed
-   - Estimate completion time
-   - Define success criteria
+## 1. Task Analysis
+```yaml
+selection_criteria:
+  priority: high|medium|low
+  dependencies: 
+    - all_resolved: true
+    - blockers: none
+  knowledge_base:
+    patterns: available
+    metrics: sufficient
+```
 
-4. Update Status:
-   - Move task to **In Progress**
-   - Add detailed breakdown
-   - Set initial timestamp
-   - Document implementation plan
+## 2. Status Check
+```yaml
+current_state:
+  to_do_tasks: list
+  in_progress: count <= 1
+  dependencies: resolved
+  resources: available
+```
 
-5. If no suitable tasks exist:
-   - Create new task entry
-   - Follow task creation guidelines
-   - Set appropriate priority
-   - Add to **To Do** section 
+# Initialization Steps
+
+## 1. Knowledge Base Query
+```yaml
+query:
+  patterns:
+    type: implementation
+    similar_tasks: true
+  metrics:
+    type: estimation
+    complexity: true
+```
+
+## 2. Task Setup
+```yaml
+setup:
+  task_file:
+    create: ".product/tasks/TASK-{ID}.md"
+    template: task_management_workflow.template
+    status: 🏃 In Progress
+  
+  branch:
+    create: "task/{ID}-{description}"
+    base: main
+```
+
+## 3. Status Update
+```yaml
+kanban_update:
+  move:
+    from: 📋 To Do
+    to: 🏃 In Progress
+  add:
+    timestamp: current
+    branch: task_branch
+    ai_tags: relevant_tags
+```
+
+# Example Usage
+```yaml
+# Task Selection
+selected_task:
+  id: "TASK-001"
+  priority: high
+  dependencies: []
+  knowledge_base:
+    similar_tasks: 2
+    suggested_patterns: ["auth_flow", "security"]
+
+# Initialization
+initialization:
+  task_file:
+    path: ".product/tasks/TASK-001.md"
+    status: 🏃 In Progress
+    timestamp: "2025-02-12T10:00:00Z"
+  
+  branch:
+    name: "task/001-auth-system"
+    created: true
+  
+  kanban_entry: |
+    ## 🏃 In Progress
+    - TASK-001: Implement Authentication System
+      **Priority**: High | **Points**: 5 | **Mode**: Act
+      **Started**: 2025-02-12
+      **Branch**: task/001-auth-system
+      [Details](tasks/TASK-001.md)
+      **AI-Tags**: #security #auth
+```
+
+# Guidelines
+
+## Selection Criteria
+- Highest priority first
+- All dependencies resolved
+- Resources available
+- Knowledge base patterns exist
+
+## Initialization Requirements
+- Follow task_management_workflow rule
+- Create proper task file
+- Update kanban correctly
+- Create feature branch
+- Document start time
+
+## Knowledge Integration
+- Query similar patterns
+- Check estimation metrics
+- Tag for AI processing
+- Update learning context
+
+Remember: Reference task_management_workflow and ai_knowledge_base_management rules for complete requirements.

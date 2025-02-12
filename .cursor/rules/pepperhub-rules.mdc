@@ -1,6 +1,5 @@
 ---
-title: ".pepper_hub Asset Management Rules"
-description: "Defines standards for storing and managing local AI assets (prompts, agents, workflows, etc.) in a unified structure."
+description: Defines standards for storing and managing local AI assets (prompts, agents, workflows, etc.) in a unified structure.
 globs: .pepper_hub/**/*
 ---
 
