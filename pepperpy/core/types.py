@@ -228,35 +228,41 @@ class AgentCapability(Protocol):
 
 
 class AgentConfig(BaseModel):
-    """Configuration for creating an agent."""
+    """Configuration for creating an agent.
+
+    Attributes:
+        type: Type of agent to create
+        name: Human-readable name for the agent
+        description: Detailed description of the agent's purpose
+        version: Agent version string (semver)
+        capabilities: List of agent capabilities
+        settings: Additional agent-specific settings
+        metadata: Optional metadata for the agent
+
+    """
 
     type: str = Field(..., min_length=1)
     name: str = Field(..., min_length=1)
     description: str = Field(..., min_length=1)
     version: str = Field(pattern=r"^\d+\.\d+\.\d+$")
-    capabilities: list[str] = Field(default_factory=list)
-    settings: dict[str, Any] = Field(default_factory=dict)
-    metadata: dict[str, Any] = Field(default_factory=dict)
+    capabilities: List[str] = Field(default_factory=list)
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         """Pydantic model configuration."""
 
         frozen = True
-        json_encoders: ClassVar[dict[type, Any]] = {
-            UUID: str,
-            datetime: lambda v: v.isoformat(),
-            AgentState: lambda v: v.value,
-        }
 
     @field_validator("capabilities")
     @classmethod
-    def validate_capabilities(cls, v: list[str]) -> list[str]:
+    def validate_capabilities(cls, v: List[str]) -> List[str]:
         """Validate capability names."""
         return [cap.strip() for cap in v if cap.strip()]
 
     @field_validator("settings", "metadata")
     @classmethod
-    def validate_dicts(cls, v: dict[str, Any]) -> dict[str, Any]:
+    def validate_dicts(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         """Ensure dictionaries are immutable."""
         return dict(v)
 

@@ -15,7 +15,7 @@ description: |
   and ready for execution.
 ---
 
-Select a task from `.product/status.md` to enrich:
+Select a task from `.product/kanban.md` to enrich:
 
 1. Basic Information Review:
    - Task ID and title

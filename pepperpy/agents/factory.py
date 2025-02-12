@@ -4,15 +4,16 @@ This module provides the factory implementation for creating different types
 of agents based on configuration.
 """
 
-from typing import TYPE_CHECKING, Any, Dict, Type
+from typing import TYPE_CHECKING, Dict, Type, cast
 
-from pepperpy.core.base import BaseAgent
+from pepperpy.core.base import AgentConfig, BaseAgent
 from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.factory import Factory
+from pepperpy.core.types import PepperpyClientProtocol
 from pepperpy.monitoring import logger as log
 
 if TYPE_CHECKING:
-    from pepperpy.core.client import PepperpyClient
+    pass
 
 # Type variables for agent creation
 T_Agent = Type[BaseAgent]
@@ -31,7 +32,7 @@ class AgentFactory(Factory[BaseAgent]):
 
     """
 
-    def __init__(self, client: "PepperpyClient") -> None:
+    def __init__(self, client: PepperpyClientProtocol) -> None:
         """Initialize the agent factory.
 
         Args:
@@ -55,12 +56,12 @@ class AgentFactory(Factory[BaseAgent]):
         self._agent_types[name] = agent_class
         log.info(f"Registered agent type: {name}")
 
-    async def create(self, config: Dict[str, Any]) -> BaseAgent:
+    async def create(self, agent_type: str) -> BaseAgent:
         """Create an agent instance.
 
         Args:
         ----
-            config: Agent configuration
+            agent_type: Type of agent to create
 
         Returns:
         -------
@@ -71,7 +72,6 @@ class AgentFactory(Factory[BaseAgent]):
             ConfigurationError: If agent type is not supported
 
         """
-        agent_type = config.get("type")
         if not agent_type:
             raise ConfigurationError("Agent type not specified")
 
@@ -80,7 +80,19 @@ class AgentFactory(Factory[BaseAgent]):
             raise ConfigurationError(f"Unsupported agent type: {agent_type}")
 
         try:
-            agent = agent_class(client=self.client, config=config)
+            # Create agent configuration
+            config = AgentConfig(
+                type=agent_type,
+                name=agent_type,
+                description="",
+                version="0.1.0",
+                settings={},
+                metadata={},
+            )
+
+            agent = agent_class(
+                client=cast(PepperpyClientProtocol, self.client), config=config
+            )
             log.info(f"Created agent of type: {agent_type}")
             return agent
         except Exception as e:
@@ -88,7 +100,6 @@ class AgentFactory(Factory[BaseAgent]):
                 "Failed to create agent",
                 error=str(e),
                 agent_type=agent_type,
-                config=config,
             )
             raise ConfigurationError(f"Failed to create agent: {e}") from e
 

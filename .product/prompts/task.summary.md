@@ -15,7 +15,7 @@ description: |
   progress and supports strategic planning.
 ---
 
-Generate a summary of tasks from `.product/status.md`:
+Generate a summary of tasks from `.product/kanban.md`:
 
 1. Status Overview:
    - Count tasks by status:

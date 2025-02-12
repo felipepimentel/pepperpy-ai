@@ -53,7 +53,7 @@ Plan and document project milestones:
    - Set review points
 
 6. Documentation:
-   - Update `.product/status.md`:
+   - Update `.product/kanban.md`:
      - Add milestone details
      - Create task entries
      - Set priorities

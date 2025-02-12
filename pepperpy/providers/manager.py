@@ -1,78 +1,74 @@
-"""Provider management and fallback handling for Pepperpy.
+"""Provider manager for handling multiple providers.
 
-This module provides automatic provider management, including initialization,
-fallback handling, and cleanup of providers.
+This module provides a manager class for handling multiple providers and their
+lifecycle.
 """
 
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, Optional, TypeAlias
 from uuid import uuid4
 
+from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.messages import Message, Response
-from pepperpy.monitoring.logger import structured_logger as logger
+from pepperpy.monitoring import bind_logger
 from pepperpy.providers.base import BaseProvider
 from pepperpy.providers.domain import ProviderAPIError
-from pepperpy.providers.openrouter import OpenRouterProvider
+from pepperpy.providers.services.openai import OpenAIProvider
+from pepperpy.providers.services.openrouter import OpenRouterProvider
 
 CompletionResult: TypeAlias = Response | AsyncGenerator[Response, None]
 
+# Configure logger
+logger = bind_logger(module="providers.manager")
+
 
 class ProviderManager:
-    """Manages providers and handles fallback scenarios.
+    """Manager for handling multiple providers."""
 
-    This class handles provider lifecycle, fallback logic, and error recovery,
-    making it easier to work with multiple providers.
-    """
-
-    def __init__(self, primary_provider: Optional[BaseProvider] = None) -> None:
-        """Initialize the provider manager.
-
-        Args:
-        ----
-            primary_provider: Optional primary provider instance.
-
-        """
-        self._primary_provider = primary_provider or OpenRouterProvider({})
+    def __init__(self) -> None:
+        """Initialize the provider manager."""
         self._providers: Dict[str, BaseProvider] = {}
+        self._default_provider: Optional[BaseProvider] = None
 
     async def get_provider(
-        self, provider_type: str, provider_config: Dict[str, Any]
+        self,
+        provider_type: str,
+        config: Dict[str, Any],
     ) -> BaseProvider:
         """Get a provider instance.
 
         Args:
-        ----
-            provider_type: Type of provider to get.
-            provider_config: Provider configuration.
+            provider_type: Type of provider to get
+            config: Provider configuration
 
         Returns:
-        -------
-            BaseProvider: Provider instance.
+            Provider instance
 
         Raises:
-        ------
-            ValueError: If unknown provider type.
+            ConfigurationError: If provider type is unknown
 
         """
-        if provider_type not in self._providers:
-            if provider_type == "openrouter":
-                self._providers[provider_type] = OpenRouterProvider(provider_config)
-            else:
-                raise ValueError(f"Unknown provider type: {provider_type}")
+        if provider_type in self._providers:
+            return self._providers[provider_type]
 
-        return self._providers[provider_type]
+        provider_class = {
+            "services.openai": OpenAIProvider,
+            "services.openrouter": OpenRouterProvider,
+        }.get(provider_type)
 
-    async def initialize(self) -> None:
-        """Initialize all configured providers."""
-        await self._primary_provider.initialize()
-        for provider in self._providers.values():
-            await provider.initialize()
+        if not provider_class:
+            raise ConfigurationError(f"Unknown provider type: {provider_type}")
+
+        provider = provider_class(config)
+        self._providers[provider_type] = provider
+        return provider
 
     async def cleanup(self) -> None:
-        """Cleanup all providers."""
-        await self._primary_provider.cleanup()
+        """Clean up all providers."""
         for provider in self._providers.values():
             await provider.cleanup()
+        self._providers.clear()
+        self._default_provider = None
 
     async def complete(
         self,
@@ -106,19 +102,19 @@ class ProviderManager:
 
         if not stream:
             try:
-                response = await self._primary_provider.generate(
+                response = await self._default_provider.generate(
                     [message],
                     model_params={"temperature": temperature},
                 )
                 return response
             except ProviderAPIError as e:
-                warning_msg = f"Primary provider {self._primary_provider.__class__.__name__} failed: {e!s}"
+                warning_msg = f"Primary provider {self._default_provider.__class__.__name__} failed: {e!s}"
                 logger.warning(message=warning_msg)
 
                 if not self._providers:
                     raise
 
-                response = await self._providers["openrouter"].generate(
+                response = await self._providers["services.openrouter"].generate(
                     [message],
                     model_params={"temperature": temperature},
                 )
@@ -127,19 +123,19 @@ class ProviderManager:
         # Streaming response
         async def stream_generator() -> AsyncGenerator[Response, None]:
             try:
-                async for response in self._primary_provider.stream(
+                async for response in self._default_provider.stream(
                     [message],
                     model_params={"temperature": temperature},
                 ):
                     yield response
             except ProviderAPIError as e:
-                warning_msg = f"Primary provider {self._primary_provider.__class__.__name__} failed: {e!s}"
+                warning_msg = f"Primary provider {self._default_provider.__class__.__name__} failed: {e!s}"
                 logger.warning(message=warning_msg)
 
                 if not self._providers:
                     raise
 
-                async for response in self._providers["openrouter"].stream(
+                async for response in self._providers["services.openrouter"].stream(
                     [message],
                     model_params={"temperature": temperature},
                 ):

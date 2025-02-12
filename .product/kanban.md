@@ -1,10 +1,71 @@
 ---
-title: Project Status
-version: "1.0"
+title: Project Kanban
+version: "1.1"
 scope: "Pepperpy Project"
+description: |
+  Central project tracking and status board.
+  Manages all tasks, sprints, and project metrics.
 ---
 
-# Kanban
+# Kanban Board
+
+## Task Template
+```markdown
+### TASK-XXX: Task Title
+**Status**: [📋 To Do|🏃 In Progress|✅ Done|⚠️ Blocked|🚧 Review] 
+**Priority**: [High|Medium|Low]
+**Points**: [1,2,3,5,8,13]
+**Due Date**: YYYY-MM-DD
+**Dependencies**: [List of dependent tasks]
+
+#### Overview
+Brief description of what needs to be done and why.
+
+#### Requirements
+1. [ ] Requirement 1
+2. [ ] Requirement 2
+3. [ ] Requirement 3
+
+#### Technical Notes
+- Implementation details
+- Architecture considerations
+- Dependencies
+
+#### Progress
+- ✅ Completed items
+- 🏃 In progress items
+- 📋 Pending items
+
+#### Notes
+- Additional notes
+- Important considerations
+```
+
+## Task Categories
+1. **Core Development** (CORE-XXX)
+   - Core functionality and features
+   - Base architecture components
+   - System integrations
+
+2. **Provider Implementation** (PROV-XXX)
+   - AI provider integrations
+   - API implementations
+   - Service connectors
+
+3. **Agent Development** (AGNT-XXX)
+   - Agent implementations
+   - Agent capabilities
+   - Workflow systems
+
+4. **Infrastructure** (INFR-XXX)
+   - DevOps tasks
+   - CI/CD pipeline
+   - Deployment configurations
+
+5. **Documentation** (DOCS-XXX)
+   - API documentation
+   - User guides
+   - Development guides
 
 ## 📋 To Do
 
@@ -163,13 +224,6 @@ scope: "Pepperpy Project"
   - Points: 1
   - Outcome: Repository created and initial commit made
 
-## 📝 Notes
-- Priority Levels: High, Medium, Low
-- Points Scale: 1, 2, 3, 5, 8, 13
-- Sprint Duration: 2 weeks
-- Update daily
-- Keep tasks focused and atomic
-
 ## 🎯 Sprint Goals
 
 ### Sprint 1: Foundation
@@ -196,11 +250,28 @@ scope: "Pepperpy Project"
 - Implement monitoring
 - Expected Points: 13
 
-## 📊 Metrics
-- Total Story Points: 68
-- Points per Sprint Target: ~15-20
-- Current Sprint: 1
-- Velocity: TBD
+## 📊 Project Metrics
+
+### Code Quality
+- **Coverage Target**: 80%
+- **Current Coverage**: --
+- **Linting Status**: Not Started
+- **Type Check Status**: Not Started
+- **Structure Status**: Valid
+
+### Sprint Metrics
+- **Total Story Points**: 68
+- **Points per Sprint**: ~15-20
+- **Current Sprint**: 1
+- **Sprint Velocity**: TBD
+- **Burndown**: TBD
+
+### Quality Gates
+- Unit Tests: ⚠️ Below Target
+- Integration Tests: ⚠️ Not Started
+- E2E Tests: ⚠️ Not Started
+- Documentation: ⚠️ Incomplete
+- Code Style: ⚠️ Needs Review
 
 ## 🔄 Sprint Cycle
 1. Sprint Planning (Day 1)
@@ -209,9 +280,10 @@ scope: "Pepperpy Project"
 4. Sprint Retrospective (Day 14)
 5. Next Sprint Planning (Day 15)
 
----
-
-## Guidelines for Updating
-- **To Do**: Add tasks that need to be started.
-- **In Progress**: Move tasks here when work begins.
-- **Done**: Move completed tasks here with a brief description of the outcome.
+## 📝 Guidelines
+- Update board daily
+- Keep tasks atomic and focused
+- Follow template for new tasks
+- Update metrics weekly
+- Review blocked items daily
+- Maintain clean Done column

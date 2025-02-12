@@ -58,7 +58,7 @@ Synchronize local and remote repositories:
      ```bash
      git status
      ```
-   - Update `.product/status.md` with:
+   - Update `.product/kanban.md` with:
      - Branch name
      - Changes summary
      - Conflict resolutions

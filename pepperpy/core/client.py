@@ -1,23 +1,27 @@
 """Core client implementation for the Pepperpy framework.
 
 This module provides the main client interface for interacting with the framework,
-including configuration management, agent creation, and workflow execution.
+including zero-config setup, agent management, and workflow execution.
 """
 
+import asyncio
 import logging
 import time
-from collections.abc import AsyncGenerator
-from typing import Any, Callable, Dict, Optional, Set, cast
-from uuid import UUID
+from collections.abc import AsyncGenerator, Sequence
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Set, TypeVar, cast
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 from pydantic.types import SecretStr
 
 from pepperpy.agents.factory import AgentFactory
+from pepperpy.agents.research_assistant import ResearchAssistant
 from pepperpy.core.base import BaseAgent
 from pepperpy.core.config import PepperpyConfig
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.factory import Factory
+from pepperpy.core.hooks import HookCallback
 from pepperpy.core.memory.store import BaseMemoryStore, create_memory_store
 from pepperpy.core.messages import Response
 from pepperpy.core.prompt.template import PromptTemplate, create_prompt_template
@@ -31,10 +35,11 @@ from pepperpy.providers.base import (
     ExtraConfig,
     ProviderConfig,
     ProviderConfigValue,
-    Response,
 )
-from pepperpy.providers.domain import ProviderError
-from pepperpy.providers.domain import ProviderNotFoundError as NotFoundError
+from pepperpy.providers.base import (
+    Response as ProviderResponse,
+)
+from pepperpy.providers.domain import ProviderError, ProviderNotFoundError
 from pepperpy.providers.factory import create_provider_factory
 from pepperpy.providers.manager import ProviderManager
 
@@ -50,6 +55,7 @@ VALID_HOOK_EVENTS = ["before_request", "after_request", "on_error"]
 
 # Type alias for lifecycle hooks
 HookCallback = Callable[["PepperpyClient"], None]
+AgentType = TypeVar("AgentType", bound=BaseAgent)
 
 
 class ClientConfig(BaseModel):
@@ -80,25 +86,38 @@ class PepperpyClient(PepperpyClientProtocol):
     """Main client interface for the Pepperpy framework.
 
     This class provides a high-level interface for:
-    - Creating and managing agents
-    - Executing workflows
-    - Managing configuration
-    - Handling lifecycle events
+    - Zero-config setup with automatic configuration
+    - Simple agent and workflow execution
+    - Built-in caching and monitoring
+    - Plugin/hook system for customization
     """
 
     def __init__(
         self,
         config: Optional[PepperpyConfig] = None,
+        *,
         cache_enabled: bool = True,
         cache_store: str = "memory",
     ) -> None:
         """Initialize the client.
 
         Args:
-        ----
             config: Optional configuration instance
             cache_enabled: Whether to enable caching
             cache_store: Type of cache store to use
+
+        Example:
+            ```python
+            # Auto-configured client
+            client = PepperpyClient.auto()
+
+            # Custom configuration
+            client = PepperpyClient(
+                config=my_config,
+                cache_enabled=True,
+                cache_store="redis"
+            )
+            ```
 
         """
         self.config = config or PepperpyConfig.auto()
@@ -108,14 +127,13 @@ class PepperpyClient(PepperpyClientProtocol):
             "after_request": set(),
             "on_error": set(),
         }
-        self._agent_factory: Optional[Factory] = None
+        self._agent_factory: Optional[AgentFactory] = None
         self._cache_enabled = cache_enabled
         self._cache_store = cache_store
         self._provider: Optional[BaseProvider] = None
         self._agents: Dict[UUID, BaseAgent] = {}
         self._memory: Optional[BaseMemoryStore] = None
         self._prompt: Optional[PromptTemplate] = None
-        self._manager: Optional[ProviderManager] = None
         self._updated_at = time.time()
 
     @classmethod
@@ -126,15 +144,16 @@ class PepperpyClient(PepperpyClientProtocol):
         initializes it for immediate use.
 
         Returns:
-        -------
             An initialized PepperpyClient instance
 
         Example:
-        -------
             ```python
             async with PepperpyClient.auto() as client:
-                agent = await client.get_agent("research_assistant")
-                result = await agent.process(...)
+                result = await client.run(
+                    "research_assistant",
+                    "analyze",
+                    topic="AI in Healthcare"
+                )
             ```
 
         """
@@ -142,35 +161,26 @@ class PepperpyClient(PepperpyClientProtocol):
         await client.initialize()
         return client
 
-    async def initialize(self, config: Optional[PepperpyConfig] = None) -> None:
-        """Initialize the client.
-
-        Args:
-        ----
-            config: Optional client configuration
-
-        Raises:
-        ------
-            ConfigurationError: If configuration is invalid
-
-        """
+    async def initialize(self) -> None:
+        """Initialize the client."""
         if self._initialized:
             return
 
         try:
-            # Set configuration
-            self._config = config or PepperpyConfig()
-
             # Initialize components
             self._agent_factory = AgentFactory(self)
-            self._provider_factory = await create_provider_factory(self._config.dict())
-            self._memory = await create_memory_store(self._config.dict())
-            self._prompt = await create_prompt_template(self._config.dict())
+            self._provider = create_provider_factory(
+                default_provider=self.config.provider_type,
+                default_config=self.config.provider_config,
+            )
+            await self._provider.initialize()
+            self._memory = await create_memory_store(self.config.memory_config)
+            self._prompt = await create_prompt_template(self.config.prompt_config)
 
             # Register built-in agent types
-            from pepperpy.agents.research import ResearchAgent
-
-            self._agent_factory.register_agent_type("research_assistant", ResearchAgent)
+            self._agent_factory.register_agent_type(
+                "research_assistant", ResearchAssistant
+            )
 
             # Mark as initialized
             self._initialized = True
@@ -189,11 +199,23 @@ class PepperpyClient(PepperpyClientProtocol):
 
         try:
             # Clean up components
-            await self._cleanup_components()
+            cleanup_tasks = []
+            for agent_id, agent in list(self._agents.items()):
+                task = asyncio.create_task(agent.cleanup())
+                cleanup_tasks.append(task)
+
+            # Wait for all cleanup tasks to complete
+            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+
+            self._agents.clear()
+            self._provider = None
+            self._memory = None
+            self._prompt = None
             self._initialized = False
-            log.info("Client cleaned up successfully")
+            self._updated_at = time.time()
+
         except Exception as e:
-            log.error("Failed to clean up client", error=str(e))
+            log.error("Failed to cleanup client", error=str(e))
             raise
 
     def add_lifecycle_hook(self, event: str, callback: HookCallback) -> None:
@@ -222,45 +244,6 @@ class PepperpyClient(PepperpyClientProtocol):
             raise ValueError(f"Invalid event: {event}")
         self._lifecycle_hooks[event].discard(callback)
 
-    async def get_agent(
-        self,
-        agent_type: str,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> BaseAgent:
-        """Get an agent instance.
-
-        This is a high-level method that creates and initializes an agent
-        in a single call.
-
-        Args:
-        ----
-            agent_type: Type of agent to create
-            config: Optional agent configuration
-
-        Returns:
-        -------
-            An initialized agent instance
-
-        Example:
-        -------
-            ```python
-            agent = await client.get_agent("research_assistant")
-            result = await agent.process(...)
-            ```
-
-        """
-        if not self._agent_factory:
-            raise ConfigurationError("Agent factory not set")
-
-        agent_config = {
-            "type": agent_type,
-            **(config or {}),
-        }
-
-        agent = await self._agent_factory.create(agent_config)
-        await agent.initialize(agent_config)
-        return agent
-
     async def run(
         self,
         agent_type: str,
@@ -273,21 +256,18 @@ class PepperpyClient(PepperpyClientProtocol):
         action execution, and cleanup in a single call.
 
         Args:
-        ----
             agent_type: Type of agent to use
             action: Action to execute
             **kwargs: Arguments for the action
 
         Returns:
-        -------
             Result of the action
 
         Example:
-        -------
             ```python
             result = await client.run(
                 "research_assistant",
-                "analyze_topic",
+                "analyze",
                 topic="AI in Healthcare"
             )
             ```
@@ -298,9 +278,13 @@ class PepperpyClient(PepperpyClientProtocol):
             if not hasattr(agent, action):
                 raise ValueError(f"Action not found: {action}")
             method = getattr(agent, action)
-            return await method(**kwargs)
-        finally:
+            result = await method(**kwargs)
             await agent.cleanup()
+            return result
+        except Exception:
+            if agent:
+                await agent.cleanup()
+            raise
 
     async def run_workflow(
         self,
@@ -312,27 +296,39 @@ class PepperpyClient(PepperpyClientProtocol):
         This method executes a workflow defined in the .pepper_hub directory.
 
         Args:
-        ----
             workflow_name: Name of the workflow to run
             **kwargs: Arguments for the workflow
 
         Returns:
-        -------
             Result of the workflow
 
         Example:
-        -------
             ```python
             result = await client.run_workflow(
-                "research_simple",
+                "research/comprehensive",
                 topic="AI in Healthcare",
                 max_sources=5
             )
             ```
 
         """
-        # TODO: Implement workflow execution
-        raise NotImplementedError("Workflow execution not implemented yet")
+        workflow_path = (
+            Path.home() / ".pepper_hub" / "workflows" / f"{workflow_name}.yml"
+        )
+        if not workflow_path.exists():
+            raise ConfigurationError(f"Workflow not found: {workflow_name}")
+
+        try:
+            # TODO: Implement workflow execution
+            raise NotImplementedError("Workflow execution not implemented yet")
+        except Exception as e:
+            log.error(
+                "Workflow execution failed",
+                workflow=workflow_name,
+                error=str(e),
+                **kwargs,
+            )
+            raise
 
     def set_agent_factory(self, factory: Factory) -> None:
         """Set the agent factory.
@@ -368,11 +364,11 @@ class PepperpyClient(PepperpyClientProtocol):
         self._provider = None
         self._memory = None
         self._prompt = None
-        self._manager = None
 
     async def __aenter__(self) -> "PepperpyClient":
         """Enter async context."""
-        await self.initialize()
+        if not self._initialized:
+            await self.initialize()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -425,7 +421,9 @@ class PepperpyClient(PepperpyClientProtocol):
                 raise TypeError("Provider returned invalid response format")
             return text
         except Exception as e:
-            if isinstance(e, StateError | NotFoundError | TimeoutError | TypeError):
+            if isinstance(
+                e, StateError | ProviderNotFoundError | TimeoutError | TypeError
+            ):
                 raise
             raise ConfigurationError(f"Chat completion failed: {e!s}") from e
 
@@ -465,71 +463,42 @@ class PepperpyClient(PepperpyClientProtocol):
 
                 return single_response()
         except Exception as e:
-            if isinstance(e, StateError | NotFoundError | TimeoutError):
+            if isinstance(e, StateError | ProviderNotFoundError | TimeoutError):
                 raise
             raise ConfigurationError(f"Streaming chat completion failed: {e!s}") from e
 
-    async def create_agent(
-        self,
-        agent_type: str,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> BaseAgent:
-        """Create an agent instance.
-
-        Args:
-        ----
-            agent_type: Type of agent to create
-            config: Optional agent configuration
-
-        Returns:
-        -------
-            Created agent instance
-
-        Raises:
-        ------
-            ConfigurationError: If agent type is not supported
-
-        """
+    async def create_agent(self, agent_type: str) -> BaseAgent:
+        """Create a new agent instance."""
         if not self._agent_factory:
             raise ConfigurationError("Agent factory not set")
 
-        agent_config = {
-            "type": agent_type,
-            **(config or {}),
-        }
-
         try:
+            # Get agent configuration from registry
+            registry = AgentRegistry()
+            agent_config = await registry.get_agent_config(agent_type)
+
+            # Create and initialize the agent
             agent = await self._agent_factory.create(agent_config)
-            await agent.initialize(agent_config)
+            agent_id = uuid4()
+            self._agents[agent_id] = agent
+            await asyncio.create_task(agent.initialize())
             return agent
+
         except Exception as e:
-            raise ConfigurationError(f"Failed to create agent: {e}") from e
+            log.error(
+                "Failed to create agent",
+                agent_type=agent_type,
+                error=str(e),
+            )
+            raise
 
-    def get_agent(self, agent_id: UUID) -> BaseAgent:
-        """Get an existing agent by ID.
+    async def get_agent(self, agent_id: UUID) -> BaseAgent:
+        """Get an existing agent instance by ID."""
+        if agent_id not in self._agents:
+            raise ValueError(f"Agent not found: {agent_id}")
+        return self._agents[agent_id]
 
-        Args:
-        ----
-            agent_id: Unique identifier of the agent
-
-        Returns:
-        -------
-            The requested agent instance
-
-        Raises:
-        ------
-            StateError: If client is not initialized
-            NotFoundError: If agent is not found
-
-        """
-        self._ensure_initialized()
-
-        agent = self._agents.get(agent_id)
-        if not agent:
-            raise NotFoundError(f"Agent not found: {agent_id}")
-        return agent
-
-    def list_agents(self) -> list[BaseAgent]:
+    def list_agents(self) -> Sequence[BaseAgent]:
         """Get a list of all active agents.
 
         Returns
@@ -578,7 +547,7 @@ class PepperpyClient(PepperpyClientProtocol):
             )
 
         except Exception as e:
-            if isinstance(e, StateError | NotFoundError):
+            if isinstance(e, StateError | ProviderNotFoundError):
                 raise
             raise RuntimeError(f"Failed to remove agent: {e!s}") from e
 
@@ -593,13 +562,7 @@ class PepperpyClient(PepperpyClientProtocol):
         return self._provider
 
     def _ensure_initialized(self) -> None:
-        """Ensure the client is initialized.
-
-        Raises
-        ------
-            StateError: If client is not initialized
-
-        """
+        """Ensure the client is initialized."""
         if not self._initialized:
             raise StateError("Client not initialized")
 
@@ -752,50 +715,21 @@ class PepperpyClient(PepperpyClientProtocol):
             extra_config=extra_config_model,
         )
 
-    async def get_agent(
-        self, agent_type: str, version: Optional[str] = None, **kwargs: Any
-    ) -> Any:
-        """Get or create an agent of the specified type.
+    async def stream_chat(
+        self,
+        messages: list[dict[str, str]],
+        **kwargs: Any,
+    ) -> AsyncGenerator[ProviderResponse, None]:
+        """Stream chat completion responses."""
+        self._ensure_initialized()
 
-        This method handles agent creation and configuration automatically.
-        If no version is specified, it will use the latest available version.
+        if not self._provider:
+            raise StateError("Provider not initialized")
 
-        Args:
-        ----
-            agent_type: Type of agent to get/create (e.g., "research_assistant")
-            version: Optional specific version to use (e.g., "1.2.3")
-            **kwargs: Additional configuration overrides
-
-        Returns:
-        -------
-            The requested agent instance
-
-        Example:
-        -------
-            ```python
-            # Get latest version
-            agent = await client.get_agent("research_assistant")
-
-            # Get specific version
-            agent = await client.get_agent("research_assistant", version="1.2.3")
-            ```
-
-        Raises:
-        ------
-            ValueError: If agent_type is invalid or version not found
-
-        """
-        # Get agent configuration from registry
-        registry = AgentRegistry()
-        agent_config = await registry.get_agent_config(
-            agent_type=agent_type,
-            version=version,  # None means latest
-        )
-
-        # Merge with any overrides
-        agent_config.update(kwargs)
-
-        # Create the agent
-        agent = await self.create_agent(agent_type=agent_type, config=agent_config)
-
-        return agent
+        try:
+            async for response in self._provider.stream_chat(messages, **kwargs):
+                yield response
+        except Exception as e:
+            if isinstance(e, StateError | ProviderNotFoundError | TimeoutError):
+                raise
+            raise ConfigurationError(f"Streaming chat completion failed: {e!s}") from e

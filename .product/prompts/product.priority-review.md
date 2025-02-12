@@ -15,7 +15,7 @@ description: |
   ensuring critical deadlines are met.
 ---
 
-Review task priorities in `.product/status.md`:
+Review task priorities in `.product/kanban.md`:
 1. Analyze tasks in each section (To Do, In Progress, Done).
 2. For each task:
    - Verify current priority level (High, Medium, Low).

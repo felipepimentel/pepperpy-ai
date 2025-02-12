@@ -15,7 +15,7 @@ description: |
   on ongoing tasks.
 ---
 
-Review tasks marked as **In Progress** in `.product/status.md`:
+Review tasks marked as **In Progress** in `.product/kanban.md`:
 
 1. For the selected task:
    - Review current progress and last update

@@ -15,7 +15,7 @@ description: |
   systematically addressing blockers.
 ---
 
-Review and resolve blockers for tasks in `.product/status.md`:
+Review and resolve blockers for tasks in `.product/kanban.md`:
 
 1. Blocker Identification:
    - Review **In Progress** tasks

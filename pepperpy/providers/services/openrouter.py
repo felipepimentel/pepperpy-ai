@@ -24,11 +24,11 @@ from openai.types.chat.chat_completion_assistant_message_param import (
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from pydantic import ConfigDict, Field, SecretStr
 
-from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
+from pepperpy.core.messages import Message
+from pepperpy.core.types import MessageContent, MessageType, Response, ResponseStatus
 from pepperpy.monitoring import logger
 from pepperpy.providers.base import (
     BaseProvider,
-    GenerateKwargs,
     ProviderConfig,
     StreamKwargs,
 )
@@ -44,9 +44,6 @@ logger = logger.bind()
 
 # Type variable for OpenRouter response types
 ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
-
-# Type alias for OpenRouter errors
-OpenRouterErrorType = OpenAIError | APIError | ValueError | Exception  # type: ignore
 
 # Type aliases for OpenRouter parameters
 OpenRouterMessages = Sequence[ChatCompletionMessageParam]
@@ -107,12 +104,10 @@ class OpenRouterProvider(BaseProvider):
         openrouter_config = (
             config
             if isinstance(config, OpenRouterConfig)
-            else OpenRouterConfig(
-                **{
-                    **config.model_dump(),
-                    "api_key": api_key,
-                }
-            )
+            else OpenRouterConfig(**{
+                **config.model_dump(),
+                "api_key": api_key,
+            })
         )
         super().__init__(openrouter_config)
         self._client: AsyncOpenAI | None = None
@@ -185,27 +180,27 @@ class OpenRouterProvider(BaseProvider):
         """
         converted: list[ChatCompletionMessageParam] = []
         for msg in messages:
-            content = str(msg["content"]["text"])
-            msg_type = msg["type"]
-            if msg_type == MessageType.QUERY:
+            content = str(msg.content)
+            role = msg.metadata.get("role", "user") if msg.metadata else "user"
+
+            if role == "user":
                 converted.append(
                     ChatCompletionUserMessageParam(role="user", content=content)
                 )
-            elif msg_type == MessageType.RESPONSE:
+            elif role == "assistant":
                 converted.append(
                     ChatCompletionAssistantMessageParam(
                         role="assistant", content=content
                     )
                 )
-            elif msg_type == MessageType.COMMAND:
+            elif role == "system":
                 converted.append(
                     ChatCompletionSystemMessageParam(role="system", content=content)
                 )
+
         return converted
 
-    async def generate(
-        self, messages: list[Message], **kwargs: GenerateKwargs
-    ) -> Response:
+    async def generate(self, messages: list[Message], **kwargs: Any) -> Response:
         """Generate a response using OpenRouter's API.
 
         Args:
@@ -233,16 +228,8 @@ class OpenRouterProvider(BaseProvider):
 
             # Get generation parameters
             model = str(kwargs.get("model", self._config.model))
-            temperature = (
-                float(self._config.temperature)
-                if "temperature" not in kwargs
-                else float(kwargs["temperature"])
-            )  # type: ignore
-            max_tokens = (
-                int(self._config.max_tokens)
-                if "max_tokens" not in kwargs
-                else int(kwargs["max_tokens"])
-            )  # type: ignore
+            temperature = float(kwargs.get("temperature", self._config.temperature))
+            max_tokens = int(kwargs.get("max_tokens", self._config.max_tokens))
 
             # Generate response
             response = await self._client.chat.completions.create(
@@ -252,29 +239,26 @@ class OpenRouterProvider(BaseProvider):
                 max_tokens=max_tokens,
             )
 
-            # Extract response text
-            text = response.choices[0].message.content or ""
-
-            # Create response object
+            # Extract response content
+            content = response.choices[0].message.content if response.choices else ""
+            message_content: MessageContent = {
+                "type": MessageType.RESPONSE,
+                "content": {"text": content},
+            }
             return Response(
                 id=uuid4(),
-                message_id=messages[-1]["id"],
-                content={"text": text},
+                message_id=str(messages[-1].id),
+                content=message_content,
                 status=ResponseStatus.SUCCESS,
-                metadata={
-                    "model": model,
-                    "temperature": str(temperature),
-                    "max_tokens": str(max_tokens),
-                },
             )
 
-        except Exception as e:
-            self._logger.error(
-                "OpenRouter generation failed",
-                error=str(e),
-                model=self._config.model,
-            )
-            raise ProviderAPIError(str(e)) from e
+        except (OpenAIError, APIError, ValueError, Exception) as e:
+            logger.error("OpenRouter generation failed", error=str(e))
+            raise ProviderError(
+                message=str(e),
+                provider_type="openrouter",
+                details={"error": str(e)},
+            ) from e
 
     async def stream(
         self, messages: list[Message], **kwargs: StreamKwargs
@@ -520,3 +504,57 @@ class OpenRouterProvider(BaseProvider):
         except Exception as exc:
             msg = str(exc)
             raise ProviderError(f"Unexpected error: {msg}") from exc
+
+    async def send_message(self, message: str) -> Response:
+        """Send a message and get a response.
+
+        Args:
+        ----
+            message: Message to send.
+
+        Returns:
+        -------
+            Response: Provider response.
+
+        Raises:
+        ------
+            ProviderError: If sending message fails
+
+        """
+        self._check_initialized()
+
+        try:
+            if not self._client:
+                raise ProviderError("OpenRouter client not initialized")
+
+            # Convert message to OpenRouter format
+            openai_messages = [
+                ChatCompletionUserMessageParam(role="user", content=message)
+            ]
+
+            # Generate response
+            response = await self._client.chat.completions.create(
+                model=self._config.model,
+                messages=openai_messages,
+                temperature=self._config.temperature,
+                max_tokens=self._config.max_tokens,
+                stop=self._config.stop_sequences or NotGiven(),
+            )
+
+            # Extract response content
+            content = response.choices[0].message.content or ""
+
+            # Create response object
+            return Response(
+                id=uuid4(),
+                message_id=str(uuid4()),
+                content={"type": MessageType.ASSISTANT, "content": {"text": content}},
+                status=ResponseStatus.SUCCESS,
+            )
+
+        except (OpenAIError, APIError, ValueError, Exception) as error:
+            raise ProviderError(
+                message=f"Failed to send message: {error}",
+                provider_type="openrouter",
+                details={"error": str(error)},
+            ) from error

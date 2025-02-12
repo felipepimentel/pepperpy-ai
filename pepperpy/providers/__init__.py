@@ -1,13 +1,13 @@
-"""Providers package for AI model interactions.
+"""Provider package initialization.
 
-This package provides base classes and implementations for different AI providers.
+This module provides access to different AI providers through a unified interface.
 """
 
 from typing import Dict, Type
 
 from pepperpy.monitoring import logger as logger
 from pepperpy.providers.base import BaseProvider, Provider, ProviderConfig
-from pepperpy.providers.openai import OpenAIProvider
+from pepperpy.providers.services.openai import OpenAIProvider
 from pepperpy.providers.services.openrouter import OpenRouterProvider
 
 # Registry of available providers
@@ -43,4 +43,10 @@ def get_provider(
     return provider_class(config or ProviderConfig())
 
 
-__all__ = ["Provider"]
+__all__ = [
+    "BaseProvider",
+    "Provider",
+    "ProviderConfig",
+    "OpenAIProvider",
+    "OpenRouterProvider",
+]

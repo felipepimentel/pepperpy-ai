@@ -16,7 +16,6 @@ from typing import (
     Dict,
     List,
     Protocol,
-    Set,
     Type,
     TypeVar,
     runtime_checkable,
@@ -452,7 +451,6 @@ class BaseAgent:
     name: str
     description: str
     version: str
-    capabilities: Set[str]
     _client: "PepperpyClientProtocol"
     _config: AgentConfig
     _context: AgentContext
@@ -479,7 +477,6 @@ class BaseAgent:
         self.name = config.name
         self.description = config.description
         self.version = config.version
-        self.capabilities = set(config.capabilities)
         self._client = client
         self._config = config
         self._initialized = False
@@ -509,7 +506,7 @@ class BaseAgent:
         try:
             self._state = AgentState.INITIALIZING
             # Initialize capabilities
-            for capability in self.capabilities:
+            for capability in self._config.capabilities:
                 logger.debug("Initializing capability %s", capability)
                 # Initialize capability here
 
@@ -538,7 +535,7 @@ class BaseAgent:
         try:
             self._state = AgentState.CLEANING
             # Cleanup capabilities
-            for capability in self.capabilities:
+            for capability in self._config.capabilities:
                 logger.debug("Cleaning up capability %s", capability)
                 # Cleanup capability here
 
@@ -633,7 +630,7 @@ class BaseAgent:
         if not hasattr(capability, "name"):
             raise ValueError("Capability must have a name attribute")
 
-        self.capabilities.add(capability.name)
+        self._config.capabilities.append(capability.name)
         logger.debug("Added capability %s to agent %s", capability.name, self.name)
 
     def remove_capability(self, capability_name: str) -> None:
@@ -650,10 +647,10 @@ class BaseAgent:
         if self._initialized:
             raise StateError("Cannot remove capability after initialization")
 
-        if capability_name not in self.capabilities:
+        if capability_name not in self._config.capabilities:
             raise ValueError(f"Capability {capability_name} not found")
 
-        self.capabilities.remove(capability_name)
+        self._config.capabilities.remove(capability_name)
         logger.debug("Removed capability %s from agent %s", capability_name, self.name)
 
     def has_capability(self, capability_name: str) -> bool:
@@ -666,7 +663,7 @@ class BaseAgent:
             True if agent has capability, False otherwise
 
         """
-        return capability_name in self.capabilities
+        return capability_name in self._config.capabilities
 
 
 class AgentFactory(ABC):
@@ -732,7 +729,7 @@ class Agent(BaseAgent):
         try:
             self._state = AgentState.INITIALIZING
             # Initialize capabilities
-            for capability in self.capabilities:
+            for capability in self._config.capabilities:
                 logger.debug("Initializing capability %s", capability)
                 # Initialize capability here
 
@@ -762,7 +759,7 @@ class Agent(BaseAgent):
         try:
             self._state = AgentState.CLEANING
             # Cleanup capabilities
-            for capability in self.capabilities:
+            for capability in self._config.capabilities:
                 logger.debug("Cleaning up capability %s", capability)
                 # Cleanup capability here
 

@@ -23,7 +23,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.core.messages import Message, Response
+from pepperpy.core.types import Message, Response
 from pepperpy.monitoring import bind_logger, logger
 from pepperpy.providers.domain import (
     ProviderError,
@@ -35,15 +35,14 @@ T = TypeVar("T", covariant=True)
 ProviderCallback = Callable[[Dict[str, Any]], None]
 
 # Valid provider types
-VALID_PROVIDER_TYPES = frozenset(
-    {
-        "openai",
-        "anthropic",
-        "openrouter",
-        "local",
-        "stackspot",
-    }
-)
+VALID_PROVIDER_TYPES = frozenset({
+    "services.openai",
+    "services.openrouter",
+    "services.anthropic",
+    "services.gemini",
+    "services.perplexity",
+    "services.stackspot",
+})
 
 # Configure logger
 logger = bind_logger(module="providers.base")
@@ -145,20 +144,23 @@ class ProviderConfig(BaseModel):
     model: Optional[str] = None
     temperature: float = 0.7
     max_tokens: int = 1000
+    stop_sequences: Optional[List[str]] = None
+    timeout: float = 30.0
+    max_retries: int = 3
 
 
-class GenerateKwargs(TypedDict, total=False):
+class GenerateKwargs(BaseModel):
     """Keyword arguments for generate method."""
 
-    model: NotRequired[str]
-    temperature: NotRequired[float]
-    max_tokens: NotRequired[int]
-    stop: NotRequired[list[str]]
-    stop_sequences: NotRequired[list[str]]
-    presence_penalty: NotRequired[float]
-    frequency_penalty: NotRequired[float]
-    top_p: NotRequired[float]
-    top_k: NotRequired[int]
+    model: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    stop: Optional[List[str]] = None
+    stop_sequences: Optional[List[str]] = None
+    presence_penalty: Optional[float] = None
+    frequency_penalty: Optional[float] = None
+    top_p: Optional[float] = None
+    top_k: Optional[int] = None
 
 
 class ProviderKwargs(TypedDict, total=False):
@@ -180,20 +182,20 @@ class EmbeddingKwargs(TypedDict, total=False):
     encoding_format: NotRequired[str]
 
 
-class StreamKwargs(TypedDict, total=False):
+class StreamKwargs(BaseModel):
     """Keyword arguments for stream method."""
 
-    temperature: NotRequired[float]
-    max_tokens: NotRequired[int]
-    stop: NotRequired[list[str]]
-    chunk_size: NotRequired[int]
-    buffer_size: NotRequired[int]
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    stop: Optional[List[str]] = None
+    chunk_size: Optional[int] = None
+    buffer_size: Optional[int] = None
 
 
 class BaseProvider(ABC):
     """Base class for provider implementations."""
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: Union[Dict[str, Any], ProviderConfig]) -> None:
         """Initialize the provider.
 
         Args:
@@ -201,7 +203,9 @@ class BaseProvider(ABC):
             config: Provider configuration.
 
         """
-        self.config = ProviderConfig(**config)
+        self.config = (
+            config if isinstance(config, ProviderConfig) else ProviderConfig(**config)
+        )
         self.name = self.__class__.__name__
         self._initialized = False
         self._logger = bind_logger(provider=self.name)
@@ -252,15 +256,13 @@ class BaseProvider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def generate(
-        self, messages: List[Message], model_params: Optional[Dict[str, Any]] = None
-    ) -> Response:
+    async def generate(self, messages: List[Message], **kwargs: Any) -> Response:
         """Generate a response from the provider.
 
         Args:
         ----
             messages: List of messages to process.
-            model_params: Optional model parameters.
+            **kwargs: Additional keyword arguments.
 
         Returns:
         -------
@@ -272,14 +274,14 @@ class BaseProvider(ABC):
 
     @abstractmethod
     async def stream(
-        self, messages: List[Message], model_params: Optional[Dict[str, Any]] = None
+        self, messages: List[Message], **kwargs: Any
     ) -> AsyncGenerator[Response, None]:
         """Stream responses from the provider.
 
         Args:
         ----
             messages: List of messages to process.
-            model_params: Optional model parameters.
+            **kwargs: Additional keyword arguments.
 
         Yields:
         ------
@@ -320,13 +322,11 @@ class BaseProvider(ABC):
             ProviderError: With appropriate error details
 
         """
-        log_context = self._stringify_context(
-            {
-                "error": str(error),
-                "provider": self.name,
-                **context,
-            }
-        )
+        log_context = self._stringify_context({
+            "error": str(error),
+            "provider": self.name,
+            **context,
+        })
         self._logger.error("API error occurred", **log_context)
         raise ProviderError(
             message=str(error), provider_type=self.name, details=context

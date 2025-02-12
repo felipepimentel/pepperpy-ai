@@ -1,9 +1,12 @@
-"""Agents package for AI agents.
+"""Agents package initialization.
 
-This package provides various AI agents for different tasks.
+This module provides access to different agent types through a unified interface.
 """
 
-from pepperpy.agents.base import BaseAgent
 from pepperpy.agents.research_assistant import ResearchAssistant
+from pepperpy.core.base import BaseAgent
 
-__all__ = ["BaseAgent", "ResearchAssistant"]
+__all__ = [
+    "BaseAgent",
+    "ResearchAssistant",
+]

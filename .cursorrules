@@ -11,13 +11,13 @@ You must always generate consistent, maintainable, and extensible code that foll
 Prioritize modularity, type safety, and clear documentation in all implementations.
 
 Validate the project structure against `.product/project_structure.yml` using the script `./scripts/validate_structure.py`  
-and keep `.product/status.md` updated to reflect tasks, priorities, and development progress.
+and keep `.product/kanban.md` updated to reflect tasks, priorities, and development progress.
 
 ## High-Level Goals
 
 - Ensure Python code adheres to PEP 8 standards and uses explicit type annotations.
 - Generate modular, scalable, and extensible code that aligns with `.product/project_structure.yml`.
 - Apply Google-style docstrings to all public APIs, including sections for Args, Returns, Raises, and Examples.
-- Manage the project status in `.product/status.md`, keeping tasks prioritized and updated in real-time.
+- Manage the project status in `.product/kanban.md`, keeping tasks prioritized and updated in real-time.
 - Incorporate "Plan" and "Act" modes to enable detailed task preparation and execution tracking.
 - Keep architecture and structure validated using `./scripts/validate_structure.py`.

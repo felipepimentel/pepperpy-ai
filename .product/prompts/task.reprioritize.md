@@ -15,7 +15,7 @@ description: |
   and current project goals.
 ---
 
-Review and adjust task priorities in `.product/status.md`:
+Review and adjust task priorities in `.product/kanban.md`:
 
 1. Current State Analysis:
    - List all tasks by status

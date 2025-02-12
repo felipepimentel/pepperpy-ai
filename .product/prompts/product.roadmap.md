@@ -35,5 +35,5 @@ Review and update the project roadmap:
 
 4. Document updates in:
    - `.product/roadmap.md`
-   - `.product/status.md` (new tasks)
+   - `.product/kanban.md` (new tasks)
    - Release planning documents 

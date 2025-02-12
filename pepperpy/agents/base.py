@@ -1,11 +1,14 @@
-"""Base agent class for Pepperpy agents.
+"""Base agent implementation.
 
-This module provides the base class for all Pepperpy agents.
+This module provides the base agent class that all agents must inherit from.
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
 
+from pepperpy.core.types import (
+    Message,
+)
 from pepperpy.monitoring import logger
 from pepperpy.providers import get_provider
 from pepperpy.providers.openai import Message

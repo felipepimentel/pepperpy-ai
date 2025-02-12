@@ -6,12 +6,12 @@ conversation history, and other data needed for agent operation.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Protocol, Type, TypeVar
+from typing import Any, Callable, Dict, Optional, Protocol, Type, TypeVar
 
-from pepperpy.core.errors import ValidationError
+from pepperpy.core.errors import ConfigurationError
 
 
-class MemoryStore(Protocol):
+class IMemoryStore(Protocol):
     """Protocol defining the memory store interface."""
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -54,10 +54,10 @@ class MemoryStore(Protocol):
         pass
 
 
-T = TypeVar("T", bound=MemoryStore)
+T = TypeVar("T", bound=IMemoryStore)
 
 # Registry of memory store types
-_memory_store_types: dict[str, Type[MemoryStore]] = {}
+_memory_store_types: dict[str, Type[IMemoryStore]] = {}
 
 
 def register_memory_store(store_type: str) -> Callable[[Type[T]], Type[T]]:
@@ -68,6 +68,7 @@ def register_memory_store(store_type: str) -> Callable[[Type[T]], Type[T]]:
 
     Returns:
         Decorator function that registers the store class
+
     """
 
     def decorator(cls: Type[T]) -> Type[T]:
@@ -89,53 +90,129 @@ class BaseMemoryStore(ABC):
     @abstractmethod
     async def initialize(self) -> None:
         """Initialize the memory store."""
-        pass
+        ...
 
     @abstractmethod
     async def cleanup(self) -> None:
         """Clean up memory store resources."""
-        pass
+        ...
 
     @abstractmethod
-    async def get(self, key: str) -> Any:
+    async def get(self, key: str) -> Optional[Any]:
         """Get a value from the store."""
-        pass
+        ...
 
     @abstractmethod
     async def set(self, key: str, value: Any) -> None:
         """Set a value in the store."""
-        pass
+        ...
 
     @abstractmethod
     async def delete(self, key: str) -> None:
         """Delete a value from the store."""
-        pass
+        ...
 
     @abstractmethod
     async def exists(self, key: str) -> bool:
         """Check if a key exists."""
-        pass
+        ...
 
     @abstractmethod
     async def clear(self) -> None:
         """Clear all values from the store."""
-        pass
+        ...
 
 
-async def create_memory_store(config: dict[str, Any]) -> MemoryStore:
-    """Create a memory store instance."""
-    if "type" not in config:
-        raise ValidationError(
-            "Missing required field: type",
-            details={"field": "type"},
-        )
+class MemoryStore(BaseMemoryStore):
+    """In-memory store implementation."""
 
-    store_type = config["type"]
-    if store_type not in _memory_store_types:
-        raise ValidationError(
-            f"Unknown memory store type: {store_type}",
-            details={"type": store_type},
-        )
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the memory store.
 
-    store_class = _memory_store_types[store_type]
-    return store_class(config)
+        Args:
+            config: Optional configuration dictionary
+
+        """
+        super().__init__(config or {})
+        self._store: Dict[str, Any] = {}
+        self._initialized = False
+
+    async def initialize(self) -> None:
+        """Initialize the memory store."""
+        if self._initialized:
+            return
+        self._initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up memory store resources."""
+        if not self._initialized:
+            return
+        await self.clear()
+        self._initialized = False
+
+    async def get(self, key: str) -> Optional[Any]:
+        """Get a value from the store.
+
+        Args:
+            key: Key to get
+
+        Returns:
+            The value if found, None otherwise
+
+        """
+        return self._store.get(key)
+
+    async def set(self, key: str, value: Any) -> None:
+        """Set a value in the store.
+
+        Args:
+            key: Key to set
+            value: Value to store
+
+        """
+        self._store[key] = value
+
+    async def delete(self, key: str) -> None:
+        """Delete a value from the store.
+
+        Args:
+            key: Key to delete
+
+        """
+        self._store.pop(key, None)
+
+    async def exists(self, key: str) -> bool:
+        """Check if a key exists.
+
+        Args:
+            key: Key to check
+
+        Returns:
+            True if the key exists, False otherwise
+
+        """
+        return key in self._store
+
+    async def clear(self) -> None:
+        """Clear all values from the store."""
+        self._store.clear()
+
+
+async def create_memory_store(config: Dict[str, Any]) -> BaseMemoryStore:
+    """Create a memory store instance.
+
+    Args:
+        config: Store configuration
+
+    Returns:
+        BaseMemoryStore: Memory store instance
+
+    Raises:
+        ConfigurationError: If store type is unknown
+
+    """
+    store_type = config.get("store_type", "memory")
+    if store_type != "memory":
+        raise ConfigurationError(f"Unknown memory store type: {store_type}")
+
+    return MemoryStore(config)
