@@ -5,8 +5,9 @@ prompts, and workflows in a local directory structure (.pepper_hub).
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
+import yaml
 from structlog import get_logger
 
 from pepperpy.core.base import BaseAgent
@@ -18,6 +19,7 @@ from pepperpy.hub.agents import (
     AgentRegistry,
     ResearchAssistantAgent,
 )
+from pepperpy.hub.agents.base import Agent as BaseAgentImpl
 from pepperpy.hub.prompts import PromptRegistry
 from pepperpy.hub.storage import LocalStorage
 from pepperpy.hub.teams import Team
@@ -146,43 +148,76 @@ class Hub:
 
 
 class PepperpyHub:
-    """Hub for managing Pepperpy components like agents and workflows."""
+    """Hub for managing Pepperpy components like agents and workflows.
+
+    The hub provides easy access to:
+    - Pre-configured agents
+    - Workflow templates
+    - Team compositions
+    - Shared resources
+
+    Example:
+        >>> hub = pepper.hub
+        >>> researcher = await hub.agent("researcher")
+        >>> team = await hub.team("research-team")
+        >>> flow = await hub.workflow("research-flow")
+
+    """
 
     def __init__(self, client: PepperpyClient):
-        """Initialize the hub.
-
-        Args:
-            client: The Pepperpy client instance
-
-        """
+        """Initialize the hub."""
         self._client = client
         self._local_path = Path.home() / ".pepperpy" / "hub"
         self._local_path.mkdir(parents=True, exist_ok=True)
 
-    async def agent(self, name: str) -> BaseAgent:
-        """Load an agent from the hub.
+        # Create standard directories
+        (self._local_path / "agents").mkdir(exist_ok=True)
+        (self._local_path / "workflows").mkdir(exist_ok=True)
+        (self._local_path / "teams").mkdir(exist_ok=True)
+        (self._local_path / "templates").mkdir(exist_ok=True)
 
-        Args:
-            name: Name of the agent to load
+        # Initialize registries
+        self._agent_registry = AgentRegistry()
+        self._workflow_registry = WorkflowRegistry()
 
-        Returns:
-            The loaded agent instance
-
-        Example:
-            >>> researcher = await hub.agent("researcher")
-            >>> result = await researcher.research("AI")
-
-        """
+    async def agent(
+        self,
+        name: str,
+        *,
+        config: dict[str, Any] | None = None,
+        capabilities: list[str] | None = None,
+        **kwargs: Any,
+    ) -> BaseAgent:
+        """Load an agent from the hub."""
         # First check local hub
         local_config = self._local_path / "agents" / f"{name}.yaml"
         if local_config.exists():
-            return await self._load_local_agent(name, local_config)
+            agent = await self._load_local_agent(name, local_config, **kwargs)
+            if capabilities and isinstance(agent, BaseAgentImpl):
+                self._validate_agent_capabilities(agent, capabilities)
+            return agent
 
         # Then try built-in agents
         if name == "researcher":
-            return await self._client.create_agent("research_assistant")
+            agent = await self._client.create_agent("research_assistant", **kwargs)
+            if capabilities and isinstance(agent, BaseAgentImpl):
+                self._validate_agent_capabilities(agent, capabilities)
+            return agent
 
         raise ValueError(f"Agent '{name}' not found in hub")
+
+    def _validate_agent_capabilities(
+        self,
+        agent: BaseAgentImpl,
+        required_capabilities: list[str],
+    ) -> None:
+        """Validate that an agent has the required capabilities."""
+        agent_caps = set(agent.capabilities)
+        missing = [cap for cap in required_capabilities if cap not in agent_caps]
+        if missing:
+            raise ValueError(
+                f"Agent missing required capabilities: {', '.join(missing)}"
+            )
 
     async def team(self, name: str) -> "Team":
         """Load a team from the hub.
@@ -195,7 +230,11 @@ class PepperpyHub:
 
         Example:
             >>> team = await hub.team("research-team")
-            >>> result = await team.run("Research AI")
+            >>> async with team.run("Research AI") as session:
+            ...     print(session.current_step)
+            ...     print(session.thoughts)
+            ...     if session.needs_input:
+            ...         session.provide_input("More details")
 
         """
         from pepperpy.hub.teams import Team
@@ -218,7 +257,9 @@ class PepperpyHub:
 
         Example:
             >>> flow = await hub.workflow("research-flow")
-            >>> result = await flow.run("Research AI")
+            >>> async with flow.run("Research AI") as session:
+            ...     print(session.current_step)
+            ...     print(session.progress)
 
         """
         from pepperpy.hub.workflows import Workflow
@@ -233,27 +274,12 @@ class PepperpyHub:
     async def create_agent(
         self,
         name: str,
-        base: Optional[str] = None,
-        config: Optional[dict[str, Any]] = None,
+        *,
+        base: str | None = None,
+        config: dict[str, Any] | None = None,
+        capabilities: list[str] | None = None,
     ) -> BaseAgent:
-        """Create a new agent in the hub.
-
-        Args:
-            name: Name for the new agent
-            base: Optional base agent to inherit from
-            config: Optional configuration for the agent
-
-        Returns:
-            The created agent instance
-
-        Example:
-            >>> agent = await hub.create_agent(
-            ...     name="custom-researcher",
-            ...     base="researcher",
-            ...     config={"style": "technical"}
-            ... )
-
-        """
+        """Create a new agent in the hub."""
         # Validate name
         if "/" in name or "\\" in name:
             raise ValueError("Agent name cannot contain path separators")
@@ -263,44 +289,131 @@ class PepperpyHub:
         agent_dir.mkdir(exist_ok=True)
 
         # Create config
-        agent_config = {"name": name, "base": base, **(config or {})}
+        agent_config = {
+            "name": name,
+            "base": base,
+            "version": "0.1.0",
+            "capabilities": capabilities or [],
+            **(config or {}),
+        }
 
         # Save config
         config_path = agent_dir / f"{name}.yaml"
-        import yaml
-
         with open(config_path, "w") as f:
             yaml.dump(agent_config, f)
 
         # Load and return agent
-        return await self._load_local_agent(name, config_path)
+        agent = await self._load_local_agent(name, config_path)
+        if capabilities and isinstance(agent, BaseAgentImpl):
+            self._validate_agent_capabilities(agent, capabilities)
+        return agent
 
-    async def publish(self, name: str) -> None:
-        """Publish a local component to the public hub.
+    async def publish(self, name: str, type: str = "agent") -> None:
+        """Publish a component to make it available for sharing.
 
         Args:
             name: Name of the component to publish
+            type: Type of component ("agent", "workflow", "team")
 
         Example:
-            >>> await hub.publish("custom-researcher")
+            >>> await hub.publish("custom-researcher")  # Share agent
+            >>> await hub.publish("research-flow", type="workflow")
 
         """
-        # TODO[v2.0]: Implement hub publishing
-        raise NotImplementedError("Hub publishing not yet implemented")
+        # Validate type
+        if type not in ["agent", "workflow", "team"]:
+            raise ValueError(f"Invalid component type: {type}")
 
-    async def _load_local_agent(self, name: str, config_path: Path) -> BaseAgent:
+        # Get component path
+        component_dir = self._local_path / f"{type}s"
+        component_path = component_dir / f"{name}.yaml"
+
+        if not component_path.exists():
+            raise ValueError(f"{type.title()} '{name}' not found")
+
+        # TODO: Implement sharing mechanism
+        logger.info(f"Publishing {type} '{name}'... (Not implemented yet)")
+
+    async def list_agents(
+        self,
+        *,
+        capabilities: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        """List available agents.
+
+        Args:
+            capabilities: Optional list of required capabilities to filter by
+
+        Returns:
+            List of agent metadata including name, version, and capabilities
+
+        Example:
+            >>> agents = await hub.list_agents(
+            ...     capabilities=["research", "summarize"]
+            ... )
+            >>> for agent in agents:
+            ...     print(f"{agent['name']} ({agent['version']})")
+            ...     print(f"Capabilities: {agent['capabilities']}")
+
+        """
+        agents = []
+
+        # List local agents
+        agent_dir = self._local_path / "agents"
+        if agent_dir.exists():
+            for config_file in agent_dir.glob("*.yaml"):
+                with open(config_file) as f:
+                    config = yaml.safe_load(f)
+                    if capabilities:
+                        agent_caps = set(config.get("capabilities", []))
+                        if not all(cap in agent_caps for cap in capabilities):
+                            continue
+                    agents.append(config)
+
+        # Add built-in agents
+        built_in = [
+            {
+                "name": "researcher",
+                "version": "0.1.0",
+                "capabilities": ["research", "analyze", "summarize"],
+            },
+            {
+                "name": "writer",
+                "version": "0.1.0",
+                "capabilities": ["write", "edit", "adapt"],
+            },
+        ]
+        for agent in built_in:
+            if capabilities:
+                agent_caps = set(agent["capabilities"])
+                if not all(cap in agent_caps for cap in capabilities):
+                    continue
+            agents.append(agent)
+
+        return agents
+
+    async def _load_local_agent(
+        self,
+        name: str,
+        config_path: Path,
+        **kwargs: Any,
+    ) -> BaseAgent:
         """Load an agent from a local configuration file."""
-        import yaml
-
         with open(config_path) as f:
             config = yaml.safe_load(f)
 
-        # Get base agent if specified
-        base = config.get("base")
-        if base:
-            base_agent = await self.agent(base)
-            # TODO: Apply config overrides
-            return base_agent
+        # Apply runtime configuration
+        if kwargs:
+            config.update(kwargs)
 
-        # Create new agent
-        return await self._client.create_agent(name)
+        # Create agent
+        if config.get("base"):
+            # Load base agent first
+            base_agent = await self.agent(config["base"])
+            # Extend base agent with custom config
+            if isinstance(base_agent, BaseAgentImpl):
+                return cast(BaseAgent, await base_agent.extend(config))
+            return base_agent
+        else:
+            # Create new agent
+            return await self._client.create_agent(name, **config)

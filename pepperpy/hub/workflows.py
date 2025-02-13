@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    Dict,
     Optional,
     Protocol,
     TypeVar,
@@ -50,8 +51,8 @@ class WorkflowStep(BaseModel):
     use: str
     action: str
     if_: Optional[str] = Field(None, alias="if")
-    inputs: dict[str, str] = Field(default_factory=dict)
-    outputs: dict[str, str] = Field(default_factory=dict)
+    inputs: Dict[str, str] = Field(default_factory=dict)
+    outputs: Dict[str, str] = Field(default_factory=dict)
 
 
 class WorkflowConfig(BaseModel):
@@ -59,14 +60,25 @@ class WorkflowConfig(BaseModel):
 
     Attributes:
         name: Workflow name
-        description: Optional description
         steps: List of workflow steps
+        inputs: Input mappings
+        outputs: Output mappings
 
     """
 
     name: str
-    description: Optional[str] = None
-    steps: list[WorkflowStep]
+    steps: list[Dict[str, Any]]
+    inputs: Dict[str, str] = Field(default_factory=dict)
+    outputs: Dict[str, str] = Field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary.
+
+        Returns:
+            Dictionary representation of the config
+
+        """
+        return self.model_dump()
 
 
 class Workflow(WorkflowProtocol):
@@ -80,7 +92,7 @@ class Workflow(WorkflowProtocol):
         self,
         client: PepperpyClient,
         config: WorkflowConfig,
-        agents: dict[str, AgentProtocol],
+        agents: Dict[str, AgentProtocol],
     ):
         """Initialize a workflow.
 
@@ -93,11 +105,13 @@ class Workflow(WorkflowProtocol):
         self._client = client
         self._config = config
         self._agents = agents
-        self._context: dict[str, Any] = {}
+        self._context: Dict[str, Any] = {}
         self._session: Optional["WorkflowSession"] = None
 
     @classmethod
-    async def from_config(cls, client: PepperpyClient, config_path: Path) -> "Workflow":
+    async def from_config(
+        cls, client: PepperpyClient, config_path: Path
+    ) -> "WorkflowProtocol":
         """Create a workflow from a configuration file.
 
         Args:
@@ -106,6 +120,11 @@ class Workflow(WorkflowProtocol):
 
         Returns:
             The configured workflow instance
+
+        Example:
+            >>> flow = await Workflow.from_config(client, "path/to/workflow.yaml")
+            >>> async with flow.run("Research AI") as session:
+            ...     print(session.current_step)
 
         """
         import yaml
@@ -118,9 +137,10 @@ class Workflow(WorkflowProtocol):
         # Load agents
         agents = {}
         for step in config.steps:
-            if step.use not in agents:
-                agent = await client.create_agent(step.use)
-                agents[step.use] = agent
+            agent_name = step.get("use")
+            if agent_name and agent_name not in agents:
+                agent = await client.create_agent(agent_name)
+                agents[agent_name] = cast(AgentProtocol, agent)
 
         return cls(client, config, agents)
 
@@ -156,17 +176,18 @@ class Workflow(WorkflowProtocol):
         result = None
         for i, step in enumerate(self._config.steps):
             # Check condition
-            if step.if_ and not self._evaluate_condition(step.if_):
+            condition = step.get("if")
+            if not self._evaluate_condition(condition):
                 continue
 
             # Get agent
-            agent = self._agents[step.use]
+            agent = self._agents[step["use"]]
 
             # Prepare inputs
             inputs = self._prepare_inputs(step, kwargs)
 
             # Run step
-            result = await agent.run(step.action, **inputs)
+            result = await agent.run(step["action"], **inputs)
 
             # Store outputs
             self._store_outputs(step, result, i)
@@ -176,8 +197,19 @@ class Workflow(WorkflowProtocol):
 
         return result
 
-    def _evaluate_condition(self, condition: str) -> bool:
-        """Evaluate a step condition."""
+    def _evaluate_condition(self, condition: Optional[str]) -> bool:
+        """Evaluate a step condition.
+
+        Args:
+            condition: The condition to evaluate, or None
+
+        Returns:
+            True if the condition is met or None, False otherwise
+
+        """
+        if not condition:
+            return True
+
         # Basic condition evaluation
         try:
             # Replace variables with values from context
@@ -189,13 +221,13 @@ class Workflow(WorkflowProtocol):
             return False
 
     def _prepare_inputs(
-        self, step: WorkflowStep, kwargs: dict[str, Any]
-    ) -> dict[str, Any]:
+        self, step: Dict[str, Any], kwargs: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Prepare inputs for a step."""
         inputs = kwargs.copy()
 
         # Apply input mappings
-        for target, source in step.inputs.items():
+        for target, source in step["inputs"].items():
             try:
                 # Get value from context
                 parts = source.split(".")
@@ -208,13 +240,15 @@ class Workflow(WorkflowProtocol):
 
         return inputs
 
-    def _store_outputs(self, step: WorkflowStep, result: Any, step_index: int) -> None:
+    def _store_outputs(
+        self, step: Dict[str, Any], result: Any, step_index: int
+    ) -> None:
         """Store step outputs in context."""
         # Store full result
         self._context["steps"][f"step_{step_index}"] = result
 
         # Apply output mappings
-        for target, source in step.outputs.items():
+        for target, source in step["outputs"].items():
             try:
                 # Get value from result
                 parts = source.split(".")
@@ -232,10 +266,10 @@ class Workflow(WorkflowProtocol):
             A session for monitoring workflow progress
 
         """
-        from pepperpy.hub.sessions import WorkflowSession
+        if not self._session:
+            from pepperpy.hub.sessions import WorkflowSession
 
-        # Create and store session
-        self._session = WorkflowSession(cast(WorkflowProtocol, self))
+            self._session = WorkflowSession(cast(WorkflowProtocol, self))
         return self._session
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -248,4 +282,4 @@ class Workflow(WorkflowProtocol):
         self._session = None
 
 
-__all__ = ["Workflow", "WorkflowConfig", "WorkflowStep"]
+__all__ = ["Workflow", "WorkflowConfig", "WorkflowStep", "AgentProtocol"]
