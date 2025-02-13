@@ -5,11 +5,11 @@ Useful for testing and development purposes.
 """
 
 import asyncio
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 
-from pepperpy.core.memory.store import BaseMemoryStore, register_memory_store
+from pepperpy.memory.store import BaseMemoryStore
 from pepperpy.memory.types import (
     MemoryEntry,
     MemoryQuery,
@@ -22,8 +22,7 @@ from pepperpy.monitoring.logger import get_logger
 logger = get_logger(__name__)
 
 
-@register_memory_store("inmemory")
-class InMemoryStore(BaseMemoryStore):
+class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
     """In-memory store implementation."""
 
     def __init__(self, config: dict[str, Any]) -> None:
@@ -34,7 +33,7 @@ class InMemoryStore(BaseMemoryStore):
             config: Store configuration
 
         """
-        super().__init__(config)
+        self.config = config
         self._entries: dict[str, MemoryEntry[dict[str, Any]]] = {}
         self._lock = asyncio.Lock()
 
@@ -153,7 +152,7 @@ class InMemoryStore(BaseMemoryStore):
 
         """
         try:
-            entry: MemoryEntry[dict[str, Any]] = MemoryEntry(
+            entry = MemoryEntry(
                 key=key,
                 value=content,
                 scope=scope,
@@ -251,10 +250,10 @@ class InMemoryStore(BaseMemoryStore):
         content_str = str(entry.value)
         return query_text.lower() in content_str.lower()
 
-    async def _retrieve_impl(
+    def _retrieve_impl(
         self,
         query: MemoryQuery,
-    ) -> AsyncGenerator[MemoryResult[dict[str, Any]], None]:
+    ) -> AsyncIterator[MemoryResult[dict[str, Any]]]:
         """Retrieve entries from memory.
 
         Args:
@@ -270,40 +269,43 @@ class InMemoryStore(BaseMemoryStore):
             RuntimeError: If retrieval fails
 
         """
-        try:
-            count = 0
-            now = datetime.utcnow()
 
-            async with self._lock:
-                for key, entry in self._entries.items():
-                    # Skip expired entries
-                    if self._is_expired(entry, now):
-                        continue
+        async def _retrieve() -> AsyncIterator[MemoryResult[dict[str, Any]]]:
+            try:
+                count = 0
+                now = datetime.utcnow()
 
-                    # Apply filters
-                    if not self._matches_filters(entry, query):
-                        continue
+                async with self._lock:
+                    for key, entry in self._entries.items():
+                        # Skip expired entries
+                        if entry.expires_at and now > entry.expires_at:
+                            continue
 
-                    # Apply text search
-                    if not self._matches_text_search(entry, query.query):
-                        continue
+                        # Apply scope filter from query.filters
+                        if (
+                            "scope" in query.filters
+                            and entry.scope != query.filters["scope"]
+                        ):
+                            continue
 
-                    yield MemoryResult(
-                        key=key,
-                        entry=entry.value,
-                        similarity=1.0,  # Basic search doesn't compute similarity
-                    )
+                        yield MemoryResult(
+                            key=key,
+                            entry=entry.value,
+                            similarity=1.0,  # Basic search doesn't compute similarity
+                        )
 
-                    count += 1
-                    if query.limit and count >= query.limit:
-                        break
+                        count += 1
+                        if query.limit and count >= query.limit:
+                            break
 
-        except Exception as e:
-            logger.error(
-                "Failed to retrieve memory entries",
-                extra={"query": query.dict(), "error": str(e)},
-            )
-            raise RuntimeError(f"Failed to retrieve memory entries: {e}") from e
+            except Exception as e:
+                logger.error(
+                    "Failed to retrieve memory entries",
+                    extra={"query": str(query), "error": str(e)},
+                )
+                raise RuntimeError(f"Failed to retrieve memory entries: {e}") from e
+
+        return _retrieve()
 
     async def _delete_impl(self, key: str) -> bool:
         """Delete an entry from memory.

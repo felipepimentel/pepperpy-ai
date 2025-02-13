@@ -4,6 +4,7 @@ This module provides commands for managing different types of memory storage,
 including vector stores, document stores, and caches.
 """
 
+import asyncio
 import json
 from typing import Optional
 
@@ -11,6 +12,8 @@ import click
 
 from pepperpy.cli import CommandGroup, logger
 from pepperpy.memory import MemoryManager
+from pepperpy.memory.compat import CompatMemoryStore
+from pepperpy.memory.stores.inmemory import InMemoryStore
 from pepperpy.monitoring import metrics
 
 
@@ -277,11 +280,14 @@ class MemoryCommands(CommandGroup):
             if not click.confirm("Are you sure you want to clear memories?"):
                 return
 
-            manager = MemoryManager()
-            manager.clear(memory_type=type)
+            def _clear(type: str | None = None) -> None:
+                """Clear memories of the specified type."""
+                store = InMemoryStore({})
+                compat_store = CompatMemoryStore(store)
+                asyncio.run(compat_store.cleanup())
+                click.echo(f"Cleared all memories{f' of type {type}' if type else ''}")
 
-            type_str = f"'{type}' type " if type else ""
-            click.echo(f"All {type_str}memories cleared successfully")
+            _clear(type)
 
         except Exception as e:
             logger.error(

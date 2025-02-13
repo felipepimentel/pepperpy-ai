@@ -31,6 +31,8 @@ from pepperpy.hub.workflow import WorkflowEngine
 from pepperpy.hub.workflows import Workflow, WorkflowConfig, WorkflowRegistry
 from pepperpy.monitoring import logger
 
+from .types import TeamConfig
+
 # Configure logger
 logger = get_logger()
 
@@ -44,29 +46,37 @@ __all__ = [
     "WorkflowRegistry",
     "PepperpyHub",
     "ResearchAssistantAgent",
+    "LocalStorage",
+    "WorkflowEngine",
 ]
 
 
 class Hub:
-    """Central hub for managing Pepperpy artifacts and workflows."""
+    """Central hub for managing teams, agents, and workflows."""
 
-    def __init__(self, storage_dir: Union[str, Path]) -> None:
-        """Initialize the hub.
-
-        Args:
-        ----
-            storage_dir: Directory for storing artifacts.
-
-        """
-        self.storage_dir = Path(storage_dir)
-        self.storage = LocalStorage(self.storage_dir)
-        self.workflow_engine = WorkflowEngine(self.storage_dir / "workflows")
-        self.log = logger.bind(component="hub")
-
-        # Ensure directories exist
+    def __init__(self, storage_dir: Optional[Path] = None):
+        """Initialize the hub with a storage directory."""
+        self.storage_dir = storage_dir or Path.home() / ".pepperpy" / "hub"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
-        (self.storage_dir / "workflows").mkdir(exist_ok=True)
-        (self.storage_dir / "agents").mkdir(exist_ok=True)
+
+    async def load_team(self, name: str, version: str = "1.0.0") -> Team:
+        """Load a team configuration and create a team instance."""
+        team_dir = self.storage_dir / "teams" / name
+        team_file = team_dir / f"{version}.yaml"
+
+        if not team_file.exists():
+            raise ValueError(f"Team {name} version {version} not found")
+
+        # Load and parse team configuration
+        config_data = yaml.safe_load(team_file.read_text())
+        config = TeamConfig.model_validate(config_data)
+
+        return Team(config)
+
+    async def load_agent(self, name: str, version: Optional[str] = None):
+        """Load an agent by name and version."""
+        # This will be implemented in the agents module
+        raise NotImplementedError("Agent loading not implemented yet")
 
     def save_artifact(
         self,
