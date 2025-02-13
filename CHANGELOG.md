@@ -1,6 +1,64 @@
 # CHANGELOG
 
 
+## v1.7.0 (2025-02-13)
+
+### Bug Fixes
+
+- Improve OpenRouter provider validation and error handling in chat completion
+  ([`39ace10`](https://github.com/felipepimentel/pepperpy-ai/commit/39ace103d76ddb4fc1b78a5ab439554e430d2c30))
+
+* Added validation to prevent empty messages list in chat_completion method * Updated test cases to
+  verify empty messages list raises a ValueError * Enhanced error handling with more specific and
+  descriptive error messages * Simplified error validation logic in OpenRouter provider
+
+- Update OpenRouter and watcher components for improved reliability
+  ([`c1af78f`](https://github.com/felipepimentel/pepperpy-ai/commit/c1af78f018dd947f028d8988e916ae2fd37a9c30))
+
+* Fixed message handling in OpenRouter stream and send_message methods * Updated message type and
+  content structure for better consistency * Simplified watcher callback logic to prevent redundant
+  function calls * Improved error handling and message processing in providers and hub components
+
+### Features
+
+- Add file watching and hot-reload support for development
+  ([`cbe3ebf`](https://github.com/felipepimentel/pepperpy-ai/commit/cbe3ebfc8df85092145e3ebb1da56651753b06a1))
+
+* Added `watchfiles` and `watchdog` to project dependencies * Implemented `AgentWatcher` for
+  monitoring configuration file changes * Added `watch()` decorator to `PepperpyHub` for
+  hot-reloading components * Enhanced hub initialization with component registry and watcher
+  management * Updated `__init__` methods to support dynamic component reloading * Simplified agent
+  and workflow initialization with more flexible configuration * Improved development workflow with
+  automatic configuration updates
+
+- Enhance OpenRouter provider with robust validation and error handling
+  ([`65d9a87`](https://github.com/felipepimentel/pepperpy-ai/commit/65d9a8710ff44093734f5830e1df398f7963c5e0))
+
+* Added field validators for temperature, max_tokens, timeout, and max_retries * Improved stream and
+  complete methods with more flexible parameter handling * Updated error handling to use OpenAIError
+  for more precise exception management * Simplified response generation and metadata handling *
+  Added comprehensive test coverage for edge cases and error scenarios
+
+- Enhance project standards and validation rules
+  ([`367587b`](https://github.com/felipepimentel/pepperpy-ai/commit/367587b978ed8d23ee06a79ceafcfb2bba490911))
+
+* Added comprehensive validation rules for Python code standards in `.cursor/rules/` * Introduced
+  detailed guidelines for imports, docstrings, async functions, and constants * Expanded file
+  management rules with strict naming conventions and encoding checks * Implemented architectural
+  validation for dependency injection, error handling, and logging * Added complexity limits and API
+  versioning guidelines * Enhanced XML-based rule validation with more precise conditions and
+  suggestions
+
+- Update README and documentation for quick start experience
+  ([`66cff51`](https://github.com/felipepimentel/pepperpy-ai/commit/66cff51d3470f47f8f10f49e6139ea26ae9df4c0))
+
+* Added concise "Quick Win" section to README with 30-second setup instructions * Updated getting
+  started documentation with simplified CLI and Python examples * Enhanced API reference with more
+  detailed usage patterns and configuration options * Removed `.cursor/rules/` directory and
+  consolidated project documentation * Simplified CLI setup wizard output with clearer guidance and
+  next steps * Updated task tracking to reflect documentation and usability improvements
+
+
 ## v1.6.0 (2025-02-13)
 
 ### Features
