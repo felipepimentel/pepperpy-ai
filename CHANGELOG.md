@@ -1,6 +1,20 @@
 # CHANGELOG
 
 
+## v1.8.0 (2025-02-13)
+
+### Features
+
+- Add comprehensive example code standards and validation rules
+  ([`667c2c6`](https://github.com/felipepimentel/pepperpy-ai/commit/667c2c6abf366f93f8f3e861c8268e75d8c4ee74))
+
+* Introduced detailed XML-based rule set for Python example code in `.cursor/rules/302-examples.mdc`
+  * Defined strict validation for docstrings, error handling, type hints, and code structure * Added
+  guidelines for example code documentation, configuration, and best practices * Included example
+  implementations demonstrating recommended coding patterns * Enhanced example code quality with
+  specific rules for imports, logging, and error management
+
+
 ## v1.7.0 (2025-02-13)
 
 ### Bug Fixes

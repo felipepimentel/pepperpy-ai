@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pepperpy"
-version = "1.7.0"
+version = "1.8.0"
 description = "A centralized hub for managing and loading AI artifacts like agents, prompts, and workflows"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
