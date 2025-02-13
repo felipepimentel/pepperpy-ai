@@ -1,6 +1,40 @@
 # CHANGELOG
 
 
+## v1.6.0 (2025-02-13)
+
+### Features
+
+- Enhance CLI setup wizard and configuration management
+  ([`be6d93a`](https://github.com/felipepimentel/pepperpy-ai/commit/be6d93a8ef9a20fe905d4efffa759ed6846dcd3d))
+
+* Improved Pepperpy CLI setup wizard with more interactive and user-friendly configuration * Added
+  advanced configuration options for model selection and preferences * Enhanced configuration file
+  management with more robust environment variable handling * Implemented better error handling and
+  user guidance during setup * Added support for saving and loading configuration with richer
+  metadata * Updated CLI setup to provide clearer instructions and test configuration * Improved
+  logging and error reporting during setup process
+
+### Refactoring
+
+- Enhance Pepperpy library with simplified high-level API
+  ([`de8547b`](https://github.com/felipepimentel/pepperpy-ai/commit/de8547bcff1e7212bbe9c27f5778ed7c1fd0326b))
+
+* Added new `Pepperpy` class as the primary entry point for library usage * Implemented high-level
+  methods like `ask()`, `research()`, and team collaboration * Updated `__init__.py` to expose new
+  top-level interfaces * Created `ResearchResult` class for structured research output * Simplified
+  client initialization and interaction patterns * Updated example research workflow to demonstrate
+  new API capabilities * Improved type hints and documentation for core components
+
+- Update project documentation and kanban tracking
+  ([`a049bee`](https://github.com/felipepimentel/pepperpy-ai/commit/a049bee1f29ba6a2448123ba2f7366256d504b7e))
+
+* Renamed `.product/status.md` to `.product/kanban.md` * Updated references to status tracking file
+  across project prompts * Simplified kanban board structure and added more descriptive guidelines *
+  Removed deprecated prompt and task files * Cleaned up project documentation artifacts *
+  Standardized project tracking and status management
+
+
 ## v1.5.0 (2025-02-11)
 
 ### Chores
