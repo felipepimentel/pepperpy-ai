@@ -1,14 +1,15 @@
 ---
 description: ALWAYS use when creating or updating rule files to ensure proper structure and placement. This rule enforces standards for rule creation and management.
-globs: "**/*.mdc"
+globs: ["**/*.mdc"]
 version: 1.1
 priority: critical
+tags: ["rules", "validation", "standards", "cursor"]
 ---
 
 <?xml version="1.0" encoding="UTF-8"?>
 <rule>
   <metadata>
-    <name>cursor_rules_location</name>
+    <n>cursor_rules_location</n>
     <description>ALWAYS use when creating or updating rule files to ensure proper structure and placement. This rule enforces standards for rule creation and management.</description>
     <priority>critical</priority>
     <version>1.1</version>
@@ -39,11 +40,15 @@ priority: critical
 
   <actions>
     <action>
-      <type>reject</type>
+      <type>validate</type>
       <conditions>
         <condition>
           <pattern>^(?!\.\\/\\.cursor\\/rules\\/.*\.mdc$)</pattern>
           <message>Cursor rule files (.mdc) must be placed in the .cursor/rules directory</message>
+        </condition>
+        <condition>
+          <pattern>^version:\s*\d+\.\d+(\.\d+)?$</pattern>
+          <message>Version must follow semantic versioning (MAJOR.MINOR.PATCH)</message>
         </condition>
       </conditions>
     </action>
@@ -174,7 +179,7 @@ description:
 globs:
 ---
           </content>
-          <error>Frontmatter must include required fields</error>
+          <e>Frontmatter must include required fields</e>
         </case>
         <case type="wrong_location">
           <description>Rule file in wrong location</description>
@@ -183,17 +188,17 @@ globs:
             <path>my-rule.mdc</path>
             <path>.rules/my-rule.mdc</path>
           </paths>
-          <error>Rules must be in .cursor/rules directory</error>
+          <e>Rules must be in .cursor/rules directory</e>
         </case>
         <case type="invalid_format">
           <description>Incorrect metadata format</description>
           <content>
 <metadata>
-  <name>Invalid Name</name>
+  <n>Invalid Name</n>
   <description>Doesn't match frontmatter</description>
 </metadata>
           </content>
-          <error>Metadata must follow format requirements</error>
+          <e>Metadata must follow format requirements</e>
         </case>
       </incorrect>
       <correct>
@@ -209,7 +214,7 @@ priority: high
 <?xml version="1.0" encoding="UTF-8"?>
 <rule>
   <metadata>
-    <name>typescript_standards</name>
+    <n>typescript_standards</n>
     <description>ALWAYS use when implementing TypeScript features to ensure type safety. This rule enforces strict typing and best practices.</description>
     <priority>high</priority>
     <version>1.0</version>

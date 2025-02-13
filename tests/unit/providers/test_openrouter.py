@@ -891,22 +891,23 @@ async def test_stream_with_custom_stop_sequences(
 @pytest.mark.asyncio
 async def test_initialization_with_invalid_config(mock_openai_client):
     """Test initialization with invalid configuration."""
-    config = OpenRouterConfig(
-        provider_type="openrouter",
-        api_key=SecretStr(""),  # Invalid API key
-        model="invalid-model",
-        temperature=-1.0,  # Invalid temperature
-        max_tokens=-100,  # Invalid max_tokens
-    )
-    provider = OpenRouterProvider(config)
+    from pydantic import ValidationError
 
-    with patch(
-        "pepperpy.providers.services.openrouter.AsyncOpenAI",
-        return_value=mock_openai_client,
-    ):
-        with pytest.raises(ProviderConfigError) as exc_info:
-            await provider.initialize()
-        assert "Invalid config" in str(exc_info.value)
+    with pytest.raises(ValidationError) as exc_info:
+        config = OpenRouterConfig(
+            provider_type="openrouter",
+            api_key=SecretStr(""),  # Invalid API key
+            model="invalid-model",
+            temperature=-1.0,  # Invalid temperature
+            max_tokens=-100,  # Invalid max_tokens
+        )
+
+    # Verify the error messages
+    errors = exc_info.value.errors()
+    assert len(errors) == 2
+    error_messages = [e["msg"] for e in errors]
+    assert "Value error, Temperature must be between 0.0 and 1.0" in error_messages
+    assert "Value error, max_tokens must be greater than 0" in error_messages
 
 
 @pytest.mark.asyncio
@@ -948,8 +949,11 @@ async def test_chat_completion_with_invalid_messages(
 
         # Test with empty messages list
         with pytest.raises(ValueError) as exc_info:
-            await provider.chat_completion("openai/gpt-4", [])
-        assert "No messages provided" in str(exc_info.value)
+            await provider.chat_completion(
+                model="openai/gpt-4",
+                messages=[],  # Empty messages list
+            )
+        assert str(exc_info.value) == "Messages list cannot be empty"
 
 
 @pytest.mark.asyncio

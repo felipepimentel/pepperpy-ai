@@ -487,12 +487,16 @@ class OpenRouterProvider(BaseProvider):
         Raises:
         ------
             ProviderError: If the chat completion fails
+            ValueError: If messages list is empty
 
         """
         if not self._client:
             raise ProviderInitError(
                 message="Provider not initialized", provider_type="openrouter"
             )
+
+        if not messages:
+            raise ValueError("Messages list cannot be empty")
 
         try:
             temperature = float(kwargs.get("temperature", self._config.temperature))

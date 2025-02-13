@@ -1,0 +1,190 @@
+---
+description: ALWAYS use when modifying project structure or implementing new features to ensure architectural integrity. This rule validates project structure, prevents anti-patterns, and ensures scalability.
+globs: ["pepperpy/**/*.py", "tests/**/*.py", "assets/**/*"]
+version: 1.0
+priority: critical
+tags: ["architecture", "structure", "validation", "anti-patterns"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>architecture_standards</n>
+    <description>ALWAYS use when modifying project structure or implementing new features to ensure architectural integrity. This rule validates project structure, prevents anti-patterns, and ensures scalability.</description>
+    <priority>critical</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>architecture</tag>
+      <tag>structure</tag>
+      <tag>validation</tag>
+      <tag>anti-patterns</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_operation</type>
+      <pattern>(create|move|modify)</pattern>
+      <description>Trigger on file operations that could affect architecture</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^tests/.*_test\.py$</pattern>
+          <message>Test files must be in /tests directory and follow naming convention</message>
+        </condition>
+        <condition>
+          <pattern>^assets/.*\.(md|txt|json|yaml)$</pattern>
+          <message>Assets must be in /assets directory</message>
+        </condition>
+        <condition>
+          <pattern>^pepperpy/(?!tests/).*\.py$</pattern>
+          <message>No test files allowed in main package directory</message>
+        </condition>
+        <condition>
+          <pattern>from\s+(\w+)\s+import.*\n.*from\s+\1\s+import</pattern>
+          <message>ARCH-REFACTOR: Potential circular dependency detected</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>reject</type>
+      <conditions>
+        <condition>
+          <pattern>"[A-Za-z0-9_-]{20,}"</pattern>
+          <message>CRITICAL-SECURITY: Hardcoded values detected</message>
+        </condition>
+      </conditions>
+    </action>
+  </actions>
+
+  <guidelines>
+    <directory_structure>
+      <root>
+        <directory name="tests">
+          <description>All test files must be here</description>
+          <structure>
+            <file>__init__.py</file>
+            <file>conftest.py</file>
+            <directory name="providers">
+              <file>test_openai.py</file>
+            </directory>
+            <directory name="common">
+              <file>test_config.py</file>
+            </directory>
+          </structure>
+        </directory>
+        
+        <directory name="assets">
+          <description>All project assets must be here</description>
+          <structure>
+            <directory name="prompts">
+              <directory name="agents"/>
+              <directory name="providers"/>
+            </directory>
+            <directory name="other_assets"/>
+          </structure>
+        </directory>
+        
+        <directory name="pepperpy">
+          <description>Main package code</description>
+          <structure>
+            <file>__init__.py</file>
+            <directory name="providers"/>
+            <directory name="agents"/>
+            <directory name="common"/>
+          </structure>
+        </directory>
+      </root>
+    </directory_structure>
+
+    <anti_patterns>
+      <pattern>
+        <n>Hardcoded Values</n>
+        <severity>CRITICAL-SECURITY</severity>
+        <action>Immediate rejection</action>
+        <example>
+          <incorrect>
+            <![CDATA[
+API_KEY = "hardcoded_key"  # CRITICAL-SECURITY
+            ]]>
+          </incorrect>
+          <correct>
+            <![CDATA[
+from pepperpy.core.config import config
+API_KEY = config.api_keys.openai
+            ]]>
+          </correct>
+        </example>
+      </pattern>
+      
+      <pattern>
+        <n>Circular Dependencies</n>
+        <severity>ARCH-REFACTOR</severity>
+        <action>Refactor required</action>
+      </pattern>
+      
+      <pattern>
+        <n>Direct Model Access</n>
+        <severity>MODEL-ACCESS</severity>
+        <action>Use provider abstraction</action>
+      </pattern>
+    </anti_patterns>
+
+    <core_components>
+      <component>
+        <n>Configuration Management</n>
+        <example>
+          <![CDATA[
+from pepperpy.core.config import PepperpyConfig
+
+config = PepperpyConfig()
+assert config.model_type in ["gpt-4", "claude-3"]  # Validate at startup
+          ]]>
+        </example>
+      </component>
+      
+      <component>
+        <n>Observability Stack</n>
+        <example>
+          <![CDATA[
+from pepperpy.monitoring import logger, tracer
+
+@tracer.start_as_current_span("operation_name")
+def tracked_operation():
+    logger.info("Operation started", operation_id=123)
+          ]]>
+        </example>
+      </component>
+      
+      <component>
+        <n>Memory Management</n>
+        <options>
+          <option>Short-term: Redis/In-memory cache</option>
+          <option>Medium-term: Vector store (FAISS/Chroma)</option>
+          <option>Long-term: Document store (PostgreSQL)</option>
+        </options>
+      </component>
+    </core_components>
+
+    <scalability>
+      <guideline>Design features using building-block principles for modularity</guideline>
+      <guideline>Avoid tight coupling or hardcoded dependencies</guideline>
+      <guideline>Ensure systems support horizontal scaling and extensibility</guideline>
+      <guideline>Use async/await for I/O-bound operations</guideline>
+      <guideline>Implement proper connection pooling</guideline>
+    </scalability>
+
+    <security>
+      <requirement>All external communications must be encrypted</requirement>
+      <requirement>API keys must be rotated regularly</requirement>
+      <requirement>Input validation on all external data</requirement>
+      <requirement>Rate limiting on API endpoints</requirement>
+      <requirement>Audit logging for sensitive operations</requirement>
+    </security>
+  </guidelines>
+</rule>
