@@ -50,6 +50,36 @@ tags: ["rules", "validation", "standards", "cursor"]
           <pattern>^version:\s*\d+\.\d+(\.\d+)?$</pattern>
           <message>Version must follow semantic versioning (MAJOR.MINOR.PATCH)</message>
         </condition>
+        <condition>
+          <pattern>^tags:\s*\[.*\]$</pattern>
+          <message>Tags must be defined in frontmatter as an array</message>
+        </condition>
+        <condition>
+          <pattern>^description:\s*(?:ALWAYS|NEVER|USE)\s+when.*$</pattern>
+          <message>Description must start with ALWAYS/NEVER/USE and describe when to apply the rule</message>
+        </condition>
+        <condition>
+          <pattern>^priority:\s*(critical|high|medium|low)$</pattern>
+          <message>Priority must be one of: critical, high, medium, low</message>
+        </condition>
+        <condition>
+          <pattern>(?s)<\?xml.*?<\/rule></pattern>
+          <message>File must contain well-formed XML with root rule element</message>
+        </condition>
+        <condition>
+          <pattern>(?s)<content>\s*<!\[CDATA\[.*?\]\]>\s*</content></pattern>
+          <message>Code examples must be wrapped in CDATA sections</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)<metadata>.*?<n>.*?</n>.*?<description>.*?</description>.*?<priority>.*?</priority>.*?<version>.*?</version>.*?<tags>.*?</tags>.*?</metadata></pattern>
+          <message>Metadata section must contain all required fields in correct order</message>
+        </condition>
       </conditions>
     </action>
 
@@ -164,6 +194,101 @@ priority: high
           <location>Subdirectories outside .cursor/rules</location>
           <location>Any other location</location>
         </prohibited_locations>
+      </guidelines>
+    </action>
+
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)<rule>\s*<metadata>.*?</metadata>\s*<filters>.*?</filters>\s*<actions>.*?</actions>\s*<(?:guidelines|examples)>.*?</rule></pattern>
+          <message>XML sections must be in order: metadata, filters, actions, [guidelines|examples]</message>
+        </condition>
+        <condition>
+          <pattern>^(?!.*?<n>(\w+)</n>.*?<n>\1</n>).*$</pattern>
+          <message>Rule names must be unique across all rule files</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)<!--[^>]*--></pattern>
+          <message>XML comments must be properly formatted and descriptive</message>
+        </condition>
+        <condition>
+          <pattern>^(?!  |\t)</pattern>
+          <message>XML must use consistent indentation (2 spaces)</message>
+        </condition>
+        <condition>
+          <pattern><[^>]+\s+[a-z]+="[^"]*"</pattern>
+          <message>XML attributes must use double quotes and lowercase names</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)<example>(?!.*?<version>)</pattern>
+          <message>Examples must include version information</message>
+        </condition>
+        <condition>
+          <pattern>(?s)<reference>(?!.*?<rule>.*?</rule>.*?<version>)</pattern>
+          <message>Rule references must include target rule name and version</message>
+        </condition>
+        <condition>
+          <pattern>(?s)<dependencies>(?!.*?<rule>.*?<min_version>.*?<max_version>)</pattern>
+          <message>Rule dependencies must specify version constraints</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <versioning>
+          <examples>
+            <rule>Include version information in examples</rule>
+            <rule>Update examples when referenced rules change</rule>
+            <example>
+              <![CDATA[
+<example>
+  <version>1.0</version>
+  <content>...</content>
+</example>
+              ]]>
+            </example>
+          </examples>
+          <references>
+            <rule>Specify rule name and version when referencing</rule>
+            <example>
+              <![CDATA[
+<reference>
+  <rule>core_standards</rule>
+  <version>1.0</version>
+</reference>
+              ]]>
+            </example>
+          </references>
+          <dependencies>
+            <rule>Define version constraints for dependencies</rule>
+            <example>
+              <![CDATA[
+<dependencies>
+  <rule>
+    <name>core_standards</name>
+    <min_version>1.0</min_version>
+    <max_version>2.0</max_version>
+  </rule>
+</dependencies>
+              ]]>
+            </example>
+          </dependencies>
+        </versioning>
       </guidelines>
     </action>
   </actions>

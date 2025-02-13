@@ -49,6 +49,83 @@ tags: ["architecture", "structure", "validation", "anti-patterns"]
           <pattern>from\s+(\w+)\s+import.*\n.*from\s+\1\s+import</pattern>
           <message>ARCH-REFACTOR: Potential circular dependency detected</message>
         </condition>
+        <condition>
+          <pattern>(class|def)\s+[^{:]+{[^}]*}|[^{:]+{[^}]*}</pattern>
+          <message>ARCH-REFACTOR: Module complexity exceeds recommended limits. Consider splitting into smaller components.</message>
+        </condition>
+        <condition>
+          <pattern>(?s)from\s+pepperpy\.(\w+)\s+import.*?from\s+pepperpy\.\1</pattern>
+          <message>Circular dependencies between modules are not allowed</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Provider\(BaseProvider\)</pattern>
+          <message>Provider classes must inherit from BaseProvider</message>
+        </condition>
+        <condition>
+          <pattern>(?s)def\s+(?:initialize|validate|execute|cleanup)</pattern>
+          <message>Providers must implement all required lifecycle methods</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Factory</pattern>
+          <message>Use Factory pattern for object creation when configuration is needed</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Builder</pattern>
+          <message>Use Builder pattern for complex object construction</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Strategy</pattern>
+          <message>Use Strategy pattern for interchangeable algorithms</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Repository</pattern>
+          <message>Use Repository pattern for data access abstraction</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Service</pattern>
+          <message>Use Service pattern for business logic encapsulation</message>
+        </condition>
+        <condition>
+          <pattern>(?s)@inject\s+def\s+__init__</pattern>
+          <message>Use dependency injection for loose coupling</message>
+        </condition>
+        <condition>
+          <pattern>from\s+(?!pepperpy|typing|pathlib|logging|asyncio|json|os|sys|re|datetime|uuid|enum|abc|collections|contextlib|functools|itertools|math|random|time|unittest)\w+\s+import</pattern>
+          <message>External dependencies must be documented in requirements.txt or pyproject.toml</message>
+        </condition>
+        <condition>
+          <pattern>@api\s+class|@api\s+def</pattern>
+          <message>Public APIs must be decorated with @api and include version information</message>
+        </condition>
+        <condition>
+          <pattern>(?s)@api.*?""".*?Args:.*?Returns:.*?"""</pattern>
+          <message>API endpoints must have complete docstrings with Args and Returns sections</message>
+        </condition>
+        <condition>
+          <pattern>raise\s+\w+(?!\([^)]*message=)</pattern>
+          <message>Exceptions must include descriptive error messages</message>
+        </condition>
+        <condition>
+          <pattern>except\s*:(?!\s*(?:pass|raise|return))</pattern>
+          <message>Bare except clauses are not allowed</message>
+        </condition>
+        <condition>
+          <pattern>print\(|logging\.(debug|info|warning|error|critical)\([^{]</pattern>
+          <message>Use structured logging with context dictionary</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>class\s+\w+API\w*\(.*?\):|@route\(.*?\)</pattern>
+          <message>API classes must include version in URL path (/v1/, /v2/, etc.)</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+API\w*\(.*?\):.*?def\s+(?:get|post|put|delete|patch)</pattern>
+          <message>API classes must implement standard HTTP methods</message>
+        </condition>
       </conditions>
     </action>
     <action>
@@ -59,6 +136,116 @@ tags: ["architecture", "structure", "validation", "anti-patterns"]
           <message>CRITICAL-SECURITY: Hardcoded values detected</message>
         </condition>
       </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <error_handling>
+          <exceptions>
+            <rule>Define custom exception classes for specific error cases</rule>
+            <rule>Include error codes and descriptive messages</rule>
+            <rule>Preserve exception context with 'from'</rule>
+            <example>
+              <![CDATA[
+class ValidationError(Exception):
+    def __init__(self, message: str, code: str):
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+try:
+    validate_input(data)
+except InputError as e:
+    raise ValidationError("Invalid input data", "VAL001") from e
+              ]]>
+            </example>
+          </exceptions>
+          <logging>
+            <rule>Use structured logging with context</rule>
+            <rule>Include correlation IDs</rule>
+            <rule>Add relevant metadata</rule>
+            <example>
+              <![CDATA[
+logger.error(
+    "Operation failed",
+    extra={
+        "operation_id": op_id,
+        "error_code": "ERR001",
+        "user_id": user.id,
+        "context": context
+    }
+)
+              ]]>
+            </example>
+          </logging>
+        </error_handling>
+        <dependency_injection>
+          <module_level>
+            <rule>Use dependency container for module-level dependencies</rule>
+            <example>
+              <![CDATA[
+from dependency_injector import containers, providers
+
+class Container(containers.DeclarativeContainer):
+    config = providers.Singleton(AppConfig)
+    db = providers.Singleton(Database, settings=config.provided.db)
+    service = providers.Factory(
+        UserService,
+        db=db,
+        logger=providers.Factory(Logger, "user_service")
+    )
+              ]]>
+            </example>
+          </module_level>
+        </dependency_injection>
+        <logging_patterns>
+          <message_format>
+            <rule>Use structured format with context</rule>
+            <rule>Include correlation ID</rule>
+            <rule>Add component name</rule>
+            <example>
+              <![CDATA[
+logger.info(
+    "Operation started",
+    extra={
+        "operation": "user_creation",
+        "correlation_id": request_id,
+        "component": "user_service",
+        "metadata": {
+            "user_type": user.type,
+            "features": enabled_features
+        }
+    }
+)
+              ]]>
+            </example>
+          </message_format>
+        </logging_patterns>
+        <component_configuration>
+          <rule>Use dataclasses for config</rule>
+          <rule>Validate at startup</rule>
+          <rule>Support environment overrides</rule>
+          <example>
+            <![CDATA[
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class DatabaseConfig:
+    host: str
+    port: int
+    username: str
+    password: str
+    pool_size: Optional[int] = 10
+
+    def validate(self) -> None:
+        if not self.host:
+            raise ValueError("Database host is required")
+        if not 1 <= self.port <= 65535:
+            raise ValueError("Invalid port number")
+            ]]>
+          </example>
+        </component_configuration>
+      </guidelines>
     </action>
   </actions>
 
@@ -186,5 +373,48 @@ def tracked_operation():
       <requirement>Rate limiting on API endpoints</requirement>
       <requirement>Audit logging for sensitive operations</requirement>
     </security>
+
+    <complexity_limits>
+      <limit>
+        <type>module_lines</type>
+        <max>500</max>
+        <message>Module should not exceed 500 lines</message>
+      </limit>
+      <limit>
+        <type>class_methods</type>
+        <max>20</max>
+        <message>Class should not have more than 20 methods</message>
+      </limit>
+      <limit>
+        <type>function_lines</type>
+        <max>50</max>
+        <message>Function should not exceed 50 lines</message>
+      </limit>
+      <limit>
+        <type>cyclomatic_complexity</type>
+        <max>10</max>
+        <message>Function cyclomatic complexity should not exceed 10</message>
+      </limit>
+    </complexity_limits>
+
+    <api_versioning>
+      <rules>
+        <rule>Use semantic versioning for APIs</rule>
+        <rule>Include version in URL path</rule>
+        <rule>Maintain backward compatibility</rule>
+        <rule>Document breaking changes</rule>
+      </rules>
+      <example>
+        <![CDATA[
+@api(version="1.0")
+class UserAPI:
+    """User management API endpoints.
+    
+    Version: 1.0
+    Base Path: /v1/users
+    """
+      ]]>
+      </example>
+    </api_versioning>
   </guidelines>
 </rule>

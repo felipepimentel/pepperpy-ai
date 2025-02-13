@@ -41,7 +41,111 @@ tags: ["python", "standards", "core", "best-practices"]
           <pattern>^(?!.*class\s+\w+).*$</pattern>
           <message>All classes must have docstrings</message>
         </condition>
+        <condition>
+          <pattern>"""[^"]*Args:[^"]*Returns:[^"]*"""</pattern>
+          <message>Docstrings must follow Google style with Args and Returns sections</message>
+        </condition>
+        <condition>
+          <pattern>^from\s+[^.]\w+\s+import|^import\s+[^.]\w+</pattern>
+          <message>Standard library imports must come first</message>
+        </condition>
+        <condition>
+          <pattern>^.{89,}$</pattern>
+          <message>Lines must not exceed 88 characters (Black default)</message>
+        </condition>
+        <condition>
+          <pattern>[A-Z][a-z]+(?:[A-Z][a-z]+)*\s*=</pattern>
+          <message>Variable names must use snake_case, not CamelCase</message>
+        </condition>
+        <condition>
+          <pattern>(?s)def\s+\w+\s*\([^)]*\):\s*(?:[^{]*{[^}]*}){4,}</pattern>
+          <message>Function cognitive complexity should not exceed 4 nested blocks</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+.*?(?:(?:if|for|while|try)[^:]*:[^{]*{[^}]*}){5,}</pattern>
+          <message>Class cognitive complexity should not exceed 5 control structures</message>
+        </condition>
+        <condition>
+          <pattern>from\s+\.\s+import|from\s+\.\.</pattern>
+          <message>Use absolute imports instead of relative imports</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+.*?def\s+__init__.*?def\s+_[^_].*?def\s+[a-z]</pattern>
+          <message>Class methods must be ordered: __init__, private methods (_), public methods</message>
+        </condition>
+        <condition>
+          <pattern>[a-z][A-Z0-9_]*\s*=\s*(?:True|False|None|\d+|"[^"]*"|'[^']*'|\[.*?\]|{.*?})</pattern>
+          <message>Constants must be UPPERCASE</message>
+        </condition>
+        <condition>
+          <pattern>async\s+def\s+\w+\s*\([^)]*\)\s*(?!->\s*(?:Coroutine|Awaitable|AsyncGenerator|AsyncIterator))</pattern>
+          <message>Async functions must have proper return type annotations (Coroutine, Awaitable, etc.)</message>
+        </condition>
+        <condition>
+          <pattern>try:\s*(?:from|import)</pattern>
+          <message>Import statements should not be inside try blocks, use import_optional helper instead</message>
+        </condition>
+        <condition>
+          <pattern>@\w+.*?\ndef\s+\w+[^\"]*$</pattern>
+          <message>Decorated functions must have docstrings</message>
+        </condition>
       </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <imports>
+          <rule>Always use absolute imports from project root</rule>
+          <rule>Avoid relative imports (./ or ../)</rule>
+          <rule>Group imports by standard lib, third-party, local</rule>
+        </imports>
+        <test_coverage>
+          <minimum_coverage>80%</minimum_coverage>
+          <critical_paths>95%</critical_paths>
+          <requirements>
+            <requirement>Unit tests for all public methods</requirement>
+            <requirement>Integration tests for API endpoints</requirement>
+            <requirement>Property-based tests for data models</requirement>
+            <requirement>Mutation tests for critical paths</requirement>
+          </requirements>
+        </test_coverage>
+        <constants>
+          <rule>Use UPPERCASE for module-level constants</rule>
+          <rule>Use _UPPERCASE for module-private constants</rule>
+          <example>
+            <![CDATA[
+MAX_RETRIES = 3
+DEFAULT_TIMEOUT = 30
+_INTERNAL_BUFFER_SIZE = 1024
+            ]]>
+          </example>
+        </constants>
+        <async_functions>
+          <rule>Use proper return type hints for async functions</rule>
+          <example>
+            <![CDATA[
+async def fetch_data() -> Coroutine[Any, Any, List[Dict[str, Any]]]:
+    """Fetch data asynchronously.
+    
+    Returns:
+        Coroutine returning list of data dictionaries
+    """
+            ]]>
+          </example>
+        </async_functions>
+        <imports_handling>
+          <rule>Use import_optional helper for conditional imports</rule>
+          <example>
+            <![CDATA[
+from pepperpy.utils.imports import import_optional
+
+numpy = import_optional("numpy")
+if numpy is not None:
+    # Use numpy
+            ]]>
+          </example>
+        </imports_handling>
+      </guidelines>
     </action>
   </actions>
 

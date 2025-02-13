@@ -34,12 +34,59 @@ tags: ["file-management", "structure", "organization", "standards"]
       <type>validate</type>
       <conditions>
         <condition>
-          <pattern>^[a-z][a-z0-9_]*\.py$</pattern>
-          <message>Python files must use snake_case naming</message>
+          <pattern>(?s)^# Copyright.*?\n# Licensed under.*?\n# See LICENSE for details.*?\n</pattern>
+          <message>Python files must have copyright and license headers</message>
         </condition>
         <condition>
-          <pattern>^__init__\.py$</pattern>
-          <message>Directory must contain __init__.py with purpose documentation</message>
+          <pattern>^[a-z][a-z0-9_]*\.py$</pattern>
+          <message>Python file names must be lowercase with underscores</message>
+        </condition>
+        <condition>
+          <pattern>^[A-Z][a-zA-Z0-9]*\.py$</pattern>
+          <message>Class-based Python files must use PascalCase</message>
+        </condition>
+        <condition>
+          <pattern>^test_.*\.py$</pattern>
+          <message>Test files must be prefixed with test_</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^pepperpy/(?:core|providers|utils|cli|tests)/.*$</pattern>
+          <message>Files must be organized in appropriate module directories</message>
+        </condition>
+        <condition>
+          <pattern>^(?!.*__pycache__/).*$</pattern>
+          <message>Generated files like __pycache__ should not be committed</message>
+        </condition>
+        <condition>
+          <pattern>^(?!.*\.pyc$).*$</pattern>
+          <message>Compiled Python files (.pyc) should not be committed</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^(?:README\.md|LICENSE|CONTRIBUTING\.md|requirements\.txt|setup\.py|pyproject\.toml)$</pattern>
+          <message>Project root must contain standard documentation files</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^.{0,1048576}$</pattern>
+          <message>File size must not exceed 1MB</message>
+        </condition>
+        <condition>
+          <pattern>^(?!.*\.(?:exe|dll|so|dylib)$).*$</pattern>
+          <message>Binary executables are not allowed</message>
         </condition>
       </conditions>
     </action>
@@ -98,6 +145,120 @@ tags: ["file-management", "structure", "organization", "standards"]
             <purpose>Checks for potential duplicate files</purpose>
           </script>
         </validation_scripts>
+
+        <file_requirements>
+          <encoding>UTF-8</encoding>
+          <line_endings>LF</line_endings>
+          <permissions>644</permissions>
+          <max_size>1MB</max_size>
+        </file_requirements>
+      </guidelines>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^[\x00-\x7F\x80-\xFF]*$</pattern>
+          <message>Files must be UTF-8 encoded</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^(?!.*\.(tmp|temp|swp|bak|log|old)$).*$</pattern>
+          <message>Temporary, backup, and log files should not be committed</message>
+        </condition>
+        <condition>
+          <pattern>^(?!.*~$).*$</pattern>
+          <message>Editor backup files should not be committed</message>
+        </condition>
+        <condition>
+          <pattern>^(?!.*\.(gz|zip|tar|rar)$).*$</pattern>
+          <message>Archive files should not be committed</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <ignored_files>
+          <patterns>
+            <pattern>*.tmp</pattern>
+            <pattern>*.temp</pattern>
+            <pattern>*.swp</pattern>
+            <pattern>*.bak</pattern>
+            <pattern>*.log</pattern>
+            <pattern>*.old</pattern>
+            <pattern>*~</pattern>
+            <pattern>*.gz</pattern>
+            <pattern>*.zip</pattern>
+            <pattern>*.tar</pattern>
+            <pattern>*.rar</pattern>
+          </patterns>
+          <locations>
+            <location>logs/</location>
+            <location>temp/</location>
+            <location>backup/</location>
+          </locations>
+        </ignored_files>
+      </guidelines>
+    </action>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^(?!.*->).*$</pattern>
+          <message>Symbolic links are not allowed, use relative imports instead</message>
+        </condition>
+        <condition>
+          <pattern>^(?!\.(?!cursor|git|github|gitignore|pytest)).*$</pattern>
+          <message>Hidden files are not allowed except for specific tool configurations</message>
+        </condition>
+        <condition>
+          <pattern>^(?!/|~/).*$</pattern>
+          <message>Use relative paths instead of absolute paths</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <path_management>
+          <symlinks>
+            <rule>Avoid symbolic links in project</rule>
+            <rule>Use relative imports for code references</rule>
+            <rule>Use configuration for resource locations</rule>
+          </symlinks>
+          <hidden_files>
+            <allowed>
+              <file>.cursor/</file>
+              <file>.git/</file>
+              <file>.github/</file>
+              <file>.gitignore</file>
+              <file>.pytest_cache/</file>
+            </allowed>
+            <prohibited>
+              <pattern>.*</pattern>
+              <message>Hidden files must be explicitly allowed</message>
+            </prohibited>
+          </hidden_files>
+          <paths>
+            <rule>Use relative paths from project root</rule>
+            <rule>Configure base paths in settings</rule>
+            <example>
+              <![CDATA[
+# Bad
+path = "/home/user/project/data"
+
+# Good
+from pepperpy.config import settings
+path = settings.data_dir / "file.txt"
+              ]]>
+            </example>
+          </paths>
+        </path_management>
       </guidelines>
     </action>
   </actions>

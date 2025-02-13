@@ -226,4 +226,350 @@ class SecurityConfig(SecureConfig):
     min_password_length: int = 12
     require_mfa: bool = True
     session_timeout: int = 3600
-``` 
+```
+
+---
+description: ALWAYS use when implementing security-related features or handling sensitive data. This rule defines security standards, authentication, authorization, and data protection guidelines.
+globs: ["**/*.py"]
+version: 1.0
+priority: critical
+tags: ["security", "authentication", "authorization", "encryption"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>security_standards</n>
+    <description>ALWAYS use when implementing security-related features or handling sensitive data. This rule defines security standards, authentication, authorization, and data protection guidelines.</description>
+    <priority>critical</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>security</tag>
+      <tag>authentication</tag>
+      <tag>authorization</tag>
+      <tag>encryption</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_extension</type>
+      <pattern>\.py$</pattern>
+      <description>Match Python files</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>"[A-Za-z0-9_-]{20,}"</pattern>
+          <message>CRITICAL: Potential hardcoded secret detected</message>
+        </condition>
+        <condition>
+          <pattern>password\s*=\s*['"][^'"]+['"]</pattern>
+          <message>CRITICAL: Hardcoded password detected</message>
+        </condition>
+        <condition>
+          <pattern>api_key\s*=\s*['"][^'"]+['"]</pattern>
+          <message>CRITICAL: Hardcoded API key detected</message>
+        </condition>
+        <condition>
+          <pattern>token\s*=\s*['"][^'"]+['"]</pattern>
+          <message>CRITICAL: Hardcoded token detected</message>
+        </condition>
+        <condition>
+          <pattern>@app\.route.*?methods=\['GET'\].*?def\s+\w+\s*\([^)]*\)\s*:(?![^{]*?@login_required)</pattern>
+          <message>Public endpoints must explicitly document security considerations</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>hashlib\.md5\(|hashlib\.sha1\(</pattern>
+          <message>Use strong hashing algorithms (SHA-256 or better)</message>
+        </condition>
+        <condition>
+          <pattern>random\.|random\.random\(</pattern>
+          <message>Use secrets module for cryptographic operations</message>
+        </condition>
+        <condition>
+          <pattern>pickle\.loads?\(|marshal\.loads?\(|yaml\.load\((?!.*?Loader=yaml\.SafeLoader)</pattern>
+          <message>Use safe deserialization methods</message>
+        </condition>
+        <condition>
+          <pattern>eval\(|exec\(</pattern>
+          <message>CRITICAL: Avoid using eval() or exec()</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>@requires_auth(?!.*?scope=)</pattern>
+          <message>Authorization decorators must specify required scopes</message>
+        </condition>
+        <condition>
+          <pattern>jwt\.decode\((?!.*?verify=True)</pattern>
+          <message>JWT tokens must be verified during decoding</message>
+        </condition>
+        <condition>
+          <pattern>@app\.route.*?def\s+\w+\s*\([^)]*\)\s*:(?![^{]*?rate_limit)</pattern>
+          <message>API endpoints should implement rate limiting</message>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <authentication>
+          <rules>
+            <rule>Use strong password hashing (Argon2, bcrypt)</rule>
+            <rule>Implement MFA where possible</rule>
+            <rule>Use secure session management</rule>
+            <rule>Rotate session tokens regularly</rule>
+          </rules>
+          <example>
+            <![CDATA[
+from argon2 import PasswordHasher
+
+def hash_password(password: str) -> str:
+    """Hash password using Argon2.
+    
+    Args:
+        password: Plain text password
+        
+    Returns:
+        str: Hashed password
+    """
+    ph = PasswordHasher()
+    return ph.hash(password)
+            ]]>
+          </example>
+        </authentication>
+
+        <authorization>
+          <rules>
+            <rule>Implement role-based access control</rule>
+            <rule>Use principle of least privilege</rule>
+            <rule>Validate all user input</rule>
+            <rule>Log security events</rule>
+          </rules>
+          <example>
+            <![CDATA[
+@requires_auth(scope=["admin"])
+@rate_limit(max_requests=100, period=60)
+def admin_endpoint():
+    """Protected admin endpoint.
+    
+    Requires:
+        - Valid authentication
+        - Admin scope
+        - Rate limit compliance
+    """
+    audit_log.info("Admin action", extra={"user": g.user, "action": "admin_access"})
+            ]]>
+          </example>
+        </authorization>
+
+        <data_protection>
+          <rules>
+            <rule>Encrypt sensitive data at rest</rule>
+            <rule>Use TLS for data in transit</rule>
+            <rule>Implement proper key management</rule>
+            <rule>Regular security audits</rule>
+          </rules>
+          <example>
+            <![CDATA[
+from cryptography.fernet import Fernet
+from pepperpy.config import get_encryption_key
+
+def encrypt_sensitive_data(data: str) -> str:
+    """Encrypt sensitive data using Fernet.
+    
+    Args:
+        data: Sensitive data to encrypt
+        
+    Returns:
+        str: Encrypted data
+        
+    Raises:
+        EncryptionError: If encryption fails
+    """
+    try:
+        key = get_encryption_key()
+        f = Fernet(key)
+        return f.encrypt(data.encode()).decode()
+    except Exception as e:
+        raise EncryptionError(f"Failed to encrypt data: {e}")
+            ]]>
+          </example>
+        </data_protection>
+
+        <input_validation>
+          <rules>
+            <rule>Validate all user input</rule>
+            <rule>Use parameterized queries</rule>
+            <rule>Implement content security policies</rule>
+            <rule>Sanitize output</rule>
+          </rules>
+          <example>
+            <![CDATA[
+from pepperpy.security import validate_input, sanitize_output
+
+@app.route("/api/data")
+@requires_auth(scope=["read"])
+@rate_limit(max_requests=1000, period=3600)
+def get_data():
+    """Get data endpoint with security measures.
+    
+    Security:
+        - Input validation
+        - Authentication required
+        - Rate limiting
+        - Output sanitization
+    """
+    try:
+        input_data = validate_input(request.args)
+        result = process_data(input_data)
+        return jsonify(sanitize_output(result))
+    except ValidationError as e:
+        audit_log.warning(
+            "Invalid input",
+            extra={
+                "user": g.user,
+                "error": str(e),
+                "input": request.args
+            }
+        )
+        return jsonify({"error": "Invalid input"}), 400
+            ]]>
+          </example>
+        </input_validation>
+
+        <security_headers>
+          <rules>
+            <rule>Set secure headers</rule>
+            <rule>Enable CORS properly</rule>
+            <rule>Use CSP headers</rule>
+            <rule>Enable HSTS</rule>
+          </rules>
+          <example>
+            <![CDATA[
+@app.after_request
+def add_security_headers(response):
+    """Add security headers to all responses."""
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    response.headers['Content-Security-Policy'] = "default-src 'self'"
+    return response
+            ]]>
+          </example>
+        </security_headers>
+      </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <correct>
+        <case type="secure_endpoint">
+          <description>Properly secured API endpoint</description>
+          <content>
+            <![CDATA[
+@app.route("/api/v1/users/<user_id>", methods=["PUT"])
+@requires_auth(scope=["users:write"])
+@rate_limit(max_requests=100, period=60)
+def update_user(user_id: str) -> Response:
+    """Update user endpoint with security measures.
+    
+    Security:
+        - Authentication required with specific scope
+        - Rate limiting
+        - Input validation
+        - Audit logging
+        - Error handling
+    
+    Args:
+        user_id: ID of user to update
+        
+    Returns:
+        Response: JSON response
+        
+    Raises:
+        AuthError: If authentication fails
+        ValidationError: If input is invalid
+    """
+    try:
+        audit_log.info(
+            "User update attempt",
+            extra={
+                "user_id": user_id,
+                "requester": g.user,
+                "ip": request.remote_addr
+            }
+        )
+        
+        data = validate_input(request.json)
+        user = update_user_secure(user_id, data)
+        
+        audit_log.info(
+            "User updated successfully",
+            extra={
+                "user_id": user_id,
+                "requester": g.user,
+                "changes": data
+            }
+        )
+        
+        return jsonify(sanitize_output(user))
+    except Exception as e:
+        audit_log.error(
+            "User update failed",
+            extra={
+                "user_id": user_id,
+                "requester": g.user,
+                "error": str(e)
+            }
+        )
+        raise
+            ]]>
+          </content>
+        </case>
+      </correct>
+      <incorrect>
+        <case type="insecure_endpoint">
+          <description>Insecure implementation</description>
+          <content>
+            <![CDATA[
+@app.route("/api/users/<user_id>", methods=["PUT"])
+def update_user(user_id):
+    # Bad: No authentication
+    # Bad: No rate limiting
+    # Bad: No input validation
+    # Bad: No audit logging
+    user = db.users.update(user_id, request.json)
+    return jsonify(user)
+            ]]>
+          </content>
+          <errors>
+            <e>Missing authentication</e>
+            <e>Missing rate limiting</e>
+            <e>No input validation</e>
+            <e>No audit logging</e>
+            <e>Unsafe direct usage of request.json</e>
+          </errors>
+        </case>
+      </incorrect>
+    </example>
+  </examples>
+</rule> 
