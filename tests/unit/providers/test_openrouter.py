@@ -1,11 +1,12 @@
 """Tests for the OpenRouter provider."""
 
 import os
+from collections.abc import AsyncIterator
 from typing import Any, Dict, cast
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAIError
 from openai._types import NOT_GIVEN
 from openai.types.chat import (
     ChatCompletion,
@@ -13,6 +14,7 @@ from openai.types.chat import (
     ChatCompletionMessage,
 )
 from openai.types.chat.chat_completion_chunk import Choice, ChoiceDelta
+from pydantic import SecretStr
 
 from pepperpy.core.messages import Message
 from pepperpy.core.types import MessageType, Response, ResponseStatus
@@ -451,8 +453,8 @@ async def test_stream_with_custom_params(
 @pytest.mark.asyncio
 async def test_stream_error(provider: OpenRouterProvider, mock_openai_client):
     """Test error handling during streaming."""
-    mock_openai_client.chat.completions.create.side_effect = Exception(
-        "Streaming failed"
+    mock_openai_client.chat.completions.create.side_effect = OpenAIError(
+        "API rate limit exceeded"
     )
 
     # Initialize provider
@@ -470,7 +472,7 @@ async def test_stream_error(provider: OpenRouterProvider, mock_openai_client):
         with pytest.raises(ProviderError) as exc_info:
             async for _ in provider.stream([message]):
                 pass
-        assert "Streaming failed" in str(exc_info.value)
+        assert "API rate limit exceeded" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
@@ -507,3 +509,474 @@ async def test_send_message(provider: OpenRouterProvider, mock_openai_client):
             max_tokens=2048,
             stop=NOT_GIVEN,
         )
+
+
+@pytest.mark.asyncio
+async def test_complete(provider: OpenRouterProvider, mock_openai_client):
+    """Test complete method."""
+    # Setup mock response
+    mock_completion = MagicMock(spec=ChatCompletion)
+    mock_message = MagicMock(spec=ChatCompletionMessage)
+    mock_message.content = "Generated response"
+    mock_completion.choices = [MagicMock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_completion
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Test complete method
+        result = await provider.complete(
+            "Test prompt",
+            temperature=0.5,
+            max_tokens=1000,
+            stream=False,
+        )
+
+        assert isinstance(result, str)
+        assert result == "Generated response"
+
+        # Verify client call
+        mock_openai_client.chat.completions.create.assert_called_once_with(
+            messages=[{"role": "user", "content": "Test prompt"}],
+            model="openai/gpt-4",
+            temperature=0.5,
+            max_tokens=1000,
+            stream=False,
+            stop=NOT_GIVEN,
+        )
+
+
+@pytest.mark.asyncio
+async def test_complete_with_stream(provider: OpenRouterProvider, mock_openai_client):
+    """Test complete method with streaming."""
+
+    # Setup mock response chunks
+    async def mock_stream():
+        chunks = [
+            ChatCompletionChunk(
+                id="chunk1",
+                choices=[
+                    Choice(
+                        delta=ChoiceDelta(content="Hello"),
+                        finish_reason=None,
+                        index=0,
+                        logprobs=None,
+                    )
+                ],
+                model="gpt-4",
+                object="chat.completion.chunk",
+                created=1234567890,
+                system_fingerprint=None,
+            ),
+            ChatCompletionChunk(
+                id="chunk2",
+                choices=[
+                    Choice(
+                        delta=ChoiceDelta(content=" world"),
+                        finish_reason=None,
+                        index=0,
+                        logprobs=None,
+                    )
+                ],
+                model="gpt-4",
+                object="chat.completion.chunk",
+                created=1234567890,
+                system_fingerprint=None,
+            ),
+        ]
+        for chunk in chunks:
+            yield chunk
+
+    mock_openai_client.chat.completions.create.return_value = mock_stream()
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Test complete method with streaming
+        result = await provider.complete(
+            "Test prompt",
+            temperature=0.5,
+            max_tokens=1000,
+            stream=True,
+        )
+
+        # Collect all chunks
+        chunks = []
+        async for chunk in cast(AsyncIterator[str], result):
+            chunks.append(chunk)
+
+        assert len(chunks) == 2
+        assert chunks[0] == "Hello"
+        assert chunks[1] == " world"
+
+        # Verify client call
+        mock_openai_client.chat.completions.create.assert_called_once_with(
+            messages=[{"role": "user", "content": "Test prompt"}],
+            model="openai/gpt-4",
+            temperature=0.5,
+            max_tokens=1000,
+            stream=True,
+            stop=NOT_GIVEN,
+        )
+
+
+@pytest.mark.asyncio
+async def test_complete_error(provider: OpenRouterProvider, mock_openai_client):
+    """Test error handling in complete method."""
+    mock_openai_client.chat.completions.create.side_effect = OpenAIError("API error")
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        with pytest.raises(ProviderError) as exc_info:
+            await provider.complete("Test prompt")
+        assert "API error" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_chat_completion(provider: OpenRouterProvider, mock_openai_client):
+    """Test chat completion method."""
+    # Setup mock response
+    mock_completion = MagicMock(spec=ChatCompletion)
+    mock_message = MagicMock(spec=ChatCompletionMessage)
+    mock_message.content = "Generated response"
+    mock_completion.choices = [MagicMock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_completion
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Create test messages
+        messages = [
+            Message(
+                id="12345678-1234-5678-1234-567812345678",
+                content="Test message",
+                metadata={"role": "user"},
+            )
+        ]
+
+        # Test chat completion
+        result = await provider.chat_completion(
+            model="openai/gpt-4",
+            messages=messages,
+            temperature=0.5,
+            max_tokens=1000,
+            stop_sequences=["stop"],
+        )
+
+        assert isinstance(result, str)
+        assert result == "Generated response"
+
+        # Verify client call
+        mock_openai_client.chat.completions.create.assert_called_once_with(
+            messages=[{"role": "user", "content": "Test message"}],
+            model="openai/gpt-4",
+            temperature=0.5,
+            max_tokens=1000,
+            stream=False,
+            stop=["stop"],
+        )
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_error(provider: OpenRouterProvider, mock_openai_client):
+    """Test error handling in chat completion method."""
+    mock_openai_client.chat.completions.create.side_effect = OpenAIError("API error")
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        messages = [
+            Message(
+                id="12345678-1234-5678-1234-567812345678",
+                content="Test message",
+                metadata={"role": "user"},
+            )
+        ]
+
+        with pytest.raises(ProviderError) as exc_info:
+            await provider.chat_completion("openai/gpt-4", messages)
+        assert "API error" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_stream_empty_choices(provider: OpenRouterProvider, mock_openai_client):
+    """Test streaming with empty choices."""
+
+    # Setup mock response chunks
+    async def mock_stream():
+        chunks = [
+            ChatCompletionChunk(
+                id="chunk1",
+                choices=[],  # Empty choices
+                model="gpt-4",
+                object="chat.completion.chunk",
+                created=1234567890,
+                system_fingerprint=None,
+            ),
+            ChatCompletionChunk(
+                id="chunk2",
+                choices=[
+                    Choice(
+                        delta=ChoiceDelta(content=None),
+                        finish_reason=None,
+                        index=0,
+                        logprobs=None,
+                    )
+                ],
+                model="gpt-4",
+                object="chat.completion.chunk",
+                created=1234567890,
+                system_fingerprint=None,
+            ),
+        ]
+        for chunk in chunks:
+            yield chunk
+
+    mock_openai_client.chat.completions.create.return_value = mock_stream()
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Create test message
+        message = Message(
+            id="12345678-1234-5678-1234-567812345678",
+            content="Test message",
+        )
+
+        # Stream responses
+        responses = []
+        async for response in provider.stream([message]):
+            responses.append(response)
+
+        # Verify no responses were generated for empty choices/content
+        assert len(responses) == 0
+
+
+@pytest.mark.asyncio
+async def test_stream_with_invalid_response(
+    provider: OpenRouterProvider, mock_openai_client
+):
+    """Test streaming with invalid response format."""
+
+    # Setup mock response chunks with invalid format
+    async def mock_stream():
+        chunks = [
+            ChatCompletionChunk(
+                id="chunk1",
+                choices=[
+                    Choice(
+                        delta=ChoiceDelta(content=None),  # Invalid content
+                        finish_reason=None,
+                        index=0,
+                        logprobs=None,
+                    )
+                ],
+                model="gpt-4",
+                object="chat.completion.chunk",
+                created=1234567890,
+                system_fingerprint=None,
+            )
+        ]
+        for chunk in chunks:
+            yield chunk
+
+    mock_openai_client.chat.completions.create.return_value = mock_stream()
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Create test message
+        message = Message(
+            id="12345678-1234-5678-1234-567812345678",
+            content="Test message",
+        )
+
+        # Stream responses
+        responses = []
+        async for response in provider.stream([message]):
+            responses.append(response)
+
+        # Verify no responses were generated for invalid content
+        assert len(responses) == 0
+
+
+@pytest.mark.asyncio
+async def test_stream_with_custom_stop_sequences(
+    provider: OpenRouterProvider, mock_openai_client
+):
+    """Test streaming with custom stop sequences."""
+
+    # Setup mock response
+    async def mock_stream():
+        chunks = [
+            ChatCompletionChunk(
+                id="chunk1",
+                choices=[
+                    Choice(
+                        delta=ChoiceDelta(content="Hello"),
+                        finish_reason=None,
+                        index=0,
+                        logprobs=None,
+                    )
+                ],
+                model="gpt-4",
+                object="chat.completion.chunk",
+                created=1234567890,
+                system_fingerprint=None,
+            )
+        ]
+        for chunk in chunks:
+            yield chunk
+
+    mock_openai_client.chat.completions.create.return_value = mock_stream()
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Create test message
+        message = Message(
+            id="12345678-1234-5678-1234-567812345678",
+            content="Test message",
+        )
+
+        # Stream responses with custom stop sequences
+        responses = []
+        async for response in provider.stream(
+            [message],
+            **{
+                "stop_sequences": ["STOP"],
+                "temperature": 0.5,
+                "max_tokens": 1000,
+            },
+        ):
+            responses.append(response)
+
+        assert len(responses) == 1
+        assert responses[0].content["content"]["text"] == "Hello"
+
+
+@pytest.mark.asyncio
+async def test_initialization_with_invalid_config(mock_openai_client):
+    """Test initialization with invalid configuration."""
+    config = OpenRouterConfig(
+        provider_type="openrouter",
+        api_key=SecretStr(""),  # Invalid API key
+        model="invalid-model",
+        temperature=-1.0,  # Invalid temperature
+        max_tokens=-100,  # Invalid max_tokens
+    )
+    provider = OpenRouterProvider(config)
+
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        with pytest.raises(ProviderConfigError) as exc_info:
+            await provider.initialize()
+        assert "Invalid config" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_stream_with_api_error(provider: OpenRouterProvider, mock_openai_client):
+    """Test streaming with API error."""
+    mock_openai_client.chat.completions.create.side_effect = OpenAIError(
+        "API rate limit exceeded"
+    )
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        message = Message(
+            id="12345678-1234-5678-1234-567812345678",
+            content="Test message",
+        )
+
+        with pytest.raises(ProviderError) as exc_info:
+            async for _ in provider.stream([message]):
+                pass
+        assert "API rate limit exceeded" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_with_invalid_messages(
+    provider: OpenRouterProvider, mock_openai_client
+):
+    """Test chat completion with invalid messages."""
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        # Test with empty messages list
+        with pytest.raises(ValueError) as exc_info:
+            await provider.chat_completion("openai/gpt-4", [])
+        assert "No messages provided" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_with_empty_response(
+    provider: OpenRouterProvider, mock_openai_client
+):
+    """Test chat completion with empty response."""
+    # Setup mock response with empty content
+    mock_completion = MagicMock(spec=ChatCompletion)
+    mock_message = MagicMock(spec=ChatCompletionMessage)
+    mock_message.content = ""
+    mock_completion.choices = [MagicMock(message=mock_message)]
+    mock_openai_client.chat.completions.create.return_value = mock_completion
+
+    # Initialize provider
+    with patch(
+        "pepperpy.providers.services.openrouter.AsyncOpenAI",
+        return_value=mock_openai_client,
+    ):
+        await provider.initialize()
+
+        messages = [
+            Message(
+                id="12345678-1234-5678-1234-567812345678",
+                content="Test message",
+            )
+        ]
+
+        result = await provider.chat_completion("openai/gpt-4", messages)
+        assert result == ""  # Should handle empty response gracefully

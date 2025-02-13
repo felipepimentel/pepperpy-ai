@@ -22,7 +22,7 @@ from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
 from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
-from pydantic import ConfigDict, Field, SecretStr
+from pydantic import ConfigDict, Field, SecretStr, field_validator
 
 from pepperpy.core.messages import Message
 from pepperpy.core.types import MessageContent, MessageType, Response, ResponseStatus
@@ -80,6 +80,30 @@ class OpenRouterConfig(ProviderConfig):
     max_retries: int = Field(default=3, description="Maximum number of retries")
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("temperature")
+    def validate_temperature(cls, v: float) -> float:
+        if not 0.0 <= v <= 1.0:
+            raise ValueError("Temperature must be between 0.0 and 1.0")
+        return v
+
+    @field_validator("max_tokens")
+    def validate_max_tokens(cls, v: int) -> int:
+        if v <= 0:
+            raise ValueError("max_tokens must be greater than 0")
+        return v
+
+    @field_validator("timeout")
+    def validate_timeout(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("timeout must be greater than 0")
+        return v
+
+    @field_validator("max_retries")
+    def validate_max_retries(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError("max_retries must be greater than or equal to 0")
+        return v
 
 
 class OpenRouterProvider(BaseProvider):
@@ -290,16 +314,18 @@ class OpenRouterProvider(BaseProvider):
 
             # Get generation parameters
             model = str(kwargs.get("model", self._config.model))
-            temperature = (
-                float(self._config.temperature)
-                if "temperature" not in kwargs
-                else float(kwargs["temperature"])
-            )  # type: ignore
-            max_tokens = (
-                int(self._config.max_tokens)
-                if "max_tokens" not in kwargs
-                else int(kwargs["max_tokens"])
-            )  # type: ignore
+            temperature = self._config.temperature
+            max_tokens = self._config.max_tokens
+
+            # Override with kwargs if provided
+            if "temperature" in kwargs:
+                temp_val = cast(dict[str, Any], kwargs)["temperature"]
+                if temp_val is not None:
+                    temperature = float(temp_val)
+            if "max_tokens" in kwargs:
+                tokens_val = cast(dict[str, Any], kwargs)["max_tokens"]
+                if tokens_val is not None:
+                    max_tokens = int(tokens_val)
 
             # Create streaming response
             stream = await self._client.chat.completions.create(
@@ -321,17 +347,12 @@ class OpenRouterProvider(BaseProvider):
 
                 yield Response(
                     id=uuid4(),
-                    message_id=messages[-1].id,
+                    message_id=str(messages[-1].id),
                     content={
                         "type": MessageType.RESPONSE,
                         "content": {"text": delta.content},
                     },
                     status=ResponseStatus.SUCCESS,
-                    metadata={
-                        "model": model,
-                        "temperature": str(temperature),
-                        "max_tokens": str(max_tokens),
-                    },
                 )
 
         except Exception as e:
@@ -386,7 +407,7 @@ class OpenRouterProvider(BaseProvider):
             stop = (
                 cast(list[str], stop_sequences)
                 if stop_sequences is not None
-                else NotGiven()
+                else NOT_GIVEN
             )
 
             if stream:
@@ -480,7 +501,7 @@ class OpenRouterProvider(BaseProvider):
             stop = (
                 cast(list[str], stop_sequences)
                 if stop_sequences is not None
-                else NotGiven()
+                else NOT_GIVEN
             )
 
             converted_messages = self._convert_messages(messages)
