@@ -21,9 +21,11 @@ from typing import (
     List,
     Literal,
     NewType,
+    Optional,
     Protocol,
     TypedDict,
     TypeVar,
+    Union,
     runtime_checkable,
 )
 from uuid import UUID, uuid4
@@ -84,14 +86,15 @@ class ResearchResults(BaseModel):
         return dict(v)
 
 
-class MessageType(str, Enum):
-    """Types of messages that can be exchanged."""
+class MessageType(Enum):
+    """Types of messages that can be exchanged between agents."""
 
-    USER = "user"
-    ASSISTANT = "assistant"
-    SYSTEM = "system"
-    COMMAND = "command"
-    RESPONSE = "response"
+    QUERY = auto()
+    RESPONSE = auto()
+    ERROR = auto()
+    STATUS = auto()
+    RESULT = auto()
+    COMMAND = auto()  # Added for workflow control
 
 
 class MessageContent(TypedDict):
@@ -101,12 +104,22 @@ class MessageContent(TypedDict):
     content: Dict[str, Any]
 
 
-class Message(BaseModel):
-    """A message that can be exchanged between components."""
+@dataclass
+class Message:
+    """A message that can be exchanged between agents.
 
-    id: str
+    Attributes:
+        id: Unique identifier for the message.
+        content: The content of the message (can be string or dict).
+        type: The type of message.
+        metadata: Optional metadata associated with the message.
+
+    """
+
+    content: Union[str, Dict[str, Any]]
     type: MessageType
-    content: Dict[str, Any]
+    id: UUID = uuid4()
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class ResponseStatus(str, Enum):

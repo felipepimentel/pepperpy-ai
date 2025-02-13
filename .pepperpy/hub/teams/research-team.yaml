@@ -1,0 +1,29 @@
+name: research-team
+description: "Expert research team combining research and writing capabilities"
+version: "0.1.0"
+
+agents:
+  - name: researcher
+    capabilities:
+      - research
+      - analyze
+      - summarize
+    config:
+      style: "academic"
+      depth: "comprehensive"
+
+  - name: writer
+    capabilities:
+      - write
+      - edit
+      - adapt
+    config:
+      style: "technical"
+      tone: "professional"
+
+workflow: research-flow
+
+metadata:
+  author: "PepperPy Team"
+  tags: ["research", "academic", "collaboration"]
+  version: "0.1.0" 

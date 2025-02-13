@@ -1,0 +1,42 @@
+name: research-flow
+description: "Comprehensive research workflow combining research and writing capabilities"
+version: "0.1.0"
+
+steps:
+  - name: research
+    agent: researcher
+    description: "Conduct initial research"
+    config:
+      depth: "comprehensive"
+      style: "academic"
+      max_sources: 5
+
+  - name: analyze
+    agent: researcher
+    description: "Analyze research findings"
+    config:
+      focus: "key_insights"
+      depth: "detailed"
+
+  - name: write
+    agent: writer
+    description: "Write research report"
+    if: "analyze.success"
+    config:
+      style: "academic"
+      format: "report"
+      tone: "neutral"
+      length: "medium"
+
+  - name: review
+    agent: writer
+    description: "Review and improve content"
+    if: "write.success"
+    config:
+      focus: "clarity"
+      improve: ["structure", "technical_depth", "citations"]
+
+metadata:
+  author: "PepperPy Team"
+  tags: ["research", "academic", "report"]
+  version: "0.1.0" 

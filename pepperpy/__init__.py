@@ -293,38 +293,159 @@ class Pepperpy:
         if self._client:
             await self._client.cleanup()
 
-    def chat(self, initial_message: Optional[str] = None) -> None:
+    async def chat(self, initial_message: Optional[str] = None) -> None:
         """Start an interactive chat session.
 
-        This method provides a simple interactive chat interface in the terminal.
-        Just type your messages and get responses in real-time.
+        This method starts a real-time chat session with the AI. If an initial
+        message is provided, it will be sent to start the conversation.
+
+        The chat session supports:
+        - Real-time streaming responses
+        - Special commands (type /help to see all)
+        - Style customization
+        - Conversation saving
 
         Args:
             initial_message: Optional message to start the conversation
 
         Example:
-            >>> pepper.chat()  # Start interactive chat
-            >>> pepper.chat("Tell me about AI")  # Start with initial message
-
-            # During chat:
-            # - Press Ctrl+C to exit
-            # - Type /help for commands
-            # - Type /clear to clear history
-            # - Type /save to save conversation
-            # - Type /style <style> to change response style
-            # - Type /format <format> to change output format
+            >>> pepper = await Pepperpy.create()
+            >>> await pepper.chat()  # Start blank chat
+            >>> # Or with initial message:
+            >>> await pepper.chat("Tell me about AI")
 
         """
         if not self._initialized or not self._client:
             raise RuntimeError("Pepperpy not initialized. Call create() first.")
 
+        from rich.console import Console
+        from rich.panel import Panel
+
+        console = Console()
+
+        # Show welcome message
+        console.print(
+            Panel.fit(
+                "[bold blue]Pepperpy Chat[/]\n\n"
+                "Type your messages and press Enter. Available commands:\n"
+                "  [green]/help[/]   - Show this help\n"
+                "  [green]/clear[/]  - Clear chat history\n"
+                "  [green]/save[/]   - Save conversation\n"
+                "  [green]/style[/]  - Change response style (concise/detailed/technical)\n"
+                "  [green]/format[/] - Change output format (text/markdown/json)\n"
+                "  [green]Ctrl+C[/]  - Exit chat"
+            )
+        )
+
         try:
-            asyncio.run(self._interactive_chat(initial_message))
-        except KeyboardInterrupt:
-            print("\nChat session ended.")
-        except Exception as e:
-            logger.error("Chat session failed", error=str(e))
-            print(f"\nError: {str(e)}")
+            # Send initial message if provided
+            if initial_message:
+                console.print("\n[bold blue]You:[/] " + initial_message)
+                console.print("\n[bold green]Assistant:[/] ", end="")
+                async for token in self.stream_response(initial_message):
+                    console.print(token, end="", flush=True)
+                console.print("\n")
+
+            # Start interactive session
+            self._interactive = True
+            settings = {
+                "style": "detailed",
+                "format": "text",
+                "temperature": 0.7,
+            }
+
+            while self._interactive:
+                try:
+                    # Get user input
+                    user_input = console.input("\n[bold blue]You:[/] ").strip()
+                    if not user_input:
+                        continue
+
+                    # Process special commands
+                    if user_input.startswith("/"):
+                        parts = user_input.split()
+                        command = parts[0]
+
+                        if command == "/help":
+                            console.print(
+                                Panel.fit(
+                                    "[bold]Available Commands[/]\n\n"
+                                    "/help   - Show this help\n"
+                                    "/clear  - Clear chat history\n"
+                                    "/save   - Save conversation\n"
+                                    "/style  - Change style (concise/detailed/technical)\n"
+                                    "/format - Change format (text/markdown/json)\n"
+                                    "Ctrl+C  - Exit chat"
+                                )
+                            )
+                            continue
+                        elif command == "/clear":
+                            if self._client:
+                                await self._client.clear_history()
+                            console.print("[green]Chat history cleared.[/]")
+                            continue
+                        elif command == "/save":
+                            # TODO[v2.0]: Implement conversation saving
+                            console.print(
+                                "[yellow]Saving conversation... (Not implemented yet)[/]"
+                            )
+                            continue
+                        elif command == "/style":
+                            if len(parts) < 2:
+                                console.print(
+                                    "[red]Usage: /style <concise|detailed|technical>[/]"
+                                )
+                                continue
+                            style = parts[1].lower()
+                            if style not in ["concise", "detailed", "technical"]:
+                                console.print(
+                                    "[red]Invalid style. Use: concise, detailed, or technical[/]"
+                                )
+                                continue
+                            settings["style"] = style
+                            console.print(f"[green]Style changed to: {style}[/]")
+                            continue
+                        elif command == "/format":
+                            if len(parts) < 2:
+                                console.print(
+                                    "[red]Usage: /format <text|markdown|json>[/]"
+                                )
+                                continue
+                            fmt = parts[1].lower()
+                            if fmt not in ["text", "markdown", "json"]:
+                                console.print(
+                                    "[red]Invalid format. Use: text, markdown, or json[/]"
+                                )
+                                continue
+                            settings["format"] = fmt
+                            console.print(f"[green]Format changed to: {fmt}[/]")
+                            continue
+                        elif command in ["/exit", "/quit"]:
+                            break
+
+                    # Get and print response with streaming
+                    console.print("\n[bold green]Assistant:[/] ", end="")
+                    async for token in self.stream_response(
+                        user_input,
+                        style=settings["style"],
+                        format=settings["format"],
+                        temperature=settings["temperature"],
+                    ):
+                        console.print(token, end="", flush=True)
+                    console.print("\n")
+
+                except KeyboardInterrupt:
+                    break
+                except Exception as e:
+                    console.print(f"\n[red]Error:[/] {str(e)}")
+                    logger.error("Chat error", error=str(e))
+                    if console.input("\n[yellow]Continue? (y/n):[/] ").lower() != "y":
+                        break
+                    continue
+
+        finally:
+            self._interactive = False
+            console.print("\n[yellow]Chat session ended.[/]")
 
     async def stream_response(
         self,
@@ -397,139 +518,6 @@ class Pepperpy:
                 **kwargs,
             )
             raise
-
-    async def _interactive_chat(self, initial_message: Optional[str] = None) -> None:
-        """Internal method for interactive chat session."""
-        from rich.console import Console
-        from rich.live import Live
-        from rich.panel import Panel
-        from rich.syntax import Syntax
-
-        console = Console()
-
-        # Show welcome message
-        console.print(
-            Panel.fit(
-                "[bold blue]Pepperpy Chat[/]\n\n"
-                "Type your messages and press Enter. Available commands:\n"
-                "  [green]/help[/]   - Show this help\n"
-                "  [green]/clear[/]  - Clear chat history\n"
-                "  [green]/save[/]   - Save conversation\n"
-                "  [green]/style[/]  - Change response style (concise/detailed/technical)\n"
-                "  [green]/format[/] - Change output format (text/markdown/json)\n"
-                "  [green]Ctrl+C[/]  - Exit chat"
-            )
-        )
-
-        # Initialize chat settings
-        settings = {
-            "style": "detailed",
-            "format": "text",
-            "temperature": 0.7,
-            "max_tokens": 2048,
-        }
-
-        if initial_message:
-            console.print("\n[bold blue]You:[/]", initial_message)
-            console.print("\n[bold green]AI:[/]", end=" ")
-            async for token in self.stream_response(initial_message):
-                console.print(token, end="")
-            console.print("\n")
-
-        while True:
-            try:
-                # Get user input
-                message = console.input("\n[bold blue]You:[/] ").strip()
-                if not message:
-                    continue
-
-                # Handle commands
-                if message.startswith("/"):
-                    parts = message.split()
-                    command = parts[0]
-
-                    if command == "/help":
-                        console.print(
-                            Panel.fit(
-                                "[bold]Available Commands[/]\n\n"
-                                "/help   - Show this help\n"
-                                "/clear  - Clear chat history\n"
-                                "/save   - Save conversation\n"
-                                "/style  - Change style (concise/detailed/technical)\n"
-                                "/format - Change format (text/markdown/json)\n"
-                                "Ctrl+C  - Exit chat"
-                            )
-                        )
-                        continue
-                    elif command == "/clear":
-                        if self._client:
-                            await self._client.clear_history()
-                        console.print("\n[green]Chat history cleared.[/]")
-                        continue
-                    elif command == "/save":
-                        # TODO[v2.0]: Implement conversation saving
-                        console.print(
-                            "\n[yellow]Saving conversation... (Not implemented yet)[/]"
-                        )
-                        continue
-                    elif command == "/style":
-                        if len(parts) < 2:
-                            console.print(
-                                "\n[red]Usage: /style <concise|detailed|technical>[/]"
-                            )
-                            continue
-                        style = parts[1].lower()
-                        if style not in ["concise", "detailed", "technical"]:
-                            console.print(
-                                "\n[red]Invalid style. Use: concise, detailed, or technical[/]"
-                            )
-                            continue
-                        settings["style"] = style
-                        console.print(f"\n[green]Style changed to: {style}[/]")
-                        continue
-                    elif command == "/format":
-                        if len(parts) < 2:
-                            console.print(
-                                "\n[red]Usage: /format <text|markdown|json>[/]"
-                            )
-                            continue
-                        fmt = parts[1].lower()
-                        if fmt not in ["text", "markdown", "json"]:
-                            console.print(
-                                "\n[red]Invalid format. Use: text, markdown, or json[/]"
-                            )
-                            continue
-                        settings["format"] = fmt
-                        console.print(f"\n[green]Format changed to: {fmt}[/]")
-                        continue
-
-                # Process message
-                console.print("\n[bold green]AI:[/]", end=" ")
-                response_text = ""
-                async for token in self.stream_response(
-                    message,
-                    style=settings["style"],
-                    format=settings["format"],
-                    temperature=settings["temperature"],
-                    max_tokens=settings["max_tokens"],
-                ):
-                    # Format output based on settings
-                    if settings["format"] == "markdown" and token.strip():
-                        response_text += token
-                        syntax = Syntax(response_text, "markdown", theme="monokai")
-                        console.print(syntax, end="")
-                    else:
-                        console.print(token, end="")
-                console.print("\n")
-
-            except KeyboardInterrupt:
-                console.print("\n[yellow]Chat session ended.[/]")
-                break
-            except Exception as e:
-                logger.error("Error in chat session", error=str(e))
-                console.print(f"\n[red]Error: {str(e)}[/]")
-                if console.input("\n[yellow]Continue? (y/n):[/] ").lower() != "y":
-                    break
 
     # Intuitive aliases for common operations
     async def explain(self, topic: str, **kwargs: Any) -> str:

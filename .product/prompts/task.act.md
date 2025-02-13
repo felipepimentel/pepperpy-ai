@@ -1,172 +1,256 @@
 ---
-title: Task Continuation Protocol
-description: Safe resumption of in-progress tasks with context recovery and momentum maintenance
-version: 2.1
-language: en
+title: AI Task Execution Protocol
+description: ALWAYS use when executing task actions to ensure systematic progress following established task management standards. This protocol ensures deterministic AI-driven task execution aligned with workflow rules.
+version: 1.2
+category: task-execution
+tags: [execution, ai-driven]
 yolo: true
+strict_mode: true
 ---
 
-# CORE PRINCIPLES
-1. **Context First**: Always reconstruct full task state before acting
-2. **Change Safety**: Verify all previous work before new changes
-3. **Progress Preservation**: Maintain detailed continuation records
+# Task Processing Protocol
 
-# CONTEXT RECOVERY WORKFLOW
+## 1. Initial Validation
+```yaml
+validate:
+  file:
+    path: ".product/tasks/TASK-{ID}.md"
+    exists: required
+    format: required
 
-## 1. STATE RECONSTRUCTION
-```
-Required Checks:
-1. Task ID Validation:
-   - Pattern: TASK-\d{3}
-   - File Exists: .workflow/tasks/{ID}.md
-2. Status Verification:
-   - Current Status: 🏃 in_progress OR ⏳ blocked
-3. Git Context:
-   - Correct Branch: task/{ID}
-   - Clean Working Tree
+  required_sections:
+    - Status
+    - Business Context
+    - Technical Scope
+    - Requirements
+    - Dependencies
+    - Progress Updates
+    - Outcome
 
-Steps:
-- Load last 3 progress entries
-- Verify requirement completion consistency
-- Cross-reference with knowledge base
-```
-
-## 2. PROGRESS ANALYSIS
-```
-Key Elements to Assess:
-✓ Last Active Requirement (marked [-])
-✓ Open Blockers (if status=⏳ blocked)
-✓ Time Since Last Update
-✓ Related Code Changes
-
-Output Format:
-## Continuation Plan
-**Current Focus**: [Requirement Title]
-**Next Steps**:
-1. [Immediate action]
-2. [Secondary action]
-3. [Validation needed]
+  status_format:
+    current: "^(📋 To Do|🏃 In Progress|⏳ Blocked|✅ Done)$"
+    priority: "^(High|Medium|Low)$"
+    points: "^(1|2|3|5|8|13)$"
+    mode: "^(Plan|Act)$"
 ```
 
-# CONTINUATION PROTOCOL
+## 2. State Analysis
+```yaml
+analyze:
+  current_state:
+    extract:
+      - status: required
+      - requirements: required
+      - progress: required
+      - dependencies: required
 
-## 1. SAFE RESUMPTION
-```
-When: Resuming 🏃 in_progress tasks
-Steps:
-1. Update status marker: 
-   - From: ⏳ blocked → 🏃 in_progress (if applicable)
-2. Add continuation header:
-```markdown
-### ➡️ Continued: YYYY-MM-DD HH:MM
-- Previous Progress: [Brief summary]
-- Current Focus: [Requirement]
-- Environment Verified: [Yes/No]
-```
-3. Commit: "[TASK-XXX] Resumed: [Focus item]"
-```
+  requirements:
+    patterns:
+      completed: "^- \\[x\\] ([^\\n]+)  # ✅ \\d{4}-\\d{2}-\\d{2}$"
+      in_progress: "^- \\[-\\] ([^\\n]+)  # 🏃 Started: \\d{4}-\\d{2}-\\d{2}$"
+      pending: "^- \\[ \\] ([^\\n]+)$"
 
-## 2. BLOCKER RESOLUTION
-```
-When: Clearing ⏳ blocked status
-Requirements:
-1. Update blocker section:
-```markdown
-#### RESOLVED: [Blocker Title]
-- Resolution Date: YYYY-MM-DD
-- Solution: [Method used]
-- Remaining Risks: [If any]
-```
-2. Maintain original blocker log for history
-3. Commit: "[TASK-XXX] Unblocked: [Blocker ID]"
+  dependencies:
+    check:
+      - systems
+      - apis
+      - tasks
+      - tools
 ```
 
-## 3. PROGRESS DOCUMENTATION
-```
-Mandatory Fields:
-- Changed Files: [File paths]
-- Time Invested: [HH:MM]
-- Completion Estimate: [Updated %]
-- Knowledge Used:
-  ```markdown
-  - Pattern: [KB Reference]
-  - Lesson: [Key insight]
-  ```
+# Execution Flow
 
-Example Entry:
-### 2025-03-01 14:30 Progress
-- Completed: Auth middleware integration
-- Time: 1h45m
-- Remaining: 2h estimated
-- Used Patterns: API_SECURITY_003
-```
-
-# VALIDATION CHECKS
-
-## STATUS TRANSITIONS
-```
-Allowed Resumption Paths:
-1. ⏳ blocked → 🏃 in_progress:
-   - Require resolved blocker documentation
-2. 🏃 in_progress → 🏃 in_progress:
-   - Require progress evidence
-   
-Rejection Conditions:
-- Attempt to resume ✅ done tasks
-- Missing continuation header
-- Unaddressed blockers
+## 1. Status Transitions
+```yaml
+transitions:
+  📋 To Do -> 🏃 In Progress:
+    validate:
+      - task_branch_created
+      - all_requirements_defined
+      - dependencies_resolved
+      - technical_scope_approved
+    
+  🏃 In Progress -> ✅ Done:
+    validate:
+      - all_requirements_implemented
+      - tests_passing
+      - documentation_updated
+      - code_reviewed
+    
+  🏃 In Progress -> ⏳ Blocked:
+    validate:
+      - blocker_identified
+      - next_steps_documented
+      - timeline_estimated
 ```
 
-# EXAMPLE USAGE
-
-## Basic Continuation
-```
-@task-continue TASK-042 
-Context:
-- Last State: 🏃 in_progress
-- Current Focus: "Rate limit configuration"
-Progress:
-- Adjusted threshold values
-- Added environment variables
-```
-
-## Post-Blocker Resumption
-```
-@task-continue TASK-042 
-Resolution:
-- Blocker: "DB Connection Pool Exhausted"
-- Solution: "Increased pool size + monitoring"
-Next Steps:
-- Verify connection stability
-- Run load tests
+## 2. Progress Documentation
+```yaml
+progress_update:
+  format: |
+    - {YYYY-MM-DD}:
+      - Current Status: {specific_details}
+      - Completed Items: 
+        - {item_1}
+        - {item_2}
+      - Next Steps:
+        1. {step_1}
+        2. {step_2}
+      [if blocked] - Blockers: {specific_issues}
 ```
 
-## Multi-Session Continuation
-```
-@task-continue TASK-042
-Session Report:
-- Morning: Implemented core logic (3h)
-- Afternoon: Debugged race conditions (2h)
-Knowledge Updates:
-- Identified new concurrency pattern
-- Updated error handling guide
-```
-
-# ERROR PREVENTION
-
-## Continuation Safeguards
-```
-1. Time Gap Check:
-   - Warn if resuming >7d old task
-   - Require re-validation checklist
-
-2. Requirement Locking:
-   - Prevent marking complete without 
-     implementation evidence
-
-3. Pattern Verification:
-   - Cross-check with knowledge base
-   - Flag deprecated methods
+## 3. Requirement Updates
+```yaml
+requirement_update:
+  completion:
+    format: "- [x] {requirement}  # ✅ {YYYY-MM-DD}"
+    requires:
+      - implementation_verified
+      - tests_passed
+      - docs_updated
+  
+  in_progress:
+    format: "- [-] {requirement}  # 🏃 Started: {YYYY-MM-DD}"
+    requires:
+      - clear_next_steps
+      - no_other_active
 ```
 
-Remember: Reference testing_standards rule for guidelines and ai_knowledge_base_management for pattern learning and sharing.
+# Knowledge Base Integration
+
+## 1. Read Operations
+```yaml
+knowledge_query:
+  task_creation:
+    - patterns
+    - dependency_patterns
+  
+  status_change:
+    - duration_tracking
+    - metrics
+  
+  complexity_estimation:
+    - similar_tasks
+    - effort_patterns
+```
+
+## 2. Write Operations
+```yaml
+knowledge_update:
+  completion:
+    patterns:
+      - implementation_pattern
+      - challenges_faced
+      - resolution_steps
+    
+  status_change:
+    metrics:
+      - duration
+      - blockers
+
+  validation:
+    - schema_check
+    - data_consistency
+```
+
+# Execution Examples
+
+## 1. Starting Task
+```yaml
+# Initial State
+task:
+  status: 📋 To Do
+  ready:
+    - branch_created: true
+    - requirements_defined: true
+    - dependencies_resolved: true
+
+# Execution
+action:
+  1. Update Status:
+     status: 🏃 In Progress
+     update_timestamp: true
+  
+  2. Add Progress:
+     - 2025-02-12:
+       - Current Status: Starting implementation
+       - Completed Items:
+         - Repository setup
+         - Initial structure
+       - Next Steps:
+         1. Implement base classes
+         2. Add unit tests
+```
+
+## 2. Requirement Management
+```yaml
+# Update Requirement
+requirement:
+  completion:
+    before: "- [-] Implement API Authentication  # 🏃 Started: 2025-02-12"
+    after: "- [x] Implement API Authentication  # ✅ 2025-02-12"
+    
+  progress_update:
+    - Current Status: Authentication implementation complete
+    - Completed Items:
+      - OAuth flow implemented
+      - Tests added
+      - Documentation updated
+    - Next Steps:
+      1. Start error handling implementation
+```
+
+# Validation Rules
+
+## 1. Pre-execution
+```yaml
+validate:
+  task_file:
+    - exists
+    - correct_format
+    - valid_status
+  
+  requirements:
+    - defined
+    - no_duplicates
+    - clear_criteria
+  
+  dependencies:
+    - resolved
+    - accessible
+```
+
+## 2. During Execution
+```yaml
+monitor:
+  status_changes:
+    - valid_transition
+    - requirements_met
+    - documentation_updated
+  
+  progress:
+    - specific_updates
+    - clear_next_steps
+    - blocker_documentation
+```
+
+## 3. Post-execution
+```yaml
+verify:
+  completion:
+    - all_requirements_met
+    - tests_passing
+    - documentation_complete
+  
+  knowledge_base:
+    - patterns_updated
+    - metrics_recorded
+```
+
+Remember: 
+- Follow task_management_workflow rule exactly
+- Update knowledge base on specified triggers
+- Maintain precise formatting
+- Keep updates specific and actionable
+- Document all transitions fully
+- Validate all requirements before status changes

@@ -1,58 +1,22 @@
-"""Workflow management for Pepperpy agents."""
+"""Workflow management for coordinating AI agents.
+
+This module provides classes for defining and executing workflows that
+coordinate multiple AI agents to complete complex tasks.
+"""
+
+from __future__ import annotations
 
 from pathlib import Path
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Optional,
-    Protocol,
-    TypeVar,
-    cast,
-    runtime_checkable,
-)
+from typing import Any, Dict, List
 
+import yaml
 from pydantic import BaseModel, Field
+from structlog import get_logger
 
-from pepperpy.core.client import PepperpyClient
-from pepperpy.hub.protocols import WorkflowProtocol
+from pepperpy.core.types import Message, MessageType
+from pepperpy.hub.session import Session
 
-if TYPE_CHECKING:
-    from pepperpy.hub.sessions import WorkflowSession
-
-T = TypeVar("T", bound="Workflow")
-
-
-@runtime_checkable
-class AgentProtocol(Protocol):
-    """Protocol defining required agent methods."""
-
-    async def run(self, action: str, **kwargs: Any) -> Any:
-        """Run an action on the agent."""
-        ...
-
-    async def cleanup(self) -> None:
-        """Clean up agent resources."""
-        ...
-
-
-class WorkflowStep(BaseModel):
-    """A single step in a workflow.
-
-    Attributes:
-        use: Agent to use for this step
-        action: Action to perform
-        if_: Condition for running this step
-        inputs: Input mappings
-        outputs: Output mappings
-
-    """
-
-    use: str
-    action: str
-    if_: Optional[str] = Field(None, alias="if")
-    inputs: Dict[str, str] = Field(default_factory=dict)
-    outputs: Dict[str, str] = Field(default_factory=dict)
+logger = get_logger()
 
 
 class WorkflowConfig(BaseModel):
@@ -60,226 +24,163 @@ class WorkflowConfig(BaseModel):
 
     Attributes:
         name: Workflow name
+        description: Workflow description
         steps: List of workflow steps
-        inputs: Input mappings
-        outputs: Output mappings
+        metadata: Optional workflow metadata
 
     """
 
     name: str
-    steps: list[Dict[str, Any]]
-    inputs: Dict[str, str] = Field(default_factory=dict)
-    outputs: Dict[str, str] = Field(default_factory=dict)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert config to dictionary.
-
-        Returns:
-            Dictionary representation of the config
-
-        """
-        return self.model_dump()
+    description: str = "No description provided"
+    steps: List[Dict[str, Any]] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class Workflow(WorkflowProtocol):
-    """A workflow that coordinates multiple agents.
+class Workflow:
+    """A workflow that coordinates multiple agents to complete a task.
 
-    Workflows define a sequence of steps to be executed by different
-    agents, with optional conditions and data passing between steps.
+    Workflows provide:
+    - Step-by-step task execution
+    - Agent coordination and handoff
+    - Progress tracking and monitoring
+    - Error handling and recovery
     """
 
     def __init__(
         self,
-        client: PepperpyClient,
-        config: WorkflowConfig,
-        agents: Dict[str, AgentProtocol],
+        name: str,
+        steps: list[dict[str, Any]],
+        metadata: dict[str, Any] | None = None,
     ):
-        """Initialize a workflow.
-
-        Args:
-            client: The Pepperpy client
-            config: Workflow configuration
-            agents: Map of agent names to instances
-
-        """
-        self._client = client
-        self._config = config
-        self._agents = agents
-        self._context: Dict[str, Any] = {}
-        self._session: Optional["WorkflowSession"] = None
+        """Initialize a workflow."""
+        self.name = name
+        self.steps = steps
+        self.metadata = metadata or {}
+        self._client = None
 
     @classmethod
-    async def from_config(
-        cls, client: PepperpyClient, config_path: Path
-    ) -> "WorkflowProtocol":
-        """Create a workflow from a configuration file.
+    async def from_config(cls, client: Any, config_path: Path) -> "Workflow":
+        """Load a workflow from a configuration file.
 
         Args:
-            client: The Pepperpy client
-            config_path: Path to workflow configuration file
+            client: The PepperpyClient instance
+            config_path: Path to the workflow configuration file
 
         Returns:
-            The configured workflow instance
-
-        Example:
-            >>> flow = await Workflow.from_config(client, "path/to/workflow.yaml")
-            >>> async with flow.run("Research AI") as session:
-            ...     print(session.current_step)
+            The loaded workflow instance
 
         """
-        import yaml
-
         with open(config_path) as f:
-            raw_config = yaml.safe_load(f)
+            config = yaml.safe_load(f)
 
-        config = WorkflowConfig(**raw_config)
+        workflow = cls(
+            name=config["name"],
+            steps=config.get("steps", []),
+            metadata=config.get("metadata", {}),
+        )
+        workflow._client = client
+        return workflow
 
-        # Load agents
-        agents = {}
-        for step in config.steps:
-            agent_name = step.get("use")
-            if agent_name and agent_name not in agents:
-                agent = await client.create_agent(agent_name)
-                agents[agent_name] = cast(AgentProtocol, agent)
-
-        return cls(client, config, agents)
-
-    async def run(self, task: str, **kwargs: Any) -> Any:
-        """Run the workflow.
+    async def run(
+        self,
+        task: str,
+        *,
+        context: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Run the workflow on a task.
 
         Args:
             task: The task to perform
+            context: Optional shared context
             **kwargs: Additional task parameters
 
         Returns:
-            The final workflow result
+            The task result
 
         Example:
             >>> flow = await hub.workflow("research-flow")
-            >>> async with flow.run("Research AI") as session:
-            ...     print(session.current_step)
+            >>> async with flow.run(
+            ...     "Research quantum computing",
+            ...     context={"depth": "technical"}
+            ... ) as session:
+            ...     print(f"Progress: {session.progress}%")
+            ...     print(f"Current: {session.current_step}")
 
         """
-        # Initialize context
-        self._context = {
-            "task": task,
-            "input": kwargs,
-            "steps": {},
-        }
+        if not self._client:
+            raise RuntimeError("Workflow not properly initialized with client")
 
-        # Create session for tracking progress
-        from pepperpy.hub.sessions import WorkflowSession
+        session = Session(
+            task,
+            workflow=self.name,
+            metadata={"context": context, **kwargs} if context else kwargs,
+        )
 
-        session = WorkflowSession(cast(WorkflowProtocol, self))
+        async with session.run() as running:
+            # Initialize shared context
+            shared_context = {
+                "task": task,
+                "workflow": self.name,
+                **(context or {}),
+                **kwargs,
+            }
 
-        # Run each step
-        result = None
-        for i, step in enumerate(self._config.steps):
-            # Check condition
-            condition = step.get("if")
-            if not self._evaluate_condition(condition):
-                continue
+            # Execute workflow steps
+            result = None
+            for step in self.steps:
+                step_name = step["name"]
+                agent_name = step.get("agent")
+                description = step.get("description", f"Running {step_name}")
 
-            # Get agent
-            agent = self._agents[step["use"]]
+                # Start step
+                running.start_step(
+                    name=step_name,
+                    description=description,
+                    agent=agent_name or "workflow",
+                )
 
-            # Prepare inputs
-            inputs = self._prepare_inputs(step, kwargs)
+                try:
+                    # Load agent for step
+                    from pepperpy.hub import PepperpyHub
 
-            # Run step
-            result = await agent.run(step["action"], **inputs)
+                    if not agent_name or not isinstance(agent_name, str):
+                        raise ValueError(f"Invalid agent name in step {step_name}")
 
-            # Store outputs
-            self._store_outputs(step, result, i)
+                    hub = PepperpyHub(self._client)
+                    agent = await hub.agent(agent_name)
 
-            # Update session
-            session.record_step_result(result)
+                    # Create message with context
+                    message = Message(
+                        content={
+                            "task": task,
+                            "context": shared_context,
+                            "step": step,
+                        },
+                        type=MessageType.COMMAND,
+                    )
 
-        return result
+                    # Execute step
+                    response = await agent.process_message(message)
+                    if isinstance(response.content, dict):
+                        step_result = response.content.get("result")
+                    else:
+                        step_result = response.content
 
-    def _evaluate_condition(self, condition: Optional[str]) -> bool:
-        """Evaluate a step condition.
+                    # Update shared context
+                    shared_context[f"{step_name}_result"] = step_result
+                    result = step_result  # Update final result
+                    running.complete_step(step_result)
 
-        Args:
-            condition: The condition to evaluate, or None
+                except Exception as e:
+                    running.fail_step(str(e))
+                    raise
 
-        Returns:
-            True if the condition is met or None, False otherwise
+            return result
 
-        """
-        if not condition:
-            return True
-
-        # Basic condition evaluation
-        try:
-            # Replace variables with values from context
-            expr = condition
-            for key, value in self._context.items():
-                expr = expr.replace(f"{key}.", f"self._context['{key}'].")
-            return bool(eval(expr))  # nosec
-        except Exception:
-            return False
-
-    def _prepare_inputs(
-        self, step: Dict[str, Any], kwargs: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Prepare inputs for a step."""
-        inputs = kwargs.copy()
-
-        # Apply input mappings
-        for target, source in step["inputs"].items():
-            try:
-                # Get value from context
-                parts = source.split(".")
-                value = self._context
-                for part in parts:
-                    value = value[part]
-                inputs[target] = value
-            except (KeyError, TypeError):
-                continue
-
-        return inputs
-
-    def _store_outputs(
-        self, step: Dict[str, Any], result: Any, step_index: int
-    ) -> None:
-        """Store step outputs in context."""
-        # Store full result
-        self._context["steps"][f"step_{step_index}"] = result
-
-        # Apply output mappings
-        for target, source in step["outputs"].items():
-            try:
-                # Get value from result
-                parts = source.split(".")
-                value = result
-                for part in parts:
-                    value = value[part]
-                self._context[target] = value
-            except (KeyError, TypeError):
-                continue
-
-    async def __aenter__(self) -> "WorkflowSession":
-        """Start a workflow session.
-
-        Returns:
-            A session for monitoring workflow progress
-
-        """
-        if not self._session:
-            from pepperpy.hub.sessions import WorkflowSession
-
-            self._session = WorkflowSession(cast(WorkflowProtocol, self))
-        return self._session
-
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Clean up workflow resources."""
-        # Clean up agents
-        for agent in self._agents.values():
-            await agent.cleanup()
-
-        # Clear session
-        self._session = None
+    def __repr__(self) -> str:
+        """Get string representation."""
+        return f"Workflow(name='{self.name}', steps={len(self.steps)})"
 
 
-__all__ = ["Workflow", "WorkflowConfig", "WorkflowStep", "AgentProtocol"]
+__all__ = ["Workflow", "WorkflowConfig"]
