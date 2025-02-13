@@ -1,0 +1,331 @@
+---
+description: ALWAYS use when reading or writing AI knowledge data to ensure consistent knowledge management. This rule provides complete and unambiguous definitions for AI's incremental learning system.
+globs: ".product/ai/**/*.json"
+version: 1.1
+priority: critical
+rule_type: knowledge_management
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <name>ai_learning</name>
+    <description>ALWAYS use when reading or writing AI knowledge data to ensure consistent knowledge management. This rule provides complete and unambiguous definitions for AI's incremental learning system.</description>
+    <priority>critical</priority>
+    <version>1.1</version>
+    <tags>
+      <tag>ai-knowledge</tag>
+      <tag>machine-learning</tag>
+      <tag>data-management</tag>
+    </tags>
+    <execution_order>1</execution_order>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_path</type>
+      <pattern>^\.product/ai/.*\.json$</pattern>
+      <description>AI knowledge base files</description>
+    </filter>
+    <filter>
+      <type>event</type>
+      <pattern>(file_read|file_write|knowledge_update)</pattern>
+      <description>Knowledge base operations</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <scope>file_structure</scope>
+          <checks>
+            <check>
+              <type>directory_exists</type>
+              <path>.product/ai</path>
+              <message>AI knowledge base directory must exist at .product/ai/</message>
+              <recovery>
+                <action>create_directory</action>
+                <path>.product/ai</path>
+              </recovery>
+            </check>
+            <check>
+              <type>required_files</type>
+              <files>
+                <file>knowledge.json</file>
+                <file>metrics.json</file>
+                <file>relationships.json</file>
+              </files>
+              <message>Required knowledge base files missing in .product/ai/</message>
+              <recovery>
+                <action>create_files</action>
+                <template>default_schema</template>
+              </recovery>
+            </check>
+            <check>
+              <type>file_size</type>
+              <max_size>5MB</max_size>
+              <message>Knowledge base files exceeding size limit</message>
+              <recovery>
+                <action>archive_and_rotate</action>
+                <retention>90_days</retention>
+              </recovery>
+            </check>
+          </checks>
+        </condition>
+      </conditions>
+    </action>
+
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <directory_structure>
+          <root>.product/ai/</root>
+          <contents>
+            <file name="knowledge.json">
+              <schema><![CDATA[
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["patterns", "challenges", "estimations"],
+  "properties": {
+    "patterns": {
+      "type": "object",
+      "required": ["implementation"],
+      "properties": {
+        "implementation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "description", "context", "frequency", "last_updated"],
+            "properties": {
+              "type": { "type": "string", "minLength": 1, "maxLength": 100 },
+              "description": { "type": "string", "minLength": 10, "maxLength": 1000 },
+              "context": { 
+                "type": "object",
+                "required": ["framework", "pattern"],
+                "properties": {
+                  "framework": { "type": "string" },
+                  "pattern": { "type": "string" }
+                }
+              },
+              "frequency": { "type": "integer", "minimum": 0 },
+              "last_updated": { 
+                "type": "string",
+                "format": "date-time",
+                "description": "ISO 8601 formatted datetime"
+              }
+            }
+          }
+        }
+      }
+    },
+    "challenges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "solution", "frequency", "last_updated"],
+        "properties": {
+          "type": { "type": "string" },
+          "solution": { "type": "string" },
+          "frequency": { "type": "integer" },
+          "last_updated": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
+              ]]></schema>
+            </file>
+            
+            <file name="metrics.json">
+              <schema><![CDATA[
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["durations", "complexity_metrics"],
+  "properties": {
+    "durations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["task_id", "type", "start_time", "end_time"],
+        "properties": {
+          "task_id": { 
+            "type": "string",
+            "pattern": "^TASK-\\d{3}$"
+          },
+          "type": { "type": "string" },
+          "start_time": { 
+            "type": "string",
+            "format": "date-time"
+          },
+          "end_time": { 
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    }
+  }
+}
+              ]]></schema>
+            </file>
+          </contents>
+        </directory_structure>
+
+        <operations>
+          <read>
+            <template><![CDATA[
+async function readKnowledge(type: 'knowledge' | 'metrics' | 'relationships', query?: object): Promise<object> {
+  const file = `.product/ai/${type}.json`;
+  try {
+    const data = await fs.readFile(file, 'utf8');
+    const parsed = JSON.parse(data);
+    if (query) {
+      return filterData(parsed, query);
+    }
+    return parsed;
+  } catch (error) {
+    console.error(`Error reading ${type} knowledge:`, error);
+    throw new Error(`Knowledge base read error: ${error.message}`);
+  }
+}
+            ]]></template>
+          </read>
+          
+          <write>
+            <template><![CDATA[
+async function updateKnowledge(
+  type: 'knowledge' | 'metrics' | 'relationships',
+  data: object,
+  options: { 
+    merge?: boolean;
+    validate?: boolean;
+  } = { merge: true, validate: true }
+): Promise<void> {
+  const file = `.product/ai/${type}.json`;
+  try {
+    let finalData = data;
+    if (options.merge) {
+      const current = await readKnowledge(type);
+      finalData = deepMerge(current, data);
+    }
+    if (options.validate) {
+      validateSchema(type, finalData);
+    }
+    await fs.writeFile(
+      file, 
+      JSON.stringify(finalData, null, 2)
+    );
+  } catch (error) {
+    console.error(`Error updating ${type} knowledge:`, error);
+    throw new Error(`Knowledge base update error: ${error.message}`);
+  }
+}
+            ]]></template>
+          </write>
+        </operations>
+
+        <error_handling>
+          <retry_policy>
+            <attempts>3</attempts>
+            <backoff>exponential</backoff>
+            <initial_delay>1000</initial_delay>
+            <max_delay>10000</max_delay>
+          </retry_policy>
+          <fallback>
+            <action>log_error</action>
+            <action>notify_system</action>
+            <action>use_cache</action>
+          </fallback>
+        </error_handling>
+      </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <incorrect>
+        <case type="wrong_location">
+          <description>Knowledge file in wrong location</description>
+          <content>/ai/knowledge.json</content>
+          <error>Knowledge files must be in .product/ai/ directory</error>
+        </case>
+        <case type="invalid_format">
+          <description>Invalid JSON format</description>
+          <content>
+{
+  patterns: [
+    type: "wrong-format"
+  ]
+}
+          </content>
+          <error>Must follow defined JSON schema</error>
+        </case>
+      </incorrect>
+      <correct>
+        <case type="knowledge_update">
+          <description>Proper knowledge update</description>
+          <content>
+{
+  "patterns": {
+    "implementation": [{
+      "type": "auth-flow",
+      "description": "OAuth2 implementation pattern",
+      "context": {
+        "framework": "express",
+        "pattern": "middleware"
+      },
+      "frequency": 5,
+      "last_updated": "2025-02-12T15:30:00Z"
+    }]
+  }
+}
+          </content>
+        </case>
+      </correct>
+    </example>
+  </examples>
+
+  <api_contract>
+    <read_operations>
+      <operation name="getKnowledge">
+        <input>
+          <parameter name="type" type="string" required="true">
+            <enum>knowledge,metrics,relationships</enum>
+          </parameter>
+          <parameter name="query" type="object" required="false"/>
+        </input>
+        <output type="object"/>
+        <errors>
+          <error code="FILE_NOT_FOUND">Knowledge file not found</error>
+          <error code="INVALID_JSON">Invalid JSON format</error>
+          <error code="SCHEMA_VIOLATION">Data does not match schema</error>
+        </errors>
+      </operation>
+    </read_operations>
+    
+    <write_operations>
+      <operation name="updateKnowledge">
+        <input>
+          <parameter name="type" type="string" required="true">
+            <enum>knowledge,metrics,relationships</enum>
+          </parameter>
+          <parameter name="data" type="object" required="true"/>
+          <parameter name="options" type="object" required="false">
+            <properties>
+              <property name="merge" type="boolean" default="true"/>
+              <property name="validate" type="boolean" default="true"/>
+            </properties>
+          </parameter>
+        </input>
+        <errors>
+          <error code="WRITE_ERROR">Failed to write to file</error>
+          <error code="VALIDATION_ERROR">Data validation failed</error>
+          <error code="MERGE_CONFLICT">Cannot merge data</error>
+        </errors>
+      </operation>
+    </write_operations>
+  </api_contract>
+</rule>

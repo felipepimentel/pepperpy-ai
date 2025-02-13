@@ -1,0 +1,175 @@
+---
+title: Monitoring Rules
+description: Defines standards for logging, metrics, tracing, and overall system observability.
+globs: pepperpy/monitoring/**/*.py
+---
+
+# Monitoring Guidelines
+
+## Logging Standards
+
+### Log Levels
+```python
+from pepperpy.monitoring import logger
+
+# ERROR: For errors that need immediate attention
+logger.error("Database connection failed", error=err, retries=3)
+
+# WARNING: For potentially harmful situations
+logger.warning("Rate limit approaching", current=95, limit=100)
+
+# INFO: For general operational entries
+logger.info("Processing started", task_id=123)
+
+# DEBUG: For detailed information for debugging
+logger.debug("Cache hit", key="user:123", value_size=1024)
+```
+
+### Structured Logging
+- Always use structured logging with context
+- Include relevant metadata
+- Use consistent field names
+
+```python
+from pepperpy.monitoring import logger
+from pepperpy.context import get_request_context
+
+def process_request(request_id: str):
+    with logger.contextualize(request_id=request_id):
+        logger.info("Processing request",
+                   user_id=request.user_id,
+                   operation=request.operation)
+```
+
+## Metrics Collection
+
+### Core Metrics
+1. **Response Times**
+   ```python
+   from pepperpy.monitoring import metrics
+   
+   @metrics.time_it("agent_processing_time")
+   async def process_agent_request():
+       # Processing logic
+   ```
+
+2. **Error Rates**
+   ```python
+   metrics.increment("errors_total",
+                    labels={"type": "validation"})
+   ```
+
+3. **Resource Usage**
+   ```python
+   metrics.gauge("memory_usage_mb",
+                process.memory_info().rss / 1024 / 1024)
+   ```
+
+### Custom Metrics
+```python
+class CustomMetricsCollector:
+    def __init__(self):
+        self.request_duration = metrics.Histogram(
+            "request_duration_seconds",
+            "Request duration in seconds",
+            buckets=[0.1, 0.5, 1.0, 2.0, 5.0]
+        )
+```
+
+## Distributed Tracing
+
+### Trace Configuration
+```python
+from opentelemetry import trace
+from pepperpy.monitoring import tracer
+
+tracer.set_tracer_provider(
+    TracerProvider(
+        resource=Resource.create({
+            "service.name": "pepperpy-agent"
+        })
+    )
+)
+```
+
+### Span Management
+```python
+@tracer.start_as_current_span("operation_name")
+async def traced_operation():
+    with tracer.start_span("sub_operation") as span:
+        span.set_attribute("key", "value")
+        result = await perform_work()
+        span.set_attribute("result", str(result))
+```
+
+## Health Checks
+
+### Readiness Probe
+```python
+async def check_readiness() -> bool:
+    """Check if service is ready to handle requests."""
+    checks = [
+        check_database_connection(),
+        check_cache_connection(),
+        check_model_availability()
+    ]
+    return all(await asyncio.gather(*checks))
+```
+
+### Liveness Probe
+```python
+async def check_liveness() -> bool:
+    """Check if service is alive and healthy."""
+    return (
+        check_memory_usage() and
+        check_error_rate() and
+        check_response_time()
+    )
+```
+
+## Alert Configuration
+
+### Alert Rules
+```yaml
+alerts:
+  - name: high_error_rate
+    condition: error_rate > 0.1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      description: Error rate exceeded 10%
+
+  - name: slow_response_time
+    condition: avg_response_time > 1000ms
+    for: 2m
+    labels:
+      severity: warning
+```
+
+### Alert Channels
+- Email notifications
+- Slack integration
+- PagerDuty
+- Custom webhooks
+
+## Dashboard Templates
+
+### Core Dashboards
+1. **System Overview**
+   - Error rates
+   - Response times
+   - Resource usage
+   - Request volume
+
+2. **Agent Performance**
+   - Processing time
+   - Success rate
+   - Memory usage
+   - Model latency
+
+3. **API Health**
+   - Endpoint latency
+   - Status codes
+   - Rate limiting
+   - Cache hit rates 

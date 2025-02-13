@@ -181,11 +181,11 @@ def watch_component(config_path: str):
                 await func(*args, **kwargs)
 
             try:
-                # Start watching and wait for initial load
+                # Start watching
                 await watcher.start()
                 await watcher._watch_component(Path(config_path), callback)
-                # Run function only once
-                return await func(*args, **kwargs)
+                # No need to run function here as it's already called in _watch_component
+                return None
             finally:
                 # Stop watcher
                 await watcher.stop()

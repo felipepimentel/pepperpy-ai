@@ -10,7 +10,7 @@ from typing import Any, List, TypeAlias, TypeVar, cast
 from uuid import uuid4
 
 from openai import APIError, AsyncOpenAI, AsyncStream, OpenAIError
-from openai._types import NotGiven
+from openai._types import NOT_GIVEN, NotGiven
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -321,8 +321,11 @@ class OpenRouterProvider(BaseProvider):
 
                 yield Response(
                     id=uuid4(),
-                    message_id=messages[-1]["id"],
-                    content={"text": delta.content},
+                    message_id=messages[-1].id,
+                    content={
+                        "type": MessageType.RESPONSE,
+                        "content": {"text": delta.content},
+                    },
                     status=ResponseStatus.SUCCESS,
                     metadata={
                         "model": model,
@@ -538,7 +541,7 @@ class OpenRouterProvider(BaseProvider):
                 messages=openai_messages,
                 temperature=self._config.temperature,
                 max_tokens=self._config.max_tokens,
-                stop=self._config.stop_sequences or NotGiven(),
+                stop=self._config.stop_sequences or NOT_GIVEN,
             )
 
             # Extract response content
@@ -548,7 +551,7 @@ class OpenRouterProvider(BaseProvider):
             return Response(
                 id=uuid4(),
                 message_id=str(uuid4()),
-                content={"type": MessageType.ASSISTANT, "content": {"text": content}},
+                content={"type": MessageType.RESPONSE, "content": {"text": content}},
                 status=ResponseStatus.SUCCESS,
             )
 

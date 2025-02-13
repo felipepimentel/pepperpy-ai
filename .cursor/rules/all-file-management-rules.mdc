@@ -1,0 +1,85 @@
+---
+title: File Management Rules
+description: Enforces file management rules, including file headers, directory structure, and file naming conventions.
+globs:
+---
+
+# File Management Rules
+
+## File Header Template
+Every source file must start with a header comment following this template:
+```python
+"""
+@file: {filename}
+@purpose: Brief description of the file's purpose
+@component: Which component this file belongs to
+@created: YYYY-MM-DD
+@task: TASK-XXX (if applicable)
+@status: [active|deprecated|experimental]
+"""
+```
+
+## Directory Structure Rules
+1. Only create directories when needed by a task
+2. Each directory must contain a `__init__.py` with its purpose
+3. Keep directory depth <= 3 levels when possible
+4. Use meaningful directory names that reflect component purpose
+
+## Pre-File Creation Checks
+Before creating a new file:
+1. Check for similar files in the codebase
+2. Verify the file follows naming conventions
+3. Ensure the file has a clear single responsibility
+4. Confirm the file location matches architecture
+
+## File Naming Conventions
+- Use snake_case for Python files
+- Test files prefix: `test_`
+- Interface files prefix: `i_`
+- Abstract base classes prefix: `abc_`
+- Type definition files suffix: `_types`
+
+## Structure Export Format
+```plaintext
+# Directory Structure Export Format
+directory/              # Purpose: Brief description
+├── subdirectory/      # Purpose: Brief description
+│   └── file.py       # Purpose: Brief description
+└── another_file.py   # Purpose: Brief description
+```
+
+## Structure Management Scripts
+Location: `scripts/`
+1. `export_structure.py`: Generates simplified structure overview
+2. `validate_headers.py`: Validates file headers
+3. `check_duplicates.py`: Checks for potential duplicate files
+
+## Evolution Guidelines
+1. Start with minimal structure required by current sprint
+2. Add directories only when implementing related tasks
+3. Keep `.product/project_structure.yml` as source of truth
+4. Update architecture diagrams with structural changes
+
+## Integration with Task Workflow
+1. Task planning must include structure impact analysis
+2. New components require structure review
+3. File creation checklist must be followed
+4. Structure changes require documentation update
+
+## Validation Commands
+```bash
+# Export current structure
+./scripts/export_structure.py
+
+# Validate file headers
+./scripts/validate_headers.py
+
+# Check for duplicates
+./scripts/check_duplicates.py
+```
+
+## Structure Evolution Tracking
+Keep track of structural changes in:
+1. `CHANGELOG.md`
+2. `.product/architecture.mermaid`
+3. `.product/project_structure.yml` 

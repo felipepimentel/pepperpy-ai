@@ -1,0 +1,108 @@
+---
+title: Providers Rules
+description: Specifies required methods and error handling for providers adhering to 'pepperpy.providers.base'.
+globs: pepperpy/providers/**/*.py
+---
+
+# Provider Guidelines
+
+## Core Requirements
+- All providers must implement the `BaseProvider` interface
+- Methods `initialize`, `execute`, and `cleanup` are **mandatory**
+- Must use centralized configuration management
+- Must implement observability hooks
+
+## Provider Configuration
+
+```python
+from dataclasses import dataclass
+from typing import Dict, Optional
+from pydantic import BaseModel
+
+class ProviderConfig(BaseModel):
+    """Standard provider configuration."""
+    type: str
+    parameters: Dict[str, str]
+    metadata: Dict[str, str] = {}
+    rate_limit: Optional[int] = None
+    timeout: int = 30
+    retry_policy: Dict[str, any] = {"max_retries": 3}
+```
+
+## Communication Protocol
+
+```python
+from pepperpy.events.protocol import Message, MessageType
+
+async def handle_message(self, message: Message) -> Message:
+    """Handle incoming messages according to protocol."""
+    if not self._validate_message(message):
+        raise InvalidMessageError(f"Invalid message format: {message}")
+        
+    response = Message(
+        sender=self.name,
+        receiver=message.sender,
+        message_type=MessageType.RESPONSE,
+        content=await self._process_content(message.content),
+        metadata={"processed_at": datetime.now().isoformat()}
+    )
+    return response
+```
+
+## Error Handling
+
+```python
+from pepperpy.core.errors import ProviderError
+from pepperpy.monitoring import logger
+
+class ProviderExecutionError(ProviderError):
+    """Raised when provider execution fails."""
+    
+    def __init__(self, message: str, context: dict):
+        super().__init__(message)
+        logger.error("Provider execution failed", 
+                    error=message,
+                    context=context,
+                    provider=self.__class__.__name__)
+```
+
+## Observability Integration
+
+```python
+from pepperpy.monitoring import tracer
+
+class MyProvider(BaseProvider):
+    @tracer.start_as_current_span("provider_operation")
+    async def execute(self, params: Dict[str, any]) -> any:
+        with logger.contextualize(provider=self.name):
+            logger.info("Starting provider execution", params=params)
+            result = await self._execute_internal(params)
+            logger.info("Provider execution completed", result=result)
+            return result
+```
+
+## Provider Lifecycle
+
+1. **Initialization**
+   - Load configuration
+   - Validate credentials
+   - Setup connections
+   - Register with registry
+
+2. **Execution**
+   - Validate inputs
+   - Process request
+   - Handle errors
+   - Return results
+
+3. **Cleanup**
+   - Close connections
+   - Clear cache
+   - Unregister from registry
+
+## Testing Requirements
+
+- Must include unit tests for all methods
+- Must include integration tests with mock services
+- Must include performance benchmarks
+- Must validate error handling scenarios
