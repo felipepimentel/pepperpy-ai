@@ -5,6 +5,7 @@ including setup, testing, and diagnostics.
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -150,90 +151,87 @@ def doctor():
 
     This command checks:
     - Configuration files
-    - API key setup
-    - Model availability
-    - Connection status
-    - Environment setup
+    - Environment variables
+    - API connectivity
+    - Hub structure
+    - Dependencies
     """
 
     async def run_diagnostics():
-        # Check configuration
-        config_dir = Path.home() / ".pepperpy"
-        config_file = config_dir / "config.env"
-
-        table = Table(
-            title="[bold]Pepperpy Diagnostics[/]",
-            show_header=True,
-            header_style="bold magenta",
-        )
-        table.add_column("Check", style="cyan")
-        table.add_column("Status", style="green")
-        table.add_column("Details", style="yellow")
-
-        # Check config directory
-        if config_dir.exists():
-            table.add_row("Config Directory", "✓", str(config_dir))
-        else:
-            table.add_row("Config Directory", "✗", "Not found")
-
-        # Check config file
-        if config_file.exists():
-            table.add_row("Config File", "✓", str(config_file))
-        else:
-            table.add_row("Config File", "✗", "Not found")
-
-        # Check API key
-        api_key = None
-        if config_file.exists():
-            with open(config_file) as f:
-                for line in f:
-                    if line.startswith("PEPPERPY_API_KEY="):
-                        api_key = line.split("=")[1].strip()
-                        break
-
-        if api_key:
-            table.add_row("API Key", "✓", "Found in config")
-        else:
-            table.add_row("API Key", "✗", "Not configured")
-
-        # Check environment
-        import os
-
-        env_vars = [
-            "PEPPERPY_API_KEY",
-            "PEPPERPY_MODEL",
-            "PEPPERPY_TEMPERATURE",
-            "PEPPERPY_MAX_TOKENS",
-        ]
-        for var in env_vars:
-            value = os.getenv(var)
-            if value:
-                table.add_row(f"Environment: {var}", "✓", "Set")
-            else:
-                table.add_row(f"Environment: {var}", "-", "Not set")
-
-        # Test connection
         try:
-            pepper = await Pepperpy.create()
-            response = await pepper.ask("Test message")
-            table.add_row("API Connection", "✓", "Successfully connected")
-        except Exception as e:
-            table.add_row("API Connection", "✗", str(e))
+            table = Table(title="Pepperpy Diagnostics")
+            table.add_column("Check", style="cyan")
+            table.add_column("Status", style="bold")
+            table.add_column("Details", style="dim")
 
-        console.print()
-        console.print(table)
-        console.print()
+            # Check configuration
+            config_dir = Path.home() / ".pepperpy"
+            config_file = config_dir / "config.env"
 
-        # Print help if issues found
-        if not api_key:
-            console.print(
-                Panel(
-                    "[yellow]To configure Pepperpy, run:[/]\n"
-                    "  [bold]$ pepperpy init[/]",
-                    title="Next Steps",
-                    expand=False,
+            if config_dir.exists():
+                table.add_row("Config Directory", "✓", str(config_dir))
+            else:
+                table.add_row("Config Directory", "✗", "Not found")
+
+            if config_file.exists():
+                table.add_row("Config File", "✓", str(config_file))
+            else:
+                table.add_row("Config File", "✗", "Not found")
+
+            # Check hub structure
+            hub_dir = Path.home() / ".pepper_hub"
+            if hub_dir.exists():
+                table.add_row("Hub Directory", "✓", str(hub_dir))
+                for subdir in ["agents", "prompts", "workflows"]:
+                    path = hub_dir / subdir
+                    if path.exists():
+                        table.add_row(f"Hub {subdir}", "✓", "Found")
+                    else:
+                        table.add_row(f"Hub {subdir}", "✗", "Missing")
+            else:
+                table.add_row("Hub Directory", "✗", "Not found")
+
+            # Check environment variables
+            env_vars = [
+                "PEPPERPY_API_KEY",
+                "PEPPERPY_MODEL",
+                "PEPPERPY_TEMPERATURE",
+                "PEPPERPY_MAX_TOKENS",
+            ]
+
+            for var in env_vars:
+                value = os.getenv(var)
+                if value:
+                    table.add_row(f"Environment: {var}", "✓", "Set")
+                else:
+                    table.add_row(f"Environment: {var}", "-", "Not set")
+
+            # Test connection
+            try:
+                pepper = await Pepperpy.create()
+                response = await pepper.ask("Test message")
+                table.add_row("API Connection", "✓", "Successfully connected")
+            except Exception as e:
+                table.add_row("API Connection", "✗", str(e))
+
+            console.print()
+            console.print(table)
+            console.print()
+
+            # Print help if issues found
+            if not os.getenv("PEPPERPY_API_KEY"):
+                console.print(
+                    Panel(
+                        "[yellow]To configure Pepperpy, run:[/]\n"
+                        "  [bold]$ pepperpy init[/]",
+                        title="Next Steps",
+                        expand=False,
+                    )
                 )
-            )
+
+        except Exception as e:
+            console.print(f"\n[red]Diagnostics failed: {e}[/]")
+            sys.exit(1)
 
     asyncio.run(run_diagnostics())
 
@@ -351,7 +349,7 @@ def chat(message: Optional[str]):
             pepper = await Pepperpy.create()
 
             # Start chat
-            pepper.chat(message)
+            await pepper.chat(message)
 
         except Exception as e:
             console.print(f"\n[red]Chat failed: {e}[/]")

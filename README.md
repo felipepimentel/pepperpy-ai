@@ -2,6 +2,39 @@
 
 A Python library for building AI-powered research assistants.
 
+## 🚀 Quick Win (30 seconds)
+```bash
+# Install Pepperpy
+pip install pepperpy
+
+# Start interactive setup
+pepperpy init
+
+# Ask your first question
+pepperpy test "What is AI?"
+```
+
+That's it! You're ready to use Pepperpy's powerful features:
+```python
+from pepperpy import Pepperpy
+
+async def main():
+    # Auto-configuration (or use Pepperpy.quick_start() for interactive setup)
+    pepper = await Pepperpy.create()
+    
+    # Simple question
+    result = await pepper.ask("What is AI?")
+    print(result)
+    
+    # Interactive chat
+    await pepper.chat("Tell me about AI")  # With initial message
+    # Or just:
+    await pepper.chat()  # Start blank chat
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+
 ## Quick Start
 
 ```python

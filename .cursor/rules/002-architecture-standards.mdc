@@ -1,0 +1,39 @@
+---
+title: Architecture Standards
+description: ALWAYS enforce project structure and prevent architectural anti-patterns to ensure maintainability.
+globs: "src/**/*"
+version: "1.0"
+priority: high
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <name>architecture-standards</name>
+    <description>ALWAYS enforce project structure and prevent architectural anti-patterns to ensure maintainability.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>architecture</tag>
+      <tag>project-structure</tag>
+    </tags>
+  </metadata>
+  <filters>
+    <filter>
+      <type>directory_structure</type>
+      <pattern>/tests</pattern>
+      <description>Ensures that all test files are inside the /tests directory.</description>
+    </filter>
+  </filters>
+  <actions>
+    <action>
+      <type>reject</type>
+      <conditions>
+        <condition>
+          <pattern>!(/tests)</pattern>
+          <message>All test files must be located inside the /tests directory.</message>
+        </condition>
+      </conditions>
+    </action>
+  </actions>
+</rule>

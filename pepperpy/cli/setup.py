@@ -11,10 +11,21 @@ from pathlib import Path
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 from pepperpy import Pepperpy
 
 console = Console()
+
+
+def validate_api_key(api_key: str) -> bool:
+    """Validate API key format."""
+    return bool(api_key and len(api_key) > 10)
+
+
+def validate_model_settings(temperature: float, max_tokens: int) -> bool:
+    """Validate model settings."""
+    return 0.0 <= temperature <= 1.0 and 1 <= max_tokens <= 32000
 
 
 async def setup_wizard() -> Pepperpy:
@@ -24,7 +35,8 @@ async def setup_wizard() -> Pepperpy:
     1. Checking for existing configuration
     2. Guiding through API key setup
     3. Setting up basic preferences
-    4. Testing the configuration
+    4. Initializing the Hub
+    5. Testing the configuration
 
     Returns:
         A configured Pepperpy instance
@@ -63,24 +75,76 @@ async def setup_wizard() -> Pepperpy:
             "You'll need an API key from OpenRouter. "
             "Visit https://openrouter.ai to get one."
         )
-        api_key = Prompt.ask("Enter your API key")
+        while True:
+            api_key = Prompt.ask("Enter your API key")
+            if validate_api_key(api_key):
+                break
+            console.print("[red]Invalid API key format. Please try again.[/]")
 
     # Select model
     console.print("\n[yellow]Model Selection[/]")
-    models = [
-        "openai/gpt-4",
-        "openai/gpt-3.5-turbo",
-        "anthropic/claude-3-opus",
-        "anthropic/claude-3-sonnet",
-    ]
-    model = Prompt.ask(
-        "Choose your preferred model", choices=models, default="openai/gpt-4"
+    models = {
+        "gpt-4": "openai/gpt-4 (Most capable)",
+        "gpt-3.5": "openai/gpt-3.5-turbo (Fast & efficient)",
+        "claude-3": "anthropic/claude-3-opus (Research focused)",
+        "claude-3-sonnet": "anthropic/claude-3-sonnet (Balanced)",
+    }
+
+    # Show model options
+    table = Table(title="Available Models")
+    table.add_column("Key", style="cyan")
+    table.add_column("Model", style="green")
+    table.add_column("Description", style="yellow")
+
+    for key, value in models.items():
+        name, desc = value.split(" (", 1)
+        table.add_row(key, name, f"({desc}")
+
+    console.print(table)
+
+    model_key = Prompt.ask(
+        "Choose your preferred model", choices=list(models.keys()), default="gpt-4"
     )
+    model = models[model_key].split(" (")[0]
 
     # Configure preferences
-    console.print("\n[yellow]Preferences[/]")
-    temperature = float(Prompt.ask("Temperature (0.0-1.0)", default="0.7"))
-    max_tokens = int(Prompt.ask("Maximum tokens per response", default="2048"))
+    console.print("\n[yellow]Advanced Settings[/]")
+    if Confirm.ask("Would you like to configure advanced settings?", default=False):
+        temperature = float(
+            Prompt.ask(
+                "Temperature (0.0-1.0)",
+                default="0.7",
+                show_default=True,
+            )
+        )
+        max_tokens = int(
+            Prompt.ask(
+                "Maximum tokens per response",
+                default="2048",
+                show_default=True,
+            )
+        )
+
+        # Validate settings
+        if not validate_model_settings(temperature, max_tokens):
+            console.print("[red]Invalid settings. Using defaults.[/]")
+            temperature = 0.7
+            max_tokens = 2048
+    else:
+        temperature = 0.7
+        max_tokens = 2048
+
+    # Initialize Hub
+    console.print("\n[yellow]Hub Setup[/]")
+    if Confirm.ask("Would you like to initialize the Pepper Hub?", default=True):
+        hub_dir = Path.home() / ".pepper_hub"
+        hub_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create standard directories
+        for subdir in ["agents", "prompts", "workflows", "plugins"]:
+            (hub_dir / subdir).mkdir(exist_ok=True)
+
+        console.print("[green]✓ Hub initialized successfully[/]")
 
     # Save configuration
     with open(config_file, "w") as f:
@@ -91,7 +155,10 @@ async def setup_wizard() -> Pepperpy:
 
     # Create client
     pepper = await Pepperpy.create(
-        api_key=api_key, model=model, temperature=temperature, max_tokens=max_tokens
+        api_key=api_key,
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
     )
 
     # Test configuration
@@ -111,7 +178,10 @@ async def setup_wizard() -> Pepperpy:
             "You can now use Pepperpy with the following methods:\n"
             "- [blue]pepper = await Pepperpy.create()[/]\n"
             "- [blue]result = await pepper.ask('Your question')[/]\n"
-            "- [blue]pepper.chat('Start chatting')[/]"
+            "- [blue]pepper.chat('Start chatting')[/]\n\n"
+            "For more examples and documentation:\n"
+            "- Run [bold]pepperpy doctor[/] to check your setup\n"
+            "- Visit [link]https://github.com/pepperpy/pepperpy[/link]"
         )
     )
 

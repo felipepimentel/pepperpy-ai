@@ -33,9 +33,9 @@ class ComponentRegistry:
                 self._registry = json.load(f)
         else:
             self._registry = {
-                "agents": {},
-                "workflows": {},
-                "teams": {},
+                "agent": {},
+                "workflow": {},
+                "team": {},
             }
             self._save_registry()
 

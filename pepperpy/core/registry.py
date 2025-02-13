@@ -51,6 +51,7 @@ class Version:
 
         Raises:
             ValueError: If version string is invalid
+
         """
         try:
             major, minor, patch = map(int, version_str.split("."))
@@ -180,6 +181,7 @@ class Registry(Generic[T]):
     Attributes:
         name: Registry name for identification
         event_bus: Event bus for registry events
+
     """
 
     def __init__(self, name: str, event_bus: EventBus | None = None) -> None:
@@ -188,6 +190,7 @@ class Registry(Generic[T]):
         Args:
             name: Registry name for identification
             event_bus: Optional event bus for registry events
+
         """
         self._name = name
         self._items: dict[str, dict[str, RegistryMetadata[T]]] = {}
@@ -241,6 +244,7 @@ class Registry(Generic[T]):
         Raises:
             ValidationError: If key is invalid or already exists
             StateError: If registry is not active
+
         """
         self._ensure_active()
 
@@ -296,6 +300,7 @@ class Registry(Generic[T]):
         Raises:
             NotFoundError: If key or version is not found
             StateError: If registry is not active
+
         """
         self._ensure_active()
 
@@ -344,6 +349,7 @@ class Registry(Generic[T]):
         Raises:
             NotFoundError: If key or version is not found
             StateError: If registry is not active
+
         """
         self._ensure_active()
 
@@ -373,6 +379,7 @@ class Registry(Generic[T]):
         Raises:
             NotFoundError: If key or version is not found
             StateError: If registry is not active
+
         """
         self._ensure_active()
 
@@ -403,6 +410,7 @@ class Registry(Generic[T]):
         Raises:
             NotFoundError: If key or version is not found
             StateError: If registry is not active
+
         """
         self._ensure_active()
 
@@ -442,6 +450,7 @@ class Registry(Generic[T]):
 
         Raises:
             StateError: If registry is not active
+
         """
         self._ensure_active()
         return {
@@ -457,6 +466,7 @@ class Registry(Generic[T]):
 
         Raises:
             StateError: If registry is not active
+
         """
         self._ensure_active()
         return {
@@ -469,6 +479,7 @@ class Registry(Generic[T]):
 
         Raises:
             StateError: If registry is not active
+
         """
         self._ensure_active()
 
@@ -504,6 +515,7 @@ class Registry(Generic[T]):
 
         Returns:
             bool: True if versions are compatible
+
         """
         try:
             required = Version.from_string(required_version)
@@ -531,6 +543,7 @@ class Registry(Generic[T]):
 
         Raises:
             RegistryError: If validation fails
+
         """
         if not component_type:
             raise RegistryError("Component type cannot be empty")
@@ -588,6 +601,7 @@ class CapabilityRegistry(Registry[Any]):
         Raises:
             ValueError: If parameters are invalid
             RuntimeError: If registry is not active
+
         """
         if not self.is_active:
             raise RuntimeError("Registry is not active")
@@ -611,6 +625,11 @@ class CapabilityRegistry(Registry[Any]):
             metadata=capability_metadata.dict(),
         )
 
+        # Track agent capability
+        if agent_id not in self._agent_capabilities:
+            self._agent_capabilities[agent_id] = set()
+        self._agent_capabilities[agent_id].add(capability_name)
+
         logger.info(
             "Registered capability",
             extra={
@@ -631,6 +650,7 @@ class CapabilityRegistry(Registry[Any]):
             agent_id: ID of the agent
             capability_name: Name of the capability
             version: Optional specific version to unregister
+
         """
         await self.unregister(capability_name, version)
         if agent_id in self._agent_capabilities:
@@ -649,6 +669,7 @@ class CapabilityRegistry(Registry[Any]):
 
         Returns:
             List[UUID]: List of agent IDs with the capability
+
         """
         agents = []
         for agent_id, capabilities in self._agent_capabilities.items():
@@ -674,6 +695,7 @@ class CapabilityRegistry(Registry[Any]):
 
         Returns:
             Dict[str, Dict[str, CapabilityMetadata]]: Capabilities by name and version
+
         """
         if agent_id not in self._agent_capabilities:
             return {}

@@ -4,11 +4,12 @@ import asyncio
 import functools
 import logging
 from pathlib import Path
-from typing import Any, Callable, Coroutine, Dict, List
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Set, Tuple
 
 import yaml
 from watchdog.events import FileModifiedEvent, FileSystemEventHandler
 from watchdog.observers import Observer
+from watchdog.observers.api import ObservedWatch
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +26,42 @@ class ComponentWatcher:
         """
         self.hub_path = hub_path
         self.observer = Observer()
-        self.watchers: List[FileSystemEventHandler] = []
+        self.watchers: List[Tuple[FileSystemEventHandler, ObservedWatch]] = []
         self.observer.start()
+        self._event_queue: asyncio.Queue[Tuple[Path, Callable]] = asyncio.Queue()
+        self._task: Optional[asyncio.Task] = None
+        self._processed_events: Set[str] = set()
+
+    async def start(self):
+        """Start the event processing task."""
+        if self._task is None:
+            self._task = asyncio.create_task(self._process_events())
+
+    async def _process_events(self):
+        """Process file system events from the queue."""
+        while True:
+            try:
+                path, callback = await self._event_queue.get()
+                try:
+                    # Generate a unique event key
+                    event_key = f"{path}:{hash(callback)}"
+                    if event_key in self._processed_events:
+                        continue
+                    self._processed_events.add(event_key)
+
+                    logger.debug("Loading modified config: %s", str(path))
+                    with open(path) as f:
+                        config = yaml.safe_load(f)
+                    logger.debug("Loaded config: %s", str(config))
+                    await callback(config)
+                except Exception as exc:
+                    logger.error("Error reloading config: %s", str(exc))
+                finally:
+                    self._event_queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as exc:
+                logger.error("Error processing events: %s", str(exc))
 
     async def watch_agent(
         self, name: str, callback: Callable[[Dict[str, Any]], Coroutine[Any, Any, None]]
@@ -39,6 +74,7 @@ class ComponentWatcher:
 
         """
         path = self.hub_path / "agents" / f"{name}.yaml"
+        await self.start()
         await self._watch_component(path, callback)
 
     async def watch_workflow(
@@ -52,6 +88,7 @@ class ComponentWatcher:
 
         """
         path = self.hub_path / "workflows" / f"{name}.yaml"
+        await self.start()
         await self._watch_component(path, callback)
 
     async def watch_team(
@@ -65,6 +102,7 @@ class ComponentWatcher:
 
         """
         path = self.hub_path / "teams" / f"{name}.yaml"
+        await self.start()
         await self._watch_component(path, callback)
 
     async def _watch_component(
@@ -84,34 +122,41 @@ class ComponentWatcher:
             return
 
         class ConfigHandler(FileSystemEventHandler):
-            async def _handle_change(self, config_path: Path):
-                try:
-                    with open(config_path) as f:
-                        config = yaml.safe_load(f)
-                    await callback(config)
-                except Exception as exc:
-                    logger.error("Error reloading config: %s", str(exc))
+            def __init__(self, queue: asyncio.Queue, path: Path, callback: Callable):
+                self.queue = queue
+                self.path = path
+                self.callback = callback
 
             def on_modified(self, event: FileModifiedEvent):
-                if event.src_path == str(path):
-                    asyncio.create_task(self._handle_change(path))
+                logger.debug("File modified event: %s", str(event.src_path))
+                if event.src_path == str(self.path):
+                    logger.debug("Matched path: %s", str(self.path))
+                    self.queue.put_nowait((self.path, self.callback))
 
-        handler = ConfigHandler()
-        self.observer.schedule(handler, str(path.parent), recursive=False)
-        self.watchers.append(handler)
+        handler = ConfigHandler(self._event_queue, path, callback)
+        watch = self.observer.schedule(handler, str(path.parent), recursive=False)
+        self.watchers.append((handler, watch))
 
         # Initial load
         try:
+            logger.debug("Loading initial config: %s", str(path))
             with open(path) as f:
                 config = yaml.safe_load(f)
+            logger.debug("Loaded initial config: %s", str(config))
             await callback(config)
         except Exception as exc:
             logger.error("Error loading initial config: %s", str(exc))
 
     async def stop(self):
         """Stop watching all components."""
-        for handler in self.watchers:
-            self.observer.unschedule(handler)
+        if self._task:
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+        for handler, watch in self.watchers:
+            self.observer.unschedule(watch)
         self.watchers.clear()
         self.observer.stop()
         self.observer.join()
@@ -135,11 +180,11 @@ def watch_component(config_path: str):
             async def callback(config: Dict[str, Any]):
                 await func(*args, **kwargs)
 
-            # Start watching
-            await watcher._watch_component(Path(config_path), callback)
-
             try:
-                # Run function
+                # Start watching and wait for initial load
+                await watcher.start()
+                await watcher._watch_component(Path(config_path), callback)
+                # Run function only once
                 return await func(*args, **kwargs)
             finally:
                 # Stop watcher

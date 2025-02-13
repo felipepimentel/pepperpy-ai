@@ -6,131 +6,160 @@
 pip install pepperpy
 ```
 
-## Quick Start
+## Quick Start (30 seconds)
 
-### Basic Chat Agent
+The fastest way to get started with Pepperpy:
 
-```python
-from pepperpy.agents import AgentService
+```bash
+# Start interactive setup
+pepperpy init
 
-# Create service
-service = AgentService("my_service")
-
-# Configure chat agent
-config = {
-    "name": "chat_agent",
-    "description": "Basic chat agent",
-    "llm_provider": {
-        "type": "openrouter",
-        "parameters": {
-            "model": "gpt-3.5-turbo",
-            "api_key": "your_api_key"
-        }
-    }
-}
-
-# Create and use agent
-async def main():
-    agent = await service.create_agent("chat", config)
-    response = await service.process("chat_agent", "Hello!")
-    print(response)
-    await service.cleanup()
+# Ask your first question
+pepperpy test "What is AI?"
 ```
 
-### RAG-Enabled Agent
+That's it! You're ready to use Pepperpy's powerful features.
+
+## Basic Usage
+
+### Simple Questions
 
 ```python
-# Configure RAG agent
-config = {
-    "name": "rag_agent",
-    "description": "Document-aware agent",
-    "llm_provider": {
-        "type": "openrouter",
-        "parameters": {
-            "model": "gpt-3.5-turbo",
-            "api_key": "your_api_key"
-        }
-    },
-    "vector_store_provider": {
-        "type": "faiss",
-        "parameters": {
-            "dimension": 768
-        }
-    },
-    "embedding_provider": {
-        "type": "sentence_transformers",
-        "parameters": {
-            "model": "all-MiniLM-L6-v2"
-        }
-    }
-}
+from pepperpy import Pepperpy
 
-# Create and use agent
 async def main():
-    agent = await service.create_agent("rag", config)
+    # Auto-configuration (or use Pepperpy.quick_start() for interactive setup)
+    pepper = await Pepperpy.create()
     
-    # Add documents
-    documents = [
-        "Document 1 content",
-        "Document 2 content"
-    ]
-    await service.process("rag_agent", "add_documents", documents=documents)
+    # Ask a simple question
+    result = await pepper.ask("What is AI?")
+    print(result)
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+```
+
+### Interactive Chat
+
+```python
+async def chat_example():
+    pepper = await Pepperpy.create()
     
-    # Query documents
-    response = await service.process(
-        "rag_agent",
-        "What do the documents say?",
-        use_context=True
+    # Start chat with initial message
+    await pepper.chat("Tell me about AI")
+    
+    # Or start a blank chat session
+    await pepper.chat()
+    
+    # During chat:
+    # - Press Ctrl+C to exit
+    # - Type /help for commands
+    # - Type /clear to clear history
+    # - Type /save to save conversation
+```
+
+### Research Assistant
+
+```python
+async def research_example():
+    pepper = await Pepperpy.create()
+    
+    # Simple research
+    result = await pepper.research("Impact of AI in Healthcare")
+    print(result.tldr)  # Quick summary
+    print(result.full)  # Full report
+    print(result.bullets)  # Key points
+    print(result.references)  # Sources
+    
+    # With custom parameters
+    result = await pepper.research(
+        topic="Quantum Computing",
+        depth="academic",  # basic, detailed, comprehensive
+        style="technical",  # casual, business, academic
+        format="report"  # summary, bullets, report
     )
-    print(response)
+```
+
+### Team Collaboration
+
+```python
+async def team_example():
+    pepper = await Pepperpy.create()
     
-    await service.cleanup()
+    # Use a pre-configured team
+    team = await pepper.hub.team("research-team")
+    async with team.run("Analyze AI trends") as session:
+        # Monitor progress
+        print(f"Step: {session.current_step}")
+        print(f"Progress: {session.progress * 100:.0f}%")
+        
+        # Provide input if needed
+        if session.needs_input:
+            value = input(f"{session.input_prompt}: ")
+            session.provide_input(value)
 ```
 
 ## Configuration
 
-### Provider Types
+### Environment Variables
 
-1. **LLM Providers**
-   - `openrouter`: OpenRouter API
-   - `huggingface`: HuggingFace models
+You can configure Pepperpy using environment variables:
 
-2. **Vector Store Providers**
-   - `faiss`: FAISS vector store
-   - `qdrant`: Qdrant vector database
+```bash
+# API Key (required)
+PEPPERPY_API_KEY=your-api-key
 
-3. **Embedding Providers**
-   - `sentence_transformers`: Local embeddings
-   - `openai`: OpenAI embeddings
+# Model Selection (optional)
+PEPPERPY_MODEL=openai/gpt-4  # Default model
+PEPPERPY_TEMPERATURE=0.7     # Response creativity (0.0-1.0)
+PEPPERPY_MAX_TOKENS=2048     # Maximum response length
+```
 
-### Agent Types
+### Programmatic Configuration
 
-1. **Chat Agent**
-   - Basic conversation
-   - Memory management
-   - Required: LLM provider
-
-2. **RAG Agent**
-   - Document retrieval
-   - Context augmentation
-   - Required: LLM, vector store, embedding providers
-
-## Error Handling
+Or configure programmatically:
 
 ```python
-from pepperpy.core.errors import PepperpyError
+pepper = await Pepperpy.create(
+    api_key="your-api-key",
+    model="openai/gpt-4",
+    temperature=0.7,
+    max_tokens=2048
+)
+```
 
-try:
-    agent = await service.create_agent("chat", config)
-    response = await service.process("chat_agent", "Hello!")
-except PepperpyError as e:
-    print(f"Error: {str(e)}")
-finally:
-    await service.cleanup()
+### Interactive Setup
+
+For guided setup with validation:
+
+```python
+pepper = await Pepperpy.quick_start()  # Launches setup wizard
+```
+
+## CLI Commands
+
+Pepperpy comes with helpful CLI commands:
+
+```bash
+# Interactive setup
+pepperpy init
+
+# Quick test
+pepperpy test "What is AI?"
+
+# Run diagnostics
+pepperpy doctor
+
+# Start chat session
+pepperpy chat
+
+# Research a topic
+pepperpy research "Impact of AI" --depth comprehensive --style academic
 ```
 
 ## Next Steps
 
-1. Read the [Core Concepts](core_concepts.md) guide
-2. Check out the [Technical Documentation](technical.md)
-3. Explore [Example Projects](examples/) 
+1. Explore the [Core Concepts](core_concepts.md) guide
+2. Check out the [API Reference](api_reference/index.md)
+3. Browse [Example Projects](examples/) 

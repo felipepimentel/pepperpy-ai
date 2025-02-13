@@ -28,7 +28,6 @@ from pepperpy.core.types import (
     PepperpyClientProtocol,
     ProviderConfig,
 )
-from pepperpy.hub.registry import AgentRegistry
 from pepperpy.monitoring import logger as log
 from pepperpy.providers.base import (
     BaseProvider,
@@ -432,6 +431,9 @@ class PepperpyClient(PepperpyClientProtocol):
             raise ConfigurationError("Agent factory not set")
 
         try:
+            # Import here to avoid circular imports
+            from pepperpy.hub.registry import AgentRegistry
+
             # Get agent configuration from registry
             registry = AgentRegistry()
             config = await registry.get_agent_config(agent_type)

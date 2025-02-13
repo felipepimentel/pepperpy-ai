@@ -1,0 +1,43 @@
+---
+title: CLI Standards
+description: ALWAYS ensure CLI commands have a consistent structure, clear descriptions, and safe execution.
+globs: "cli/**/*.py"
+version: "1.0"
+priority: medium
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <name>cli-standards</name>
+    <description>ALWAYS ensure CLI commands have a consistent structure, clear descriptions, and safe execution.</description>
+    <priority>medium</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>cli</tag>
+      <tag>command-line</tag>
+    </tags>
+  </metadata>
+  <filters>
+    <filter>
+      <type>file_name</type>
+      <pattern>.*</pattern>
+      <description>Ensures CLI scripts follow best practices.</description>
+    </filter>
+  </filters>
+  <actions>
+    <action>
+      <type>reject</type>
+      <conditions>
+        <condition>
+          <pattern>^def main\(.*\):</pattern>
+          <message>All CLI scripts must define a main() function.</message>
+        </condition>
+        <condition>
+          <pattern>.*print\(.*\)</pattern>
+          <message>Use logging instead of print() in CLI scripts.</message>
+        </condition>
+      </conditions>
+    </action>
+  </actions>
+</rule>

@@ -1,0 +1,44 @@
+---
+title: Public Module Standards
+description: ALWAYS ensure public modules follow naming conventions, include docstrings, and have explicit exports.
+globs: "src/**/*.py"
+version: "1.0"
+priority: high
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <name>public-modules-standards</name>
+    <description>ALWAYS ensure public modules follow naming conventions, include docstrings, and have explicit exports.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>module</tag>
+      <tag>public-api</tag>
+      <tag>documentation</tag>
+    </tags>
+  </metadata>
+  <filters>
+    <filter>
+      <type>file_structure</type>
+      <pattern>.*</pattern>
+      <description>Ensures public modules follow best practices.</description>
+    </filter>
+  </filters>
+  <actions>
+    <action>
+      <type>reject</type>
+      <conditions>
+        <condition>
+          <pattern>^class .*</pattern>
+          <message>Public modules must explicitly define __all__ to expose public symbols.</message>
+        </condition>
+        <condition>
+          <pattern>^def .*</pattern>
+          <message>All public functions must have a docstring.</message>
+        </condition>
+      </conditions>
+    </action>
+  </actions>
+</rule>

@@ -9,13 +9,13 @@ from pepperpy.hub.sharing import ComponentRegistry
 
 @pytest.fixture
 def registry(tmp_path):
-    """Create a test registry with a temporary path."""
+    """Create a test registry."""
     return ComponentRegistry(hub_path=tmp_path)
 
 
 @pytest.fixture
 def mock_config():
-    """Create a mock component configuration."""
+    """Create a mock component config."""
     return {
         "name": "test-agent",
         "version": "0.1.0",
@@ -33,9 +33,9 @@ def test_registry_initialization(tmp_path):
     assert registry.hub_path == tmp_path
     assert registry.registry_path == tmp_path / "registry.json"
     assert registry._registry == {
-        "agents": {},
-        "workflows": {},
-        "teams": {},
+        "agent": {},
+        "workflow": {},
+        "team": {},
     }
 
 

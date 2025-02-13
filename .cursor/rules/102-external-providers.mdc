@@ -1,0 +1,39 @@
+---
+title: External Provider Standards
+description: ALWAYS ensure external provider configurations are secure and follow best practices.
+globs: "providers/**/*.py"
+version: "1.0"
+priority: high
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <name>external-providers</name>
+    <description>ALWAYS ensure external provider configurations are secure and follow best practices.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>integration</tag>
+      <tag>security</tag>
+    </tags>
+  </metadata>
+  <filters>
+    <filter>
+      <type>code</type>
+      <pattern>.*(aws_access_key|gcp_secret).*</pattern>
+      <description>Detects hardcoded provider credentials.</description>
+    </filter>
+  </filters>
+  <actions>
+    <action>
+      <type>reject</type>
+      <conditions>
+        <condition>
+          <pattern>.*(aws_access_key|gcp_secret).*</pattern>
+          <message>Hardcoded credentials detected! Use environment variables instead.</message>
+        </condition>
+      </conditions>
+    </action>
+  </actions>
+</rule>

@@ -118,28 +118,28 @@ class PepperpyConfig(BaseModel):
         config = {}
 
         # Map environment variables to configuration
-        env_mapping = {
-            "PEPPERPY_PROVIDER": "provider_type",
-            "PEPPERPY_API_KEY": ("provider_config", "api_key"),
-            "PEPPERPY_MODEL": ("provider_config", "model"),
-            "PEPPERPY_TIMEOUT": "timeout",
-            "PEPPERPY_MAX_RETRIES": "max_retries",
-            "PEPPERPY_RETRY_DELAY": "retry_delay",
-            "PEPPERPY_CACHE_ENABLED": "cache_enabled",
-            "PEPPERPY_CACHE_STORE": "cache_store",
-        }
+        for key, value in os.environ.items():
+            if not key.startswith("PEPPERPY_"):
+                continue
 
-        for env_var, config_key in env_mapping.items():
-            value = os.getenv(env_var)
-            if value is not None:
-                if isinstance(config_key, tuple):
-                    # Handle nested configuration
-                    current = config
-                    for key in config_key[:-1]:
-                        current = current.setdefault(key, {})
-                    current[config_key[-1]] = value
-                else:
-                    config[config_key] = value
+            # Remove prefix and convert to lowercase
+            key = key[len("PEPPERPY_") :].lower()
+
+            # Handle nested configuration using double underscores
+            parts = key.split("__")
+            current = config
+            for part in parts[:-1]:
+                current = current.setdefault(part, {})
+
+            # Handle type conversion for known fields
+            if parts[-1] == "timeout":
+                value = float(value)
+            elif parts[-1] == "max_retries":
+                value = int(value)
+            elif parts[-1] == "retry_delay":
+                value = float(value)
+
+            current[parts[-1]] = value
 
         return config
 
@@ -426,23 +426,29 @@ class ConfigManager:
         env_prefix = "PEPPERPY_"
         for key, value in os.environ.items():
             if key.startswith(env_prefix):
-                config_key = key[len(env_prefix) :].lower()
+                # Remove prefix and convert to lowercase
+                key = key[len(env_prefix) :].lower()
+
+                # Handle nested configuration using double underscores
+                parts = key.split("__")
+                current = config_dict
+                for part in parts[:-1]:
+                    current = current.setdefault(part, {})
+
                 # Convert string values to appropriate types
                 if isinstance(value, str):
                     if value.lower() in ("true", "false"):
-                        config_dict[config_key] = value.lower() == "true"
+                        value = value.lower() == "true"
                     elif value.isdigit():
-                        config_dict[config_key] = int(value)
-                    else:
-                        config_dict[config_key] = value
+                        value = int(value)
+                    elif parts[-1] == "timeout":
+                        value = float(value)
+                    elif parts[-1] == "max_retries":
+                        value = int(value)
+                    elif parts[-1] == "retry_delay":
+                        value = float(value)
 
-        # Convert types
-        if "enable_logging" in config_dict:
-            config_dict["enable_logging"] = bool(config_dict["enable_logging"])
-        if "max_requests_per_minute" in config_dict:
-            config_dict["max_requests_per_minute"] = int(
-                config_dict["max_requests_per_minute"]
-            )
+                current[parts[-1]] = value
 
         return config_dict
 

@@ -4,12 +4,18 @@ This module implements the adapter for the AutoGen framework.
 """
 
 from importlib.util import find_spec
-from typing import Any, NotRequired, Protocol, TypedDict, TypeVar, cast
+from typing import Any, Dict, NotRequired, Protocol, TypedDict, TypeVar, cast
 from uuid import uuid4
 
 from pepperpy.adapters.base import BaseFrameworkAdapter
 from pepperpy.adapters.errors import ConversionError
-from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
+from pepperpy.core.types import (
+    Message,
+    MessageContent,
+    MessageType,
+    Response,
+    ResponseStatus,
+)
 
 # Define type variables for type checking
 T_AutoGenAgent = TypeVar("T_AutoGenAgent", bound="AutoGenAgent")
@@ -93,6 +99,7 @@ class AutoGenAdapter(
     Args:
         agent: The Pepperpy agent to adapt
         **kwargs: Additional AutoGen-specific configuration
+
     """
 
     async def to_framework_agent(self) -> T_AutoGenAgent:
@@ -103,6 +110,7 @@ class AutoGenAdapter(
 
         Raises:
             ConversionError: If conversion fails
+
         """
         if not has_autogen:
             raise ConversionError(
@@ -137,6 +145,7 @@ class AutoGenAdapter(
                     Args:
                         message: Message from AutoGen
                         sender: Message sender
+
                     """
                     try:
                         # Convert AutoGen message to Pepperpy format
@@ -176,12 +185,11 @@ class AutoGenAdapter(
 
         Raises:
             ConversionError: If conversion fails
+
         """
         try:
             return Message(
                 type=MessageType.QUERY,
-                sender=message["sender"],
-                receiver=message["receiver"],
                 content={"text": str(message["content"])},
                 id=uuid4(),
             )
@@ -199,14 +207,14 @@ class AutoGenAdapter(
 
         Raises:
             ConversionError: If conversion fails
+
         """
         try:
-            text = message.content.get("text")
-            if text is None:
-                text = ""
+            content = cast(Dict[str, Any], message.content)
+            text = content.get("text", "")
             return AutoGenMessage(
-                sender=str(message.sender),
-                receiver=str(message.receiver),
+                sender=str(self.agent.name),
+                receiver="user",  # Default to user as receiver
                 content=str(text),
             )
         except Exception as e:
@@ -223,13 +231,18 @@ class AutoGenAdapter(
 
         Raises:
             ConversionError: If conversion fails
+
         """
         try:
-            message_id = uuid4()
+            message_id = str(uuid4())
+            content: MessageContent = {
+                "type": MessageType.RESPONSE,
+                "content": {"text": str(response["content"])},
+            }
             return Response(
                 message_id=message_id,
                 status=ResponseStatus.SUCCESS,
-                content={"text": str(response["content"])},
+                content=content,
                 id=uuid4(),
             )
         except Exception as e:
@@ -248,12 +261,15 @@ class AutoGenAdapter(
 
         Raises:
             ConversionError: If conversion fails
+
         """
         try:
+            content = cast(Dict[str, Any], response.content.get("content", {}))
+            text = content.get("text", "")
             return AutoGenMessage(
-                sender=str(response.message_id),
-                receiver="",
-                content=str(response.content.get("text", "")),
+                sender=str(self.agent.name),
+                receiver="user",  # Default to user as receiver
+                content=str(text),
             )
         except Exception as e:
             raise ConversionError(f"Failed to convert to AutoGen response: {e}") from e

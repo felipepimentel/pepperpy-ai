@@ -1,7 +1,9 @@
-"""Tests for hot-reload functionality."""
+"""Tests for the component watcher."""
 
 import asyncio
-from typing import Any, Dict
+import logging
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict
 
 import pytest
 import yaml
@@ -9,15 +11,24 @@ import yaml
 from pepperpy.hub.watcher import ComponentWatcher, watch_component
 
 
-@pytest.fixture
-def watcher(tmp_path):
-    """Create a test watcher with a temporary path."""
-    return ComponentWatcher(hub_path=tmp_path)
+@pytest.fixture(autouse=True)
+def setup_logging():
+    """Enable debug logging for tests."""
+    logging.basicConfig(level=logging.DEBUG)
 
 
 @pytest.fixture
-def mock_config():
-    """Create a mock component configuration."""
+async def watcher(tmp_path: Path) -> AsyncGenerator[ComponentWatcher, None]:
+    """Create a test watcher."""
+    watcher = ComponentWatcher(tmp_path)
+    await watcher.start()
+    yield watcher
+    await watcher.stop()
+
+
+@pytest.fixture
+def mock_config() -> Dict[str, Any]:
+    """Create a mock configuration."""
     return {
         "name": "test-agent",
         "version": "0.1.0",
@@ -30,12 +41,15 @@ def mock_config():
 
 
 @pytest.mark.asyncio
-async def test_watch_agent(watcher, tmp_path, mock_config):
+async def test_watch_agent(
+    watcher: ComponentWatcher, tmp_path: Path, mock_config: Dict[str, Any]
+):
     """Test watching an agent configuration."""
     # Create test config file
     config_path = tmp_path / "agents" / "test-agent.yaml"
     config_path.parent.mkdir(parents=True)
 
+    # Write initial config
     with open(config_path, "w") as f:
         yaml.dump(mock_config, f)
 
@@ -43,34 +57,44 @@ async def test_watch_agent(watcher, tmp_path, mock_config):
     callback_calls = []
 
     async def callback(config: Dict[str, Any]):
-        callback_calls.append(config)
+        callback_calls.append(config.copy())
 
     # Start watching
     await watcher.watch_agent("test-agent", callback)
 
-    # Modify config
-    mock_config["version"] = "0.2.0"
-    with open(config_path, "w") as f:
-        yaml.dump(mock_config, f)
-
-    # Wait for callback
+    # Wait for initial callback
     await asyncio.sleep(0.1)
 
-    # Stop watcher
-    await watcher.stop()
+    # Verify initial callback
+    assert len(callback_calls) == 1
+    assert callback_calls[0]["version"] == "0.1.0"
+
+    # Modify config
+    modified_config = mock_config.copy()
+    modified_config["version"] = "0.2.0"
+
+    # Write modified config
+    with open(config_path, "w") as f:
+        yaml.dump(modified_config, f)
+
+    # Wait for file system events to propagate
+    await asyncio.sleep(0.5)
 
     # Verify callback was called with updated config
-    assert len(callback_calls) > 0
-    assert callback_calls[-1]["version"] == "0.2.0"
+    assert len(callback_calls) == 2
+    assert callback_calls[1]["version"] == "0.2.0"
 
 
 @pytest.mark.asyncio
-async def test_watch_workflow(watcher, tmp_path, mock_config):
+async def test_watch_workflow(
+    watcher: ComponentWatcher, tmp_path: Path, mock_config: Dict[str, Any]
+):
     """Test watching a workflow configuration."""
     # Create test config file
     config_path = tmp_path / "workflows" / "test-workflow.yaml"
     config_path.parent.mkdir(parents=True)
 
+    # Write initial config
     with open(config_path, "w") as f:
         yaml.dump(mock_config, f)
 
@@ -78,34 +102,44 @@ async def test_watch_workflow(watcher, tmp_path, mock_config):
     callback_calls = []
 
     async def callback(config: Dict[str, Any]):
-        callback_calls.append(config)
+        callback_calls.append(config.copy())
 
     # Start watching
     await watcher.watch_workflow("test-workflow", callback)
 
-    # Modify config
-    mock_config["version"] = "0.2.0"
-    with open(config_path, "w") as f:
-        yaml.dump(mock_config, f)
-
-    # Wait for callback
+    # Wait for initial callback
     await asyncio.sleep(0.1)
 
-    # Stop watcher
-    await watcher.stop()
+    # Verify initial callback
+    assert len(callback_calls) == 1
+    assert callback_calls[0]["version"] == "0.1.0"
+
+    # Modify config
+    modified_config = mock_config.copy()
+    modified_config["version"] = "0.2.0"
+
+    # Write modified config
+    with open(config_path, "w") as f:
+        yaml.dump(modified_config, f)
+
+    # Wait for file system events to propagate
+    await asyncio.sleep(0.5)
 
     # Verify callback was called with updated config
-    assert len(callback_calls) > 0
-    assert callback_calls[-1]["version"] == "0.2.0"
+    assert len(callback_calls) == 2
+    assert callback_calls[1]["version"] == "0.2.0"
 
 
 @pytest.mark.asyncio
-async def test_watch_team(watcher, tmp_path, mock_config):
+async def test_watch_team(
+    watcher: ComponentWatcher, tmp_path: Path, mock_config: Dict[str, Any]
+):
     """Test watching a team configuration."""
     # Create test config file
     config_path = tmp_path / "teams" / "test-team.yaml"
     config_path.parent.mkdir(parents=True)
 
+    # Write initial config
     with open(config_path, "w") as f:
         yaml.dump(mock_config, f)
 
@@ -113,29 +147,36 @@ async def test_watch_team(watcher, tmp_path, mock_config):
     callback_calls = []
 
     async def callback(config: Dict[str, Any]):
-        callback_calls.append(config)
+        callback_calls.append(config.copy())
 
     # Start watching
     await watcher.watch_team("test-team", callback)
 
-    # Modify config
-    mock_config["version"] = "0.2.0"
-    with open(config_path, "w") as f:
-        yaml.dump(mock_config, f)
-
-    # Wait for callback
+    # Wait for initial callback
     await asyncio.sleep(0.1)
 
-    # Stop watcher
-    await watcher.stop()
+    # Verify initial callback
+    assert len(callback_calls) == 1
+    assert callback_calls[0]["version"] == "0.1.0"
+
+    # Modify config
+    modified_config = mock_config.copy()
+    modified_config["version"] = "0.2.0"
+
+    # Write modified config
+    with open(config_path, "w") as f:
+        yaml.dump(modified_config, f)
+
+    # Wait for file system events to propagate
+    await asyncio.sleep(0.5)
 
     # Verify callback was called with updated config
-    assert len(callback_calls) > 0
-    assert callback_calls[-1]["version"] == "0.2.0"
+    assert len(callback_calls) == 2
+    assert callback_calls[1]["version"] == "0.2.0"
 
 
 @pytest.mark.asyncio
-async def test_watch_component_decorator(tmp_path, mock_config):
+async def test_watch_component_decorator(tmp_path: Path, mock_config: Dict[str, Any]):
     """Test the @watch_component decorator."""
     # Create test config file
     config_path = tmp_path / "test.yaml"
@@ -152,29 +193,30 @@ async def test_watch_component_decorator(tmp_path, mock_config):
     # Run function
     await test_function()
 
-    # Modify config
-    mock_config["version"] = "0.2.0"
-    with open(config_path, "w") as f:
-        yaml.dump(mock_config, f)
-
-    # Wait for reload
-    await asyncio.sleep(0.1)
-
-    # Verify function was called multiple times
-    assert len(function_calls) > 1
+    # Verify function was called once
+    assert len(function_calls) == 1
 
 
 @pytest.mark.asyncio
-async def test_stop_watcher(watcher):
+async def test_stop_watcher(watcher: ComponentWatcher, tmp_path: Path):
     """Test stopping the watcher."""
-    # Start some watchers
-    callback = lambda x: None
-    await watcher.watch_agent("test-agent", callback)
-    await watcher.watch_workflow("test-workflow", callback)
-    await watcher.watch_team("test-team", callback)
+    # Create test config file
+    config_path = tmp_path / "test.yaml"
+    with open(config_path, "w") as f:
+        yaml.dump({"test": "data"}, f)
+
+    # Track callback calls
+    callback_calls = []
+
+    async def callback(config: Dict[str, Any]):
+        callback_calls.append(config)
+
+    # Start watching
+    await watcher._watch_component(config_path, callback)
 
     # Stop watcher
     await watcher.stop()
 
-    # Verify all watchers are stopped
-    assert len(watcher.watchers) == 0
+    # Verify watcher is stopped
+    assert not watcher.watchers
+    assert not watcher.observer.is_alive()

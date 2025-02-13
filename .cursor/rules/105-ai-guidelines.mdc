@@ -1,0 +1,39 @@
+---
+title: AI Guidelines
+description: ALWAYS ensure AI-generated code follows best practices and is logged for traceability.
+globs: "src/**/*.py"
+version: "1.0"
+priority: high
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <name>ai-guidelines</name>
+    <description>ALWAYS ensure AI-generated code follows best practices and is logged for traceability.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>ai</tag>
+      <tag>automation</tag>
+    </tags>
+  </metadata>
+  <filters>
+    <filter>
+      <type>code</type>
+      <pattern># AI-GENERATED</pattern>
+      <description>Detects AI-generated code.</description>
+    </filter>
+  </filters>
+  <actions>
+    <action>
+      <type>warn</type>
+      <conditions>
+        <condition>
+          <pattern># AI-GENERATED</pattern>
+          <message>Ensure AI-generated code is reviewed and documented.</message>
+        </condition>
+      </conditions>
+    </action>
+  </actions>
+</rule>

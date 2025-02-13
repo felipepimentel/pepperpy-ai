@@ -243,7 +243,7 @@ class Team:
         self.agents = agents
         self.metadata = metadata or {}
 
-    def run(
+    async def run(
         self,
         task: str,
         *,
@@ -278,7 +278,8 @@ class Team:
             **(context or {}),
             **kwargs,
         }
-        return TeamSession(task=task, team=self, context=session_context)
+        session = TeamSession(task=task, team=self, context=session_context)
+        return session
 
     async def execute_task(
         self,
