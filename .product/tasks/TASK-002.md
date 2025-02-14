@@ -1,459 +1,354 @@
 ---
 title: Code Organization and Structure Improvements
 priority: high
-status: 📋 To Do
 points: 8
+status: 📋 To Do
 mode: Plan
 created: 2024-02-14
 updated: 2024-02-14
 ---
 
-# Understanding Phase
+# Requirements
 
-## Problem Statement
-The codebase needs better organization to improve maintainability, reduce duplication, and follow a more consistent structure. Current issues include:
-1. Capability errors são específicos demais e deveriam estar no módulo de capabilities
-2. Agentes específicos não deveriam estar na lib, mas sim no hub
-3. Estrutura muito fragmentada com muitas pastas aninhadas
-4. Core module tem muitos arquivos e responsabilidades misturadas
-5. Main __init__.py tem muitas responsabilidades
-6. Tratamento de erros e types espalhados em vários arquivos
-7. Providers module está fragmentado e com responsabilidades duplicadas
-8. Search module deveria ser parte de tools
-9. Adapters não reflete bem seu propósito de integração
-10. Hub tem responsabilidades que se sobrepõem com a lib
-11. Memory module tem muita duplicação com stores/
-12. Runtime e CLI têm responsabilidades que poderiam ser consolidadas
-13. Tools module está muito básico e poderia ser expandido
+- [ ] Flatten capabilities structure
+  ## Current State
+  ```python
+  # capabilities/learning/errors.py
+  class LearningError(Exception):
+      pass
 
-## Stakeholders
-- Development team
-- Library users
-- Contributors
-- Hub maintainers
-- Framework integrators
-- CLI users
+  # capabilities/planning/errors.py
+  class PlanningError(Exception):
+      pass
 
-## Success Criteria
-- Clear separation between lib infrastructure and hub implementations
-- Simplified, flatter module structure
-- Consolidated error and type definitions per module
-- Clear boundaries between modules
-- Improved maintainability
-- Simplified public API
-- Clear hub integration patterns
-- Better framework integration story
-- Improved CLI experience
-- Better runtime management
-- Enhanced tools ecosystem
+  # capabilities/reasoning/errors.py
+  class ReasoningError(Exception):
+      pass
+  ```
 
-## Constraints
-- Maintain backward compatibility
-- Follow Python best practices
-- Adhere to project's architectural principles
-- Minimize impact on existing users
-- Keep hub as the primary extension point
-- Support existing CLI workflows
+  ## Implementation
+  ```python
+  # capabilities/errors.py
+  from enum import Enum
 
-# Exploration Phase
+  class CapabilityType(Enum):
+      LEARNING = "learning"
+      PLANNING = "planning"
+      REASONING = "reasoning"
 
-## Possible Approaches
+  class CapabilityError(Exception):
+      def __init__(self, type: CapabilityType, message: str):
+          self.type = type
+          self.message = message
+          super().__init__(f"{type.value}: {message}")
 
-### 1. Capabilities Flattening
-Current Issues:
-- Estrutura muito aninhada em capabilities/
-- Separação excessiva de funcionalidades relacionadas
-- Dificuldade de manutenção
+  # capabilities/__init__.py
+  from .errors import CapabilityError, CapabilityType
+  ```
 
-Solution:
-1. Flat capabilities structure:
-   ```
-   capabilities/
-   ├── __init__.py
-   ├── base.py       # Base capability interface
-   ├── errors.py     # All capability errors
-   ├── types.py      # All capability types
-   ├── learning.py   # Learning capabilities
-   ├── planning.py   # Planning capabilities
-   └── reasoning.py  # Reasoning capabilities
-   ```
+  ## Validation
+  ```python
+  def test_capability_errors():
+      error = CapabilityError(CapabilityType.LEARNING, "test error")
+      assert error.type == CapabilityType.LEARNING
+      assert str(error) == "learning: test error"
 
-### 2. Providers Simplification
-Current Issues:
-- Muitos arquivos com responsabilidades sobrepostas
-- Confusão entre engine.py, manager.py e factory.py
-- Separação excessiva em services/
+      with pytest.raises(CapabilityError) as exc:
+          raise CapabilityError(CapabilityType.PLANNING, "test")
+      assert str(exc.value) == "planning: test"
+  ```
 
-Solution:
-1. Simplified providers structure:
-   ```
-   providers/
-   ├── __init__.py
-   ├── base.py       # Provider interface and base classes
-   ├── errors.py     # Provider errors
-   ├── types.py      # Provider types
-   ├── manager.py    # Provider lifecycle management
-   └── services/     # Specific provider implementations
-       ├── __init__.py
-       ├── openai.py
-       └── anthropic.py
-   ```
+- [ ] Unificar sistema de configuração
+  ## Current State
+  ```python
+  # core/config.py tem múltiplas classes de configuração
+  # AutoConfig e PepperpyConfig com sobreposição
+  # Configuração espalhada em vários módulos
 
-2. Consolidate responsibilities:
-   - manager.py: Provider lifecycle and configuration
-   - base.py: Interface and common functionality
-   - types.py: All provider-related types
-   - Remove redundant files (engine.py, factory.py, domain.py)
+  class PepperpyConfig(BaseModel):
+      pass
 
-### 3. Search to Tools Migration
-Current Issues:
-- Search está isolado como módulo top-level
-- Funcionalidade é mais adequada como ferramenta
-- Inconsistência com outros recursos similares
+  class AutoConfig:
+      @classmethod
+      def from_env(cls):
+          pass
 
-Solution:
-1. Move search to tools:
-   ```
-   tools/
-   ├── __init__.py
-   ├── base.py
-   ├── errors.py
-   ├── types.py
-   ├── search/
-   │   ├── __init__.py
-   │   └── language.py
-   └── other_tools/
-   ```
+  class ConfigManager:
+      def load(self):
+          pass
+  ```
 
-### 4. Framework Integration Renaming
-Current Issues:
-- Nome "adapters" não reflete bem o propósito
-- Falta clareza na integração com outros frameworks
-- Estrutura atual não enfatiza bidirectionalidade
+  ## Implementation
+  ```python
+  # core/config/base.py
+  from typing import TypeVar, Generic
+  from pydantic import BaseModel
 
-Solution:
-1. Rename and restructure:
-   ```
-   integrations/           # Novo nome mais descritivo
-   ├── __init__.py
-   ├── base.py            # Interface comum
-   ├── errors.py          # Erros de integração
-   ├── types.py           # Tipos comuns
-   ├── langchain/        # Um módulo por framework
-   │   ├── __init__.py
-   │   ├── agents.py     # Integração de agentes
-   │   └── chains.py     # Integração de chains
-   ├── autogen/
-   │   ├── __init__.py
-   │   └── agents.py
-   └── semantic_kernel/
-       ├── __init__.py
-       └── skills.py
-   ```
+  T = TypeVar("T", bound=BaseModel)
 
-### 5. Hub Refactoring
-Current Issues:
-- Duplicação com funcionalidades da lib
-- Muitos arquivos com responsabilidades similares
-- Confusão entre infraestrutura e implementação
+  class ConfigurationManager(Generic[T]):
+      """Gerenciador unificado de configuração."""
+      def __init__(self, config_class: Type[T]):
+          self.config_class = config_class
+          self._config: Optional[T] = None
+          self._watchers: Set[ConfigWatcher] = set()
 
-Solution:
-1. Simplified hub structure:
-   ```
-   hub/
-   ├── __init__.py
-   ├── base.py          # Hub core functionality
-   ├── errors.py        # Hub-specific errors
-   ├── types.py         # Hub-specific types
-   ├── loader.py        # Resource loading
-   ├── registry.py      # Resource registration
-   └── storage.py       # Hub storage management
-   ```
+      async def load(self, sources: List[ConfigSource]) -> T:
+          """Carrega configuração de múltiplas fontes."""
+          config_data = {}
+          for source in sources:
+              data = await source.load()
+              config_data.update(data)
+          
+          self._config = self.config_class(**config_data)
+          await self._notify_watchers()
+          return self._config
 
-2. Move to .pepper_hub:
-   - teams.py -> .pepper_hub/teams/
-   - workflows.py -> .pepper_hub/workflows/
-   - sessions.py -> .pepper_hub/sessions/
-   - Remove duplicated functionality
+  # core/config/sources.py
+  class ConfigSource(Protocol):
+      """Fonte de configuração."""
+      async def load(self) -> Dict[str, Any]:
+          pass
 
-3. Clarify responsibilities:
-   - Hub module: Infrastructure for marketplace
-   - .pepper_hub: Actual marketplace content
+  class EnvSource(ConfigSource):
+      """Configuração via variáveis de ambiente."""
+      def __init__(self, prefix: str = "PEPPERPY_"):
+          self.prefix = prefix
 
-### 6. Memory Consolidation
-Current Issues:
-- Duplicação entre memory e stores
-- Muitos arquivos de configuração
-- Factory e manager com responsabilidades similares
+      async def load(self) -> Dict[str, Any]:
+          return {k[len(self.prefix):].lower(): v 
+                 for k, v in os.environ.items() 
+                 if k.startswith(self.prefix)}
 
-Solution:
-1. Simplified memory structure:
-   ```
-   memory/
-   ├── __init__.py
-   ├── base.py       # Base memory interface
-   ├── errors.py     # Memory errors
-   ├── types.py      # Memory types
-   ├── manager.py    # Memory management
-   └── stores/       # Memory implementations
-       ├── __init__.py
-       ├── local.py
-       └── redis.py
-   ```
+  # core/config/watchers.py
+  class ConfigWatcher(Protocol):
+      """Observador de mudanças na configuração."""
+      async def on_config_change(self, old: BaseModel, new: BaseModel) -> None:
+          pass
+  ```
 
-2. Consolidate responsibilities:
-   - Remover store.py e usar stores/
-   - Unificar config.py e store_config.py
-   - Mover compat.py para utils/
+  ## Validation
+  ```python
+  async def test_config_manager():
+      manager = ConfigurationManager(PepperpyConfig)
+      config = await manager.load([
+          EnvSource(prefix="TEST_"),
+          FileSource("config.yml")
+      ])
+      assert isinstance(config, PepperpyConfig)
+      
+      # Test watcher
+      watcher = MockConfigWatcher()
+      manager.add_watcher(watcher)
+      await manager.reload()
+      assert watcher.called
+  ```
 
-### 7. Runtime Simplification
-Current Issues:
-- Muitos componentes separados
-- Duplicação com outros módulos
-- Complexidade desnecessária
+- [ ] Melhorar sistema de monitoramento
+  ## Current State
+  ```python
+  # monitoring/monitoring.py mistura logging e métricas
+  # Configuração de logging espalhada
+  # Falta estrutura para tracing
 
-Solution:
-1. Simplified runtime structure:
-   ```
-   runtime/
-   ├── __init__.py
-   ├── base.py       # Core runtime functionality
-   ├── errors.py     # Runtime errors
-   ├── types.py      # Runtime types
-   ├── context.py    # Runtime context
-   └── manager.py    # Lifecycle management
-   ```
+  root_logger = logging.getLogger("pepperpy")
+  metrics_enabled = True
+  tracing_enabled = True
+  ```
 
-2. Changes:
-   - Mover sharding.py para core/
-   - Consolidar factory.py em manager.py
-   - Simplificar orchestrator.py
+  ## Implementation
+  ```python
+  # monitoring/logging.py
+  from structlog import BoundLogger, get_logger
+  from typing import Optional, Any
 
-### 8. CLI Enhancement
-Current Issues:
-- Arquivos muito grandes
-- Duplicação de código
-- Falta de estrutura clara
+  class LoggerFactory:
+      """Fábrica centralizada de loggers."""
+      @classmethod
+      def get_logger(cls, 
+                    module: str, 
+                    context: Optional[Dict[str, Any]] = None) -> BoundLogger:
+          logger = get_logger()
+          if context:
+              logger = logger.bind(**context)
+          return logger.bind(module=module)
 
-Solution:
-1. Reorganized CLI structure:
-   ```
-   cli/
-   ├── __init__.py
-   ├── base.py       # CLI foundation
-   ├── errors.py     # CLI errors
-   ├── types.py      # CLI types
-   ├── commands/     # CLI commands
-   │   ├── __init__.py
-   │   ├── hub.py
-   │   ├── memory.py
-   │   └── workflow.py
-   └── utils/        # CLI utilities
-       ├── __init__.py
-       ├── config.py
-       └── display.py
-   ```
+  # monitoring/metrics.py
+  from dataclasses import dataclass
+  from enum import Enum
+  from typing import Dict, Any
 
-### 9. Tools Expansion
-Current Issues:
-- Estrutura muito básica
-- Falta de padrão claro
-- Integração limitada
+  class MetricType(Enum):
+      COUNTER = "counter"
+      GAUGE = "gauge"
+      HISTOGRAM = "histogram"
 
-Solution:
-1. Enhanced tools structure:
-   ```
-   tools/
-   ├── __init__.py
-   ├── base.py       # Tool interface
-   ├── errors.py     # Tool errors
-   ├── types.py      # Tool types
-   ├── registry.py   # Tool registration
-   ├── search/       # Search tools
-   │   ├── __init__.py
-   │   └── language.py
-   ├── memory/       # Memory tools
-   │   ├── __init__.py
-   │   └── cache.py
-   └── system/       # System tools
-       ├── __init__.py
-       └── io.py
-   ```
+  @dataclass
+  class Metric:
+      name: str
+      type: MetricType
+      value: float
+      labels: Dict[str, str]
 
-## Technical Implications
-1. Breaking changes in import paths
-2. Need for deprecation period
-3. Impact on existing user codebases
-4. Testing requirements across all changes
-5. Documentation updates needed
+  class MetricsManager:
+      """Gerenciador central de métricas."""
+      def __init__(self):
+          self._metrics: Dict[str, Metric] = {}
+          self._exporters: List[MetricExporter] = []
 
-## Potential Challenges
-1. Complex dependency management
-2. Backward compatibility maintenance
-3. Migration complexity for users
-4. Integration with external frameworks
-5. Performance impact during transition
+      async def record(self, metric: Metric) -> None:
+          self._metrics[metric.name] = metric
+          await self._export(metric)
 
-## Required Components
-1. Migration scripts
-2. Test infrastructure
-3. CI/CD updates
-4. Documentation tools
-5. Monitoring systems
+  # monitoring/tracing.py
+  from opentelemetry import trace
+  from contextlib import asynccontextmanager
 
-# Solution Design
+  class TracingManager:
+      """Gerenciador central de tracing."""
+      def __init__(self):
+          self.tracer = trace.get_tracer(__name__)
 
-## Selected Approach
-Phased implementation with clear separation between infrastructure and implementations:
-1. Pre-phase for analysis and setup
-2. Core restructuring and flattening
-3. Gradual module consolidation
-4. Comprehensive testing at each phase
-5. Documentation and migration support
+      @asynccontextmanager
+      async def span(self, name: str, attributes: Dict[str, str]):
+          with self.tracer.start_as_current_span(name) as span:
+              for key, value in attributes.items():
+                  span.set_attribute(key, value)
+              yield span
+  ```
 
-## Architecture Considerations
-1. Clear module boundaries
-2. Simplified dependency graph
-3. Consistent error handling
-4. Type safety across modules
-5. Performance optimization
+  ## Validation
+  ```python
+  async def test_monitoring():
+      # Test logging
+      logger = LoggerFactory.get_logger("test", {"env": "test"})
+      assert "env" in logger._context
+      assert logger._context["module"] == "test"
 
-## Implementation Strategy
+      # Test metrics
+      manager = MetricsManager()
+      metric = Metric("requests", MetricType.COUNTER, 1.0, {"endpoint": "/test"})
+      await manager.record(metric)
+      assert "requests" in manager._metrics
 
-### Phase 1: Pre-Phase (TASK-002.1 - TASK-002.2)
-```yaml
-tasks:
-  - name: Análise de Dependências
-    steps:
-      - Mapear todas as dependências entre módulos
-      - Identificar ciclos de dependência
-      - Documentar APIs públicas em uso
-      - Criar matriz de impacto de mudanças
-    duration: 3 days
+      # Test tracing
+      tracer = TracingManager()
+      async with tracer.span("test_op", {"service": "api"}) as span:
+          assert span.is_recording()
+          assert span.attributes["service"] == "api"
+  ```
 
-  - name: Setup de Ambiente de Teste
-    steps:
-      - Criar ambiente isolado para testes
-      - Configurar CI/CD para múltiplas versões
-      - Preparar suíte de testes de integração
-      - Configurar métricas de qualidade
-    duration: 2 days
-```
+- [ ] Padronizar ciclo de vida dos componentes
+  ## Current State
+  ```python
+  # Diferentes padrões de inicialização
+  # Falta consistência no cleanup
+  # Gestão manual de recursos
 
-### Phase 2: Core & Capabilities
-1. Flatten capabilities structure
-2. Consolidate core module
-3. Update imports and dependencies
-4. Add deprecation warnings
+  class Agent:
+      def initialize(self):
+          pass
 
-### Phase 3: Providers & Tools
-1. Simplify providers module
-2. Move search to tools
-3. Clean up redundant files
-4. Update documentation
+  class Provider:
+      def setup(self):
+          pass
 
-### Phase 4: Memory & Runtime
-1. Consolidate memory module
-2. Simplify runtime
-3. Update dependencies
-4. Improve documentation
+  class Store:
+      def connect(self):
+          pass
+  ```
 
-### Phase 5: Integration & Hub
-1. Rename adapters to integrations
-2. Restructure framework integrations
-3. Refactor hub module
-4. Move implementations to .pepper_hub
+  ## Implementation
+  ```python
+  # core/lifecycle.py
+  from abc import ABC, abstractmethod
+  from typing import Optional, Any
+  from enum import Enum
 
-### Phase 6: CLI & Tools
-1. Reorganize CLI structure
-2. Expand tools ecosystem
-3. Improve user experience
-4. Update documentation
+  class ComponentState(Enum):
+      CREATED = "created"
+      INITIALIZING = "initializing"
+      READY = "ready"
+      ERROR = "error"
+      SHUTTING_DOWN = "shutting_down"
+      TERMINATED = "terminated"
 
-## Required Changes
-1. Module restructuring
-2. Import path updates
-3. API modifications
-4. Documentation updates
-5. Test suite enhancements
+  class Lifecycle(ABC):
+      """Interface base para componentes com ciclo de vida."""
+      def __init__(self):
+          self._state = ComponentState.CREATED
+          self._error: Optional[Exception] = None
+          self._metadata: Dict[str, Any] = {}
 
-## Dependencies
-- Python development environment
-- CI/CD infrastructure
-- Test frameworks
-- Documentation tools
-- Monitoring systems
+      @property
+      def state(self) -> ComponentState:
+          return self._state
 
-# Risk Assessment
+      @abstractmethod
+      async def initialize(self) -> None:
+          """Inicializa o componente."""
+          pass
 
-## Technical Risks
-1. Breaking changes impact existing users
-2. Import complexity during transition
-3. Integration challenges with frameworks
-4. Migration complexity
-5. Hub compatibility issues
-6. CLI workflow disruption
-7. Tool ecosystem compatibility
+      @abstractmethod
+      async def cleanup(self) -> None:
+          """Limpa recursos do componente."""
+          pass
 
-## Integration Challenges
-1. Framework compatibility
-2. Migration complexity
-3. API stability
-4. Performance impact
-5. User workflow disruption
+  class LifecycleManager:
+      """Gerenciador central de ciclo de vida."""
+      def __init__(self):
+          self._components: Dict[str, Lifecycle] = {}
 
-## Performance Implications
-1. Import resolution
-2. Module loading
-3. Runtime overhead
-4. Memory usage
-5. Startup time
+      async def register(self, name: str, component: Lifecycle) -> None:
+          self._components[name] = component
+          await component.initialize()
 
-## Security Considerations
-1. Dependency management
-2. Code isolation
-3. Permission handling
-4. Resource access
-5. Configuration security
+      async def shutdown(self) -> None:
+          """Desliga todos os componentes em ordem reversa."""
+          for name in reversed(list(self._components)):
+              component = self._components[name]
+              try:
+                  await component.cleanup()
+              except Exception as e:
+                  logger.error(f"Error shutting down {name}: {e}")
+  ```
 
-## Testing Requirements
-1. Unit tests for all changes
-2. Integration tests
-3. Migration tests
-4. Performance benchmarks
-5. Security validation
+  ## Validation
+  ```python
+  async def test_lifecycle():
+      # Test component lifecycle
+      component = TestComponent()
+      assert component.state == ComponentState.CREATED
+      
+      await component.initialize()
+      assert component.state == ComponentState.READY
+      
+      await component.cleanup()
+      assert component.state == ComponentState.TERMINATED
 
-# Resource Planning
+      # Test lifecycle manager
+      manager = LifecycleManager()
+      await manager.register("test", component)
+      assert "test" in manager._components
+      
+      await manager.shutdown()
+      assert all(c.state == ComponentState.TERMINATED 
+                for c in manager._components.values())
+  ```
 
-## External Dependencies
-- Test infrastructure
-- CI/CD systems
-- Documentation tools
-- Monitoring systems
-- Version control
+# Progress Updates
 
-## Story Points: 8
-Justification:
-- Complex architectural changes
-- Multiple phases of implementation
-- Significant testing requirements
-- Documentation effort
-- Migration support needed
-
-## Success Metrics
-1. Reduced code complexity
-2. Cleaner module boundaries
-3. Successful framework integrations
-4. Positive developer feedback
-5. Successful user migrations
-6. Improved hub organization
-7. Enhanced CLI experience
-8. Expanded tool ecosystem
-9. Better memory management
-10. Simplified runtime
-
-# Next Steps
-1. Begin with TASK-002.1: Análise de Dependências
-2. Setup ambiente de testes (TASK-002.2)
-3. Iniciar fase alpha com capabilities
-4. Agendar checkpoints de revisão 
+## 2024-02-14
+- Current Status: Planning phase
+- Completed:
+  - Initial analysis
+  - Requirements gathering
+  - Architecture review
+  - Additional structural improvements identified
+- Next Steps:
+  1. Start dependency analysis (TASK-002.1)
+  2. Setup test environment (TASK-002.2)
+  3. Begin capabilities restructure
+  4. Implement unified configuration system
+  5. Enhance monitoring infrastructure
+  6. Standardize component lifecycles 

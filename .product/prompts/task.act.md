@@ -1,201 +1,126 @@
 ---
 title: Task Execution Template
-description: ALWAYS use when executing task actions to ensure systematic progress following established task management standards. This protocol ensures deterministic AI-driven task execution.
-version: 2.0
+description: Template for executing planned tasks with precise implementation tracking.
+version: 3.0
 category: execution
-tags: [execution, implementation, task-management]
+tags: [execution, implementation]
 yolo: true
 strict_mode: true
 ---
 
-# Task Execution Rules
-
-## 1. State Validation
-```yaml
-validate:
-  task_file:
-    exists: required
-    mode: Plan      # Must start in Plan mode
-    format: markdown
-    frontmatter:
-      complete: required
-      valid: required
-  
-  kanban:
-    entry_exists: required
-    format_valid: required
-```
-
-## 2. Execution Flow
-```yaml
-execution_flow:
-  # 1. Task Start
-  start:
-    - Validate task file
-    - Update frontmatter:
-        mode: Act
-        status: 🏗️ In Progress
-    - Update kanban entry
-    - Create progress section
-  
-  # 2. Implementation
-  implement:
-    - Follow implementation plan
-    - Update requirements status
-    - Document progress
-    - Track breaking changes
-  
-  # 3. Testing
-  test:
-    - Execute test strategy
-    - Validate requirements
-    - Update documentation
-  
-  # 4. Completion
-  complete:
-    - Verify all requirements
-    - Update status to ✅ Done
-    - Update kanban board
-    - Document outcomes
-```
-
-## 3. Progress Updates
-```yaml
-progress_format:
-  markdown: |
-    # Progress Updates
-    
-    ## {YYYY-MM-DD}
-    - Current Status: {status_detail}
-    - Completed:
-      - {item1}
-      - {item2}
-    - Next Steps:
-      1. {step1}
-      2. {step2}
-    [if blocked] - Blockers:
-      - Issue: {issue}
-      - Plan: {resolution}
-```
-
-## 4. Requirement Updates
-```yaml
-requirement_format:
-  in_progress: "- [-] {requirement}  # 🏃 Started: {YYYY-MM-DD}"
-  completed: "- [x] {requirement}  # ✅ {YYYY-MM-DD}"
-  blocked: "- [ ] {requirement}  # ⏳ Blocked: {reason}"
-```
-
-# Example Execution
-
-## 1. Starting Task
 ```markdown
-# Initial State (TASK-002.md)
 ---
-title: Code Organization and Structure Improvements
-priority: high
-points: 5
-status: 📋 To Do
-mode: Plan
-created: 2024-02-14
-updated: 2024-02-14
+title: {task_title}
+priority: high|medium|low
+points: 1|2|3|5|8|13
+status: 🏃 In Progress
+mode: Act
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
 ---
 
-# Action: Start Implementation
-## 1. Update Frontmatter
+# Requirements
+
+- [-] Requirement 1  # 🏃 Started: YYYY-MM-DD
+  ## Implementation Progress
+  1. Step 1 completed ✅
+     \```python
+     # Implemented code
+     \```
+
+  2. Step 2 in progress 🏃
+     \```python
+     # Current implementation
+     \```
+
+  3. Step 3 pending ⏳
+
+  ## Validation Status
+  \```python
+  # Test results or validation status
+  \```
+
+# Progress Updates
+
+## YYYY-MM-DD
+- Current Status: {specific details}
+- Completed:
+  - {item 1} ✅
+  - {item 2} ✅
+- In Progress:
+  - {item 3} 🏃
+- Next:
+  - {item 4} ⏳
+```
+
+Example Usage:
+```markdown
 ---
 title: Code Organization and Structure Improvements
 priority: high
-points: 5
-status: 🏗️ In Progress
+points: 8
+status: 🏃 In Progress
 mode: Act
 created: 2024-02-14
 updated: 2024-02-14
 ---
 
-## 2. Add Progress Section
+# Requirements
+
+- [-] Flatten capabilities structure  # 🏃 Started: 2024-02-14
+  ## Implementation Progress
+  1. Created new errors.py ✅
+     \```python
+     # capabilities/errors.py
+     from enum import Enum
+
+     class ErrorType(Enum):
+         LEARNING = "learning"
+         PLANNING = "planning"
+
+     class CapabilityError(Exception):
+         def __init__(self, type: ErrorType, message: str):
+             self.type = type
+             self.message = message
+     \```
+
+  2. Updating implementations 🏃
+     \```python
+     # capabilities/learning.py
+     from .errors import CapabilityError, ErrorType
+
+     class LearningCapability:
+         def process(self):
+             try:
+                 # Implementation
+                 pass
+             except Exception as e:
+                 raise CapabilityError(ErrorType.LEARNING, str(e))
+     \```
+
+  3. Update remaining imports ⏳
+
+  ## Validation Status
+  \```python
+  # Current test results:
+  test_error_types ✅
+  test_error_messages ✅
+  test_learning_capability 🏃
+  \```
+
 # Progress Updates
 
 ## 2024-02-14
-- Current Status: Starting implementation
-- Completed:
-  - Repository setup
-  - Branch creation
-- Next Steps:
-  1. Flatten capabilities structure
-  2. Move agent code to hub
-
-## 3. Update Kanban
-- TASK-002: Code Organization and Structure Improvements
-  **Priority**: high | **Points**: 5 | **Mode**: Act
-  **Updated**: 2024-02-14
-  **Branch**: task/002-code-organization
-  [Details](tasks/TASK-002.md)
-  **AI-Tags**: #refactoring #organization #architecture
-```
-
-## 2. Implementation Progress
-```markdown
-# Progress Updates
-
-## 2024-02-15
 - Current Status: Implementing capabilities restructure
 - Completed:
-  - Created new capabilities structure
-  - Moved error definitions
-- Next Steps:
-  1. Update import paths
-  2. Add migration guides
-
-# Requirements
-- [x] Flatten capabilities structure  # ✅ 2024-02-15
-  - Single level hierarchy implemented
-  - Error handling centralized
-  - Directory structure verified
-- [-] Move agents to hub  # 🏃 Started: 2024-02-15
-  - In progress: Moving code
-  - Next: Update imports
+  - Created errors.py with consolidated error handling ✅
+  - Implemented ErrorType enum ✅
+  - Created CapabilityError class ✅
+- In Progress:
+  - Updating learning capability implementation 🏃
+  - Migrating error handling 🏃
+- Next:
+  - Update remaining imports ⏳
+  - Run full validation suite ⏳
 ```
-
-## 3. Task Completion
-```markdown
-# Final State
----
-title: Code Organization and Structure Improvements
-priority: high
-points: 5
-status: ✅ Done
-mode: Act
-created: 2024-02-14
-updated: 2024-02-16
----
-
-# Progress Updates
-
-## 2024-02-16
-- Current Status: Implementation complete
-- Completed:
-  - All requirements implemented
-  - Tests passing
-  - Documentation updated
-- Validation:
-  - Directory structure simplified
-  - All imports working
-  - No scattered errors
-  - Agents properly moved to hub
-
-# Requirements
-- [x] Flatten capabilities structure  # ✅ 2024-02-15
-- [x] Move agents to hub  # ✅ 2024-02-16
-- [x] Update import paths  # ✅ 2024-02-16
-- [x] Consolidate error handling  # ✅ 2024-02-16
-
-# Kanban Update
-## ✅ Done
-- TASK-002: Code Organization and Structure Improvements
-  **Priority**: high | **Points**: 5 | **Mode**: Act
-  **Updated**: 2024-02-16
-  **Branch**: task/002-code-organization
-  [Details](tasks/TASK-002.md)
-  **AI-Tags**: #refactoring #organization #architecture #completed
-```
+Remember: Reference task_management_workflow for task creation and ai_knowledge_base_management for pattern tracking.

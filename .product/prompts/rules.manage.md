@@ -343,3 +343,5 @@ priority: high
   </examples>
 </rule>
 ```
+
+Remember: Reference task_management_workflow for task creation and ai_knowledge_base_management for pattern tracking.
