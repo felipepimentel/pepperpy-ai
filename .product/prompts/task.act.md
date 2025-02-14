@@ -1,16 +1,38 @@
 ---
 title: Task Execution Template
-description: Template for executing planned tasks with precise implementation tracking.
-version: 3.0
+description: Template for executing planned tasks with strict format maintenance and clear status tracking.
+version: 5.0
 category: execution
 tags: [execution, implementation]
 yolo: true
 strict_mode: true
 ---
 
+# Execution Rules
+```yaml
+validation:
+  pre_execution:
+    task_status:
+      - if status is "✅ Done": respond "Task is already completed" and stop
+      - if status not in ["📋 To Do", "🏃 In Progress"]: stop
+    task_format:
+      - verify frontmatter completeness
+      - verify required sections exist
+      - verify requirements format
+
+  status_transitions:
+    - "📋 To Do" -> "🏃 In Progress": update mode to Act
+    - "🏃 In Progress" -> "✅ Done": validate all requirements complete
+    
+  kanban_sync:
+    file: .product/kanban.md
+    required: true
+```
+
+# Task Template
 ```markdown
 ---
-title: {task_title}
+title: {title}
 priority: high|medium|low
 points: 1|2|3|5|8|13
 status: 🏃 In Progress
@@ -21,106 +43,126 @@ updated: YYYY-MM-DD
 
 # Requirements
 
-- [-] Requirement 1  # 🏃 Started: YYYY-MM-DD
-  ## Implementation Progress
-  1. Step 1 completed ✅
-     \```python
-     # Implemented code
-     \```
+- [-] Requirement: {exact description from plan}  # 🏃 Started: YYYY-MM-DD
+  ## Implementation Status
+  \```python
+  # Only show implemented code with status
+  def implemented_feature():  # ✅ Complete
+      return "working"
 
-  2. Step 2 in progress 🏃
-     \```python
-     # Current implementation
-     \```
+  def in_progress_feature():  # 🏃 In Progress
+      pass
 
-  3. Step 3 pending ⏳
+  def pending_feature():  # ⏳ Pending
+      pass
+  \```
 
   ## Validation Status
   \```python
-  # Test results or validation status
+  # Only show test results
+  test_implemented ✅
+  test_in_progress 🏃
+  test_pending ⏳
   \```
 
 # Progress Updates
 
 ## YYYY-MM-DD
-- Current Status: {specific details}
+- Current Status: {specific implementation detail}
 - Completed:
-  - {item 1} ✅
-  - {item 2} ✅
+  - {specific implemented item} ✅
 - In Progress:
-  - {item 3} 🏃
+  - {specific item being worked on} 🏃
 - Next:
-  - {item 4} ⏳
+  - {specific next item} ⏳
 ```
 
-Example Usage:
+# Rules for Maintaining Format
+
+1. **Requirements Section:**
+   - Never add new requirements
+   - Never modify requirement descriptions
+   - Only update status markers:
+     - [ ] -> [-] -> [x]
+     - Add start/completion dates with markers
+
+2. **Implementation Status:**
+   - Show only actual implemented code
+   - Mark each function/class with status emoji
+   - Remove code when complete and tested
+
+3. **Validation Status:**
+   - List only existing test results
+   - Update with clear status emojis
+   - Remove passed tests from list
+
+4. **Progress Updates:**
+   - Add new entries at top
+   - Keep entries focused and specific
+   - Use consistent emoji markers
+
+5. **Status Updates:**
+   - Update frontmatter status field
+   - Update task status in kanban
+   - Add completion date when done
+
+# Example Progress Flow
+
+## Starting Implementation
 ```markdown
----
-title: Code Organization and Structure Improvements
-priority: high
-points: 8
-status: 🏃 In Progress
-mode: Act
-created: 2024-02-14
-updated: 2024-02-14
----
-
-# Requirements
-
-- [-] Flatten capabilities structure  # 🏃 Started: 2024-02-14
-  ## Implementation Progress
-  1. Created new errors.py ✅
-     \```python
-     # capabilities/errors.py
-     from enum import Enum
-
-     class ErrorType(Enum):
-         LEARNING = "learning"
-         PLANNING = "planning"
-
-     class CapabilityError(Exception):
-         def __init__(self, type: ErrorType, message: str):
-             self.type = type
-             self.message = message
-     \```
-
-  2. Updating implementations 🏃
-     \```python
-     # capabilities/learning.py
-     from .errors import CapabilityError, ErrorType
-
-     class LearningCapability:
-         def process(self):
-             try:
-                 # Implementation
-                 pass
-             except Exception as e:
-                 raise CapabilityError(ErrorType.LEARNING, str(e))
-     \```
-
-  3. Update remaining imports ⏳
-
-  ## Validation Status
-  \```python
-  # Current test results:
-  test_error_types ✅
-  test_error_messages ✅
-  test_learning_capability 🏃
-  \```
-
-# Progress Updates
-
-## 2024-02-14
-- Current Status: Implementing capabilities restructure
-- Completed:
-  - Created errors.py with consolidated error handling ✅
-  - Implemented ErrorType enum ✅
-  - Created CapabilityError class ✅
-- In Progress:
-  - Updating learning capability implementation 🏃
-  - Migrating error handling 🏃
-- Next:
-  - Update remaining imports ⏳
-  - Run full validation suite ⏳
+- [ ] Feature: Add error handling  # Original
+-> 
+- [-] Feature: Add error handling  # 🏃 Started: 2024-02-14
 ```
-Remember: Reference task_management_workflow for task creation and ai_knowledge_base_management for pattern tracking.
+
+## Implementation Progress
+```markdown
+## Implementation Status
+\```python
+def handle_error(error: Exception):  # ✅ Complete
+    return ErrorResult(str(error))
+
+def process_error(error: Exception):  # 🏃 In Progress
+    pass
+\```
+
+## Validation Status
+\```python
+test_handle_error_basic ✅
+test_handle_error_complex 🏃
+test_process_error ⏳
+\```
+```
+
+## Completion
+```markdown
+- [-] Feature: Add error handling  # 🏃 Started: 2024-02-14
+->
+- [x] Feature: Add error handling  # ✅ 2024-02-14
+```
+
+# Important Constraints
+
+1. **Content Restrictions:**
+   - No new sections allowed
+   - No removal of sections
+   - No modification of requirement descriptions
+   - No additional documentation
+
+2. **Format Maintenance:**
+   - Keep exact indentation
+   - Use specified emojis only
+   - Follow status marker format
+   - Maintain vertical structure
+
+3. **Updates Flow:**
+   - Add new progress entries at top
+   - Keep implementation current
+   - Remove completed code
+   - Update validation status
+
+4. **Completion Rules:**
+   - All code implemented
+   - All tests passing
+   - Status marked as done
+   - Kanban updated

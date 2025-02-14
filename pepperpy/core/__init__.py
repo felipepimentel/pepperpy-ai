@@ -9,14 +9,31 @@ framework, including:
 """
 
 from pepperpy.core.base import (
-    AgentCapability,
     AgentConfig,
     AgentContext,
     AgentProtocol,
     AgentState,
 )
+from pepperpy.core.capabilities import (
+    BaseCapability,
+    Capability,
+    CapabilityConfig,
+    CapabilityError,
+    CapabilityNotFoundError,
+    CapabilityConfigError,
+    CapabilityInitError,
+    CapabilityCleanupError,
+    registry as capability_registry,
+)
 from pepperpy.core.client import PepperpyClient
-from pepperpy.core.config import AutoConfig, PepperpyConfig, ProviderConfig
+from pepperpy.core.config import PepperpyConfig
+from pepperpy.core.types import (
+    Message,
+    MessageType,
+    ProviderConfig,
+    Response,
+    ResponseStatus,
+)
 from pepperpy.core.errors import (
     ConfigurationError,
     ContextError,
@@ -34,23 +51,34 @@ from pepperpy.core.events import Event, EventBus, EventHandler, EventType
 from pepperpy.core.factory import AgentFactory, ComponentFactory
 from pepperpy.core.protocols import FrameworkAdapter, Memory, Tool
 from pepperpy.core.registry import Registry
-from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
 
 __all__ = [
-    "AgentCapability",
+    # Agent types
     "AgentConfig",
     "AgentContext",
     "AgentFactory",
     "AgentProtocol",
     "AgentState",
-    "AutoConfig",
+    # Capability system
+    "BaseCapability",
+    "Capability",
+    "CapabilityConfig",
+    "CapabilityError",
+    "CapabilityNotFoundError",
+    "CapabilityConfigError",
+    "CapabilityInitError",
+    "CapabilityCleanupError",
+    "capability_registry",
+    # Configuration
     "ComponentFactory",
     "ConfigurationError",
     "ContextError",
+    # Events
     "Event",
     "EventBus",
     "EventHandler",
     "EventType",
+    # Errors
     "FactoryError",
     "FrameworkAdapter",
     "LifecycleError",

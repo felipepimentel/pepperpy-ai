@@ -1,59 +1,141 @@
-"""Lifecycle management for Pepperpy components.
-
-This module provides lifecycle management for components, including:
-- Component registration and initialization
-- State transitions and validation
-- Cleanup and resource management
-"""
+"""Base components for lifecycle management."""
 
 import asyncio
 import logging
+from abc import ABC, abstractmethod
 from collections import defaultdict
-from enum import Enum, auto
-from typing import Any, Callable, TypeVar
+from enum import Enum
+from typing import Any, Callable, Dict, Optional, Set
 from uuid import UUID, uuid4
 
 from pepperpy.core.errors import LifecycleError, StateError
-from pepperpy.monitoring.logger import structured_logger
 
 logger = logging.getLogger(__name__)
 
-T = TypeVar("T")  # Component type
-
 
 class ComponentState(Enum):
-    """States that a component can be in."""
+    """Possible states of a lifecycle-managed component."""
 
-    UNREGISTERED = auto()
-    REGISTERED = auto()
-    INITIALIZING = auto()
-    INITIALIZED = auto()
-    STARTING = auto()
-    RUNNING = auto()
-    STOPPING = auto()
-    STOPPED = auto()
-    ERROR = auto()
-    TERMINATED = auto()
+    UNREGISTERED = "unregistered"
+    REGISTERED = "registered"
+    INITIALIZING = "initializing"
+    INITIALIZED = "initialized"
+    STARTING = "starting"
+    RUNNING = "running"
+    STOPPING = "stopping"
+    STOPPED = "stopped"
+    ERROR = "error"
+    TERMINATED = "terminated"
+
+
+class Lifecycle(ABC):
+    """Base interface for components with lifecycle management.
+
+    This abstract class defines the interface that all lifecycle-managed components
+    must implement. It provides basic state management and error tracking.
+
+    Attributes:
+        state (ComponentState): Current state of the component.
+        error (Optional[Exception]): Last error encountered, if any.
+        id (UUID): Unique identifier for the component.
+
+    """
+
+    def __init__(self) -> None:
+        """Initialize a new lifecycle component."""
+        self._state = ComponentState.UNREGISTERED
+        self._error: Optional[Exception] = None
+        self._metadata: Dict[str, Any] = {}
+        self._id = uuid4()
+
+    @property
+    def state(self) -> ComponentState:
+        """Get the current state of the component."""
+        return self._state
+
+    @property
+    def error(self) -> Optional[Exception]:
+        """Get the last error encountered by the component, if any."""
+        return self._error
+
+    @property
+    def id(self) -> UUID:
+        """Get the component's unique identifier."""
+        return self._id
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method should be implemented to perform any necessary setup
+        or resource allocation for the component.
+
+        Raises:
+            Exception: If initialization fails.
+
+        """
+        pass
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up component resources.
+
+        This method should be implemented to perform any necessary cleanup
+        or resource deallocation for the component.
+
+        Raises:
+            Exception: If cleanup fails.
+
+        """
+        pass
+
+    async def start(self) -> None:
+        """Start the component.
+
+        This method can be overridden to implement startup logic.
+        The default implementation does nothing.
+
+        Raises:
+            Exception: If startup fails.
+
+        """
+        pass
+
+    async def stop(self) -> None:
+        """Stop the component.
+
+        This method can be overridden to implement shutdown logic.
+        The default implementation does nothing.
+
+        Raises:
+            Exception: If shutdown fails.
+
+        """
+        pass
 
 
 class LifecycleManager:
-    """Manages component lifecycle states and transitions.
+    """Central manager for lifecycle-managed components.
 
-    This class handles:
+    This class manages the lifecycle of multiple components, handling their
+    initialization, state tracking, and cleanup in a coordinated way.
+
+    Features:
     - Component registration and tracking
     - State transitions and validation
     - Dependency management
     - Error handling and recovery
+    - State change notifications
     """
 
     def __init__(self) -> None:
-        """Initialize the lifecycle manager."""
-        self._components: dict[UUID, Any] = {}
-        self._states: dict[UUID, ComponentState] = {}
-        self._dependencies: dict[UUID, set[UUID]] = defaultdict(set)
-        self._handlers: dict[ComponentState, set[Callable]] = defaultdict(set)
+        """Initialize a new lifecycle manager."""
+        self._components: Dict[UUID, Lifecycle] = {}
+        self._dependencies: Dict[UUID, Set[UUID]] = defaultdict(set)
+        self._handlers: Dict[ComponentState, Set[Callable[[UUID], None]]] = defaultdict(
+            set
+        )
         self._lock = asyncio.Lock()
-        self._logger = structured_logger
 
     def _validate_transition(
         self,
@@ -70,6 +152,7 @@ class LifecycleManager:
 
         Raises:
             StateError: If transition is invalid
+
         """
         valid_transitions = {
             ComponentState.UNREGISTERED: {ComponentState.REGISTERED},
@@ -133,12 +216,14 @@ class LifecycleManager:
         Raises:
             StateError: If state transition is invalid
             LifecycleError: If state update fails
+
         """
         async with self._lock:
             try:
-                current_state = self._states[component_id]
+                component = self._components[component_id]
+                current_state = component.state
                 self._validate_transition(component_id, current_state, target_state)
-                self._states[component_id] = target_state
+                component._state = target_state
 
                 # Trigger state change handlers
                 handlers = self._handlers[target_state]
@@ -146,11 +231,13 @@ class LifecycleManager:
                     try:
                         handler(component_id)
                     except Exception as e:
-                        self._logger.error(
-                            "State change handler failed",
-                            component_id=str(component_id),
-                            state=target_state.name,
-                            error=str(e),
+                        logger.error(
+                            f"State change handler failed: {e}",
+                            extra={
+                                "component_id": str(component_id),
+                                "state": target_state.name,
+                                "error": str(e),
+                            },
                         )
 
             except Exception as e:
@@ -158,31 +245,30 @@ class LifecycleManager:
                     f"Failed to update state: {e}",
                     component=str(component_id),
                     state=target_state.name,
-                ) from e
+                )
 
-    def register(self, component: Any) -> UUID:
+    def register(self, component: Lifecycle) -> None:
         """Register a new component.
 
         Args:
             component: Component to register
 
-        Returns:
-            Component identifier
-
         Raises:
+            ValueError: If component is already registered
             LifecycleError: If registration fails
-        """
-        component_id = uuid4()
-        try:
-            self._components[component_id] = component
-            self._states[component_id] = ComponentState.REGISTERED
-            return component_id
 
+        """
+        if component.id in self._components:
+            raise ValueError(f"Component {component.id} already registered")
+
+        try:
+            self._components[component.id] = component
+            component._state = ComponentState.REGISTERED
         except Exception as e:
             raise LifecycleError(
                 f"Failed to register component: {e}",
-                component=str(component_id),
-            ) from e
+                component=str(component.id),
+            )
 
     async def initialize(self, component_id: UUID) -> None:
         """Initialize a component.
@@ -193,19 +279,19 @@ class LifecycleManager:
         Raises:
             StateError: If component is in invalid state
             LifecycleError: If initialization fails
+
         """
         try:
             component = self._components[component_id]
             await self._update_state(component_id, ComponentState.INITIALIZING)
             await component.initialize()
             await self._update_state(component_id, ComponentState.INITIALIZED)
-
         except Exception as e:
             await self._update_state(component_id, ComponentState.ERROR)
             raise LifecycleError(
                 f"Failed to initialize component: {e}",
                 component=str(component_id),
-            ) from e
+            )
 
     async def start(self, component_id: UUID) -> None:
         """Start a component.
@@ -216,19 +302,19 @@ class LifecycleManager:
         Raises:
             StateError: If component is in invalid state
             LifecycleError: If start fails
+
         """
         try:
             component = self._components[component_id]
             await self._update_state(component_id, ComponentState.STARTING)
             await component.start()
             await self._update_state(component_id, ComponentState.RUNNING)
-
         except Exception as e:
             await self._update_state(component_id, ComponentState.ERROR)
             raise LifecycleError(
                 f"Failed to start component: {e}",
                 component=str(component_id),
-            ) from e
+            )
 
     async def stop(self, component_id: UUID) -> None:
         """Stop a component.
@@ -239,19 +325,19 @@ class LifecycleManager:
         Raises:
             StateError: If component is in invalid state
             LifecycleError: If stop fails
+
         """
         try:
             component = self._components[component_id]
             await self._update_state(component_id, ComponentState.STOPPING)
             await component.stop()
             await self._update_state(component_id, ComponentState.STOPPED)
-
         except Exception as e:
             await self._update_state(component_id, ComponentState.ERROR)
             raise LifecycleError(
                 f"Failed to stop component: {e}",
                 component=str(component_id),
-            ) from e
+            )
 
     async def terminate(self, component_id: UUID) -> None:
         """Terminate a component.
@@ -262,41 +348,54 @@ class LifecycleManager:
         Raises:
             StateError: If component is in invalid state
             LifecycleError: If termination fails
+
         """
         try:
+            component = self._components[component_id]
             await self._update_state(component_id, ComponentState.TERMINATED)
+            await component.cleanup()
             del self._components[component_id]
-            del self._states[component_id]
             self._dependencies.pop(component_id, None)
-
         except Exception as e:
+            await self._update_state(component_id, ComponentState.ERROR)
             raise LifecycleError(
                 f"Failed to terminate component: {e}",
                 component=str(component_id),
-            ) from e
+            )
+
+    async def shutdown(self) -> None:
+        """Shutdown all components in reverse dependency order."""
+        # Get components in reverse dependency order
+        components = list(self._components.keys())
+        components.sort(key=lambda x: len(self._dependencies[x]), reverse=True)
+
+        for component_id in components:
+            try:
+                await self.terminate(component_id)
+            except Exception as e:
+                logger.error(
+                    f"Error shutting down {component_id}: {e}",
+                    extra={"component_id": str(component_id)},
+                )
 
     def add_dependency(self, component_id: UUID, dependency_id: UUID) -> None:
         """Add a dependency between components.
 
         Args:
-            component_id: Dependent component identifier
-            dependency_id: Dependency component identifier
+            component_id: Component that depends on another
+            dependency_id: Component being depended on
 
         Raises:
+            ValueError: If either component is not registered
             LifecycleError: If dependency addition fails
-        """
-        try:
-            if component_id not in self._components:
-                raise ValueError(f"Component {component_id} not found")
-            if dependency_id not in self._components:
-                raise ValueError(f"Dependency {dependency_id} not found")
-            self._dependencies[component_id].add(dependency_id)
 
-        except Exception as e:
-            raise LifecycleError(
-                f"Failed to add dependency: {e}",
-                component=str(component_id),
-            ) from e
+        """
+        if component_id not in self._components:
+            raise ValueError(f"Component {component_id} not registered")
+        if dependency_id not in self._components:
+            raise ValueError(f"Dependency {dependency_id} not registered")
+
+        self._dependencies[component_id].add(dependency_id)
 
     def add_state_handler(
         self,
@@ -308,6 +407,7 @@ class LifecycleManager:
         Args:
             state: State to handle
             handler: Handler function
+
         """
         self._handlers[state].add(handler)
 
@@ -319,33 +419,21 @@ class LifecycleManager:
         """Remove a state change handler.
 
         Args:
-            state: State to handle
-            handler: Handler function
+            state: State being handled
+            handler: Handler function to remove
+
         """
         self._handlers[state].discard(handler)
 
-    def get_state(self, component_id: UUID) -> ComponentState:
-        """Get current state of a component.
-
-        Args:
-            component_id: Component identifier
-
-        Returns:
-            Current component state
-
-        Raises:
-            KeyError: If component not found
-        """
-        return self._states[component_id]
-
-    def get_dependencies(self, component_id: UUID) -> set[UUID]:
-        """Get dependencies of a component.
+    def get_dependencies(self, component_id: UUID) -> Set[UUID]:
+        """Get dependencies for a component.
 
         Args:
             component_id: Component identifier
 
         Returns:
             Set of dependency identifiers
+
         """
         return self._dependencies[component_id].copy()
 
@@ -356,6 +444,8 @@ class LifecycleManager:
             component_id: Component identifier
 
         Returns:
-            True if component is running
+            True if component is in RUNNING state
+
         """
-        return self._states.get(component_id) == ComponentState.RUNNING
+        component = self._components.get(component_id)
+        return component is not None and component.state == ComponentState.RUNNING
