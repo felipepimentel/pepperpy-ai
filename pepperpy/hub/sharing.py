@@ -21,7 +21,7 @@ class ComponentRegistry:
 
     def __init__(self, hub_path: Optional[Path] = None):
         """Initialize the registry."""
-        self.hub_path = hub_path or Path.home() / ".pepperpy" / "hub"
+        self.hub_path = hub_path or Path.home() / ".pepper_hub" / "hub"
         self.registry_path = self.hub_path / "registry.json"
         self._registry: Dict[str, Dict[str, Any]] = {}
         self._load_registry()

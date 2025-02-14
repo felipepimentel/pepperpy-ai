@@ -165,7 +165,7 @@ def doctor():
             table.add_column("Details", style="dim")
 
             # Check configuration
-            config_dir = Path.home() / ".pepperpy"
+            config_dir = Path.home() / ".pepper_hub"
             config_file = config_dir / "config.env"
 
             if config_dir.exists():

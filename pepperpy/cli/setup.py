@@ -55,7 +55,7 @@ async def setup_wizard() -> Pepperpy:
     )
 
     # Check for existing config
-    config_dir = Path.home() / ".pepperpy"
+    config_dir = Path.home() / ".pepper_hub"
     config_file = config_dir / "config.env"
 
     if config_file.exists() and not Confirm.ask(
@@ -196,7 +196,7 @@ def save_config(api_key: str, model: str) -> None:
         model: The model name to save
 
     """
-    env_path = Path.home() / ".pepperpy" / ".env"
+    env_path = Path.home() / ".pepper_hub" / ".env"
     env_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Read existing config

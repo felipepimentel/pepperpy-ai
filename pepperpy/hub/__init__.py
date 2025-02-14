@@ -56,7 +56,7 @@ class Hub:
 
     def __init__(self, storage_dir: Optional[Path] = None):
         """Initialize the hub with a storage directory."""
-        self.storage_dir = storage_dir or Path.home() / ".pepperpy" / "hub"
+        self.storage_dir = storage_dir or Path.home() / ".pepper_hub" / "hub"
         self.storage_dir.mkdir(parents=True, exist_ok=True)
 
     async def load_team(self, name: str, version: str = "1.0.0") -> Team:
@@ -217,7 +217,7 @@ class PepperpyHub:
     def __init__(self, client: PepperpyClient):
         """Initialize the hub."""
         self._client = client
-        self._local_path = Path.home() / ".pepperpy" / "hub"
+        self._local_path = Path.home() / ".pepper_hub" / "hub"
         self._local_path.mkdir(parents=True, exist_ok=True)
 
         # Create standard directories

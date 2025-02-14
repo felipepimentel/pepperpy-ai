@@ -24,8 +24,8 @@ from .errors import ConfigurationError
 
 # Default configuration paths
 DEFAULT_CONFIG_PATHS = [
-    Path.home() / ".pepperpy/config.yml",
-    Path.cwd() / ".pepperpy/config.yml",
+    Path.home() / ".pepper_hub/config.yml",
+    Path.cwd() / ".pepper_hub/config.yml",
     Path.cwd() / "pepperpy.yml",
 ]
 

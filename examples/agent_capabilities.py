@@ -65,7 +65,7 @@ async def demonstrate_hot_reload() -> None:
     pepper = await Pepperpy.create()
 
     # Create a local agent configuration
-    agent_dir = Path.home() / ".pepperpy" / "hub" / "agents"
+    agent_dir = Path.home() / ".pepper_hub" / "hub" / "agents"
     agent_dir.mkdir(parents=True, exist_ok=True)
 
     agent_config = {

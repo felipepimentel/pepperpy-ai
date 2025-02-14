@@ -36,7 +36,7 @@ async def run_custom_workflow():
     pepper = await Pepperpy.create()
 
     # Create workflow configuration
-    config_path = Path.home() / ".pepperpy/hub/teams/research-team.yaml"
+    config_path = Path.home() / ".pepper_hub/hub/teams/research-team.yaml"
 
     # Create and initialize team
     team = await pepper.hub.team("research-team")

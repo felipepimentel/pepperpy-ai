@@ -53,8 +53,8 @@ async def main():
 
     print("\nStarting hot-reload example...")
     print("Try modifying the following files to see hot-reload in action:")
-    print("- .pepperpy/hub/agents/writer.yaml")
-    print("- .pepperpy/hub/teams/research-team.yaml")
+    print("- .pepper_hub/hub/agents/writer.yaml")
+    print("- .pepper_hub/hub/teams/research-team.yaml")
 
     # Example 1: Using @watch_component decorator
     print("\nRunning writer example with @watch_component...")

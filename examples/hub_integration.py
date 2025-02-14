@@ -95,7 +95,7 @@ async def demonstrate_development_workflow() -> None:
     }
 
     # Save config
-    config_dir = Path.home() / ".pepperpy" / "hub" / "agents"
+    config_dir = Path.home() / ".pepper_hub" / "hub" / "agents"
     config_dir.mkdir(parents=True, exist_ok=True)
     config_path = config_dir / "dev-agent.yaml"
 
@@ -129,7 +129,7 @@ async def demonstrate_custom_templates() -> None:
     pepper = await Pepperpy.create()
 
     # Create template directory
-    template_dir = Path.home() / ".pepperpy" / "hub" / "templates"
+    template_dir = Path.home() / ".pepper_hub" / "hub" / "templates"
     template_dir.mkdir(parents=True, exist_ok=True)
 
     # Define a custom template

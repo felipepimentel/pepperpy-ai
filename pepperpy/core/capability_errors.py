@@ -29,6 +29,7 @@ class CapabilityError(PepperpyError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         super().__init__(
             message,
@@ -61,6 +62,7 @@ class LearningError(CapabilityError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         super().__init__(
             message,
@@ -91,6 +93,7 @@ class PlanningError(CapabilityError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         super().__init__(
             message,
@@ -121,6 +124,7 @@ class ReasoningError(CapabilityError):
             user_message: User-friendly error message
             recovery_hint: Hint for recovering from the error
             context: Error context information
+
         """
         super().__init__(
             message,

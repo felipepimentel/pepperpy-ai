@@ -1,211 +1,197 @@
 """Test all documented usage patterns."""
 
-import os
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
 from pepperpy import Pepperpy
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import ConfigurationError, PepperpyError
+from pepperpy.core.types import MessageContent, MessageType, Response
+
+
+@pytest.fixture
+async def mock_client():
+    """Create a mock Pepperpy client."""
+    with patch("pepperpy.PepperpyClient") as mock:
+        client = AsyncMock()
+        mock.return_value = client
+        yield client
+
+
+@pytest.fixture
+async def pepper(mock_client):
+    """Create a Pepperpy instance with mocked client."""
+    instance = await Pepperpy.create()
+    return instance
 
 
 @pytest.mark.asyncio
-async def test_basic_usage():
+async def test_basic_usage(pepper: Pepperpy, mock_client: AsyncMock):
     """Test basic usage patterns."""
-    with patch("pepperpy.Pepperpy.create") as mock_create:
-        # Setup mock
-        mock_pepper = AsyncMock()
-        mock_create.return_value = mock_pepper
-        mock_pepper.ask.return_value = "Test response"
+    # Test ask method
+    mock_client.run.return_value = "Test response"
+    result = await pepper.ask("What is AI?")
+    assert result == "Test response"
+    mock_client.run.assert_called_once()
 
-        # Test creation
-        pepper = await Pepperpy.create()
-        assert pepper is not None
-
-        # Test ask method
-        result = await pepper.ask("What is AI?")
-        assert result == "Test response"
-        mock_pepper.ask.assert_called_once_with("What is AI?")
-
-        # Test ask with options
-        await pepper.ask(
-            "What is AI?",
-            style="concise",
-            format="text",
-            temperature=0.7,
-            max_tokens=2048,
-        )
-        mock_pepper.ask.assert_called_with(
-            "What is AI?",
-            style="concise",
-            format="text",
-            temperature=0.7,
-            max_tokens=2048,
-        )
+    # Test ask with options
+    await pepper.ask(
+        "What is AI?",
+        style="concise",
+        format="text",
+        temperature=0.7,
+        max_tokens=2048,
+    )
+    mock_client.run.assert_called_with(
+        "assistant",
+        "ask",
+        question="What is AI?",
+        style="concise",
+        format="text",
+        temperature=0.7,
+        max_tokens=2048,
+    )
 
 
 @pytest.mark.asyncio
-async def test_research_patterns():
+async def test_research(pepper: Pepperpy, mock_client: AsyncMock):
     """Test research functionality."""
-    with patch("pepperpy.Pepperpy.create") as mock_create:
-        # Setup mock
-        mock_pepper = AsyncMock()
-        mock_create.return_value = mock_pepper
-        mock_pepper.research.return_value.tldr = "Summary"
-        mock_pepper.research.return_value.full = "Full report"
-        mock_pepper.research.return_value.bullets = ["Point 1", "Point 2"]
-        mock_pepper.research.return_value.references = ["Ref 1", "Ref 2"]
+    mock_client.run.return_value = {
+        "tldr": "Quick summary",
+        "full": "Full report",
+        "bullets": ["Point 1", "Point 2"],
+        "references": ["Source 1", "Source 2"],
+    }
 
-        # Test creation
-        pepper = await Pepperpy.create()
+    result = await pepper.research(
+        "Impact of AI",
+        depth="comprehensive",
+        style="academic",
+        format="report",
+        max_sources=10,
+    )
 
-        # Test basic research
-        result = await pepper.research("Impact of AI")
-        assert result.tldr == "Summary"
-        assert result.full == "Full report"
-        assert len(result.bullets) == 2
-        assert len(result.references) == 2
+    assert result.tldr == "Quick summary"
+    assert result.full == "Full report"
+    assert result.bullets == ["Point 1", "Point 2"]
+    assert result.references == ["Source 1", "Source 2"]
 
-        # Test research with options
-        await pepper.research(
-            topic="Quantum Computing",
-            depth="comprehensive",
-            style="technical",
-            format="report",
-            max_sources=10,
-        )
-        mock_pepper.research.assert_called_with(
-            topic="Quantum Computing",
-            depth="comprehensive",
-            style="technical",
-            format="report",
-            max_sources=10,
-        )
+    mock_client.run.assert_called_with(
+        "research_assistant",
+        "research",
+        topic="Impact of AI",
+        depth="comprehensive",
+        style="academic",
+        format="report",
+        max_sources=10,
+    )
 
 
 @pytest.mark.asyncio
-async def test_team_patterns():
-    """Test team functionality."""
-    with patch("pepperpy.Pepperpy.create") as mock_create:
-        # Setup mock
-        mock_pepper = AsyncMock()
-        mock_create.return_value = mock_pepper
-        mock_team = AsyncMock()
-        mock_session = AsyncMock()
-        mock_pepper.hub.team.return_value = mock_team
+async def test_stream_response(pepper: Pepperpy, mock_client: AsyncMock):
+    """Test streaming response functionality."""
+    message_id = str(uuid4())
+    mock_responses = [
+        Response(
+            message_id=message_id,
+            content=MessageContent(
+                type=MessageType.RESPONSE,
+                content={"text": "Hello"},
+            ),
+        ),
+        Response(
+            message_id=message_id,
+            content=MessageContent(
+                type=MessageType.RESPONSE,
+                content={"text": " world"},
+            ),
+        ),
+        Response(
+            message_id=message_id,
+            content=MessageContent(
+                type=MessageType.RESPONSE,
+                content={"text": "!"},
+            ),
+        ),
+    ]
+    mock_client.stream_chat.return_value = mock_responses
 
-        # Setup async context manager
-        mock_session.__aenter__ = AsyncMock(return_value=mock_session)
-        mock_session.__aexit__ = AsyncMock()
-        mock_team.run = AsyncMock(return_value=mock_session)
-
-        mock_session.current_step = "Research"
-        mock_session.progress = 0.5
-        mock_session.thoughts = "Analyzing data"
-        mock_session.needs_input = False
-
-        # Test creation
-        pepper = await Pepperpy.create()
-
-        # Test team usage
-        team = await pepper.hub.team("research-team")
-        session = await team.run("Analyze AI trends")
-        async with session as session:
-            assert session.current_step == "Research"
-            assert session.progress == 0.5
-            assert session.thoughts == "Analyzing data"
-            assert not session.needs_input
-
-
-@pytest.mark.asyncio
-async def test_agent_patterns():
-    """Test agent functionality."""
-    with patch("pepperpy.Pepperpy.create") as mock_create:
-        # Setup mock
-        mock_pepper = AsyncMock()
-        mock_create.return_value = mock_pepper
-        mock_agent = AsyncMock()
-        mock_pepper.hub.create_agent.return_value = mock_agent
-        mock_agent.research = AsyncMock()  # Add research method to mock
-
-        # Test creation
-        pepper = await Pepperpy.create()
-
-        # Test agent creation
-        agent = await pepper.hub.create_agent(
-            name="technical-researcher",
-            base="researcher",
-            config={"style": "technical", "depth": "deep"},
-        )
-        assert agent is not None
-
-        # Test agent usage
-        await agent.research("Topic")  # Now using the mocked research method
-        mock_agent.research.assert_called_once_with("Topic")
-
-        # Test agent sharing
-        await pepper.hub.publish("technical-researcher")
-        mock_pepper.hub.publish.assert_called_once_with("technical-researcher")
-
-
-@pytest.mark.asyncio
-async def test_configuration():
-    """Test configuration patterns."""
-    # Test environment variables
-    with patch.dict(
-        os.environ,
-        {
-            "PEPPERPY_API_KEY": "test-key",
-            "PEPPERPY_MODEL": "openai/gpt-4",
-            "PEPPERPY_TEMPERATURE": "0.7",
-            "PEPPERPY_MAX_TOKENS": "2048",
-            "PEPPERPY_STYLE": "detailed",
-            "PEPPERPY_FORMAT": "text",
-        },
+    collected_response = ""
+    async for token in pepper.stream_response(
+        "Test message",
+        style="technical",
+        format="text",
+        temperature=0.8,
     ):
-        with patch("pepperpy.Pepperpy.create") as mock_create:
-            mock_create.return_value = AsyncMock()
-            pepper = await Pepperpy.create()
-            assert pepper is not None
+        collected_response += token
 
-    # Test programmatic configuration
-    with patch("pepperpy.Pepperpy.create") as mock_create:
-        mock_create.return_value = AsyncMock()
-        pepper = await Pepperpy.create(
-            api_key="test-key",
-            model="openai/gpt-4",
-            temperature=0.7,
-            max_tokens=2048,
-            style="technical",
-            format="markdown",
-            cache_enabled=True,
-            cache_ttl=3600,
-            request_timeout=30.0,
-            max_retries=3,
-            metrics_enabled=True,
-            log_level="DEBUG",
-            hub_sync_interval=300,
-            hub_auto_update=True,
-        )
-        assert pepper is not None
+    assert collected_response == "Hello world!"
+    mock_client.stream_chat.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_error_handling():
-    """Test error handling patterns."""
-    with patch("pepperpy.Pepperpy.create") as mock_create:
-        # Setup mock
-        mock_pepper = AsyncMock()
-        mock_create.return_value = mock_pepper
-        test_error = "Test error"
-        mock_pepper.ask.side_effect = PepperpyError(test_error)
+async def test_analyze(pepper: Pepperpy, mock_client: AsyncMock):
+    """Test text analysis functionality."""
+    mock_analysis = {
+        "summary": "Test summary",
+        "key_points": ["Point 1", "Point 2"],
+        "sentiment": "positive",
+    }
+    mock_client.run.return_value = mock_analysis
 
-        # Test creation
-        pepper = await Pepperpy.create()
+    result = await pepper.analyze(
+        "Sample text",
+        focus="sentiment",
+        depth="detailed",
+    )
 
-        # Test error handling
-        with pytest.raises(PepperpyError) as exc_info:
-            await pepper.ask("Question")
-        assert (
-            test_error == exc_info.value.message
-        )  # Check the message attribute directly
+    assert result == mock_analysis
+    mock_client.run.assert_called_with(
+        "researcher",
+        "analyze",
+        text="Sample text",
+        focus="sentiment",
+        depth="detailed",
+    )
+
+
+@pytest.mark.asyncio
+async def test_collaborate(pepper: Pepperpy, mock_client: AsyncMock):
+    """Test collaboration functionality."""
+    mock_result = {"status": "completed", "output": "Collaboration result"}
+    mock_client.run.return_value = mock_result
+
+    result = await pepper.collaborate(
+        "Research and write about AI",
+        team_name="research-team",
+        workflow_name="research-workflow",
+    )
+
+    assert result == mock_result
+    mock_client.run.assert_called_with(
+        "research-team",
+        "research-workflow",
+        task="Research and write about AI",
+    )
+
+
+@pytest.mark.asyncio
+async def test_error_handling(pepper: Pepperpy, mock_client: AsyncMock):
+    """Test error handling in various scenarios."""
+    # Test configuration error
+    with pytest.raises(ConfigurationError):
+        await Pepperpy.create(api_key="invalid")
+
+    # Test runtime error
+    mock_client.run.side_effect = PepperpyError("Test error")
+    with pytest.raises(PepperpyError) as exc_info:
+        await pepper.ask("What is AI?")
+    assert str(exc_info.value) == "Test error"
+
+    # Test streaming error
+    mock_client.stream_chat.side_effect = PepperpyError("Stream error")
+    with pytest.raises(PepperpyError) as exc_info:
+        async for _ in pepper.stream_response("Test"):
+            pass
+    assert str(exc_info.value) == "Stream error"

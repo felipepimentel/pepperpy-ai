@@ -1,221 +1,201 @@
 ---
-title: Task Planning & Initialization
-description: ALWAYS use when planning and creating new tasks to ensure thorough analysis and proper setup. This prompt guides task planning, discussion, and initialization.
-version: 1.3
-category: planning
-tags: [planning, discussion, initialization]
+title: Task Execution Template
+description: ALWAYS use when executing task actions to ensure systematic progress following established task management standards. This protocol ensures deterministic AI-driven task execution.
+version: 2.0
+category: execution
+tags: [execution, implementation, task-management]
 yolo: true
+strict_mode: true
 ---
 
-# Initial Input
-```yaml
-task:
-  name: string          # Brief task description
-  context: string       # Background information
-  expected: string      # Desired outcome
-  priority: high|medium|low
-```
+# Task Execution Rules
 
-# Pre-planning Validation
+## 1. State Validation
 ```yaml
 validate:
-  kanban:
-    file: ".product/kanban.md"
+  task_file:
     exists: required
+    mode: Plan      # Must start in Plan mode
+    format: markdown
+    frontmatter:
+      complete: required
+      valid: required
   
-  knowledge_base:
-    query:
-      - similar_tasks
-      - common_patterns
-      - estimation_metrics
-      - known_challenges
+  kanban:
+    entry_exists: required
+    format_valid: required
 ```
 
-# Planning Discussion
-
-## 1. Understanding Phase
-Let's discuss:
-- What problem are we solving?
-- Who are the stakeholders?
-- What are the success criteria?
-- What are the constraints?
-
-## 2. Exploration Phase
-Let's explore:
-- Possible approaches
-- Technical implications
-- Potential challenges
-- Similar patterns from our knowledge base
-- Required components
-
-## 3. Solution Design
-Let's define:
-- Best approach selection
-- Architecture considerations
-- Implementation strategy
-- Required changes
-- Dependencies
-
-## 4. Risk Assessment
-Let's evaluate:
-- Technical risks
-- Integration challenges
-- Performance implications
-- Security considerations
-- Testing requirements
-
-## 5. Resource Planning
-Let's determine:
-- Required skills
-- External dependencies
-- Timeline estimates
-- Story points (1,2,3,5,8,13)
-- Success metrics
-
-# Task Creation
-
-## 1. Task Setup
+## 2. Execution Flow
 ```yaml
-initialization:
-  validate:
-    dependencies: resolved
-    resources: available
-    patterns: exist
+execution_flow:
+  # 1. Task Start
+  start:
+    - Validate task file
+    - Update frontmatter:
+        mode: Act
+        status: 🏗️ In Progress
+    - Update kanban entry
+    - Create progress section
   
-  create_task:
-    file:
-      path: ".product/tasks/TASK-{ID}.md"
-      template: task_management_workflow.template
-      initial_status: 📋 To Do
-    
-    branch:
-      name: "task/{ID}-{description}"
-      base: main
-    
-    kanban:
-      section: 📋 To Do
-      format: |
-        - TASK-{ID}: {name}
-          **Priority**: {priority} | **Points**: {points} | **Mode**: Plan
-          **Updated**: {date}
-          [Details](tasks/TASK-{ID}.md)
-          **AI-Tags**: {generated_tags}
-```
-
-## 2. Knowledge Base Integration
-```yaml
-knowledge_base:
-  query:
-    patterns:
-      - implementation_patterns
-      - similar_tasks
-      - known_issues
-    
-    metrics:
-      - complexity_estimates
-      - duration_patterns
-    
-  update:
-    - task_creation_record
-    - pattern_references
-    - estimation_metrics
-```
-
-# Example Usage
-
-## Input
-```yaml
-task:
-  name: "Vector Store Implementation"
-  context: "Need efficient storage for embeddings"
-  expected: "Fast, scalable vector operations"
-  priority: "high"
-```
-
-## Discussion Flow
-```yaml
-discussion:
-  understanding:
-    - "What types of vectors need to be stored?"
-    - "What are the performance requirements?"
-    - "How will this integrate with existing systems?"
-
-  exploration:
-    approaches:
-      - "Could we use an existing solution like FAISS?"
-      - "What about building a custom implementation?"
-      - "Should we consider a hybrid approach?"
-    
-    considerations:
-      - "How will this scale?"
-      - "What's our memory budget?"
-      - "Do we need persistence?"
-
-  design:
-    selected: "Hybrid approach with custom interface"
-    components:
-      - "Abstract storage interface"
-      - "Multiple backend support"
-      - "Optimization layer"
-```
-
-## Task Creation
-```yaml
-setup:
-  task:
-    id: "TASK-042"
-    file: ".product/tasks/TASK-042.md"
-    content:
-      title: "Implement Vector Store"
-      status:
-        current: 📋 To Do
-        priority: high
-        points: 8
-        mode: Plan
-      
-      requirements:
-        - "Design storage interface"
-        - "Implement core functionality"
-        - "Add optimizations"
-      
-      dependencies:
-        systems: ["Storage System"]
-        apis: ["Vector Operations"]
+  # 2. Implementation
+  implement:
+    - Follow implementation plan
+    - Update requirements status
+    - Document progress
+    - Track breaking changes
   
-  kanban_entry: |
-    - TASK-042: Implement Vector Store
-      **Priority**: High | **Points**: 8 | **Mode**: Plan
-      **Updated**: 2025-02-13
-      [Details](tasks/TASK-042.md)
-      **AI-Tags**: #vectorstore #performance
+  # 3. Testing
+  test:
+    - Execute test strategy
+    - Validate requirements
+    - Update documentation
+  
+  # 4. Completion
+  complete:
+    - Verify all requirements
+    - Update status to ✅ Done
+    - Update kanban board
+    - Document outcomes
 ```
 
-# Guidelines
+## 3. Progress Updates
+```yaml
+progress_format:
+  markdown: |
+    # Progress Updates
+    
+    ## {YYYY-MM-DD}
+    - Current Status: {status_detail}
+    - Completed:
+      - {item1}
+      - {item2}
+    - Next Steps:
+      1. {step1}
+      2. {step2}
+    [if blocked] - Blockers:
+      - Issue: {issue}
+      - Plan: {resolution}
+```
 
-## Discussion Flow
-- Keep exploration open
-- Question assumptions
-- Consider alternatives
-- Document decisions
-- Note uncertainties
+## 4. Requirement Updates
+```yaml
+requirement_format:
+  in_progress: "- [-] {requirement}  # 🏃 Started: {YYYY-MM-DD}"
+  completed: "- [x] {requirement}  # ✅ {YYYY-MM-DD}"
+  blocked: "- [ ] {requirement}  # ⏳ Blocked: {reason}"
+```
 
-## Task Creation
-- Follow task_management_workflow rule
-- Use correct templates
-- Include all required sections
-- Set proper initial state
-- Tag appropriately
+# Example Execution
 
-## Knowledge Integration
-- Reference similar patterns
-- Use historical metrics
-- Document new patterns
-- Update estimations
+## 1. Starting Task
+```markdown
+# Initial State (TASK-002.md)
+---
+title: Code Organization and Structure Improvements
+priority: high
+points: 5
+status: 📋 To Do
+mode: Plan
+created: 2024-02-14
+updated: 2024-02-14
+---
 
-Remember: 
-- Discussion comes before implementation
-- Document all key decisions
-- Consider all stakeholders
-- Plan for validation
-- Create clear success criteria
-- Initialize task with proper structure
+# Action: Start Implementation
+## 1. Update Frontmatter
+---
+title: Code Organization and Structure Improvements
+priority: high
+points: 5
+status: 🏗️ In Progress
+mode: Act
+created: 2024-02-14
+updated: 2024-02-14
+---
+
+## 2. Add Progress Section
+# Progress Updates
+
+## 2024-02-14
+- Current Status: Starting implementation
+- Completed:
+  - Repository setup
+  - Branch creation
+- Next Steps:
+  1. Flatten capabilities structure
+  2. Move agent code to hub
+
+## 3. Update Kanban
+- TASK-002: Code Organization and Structure Improvements
+  **Priority**: high | **Points**: 5 | **Mode**: Act
+  **Updated**: 2024-02-14
+  **Branch**: task/002-code-organization
+  [Details](tasks/TASK-002.md)
+  **AI-Tags**: #refactoring #organization #architecture
+```
+
+## 2. Implementation Progress
+```markdown
+# Progress Updates
+
+## 2024-02-15
+- Current Status: Implementing capabilities restructure
+- Completed:
+  - Created new capabilities structure
+  - Moved error definitions
+- Next Steps:
+  1. Update import paths
+  2. Add migration guides
+
+# Requirements
+- [x] Flatten capabilities structure  # ✅ 2024-02-15
+  - Single level hierarchy implemented
+  - Error handling centralized
+  - Directory structure verified
+- [-] Move agents to hub  # 🏃 Started: 2024-02-15
+  - In progress: Moving code
+  - Next: Update imports
+```
+
+## 3. Task Completion
+```markdown
+# Final State
+---
+title: Code Organization and Structure Improvements
+priority: high
+points: 5
+status: ✅ Done
+mode: Act
+created: 2024-02-14
+updated: 2024-02-16
+---
+
+# Progress Updates
+
+## 2024-02-16
+- Current Status: Implementation complete
+- Completed:
+  - All requirements implemented
+  - Tests passing
+  - Documentation updated
+- Validation:
+  - Directory structure simplified
+  - All imports working
+  - No scattered errors
+  - Agents properly moved to hub
+
+# Requirements
+- [x] Flatten capabilities structure  # ✅ 2024-02-15
+- [x] Move agents to hub  # ✅ 2024-02-16
+- [x] Update import paths  # ✅ 2024-02-16
+- [x] Consolidate error handling  # ✅ 2024-02-16
+
+# Kanban Update
+## ✅ Done
+- TASK-002: Code Organization and Structure Improvements
+  **Priority**: high | **Points**: 5 | **Mode**: Act
+  **Updated**: 2024-02-16
+  **Branch**: task/002-code-organization
+  [Details](tasks/TASK-002.md)
+  **AI-Tags**: #refactoring #organization #architecture #completed
+```

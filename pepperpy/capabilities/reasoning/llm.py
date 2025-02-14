@@ -64,6 +64,7 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
         Raises:
             ValueError: If config is invalid
             TypeError: If provider is not compatible with config
+
         """
         if not isinstance(provider, BaseProvider):
             raise TypeError("Provider must be an instance of BaseProvider")
@@ -85,6 +86,7 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
         Raises:
             ReasoningError: If reasoning fails
             TypeError: If input_data is invalid type
+
         """
         with tracer.start_as_current_span("reason") as span:
             try:
@@ -144,6 +146,7 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
 
         Raises:
             ReasoningError: If validation fails
+
         """
         with tracer.start_as_current_span("validate") as span:
             try:
@@ -194,6 +197,7 @@ class LLMReasoning(BaseReasoning[T, A], Generic[T, A]):
 
         Raises:
             ReasoningError: If explanation fails
+
         """
         try:
             # If result has explanation, use it
