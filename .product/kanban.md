@@ -2,12 +2,6 @@
 
 ## 📋 To Do
 
-- TASK-002: Code Organization and Structure Improvements
-  **Priority**: high | **Points**: 5 | **Mode**: Plan
-  **Updated**: 2024-02-14
-  [Details](tasks/TASK-002.md)
-  **AI-Tags**: #refactoring #organization #architecture
-
 ## 🏗️ In Progress
 
 ## ✅ Done
@@ -17,3 +11,9 @@
   **Branch**: task/001-usage-simplification
   **Details**: [Link](tasks/TASK-001.md)
   **AI-Tags**: #user-experience #simplification #api-design 
+
+- TASK-002: Code Organization and Structure Improvements
+  **Priority**: high | **Points**: 8 | **Mode**: Act
+  **Updated**: 2024-02-14
+  [Details](tasks/TASK-002.md)
+  **AI-Tags**: #refactoring #organization #architecture 

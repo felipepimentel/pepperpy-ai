@@ -15,25 +15,24 @@ from pepperpy.core.base import (
     AgentState,
 )
 from pepperpy.core.capabilities import (
-    BaseCapability,
+    AnalysisError,
     Capability,
-    CapabilityConfig,
+    CapabilityContext,
     CapabilityError,
-    CapabilityNotFoundError,
-    CapabilityConfigError,
-    CapabilityInitError,
-    CapabilityCleanupError,
+    CapabilityResult,
+    CapabilityType,
+    GenerationError,
+    LearningError,
+    MemoryError,
+    PerceptionError,
+    PlanningError,
+    ReasoningError,
+)
+from pepperpy.core.capabilities import (
     registry as capability_registry,
 )
 from pepperpy.core.client import PepperpyClient
 from pepperpy.core.config import PepperpyConfig
-from pepperpy.core.types import (
-    Message,
-    MessageType,
-    ProviderConfig,
-    Response,
-    ResponseStatus,
-)
 from pepperpy.core.errors import (
     ConfigurationError,
     ContextError,
@@ -51,6 +50,13 @@ from pepperpy.core.events import Event, EventBus, EventHandler, EventType
 from pepperpy.core.factory import AgentFactory, ComponentFactory
 from pepperpy.core.protocols import FrameworkAdapter, Memory, Tool
 from pepperpy.core.registry import Registry
+from pepperpy.core.types import (
+    Message,
+    MessageType,
+    ProviderConfig,
+    Response,
+    ResponseStatus,
+)
 
 __all__ = [
     # Agent types
@@ -60,14 +66,18 @@ __all__ = [
     "AgentProtocol",
     "AgentState",
     # Capability system
-    "BaseCapability",
     "Capability",
-    "CapabilityConfig",
+    "CapabilityContext",
+    "CapabilityResult",
     "CapabilityError",
-    "CapabilityNotFoundError",
-    "CapabilityConfigError",
-    "CapabilityInitError",
-    "CapabilityCleanupError",
+    "CapabilityType",
+    "AnalysisError",
+    "GenerationError",
+    "LearningError",
+    "MemoryError",
+    "PerceptionError",
+    "PlanningError",
+    "ReasoningError",
     "capability_registry",
     # Configuration
     "ComponentFactory",

@@ -8,25 +8,144 @@ This module provides a unified configuration system with support for:
 - Type safety and validation
 """
 
-from .base import ConfigurationError, ConfigurationManager
-from .sources import (
-    CLISource,
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from pydantic import BaseModel, Field
+
+from .unified import (
+    ConfigHook,
     ConfigSource,
-    EnvSource,
-    FileSource,
-    JSONSource,
-    YAMLSource,
+    ConfigState,
+    ConfigurationError,
+    UnifiedConfig,
 )
-from .types import ConfigWatcher
+
+
+class PepperpyConfig(BaseModel):
+    """Configuration for the Pepperpy framework.
+
+    This model defines all configuration options available in the framework.
+    It is used by the UnifiedConfig manager to provide type-safe configuration
+    with validation.
+    """
+
+    # Core settings
+    debug: bool = Field(default=False, description="Enable debug mode")
+    log_level: str = Field(default="INFO", description="Logging level")
+
+    # Provider settings
+    provider: str = Field(default="openai", description="AI provider to use")
+    api_key: Optional[str] = Field(default=None, description="Provider API key")
+    model: str = Field(default="gpt-4", description="Model to use")
+
+    # Client settings
+    timeout: float = Field(default=30.0, description="Request timeout in seconds")
+    max_retries: int = Field(default=3, description="Maximum number of retries")
+    retry_delay: float = Field(default=1.0, description="Delay between retries")
+
+    # Cache settings
+    cache_enabled: bool = Field(default=True, description="Enable response caching")
+    cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
+
+    # Advanced settings
+    provider_configs: Dict[str, Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Provider-specific configurations",
+    )
+    hooks_enabled: bool = Field(default=True, description="Enable lifecycle hooks")
+    experimental: bool = Field(
+        default=False, description="Enable experimental features"
+    )
+
+
+# Global configuration manager
+config_manager = UnifiedConfig(PepperpyConfig)
+
+
+async def initialize_config(config_path: Optional[Path] = None) -> PepperpyConfig:
+    """Initialize the configuration system.
+
+    This function initializes the global configuration manager with settings from:
+    1. Default configuration
+    2. Configuration files
+    3. Environment variables
+
+    Args:
+        config_path: Optional path to configuration file
+
+    Returns:
+        Initialized configuration instance
+
+    Raises:
+        ConfigurationError: If initialization fails or configuration is not available
+
+    """
+    try:
+        await config_manager.initialize()
+        if config_manager.config is None:
+            raise ConfigurationError("Configuration not initialized")
+        return config_manager.config
+    except Exception as e:
+        raise ConfigurationError(f"Failed to initialize configuration: {e}") from e
+
+
+async def update_config(updates: Dict[str, Any]) -> None:
+    """Update the current configuration.
+
+    Args:
+        updates: Configuration updates to apply
+
+    Raises:
+        ConfigurationError: If update fails
+
+    """
+    await config_manager.update(updates)
+
+
+def add_config_hook(
+    event: str,
+    callback: Any,
+    source: Optional[ConfigSource] = None,
+) -> None:
+    """Add a configuration lifecycle hook.
+
+    Args:
+        event: Event to hook into ("on_load", "on_update", "on_error")
+        callback: Function to call when event occurs
+        source: Optional source to restrict hook to
+
+    Raises:
+        ValueError: If event is invalid
+
+    """
+    config_manager.add_hook(event, callback, source)
+
+
+def remove_config_hook(event: str, callback: Any) -> None:
+    """Remove a configuration lifecycle hook.
+
+    Args:
+        event: Event to remove hook from
+        callback: Callback to remove
+
+    Raises:
+        ValueError: If event is invalid
+
+    """
+    config_manager.remove_hook(event, callback)
+
 
 __all__ = [
-    "ConfigurationManager",
-    "ConfigurationError",
+    "PepperpyConfig",
+    "UnifiedConfig",
     "ConfigSource",
-    "EnvSource",
-    "FileSource",
-    "YAMLSource",
-    "JSONSource",
-    "CLISource",
-    "ConfigWatcher",
+    "ConfigState",
+    "ConfigHook",
+    "ConfigurationError",
+    "initialize_config",
+    "update_config",
+    "add_config_hook",
+    "remove_config_hook",
+    "config_manager",
 ]

@@ -4,12 +4,13 @@ This module provides the research agent that can perform research tasks
 using LLM capabilities.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional, cast
 
-from pepperpy.core.base import BaseAgent
+from loguru import logger
+
+from pepperpy.core.base import AgentConfig, BaseAgent
 from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.types import (
-    AgentCapability,
     Message,
     MessageContent,
     MessageType,
@@ -17,8 +18,8 @@ from pepperpy.core.types import (
     ResearchFocus,
     ResearchResults,
     Response,
+    ResponseStatus,
 )
-from pepperpy.monitoring import logger as log
 
 
 class ResearchAgent(BaseAgent):
@@ -37,7 +38,7 @@ class ResearchAgent(BaseAgent):
 
     """
 
-    def __init__(self, client: Any, config: Dict[str, Any]) -> None:
+    def __init__(self, client: Any, config: AgentConfig) -> None:
         """Initialize the research agent.
 
         Args:
@@ -50,47 +51,44 @@ class ResearchAgent(BaseAgent):
         self._depth: Optional[ResearchDepth] = None
         self._focus: Optional[List[ResearchFocus]] = None
         self._max_sources: Optional[int] = None
+        self._logger = logger.bind(agent=self.__class__.__name__)
 
-    async def initialize(self, config: Dict[str, Any]) -> None:
-        """Initialize the agent with configuration.
+    async def initialize(self) -> None:
+        """Initialize the agent.
 
-        Args:
-        ----
-            config: Agent configuration
-
-        Raises:
+        Raises
         ------
             ConfigurationError: If configuration is invalid
 
         """
-        await super().initialize(config)
+        await super().initialize()
 
         # Validate and set research depth
-        depth = config.get("depth", "basic")
+        depth = self._config.settings.get("depth", "basic")
         if not isinstance(depth, str) or depth not in [
             "basic",
             "comprehensive",
             "deep",
         ]:
             raise ConfigurationError(f"Invalid research depth: {depth}")
-        self._depth = depth
+        self._depth = cast(ResearchDepth, depth)
 
         # Validate and set research focus
-        focus = config.get("focus", ["general"])
+        focus = self._config.settings.get("focus", ["general"])
         if not isinstance(focus, list):
             focus = [focus]
         valid_focus = ["general", "academic", "industry", "technical", "business"]
         if not all(f in valid_focus for f in focus):
             raise ConfigurationError(f"Invalid research focus: {focus}")
-        self._focus = focus
+        self._focus = [cast(ResearchFocus, f) for f in focus]
 
         # Validate and set max sources
-        max_sources = config.get("max_sources", 5)
+        max_sources = self._config.settings.get("max_sources", 5)
         if not isinstance(max_sources, int) or max_sources < 1:
             raise ConfigurationError(f"Invalid max sources: {max_sources}")
         self._max_sources = max_sources
 
-        log.info(
+        self._logger.info(
             "Research agent initialized",
             depth=self._depth,
             focus=self._focus,
@@ -98,7 +96,7 @@ class ResearchAgent(BaseAgent):
         )
 
     @property
-    def capabilities(self) -> List[AgentCapability]:
+    def capabilities(self) -> List[str]:
         """Get agent capabilities.
 
         Returns
@@ -107,9 +105,9 @@ class ResearchAgent(BaseAgent):
 
         """
         return [
-            AgentCapability.RESEARCH,
-            AgentCapability.SUMMARIZE,
-            AgentCapability.ANALYZE,
+            "research",
+            "summarize",
+            "analyze",
         ]
 
     async def process_message(self, message: Message) -> Response:
@@ -124,13 +122,17 @@ class ResearchAgent(BaseAgent):
             Agent response
 
         """
-        if message.type != MessageType.USER:
+        # Validate message type
+        if message.type != MessageType.QUERY:
             raise ConfigurationError(f"Unsupported message type: {message.type}")
 
         # Extract research topic from message
-        topic = message.content.get("topic")
-        if not topic:
-            raise ConfigurationError("Research topic not provided")
+        if isinstance(message.content, dict):
+            topic = message.content.get("topic")
+            if not topic:
+                raise ConfigurationError("Research topic not provided")
+        else:
+            raise ConfigurationError("Invalid message content format")
 
         try:
             # Perform research
@@ -138,9 +140,9 @@ class ResearchAgent(BaseAgent):
 
             # Create response
             return Response(
-                message_id=message.id,
+                message_id=str(message.id),
                 content=MessageContent(
-                    type=MessageType.ASSISTANT,
+                    type=MessageType.RESPONSE,
                     content={
                         "results": results.dict(),
                         "metadata": {
@@ -150,18 +152,25 @@ class ResearchAgent(BaseAgent):
                         },
                     },
                 ),
-                status="success",
+                status=ResponseStatus.SUCCESS,
             )
 
         except Exception as e:
-            log.error(
+            self._logger.error(
                 "Research failed",
                 error=str(e),
                 topic=topic,
                 depth=self._depth,
                 focus=self._focus,
             )
-            raise
+            return Response(
+                message_id=str(message.id),
+                content=MessageContent(
+                    type=MessageType.ERROR,
+                    content={"error": str(e)},
+                ),
+                status=ResponseStatus.ERROR,
+            )
 
     async def _perform_research(self, topic: str) -> ResearchResults:
         """Perform research on a topic.

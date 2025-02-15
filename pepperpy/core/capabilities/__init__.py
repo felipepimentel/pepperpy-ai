@@ -4,13 +4,17 @@ This module provides a unified system for managing agent capabilities,
 including error handling, type definitions, and common functionality.
 """
 
-from .base import BaseCapability, Capability, CapabilityConfig
+from .base import Capability, CapabilityContext, CapabilityResult
 from .errors import (
-    CapabilityCleanupError,
-    CapabilityConfigError,
+    AnalysisError,
     CapabilityError,
-    CapabilityInitError,
-    CapabilityNotFoundError,
+    CapabilityType,
+    GenerationError,
+    LearningError,
+    MemoryError,
+    PerceptionError,
+    PlanningError,
+    ReasoningError,
 )
 from .registry import CapabilityRegistry
 
@@ -18,15 +22,19 @@ from .registry import CapabilityRegistry
 registry = CapabilityRegistry()
 
 __all__ = [
-    "BaseCapability",
     "Capability",
-    "CapabilityConfig",
+    "CapabilityContext",
+    "CapabilityResult",
     "CapabilityRegistry",
     "registry",
     # Error types
     "CapabilityError",
-    "CapabilityNotFoundError",
-    "CapabilityConfigError",
-    "CapabilityInitError",
-    "CapabilityCleanupError",
+    "CapabilityType",
+    "AnalysisError",
+    "GenerationError",
+    "LearningError",
+    "MemoryError",
+    "PerceptionError",
+    "PlanningError",
+    "ReasoningError",
 ]

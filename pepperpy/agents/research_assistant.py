@@ -6,6 +6,8 @@ This module provides a research assistant agent that helps with academic researc
 from typing import Any, List
 from uuid import uuid4
 
+from loguru import logger
+
 from pepperpy.core.base import AgentConfig, BaseAgent
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.types import (
@@ -16,7 +18,6 @@ from pepperpy.core.types import (
     Response,
     ResponseStatus,
 )
-from pepperpy.monitoring import logger
 
 
 class ResearchAssistant(BaseAgent):
@@ -63,7 +64,7 @@ class ResearchAssistant(BaseAgent):
         """
         message_id = str(uuid4())
         message_content = MessageContent(
-            type=MessageType.USER,
+            type=MessageType.QUERY,
             content={"text": f"Please analyze the following topic: {topic}"},
         )
 
@@ -76,7 +77,7 @@ class ResearchAssistant(BaseAgent):
         return Response(
             message_id=message_id,
             content=MessageContent(
-                type=MessageType.ASSISTANT,
+                type=MessageType.RESPONSE,
                 content={"text": response_text},
             ),
             status=ResponseStatus.SUCCESS,
@@ -94,7 +95,7 @@ class ResearchAssistant(BaseAgent):
         """
         message_id = str(uuid4())
         message_content = MessageContent(
-            type=MessageType.USER,
+            type=MessageType.QUERY,
             content={"text": f"Please find relevant sources for: {query}"},
         )
 
@@ -107,7 +108,7 @@ class ResearchAssistant(BaseAgent):
         return Response(
             message_id=message_id,
             content=MessageContent(
-                type=MessageType.ASSISTANT,
+                type=MessageType.RESPONSE,
                 content={"text": response_text},
             ),
             status=ResponseStatus.SUCCESS,
@@ -125,7 +126,7 @@ class ResearchAssistant(BaseAgent):
         """
         message_id = str(uuid4())
         message_content = MessageContent(
-            type=MessageType.USER,
+            type=MessageType.QUERY,
             content={
                 "text": f"Please synthesize information from these sources:\n{chr(10).join(sources)}"
             },
@@ -140,7 +141,7 @@ class ResearchAssistant(BaseAgent):
         return Response(
             message_id=message_id,
             content=MessageContent(
-                type=MessageType.ASSISTANT,
+                type=MessageType.RESPONSE,
                 content={"text": response_text},
             ),
             status=ResponseStatus.SUCCESS,
@@ -167,7 +168,7 @@ class ResearchAssistant(BaseAgent):
             logger.debug("Processing message: %s", message)
 
             # Validate message type
-            if message.type != MessageType.USER:
+            if message.type != MessageType.QUERY:
                 raise ConfigurationError(f"Unsupported message type: {message.type}")
 
             # Get the text content from the message
@@ -181,9 +182,9 @@ class ResearchAssistant(BaseAgent):
 
             # Create response
             response = Response(
-                message_id=message.id,
+                message_id=str(message.id),
                 content=MessageContent(
-                    type=MessageType.ASSISTANT,
+                    type=MessageType.RESPONSE,
                     content={"text": response_text},
                 ),
                 status=ResponseStatus.SUCCESS,
@@ -196,9 +197,9 @@ class ResearchAssistant(BaseAgent):
             self._state = AgentState.ERROR
             logger.error("Failed to process message: %s", e)
             return Response(
-                message_id=message.id,
+                message_id=str(message.id),
                 content=MessageContent(
-                    type=MessageType.ASSISTANT,
+                    type=MessageType.ERROR,
                     content={"error": str(e)},
                 ),
                 status=ResponseStatus.ERROR,

@@ -1,167 +1,193 @@
-"""Tests for capabilities functionality."""
+"""Tests for the unified capability system."""
+
+from typing import Any, Dict, Optional
 
 import pytest
 
-from pepperpy.core.capabilities import (
+from pepperpy.core.capabilities.base import (
+    Capability,
     CapabilityContext,
-    CapabilityError,
+    CapabilityProvider,
     CapabilityResult,
+)
+from pepperpy.core.capabilities.errors import (
+    CapabilityError,
     CapabilityType,
+    LearningError,
 )
 
-from .conftest import MockCapability, TestCapabilityConfig
+
+class TestCapability(Capability[Dict[str, Any], str]):
+    """Test implementation of a capability."""
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        super().__init__(CapabilityType.LEARNING, config)
+        self.execute_called = False
+        self.cleanup_called = False
+        self.initialize_called = False
+
+    async def initialize(self) -> None:
+        """Test initialization implementation."""
+        self.initialize_called = True
+
+    async def execute(
+        self,
+        context: CapabilityContext,
+        **kwargs: Any,
+    ) -> CapabilityResult[str]:
+        """Test execution implementation."""
+        self.execute_called = True
+        if kwargs.get("fail"):
+            raise LearningError("Test failure")
+        return CapabilityResult(
+            success=True,
+            result="test_result",
+            metadata={"test": "metadata"},
+        )
+
+    async def cleanup(self) -> None:
+        """Test cleanup implementation."""
+        self.cleanup_called = True
+
+
+class TestProvider(CapabilityProvider):
+    """Test implementation of a capability provider."""
+
+    async def get_capability(
+        self,
+        capability_type: CapabilityType,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Capability[Any, Any]:
+        """Get a test capability."""
+        capability = TestCapability(config)
+        await capability.initialize()
+        return capability
+
+    async def cleanup_capability(
+        self,
+        capability: Capability[Any, Any],
+    ) -> None:
+        """Clean up a test capability."""
+        await capability.cleanup()
 
 
 @pytest.mark.asyncio
-async def test_capability_basic(mock_capability: MockCapability):
+async def test_capability_basic():
     """Test basic capability functionality."""
-    # Test initial state
-    assert mock_capability.type == CapabilityType.TOOLS
-    assert isinstance(mock_capability.config, TestCapabilityConfig)
-    assert isinstance(mock_capability.context, CapabilityContext)
-    assert mock_capability.context.type == CapabilityType.TOOLS
+    config = {"test": "config"}
+    capability = TestCapability(config)
+    await capability.initialize()
 
-
-@pytest.mark.asyncio
-async def test_capability_lifecycle(mock_capability: MockCapability):
-    """Test capability lifecycle methods."""
     # Test initialization
-    await mock_capability.initialize()
-    assert mock_capability.initialize_called
-    assert mock_capability.validate_called
+    assert capability.capability_type == CapabilityType.LEARNING
+    assert capability.config == config
+    assert capability.initialize_called
+    assert not capability.execute_called
+    assert not capability.cleanup_called
 
     # Test execution
-    result = await mock_capability.execute(test_param="value")
-    assert mock_capability.execute_called
-    assert mock_capability.execute_kwargs == {"test_param": "value"}
-    assert isinstance(result, CapabilityResult)
+    context = CapabilityContext(
+        capability_type=CapabilityType.LEARNING,
+        metadata={"test": "metadata"},
+    )
+    result = await capability.execute(context)
     assert result.success
+    assert result.result == "test_result"
+    assert result.metadata == {"test": "metadata"}
+    assert capability.execute_called
 
     # Test cleanup
-    await mock_capability.cleanup()
-    assert mock_capability.cleanup_called
-    assert not mock_capability.context.state  # State should be cleared
+    await capability.cleanup()
+    assert capability.cleanup_called
 
 
 @pytest.mark.asyncio
-async def test_capability_context(mock_capability: MockCapability):
-    """Test capability context management."""
-    # Test context initialization
-    assert mock_capability.context.type == CapabilityType.TOOLS
-    assert not mock_capability.context.state
-    assert not mock_capability.context.metadata
-
-    # Test context state management
-    mock_capability.context.state["test_key"] = "test_value"
-    assert mock_capability.context.state["test_key"] == "test_value"
-
-    # Test context cleanup
-    await mock_capability.cleanup()
-    assert not mock_capability.context.state
-
-
-@pytest.mark.asyncio
-async def test_capability_error_handling(error_capability: MockCapability):
+async def test_capability_error_handling():
     """Test capability error handling."""
-    # Test initialization error
-    with pytest.raises(CapabilityError) as exc_info:
-        await error_capability.initialize()
-    assert str(exc_info.value) == "Initialization failed"
-    assert exc_info.value.type == CapabilityType.TOOLS
-    assert exc_info.value.details == {"error": "test error"}
-
-    # Test validation error
-    validate_error_capability = error_capability.__class__(
-        type=CapabilityType.TOOLS,
-        config=error_capability.config,
-        **{"error_type": "validate"},
+    capability = TestCapability()
+    await capability.initialize()
+    context = CapabilityContext(
+        capability_type=CapabilityType.LEARNING,
+        metadata={},
     )
-    with pytest.raises(CapabilityError) as exc_info:
-        await validate_error_capability.initialize()
-    assert str(exc_info.value) == "Validation failed"
 
-    # Test execution error
-    execute_error_capability = error_capability.__class__(
-        type=CapabilityType.TOOLS,
-        config=error_capability.config,
-        **{"error_type": "execute"},
-    )
-    with pytest.raises(CapabilityError) as exc_info:
-        await execute_error_capability.execute()
-    assert str(exc_info.value) == "Execution failed"
+    # Test execution failure
+    with pytest.raises(LearningError) as exc:
+        await capability.execute(context, fail=True)
+    assert exc.value.capability_type == CapabilityType.LEARNING
+    assert str(exc.value).startswith("learning:")
 
 
 @pytest.mark.asyncio
-async def test_capability_result():
-    """Test capability result handling."""
-    # Test successful result
-    result = CapabilityResult(success=True, data={"key": "value"})
-    assert result.success
-    assert result.data == {"key": "value"}
-    assert not result.error
+async def test_capability_validation():
+    """Test capability validation."""
+    # Test with missing config
+    capability = TestCapability()
+    await capability.initialize()
+    with pytest.raises(CapabilityError) as exc:
+        await capability.validate()
+    assert exc.value.error_code == "CAPABILITY_CONFIG_MISSING"
 
-    # Test failed result
-    error = ValueError("Test error")
-    result = CapabilityResult(
-        success=False,
-        error=error,
-        metadata={"error_type": "validation"},
+    # Test with config
+    capability = TestCapability({"test": "config"})
+    await capability.initialize()
+    await capability.validate()  # Should not raise
+
+
+@pytest.mark.asyncio
+async def test_capability_metadata():
+    """Test capability metadata management."""
+    capability = TestCapability()
+    await capability.initialize()
+
+    # Test adding metadata
+    capability.add_metadata("test_key", "test_value")
+    assert capability.get_metadata("test_key") == "test_value"
+
+    # Test getting non-existent metadata
+    assert capability.get_metadata("non_existent") is None
+
+
+@pytest.mark.asyncio
+async def test_capability_provider():
+    """Test capability provider functionality."""
+    provider = TestProvider()
+
+    # Test getting capability
+    capability = await provider.get_capability(
+        CapabilityType.LEARNING,
+        {"test": "config"},
     )
-    assert not result.success
-    assert result.error == error
-    assert result.metadata == {"error_type": "validation"}
+    assert isinstance(capability, TestCapability)
+    assert capability.config == {"test": "config"}
+    assert capability.initialize_called
+
+    # Test cleanup
+    await provider.cleanup_capability(capability)
+    assert capability.cleanup_called
 
 
 @pytest.mark.asyncio
-async def test_capability_config_validation():
-    """Test capability configuration validation."""
-    # Test valid configuration
-    config = TestCapabilityConfig(name="test", value=42)
-    capability = MockCapability(CapabilityType.TOOLS, config)
-    await capability.validate()
-    assert capability.validate_called
-
-    # Test invalid configuration
-    with pytest.raises(ValueError):
-        TestCapabilityConfig(name="test", value="invalid")  # type: ignore
-
-
-@pytest.mark.asyncio
-async def test_capability_type_validation():
-    """Test capability type validation."""
-    # Test all capability types
-    for capability_type in CapabilityType:
-        config = TestCapabilityConfig()
-        capability = MockCapability(capability_type, config)
-        assert capability.type == capability_type
-        assert capability.context.type == capability_type
-
-
-@pytest.mark.asyncio
-async def test_capability_execution_flow(mock_capability: MockCapability):
-    """Test capability execution flow."""
-    # Setup execution result
-    mock_capability.execute_result = CapabilityResult(
-        success=True,
-        data={"result": "test"},
-        metadata={"duration": 0.1},
+async def test_capability_error_hierarchy():
+    """Test capability error class hierarchy."""
+    # Test base error
+    error = CapabilityError(
+        "Test error",
+        CapabilityType.LEARNING,
+        error_code="TEST_ERROR",
+        details={"test": "details"},
     )
+    assert error.capability_type == CapabilityType.LEARNING
+    assert error.error_code == "TEST_ERROR"
+    assert error.details == {"test": "details"}
 
-    # Initialize capability
-    await mock_capability.initialize()
-    assert mock_capability.initialize_called
-
-    # Execute with parameters
-    params = {"param1": "value1", "param2": "value2"}
-    result = await mock_capability.execute(**params)
-
-    # Verify execution
-    assert mock_capability.execute_called
-    assert mock_capability.execute_kwargs == params
-    assert result.success
-    assert result.data == {"result": "test"}
-    assert result.metadata == {"duration": 0.1}
-
-    # Cleanup
-    await mock_capability.cleanup()
-    assert mock_capability.cleanup_called
+    # Test specific error
+    cause = ValueError("Original error")
+    error = LearningError(
+        "Test learning error",
+        details={"test": "details"},
+        cause=cause,
+    )
+    assert error.capability_type == CapabilityType.LEARNING
+    assert error.error_code == "LEARNING_ERROR"
+    assert error.cause == cause

@@ -7,31 +7,29 @@ This module provides a unified monitoring system with support for:
 - Performance monitoring
 """
 
-from .logging import LoggerFactory, LogLevel, LogRecord
-from .metrics import (
-    Counter,
-    Gauge,
-    Histogram,
-    Metric,
-    MetricsManager,
-    MetricType,
-)
-from .tracing import Span, SpanContext, TracingManager
+from .logging import LoggingError, get_logger, logger_manager, setup_logging
+from .metrics import Metric, MetricsError, MetricsManager, metrics_manager
+from .tracing import Span, SpanContext, TracingError, TracingManager
+from .types import LogLevel, MetricType, MonitoringError
 
 __all__ = [
-    # Logging
-    "LoggerFactory",
+    # Core types
     "LogLevel",
-    "LogRecord",
-    # Metrics
-    "Counter",
-    "Gauge",
-    "Histogram",
-    "Metric",
     "MetricType",
+    "MonitoringError",
+    # Logging
+    "LoggingError",
+    "get_logger",
+    "logger_manager",
+    "setup_logging",
+    # Metrics
+    "Metric",
+    "MetricsError",
     "MetricsManager",
+    "metrics_manager",
     # Tracing
     "Span",
     "SpanContext",
+    "TracingError",
     "TracingManager",
 ]

@@ -1,200 +1,165 @@
-"""Base components for capability management.
+"""Base interfaces and types for capabilities.
 
-This module provides the core interfaces and base classes for managing
-capabilities in the Pepperpy framework.
+This module defines the core interfaces and types that all capabilities must implement,
+providing a unified structure for capability development and management.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from dataclasses import dataclass
+from typing import Any, Dict, Generic, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pepperpy.core.lifecycle import Lifecycle
 
+from .errors import CapabilityError, CapabilityType
 
-@runtime_checkable
-class Capability(Protocol):
-    """Protocol defining the interface for capabilities.
-
-    All capabilities must implement this interface to be usable by agents
-    and other components in the system.
-    """
-
-    name: str
-    version: str
-    description: str
-    requirements: List[str]
-
-    def is_available(self) -> bool:
-        """Check if the capability is available in current environment."""
-        ...
-
-    async def initialize(self, config: Dict[str, Any]) -> None:
-        """Initialize the capability with configuration.
-
-        Args:
-            config: Configuration parameters
-
-        Raises:
-            ValueError: If configuration is invalid
-            RuntimeError: If initialization fails
-
-        """
-        ...
-
-    async def cleanup(self) -> None:
-        """Clean up capability resources."""
-        ...
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if the capability is initialized."""
-        ...
+# Type variable for capability-specific configurations
+ConfigT = TypeVar("ConfigT")
+# Type variable for capability-specific results
+ResultT = TypeVar("ResultT")
 
 
-class CapabilityConfig(BaseModel):
-    """Configuration for a capability.
+@dataclass
+class CapabilityContext:
+    """Context information for capability execution."""
 
-    Attributes:
-        name: Capability name
-        version: Capability version
-        description: Capability description
-        requirements: Required dependencies
-        settings: Additional settings
-        metadata: Optional metadata
-
-    """
-
-    name: str = Field(..., description="Capability name")
-    version: str = Field(..., description="Capability version")
-    description: str = Field(..., description="Capability description")
-    requirements: List[str] = Field(
-        default_factory=list, description="Required dependencies"
-    )
-    settings: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional settings"
-    )
-    metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Optional metadata"
-    )
+    capability_type: CapabilityType
+    metadata: Dict[str, Any]
+    config: Optional[Dict[str, Any]] = None
 
 
-class BaseCapability(ABC):
-    """Base implementation of the Capability protocol.
+@dataclass
+class CapabilityResult(Generic[ResultT]):
+    """Result of a capability execution."""
 
-    This class provides a default implementation that can be extended by
-    concrete capability implementations.
+    success: bool
+    result: Optional[ResultT] = None
+    error: Optional[CapabilityError] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class Capability(Lifecycle, Generic[ConfigT, ResultT], ABC):
+    """Base interface for all capabilities.
+
+    This class defines the standard interface that all capabilities must implement,
+    ensuring consistent behavior and management across the system.
     """
 
     def __init__(
-        self,
-        name: str,
-        version: str,
-        description: str,
-        requirements: Optional[List[str]] = None,
+        self, capability_type: CapabilityType, config: Optional[ConfigT] = None
     ) -> None:
         """Initialize the capability.
 
         Args:
-            name: Capability name
-            version: Capability version
-            description: Capability description
-            requirements: Optional list of required dependencies
+            capability_type: Type of this capability
+            config: Optional configuration for this capability
 
         """
-        self._name = name
-        self._version = version
-        self._description = description
-        self._requirements = requirements or []
-        self._initialized = False
-        self._config: Optional[Dict[str, Any]] = None
-
-    @property
-    def name(self) -> str:
-        """Get capability name."""
-        return self._name
-
-    @property
-    def version(self) -> str:
-        """Get capability version."""
-        return self._version
-
-    @property
-    def description(self) -> str:
-        """Get capability description."""
-        return self._description
-
-    @property
-    def requirements(self) -> List[str]:
-        """Get capability requirements."""
-        return self._requirements
-
-    @property
-    def is_initialized(self) -> bool:
-        """Check if capability is initialized."""
-        return self._initialized
-
-    def is_available(self) -> bool:
-        """Check if capability is available.
-
-        Returns:
-            True if all requirements are met, False otherwise
-
-        """
-        # Subclasses should override this to check specific requirements
-        return True
-
-    async def initialize(self, config: Dict[str, Any]) -> None:
-        """Initialize the capability.
-
-        Args:
-            config: Configuration parameters
-
-        Raises:
-            ValueError: If configuration is invalid
-            RuntimeError: If initialization fails
-
-        """
-        if self._initialized:
-            return
-
-        try:
-            self._config = config
-            await self._initialize()
-            self._initialized = True
-        except Exception as e:
-            self._initialized = False
-            self._config = None
-            raise RuntimeError(f"Failed to initialize capability: {e}") from e
-
-    async def cleanup(self) -> None:
-        """Clean up capability resources."""
-        if not self._initialized:
-            return
-
-        try:
-            await self._cleanup()
-        finally:
-            self._initialized = False
-            self._config = None
+        super().__init__()
+        self.capability_type = capability_type
+        self.config = config
+        self._metadata: Dict[str, Any] = {}
 
     @abstractmethod
-    async def _initialize(self) -> None:
-        """Initialize capability resources.
+    async def execute(
+        self,
+        context: CapabilityContext,
+        **kwargs: Any,
+    ) -> CapabilityResult[ResultT]:
+        """Execute the capability's main function.
 
-        This method should be implemented by subclasses to perform
-        capability-specific initialization.
+        Args:
+            context: Execution context with metadata and configuration
+            **kwargs: Additional arguments specific to the capability
+
+        Returns:
+            CapabilityResult containing the execution result or error
 
         Raises:
-            ValueError: If configuration is invalid
-            RuntimeError: If initialization fails
+            CapabilityError: If execution fails
+
+        """
+        pass
+
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add metadata to the capability.
+
+        Args:
+            key: Metadata key
+            value: Metadata value
+
+        """
+        self._metadata[key] = value
+
+    def get_metadata(self, key: str) -> Optional[Any]:
+        """Get metadata value.
+
+        Args:
+            key: Metadata key
+
+        Returns:
+            Metadata value if found, None otherwise
+
+        """
+        return self._metadata.get(key)
+
+    async def validate(self) -> None:
+        """Validate the capability's configuration and state.
+
+        This method should be called before execution to ensure the capability
+        is properly configured and ready to execute.
+
+        Raises:
+            CapabilityError: If validation fails
+
+        """
+        if not self.config:
+            raise CapabilityError(
+                "Configuration required but not provided",
+                self.capability_type,
+                error_code="CAPABILITY_CONFIG_MISSING",
+            )
+
+
+class CapabilityProvider(ABC):
+    """Interface for capability providers.
+
+    Capability providers are responsible for creating and managing capability
+    instances, handling their lifecycle, and providing access to them.
+    """
+
+    @abstractmethod
+    async def get_capability(
+        self,
+        capability_type: CapabilityType,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Capability[Any, Any]:
+        """Get a capability instance of the specified type.
+
+        Args:
+            capability_type: Type of capability to get
+            config: Optional configuration for the capability
+
+        Returns:
+            Initialized capability instance
+
+        Raises:
+            CapabilityError: If capability cannot be created or initialized
 
         """
         pass
 
     @abstractmethod
-    async def _cleanup(self) -> None:
-        """Clean up capability resources.
+    async def cleanup_capability(
+        self,
+        capability: Capability[Any, Any],
+    ) -> None:
+        """Clean up a capability instance.
 
-        This method should be implemented by subclasses to perform
-        capability-specific cleanup.
+        Args:
+            capability: Capability instance to clean up
+
+        Raises:
+            CapabilityError: If cleanup fails
+
         """
         pass

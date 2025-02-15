@@ -1,10 +1,16 @@
-"""Base classes for resource management."""
+"""Base interfaces and types for resource management.
 
-import time
+This module provides the core interfaces and types for managing resources in a
+unified way, with support for lifecycle management and configuration.
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
 
 from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.core.monitoring import LoggerFactory
+from pepperpy.core.monitoring.logging import get_logger
 
 from .types import ResourceConfig, ResourceError, ResourceOperationError, ResourceState
 
@@ -12,15 +18,47 @@ if TYPE_CHECKING:
     from .base import Resource
 
 
-class Resource(Lifecycle):
-    """Base class for all resources."""
+class ResourceType(Enum):
+    """Types of resources supported by the system."""
 
-    def __init__(self, name: str, config: ResourceConfig):
-        """Initialize a resource.
+    STORAGE = "storage"  # File systems, databases, caches
+    COMPUTE = "compute"  # Processing units, workers
+    NETWORK = "network"  # Network connections, APIs
+    MEMORY = "memory"  # Memory caches, buffers
+    MODEL = "model"  # AI models, embeddings
+    SERVICE = "service"  # External services
+
+
+@dataclass
+class ResourceConfig:
+    """Configuration for a resource.
+
+    This class defines the configuration parameters for a resource, including
+    its type, settings, and metadata.
+    """
+
+    type: ResourceType
+    settings: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, str] = field(default_factory=dict)
+
+
+class Resource(Lifecycle, ABC):
+    """Base class for all resources.
+
+    This class defines the standard interface that all resources must implement,
+    providing consistent lifecycle management and configuration.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        config: ResourceConfig,
+    ) -> None:
+        """Initialize the resource.
 
         Args:
-            name: The name of the resource.
-            config: The resource configuration.
+            name: Resource name
+            config: Resource configuration
 
         """
         super().__init__()
@@ -31,10 +69,9 @@ class Resource(Lifecycle):
         self._metadata: Dict[str, Any] = {}
         self._dependencies: Dict[str, Resource] = {}
         self._dependents: Set[str] = set()
-        self._logger = LoggerFactory().get_logger(
-            name="resource.base",
-            context={
-                "component": "Resource",
+        self._logger = get_logger(
+            __name__,
+            {
                 "resource_name": name,
                 "resource_type": config.type.value,
             },
@@ -73,8 +110,8 @@ class Resource(Lifecycle):
         """
         self._error = ResourceError(
             message=message,
-            error_type=error_type,
-            timestamp=time.time(),
+            resource_type=self.config.type,
+            resource_name=self.name,
             details=details,
         )
         self._state = ResourceState.ERROR
@@ -179,85 +216,105 @@ class Resource(Lifecycle):
 
         return False
 
+    @abstractmethod
     async def initialize(self) -> None:
-        """Initialize the resource and its dependencies.
+        """Initialize the resource.
+
+        This method should be implemented by subclasses to perform resource-specific
+        initialization.
 
         Raises:
-            ResourceOperationError: If initialization fails
+            ResourceError: If initialization fails
 
         """
-        if self._state != ResourceState.UNINITIALIZED:
-            return
-
-        self._state = ResourceState.INITIALIZING
         self._logger.info("Initializing resource")
 
-        try:
-            # Initialize dependencies first
-            for name, dependency in self._dependencies.items():
-                try:
-                    await dependency.initialize()
-                except Exception as e:
-                    raise ResourceOperationError(
-                        f"Failed to initialize dependency {name}: {str(e)}"
-                    ) from e
-
-            await self._initialize()
-            self._state = ResourceState.READY
-            self._logger.info("Resource initialized successfully")
-        except Exception as e:
-            self._state = ResourceState.ERROR
-            self._logger.error(
-                "Failed to initialize resource",
-                context={"error": str(e)},
-            )
-            raise
-
+    @abstractmethod
     async def cleanup(self) -> None:
-        """Clean up the resource and its dependencies.
+        """Clean up resource.
+
+        This method should be implemented by subclasses to perform resource-specific
+        cleanup.
 
         Raises:
-            ResourceOperationError: If cleanup fails
+            ResourceError: If cleanup fails
 
         """
-        if self._state not in {ResourceState.READY, ResourceState.ERROR}:
-            return
-
-        # Check for dependent resources
-        if self._dependents:
-            raise ResourceOperationError(
-                f"Cannot cleanup resource with dependents: {', '.join(self._dependents)}"
-            )
-
-        self._state = ResourceState.CLEANING
         self._logger.info("Cleaning up resource")
 
-        try:
-            await self._cleanup()
-            self._state = ResourceState.CLEANED
-            self._logger.info("Resource cleaned up successfully")
+    @abstractmethod
+    async def validate(self) -> None:
+        """Validate resource configuration and state.
 
-            # Clean up dependencies
-            for name, dependency in self._dependencies.items():
-                try:
-                    await dependency.cleanup()
-                except Exception as e:
-                    self._logger.warning(
-                        f"Failed to cleanup dependency {name}: {str(e)}",
-                        context={"error": str(e)},
-                    )
-        except Exception as e:
-            self._state = ResourceState.ERROR
-            self._logger.error(
-                "Failed to cleanup resource",
-                context={"error": str(e)},
+        This method should be implemented by subclasses to validate that the
+        resource is properly configured and in a valid state.
+
+        Raises:
+            ResourceError: If validation fails
+
+        """
+        if not self.config:
+            raise ResourceError(
+                "Resource configuration required",
+                self.config.type,
+                self.name,
             )
-            raise
 
-    async def _initialize(self) -> None:
-        """Internal initialization logic to be implemented by subclasses."""
-        raise NotImplementedError("Resource must implement _initialize")
+    async def get_status(self) -> Dict[str, Any]:
+        """Get current resource status.
 
-    async def _cleanup(self) -> None:
-        """Internal cleanup logic to be implemented by subclasses."""
-        raise NotImplementedError("Resource must implement _cleanup")
+        Returns:
+            Dictionary containing resource status information
+
+        """
+        return {
+            "name": self.name,
+            "type": self.config.type.value,
+            "state": self.state.value if self.state else None,
+            "metadata": self.config.metadata,
+        }
+
+
+class ResourceProvider(ABC):
+    """Interface for resource providers.
+
+    Resource providers are responsible for creating and managing resources of
+    specific types, handling their lifecycle and configuration.
+    """
+
+    @abstractmethod
+    async def create_resource(
+        self,
+        name: str,
+        config: ResourceConfig,
+    ) -> Resource:
+        """Create a new resource instance.
+
+        Args:
+            name: Resource name
+            config: Resource configuration
+
+        Returns:
+            Created resource instance
+
+        Raises:
+            ResourceError: If resource creation fails
+
+        """
+        pass
+
+    @abstractmethod
+    async def delete_resource(
+        self,
+        resource: Resource,
+    ) -> None:
+        """Delete a resource instance.
+
+        Args:
+            resource: Resource to delete
+
+        Raises:
+            ResourceError: If resource deletion fails
+
+        """
+        pass
