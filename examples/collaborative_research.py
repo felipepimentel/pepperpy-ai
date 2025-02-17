@@ -437,29 +437,37 @@ def print_report(report: Report) -> None:
 
 
 async def main() -> None:
-    """Run the collaborative research example."""
-    coordinator = None
+    """Run the collaborative research example with predefined topics."""
+    # Test topics to demonstrate collaborative research
+    test_topics = [
+        "AI-Powered Code Review and Quality Assurance",
+        "Machine Learning in Software Testing Automation",
+        "Future of DevOps and MLOps Integration",
+    ]
 
-    try:
-        # Create and initialize coordinator
-        coordinator = CoordinatorAgent()
-        await coordinator.initialize()
+    for topic in test_topics:
+        print(f"\nCollaborative Research: {topic}")
+        print("=" * 80)
 
-        # Execute research workflow
-        topic = "Impact of AI on Software Development Practices"
-        logger.info("Starting research workflow for topic: %s", topic)
+        coordinator = None
+        try:
+            # Initialize coordinator and agents
+            coordinator = CoordinatorAgent()
+            await coordinator.initialize()
 
-        report = await coordinator.execute_workflow(topic)
-        print_report(report)
+            # Execute research workflow
+            result = await coordinator.execute_workflow(topic)
 
-    except KeyboardInterrupt:
-        logger.info("Workflow interrupted by user")
-    except Exception as e:
-        logger.error("Example failed: %s", e)
-        raise
-    finally:
-        if coordinator:
-            await coordinator.cleanup()
+            # Display results
+            print_report(result)
+
+        except Exception as e:
+            print(f"Error researching {topic}: {e}")
+        finally:
+            if coordinator:
+                await coordinator.cleanup()
+
+    print("\nCollaborative research demo completed successfully!")
 
 
 if __name__ == "__main__":

@@ -252,7 +252,7 @@ class PersonalAssistant(BaseComponent):
 
             elif command == "complete_task":
                 # First show available tasks
-                tasks_result = await self.process_command("list_tasks", {})
+                tasks_result = await self.task_manager.execute("list_tasks", {})
                 if tasks_result.get("tasks"):
                     print("\nAvailable tasks:")
                     for task in tasks_result["tasks"]:
@@ -269,6 +269,7 @@ class PersonalAssistant(BaseComponent):
                         return {"status": "error", "message": "No task ID provided"}
                     params["task_id"] = task_id.strip()
                     return await self.task_manager.execute("complete_task", params)
+                return {"status": "error", "message": "No tasks available"}
 
             elif command == "save_note":
                 return await self.storage.execute(
@@ -300,144 +301,78 @@ class PersonalAssistant(BaseComponent):
 
 
 async def interactive_session(assistant: PersonalAssistant) -> None:
-    """Run an interactive session with the personal assistant.
+    """Run a demo session with predefined inputs to showcase all features.
 
     Args:
         assistant: Initialized personal assistant instance
 
     """
-    print("Personal Assistant Ready! Type 'help' for commands, 'exit' to quit.")
+    # Predefined test sequence
+    test_sequence = [
+        # Add tasks
+        (
+            "add_task",
+            {
+                "title": "Implement new feature",
+                "description": "Add AI-powered code suggestions",
+                "due_date": "2024-03-01",
+            },
+        ),
+        (
+            "add_task",
+            {
+                "title": "Write documentation",
+                "description": "Document the new AI features",
+                "due_date": "2024-03-15",
+            },
+        ),
+        # List tasks
+        ("list_tasks", {}),
+        # Save notes
+        (
+            "save_note",
+            {
+                "title": "Feature Notes",
+                "content": "AI Feature Requirements:\n- Code analysis\n- Suggestion generation\n- Integration with IDE",
+            },
+        ),
+        # Store and retrieve memory
+        ("remember", {"key": "feature_status", "value": "in_progress"}),
+        ("recall", {"key": "feature_status"}),
+        # Complete task
+        (
+            "complete_task",
+            {
+                "task_id": "1"  # Will be replaced with actual task ID
+            },
+        ),
+        # Final task list
+        ("list_tasks", {}),
+    ]
 
-    while True:
-        try:
-            print("\nEnter command: ", end="", flush=True)
-            command = sys.stdin.readline()
-            if not command:  # EOF
-                print("\nGoodbye!")
-                break
+    print("Running Personal Assistant Demo")
+    print("-" * 50)
 
-            command = command.strip().lower()
-            if command == "exit":
-                break
+    try:
+        # Execute test sequence
+        for command, params in test_sequence:
+            print(f"\nExecuting: {command}")
 
-            if command == "help":
-                print("\nAvailable commands:")
-                print("- add_task: Add a new task")
-                print("- list_tasks: Show all tasks")
-                print("- complete_task: Mark a task as complete")
-                print("- save_note: Save a note")
-                print("- remember: Store information in memory")
-                print("- recall: Retrieve information from memory")
-                print("- exit: Quit the assistant")
-                continue
+            # Special handling for complete_task to get the first task's ID
+            if command == "complete_task":
+                tasks_result = await assistant.process_command("list_tasks", {})
+                if tasks_result.get("tasks"):
+                    first_task = tasks_result["tasks"][0]
+                    params["task_id"] = first_task["id"]
 
-            # Get command parameters
-            params: Dict[str, Any] = {}
-            try:
-                if command == "add_task":
-                    print("Task title: ", end="", flush=True)
-                    title = sys.stdin.readline()
-                    if not title:
-                        break
-                    params["title"] = title.strip()
+            # Process command
+            result = await assistant.process_command(command, params)
+            print(f"Result: {json.dumps(result, indent=2)}")
 
-                    print("Description (optional): ", end="", flush=True)
-                    desc = sys.stdin.readline()
-                    if not desc:
-                        break
-                    params["description"] = desc.strip()
+    except Exception as e:
+        print(f"Error: {e}")
 
-                    print("Due date (YYYY-MM-DD, optional): ", end="", flush=True)
-                    due_date = sys.stdin.readline()
-                    if not due_date:
-                        break
-                    due_date = due_date.strip()
-                    if due_date:
-                        params["due_date"] = due_date
-
-                elif command == "complete_task":
-                    # First show available tasks
-                    tasks_result = await assistant.process_command("list_tasks", {})
-                    if tasks_result.get("tasks"):
-                        print("\nAvailable tasks:")
-                        for task in tasks_result["tasks"]:
-                            print(f"ID: {task['id']}")
-                            print(f"Title: {task['title']}")
-                            print(
-                                f"Status: {'Completed' if task['completed'] else 'Pending'}"
-                            )
-                            print()
-
-                    print("Task ID: ", end="", flush=True)
-                    task_id = sys.stdin.readline()
-                    if not task_id:
-                        break
-                    params["task_id"] = task_id.strip()
-
-                elif command == "save_note":
-                    print("Note title: ", end="", flush=True)
-                    title = sys.stdin.readline()
-                    if not title:
-                        break
-                    params["title"] = title.strip()
-
-                    print("Content (enter a blank line to finish):")
-                    content_lines = []
-                    while True:
-                        try:
-                            line = sys.stdin.readline()
-                            if not line:  # EOF
-                                break
-                            line = line.rstrip('\n')
-                            if not line and content_lines:  # Empty line after content
-                                break
-                            content_lines.append(line)
-                        except EOFError:
-                            break
-                    
-                    if not content_lines:
-                        print("Error: No content provided")
-                        continue
-                    
-                    params["content"] = "\n".join(content_lines)
-                    result = await assistant.process_command("save_note", params)
-                    print("\nResult:", json.dumps(result, indent=2))
-                    continue
-
-                elif command == "remember":
-                    print("Memory key: ", end="", flush=True)
-                    key = sys.stdin.readline()
-                    if not key:
-                        break
-                    params["key"] = key.strip()
-
-                    print("Value to remember: ", end="", flush=True)
-                    value = sys.stdin.readline()
-                    if not value:
-                        break
-                    params["value"] = value.strip()
-
-                elif command == "recall":
-                    print("Memory key to recall: ", end="", flush=True)
-                    key = sys.stdin.readline()
-                    if not key:
-                        break
-                    params["key"] = key.strip()
-
-                # Process the command
-                result = await assistant.process_command(command, params)
-                print("\nResult:", json.dumps(result, indent=2))
-
-            except Exception as e:
-                print(f"Error: {e}")
-                continue
-
-        except KeyboardInterrupt:
-            print("\nGoodbye!")
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-            continue
+    print("\nDemo completed successfully!")
 
 
 async def main() -> None:

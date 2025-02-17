@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "name": "test_generation",
+    "type": "workflow",
+    "version": "1.0.0",
+    "tags": [
+      "test",
+      "example"
+    ],
+    "properties": {
+      "description": "Automated test case generation workflow"
+    },
+    "created_at": "2025-02-17T11:19:35.684956"
+  },
+  "content": {
+    "steps": [
+      "analyze_code",
+      "generate_tests",
+      "validate"
+    ],
+    "config": {
+      "framework": "pytest",
+      "coverage_target": 0.9
+    }
+  }
+}

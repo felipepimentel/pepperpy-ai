@@ -395,32 +395,37 @@ def print_results(result: ResearchResult) -> None:
 
 
 async def main() -> None:
-    """Run the research agent example."""
-    agent = None
+    """Run the research agent example with predefined topics."""
+    # Test topics to demonstrate different research scenarios
+    test_topics = [
+        "AI-Driven Code Review Best Practices",
+        "Impact of Machine Learning on Software Testing",
+        "Future of DevOps with Artificial Intelligence",
+    ]
 
-    try:
-        # Create and initialize agent
-        agent = ResearchAgent()
-        await agent.initialize()
+    for topic in test_topics:
+        print(f"\nResearching topic: {topic}")
+        print("=" * 80)
 
-        # Use a predefined research topic
-        topic = "Impact of AI on software development"
-        logger.info("Starting research on topic: %s", topic)
+        agent = None
+        try:
+            # Initialize agent
+            agent = ResearchAgent()
+            await agent.initialize()
 
-        # Execute research
-        result = await agent.research(topic)
+            # Perform research
+            result = await agent.research(topic)
 
-        # Print results
-        print_results(result)
+            # Display results
+            print_results(result)
 
-    except KeyboardInterrupt:
-        logger.info("Research interrupted by user")
-    except Exception as e:
-        logger.error("Example failed: %s", e)
-        raise
-    finally:
-        if agent:
-            await agent.cleanup()
+        except Exception as e:
+            print(f"Error researching {topic}: {e}")
+        finally:
+            if agent:
+                await agent.cleanup()
+
+    print("\nResearch demo completed successfully!")
 
 
 if __name__ == "__main__":

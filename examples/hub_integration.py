@@ -178,77 +178,105 @@ class LocalHub:
 
 
 async def main() -> None:
-    """Run the hub integration example."""
+    """Run the hub integration example with predefined resources."""
+    # Test resources to demonstrate hub integration
+    test_resources = [
+        # Workflows
+        {
+            "type": "workflow",
+            "name": "code_review",
+            "description": "AI-powered code review workflow",
+            "content": {
+                "steps": ["analyze", "suggest", "report"],
+                "config": {"max_files": 10, "review_type": "comprehensive"},
+            },
+        },
+        {
+            "type": "workflow",
+            "name": "test_generation",
+            "description": "Automated test case generation workflow",
+            "content": {
+                "steps": ["analyze_code", "generate_tests", "validate"],
+                "config": {"framework": "pytest", "coverage_target": 0.9},
+            },
+        },
+        # Prompts
+        {
+            "type": "prompt",
+            "name": "code_analysis",
+            "description": "Analyze code quality and suggest improvements",
+            "content": {
+                "model": "gpt-4",
+                "temperature": 0.7,
+                "template": "Analyze the following code:\n{code}\n\nProvide suggestions for:\n1. Code quality\n2. Performance\n3. Security",
+            },
+        },
+        {
+            "type": "prompt",
+            "name": "test_prompt",
+            "description": "Generate test cases for code",
+            "content": {
+                "model": "gpt-4",
+                "temperature": 0.5,
+                "template": "Generate unit tests for:\n{code}\n\nInclude tests for:\n1. Happy path\n2. Edge cases\n3. Error handling",
+            },
+        },
+    ]
+
     try:
+        print("Hub Integration Demo")
+        print("=" * 80)
+
         # Create local hub
         hub = LocalHub(Path("./resources"))
 
-        # Create example resources
-        prompt_resource = Resource(
-            metadata=ResourceMetadata(
-                name="example_prompt",
-                type=ResourceType.PROMPT,
+        # Save resources
+        for resource in test_resources:
+            print(f"\nSaving {resource['type']}: {resource['name']}")
+            metadata = ResourceMetadata(
+                name=resource["name"],
+                type=ResourceType.WORKFLOW
+                if resource["type"] == "workflow"
+                else ResourceType.PROMPT,
                 version="1.0.0",
                 tags={"example", "test"},
-                properties={"language": "en"},
-            ),
-            content={
-                "template": "This is an example prompt with {variable}",
-                "variables": ["variable"],
-            },
-        )
+                properties={"description": resource["description"]},
+            )
+            res = Resource(metadata=metadata, content=resource["content"])
+            hub.publish_resource(res)
 
-        workflow_resource = Resource(
-            metadata=ResourceMetadata(
-                name="example_workflow",
-                type=ResourceType.WORKFLOW,
-                version="1.0.0",
-                tags={"example", "test"},
-                properties={"steps": 3},
-            ),
-            content={
-                "steps": [
-                    {"name": "step1", "type": "task"},
-                    {"name": "step2", "type": "task"},
-                    {"name": "step3", "type": "task"},
-                ],
-            },
-        )
+        # Load and display resources
+        print("\nLoading saved resources:")
+        for resource in test_resources:
+            print(f"\nLoading {resource['type']}: {resource['name']}")
+            res_type = (
+                ResourceType.WORKFLOW
+                if resource["type"] == "workflow"
+                else ResourceType.PROMPT
+            )
+            loaded = hub.get_resource(name=resource["name"])
+            if loaded:
+                print(f"Content: {json.dumps(loaded.content, indent=2)}")
 
-        # Publish resources
-        hub.publish_resource(prompt_resource)
-        hub.publish_resource(workflow_resource)
-
-        # Find resources by type
-        print("\nPrompt Resources:")
-        print("-" * 50)
-        for resource in hub.find_resources(resource_type=ResourceType.PROMPT):
-            print(f"\nName: {resource.metadata.name}")
-            print(f"Version: {resource.metadata.version}")
-            print(f"Tags: {resource.metadata.tags}")
-            print(f"Properties: {resource.metadata.properties}")
-            print(f"Content: {resource.content}")
-
+        # Display resources by type
         print("\nWorkflow Resources:")
         print("-" * 50)
-        for resource in hub.find_resources(resource_type=ResourceType.WORKFLOW):
-            print(f"\nName: {resource.metadata.name}")
-            print(f"Version: {resource.metadata.version}")
-            print(f"Tags: {resource.metadata.tags}")
-            print(f"Properties: {resource.metadata.properties}")
-            print(f"Content: {resource.content}")
+        for res in hub.find_resources(resource_type=ResourceType.WORKFLOW):
+            print(f"\nName: {res.metadata.name}")
+            print(f"Version: {res.metadata.version}")
+            print(f"Tags: {res.metadata.tags}")
 
-        # Find resources by tags
-        print("\nResources with 'test' tag:")
+        print("\nPrompt Resources:")
         print("-" * 50)
-        for resource in hub.find_resources(tags={"test"}):
-            print(f"\nName: {resource.metadata.name}")
-            print(f"Type: {resource.metadata.type}")
-            print(f"Version: {resource.metadata.version}")
+        for res in hub.find_resources(resource_type=ResourceType.PROMPT):
+            print(f"\nName: {res.metadata.name}")
+            print(f"Version: {res.metadata.version}")
+            print(f"Tags: {res.metadata.tags}")
+
+        print("\nDemo completed successfully!")
 
     except Exception as e:
-        logger.error("Example failed: %s", str(e))
-        raise
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":

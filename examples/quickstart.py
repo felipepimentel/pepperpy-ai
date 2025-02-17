@@ -196,52 +196,37 @@ class TaskAssistant(BaseComponent):
 
 
 async def interactive_session(assistant: TaskAssistant) -> None:
-    """Run an interactive session with the task assistant.
+    """Run a demo session with predefined inputs to showcase all features.
 
     Args:
         assistant: Task assistant instance
 
     """
-    print("\nSimple Task Assistant")
+    print("\nSimple Task Assistant Demo")
     print("-" * 50)
-    print("Type 'help' for available commands or 'quit' to exit.")
 
-    while True:
-        try:
-            print("\nEnter command: ", end="", flush=True)
-            command = input().strip()
+    # Predefined commands to demonstrate functionality
+    demo_commands = [
+        "help",  # Show available commands
+        "add task Implement new feature",  # Add first task
+        "add task Write documentation",  # Add second task
+        "add task Review code",  # Add third task
+        "list tasks",  # Show all tasks
+        "complete task 2",  # Complete second task
+        "list tasks",  # Show updated task list
+    ]
 
-            if not command:  # Empty input
-                continue
-
-            if command.lower() == "quit":
-                break
-
-            # Handle multi-word commands
-            if command.lower() == "add task":
-                print("Task description: ", end="", flush=True)
-                description = input().strip()
-                if description:
-                    command = f"add task {description}"
-
-            elif command.lower() == "complete task":
-                print("Task number: ", end="", flush=True)
-                task_num = input().strip()
-                if task_num:
-                    command = f"complete task {task_num}"
-
+    try:
+        for command in demo_commands:
+            print(f"\nExecuting command: {command}")
             response = await assistant.process_command(command)
-            print("\n" + response)
+            print("\nResponse:")
+            print(response)
 
-        except KeyboardInterrupt:
-            print("\nGoodbye!")
-            break
-        except EOFError:
-            print("\nGoodbye!")
-            break
-        except Exception as e:
-            print(f"Error: {e}")
-            continue
+    except Exception as e:
+        print(f"Error: {e}")
+
+    print("\nDemo completed successfully!")
 
 
 async def main() -> None:
