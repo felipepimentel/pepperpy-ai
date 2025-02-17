@@ -1,11 +1,11 @@
-"""Core configuration management module.
+"""Configuration management for Pepperpy.
 
 This module provides a unified configuration system with support for:
-- Environment variables
-- File-based configuration (YAML, JSON)
-- Command line arguments
+- Multiple configuration sources (env vars, files, CLI)
+- Type-safe configuration with validation
 - Dynamic configuration updates
-- Type safety and validation
+- Configuration versioning
+- Lifecycle hooks
 """
 
 from pathlib import Path
@@ -13,6 +13,14 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from .models import (
+    Config,
+    LoggingConfig,
+    MonitoringConfig,
+    ProviderConfig,
+    ResourceConfig,
+    SecurityConfig,
+)
 from .unified import (
     ConfigHook,
     ConfigSource,
@@ -60,10 +68,10 @@ class PepperpyConfig(BaseModel):
 
 
 # Global configuration manager
-config_manager = UnifiedConfig(PepperpyConfig)
+config_manager = UnifiedConfig[Config](Config)
 
 
-async def initialize_config(config_path: Optional[Path] = None) -> PepperpyConfig:
+async def initialize_config(config_path: Optional[Path] = None) -> Config:
     """Initialize the configuration system.
 
     This function initializes the global configuration manager with settings from:
@@ -137,15 +145,18 @@ def remove_config_hook(event: str, callback: Any) -> None:
 
 
 __all__ = [
-    "PepperpyConfig",
-    "UnifiedConfig",
+    # Configuration manager
+    "config_manager",
+    # Configuration models
+    "Config",
+    "LoggingConfig",
+    "MonitoringConfig",
+    "ProviderConfig",
+    "ResourceConfig",
+    "SecurityConfig",
+    # Configuration system
+    "ConfigHook",
     "ConfigSource",
     "ConfigState",
-    "ConfigHook",
-    "ConfigurationError",
-    "initialize_config",
-    "update_config",
-    "add_config_hook",
-    "remove_config_hook",
-    "config_manager",
+    "UnifiedConfig",
 ]

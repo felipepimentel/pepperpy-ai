@@ -1,270 +1,190 @@
-"""Tests for the Memory System.
-
-This module contains tests for the Memory System, including:
-- Memory store initialization and configuration
-- Memory operations (store, retrieve, update, delete)
-- Memory lifecycle management
-- Memory error handling and validation
-- Memory scope and backend management
-"""
-
-from typing import Any, Dict, Optional
+"""Memory module tests."""
 
 import pytest
+from datetime import UTC, datetime, timedelta
 
-from pepperpy.core.memory.store import BaseMemoryStore
-from pepperpy.core.types import MemoryBackend, MemoryScope
-
-
-class TestMemoryStore(BaseMemoryStore):
-    """Test implementation of BaseMemoryStore."""
-
-    def __init__(self, config: Dict[str, Any]) -> None:
-        """Initialize test memory store."""
-        super().__init__(config)
-        self.scope = config.get("scope", MemoryScope.SESSION)
-        self.backend = config.get("backend", MemoryBackend.DICT)
-        self.store: Dict[str, Any] = {}
-        self.initialized = False
-
-    async def initialize(self) -> None:
-        """Initialize memory store."""
-        self.initialized = True
-
-    async def cleanup(self) -> None:
-        """Clean up memory store."""
-        self.initialized = False
-        self.store.clear()
-
-    async def get(self, key: str) -> Optional[Any]:
-        """Get a value from memory."""
-        if not self.initialized:
-            raise RuntimeError("Memory store not initialized")
-        return self.store.get(key)
-
-    async def set(self, key: str, value: Any) -> None:
-        """Set a value in memory."""
-        if not self.initialized:
-            raise RuntimeError("Memory store not initialized")
-        self.store[key] = value
-
-    async def update(self, key: str, value: Any) -> None:
-        """Update a value in memory."""
-        if not self.initialized:
-            raise RuntimeError("Memory store not initialized")
-        if key not in self.store:
-            raise KeyError(f"Key {key} not found")
-        self.store[key] = value
-
-    async def delete(self, key: str) -> None:
-        """Delete a value from memory."""
-        if not self.initialized:
-            raise RuntimeError("Memory store not initialized")
-        if key not in self.store:
-            raise KeyError(f"Key {key} not found")
-        del self.store[key]
-
-    async def clear(self) -> None:
-        """Clear all values from memory."""
-        if not self.initialized:
-            raise RuntimeError("Memory store not initialized")
-        self.store.clear()
-
-    async def exists(self, key: str) -> bool:
-        """Check if a key exists in memory."""
-        if not self.initialized:
-            raise RuntimeError("Memory store not initialized")
-        return key in self.store
-
-
-@pytest.fixture
-def memory_store() -> TestMemoryStore:
-    """Create a test memory store."""
-    return TestMemoryStore({})
+from pepperpy.core.memory import (
+    MemoryError,
+    MemoryKeyError,
+    MemoryQuery,
+    MemoryStoreType,
+    MemoryType,
+    MemoryTypeError,
+    create_memory_store,
+)
 
 
 @pytest.mark.asyncio
-async def test_memory_store_initialization():
-    """Test memory store initialization."""
-    store = TestMemoryStore({
-        "scope": MemoryScope.GLOBAL,
-        "backend": MemoryBackend.REDIS,
-        "host": "localhost",
-        "port": 6379,
-    })
+async def test_memory_store_creation() -> None:
+    """Test memory store creation."""
+    # Test creating an in-memory store
+    store = create_memory_store(MemoryStoreType.MEMORY)
+    assert store is not None
 
-    assert store.scope == MemoryScope.GLOBAL
-    assert store.backend == MemoryBackend.REDIS
-    assert isinstance(store.config, dict)
-    assert store.config["host"] == "localhost"
-    assert store.config["port"] == 6379
-    assert not store.initialized
+    # Test creating a composite store
+    store1 = create_memory_store(MemoryStoreType.MEMORY)
+    store2 = create_memory_store(MemoryStoreType.MEMORY)
+    composite = create_memory_store(
+        MemoryStoreType.COMPOSITE,
+        stores=[store1, store2],
+    )
+    assert composite is not None
 
-    await store.initialize()
-    assert store.initialized
-
-    await store.cleanup()
-    assert not store.initialized
+    # Test invalid store type
+    with pytest.raises(MemoryTypeError):
+        create_memory_store("invalid" as MemoryStoreType)  # type: ignore
 
 
 @pytest.mark.asyncio
-async def test_memory_store_operations(memory_store: TestMemoryStore):
+async def test_memory_store_operations() -> None:
     """Test memory store operations."""
-    await memory_store.initialize()
+    store = create_memory_store(MemoryStoreType.MEMORY)
 
-    # Test store and retrieve
-    key = "test_key"
-    value = {"data": "test_value"}
-    await memory_store.set(key, value)
-    assert await memory_store.exists(key)
-    assert await memory_store.get(key) == value
+    # Test storing an entry
+    entry = await store.store(
+        key="test1",
+        value={"data": "test data"},
+        type=MemoryType.SHORT_TERM,
+        metadata={"test": True},
+        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+    )
+    assert entry.key == "test1"
+    assert entry.value == {"data": "test data"}
+    assert entry.type == MemoryType.SHORT_TERM
+    assert entry.metadata == {"test": True}
+    assert entry.expires_at is not None
 
-    # Test update
-    new_value = {"data": "updated_value"}
-    await memory_store.update(key, new_value)
-    assert await memory_store.get(key) == new_value
+    # Test retrieving an entry
+    retrieved = await store.retrieve("test1")
+    assert retrieved == entry
 
-    # Test delete
-    await memory_store.delete(key)
-    assert not await memory_store.exists(key)
-    assert await memory_store.get(key) is None
+    # Test retrieving a non-existent entry
+    with pytest.raises(MemoryKeyError):
+        await store.retrieve("non_existent")
 
-    # Test clear
-    await memory_store.set("key1", "value1")
-    await memory_store.set("key2", "value2")
-    assert await memory_store.exists("key1")
-    assert await memory_store.exists("key2")
-    await memory_store.clear()
-    assert not await memory_store.exists("key1")
-    assert not await memory_store.exists("key2")
+    # Test retrieving with type mismatch
+    with pytest.raises(MemoryTypeError):
+        await store.retrieve("test1", type=MemoryType.LONG_TERM)
 
+    # Test storing with invalid key
+    with pytest.raises(MemoryKeyError):
+        await store.store(
+            key="",
+            value={"data": "test data"},
+        )
 
-@pytest.mark.asyncio
-async def test_memory_store_error_handling():
-    """Test memory store error handling."""
-    store = TestMemoryStore({})
-
-    # Test operations before initialization
-    with pytest.raises(RuntimeError, match="Memory store not initialized"):
-        await store.set("key", "value")
-
-    with pytest.raises(RuntimeError, match="Memory store not initialized"):
-        await store.get("key")
-
-    with pytest.raises(RuntimeError, match="Memory store not initialized"):
-        await store.update("key", "value")
-
-    with pytest.raises(RuntimeError, match="Memory store not initialized"):
-        await store.delete("key")
-
-    with pytest.raises(RuntimeError, match="Memory store not initialized"):
-        await store.clear()
-
-    with pytest.raises(RuntimeError, match="Memory store not initialized"):
-        await store.exists("key")
-
-    # Initialize store and test invalid operations
-    await store.initialize()
-
-    # Test update non-existent key
-    with pytest.raises(KeyError, match="Key test_key not found"):
-        await store.update("test_key", "value")
-
-    # Test delete non-existent key
-    with pytest.raises(KeyError, match="Key test_key not found"):
-        await store.delete("test_key")
+    # Test storing with invalid value type
+    with pytest.raises(MemoryTypeError):
+        await store.store(
+            key="test2",
+            value="invalid",  # type: ignore
+        )
 
 
 @pytest.mark.asyncio
-async def test_memory_store_scope_isolation():
-    """Test memory store scope isolation."""
-    session_store = TestMemoryStore({"scope": MemoryScope.SESSION})
-    agent_store = TestMemoryStore({"scope": MemoryScope.AGENT})
-    global_store = TestMemoryStore({"scope": MemoryScope.GLOBAL})
+async def test_memory_store_search() -> None:
+    """Test memory store search."""
+    store = create_memory_store(MemoryStoreType.MEMORY)
 
-    await session_store.initialize()
-    await agent_store.initialize()
-    await global_store.initialize()
+    # Store some test entries
+    await store.store(
+        key="user1",
+        value={
+            "name": "John Doe",
+            "email": "john@example.com",
+            "tags": ["user", "admin"],
+        },
+        type=MemoryType.LONG_TERM,
+        metadata={"source": "test"},
+    )
 
-    # Store values in different scopes
-    await session_store.set("key", "session_value")
-    await agent_store.set("key", "agent_value")
-    await global_store.set("key", "global_value")
+    await store.store(
+        key="user2",
+        value={
+            "name": "Jane Smith",
+            "email": "jane@example.com",
+            "tags": ["user"],
+        },
+        type=MemoryType.LONG_TERM,
+        metadata={"source": "test"},
+    )
 
-    # Verify scope isolation
-    assert await session_store.get("key") == "session_value"
-    assert await agent_store.get("key") == "agent_value"
-    assert await global_store.get("key") == "global_value"
+    # Test basic search
+    query = MemoryQuery(query="john")
+    results = []
+    async for result in store.search(query):
+        results.append(result)
+    assert len(results) == 1
+    assert results[0].entry.key == "user1"
 
-    # Clear session scope
-    await session_store.clear()
-    assert await session_store.get("key") is None
-    assert await agent_store.get("key") == "agent_value"
-    assert await global_store.get("key") == "global_value"
+    # Test search with filters
+    query = MemoryQuery(
+        query="user",
+        filters={"tags": ["user"]},
+    )
+    results = []
+    async for result in store.search(query):
+        results.append(result)
+    assert len(results) == 2
+
+    # Test search with metadata
+    query = MemoryQuery(
+        query="user",
+        metadata={"source": "test"},
+    )
+    results = []
+    async for result in store.search(query):
+        results.append(result)
+    assert len(results) == 2
+
+    # Test empty query
+    with pytest.raises(MemoryError):
+        query = MemoryQuery(query="")
+        async for _ in store.search(query):
+            pass
 
 
 @pytest.mark.asyncio
-async def test_memory_store_backend_configuration():
-    """Test memory store backend configuration."""
-    # Test Dict backend
-    dict_store = TestMemoryStore({"backend": MemoryBackend.DICT})
-    assert dict_store.backend == MemoryBackend.DICT
-    await dict_store.initialize()
-    await dict_store.set("key", "value")
-    assert await dict_store.get("key") == "value"
+async def test_composite_memory_store() -> None:
+    """Test composite memory store."""
+    # Create stores
+    store1 = create_memory_store(MemoryStoreType.MEMORY)
+    store2 = create_memory_store(MemoryStoreType.MEMORY)
+    composite = create_memory_store(
+        MemoryStoreType.COMPOSITE,
+        stores=[store1, store2],
+    )
 
-    # Test Redis backend configuration
-    redis_store = TestMemoryStore({
-        "backend": MemoryBackend.REDIS,
-        "host": "localhost",
-        "port": 6379,
-        "db": 0,
-    })
-    assert redis_store.backend == MemoryBackend.REDIS
-    assert isinstance(redis_store.config, dict)
-    assert redis_store.config["host"] == "localhost"
-    assert redis_store.config["port"] == 6379
+    # Store entries in different stores
+    await store1.store(
+        key="test1",
+        value={"data": "test1"},
+        metadata={"store": "store1"},
+    )
 
-    # Test SQLite backend configuration
-    sqlite_store = TestMemoryStore({
-        "backend": MemoryBackend.SQLITE,
-        "path": ":memory:",
-        "table": "memory",
-    })
-    assert sqlite_store.backend == MemoryBackend.SQLITE
-    assert isinstance(sqlite_store.config, dict)
-    assert sqlite_store.config["path"] == ":memory:"
-    assert sqlite_store.config["table"] == "memory"
+    await store2.store(
+        key="test2",
+        value={"data": "test2"},
+        metadata={"store": "store2"},
+    )
 
+    # Store entry in composite store
+    await composite.store(
+        key="test3",
+        value={"data": "test3"},
+        metadata={"store": "composite"},
+    )
 
-@pytest.mark.asyncio
-async def test_memory_store_concurrent_operations(memory_store: TestMemoryStore):
-    """Test memory store concurrent operations."""
-    await memory_store.initialize()
+    # Test retrieving entries
+    entry1 = await composite.retrieve("test1")
+    assert entry1.metadata["store"] == "store1"
 
-    # Test concurrent store operations
-    import asyncio
+    entry2 = await composite.retrieve("test2")
+    assert entry2.metadata["store"] == "store2"
 
-    keys = [f"key_{i}" for i in range(10)]
-    values = [f"value_{i}" for i in range(10)]
-
-    await asyncio.gather(*[
-        memory_store.set(key, value) for key, value in zip(keys, values, strict=False)
-    ])
-
-    # Verify all values were stored
-    results = await asyncio.gather(*[memory_store.get(key) for key in keys])
-
-    assert all(value in results for value in values)
-
-    # Test concurrent updates
-    new_values = [f"new_value_{i}" for i in range(10)]
-    await asyncio.gather(*[
-        memory_store.update(key, value)
-        for key, value in zip(keys, new_values, strict=False)
-    ])
-
-    # Verify all values were updated
-    results = await asyncio.gather(*[memory_store.get(key) for key in keys])
-
-    assert all(value in results for value in new_values)
+    # Test searching across stores
+    query = MemoryQuery(query="test")
+    results = []
+    async for result in composite.search(query):
+        results.append(result)
+    assert len(results) == 3

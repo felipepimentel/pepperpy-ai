@@ -32,6 +32,32 @@ class ResourceOperationError(Exception):
     pass
 
 
+class ResourceError(Exception):
+    """Base class for resource errors."""
+
+    def __init__(
+        self,
+        message: str,
+        error_type: str,
+        timestamp: float,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize resource error.
+
+        Args:
+            message: Error message
+            error_type: Type of error
+            timestamp: Error timestamp
+            details: Optional error details
+
+        """
+        super().__init__(message)
+        self.message = message
+        self.error_type = error_type
+        self.timestamp = timestamp
+        self.details = details or {}
+
+
 ValidationFunc = Callable[[Dict[str, Any]], Optional[str]]
 
 
@@ -94,13 +120,3 @@ class ResourceConfig:
 
         """
         return self.settings.get(key, default)
-
-
-@dataclass
-class ResourceError:
-    """Error information for a resource."""
-
-    message: str
-    error_type: str
-    timestamp: float
-    details: Optional[Dict[str, Any]] = field(default=None)

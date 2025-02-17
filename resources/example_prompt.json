@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "name": "example_prompt",
+    "type": "prompt",
+    "version": "1.0.0",
+    "tags": [
+      "example",
+      "test"
+    ],
+    "properties": {
+      "language": "en"
+    },
+    "created_at": "2025-02-16T11:40:56.953539"
+  },
+  "content": {
+    "template": "This is an example prompt with {variable}",
+    "variables": [
+      "variable"
+    ]
+  }
+}

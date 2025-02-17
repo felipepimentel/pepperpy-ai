@@ -1,138 +1,234 @@
-"""Runtime execution context management.
-
-This module provides the execution context for agents, managing state, resources,
-and monitoring throughout the agent's lifecycle.
+"""@file: context.py
+@purpose: Runtime context management for the Pepperpy framework
+@component: Runtime
+@created: 2024-02-15
+@task: TASK-003
+@status: active
 """
 
+import contextvars
+import threading
 from dataclasses import dataclass, field
-from typing import Any
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, Optional, TypeVar
 from uuid import UUID, uuid4
 
-from pepperpy.core.errors import ContextError
-from pepperpy.core.types import AgentState, ResourceId
-from pepperpy.monitoring.logger import get_logger
+from pepperpy.core.errors import StateError
+from pepperpy.core.types import JSON
 
-logger = get_logger(__name__)
+T = TypeVar("T")
 
 
-@dataclass
-class ExecutionContext:
-    """Manages the execution context for an agent instance.
+class ContextState(str, Enum):
+    """Possible states of a runtime context."""
 
-    Handles state tracking, resource management, and monitoring integration
-    for agent execution.
+    CREATED = "created"
+    INITIALIZING = "initializing"
+    READY = "ready"
+    PROCESSING = "processing"
+    ERROR = "error"
+    CLEANING = "cleaning"
+    TERMINATED = "terminated"
 
-    Attributes:
-        context_id: Unique identifier for this context
-        agent_id: ID of the agent this context belongs to
-        state: Current execution state
-        resources: Mapping of resource IDs to their handlers
-        metadata: Additional context metadata
-    """
-
-    context_id: UUID = field(default_factory=uuid4)
-    agent_id: UUID | None = None
-    state: AgentState = AgentState.INITIALIZED
-    resources: dict[ResourceId, Any] = field(default_factory=dict)
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Initialize logging and monitoring."""
-        logger.info(f"Created execution context {self.context_id}")
-
-    def set_state(self, new_state: AgentState) -> None:
-        """Update the context state with validation.
-
-        Args:
-            new_state: The new state to transition to
-
-        Raises:
-            ContextError: If the state transition is invalid
-        """
-        if not self._is_valid_transition(new_state):
-            raise ContextError(
-                f"Invalid state transition from {self.state} to {new_state}"
-            )
-
-        logger.debug(
-            f"Context {self.context_id} state change: {self.state} -> {new_state}"
-        )
-        self.state = new_state
-
-    def add_resource(self, resource_id: ResourceId, handler: Any) -> None:
-        """Register a resource handler with this context.
-
-        Args:
-            resource_id: Unique identifier for the resource
-            handler: The resource handler to register
-
-        Raises:
-            ContextError: If the resource ID is already registered
-        """
-        if resource_id in self.resources:
-            raise ContextError(f"Resource {resource_id} already registered")
-
-        self.resources[resource_id] = handler
-        logger.debug(f"Added resource {resource_id} to context {self.context_id}")
-
-    def get_resource(self, resource_id: ResourceId) -> Any:
-        """Retrieve a registered resource handler.
-
-        Args:
-            resource_id: ID of the resource to retrieve
-
-        Returns:
-            The requested resource handler
-
-        Raises:
-            ContextError: If the resource is not found
-        """
-        if resource_id not in self.resources:
-            raise ContextError(f"Resource {resource_id} not found")
-
-        return self.resources[resource_id]
-
-    def remove_resource(self, resource_id: ResourceId) -> None:
-        """Remove a registered resource.
-
-        Args:
-            resource_id: ID of the resource to remove
-
-        Raises:
-            ContextError: If the resource is not found
-        """
-        if resource_id not in self.resources:
-            raise ContextError(f"Resource {resource_id} not found")
-
-        del self.resources[resource_id]
-        logger.debug(f"Removed resource {resource_id} from context {self.context_id}")
-
-    def _is_valid_transition(self, new_state: AgentState) -> bool:
+    def can_transition_to(self, target: "ContextState") -> bool:
         """Check if a state transition is valid.
 
         Args:
-            new_state: The proposed new state
+            target: Target state
 
         Returns:
-            True if the transition is valid, False otherwise
+            Whether the transition is valid
+
         """
-        # Define valid state transitions
-        valid_transitions = {
-            AgentState.INITIALIZED: {AgentState.STARTING, AgentState.ERROR},
-            AgentState.STARTING: {AgentState.RUNNING, AgentState.ERROR},
-            AgentState.RUNNING: {
-                AgentState.PAUSED,
-                AgentState.STOPPING,
-                AgentState.ERROR,
+        transitions = {
+            ContextState.CREATED: {ContextState.INITIALIZING},
+            ContextState.INITIALIZING: {ContextState.READY, ContextState.ERROR},
+            ContextState.READY: {
+                ContextState.PROCESSING,
+                ContextState.CLEANING,
+                ContextState.ERROR,
             },
-            AgentState.PAUSED: {
-                AgentState.RUNNING,
-                AgentState.STOPPING,
-                AgentState.ERROR,
-            },
-            AgentState.STOPPING: {AgentState.STOPPED, AgentState.ERROR},
-            AgentState.STOPPED: {AgentState.STARTING, AgentState.ERROR},
-            AgentState.ERROR: {AgentState.STARTING, AgentState.STOPPED},
+            ContextState.PROCESSING: {ContextState.READY, ContextState.ERROR},
+            ContextState.ERROR: {ContextState.READY, ContextState.CLEANING},
+            ContextState.CLEANING: {ContextState.TERMINATED},
+            ContextState.TERMINATED: set(),
+        }
+        return target in transitions[self]
+
+
+@dataclass
+class Context:
+    """Runtime context for managing state and metadata."""
+
+    id: UUID = field(default_factory=uuid4)
+    parent_id: Optional[UUID] = None
+    state: ContextState = field(default=ContextState.CREATED)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    created_at: datetime = field(default_factory=datetime.utcnow)
+    updated_at: datetime = field(default_factory=datetime.utcnow)
+
+    def __post_init__(self) -> None:
+        """Initialize context after creation."""
+        self.validate_state()
+
+    def validate_state(self) -> None:
+        """Validate context state."""
+        if not isinstance(self.state, ContextState):
+            raise StateError(f"Invalid context state: {self.state}")
+
+    def update_state(self, new_state: ContextState) -> None:
+        """Update context state.
+
+        Args:
+            new_state: New state to transition to
+
+        Raises:
+            StateError: If state transition is invalid
+
+        """
+        if not self.state.can_transition_to(new_state):
+            raise StateError(f"Invalid state transition: {self.state} -> {new_state}")
+        self.state = new_state
+        self.updated_at = datetime.utcnow()
+
+    def to_json(self) -> JSON:
+        """Convert context to JSON format.
+
+        Returns:
+            JSON representation of context
+
+        """
+        return {
+            "id": str(self.id),
+            "parent_id": str(self.parent_id) if self.parent_id else None,
+            "state": self.state.value,
+            "metadata": self.metadata,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
         }
 
-        return new_state in valid_transitions.get(self.state, set())
+    @classmethod
+    def from_json(cls, data: JSON) -> "Context":
+        """Create context from JSON data.
+
+        Args:
+            data: JSON data to create context from
+
+        Returns:
+            Created context instance
+
+        """
+        return cls(
+            id=UUID(data["id"]),
+            parent_id=UUID(data["parent_id"]) if data.get("parent_id") else None,
+            state=ContextState(data["state"]),
+            metadata=data.get("metadata", {}),
+            created_at=datetime.fromisoformat(data["created_at"]),
+            updated_at=datetime.fromisoformat(data["updated_at"]),
+        )
+
+
+class ContextManager:
+    """Manager for runtime contexts."""
+
+    def __init__(self) -> None:
+        """Initialize context manager."""
+        self._contexts: Dict[UUID, Context] = {}
+        self._lock = threading.Lock()
+        self._current = contextvars.ContextVar[Optional[UUID]](
+            "current_context", default=None
+        )
+
+    def create(
+        self,
+        parent_id: Optional[UUID] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Context:
+        """Create a new context.
+
+        Args:
+            parent_id: Optional parent context ID
+            metadata: Optional context metadata
+
+        Returns:
+            Created context instance
+
+        """
+        context = Context(
+            parent_id=parent_id,
+            metadata=metadata or {},
+        )
+        with self._lock:
+            self._contexts[context.id] = context
+        return context
+
+    def get(self, context_id: UUID) -> Optional[Context]:
+        """Get a context by ID.
+
+        Args:
+            context_id: Context ID to get
+
+        Returns:
+            Context instance if found, None otherwise
+
+        """
+        return self._contexts.get(context_id)
+
+    def set_current(self, context_id: Optional[UUID]) -> None:
+        """Set the current context.
+
+        Args:
+            context_id: Context ID to set as current
+
+        """
+        self._current.set(context_id)
+
+    def get_current(self) -> Optional[Context]:
+        """Get the current context.
+
+        Returns:
+            Current context if set, None otherwise
+
+        """
+        context_id = self._current.get()
+        if context_id is None:
+            return None
+        return self.get(context_id)
+
+    def remove(self, context_id: UUID) -> None:
+        """Remove a context.
+
+        Args:
+            context_id: Context ID to remove
+
+        """
+        with self._lock:
+            if context_id in self._contexts:
+                del self._contexts[context_id]
+                if self._current.get() == context_id:
+                    self._current.set(None)
+
+
+# Global context manager instance
+_context_manager = ContextManager()
+
+
+def get_current_context() -> Optional[Context]:
+    """Get the current context.
+
+    Returns:
+        Current context if set, None otherwise
+
+    """
+    return _context_manager.get_current()
+
+
+def set_current_context(context: Optional[Context]) -> None:
+    """Set the current context.
+
+    Args:
+        context: Context to set as current
+
+    """
+    _context_manager.set_current(context.id if context else None)

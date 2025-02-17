@@ -3,6 +3,11 @@
 ## 📋 To Do
 
 ## 🏗️ In Progress
+- TASK-003: Core Library Refactoring and Examples Organization
+  **Priority**: high | **Points**: 13 | **Mode**: Act
+  **Updated**: 2024-02-15
+  [Details](tasks/TASK-003.md)
+  **AI-Tags**: #refactoring #organization #examples
 
 ## ✅ Done
 - TASK-001: Simplify Library Usage Experience

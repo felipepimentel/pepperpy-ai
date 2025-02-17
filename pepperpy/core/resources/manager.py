@@ -1,416 +1,109 @@
-"""Resource manager implementation.
-
-This module provides the central resource manager that handles resource lifecycle,
-dependencies, and state management.
-"""
+"""Resource manager module for managing resource lifecycles."""
 
 import asyncio
-from typing import Any, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set, Type, cast
 
-from pepperpy.core.lifecycle import Lifecycle, LifecycleManager
-from pepperpy.core.monitoring.logging import get_logger
-from pepperpy.core.monitoring.metrics import Counter, Gauge, Histogram, MetricType
+from pepperpy.core.lifecycle import Lifecycle
+from pepperpy.core.monitoring import logger
+from pepperpy.core.monitoring.metrics import Counter, Gauge, Histogram
 
-from .base import Resource, ResourceConfig, ResourceError, ResourceProvider
-from .types import ResourceState
+from .base import Resource
+from .types import ResourceConfig, ResourceError, ResourceOperationError, ResourceState
 
 
 class ResourceManager(Lifecycle):
-    """Central manager for resource lifecycle and dependencies.
+    """Manager for resource lifecycles.
 
-    This class provides a unified interface for creating, managing, and cleaning up
-    resources, handling their dependencies and ensuring proper initialization order.
+    This class manages the lifecycle of resources, including initialization,
+    cleanup, and dependency management.
     """
 
     def __init__(self) -> None:
-        """Initialize the resource manager."""
+        """Initialize resource manager."""
         super().__init__()
         self._resources: Dict[str, Resource] = {}
-        self._providers: Dict[str, ResourceProvider] = {}
-        self._dependencies: Dict[str, Set[str]] = {}
-        self._lifecycle = LifecycleManager()
-        self._logger = get_logger(__name__)
+        self._resource_types: Dict[str, Type[Resource]] = {}
+        self._state = ResourceState.UNINITIALIZED
+        self._error: Optional[ResourceError] = None
+        self._logger = logger
 
-        # Initialize metrics
-        self._total_resources = Counter(
-            name="resource_total",
-            type=MetricType.COUNTER,
-            description="Total number of resources",
+        # Metrics
+        self._resource_count = Gauge(
+            "resource_count",
+            "Number of resources managed",
+            tags={"component": "resource_manager"},
         )
-        self._resource_states = Gauge(
-            name="resource_states",
-            type=MetricType.GAUGE,
-            description="Number of resources in each state",
+        self._resource_errors = Counter(
+            "resource_errors",
+            "Number of resource errors",
+            tags={"component": "resource_manager"},
         )
         self._resource_init_time = Histogram(
-            name="resource_init_time",
-            type=MetricType.HISTOGRAM,
-            description="Time taken to initialize resources",
-        )
-        self._resource_cleanup_time = Histogram(
-            name="resource_cleanup_time",
-            type=MetricType.HISTOGRAM,
-            description="Time taken to cleanup resources",
+            "resource_init_time",
+            "Time taken to initialize resources",
+            tags={"component": "resource_manager"},
         )
 
-    async def register(
+    @property
+    def resources(self) -> Dict[str, Resource]:
+        """Get all managed resources."""
+        return self._resources
+
+    def register_resource_type(
+        self,
+        name: str,
+        resource_class: Type[Resource],
+    ) -> None:
+        """Register a resource type.
+
+        Args:
+            name: Resource type name
+            resource_class: Resource class
+
+        Raises:
+            ValueError: If resource type already registered
+
+        """
+        if name in self._resource_types:
+            raise ValueError(f"Resource type {name} already registered")
+        self._resource_types[name] = resource_class
+        self._logger.info(f"Registered resource type {name}")
+
+    def create_resource(
         self,
         name: str,
         config: ResourceConfig,
         resource_class: Optional[Type[Resource]] = None,
     ) -> Resource:
-        """Register and initialize a resource.
-
-        Args:
-            name: The name of the resource.
-            config: The resource configuration.
-            resource_class: Optional specific resource class to use.
-
-        Returns:
-            The initialized resource.
-
-        Raises:
-            ValueError: If a resource with the same name already exists.
-
-        """
-        if name in self._resources:
-            raise ValueError(f"Resource {name} already exists")
-
-        resource_class = resource_class or Resource
-        resource = resource_class(name, config)
-        await self._lifecycle.initialize(resource.id)
-        self._resources[name] = resource
-
-        try:
-            start_time = asyncio.get_event_loop().time()
-            await resource.initialize()
-            init_time = asyncio.get_event_loop().time() - start_time
-
-            # Update metrics
-            self._total_resources.inc()
-            self._resource_states.inc()
-            self._resource_init_time.observe(value=init_time)
-
-            self._logger.info(
-                "Resource registered successfully",
-                context={"name": name, "type": config.type.value},
-            )
-            return resource
-        except Exception as e:
-            await self._cleanup_resource(name)
-            self._logger.error(
-                "Failed to register resource",
-                context={"name": name},
-                error=e,
-            )
-            raise
-
-    async def get(self, name: str) -> Optional[Resource]:
-        """Get a registered resource by name.
-
-        Args:
-            name: The name of the resource.
-
-        Returns:
-            The resource if found, None otherwise.
-
-        """
-        return self._resources.get(name)
-
-    async def list(self) -> List[Resource]:
-        """List all registered resources.
-
-        Returns:
-            List of registered resources.
-
-        """
-        return list(self._resources.values())
-
-    async def unregister(self, name: str) -> None:
-        """Unregister and cleanup a resource.
-
-        Args:
-            name: The name of the resource.
-
-        Raises:
-            ValueError: If the resource does not exist.
-
-        """
-        if name not in self._resources:
-            raise ValueError(f"Resource {name} does not exist")
-
-        await self._cleanup_resource(name)
-        self._logger.info(
-            "Resource unregistered successfully",
-            context={"name": name},
-        )
-
-    async def _cleanup_resource(self, name: str) -> None:
-        """Clean up a resource and remove it from management.
-
-        Args:
-            name: The name of the resource.
-
-        """
-        resource = self._resources.pop(name, None)
-        if resource:
-            try:
-                start_time = asyncio.get_event_loop().time()
-                await resource.cleanup()
-                cleanup_time = asyncio.get_event_loop().time() - start_time
-
-                # Update metrics
-                self._total_resources.reset()  # Reset counter since we can't decrement
-                self._resource_states.dec()
-                self._resource_cleanup_time.observe(value=cleanup_time)
-
-            except Exception as e:
-                self._logger.error(
-                    "Error cleaning up resource",
-                    context={"name": name},
-                    error=e,
-                )
-            await self._lifecycle.terminate(resource.id)
-
-    async def initialize(self) -> None:
-        """Initialize the resource manager."""
-        self._logger.info("Initializing resource manager")
-        await self._lifecycle.initialize(self.id)
-
-    async def cleanup(self) -> None:
-        """Clean up all resources.
-
-        This ensures resources are cleaned up in the correct order, respecting
-        their dependencies.
-        """
-        self._logger.info("Cleaning up resource manager")
-
-        # Clean up resources in reverse dependency order
-        for name in self._get_cleanup_order():
-            resource = self._resources.get(name)
-            if resource:
-                try:
-                    await resource.cleanup()
-                except Exception as e:
-                    self._logger.error(
-                        "Failed to clean up resource",
-                        resource_name=name,
-                        error=str(e),
-                    )
-
-        self._resources.clear()
-        self._providers.clear()
-        self._dependencies.clear()
-
-    def get_resources_by_state(self, state: ResourceState) -> List[Resource]:
-        """Get all resources in a specific state.
-
-        Args:
-            state: The state to filter by.
-
-        Returns:
-            List of resources in the specified state.
-
-        """
-        return [r for r in self._resources.values() if r.state == state]
-
-    def get_resources_by_type(self, resource_type: str) -> List[Resource]:
-        """Get all resources of a specific type.
-
-        Args:
-            resource_type: The type to filter by.
-
-        Returns:
-            List of resources of the specified type.
-
-        """
-        return [
-            r for r in self._resources.values() if r.config.type.value == resource_type
-        ]
-
-    async def update_metadata(self, name: str, metadata: Dict[str, Any]) -> None:
-        """Update the metadata of a resource.
-
-        Args:
-            name: The name of the resource.
-            metadata: The metadata to update.
-
-        Raises:
-            ValueError: If the resource does not exist.
-
-        """
-        resource = await self.get(name)
-        if not resource:
-            raise ValueError(f"Resource {name} does not exist")
-
-        resource._metadata.update(metadata)
-        self._logger.info(
-            "Resource metadata updated",
-            context={"name": name, "metadata": metadata},
-        )
-
-    def update_resource_metrics(self) -> None:
-        """Update resource state metrics."""
-        # Reset state metrics for each resource type and state
-        for resource_type in {r.config.type.value for r in self._resources.values()}:
-            for state in ResourceState:
-                self._resource_states.set(0)
-
-        # Update current state counts
-        for resource in self._resources.values():
-            self._resource_states.inc()
-
-    def register_provider(
-        self,
-        provider_type: str,
-        provider: ResourceProvider,
-    ) -> None:
-        """Register a resource provider.
-
-        Args:
-            provider_type: Type of resources this provider handles
-            provider: Provider instance
-
-        Raises:
-            ValueError: If provider type is already registered
-
-        """
-        if provider_type in self._providers:
-            raise ValueError(f"Provider for type {provider_type} already registered")
-
-        self._providers[provider_type] = provider
-        self._logger.info(
-            "Registered resource provider",
-            provider_type=provider_type,
-        )
-
-    async def create_resource(
-        self,
-        name: str,
-        config: ResourceConfig,
-        dependencies: Optional[List[str]] = None,
-    ) -> Resource:
-        """Create and initialize a resource.
+        """Create a resource.
 
         Args:
             name: Resource name
             config: Resource configuration
-            dependencies: Optional list of resource dependencies
+            resource_class: Optional resource class (if not using registered type)
 
         Returns:
-            Created and initialized resource
+            Created resource
 
         Raises:
-            ResourceError: If resource creation fails
-            ValueError: If resource name already exists
+            ValueError: If resource already exists
+            ResourceOperationError: If resource type not found
 
         """
         if name in self._resources:
             raise ValueError(f"Resource {name} already exists")
 
-        provider = self._providers.get(config.type.value)
-        if not provider:
-            raise ResourceError(
-                f"No provider registered for type {config.type.value}",
-                config.type,
-                name,
-            )
+        if resource_class is None:
+            resource_type = config.type.value
+            if resource_type not in self._resource_types:
+                raise ResourceOperationError(f"Resource type {resource_type} not found")
+            resource_class = self._resource_types[resource_type]
 
-        # Record dependencies
-        if dependencies:
-            missing = [d for d in dependencies if d not in self._resources]
-            if missing:
-                raise ResourceError(
-                    f"Dependencies not found: {', '.join(missing)}",
-                    config.type,
-                    name,
-                )
-            self._dependencies[name] = set(dependencies)
-
-        try:
-            # Create resource
-            resource = await provider.create_resource(name, config)
-            self._resources[name] = resource
-
-            # Initialize dependencies first
-            if dependencies:
-                for dep_name in dependencies:
-                    dep = self._resources[dep_name]
-                    if not dep.is_initialized:
-                        await dep.initialize()
-
-            # Initialize resource
-            await resource.initialize()
-            await resource.validate()
-
-            self._logger.info(
-                "Created and initialized resource",
-                resource_name=name,
-                resource_type=config.type.value,
-            )
-            return resource
-
-        except Exception as e:
-            # Clean up on failure
-            if name in self._resources:
-                del self._resources[name]
-            if name in self._dependencies:
-                del self._dependencies[name]
-            raise ResourceError(
-                f"Failed to create resource: {str(e)}",
-                config.type,
-                name,
-            ) from e
-
-    async def delete_resource(self, name: str) -> None:
-        """Delete a resource.
-
-        Args:
-            name: Resource name
-
-        Raises:
-            ResourceError: If resource deletion fails
-            ValueError: If resource doesn't exist or has dependents
-
-        """
-        resource = self._resources.get(name)
-        if not resource:
-            raise ValueError(f"Resource {name} not found")
-
-        # Check for dependent resources
-        dependents = self._get_dependents(name)
-        if dependents:
-            raise ValueError(
-                f"Cannot delete resource with dependents: {', '.join(dependents)}"
-            )
-
-        provider = self._providers.get(resource.config.type.value)
-        if not provider:
-            raise ResourceError(
-                f"No provider registered for type {resource.config.type.value}",
-                resource.config.type,
-                name,
-            )
-
-        try:
-            await resource.cleanup()
-            await provider.delete_resource(resource)
-            del self._resources[name]
-            if name in self._dependencies:
-                del self._dependencies[name]
-
-            self._logger.info(
-                "Deleted resource",
-                resource_name=name,
-                resource_type=resource.config.type.value,
-            )
-
-        except Exception as e:
-            raise ResourceError(
-                f"Failed to delete resource: {str(e)}",
-                resource.config.type,
-                name,
-            ) from e
+        resource = resource_class(name, cast(ResourceConfig, config))
+        self._resources[name] = resource
+        self._resource_count.increment()
+        self._logger.info(f"Created resource {name}")
+        return resource
 
     def get_resource(self, name: str) -> Optional[Resource]:
         """Get a resource by name.
@@ -424,40 +117,139 @@ class ResourceManager(Lifecycle):
         """
         return self._resources.get(name)
 
-    def _get_dependents(self, name: str) -> Set[str]:
-        """Get resources that depend on the given resource.
+    def remove_resource(self, name: str) -> None:
+        """Remove a resource.
 
         Args:
             name: Resource name
 
-        Returns:
-            Set of dependent resource names
+        Raises:
+            ValueError: If resource not found
+            ResourceOperationError: If resource has dependents
 
         """
-        return {
-            res_name for res_name, deps in self._dependencies.items() if name in deps
-        }
+        if name not in self._resources:
+            raise ValueError(f"Resource {name} not found")
 
-    def _get_cleanup_order(self) -> List[str]:
-        """Get resource names in dependency-aware cleanup order.
+        resource = self._resources[name]
+        if resource.list_dependents():
+            raise ResourceOperationError(
+                f"Cannot remove resource {name} with dependents"
+            )
+
+        del self._resources[name]
+        self._resource_count.decrement()
+        self._logger.info(f"Removed resource {name}")
+
+    async def initialize(self) -> None:
+        """Initialize all resources.
+
+        This method initializes all resources in dependency order.
+
+        Raises:
+            ResourceError: If initialization fails
+
+        """
+        self._logger.info("Initializing resources")
+        try:
+            ordered_resources = self._get_initialization_order()
+            for resource in ordered_resources:
+                start_time = asyncio.get_event_loop().time()
+                try:
+                    await resource.initialize()
+                except Exception as e:
+                    self._resource_errors.increment()
+                    raise ResourceError(
+                        f"Failed to initialize resource {resource.name}: {str(e)}",
+                        error_type="initialization_error",
+                        timestamp=start_time,
+                        details={"resource_name": resource.name},
+                    ) from e
+                finally:
+                    end_time = asyncio.get_event_loop().time()
+                    self._resource_init_time.observe(end_time - start_time)
+            self._state = ResourceState.READY
+            self._logger.info("Resources initialized")
+        except Exception as e:
+            self._state = ResourceState.ERROR
+            self._error = ResourceError(
+                str(e),
+                error_type="initialization_error",
+                timestamp=asyncio.get_event_loop().time(),
+            )
+            raise
+
+    async def cleanup(self) -> None:
+        """Clean up all resources.
+
+        This method cleans up all resources in reverse dependency order.
+
+        Raises:
+            ResourceError: If cleanup fails
+
+        """
+        self._logger.info("Cleaning up resources")
+        try:
+            ordered_resources = reversed(self._get_initialization_order())
+            for resource in ordered_resources:
+                try:
+                    await resource.cleanup()
+                except Exception as e:
+                    self._resource_errors.increment()
+                    raise ResourceError(
+                        f"Failed to clean up resource {resource.name}: {str(e)}",
+                        error_type="cleanup_error",
+                        timestamp=asyncio.get_event_loop().time(),
+                        details={"resource_name": resource.name},
+                    ) from e
+            self._state = ResourceState.CLEANED
+            self._logger.info("Resources cleaned up")
+        except Exception as e:
+            self._state = ResourceState.ERROR
+            self._error = ResourceError(
+                str(e),
+                error_type="cleanup_error",
+                timestamp=asyncio.get_event_loop().time(),
+            )
+            raise
+
+    def _get_initialization_order(self) -> List[Resource]:
+        """Get resources in dependency order.
 
         Returns:
-            List of resource names in cleanup order
+            List of resources in initialization order
+
+        Raises:
+            ResourceOperationError: If dependency cycle detected
 
         """
         visited: Set[str] = set()
-        order: List[str] = []
+        temp_mark: Set[str] = set()
+        order: List[Resource] = []
 
-        def visit(name: str) -> None:
-            if name in visited:
-                return
-            visited.add(name)
-            for dependent in self._get_dependents(name):
-                visit(dependent)
-            order.append(name)
+        def visit(resource: Resource) -> None:
+            """Visit a resource in topological sort.
 
-        for name in self._resources:
-            visit(name)
+            Args:
+                resource: Resource to visit
+
+            Raises:
+                ResourceOperationError: If dependency cycle detected
+
+            """
+            if resource.name in temp_mark:
+                raise ResourceOperationError("Dependency cycle detected")
+            if resource.name not in visited:
+                temp_mark.add(resource.name)
+                for dep in resource.list_dependencies():
+                    visit(dep)
+                temp_mark.remove(resource.name)
+                visited.add(resource.name)
+                order.append(resource)
+
+        for resource in self._resources.values():
+            if resource.name not in visited:
+                visit(resource)
 
         return order
 

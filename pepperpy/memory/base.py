@@ -4,6 +4,7 @@ This module defines the core interfaces for the memory system, including
 the base memory interface and memory entry types.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -13,7 +14,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from pepperpy.monitoring import logger
+logger = logging.getLogger(__name__)
 
 K = TypeVar("K", str, UUID)  # Key type
 V = TypeVar("V", bound=dict[str, Any])  # Value type
@@ -61,6 +62,7 @@ class MemoryQuery(BaseModel):
         metadata: Metadata filters
         order_by: Field to order by
         order: Order direction (ASC/DESC)
+
     """
 
     query: str = Field(..., min_length=1)
@@ -115,6 +117,7 @@ class MemoryEntry(BaseModel, Generic[T]):
         created_at: Creation timestamp
         expires_at: Expiration timestamp
         metadata: Additional metadata
+
     """
 
     key: str
@@ -140,6 +143,7 @@ class MemorySearchResult(BaseModel, Generic[T]):
         score: Similarity score
         highlights: Search highlights
         metadata: Additional result metadata
+
     """
 
     entry: MemoryEntry[T]
@@ -188,6 +192,7 @@ class BaseMemory(ABC, Generic[K, V]):
             ValueError: If key is invalid
             TypeError: If value type is not supported
             MemoryError: If storage fails
+
         """
         pass
 
@@ -210,6 +215,7 @@ class BaseMemory(ABC, Generic[K, V]):
             KeyError: If key not found
             ValueError: If key is invalid
             MemoryError: If retrieval fails
+
         """
         pass
 
@@ -229,6 +235,7 @@ class BaseMemory(ABC, Generic[K, V]):
         Raises:
             ValueError: If query is invalid
             MemoryError: If search fails
+
         """
         pass
 
@@ -253,6 +260,7 @@ class BaseMemory(ABC, Generic[K, V]):
             KeyError: If key not found
             ValueError: If parameters are invalid
             MemoryError: If similarity search fails
+
         """
         pass
 
@@ -265,6 +273,7 @@ class BaseMemory(ABC, Generic[K, V]):
 
         Raises:
             MemoryError: If cleanup fails
+
         """
         pass
 
@@ -296,6 +305,7 @@ class MemoryStorage(Protocol[T]):
 
         Returns:
             bool: True if storage successful
+
         """
         ...
 
@@ -307,6 +317,7 @@ class MemoryStorage(Protocol[T]):
 
         Returns:
             Tuple[Optional[T], Optional[MemoryMetadata]]: Retrieved data and metadata
+
         """
         ...
 
@@ -318,6 +329,7 @@ class MemoryStorage(Protocol[T]):
 
         Returns:
             bool: True if deletion successful
+
         """
         ...
 
@@ -329,6 +341,7 @@ class MemoryStorage(Protocol[T]):
 
         Returns:
             bool: True if key exists
+
         """
         ...
 
@@ -356,6 +369,7 @@ class MemoryBackend(Protocol[T]):
 
         Returns:
             True if stored successfully
+
         """
         ...
 
@@ -370,6 +384,7 @@ class MemoryBackend(Protocol[T]):
 
         Yields:
             Memory results matching the query
+
         """
         ...
 
@@ -384,6 +399,7 @@ class MemoryBackend(Protocol[T]):
 
         Returns:
             True if deleted successfully
+
         """
         ...
 
@@ -398,6 +414,7 @@ class MemoryBackend(Protocol[T]):
 
         Returns:
             True if key exists
+
         """
         ...
 
@@ -415,6 +432,7 @@ class BaseMemoryStore(ABC, Generic[T]):
     Attributes:
         name: Store name
         is_initialized: Whether store is initialized
+
     """
 
     def __init__(self, name: str) -> None:
@@ -422,6 +440,7 @@ class BaseMemoryStore(ABC, Generic[T]):
 
         Args:
             name: Store name
+
         """
         self.name = name
         self.is_initialized = False
@@ -463,6 +482,7 @@ class BaseMemoryStore(ABC, Generic[T]):
         Raises:
             MemoryError: If storing fails
             RuntimeError: If store is not initialized
+
         """
         if not self.is_initialized:
             raise RuntimeError("Memory store not initialized")
@@ -484,6 +504,7 @@ class BaseMemoryStore(ABC, Generic[T]):
 
         Raises:
             MemoryError: If retrieval fails.
+
         """
         raise NotImplementedError
 
@@ -501,6 +522,7 @@ class BaseMemoryStore(ABC, Generic[T]):
         Raises:
             MemoryError: If retrieval fails.
             RuntimeError: If store is not initialized.
+
         """
         if not self.is_initialized:
             raise RuntimeError("Memory store not initialized")
@@ -520,6 +542,7 @@ class BaseMemoryStore(ABC, Generic[T]):
         Raises:
             MemoryError: If deletion fails
             RuntimeError: If store is not initialized
+
         """
         if not self.is_initialized:
             raise RuntimeError("Memory store not initialized")
@@ -536,6 +559,7 @@ class BaseMemoryStore(ABC, Generic[T]):
 
         Raises:
             MemoryError: If initialization fails
+
         """
         raise NotImplementedError
 
@@ -548,6 +572,7 @@ class BaseMemoryStore(ABC, Generic[T]):
 
         Raises:
             MemoryError: If cleanup fails
+
         """
         raise NotImplementedError
 
@@ -563,6 +588,7 @@ class BaseMemoryStore(ABC, Generic[T]):
 
         Raises:
             MemoryError: If storing fails
+
         """
         raise NotImplementedError
 
@@ -578,6 +604,7 @@ class BaseMemoryStore(ABC, Generic[T]):
 
         Raises:
             MemoryError: If deletion fails
+
         """
         raise NotImplementedError
 
@@ -631,6 +658,7 @@ class MemoryManager:
         Args:
             name: Name of the store
             store: Memory store instance
+
         """
         if name in self._stores:
             raise ValueError(f"Memory store '{name}' already registered")
@@ -650,6 +678,7 @@ class MemoryManager:
 
         Raises:
             KeyError: If store not found
+
         """
         if name not in self._stores:
             raise KeyError(f"Memory store '{name}' not found")

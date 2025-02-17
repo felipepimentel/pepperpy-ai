@@ -199,3 +199,7 @@ class MetricsManager(Lifecycle):
         # Clear metrics and exporters
         self._metrics.clear()
         self._exporters.clear()
+
+
+# Global metrics manager instance
+metrics_manager = MetricsManager()

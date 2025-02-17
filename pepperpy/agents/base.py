@@ -1,84 +1,173 @@
 """Base agent implementation.
 
 This module provides the base agent class that all agents must inherit from.
+It defines the core functionality and interface that all Pepperpy agents
+must implement.
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
+from abc import abstractmethod
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
+from pepperpy.core.base import BaseComponent, Metadata
+from pepperpy.core.errors import ConfigurationError, StateError
+from pepperpy.core.logging import get_logger
 from pepperpy.core.types import (
+    AgentState,
     Message,
+    Response,
 )
-from pepperpy.monitoring import logger
-from pepperpy.providers import get_provider
-from pepperpy.providers.openai import Message
+
+logger = get_logger(__name__)
 
 
-class BaseAgent(ABC):
-    """Base class for all Pepperpy agents."""
+class BaseAgent(BaseComponent):
+    """Base class for all Pepperpy agents.
 
-    def __init__(self, config: Dict[str, Any]):
+    This class provides the foundation for building agents in the Pepperpy
+    framework. It handles lifecycle management, state tracking, and basic
+    agent functionality.
+
+    Attributes:
+        id: Unique identifier for the agent
+        state: Current agent state
+        metadata: Agent metadata
+        config: Agent configuration
+        capabilities: List of agent capabilities
+
+    """
+
+    def __init__(
+        self,
+        id: UUID,
+        metadata: Optional[Metadata] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> None:
         """Initialize the base agent.
 
         Args:
-        ----
-            config: Agent configuration loaded from .pepper_hub
+            id: Unique identifier for the agent
+            metadata: Optional agent metadata
+            config: Optional agent configuration
+
+        Raises:
+            ConfigurationError: If configuration is invalid
 
         """
-        self.config = config
-        self._logger = logger.bind(agent=self.__class__.__name__)
+        super().__init__(id, metadata)
+        self.config = config or {}
+        self.state = AgentState.CREATED
+        self._logger = logger.getChild(self.__class__.__name__)
 
-    @abstractmethod
-    async def run(self, **kwargs: Any) -> Any:
-        """Run the agent with the given parameters.
-
-        Args:
-        ----
-            **kwargs: Parameters for the agent run
+    @property
+    def capabilities(self) -> List[str]:
+        """Get agent capabilities.
 
         Returns:
-        -------
-            The agent's response
+            List of capability identifiers
+
+        """
+        return []
+
+    async def initialize(self) -> None:
+        """Initialize the agent.
+
+        This method is called during agent startup to perform any necessary
+        initialization.
+
+        Raises:
+            StateError: If agent is in invalid state
+            ConfigurationError: If initialization fails
+
+        """
+        if self.state != AgentState.CREATED:
+            raise StateError(f"Cannot initialize agent in state: {self.state}")
+
+        try:
+            self.state = AgentState.INITIALIZING
+            # Perform initialization
+            self.state = AgentState.READY
+        except Exception as e:
+            self.state = AgentState.ERROR
+            raise ConfigurationError(f"Agent initialization failed: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up agent resources.
+
+        This method is called during agent shutdown to perform cleanup.
+        """
+        if self.state not in {AgentState.READY, AgentState.ERROR}:
+            raise StateError(f"Cannot cleanup agent in state: {self.state}")
+
+        try:
+            self.state = AgentState.CLEANING
+            # Perform cleanup
+            self.state = AgentState.TERMINATED
+        except Exception as e:
+            self.state = AgentState.ERROR
+            raise StateError(f"Agent cleanup failed: {e}") from e
+
+    @abstractmethod
+    async def process_message(self, message: Message) -> Response:
+        """Process an incoming message.
+
+        This is the main entry point for agent message processing. All agents
+        must implement this method to handle incoming messages.
+
+        Args:
+            message: The message to process
+
+        Returns:
+            Response containing processing results
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
 
         """
         raise NotImplementedError
 
-    async def run_model(
-        self,
-        provider: str,
-        model: str,
-        messages: List[Message],
-        **kwargs: Any,
-    ) -> str:
-        """Run a model with the given parameters.
+    async def execute(self, **kwargs: Any) -> Any:
+        """Execute the agent's main functionality.
+
+        This method implements the BaseComponent interface. It processes
+        a message if one is provided in kwargs.
 
         Args:
-        ----
-            provider: The provider to use (e.g., openai, anthropic)
-            model: The model to use
-            messages: The messages to send to the model
-            **kwargs: Additional parameters for the model
+            **kwargs: Execution parameters
 
         Returns:
-        -------
-            The model's response
+            Execution results
+
+        Raises:
+            StateError: If agent is in invalid state
 
         """
-        self._logger.info(
-            "Running model",
-            provider=provider,
-            model=model,
-            num_messages=len(messages),
-        )
+        if self.state != AgentState.READY:
+            raise StateError(f"Cannot execute agent in state: {self.state}")
 
-        provider_instance = get_provider(provider)
+        message = kwargs.get("message")
+        if not message:
+            raise ConfigurationError("Message is required for execution")
+
         try:
-            await provider_instance.initialize()
-            response = await provider_instance.chat_completion(
-                model=model,
-                messages=messages,
-                **kwargs,
-            )
+            self.state = AgentState.PROCESSING
+            response = await self.process_message(message)
+            self.state = AgentState.READY
             return response
-        finally:
-            await provider_instance.cleanup()
+        except Exception as e:
+            self.state = AgentState.ERROR
+            raise StateError(f"Agent execution failed: {e}") from e
+
+    def validate(self) -> None:
+        """Validate agent state and configuration.
+
+        Raises:
+            StateError: If agent state is invalid
+            ConfigurationError: If configuration is invalid
+
+        """
+        super().validate()
+        if not isinstance(self.state, AgentState):
+            raise StateError(f"Invalid agent state: {self.state}")
+        if not isinstance(self.config, dict):
+            raise ConfigurationError("Agent config must be a dictionary")

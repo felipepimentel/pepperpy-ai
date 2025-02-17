@@ -26,6 +26,7 @@ from typing import (
     TypedDict,
     TypeVar,
     Union,
+    cast,
     runtime_checkable,
 )
 from uuid import UUID, uuid4
@@ -520,3 +521,163 @@ __all__ = [
     "ResourceId",
     "PepperpyClientProtocol",
 ]
+
+# Core ID Types
+AgentID = NewType("AgentID", UUID)
+ProviderID = NewType("ProviderID", UUID)
+ResourceID = NewType("ResourceID", UUID)
+CapabilityID = NewType("CapabilityID", UUID)
+WorkflowID = NewType("WorkflowID", UUID)
+MemoryID = NewType("MemoryID", UUID)
+
+# Core Data Types
+JSON = Dict[str, Any]
+JSONList = List[JSON]
+OptionalJSON = Optional[JSON]
+
+
+# Core Configuration Types
+class ConfigDict(Dict[str, Any]):
+    """Type for configuration dictionaries with enhanced validation."""
+
+    pass
+
+
+# Core Result Types
+class OperationResult:
+    """Base class for operation results."""
+
+    def __init__(
+        self, success: bool, data: Optional[Any] = None, error: Optional[str] = None
+    ) -> None:
+        self.success = success
+        self.data = data
+        self.error = error
+
+    @property
+    def is_success(self) -> bool:
+        return self.success
+
+    @property
+    def is_error(self) -> bool:
+        return not self.success
+
+
+class SuccessResult(OperationResult):
+    """Represents a successful operation result."""
+
+    def __init__(self, data: Any) -> None:
+        super().__init__(True, data=data)
+
+
+class ErrorResult(OperationResult):
+    """Represents a failed operation result."""
+
+    def __init__(self, error: str) -> None:
+        super().__init__(False, error=error)
+
+
+# Core Status Types
+class Status:
+    """Base class for status information."""
+
+    def __init__(self, code: str, message: str, details: Optional[JSON] = None) -> None:
+        self.code = code
+        self.message = message
+        self.details = details or {}
+
+    def to_json(self) -> JSON:
+        return {"code": self.code, "message": self.message, "details": self.details}
+
+    @classmethod
+    def from_json(cls, data: JSON) -> "Status":
+        return cls(
+            code=data["code"], message=data["message"], details=data.get("details", {})
+        )
+
+
+# Core Error Types
+class Error:
+    """Base class for error information."""
+
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        details: Optional[JSON] = None,
+        cause: Optional[Exception] = None,
+    ) -> None:
+        self.code = code
+        self.message = message
+        self.details = details or {}
+        self.cause = cause
+
+    def to_json(self) -> JSON:
+        return {
+            "code": self.code,
+            "message": self.message,
+            "details": self.details,
+            "cause": str(self.cause) if self.cause else None,
+        }
+
+    @classmethod
+    def from_json(cls, data: JSON) -> "Error":
+        return cls(
+            code=data["code"],
+            message=data["message"],
+            details=data.get("details", {}),
+            cause=Exception(data["cause"]) if data.get("cause") else None,
+        )
+
+
+# Core Event Types
+class Event:
+    """Base class for events."""
+
+    def __init__(
+        self,
+        type: str,
+        source: Union[AgentID, ProviderID, ResourceID, CapabilityID, WorkflowID],
+        data: Optional[JSON] = None,
+        timestamp: Optional[float] = None,
+    ) -> None:
+        from time import time
+
+        self.type = type
+        self.source = source
+        self.data = data or {}
+        self.timestamp = timestamp or time()
+
+    def to_json(self) -> JSON:
+        return {
+            "type": self.type,
+            "source": str(self.source),
+            "data": self.data,
+            "timestamp": self.timestamp,
+        }
+
+    @classmethod
+    def from_json(cls, data: JSON) -> "Event":
+        # Convert UUID string to appropriate ID type based on event type
+        source_uuid = UUID(data["source"])
+        source: Union[AgentID, ProviderID, ResourceID, CapabilityID, WorkflowID]
+
+        if data["type"].startswith("agent."):
+            source = cast(AgentID, source_uuid)
+        elif data["type"].startswith("provider."):
+            source = cast(ProviderID, source_uuid)
+        elif data["type"].startswith("resource."):
+            source = cast(ResourceID, source_uuid)
+        elif data["type"].startswith("capability."):
+            source = cast(CapabilityID, source_uuid)
+        elif data["type"].startswith("workflow."):
+            source = cast(WorkflowID, source_uuid)
+        else:
+            raise ValueError(f"Unknown event type: {data['type']}")
+
+        return cls(
+            type=data["type"],
+            source=source,
+            data=data.get("data", {}),
+            timestamp=data["timestamp"],
+        )

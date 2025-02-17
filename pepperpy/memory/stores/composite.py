@@ -1,6 +1,7 @@
 """Composite memory store implementation."""
 
 import asyncio
+import logging
 from collections.abc import AsyncGenerator, AsyncIterator
 from typing import Any, TypeVar
 
@@ -11,7 +12,8 @@ from pepperpy.memory.base import (
     MemorySearchResult,
 )
 from pepperpy.memory.config import MemoryConfig
-from pepperpy.monitoring.logger import structured_logger as logger
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=dict[str, Any])
 
@@ -35,6 +37,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
         Args:
             config: Store configuration
             primary_store: Primary store for persistence
+
         """
         super().__init__(name="composite")
         self._config = config
@@ -60,6 +63,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
 
         Raises:
             RuntimeError: If storage fails
+
         """
         async with self._lock:
             try:
@@ -93,6 +97,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
 
         Raises:
             MemoryError: If retrieval from all stores fails.
+
         """
         # Get results from primary store first
         try:
@@ -129,6 +134,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
 
         Raises:
             MemoryError: If deletion fails
+
         """
         async with self._lock:
             try:
@@ -158,6 +164,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
 
         Args:
             store: Store to add
+
         """
         async with self._lock:
             if store not in self._stores:
@@ -183,6 +190,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
         Raises:
             ValueError: If query is invalid
             RuntimeError: If retrieval fails
+
         """
         if not query:
             raise ValueError("Query cannot be empty")
@@ -202,6 +210,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
         Raises:
             ValueError: If query is invalid
             MemoryError: If search fails
+
         """
         async for result in self._retrieve(query):
             yield result
@@ -226,6 +235,7 @@ class CompositeMemoryStore(BaseMemoryStore[T]):
             KeyError: If key not found
             ValueError: If parameters are invalid
             MemoryError: If similarity search fails
+
         """
         # For now, just return entries with the same key
         query = MemoryQuery(

@@ -4,10 +4,10 @@ This module provides the core interfaces and types for managing resources in a
 unified way, with support for lifecycle management and configuration.
 """
 
+import time
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Type, TypeVar
 
 from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.monitoring.logging import get_logger
@@ -16,6 +16,8 @@ from .types import ResourceConfig, ResourceError, ResourceOperationError, Resour
 
 if TYPE_CHECKING:
     from .base import Resource
+
+T = TypeVar("T", bound="Resource")
 
 
 class ResourceType(Enum):
@@ -27,19 +29,6 @@ class ResourceType(Enum):
     MEMORY = "memory"  # Memory caches, buffers
     MODEL = "model"  # AI models, embeddings
     SERVICE = "service"  # External services
-
-
-@dataclass
-class ResourceConfig:
-    """Configuration for a resource.
-
-    This class defines the configuration parameters for a resource, including
-    its type, settings, and metadata.
-    """
-
-    type: ResourceType
-    settings: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, str] = field(default_factory=dict)
 
 
 class Resource(Lifecycle, ABC):
@@ -60,22 +49,24 @@ class Resource(Lifecycle, ABC):
             name: Resource name
             config: Resource configuration
 
+        Raises:
+            ValueError: If name or config is invalid
+
         """
+        if not name:
+            raise ValueError("Resource name cannot be empty")
+        if not config:
+            raise ValueError("Resource configuration required")
+
         super().__init__()
-        self.name = name
-        self.config = config
+        self._name = name
+        self._config = config
         self._state = ResourceState.UNINITIALIZED
         self._error: Optional[ResourceError] = None
         self._metadata: Dict[str, Any] = {}
-        self._dependencies: Dict[str, Resource] = {}
+        self._dependencies: Dict[str, "Resource"] = {}
         self._dependents: Set[str] = set()
-        self._logger = get_logger(
-            __name__,
-            {
-                "resource_name": name,
-                "resource_type": config.type.value,
-            },
-        )
+        self._logger = get_logger(f"{__name__}.{name}")
 
     @property
     def state(self) -> ResourceState:
@@ -93,29 +84,34 @@ class Resource(Lifecycle, ABC):
         return self._metadata
 
     @property
-    def dependencies(self) -> Dict[str, Resource]:
+    def dependencies(self) -> Dict[str, "Resource"]:
         """Get the resource dependencies."""
         return self._dependencies
+
+    @property
+    def name(self) -> str:
+        """Get the resource name."""
+        return self._name
 
     def set_error(
         self, message: str, error_type: str, details: Optional[Dict[str, Any]] = None
     ) -> None:
-        """Set an error on the resource.
+        """Set resource error.
 
         Args:
-            message: The error message.
-            error_type: The type of error.
-            details: Optional error details.
+            message: Error message
+            error_type: Type of error
+            details: Optional error details
 
         """
         self._error = ResourceError(
             message=message,
-            resource_type=self.config.type,
-            resource_name=self.name,
+            error_type=error_type,
+            timestamp=float(time.time()),
             details=details,
         )
         self._state = ResourceState.ERROR
-        self._logger.error(message)
+        self._logger.error(f"Resource error - {error_type}: {message}")
 
     def clear_error(self) -> None:
         """Clear any error on the resource."""
@@ -143,8 +139,8 @@ class Resource(Lifecycle, ABC):
             )
 
         self._dependencies[name] = resource
-        resource._dependents.add(self.name)
-        self._logger.info(f"Added dependency {name} to resource {self.name}")
+        resource._dependents.add(self._name)
+        self._logger.info(f"Added dependency {name} to resource {self._name}")
 
     def remove_dependency(self, name: str) -> None:
         """Remove a dependency.
@@ -161,8 +157,8 @@ class Resource(Lifecycle, ABC):
 
         resource = self._dependencies[name]
         del self._dependencies[name]
-        resource._dependents.remove(self.name)
-        self._logger.info(f"Removed dependency {name} from resource {self.name}")
+        resource._dependents.remove(self._name)
+        self._logger.info(f"Removed dependency {name} from resource {self._name}")
 
     def get_dependency(self, name: str) -> Optional["Resource"]:
         """Get a dependency.
@@ -204,14 +200,14 @@ class Resource(Lifecycle, ABC):
             True if cycle would be created, False otherwise
 
         """
-        visited = {self.name}
+        visited = {self._name}
         stack = [resource]
 
         while stack:
             current = stack.pop()
-            if current.name in visited:
+            if current._name in visited:
                 return True
-            visited.add(current.name)
+            visited.add(current._name)
             stack.extend(current.list_dependencies())
 
         return False
@@ -244,20 +240,18 @@ class Resource(Lifecycle, ABC):
 
     @abstractmethod
     async def validate(self) -> None:
-        """Validate resource configuration and state.
-
-        This method should be implemented by subclasses to validate that the
-        resource is properly configured and in a valid state.
+        """Validate the resource configuration.
 
         Raises:
-            ResourceError: If validation fails
+            ResourceError: If validation fails.
+            ValueError: If configuration is invalid.
 
         """
-        if not self.config:
+        if not self._config:
             raise ResourceError(
-                "Resource configuration required",
-                self.config.type,
-                self.name,
+                message="Resource configuration required",
+                error_type=str(ResourceType.STORAGE),
+                timestamp=time.time(),
             )
 
     async def get_status(self) -> Dict[str, Any]:
@@ -268,11 +262,30 @@ class Resource(Lifecycle, ABC):
 
         """
         return {
-            "name": self.name,
-            "type": self.config.type.value,
+            "name": self._name,
+            "type": self._config.type.value,
             "state": self.state.value if self.state else None,
-            "metadata": self.config.metadata,
+            "metadata": self._config.metadata,
         }
+
+    @classmethod
+    def get_resource_type(cls) -> Type["Resource"]:
+        """Get the resource type.
+
+        Returns:
+            Resource type
+
+        """
+        return cls
+
+    def __repr__(self) -> str:
+        """Get string representation.
+
+        Returns:
+            String representation
+
+        """
+        return f"{self.__class__.__name__}(name={self._name})"
 
 
 class ResourceProvider(ABC):

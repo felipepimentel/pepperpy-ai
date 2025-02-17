@@ -1,32 +1,41 @@
-"""Memory store module for managing agent memory.
+"""Memory management module."""
 
-This module provides memory store functionality for persisting agent state,
-conversation history, and other data needed for agent operation.
-"""
-
-from pepperpy.memory.stores import (
+from pepperpy.core.memory.base import (
+    BaseMemory,
+    MemoryEntry,
+    MemoryQuery,
+    MemorySearchResult,
+    MemoryType,
+)
+from pepperpy.core.memory.errors import (
+    MemoryError,
+    MemoryKeyError,
+    MemoryQueryError,
+    MemoryStorageError,
+    MemoryTypeError,
+)
+from pepperpy.core.memory.stores import (
+    BaseMemoryStore,
     CompositeMemoryStore,
     InMemoryStore,
-    PostgresMemoryStore,
-    RedisMemoryStore,
-    VectorMemoryStore,
-)
-
-from .store import (
-    BaseMemoryStore,
-    MemoryStore,
+    MemoryStoreType,
     create_memory_store,
-    register_memory_store,
 )
 
 __all__ = [
+    "BaseMemory",
     "BaseMemoryStore",
-    "MemoryStore",
-    "create_memory_store",
-    "register_memory_store",
     "CompositeMemoryStore",
     "InMemoryStore",
-    "PostgresMemoryStore",
-    "RedisMemoryStore",
-    "VectorMemoryStore",
+    "MemoryEntry",
+    "MemoryError",
+    "MemoryKeyError",
+    "MemoryQuery",
+    "MemoryQueryError",
+    "MemorySearchResult",
+    "MemoryStorageError",
+    "MemoryStoreType",
+    "MemoryType",
+    "MemoryTypeError",
+    "create_memory_store",
 ]
