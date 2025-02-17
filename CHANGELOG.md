@@ -1,6 +1,106 @@
 # CHANGELOG
 
 
+## v1.9.0 (2025-02-17)
+
+### Chores
+
+- Upgrade structlog to version 25.1.0
+  ([`b971d26`](https://github.com/felipepimentel/pepperpy-ai/commit/b971d26afd0a7dcda22023b2c4561539436422aa))
+
+Update structlog dependency to the latest version in both poetry.lock and pyproject.toml. This minor
+  version upgrade ensures access to the latest features and potential bug fixes in the structlog
+  library.
+
+### Documentation
+
+- Remove Cursor AI and project knowledge base documentation files
+  ([`2ad2823`](https://github.com/felipepimentel/pepperpy-ai/commit/2ad2823e8ab17780b8b6545dba4ff7a9fc55dd60))
+
+* Deleted comprehensive documentation files related to Cursor AI configuration, code style, and
+  project knowledge base * Removed markdown files from `.product/knowledgebase/` directory: -
+  `cursor-ai-code-style.md` - `cursor-ai-configuration.md` - `cursor-ai-faq.md` -
+  `cursor-ai-rules.md` - `pepperpy-ai-knowledge.md` * Cleaned up legacy documentation that is no
+  longer relevant to the current project structure
+
+- Update task management and planning templates
+  ([`abdc5d4`](https://github.com/felipepimentel/pepperpy-ai/commit/abdc5d42187632012f814fba5f58b13f2a99d381))
+
+* Standardized task planning and execution templates with consistent structure * Enhanced error
+  handling and type definitions in task management workflow * Simplified configuration and lifecycle
+  management across templates * Added comprehensive example implementations for task tracking *
+  Improved documentation with clear requirements and progress tracking * Introduced more robust
+  validation and state management for tasks
+
+### Features
+
+- Enhance example demos with predefined test scenarios and improved user experience
+  ([`b38da89`](https://github.com/felipepimentel/pepperpy-ai/commit/b38da8981d607a4eea5a398ea571f836e64e4678))
+
+* Refactored main functions in multiple examples to run predefined test sequences * Added
+  comprehensive demo workflows for collaborative research, hub integration, personal assistant,
+  quickstart, and research agent * Improved error handling and result display in example scripts *
+  Simplified interactive sessions with structured test inputs * Enhanced logging and output
+  formatting for better readability * Demonstrated core functionality through predefined test
+  scenarios
+
+- Enhance interactive CLI experience in personal assistant and quickstart examples
+  ([`fa7e6ab`](https://github.com/felipepimentel/pepperpy-ai/commit/fa7e6ab11a871ddbe3974a5970d6bed7029ff413))
+
+* Improved input handling using `sys.stdin` for more robust command processing * Added graceful
+  handling of EOF and empty inputs in interactive sessions * Enhanced task and note input workflows
+  with better user guidance * Implemented multi-line content input for notes * Added exit and quit
+  commands with friendly goodbye messages * Improved error handling and user interaction flow in
+  examples
+
+### Refactoring
+
+- Consolidate system architecture and enhance component lifecycle management
+  ([`3dcf357`](https://github.com/felipepimentel/pepperpy-ai/commit/3dcf357b458e15bd99f291319dbfadb8f312bb73))
+
+* Implemented comprehensive lifecycle management with standardized component states * Introduced
+  unified configuration system with flexible resource and workflow management * Flattened
+  capabilities structure and centralized error handling * Enhanced monitoring system with improved
+  logging, metrics, and tracing * Added robust resource and hub management with centralized
+  initialization * Prepared migration strategy for systematic component refactoring * Added detailed
+  cleanup and validation guidelines for each system component
+
+- Simplify project structure and consolidate configuration paths
+  ([`e757de8`](https://github.com/felipepimentel/pepperpy-ai/commit/e757de8dada9fa3db4e44b69ec6de380ebe60ac7))
+
+* Renamed `.pepperpy` directory to `.pepper_hub` for consistency * Updated all references to
+  configuration paths across project files * Removed deprecated and unused configuration files *
+  Simplified hub and agent initialization with standardized path handling * Updated examples and
+  tests to use new `.pepper_hub` directory structure * Cleaned up unused files and consolidated
+  configuration management
+
+- Standardize component lifecycle and configuration management
+  ([`1035e3b`](https://github.com/felipepimentel/pepperpy-ai/commit/1035e3bc6ffdef09822d6e7fd37027a9340088cd))
+
+* Implemented comprehensive lifecycle management with Lifecycle ABC and LifecycleManager * Created
+  unified configuration system with flexible source and watcher support * Enhanced core module
+  imports with new capability and configuration types * Removed deprecated lifecycle and monitoring
+  modules * Added robust test suite for lifecycle and configuration components * Prepared migration
+  strategy for systematic component refactoring
+
+- Streamline examples and core library organization
+  ([`3c6cb40`](https://github.com/felipepimentel/pepperpy-ai/commit/3c6cb403861eb6f0ee4edf15858551977a428586))
+
+* Removed multiple deprecated example scripts from `examples/` directory * Simplified agent and
+  provider module structures * Updated core library imports and type definitions * Reorganized
+  research and agent-related modules * Cleaned up unnecessary service provider implementations *
+  Prepared for more focused and modular example system architecture
+
+- Streamline project architecture and remove deprecated modules
+  ([`86ac926`](https://github.com/felipepimentel/pepperpy-ai/commit/86ac926a849d7de73206d1a07eb5697fa89ebff9))
+
+* Removed entire `pepperpy/hub/` directory and related submodules * Deleted deprecated monitoring,
+  capabilities, and workflow management modules * Simplified core imports and type definitions *
+  Updated project structure to consolidate and remove legacy components * Cleaned up unnecessary
+  files and simplified module dependencies * Prepared for more focused and modular system
+  architecture
+
+
 ## v1.8.0 (2025-02-13)
 
 ### Features
