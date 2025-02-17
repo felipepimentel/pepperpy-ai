@@ -208,18 +208,40 @@ async def interactive_session(assistant: TaskAssistant) -> None:
 
     while True:
         try:
-            command = input("\nEnter command: ").strip()
+            print("\nEnter command: ", end="", flush=True)
+            command = input().strip()
+
+            if not command:  # Empty input
+                continue
 
             if command.lower() == "quit":
                 break
+
+            # Handle multi-word commands
+            if command.lower() == "add task":
+                print("Task description: ", end="", flush=True)
+                description = input().strip()
+                if description:
+                    command = f"add task {description}"
+
+            elif command.lower() == "complete task":
+                print("Task number: ", end="", flush=True)
+                task_num = input().strip()
+                if task_num:
+                    command = f"complete task {task_num}"
 
             response = await assistant.process_command(command)
             print("\n" + response)
 
         except KeyboardInterrupt:
+            print("\nGoodbye!")
+            break
+        except EOFError:
+            print("\nGoodbye!")
             break
         except Exception as e:
             print(f"Error: {e}")
+            continue
 
 
 async def main() -> None:

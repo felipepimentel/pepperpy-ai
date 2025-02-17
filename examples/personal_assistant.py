@@ -18,6 +18,7 @@ The example shows how to:
 
 import asyncio
 import json
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -250,7 +251,24 @@ class PersonalAssistant(BaseComponent):
                 return await self.task_manager.execute("list_tasks", params)
 
             elif command == "complete_task":
-                return await self.task_manager.execute("complete_task", params)
+                # First show available tasks
+                tasks_result = await self.process_command("list_tasks", {})
+                if tasks_result.get("tasks"):
+                    print("\nAvailable tasks:")
+                    for task in tasks_result["tasks"]:
+                        print(f"ID: {task['id']}")
+                        print(f"Title: {task['title']}")
+                        print(
+                            f"Status: {'Completed' if task['completed'] else 'Pending'}"
+                        )
+                        print()
+
+                    print("Task ID: ", end="", flush=True)
+                    task_id = sys.stdin.readline()
+                    if not task_id:
+                        return {"status": "error", "message": "No task ID provided"}
+                    params["task_id"] = task_id.strip()
+                    return await self.task_manager.execute("complete_task", params)
 
             elif command == "save_note":
                 return await self.storage.execute(
@@ -268,6 +286,9 @@ class PersonalAssistant(BaseComponent):
 
             elif command == "recall":
                 return await self.memory.execute("retrieve", {"key": params["key"]})
+
+            elif command == "exit" or command == "quit":
+                return {"status": "success", "message": "Goodbye!"}
 
             raise ValueError(f"Unknown command: {command}")
 
@@ -289,8 +310,13 @@ async def interactive_session(assistant: PersonalAssistant) -> None:
 
     while True:
         try:
-            command = input("\nEnter command: ").strip().lower()
+            print("\nEnter command: ", end="", flush=True)
+            command = sys.stdin.readline()
+            if not command:  # EOF
+                print("\nGoodbye!")
+                break
 
+            command = command.strip().lower()
             if command == "exit":
                 break
 
@@ -307,35 +333,111 @@ async def interactive_session(assistant: PersonalAssistant) -> None:
 
             # Get command parameters
             params: Dict[str, Any] = {}
-            if command == "add_task":
-                params["title"] = input("Task title: ")
-                params["description"] = input("Description (optional): ")
-                due_date = input("Due date (YYYY-MM-DD, optional): ")
-                if due_date:
-                    params["due_date"] = due_date
+            try:
+                if command == "add_task":
+                    print("Task title: ", end="", flush=True)
+                    title = sys.stdin.readline()
+                    if not title:
+                        break
+                    params["title"] = title.strip()
 
-            elif command == "complete_task":
-                params["task_id"] = input("Task ID: ")
+                    print("Description (optional): ", end="", flush=True)
+                    desc = sys.stdin.readline()
+                    if not desc:
+                        break
+                    params["description"] = desc.strip()
 
-            elif command == "save_note":
-                params["title"] = input("Note title: ")
-                params["content"] = input("Content: ")
+                    print("Due date (YYYY-MM-DD, optional): ", end="", flush=True)
+                    due_date = sys.stdin.readline()
+                    if not due_date:
+                        break
+                    due_date = due_date.strip()
+                    if due_date:
+                        params["due_date"] = due_date
 
-            elif command == "remember":
-                params["key"] = input("Memory key: ")
-                params["value"] = input("Value to remember: ")
+                elif command == "complete_task":
+                    # First show available tasks
+                    tasks_result = await assistant.process_command("list_tasks", {})
+                    if tasks_result.get("tasks"):
+                        print("\nAvailable tasks:")
+                        for task in tasks_result["tasks"]:
+                            print(f"ID: {task['id']}")
+                            print(f"Title: {task['title']}")
+                            print(
+                                f"Status: {'Completed' if task['completed'] else 'Pending'}"
+                            )
+                            print()
 
-            elif command == "recall":
-                params["key"] = input("Memory key to recall: ")
+                    print("Task ID: ", end="", flush=True)
+                    task_id = sys.stdin.readline()
+                    if not task_id:
+                        break
+                    params["task_id"] = task_id.strip()
 
-            # Process the command
-            result = await assistant.process_command(command, params)
-            print("\nResult:", json.dumps(result, indent=2))
+                elif command == "save_note":
+                    print("Note title: ", end="", flush=True)
+                    title = sys.stdin.readline()
+                    if not title:
+                        break
+                    params["title"] = title.strip()
+
+                    print("Content (enter a blank line to finish):")
+                    content_lines = []
+                    while True:
+                        try:
+                            line = sys.stdin.readline()
+                            if not line:  # EOF
+                                break
+                            line = line.rstrip('\n')
+                            if not line and content_lines:  # Empty line after content
+                                break
+                            content_lines.append(line)
+                        except EOFError:
+                            break
+                    
+                    if not content_lines:
+                        print("Error: No content provided")
+                        continue
+                    
+                    params["content"] = "\n".join(content_lines)
+                    result = await assistant.process_command("save_note", params)
+                    print("\nResult:", json.dumps(result, indent=2))
+                    continue
+
+                elif command == "remember":
+                    print("Memory key: ", end="", flush=True)
+                    key = sys.stdin.readline()
+                    if not key:
+                        break
+                    params["key"] = key.strip()
+
+                    print("Value to remember: ", end="", flush=True)
+                    value = sys.stdin.readline()
+                    if not value:
+                        break
+                    params["value"] = value.strip()
+
+                elif command == "recall":
+                    print("Memory key to recall: ", end="", flush=True)
+                    key = sys.stdin.readline()
+                    if not key:
+                        break
+                    params["key"] = key.strip()
+
+                # Process the command
+                result = await assistant.process_command(command, params)
+                print("\nResult:", json.dumps(result, indent=2))
+
+            except Exception as e:
+                print(f"Error: {e}")
+                continue
 
         except KeyboardInterrupt:
+            print("\nGoodbye!")
             break
         except Exception as e:
             print(f"Error: {e}")
+            continue
 
 
 async def main() -> None:

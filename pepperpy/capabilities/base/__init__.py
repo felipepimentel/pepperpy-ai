@@ -33,11 +33,6 @@ class CapabilityType(Enum):
 class CapabilityMetadata(Metadata):
     """Capability metadata."""
 
-    capability_type: CapabilityType
-    capability_name: str
-    tags: List[str] = field(default_factory=list)
-    properties: Dict[str, Any] = field(default_factory=dict)
-
     def __init__(
         self,
         capability_type: CapabilityType,

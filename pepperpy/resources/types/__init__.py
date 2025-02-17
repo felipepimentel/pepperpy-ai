@@ -170,8 +170,81 @@ class ModelResource(BaseResource[Dict[str, Any]]):
     """Model resource implementation.
 
     This class provides functionality for managing model resources like
+    machine learning models and inference engines.
+    """
+
+    def __init__(
+        self,
+        metadata: ResourceMetadata,
+        id: Optional[UUID] = None,
+    ) -> None:
+        """Initialize model resource.
+
+        Args:
+            metadata: Resource metadata
+            id: Optional resource ID
+
+        Raises:
+            ConfigurationError: If metadata is invalid
+
+        """
+        if metadata.resource_type != ResourceType.MODEL:
+            raise ValueError("Invalid resource type for ModelResource")
+        super().__init__(metadata, id)
+
+    async def execute(self, **kwargs: Any) -> ResourceResult[Dict[str, Any]]:
+        """Execute model operation.
+
+        Args:
+            **kwargs: Operation parameters
+
+        Returns:
+            Operation result
+
         Raises:
             StateError: If cleanup fails
+
+        """
+        raise NotImplementedError
+
+
+class ServiceResource(BaseResource[Dict[str, Any]]):
+    """Service resource implementation.
+
+    This class provides functionality for managing service resources like
+    external APIs and microservices.
+    """
+
+    def __init__(
+        self,
+        metadata: ResourceMetadata,
+        id: Optional[UUID] = None,
+    ) -> None:
+        """Initialize service resource.
+
+        Args:
+            metadata: Resource metadata
+            id: Optional resource ID
+
+        Raises:
+            ConfigurationError: If metadata is invalid
+
+        """
+        if metadata.resource_type != ResourceType.SERVICE:
+            raise ValueError("Invalid resource type for ServiceResource")
+        super().__init__(metadata, id)
+
+    async def execute(self, **kwargs: Any) -> ResourceResult[Dict[str, Any]]:
+        """Execute service operation.
+
+        Args:
+            **kwargs: Operation parameters
+
+        Returns:
+            Operation result
+
+        Raises:
+            StateError: If operation fails
 
         """
         raise NotImplementedError
