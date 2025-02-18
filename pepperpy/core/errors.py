@@ -106,7 +106,7 @@ class PepperpyError(Exception):
 # System Errors
 
 
-class ConfigurationError(PepperpyError):
+class ConfigError(PepperpyError):
     """Raised when there is a configuration error."""
 
     def __init__(
@@ -592,7 +592,7 @@ def get_error_class(code: str) -> Type[PepperpyError]:
     """
     error_classes = {
         "ERR000": PepperpyError,
-        "ERR001": ConfigurationError,
+        "ERR001": ConfigError,
         "ERR002": ValidationError,
         "ERR003": StateError,
         "ERR004": ProviderError,

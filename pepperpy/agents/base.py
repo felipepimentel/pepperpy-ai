@@ -5,8 +5,10 @@ It defines the core functionality and interface that all Pepperpy agents
 must implement.
 """
 
-from abc import abstractmethod
-from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional, TypeVar
 from uuid import UUID
 
 from pepperpy.core.base import BaseComponent, Metadata
@@ -19,6 +21,96 @@ from pepperpy.core.types import (
 )
 
 logger = get_logger(__name__)
+
+T = TypeVar("T")
+
+
+@dataclass
+class AgentMessage:
+    """Represents a message in agent communication."""
+
+    role: str
+    content: str
+    timestamp: datetime
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class AgentAction:
+    """Represents an action taken by an agent."""
+
+    action_type: str
+    parameters: Dict[str, Any]
+    timestamp: datetime
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class AgentState:
+    """Represents the current state of an agent."""
+
+    messages: List[AgentMessage]
+    actions: List[AgentAction]
+    memory: Dict[str, Any]
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class BaseAgent(ABC):
+    """Base class for agents."""
+
+    @abstractmethod
+    async def process(
+        self, message: str, *, state: Optional[AgentState] = None, **kwargs: Any
+    ) -> AgentState:
+        """Process a message and update agent state.
+
+        Args:
+            message: Input message to process
+            state: Current agent state
+            **kwargs: Additional processing parameters
+
+        Returns:
+            Updated agent state
+        """
+        pass
+
+    @abstractmethod
+    async def act(
+        self, state: AgentState, *, action_type: Optional[str] = None, **kwargs: Any
+    ) -> AgentAction:
+        """Take an action based on current state.
+
+        Args:
+            state: Current agent state
+            action_type: Type of action to take
+            **kwargs: Additional action parameters
+
+        Returns:
+            Action taken by agent
+        """
+        pass
+
+    @abstractmethod
+    async def observe(
+        self,
+        action: AgentAction,
+        result: Any,
+        *,
+        state: Optional[AgentState] = None,
+        **kwargs: Any,
+    ) -> AgentState:
+        """Process action result and update state.
+
+        Args:
+            action: Action that was taken
+            result: Result of the action
+            state: Current agent state
+            **kwargs: Additional observation parameters
+
+        Returns:
+            Updated agent state
+        """
+        pass
 
 
 class BaseAgent(BaseComponent):

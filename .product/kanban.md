@@ -1,6 +1,11 @@
 # Kanban Board
 
 ## 📋 To Do
+- TASK-004: News-to-Podcast Generator Example Implementation
+  **Priority**: medium | **Points**: 8 | **Mode**: Plan
+  **Updated**: 2024-02-14
+  [Details](tasks/TASK-004.md)
+  **AI-Tags**: #example #tts #news #podcast
 
 ## 🏗️ In Progress
 - TASK-003: Core Library Refactoring and Examples Organization

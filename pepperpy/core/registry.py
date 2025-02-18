@@ -9,16 +9,19 @@ This module provides a comprehensive registry system for managing:
 """
 
 import asyncio
+import importlib
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, ClassVar, Generic, TypeVar
+from pathlib import Path
+from typing import Any, ClassVar, Dict, Generic, Optional, Type, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
 from pepperpy.core.errors import (
+    ConfigError,
     NotFoundError,
     RegistryError,
     StateError,
@@ -722,3 +725,123 @@ class CapabilityRegistry(Registry[Any]):
 
 # Global registry instances
 capability_registry = CapabilityRegistry()
+
+
+class ProviderRegistry:
+    """Registry for managing and loading capability providers."""
+
+    def __init__(self):
+        """Initialize provider registry."""
+        self._providers: Dict[str, Dict[str, Type[Any]]] = {}
+
+    def register(
+        self, capability: str, provider_type: str, provider_class: Type[T]
+    ) -> None:
+        """Register a provider class.
+
+        Args:
+            capability: Capability name (e.g. 'llm', 'content')
+            provider_type: Provider type identifier
+            provider_class: Provider class to register
+        """
+        if capability not in self._providers:
+            self._providers[capability] = {}
+
+        self._providers[capability][provider_type] = provider_class
+
+    def get_provider(self, capability: str, provider_type: str) -> Optional[Type[Any]]:
+        """Get a registered provider class.
+
+        Args:
+            capability: Capability name
+            provider_type: Provider type identifier
+
+        Returns:
+            Provider class if found, None otherwise
+        """
+        return self._providers.get(capability, {}).get(provider_type)
+
+    def load_provider(
+        self, capability: str, provider_type: str, base_class: Type[T]
+    ) -> Type[T]:
+        """Load a provider class dynamically.
+
+        Args:
+            capability: Capability name
+            provider_type: Provider type identifier
+            base_class: Base class that provider must implement
+
+        Returns:
+            Provider class
+
+        Raises:
+            ConfigError: If provider cannot be loaded
+        """
+        # Check if already registered
+        provider_class = self.get_provider(capability, provider_type)
+        if provider_class is not None:
+            if not issubclass(provider_class, base_class):
+                raise ConfigError(
+                    f"Provider class {provider_class.__name__} does not implement {base_class.__name__}"
+                )
+            return provider_class
+
+        try:
+            # Load provider module
+            module_path = f"pepperpy.{capability}.providers.{provider_type}"
+            module = importlib.import_module(module_path)
+
+            # Get provider class
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+
+            # Validate provider class
+            if not issubclass(provider_class, base_class):
+                raise ConfigError(
+                    f"Provider class {provider_class.__name__} does not implement {base_class.__name__}"
+                )
+
+            # Register provider
+            self.register(capability, provider_type, provider_class)
+
+            return provider_class
+
+        except (ImportError, AttributeError) as e:
+            raise ConfigError(
+                f"Failed to load provider {capability}.{provider_type}: {str(e)}"
+            )
+
+    def discover_providers(self, package_path: Optional[Path] = None) -> None:
+        """Discover and register providers from package.
+
+        Args:
+            package_path: Path to package root. If None, uses current package.
+        """
+        if package_path is None:
+            package_path = Path(__file__).parent.parent
+
+        # Scan capability directories
+        for capability_dir in package_path.iterdir():
+            if not capability_dir.is_dir():
+                continue
+
+            providers_dir = capability_dir / "providers"
+            if not providers_dir.exists() or not providers_dir.is_dir():
+                continue
+
+            # Load providers
+            capability = capability_dir.name
+            for provider_file in providers_dir.glob("*.py"):
+                if provider_file.stem == "__init__":
+                    continue
+
+                try:
+                    module_path = (
+                        f"pepperpy.{capability}.providers.{provider_file.stem}"
+                    )
+                    importlib.import_module(module_path)
+                except ImportError:
+                    continue
+
+
+# Global registry instance
+registry = ProviderRegistry()

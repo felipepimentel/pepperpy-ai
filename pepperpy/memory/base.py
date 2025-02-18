@@ -9,7 +9,16 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Protocol,
+    TypeVar,
+    runtime_checkable,
+)
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
@@ -695,3 +704,100 @@ class MemoryManager:
                     "Failed to clean up memory store",
                     extra={"store_name": name, "error": str(e)},
                 )
+
+
+class MemoryItem(Generic[T]):
+    """Represents a single memory item."""
+
+    def __init__(
+        self,
+        key: str,
+        value: T,
+        created_at: datetime,
+        metadata: Optional[Dict[str, Any]] = None,
+        ttl: Optional[int] = None,
+    ):
+        self.key = key
+        self.value = value
+        self.created_at = created_at
+        self.metadata = metadata or {}
+        self.ttl = ttl
+
+
+class BaseMemoryProvider(ABC):
+    """Base class for memory providers."""
+
+    @abstractmethod
+    async def get(
+        self, key: str, *, default: Optional[Any] = None, **kwargs: Any
+    ) -> Optional[Any]:
+        """Retrieve a value from memory.
+
+        Args:
+            key: Key to retrieve
+            default: Value to return if key not found
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Retrieved value or default
+        """
+        pass
+
+    @abstractmethod
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        *,
+        ttl: Optional[int] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Store a value in memory.
+
+        Args:
+            key: Key to store value under
+            value: Value to store
+            ttl: Time-to-live in seconds
+            metadata: Additional metadata to store
+            **kwargs: Additional provider-specific parameters
+        """
+        pass
+
+    @abstractmethod
+    async def delete(self, key: str, **kwargs: Any) -> bool:
+        """Delete a value from memory.
+
+        Args:
+            key: Key to delete
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            True if key was deleted, False if not found
+        """
+        pass
+
+    @abstractmethod
+    async def search(
+        self, pattern: str, *, limit: Optional[int] = None, **kwargs: Any
+    ) -> List[str]:
+        """Search for keys matching pattern.
+
+        Args:
+            pattern: Pattern to match against keys
+            limit: Maximum number of keys to return
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            List of matching keys
+        """
+        pass
+
+    @abstractmethod
+    async def clear(self, **kwargs: Any) -> None:
+        """Clear all values from memory.
+
+        Args:
+            **kwargs: Additional provider-specific parameters
+        """
+        pass

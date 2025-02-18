@@ -4,40 +4,32 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "pepperpy"
-version = "1.8.0"
-description = "A centralized hub for managing and loading AI artifacts like agents, prompts, and workflows"
+version = "0.1.0"
+description = "A framework for building AI-powered applications with capabilities for LLM, content processing, speech synthesis, and memory management"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
-packages = [{ include = "pepperpy" }]
+packages = [{include = "pepperpy"}]
 
 [tool.poetry.dependencies]
-python = ">=3.12,<4.0"
-aiofiles = "^24.1.0"
-openai = "^1.61.1"
-pyyaml = "^6.0.1"
-jinja2 = "^3.1.5"
-pydantic = "^2.10.6"
-structlog = "^25.1.0"
-loguru = "^0.7.3"
-python-dotenv = "^1.0.1"
-google-generativeai = "^0.8.4"
-rich = "^13.9.4"
-click = "^8.1.8"
-jsonschema = "^4.23.0"
-asyncpg = "^0.30.0"
-redis = "^5.2.1"
-watchfiles = "^0.21.0"
-watchdog = "^3.0.0"
-opentelemetry-api = "^1.30.0"
-opentelemetry-sdk = "^1.30.0"
-opentelemetry-instrumentation = "^0.51b0"
+python = "^3.9"
+pyyaml = "^6.0"
+pydantic = "^2.6.1"
+typing-extensions = "^4.9.0"
+importlib-metadata = "^7.0.1"
+aiohttp = "^3.9.3"
+openai = "^1.12.0"
+langchain = "^0.1.9"
+transformers = "^4.37.2"
+torch = "^2.2.0"
+numpy = "^1.26.4"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.4"
+pytest = "^8.0.0"
 pytest-asyncio = "^0.23.5"
-black = "^25.1.0"
-ruff = "^0.9.6"
-mypy = "^1.15.0"
+black = "^24.1.1"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+ruff = "^0.2.1"
 
 [tool.poetry.extras]
 openai = ["openai"]
@@ -59,21 +51,24 @@ all = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
-select = ["E", "F", "I", "N", "W", "B", "C", "D"]
-ignore = ["D100", "D104", "D107", "D103"]
+target-version = "py39"
+select = ["E", "F", "B", "I"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
-check_untyped_defs = true
+disallow_incomplete_defs = true
 
 [tool.black]
 line-length = 88
-target-version = ['py312']
+target-version = ['py39']
 include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
 
 [tool.coverage.run]
 branch = true
