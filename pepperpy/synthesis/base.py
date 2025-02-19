@@ -1,74 +1,136 @@
-"""Base interfaces for speech synthesis capability."""
+"""Base interfaces for synthesis capability."""
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from pathlib import Path
-from typing import Any, BinaryIO, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field
+
+from pepperpy.core.base import BaseComponent as Processor
+from pepperpy.core.base import BaseProvider as Provider
 
 
-class BaseSynthesisProvider(ABC):
-    """Base class for speech synthesis providers."""
+class SynthesisError(Exception):
+    """Base class for synthesis-related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: Optional[str] = None,
+        voice: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            message: Error message
+            provider: Optional provider name that caused the error
+            voice: Optional voice that caused the error
+            details: Optional additional details
+        """
+        super().__init__(message)
+        self.provider = provider
+        self.voice = voice
+        self.details = details or {}
+
+
+class AudioConfig(BaseModel):
+    """Configuration for audio synthesis."""
+
+    language: str = Field(default="en", description="Language code")
+    voice: str = Field(default="default", description="Voice identifier")
+    rate: float = Field(default=1.0, description="Speech rate (0.5-2.0)")
+    pitch: float = Field(default=1.0, description="Voice pitch (-20.0-20.0)")
+    volume: float = Field(default=1.0, description="Audio volume (0.0-2.0)")
+    format: str = Field(default="mp3", description="Output audio format")
+    sample_rate: int = Field(default=24000, description="Sample rate in Hz")
+    bit_depth: int = Field(default=16, description="Bit depth")
+    channels: int = Field(default=1, description="Number of audio channels")
+
+
+class AudioData(BaseModel):
+    """Represents synthesized audio data."""
+
+    content: bytes = Field(description="Raw audio data")
+    config: AudioConfig = Field(description="Audio configuration")
+    duration: float = Field(description="Audio duration in seconds")
+    size: int = Field(description="Audio size in bytes")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional metadata"
+    )
+
+
+class SynthesisProvider(Provider):
+    """Base class for synthesis providers."""
 
     @abstractmethod
     async def synthesize(
         self,
         text: str,
         *,
-        voice: Optional[str] = None,
         language: Optional[str] = None,
-        output_format: str = "mp3",
+        voice: Optional[str] = None,
         **kwargs: Any,
-    ) -> bytes:
-        """Synthesize speech from text.
+    ) -> AudioData:
+        """Synthesize text to speech.
 
         Args:
-            text: Input text to synthesize
-            voice: Voice identifier to use
-            language: Language code (e.g. 'pt-BR')
-            output_format: Audio format to generate
+            text: Text to synthesize
+            language: Optional language code
+            voice: Optional voice identifier
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Audio data as bytes
+            Synthesized audio data
+
+        Raises:
+            SynthesisError: If synthesis fails
         """
         pass
 
     @abstractmethod
     async def save(
         self,
-        audio_data: bytes,
-        output_path: Path,
-        *,
-        processors: Optional[Dict[str, Any]] = None,
+        audio: AudioData,
+        path: Union[str, Path],
         **kwargs: Any,
     ) -> Path:
-        """Save synthesized audio to file with optional processing.
+        """Save audio data to file.
 
         Args:
-            audio_data: Audio data to save
-            output_path: Path to save the file
-            processors: Audio processors to apply
-            **kwargs: Additional processor-specific parameters
+            audio: Audio data to save
+            path: Output file path
+            **kwargs: Additional provider-specific parameters
 
         Returns:
-            Path to the saved file
+            Path to saved file
+
+        Raises:
+            SynthesisError: If saving fails
         """
         pass
 
+
+class AudioProcessor(Processor):
+    """Base class for audio processors."""
+
     @abstractmethod
-    async def stream(
+    async def process(
         self,
-        text: str,
-        output_stream: BinaryIO,
-        *,
-        chunk_size: int = 1024,
+        audio: Union[AudioData, List[AudioData]],
         **kwargs: Any,
-    ) -> None:
-        """Stream synthesized speech to an output stream.
+    ) -> Union[AudioData, List[AudioData]]:
+        """Process audio data.
 
         Args:
-            text: Input text to synthesize
-            output_stream: Stream to write audio data to
-            chunk_size: Size of audio chunks to stream
-            **kwargs: Additional provider-specific parameters
+            audio: Single audio data or list to process
+            **kwargs: Additional processor-specific parameters
+
+        Returns:
+            Processed audio data
+
+        Raises:
+            SynthesisError: If processing fails
         """
         pass

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A framework for building AI-powered applications with capabilities for LLM, content processing, speech synthesis, and memory management"
 authors = ["Your Name <your.email@example.com>"]
 readme = "README.md"
-packages = [{include = "pepperpy"}]
+packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
 python = "^3.9"
@@ -22,6 +22,11 @@ langchain = "^0.1.9"
 transformers = "^4.37.2"
 torch = "^2.2.0"
 numpy = "^1.26.4"
+feedparser = "^6.0.11"
+beautifulsoup4 = "^4.12.3"
+gTTS = "^2.5.1"
+pydub = "^0.25.1"
+loguru = "^0.7.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.0"
@@ -30,6 +35,7 @@ black = "^24.1.1"
 isort = "^5.13.2"
 mypy = "^1.8.0"
 ruff = "^0.2.1"
+pytest-cov = "^6.0.0"
 
 [tool.poetry.extras]
 openai = ["openai"]

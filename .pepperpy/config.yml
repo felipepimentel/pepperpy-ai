@@ -1,0 +1,30 @@
+providers:
+  content:
+    default:
+      type: rss
+      sources:
+        - https://g1.globo.com/rss/g1/
+        - https://feeds.folha.uol.com.br/empreendedorsocial/rss091.xml
+        - https://feeds.folha.uol.com.br/poder/rss091.xml
+      language: pt-BR
+      timeout: 10.0
+
+  llm:
+    default:
+      type: openai
+      model: gpt-4-turbo-preview
+      temperature: 0.7
+      max_tokens: 1000
+
+  synthesis:
+    default:
+      type: openai
+      model: tts-1
+      voice: onyx
+      output_format: mp3
+
+  memory:
+    default:
+      type: local
+      path: ~/.pepperpy/memory
+      max_size: 1GB 

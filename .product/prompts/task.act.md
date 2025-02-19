@@ -19,14 +19,27 @@ validation:
       - verify frontmatter completeness
       - verify required sections exist
       - verify requirements format
+      - verify task structure matches original plan
+      - verify no unauthorized modifications to requirements
+    task_content:
+      - verify overview section preserved
+      - verify requirements list matches plan
+      - verify implementation steps preserved
+      - verify validation criteria preserved
 
   status_transitions:
-    - "📋 To Do" -> "🏃 In Progress": update mode to Act
-    - "🏃 In Progress" -> "✅ Done": validate all requirements complete
+    - "📋 To Do" -> "🏃 In Progress": 
+        - update mode to Act
+        - preserve all planning details
+        - maintain validation criteria
+    - "🏃 In Progress" -> "✅ Done": 
+        - validate all requirements complete
+        - verify no planning details were lost
     
   kanban_sync:
     file: .product/kanban.md
     required: true
+    preserve_metadata: true
 ```
 
 # Task Template
@@ -82,29 +95,40 @@ updated: YYYY-MM-DD
 1. **Requirements Section:**
    - Never add new requirements
    - Never modify requirement descriptions
+   - Never remove planning details
+   - Never change validation criteria
    - Only update status markers:
      - [ ] -> [-] -> [x]
      - Add start/completion dates with markers
+   - Preserve all subtasks and their structure
 
 2. **Implementation Status:**
    - Show only actual implemented code
    - Mark each function/class with status emoji
    - Remove code when complete and tested
+   - Never modify planned implementation steps
+   - Keep original validation criteria
 
 3. **Validation Status:**
    - List only existing test results
    - Update with clear status emojis
    - Remove passed tests from list
+   - Never modify planned validation tests
+   - Keep original test structure
 
 4. **Progress Updates:**
    - Add new entries at top
    - Keep entries focused and specific
    - Use consistent emoji markers
+   - Reference original planning items
+   - Track against planned implementation
 
 5. **Status Updates:**
    - Update frontmatter status field
    - Update task status in kanban
    - Add completion date when done
+   - Preserve all task metadata
+   - Maintain dependencies information
 
 # Example Progress Flow
 
@@ -143,26 +167,30 @@ test_process_error ⏳
 
 # Important Constraints
 
-1. **Content Restrictions:**
-   - No new sections allowed
-   - No removal of sections
-   - No modification of requirement descriptions
-   - No additional documentation
+1. **Content Preservation:**
+   - All planning details must be preserved
+   - Implementation structure must match plan
+   - Validation criteria must remain unchanged
+   - Original requirements must be maintained
+   - Task structure must be respected
 
 2. **Format Maintenance:**
    - Keep exact indentation
    - Use specified emojis only
    - Follow status marker format
    - Maintain vertical structure
+   - Preserve section hierarchy
 
 3. **Updates Flow:**
    - Add new progress entries at top
    - Keep implementation current
    - Remove completed code
    - Update validation status
+   - Reference original plan items
 
 4. **Completion Rules:**
    - All code implemented
    - All tests passing
    - Status marked as done
    - Kanban updated
+   - Original plan verified

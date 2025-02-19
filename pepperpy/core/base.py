@@ -7,8 +7,9 @@
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
 from uuid import UUID
 
@@ -20,6 +21,73 @@ from pepperpy.core.types import (
     ResourceID,
     WorkflowID,
 )
+
+
+class AgentState(str, Enum):
+    """Agent execution states."""
+
+    IDLE = "idle"
+    RUNNING = "running"
+    PAUSED = "paused"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+@dataclass
+class AgentContext:
+    """Context for agent execution."""
+
+    agent_id: AgentID
+    state: AgentState
+    start_time: datetime
+    end_time: Optional[datetime] = None
+    error: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class AgentCallback(Protocol):
+    """Protocol for agent execution callbacks."""
+
+    async def on_start(self, context: AgentContext) -> None:
+        """Called when agent execution starts.
+
+        Args:
+            context: Agent execution context
+        """
+        ...
+
+    async def on_pause(self, context: AgentContext) -> None:
+        """Called when agent execution is paused.
+
+        Args:
+            context: Agent execution context
+        """
+        ...
+
+    async def on_resume(self, context: AgentContext) -> None:
+        """Called when agent execution resumes.
+
+        Args:
+            context: Agent execution context
+        """
+        ...
+
+    async def on_complete(self, context: AgentContext) -> None:
+        """Called when agent execution completes successfully.
+
+        Args:
+            context: Agent execution context
+        """
+        ...
+
+    async def on_error(self, context: AgentContext) -> None:
+        """Called when agent execution fails.
+
+        Args:
+            context: Agent execution context
+        """
+        ...
+
 
 # Base Protocols and Interfaces
 
@@ -119,6 +187,25 @@ class BaseProvider(BaseComponent):
 class BaseAgent(BaseComponent):
     """Base class for all agents."""
 
+    def __init__(
+        self,
+        id: UUID,
+        metadata: Optional[Metadata] = None,
+        callback: Optional[AgentCallback] = None,
+    ) -> None:
+        super().__init__(id, metadata)
+        self._callback = callback
+        self._context = AgentContext(
+            agent_id=AgentID(id),
+            state=AgentState.IDLE,
+            start_time=datetime.utcnow(),
+        )
+
+    @property
+    def context(self) -> AgentContext:
+        """Get the agent's execution context."""
+        return self._context
+
     @abstractmethod
     async def execute(self, **kwargs: Any) -> Any:
         """Execute the agent's main functionality."""
@@ -204,4 +291,31 @@ ComponentID = Union[
     CapabilityID,
     WorkflowID,
     MemoryID,
+]
+
+
+# Expose public interface
+__all__ = [
+    # Protocols
+    "Identifiable",
+    "Lifecycle",
+    "Validatable",
+    # Data classes
+    "Metadata",
+    "AgentContext",
+    # Enums
+    "AgentState",
+    # Base classes
+    "BaseComponent",
+    "BaseProvider",
+    "BaseAgent",
+    "BaseResource",
+    "BaseCapability",
+    "BaseWorkflow",
+    # Protocols
+    "AgentCallback",
+    # Generic types
+    "Registry",
+    # Type aliases
+    "ComponentID",
 ]

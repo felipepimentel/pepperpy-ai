@@ -3,29 +3,35 @@
 import asyncio
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlparse
 
 import aiohttp
 import feedparser
-from pydantic import BaseModel, Field
+from bs4 import BeautifulSoup
+from pydantic import BaseModel, Field, HttpUrl
 
-from pepperpy.content.base import BaseContentProvider, ContentItem
+from pepperpy.content.base import (
+    ContentError,
+    ContentItem,
+    ContentMetadata,
+    ContentProvider,
+)
 
 
 class RSSConfig(BaseModel):
     """Configuration for RSS provider."""
 
-    sources: List[str] = Field(
-        default=["https://news.google.com/rss"], description="List of RSS feed URLs."
-    )
-    language: str = Field(
-        default="pt-BR", description="Language code for content filtering."
-    )
-    timeout: float = Field(
-        default=10.0, description="Timeout for RSS feed requests in seconds."
+    sources: List[HttpUrl] = Field(description="List of RSS feed URLs")
+    language: str = Field(default="en", description="Content language code")
+    timeout: float = Field(default=10.0, description="Request timeout in seconds")
+    max_items: int = Field(default=100, description="Maximum items per feed")
+    user_agent: str = Field(
+        default="Pepperpy/1.0 RSS Reader",
+        description="User agent string for requests",
     )
 
 
-class RSSProvider(BaseContentProvider):
+class RSSProvider(ContentProvider):
     """RSS implementation of content provider."""
 
     def __init__(self, **config: Any):
@@ -33,59 +39,121 @@ class RSSProvider(BaseContentProvider):
 
         Args:
             **config: Configuration parameters
+
+        Raises:
+            ContentError: If configuration is invalid
         """
-        self.config = RSSConfig(**config)
-        self.session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=self.config.timeout)
-        )
+        try:
+            self.config = RSSConfig(**config)
+            self.session: Optional[aiohttp.ClientSession] = None
+        except Exception as e:
+            raise ContentError(
+                "Failed to initialize RSS provider",
+                provider="rss",
+                details={"error": str(e)},
+            )
 
-    async def __aenter__(self):
-        """Enter async context."""
-        return self
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Exit async context and cleanup."""
-        await self.session.close()
+        Raises:
+            ContentError: If initialization fails
+        """
+        try:
+            self.session = aiohttp.ClientSession(
+                headers={"User-Agent": self.config.user_agent}
+            )
+        except Exception as e:
+            raise ContentError(
+                "Failed to initialize RSS session",
+                provider="rss",
+                details={"error": str(e)},
+            )
 
-    async def _fetch_feed(self, url: str) -> List[ContentItem]:
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self.session:
+            await self.session.close()
+            self.session = None
+
+    async def _fetch_feed(self, url: HttpUrl) -> List[ContentItem]:
         """Fetch and parse a single RSS feed.
 
         Args:
-            url: RSS feed URL
+            url: Feed URL to fetch
 
         Returns:
-            List of content items from feed
+            List of content items from the feed
+
+        Raises:
+            ContentError: If feed fetching fails
         """
-        async with self.session.get(url) as response:
-            feed_content = await response.text()
-
-        feed = feedparser.parse(feed_content)
-        items = []
-
-        for entry in feed.entries:
-            # Parse date
-            published = entry.get("published_parsed") or entry.get("updated_parsed")
-            if published:
-                published_at = datetime(*published[:6])
-            else:
-                published_at = datetime.now()
-
-            # Create content item
-            items.append(
-                ContentItem(
-                    title=entry.title,
-                    content=entry.get("summary", ""),
-                    source=feed.feed.title,
-                    published_at=published_at,
-                    metadata={
-                        "link": entry.link,
-                        "author": entry.get("author"),
-                        "tags": [tag.term for tag in entry.get("tags", [])],
-                    },
-                )
+        if not self.session:
+            raise ContentError(
+                "Provider not initialized",
+                provider="rss",
+                source=str(url),
             )
 
-        return items
+        try:
+            async with self.session.get(
+                str(url), timeout=aiohttp.ClientTimeout(total=self.config.timeout)
+            ) as response:
+                if response.status != 200:
+                    raise ContentError(
+                        f"Failed to fetch feed: HTTP {response.status}",
+                        provider="rss",
+                        source=str(url),
+                    )
+
+                content = await response.text()
+                feed = feedparser.parse(content)
+
+                items = []
+                for entry in feed.entries[: self.config.max_items]:
+                    # Extract text content from HTML
+                    soup = BeautifulSoup(
+                        entry.get("description", ""), features="html.parser"
+                    )
+                    text_content = soup.get_text(separator=" ", strip=True)
+
+                    # Create metadata
+                    metadata = ContentMetadata(
+                        language=self.config.language,
+                        category=entry.get("category"),
+                        tags=[tag.term for tag in entry.get("tags", [])],
+                        url=entry.get("link"),
+                        author=entry.get("author"),
+                        summary=entry.get("summary"),
+                    )
+
+                    # Create content item
+                    items.append(
+                        ContentItem(
+                            title=entry.get("title", "Untitled"),
+                            content=text_content,
+                            source=urlparse(str(url)).netloc,
+                            published_at=datetime(
+                                *(
+                                    entry.get("published_parsed")
+                                    or entry.get("updated_parsed")
+                                )
+                            ),
+                            metadata=metadata,
+                        )
+                    )
+
+                return items
+
+        except ContentError:
+            raise
+        except Exception as e:
+            raise ContentError(
+                "Failed to process feed",
+                provider="rss",
+                source=str(url),
+                details={"error": str(e)},
+            )
 
     async def fetch(
         self,
@@ -105,47 +173,56 @@ class RSSProvider(BaseContentProvider):
 
         Returns:
             List of content items
+
+        Raises:
+            ContentError: If fetching fails
         """
-        # Fetch all feeds concurrently
-        tasks = [self._fetch_feed(url) for url in self.config.sources]
-        results = await asyncio.gather(*tasks)
+        try:
+            # Fetch all feeds concurrently
+            tasks = [self._fetch_feed(url) for url in self.config.sources]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # Combine and sort items
-        items = []
-        for feed_items in results:
-            items.extend(feed_items)
+            # Process results
+            items = []
+            for result in results:
+                if isinstance(result, List):
+                    items.extend(result)
+                elif isinstance(result, Exception):
+                    # Log error but continue processing other feeds
+                    continue
 
-        # Apply filters
-        if since:
-            items = [item for item in items if item.published_at >= since]
+            # Apply filters
+            if since:
+                items = [item for item in items if item.published_at >= since]
+            if filters:
+                if "language" in filters:
+                    items = [
+                        item
+                        for item in items
+                        if item.metadata.language == filters["language"]
+                    ]
+                if "category" in filters:
+                    items = [
+                        item
+                        for item in items
+                        if item.metadata.category == filters["category"]
+                    ]
 
-        if filters:
-            # Apply language filter
-            if "language" in filters:
-                items = [
-                    item
-                    for item in items
-                    if filters["language"] == self.config.language
-                ]
+            # Sort by publication date (newest first)
+            items.sort(key=lambda x: x.published_at, reverse=True)
 
-            # Apply tag filter
-            if "tags" in filters:
-                items = [
-                    item
-                    for item in items
-                    if any(
-                        tag in item.metadata.get("tags", []) for tag in filters["tags"]
-                    )
-                ]
+            # Apply limit
+            if limit:
+                items = items[:limit]
 
-        # Sort by date
-        items.sort(key=lambda x: x.published_at, reverse=True)
+            return items
 
-        # Apply limit
-        if limit:
-            items = items[:limit]
-
-        return items
+        except Exception as e:
+            raise ContentError(
+                "Failed to fetch content",
+                provider="rss",
+                details={"error": str(e)},
+            )
 
     async def search(
         self,
@@ -155,7 +232,7 @@ class RSSProvider(BaseContentProvider):
         filters: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> List[ContentItem]:
-        """Search for content items matching query.
+        """Search for content items matching the query.
 
         Args:
             query: Search query string
@@ -165,38 +242,37 @@ class RSSProvider(BaseContentProvider):
 
         Returns:
             List of matching content items
+
+        Raises:
+            ContentError: If search fails
         """
-        # Fetch recent items
-        items = await self.fetch(limit=100, filters=filters)
+        try:
+            # Fetch all items first
+            items = await self.fetch(filters=filters, **kwargs)
 
-        # Simple text search
-        query = query.lower()
-        matches = []
+            # Simple text search implementation
+            query = query.lower()
+            matches = []
+            for item in items:
+                if (
+                    query in item.title.lower()
+                    or query in item.content.lower()
+                    or query in (item.metadata.summary or "").lower()
+                ):
+                    matches.append(item)
 
-        for item in items:
-            if (
-                query in item.title.lower()
-                or query in item.content.lower()
-                or any(query in tag.lower() for tag in item.metadata.get("tags", []))
-            ):
-                matches.append(item)
+            # Apply limit
+            if limit:
+                matches = matches[:limit]
 
-        # Sort by relevance (simple exact match count)
-        matches.sort(
-            key=lambda x: (
-                query in x.title.lower(),
-                query in x.content.lower(),
-                any(query in tag.lower() for tag in x.metadata.get("tags", [])),
-                x.published_at,
-            ),
-            reverse=True,
-        )
+            return matches
 
-        # Apply limit
-        if limit:
-            matches = matches[:limit]
-
-        return matches
+        except Exception as e:
+            raise ContentError(
+                "Failed to search content",
+                provider="rss",
+                details={"error": str(e), "query": query},
+            )
 
     async def process(
         self,

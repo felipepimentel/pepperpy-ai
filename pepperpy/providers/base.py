@@ -1,70 +1,117 @@
-"""Base classes and interfaces for Pepperpy providers.
+"""Base provider module for Pepperpy.
 
-This module defines the core abstractions for providers in the Pepperpy framework.
-Providers are responsible for handling specific capabilities like text generation,
-code completion, etc.
+This module defines the core interfaces and base classes for providers.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, AsyncGenerator, Dict, Optional, Sequence
+from uuid import UUID
+
+from pydantic import BaseModel, Field
+
+from pepperpy.core.types import Message, Response
 
 
-@dataclass
-class Message:
-    """Represents a message in a conversation."""
+class ProviderConfig(BaseModel):
+    """Configuration for a provider.
 
-    role: str
-    content: str
-    name: Optional[str] = None
-    function_call: Optional[Dict[str, Any]] = None
+    Attributes
+    ----------
+        api_key: API key for the provider
+        model: Model to use
+        temperature: Temperature for sampling
+        max_tokens: Maximum tokens to generate
+        timeout: Operation timeout in seconds
+        max_retries: Maximum number of retries
+        base_url: Base URL for API calls
+        extra: Extra provider-specific configuration
+    """
 
-
-@dataclass
-class Response:
-    """Represents a response from a provider."""
-
-    content: str
-    role: str = "assistant"
-    name: Optional[str] = None
-    function_call: Optional[Dict[str, Any]] = None
-    usage: Optional[Dict[str, int]] = None
-
-
-@dataclass
-class ProviderConfig:
-    """Configuration for a provider."""
-
-    name: str
-    api_key: Optional[str] = None
-    model: Optional[str] = None
-    parameters: Optional[Dict[str, Any]] = None
+    api_key: Optional[str] = Field(default=None)
+    model: Optional[str] = Field(default=None)
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(default=None, gt=0)
+    timeout: Optional[float] = Field(default=None, gt=0)
+    max_retries: Optional[int] = Field(default=None, ge=0)
+    base_url: Optional[str] = Field(default=None)
+    extra: Optional[Dict[str, Dict[str, Any]]] = Field(default=None)
 
 
-class Provider(ABC):
-    """Base interface for all providers."""
+class BaseProvider(ABC):
+    """Base class for providers.
 
-    @abstractmethod
-    def initialize(self, config: ProviderConfig) -> None:
-        """Initialize the provider with given configuration."""
-        pass
+    This class defines the interface that all providers must implement.
+    """
 
-    @abstractmethod
-    def cleanup(self) -> None:
-        """Clean up any resources used by the provider."""
-        pass
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize the provider.
 
-
-class BaseProvider(Provider):
-    """Base implementation of the Provider interface."""
-
-    def __init__(self):
-        self.config: Optional[ProviderConfig] = None
-
-    def initialize(self, config: ProviderConfig) -> None:
-        """Initialize the provider with given configuration."""
+        Args:
+        ----
+            config: Provider configuration
+        """
         self.config = config
+        self._initialized = False
 
-    def cleanup(self) -> None:
-        """Clean up any resources used by the provider."""
-        self.config = None
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def chat(
+        self,
+        messages: Sequence[Message],
+        **kwargs: Any,
+    ) -> Response:
+        """Send a chat message.
+
+        Args:
+        ----
+            messages: Messages to send
+            **kwargs: Additional arguments
+
+        Returns:
+        -------
+            Response from the provider
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def stream_chat(
+        self,
+        messages: Sequence[Message],
+        **kwargs: Any,
+    ) -> AsyncGenerator[Response, None]:
+        """Stream a chat message.
+
+        Args:
+        ----
+            messages: Messages to send
+            **kwargs: Additional arguments
+
+        Returns:
+        -------
+            Generator yielding responses
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    async def clear_history(self) -> None:
+        """Clear chat history."""
+        raise NotImplementedError
+
+    @property
+    def id(self) -> UUID:
+        """Get provider ID."""
+        return self._id
+
+    @property
+    def initialized(self) -> bool:
+        """Get initialization status."""
+        return self._initialized

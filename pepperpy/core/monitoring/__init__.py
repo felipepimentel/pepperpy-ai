@@ -4,9 +4,22 @@ import logging as python_logging
 import sys
 from typing import Any, Dict, Optional
 
-from .logging import LogLevel, LogRecord, get_logger, setup_logging
-from .metrics import MetricsManager, metrics_manager
-from .tracing import Span, SpanContext, TracingManager
+from pepperpy.monitoring.logger import (
+    LoggerFactory,
+    LoggerManager,
+    StructuredLogger,
+    get_logger,
+    get_structured_logger,
+    structured_logger,
+)
+from pepperpy.monitoring.metrics import (
+    Counter,
+    Gauge,
+    Histogram,
+    Metric,
+    MetricType,
+    MetricsRegistry,
+)
 
 # Configure root logger
 python_logging.basicConfig(
@@ -63,16 +76,19 @@ def configure_logging(
 
 
 __all__ = [
-    "LogLevel",
-    "LogRecord",
-    "MetricsManager",
-    "Span",
-    "SpanContext",
-    "TracingManager",
+    "LoggerFactory",
+    "LoggerManager",
+    "StructuredLogger",
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "Metric",
+    "MetricType",
+    "MetricsRegistry",
     "configure_logging",
     "get_logger",
+    "get_structured_logger",
     "log_event",
     "logger",
-    "metrics_manager",
-    "setup_logging",
+    "structured_logger",
 ]

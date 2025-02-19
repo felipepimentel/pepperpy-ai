@@ -3,6 +3,43 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel, Field
+
+
+class LLMError(Exception):
+    """Base class for LLM-related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            message: Error message
+            provider: Optional provider name that caused the error
+            model: Optional model name that caused the error
+            details: Optional additional details
+        """
+        super().__init__(message)
+        self.provider = provider
+        self.model = model
+        self.details = details or {}
+
+
+class LLMResponse(BaseModel):
+    """Response from LLM generation."""
+
+    content: str = Field(description="Generated text content")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata about the generation",
+    )
+
 
 class BaseLLMProvider(ABC):
     """Base class for LLM providers."""
@@ -16,7 +53,7 @@ class BaseLLMProvider(ABC):
         max_tokens: Optional[int] = None,
         stop: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> LLMResponse:
         """Generate text completion for the given prompt.
 
         Args:
@@ -27,7 +64,10 @@ class BaseLLMProvider(ABC):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Generated text completion
+            LLMResponse containing generated text and metadata
+
+        Raises:
+            LLMError: If generation fails
         """
         pass
 
@@ -40,7 +80,7 @@ class BaseLLMProvider(ABC):
         max_tokens: Optional[int] = None,
         stop: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> LLMResponse:
         """Generate chat completion for the given messages.
 
         Args:
@@ -51,7 +91,10 @@ class BaseLLMProvider(ABC):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Generated chat completion
+            LLMResponse containing generated text and metadata
+
+        Raises:
+            LLMError: If generation fails
         """
         pass
 
@@ -65,5 +108,8 @@ class BaseLLMProvider(ABC):
 
         Returns:
             List of embedding values
+
+        Raises:
+            LLMError: If embedding generation fails
         """
         pass

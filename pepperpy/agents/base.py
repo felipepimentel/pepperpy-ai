@@ -5,7 +5,7 @@ It defines the core functionality and interface that all Pepperpy agents
 must implement.
 """
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, TypeVar
@@ -14,25 +14,12 @@ from uuid import UUID
 from pepperpy.core.base import BaseComponent, Metadata
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.logging import get_logger
-from pepperpy.core.types import (
-    AgentState,
-    Message,
-    Response,
-)
+from pepperpy.core.processor import Processor
+from pepperpy.core.types import AgentState, Message, Response
 
 logger = get_logger(__name__)
 
 T = TypeVar("T")
-
-
-@dataclass
-class AgentMessage:
-    """Represents a message in agent communication."""
-
-    role: str
-    content: str
-    timestamp: datetime
-    metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -46,71 +33,13 @@ class AgentAction:
 
 
 @dataclass
-class AgentState:
-    """Represents the current state of an agent."""
+class AgentMemory:
+    """Represents the memory state of an agent."""
 
-    messages: List[AgentMessage]
+    messages: List[Message]
     actions: List[AgentAction]
     memory: Dict[str, Any]
     metadata: Optional[Dict[str, Any]] = None
-
-
-class BaseAgent(ABC):
-    """Base class for agents."""
-
-    @abstractmethod
-    async def process(
-        self, message: str, *, state: Optional[AgentState] = None, **kwargs: Any
-    ) -> AgentState:
-        """Process a message and update agent state.
-
-        Args:
-            message: Input message to process
-            state: Current agent state
-            **kwargs: Additional processing parameters
-
-        Returns:
-            Updated agent state
-        """
-        pass
-
-    @abstractmethod
-    async def act(
-        self, state: AgentState, *, action_type: Optional[str] = None, **kwargs: Any
-    ) -> AgentAction:
-        """Take an action based on current state.
-
-        Args:
-            state: Current agent state
-            action_type: Type of action to take
-            **kwargs: Additional action parameters
-
-        Returns:
-            Action taken by agent
-        """
-        pass
-
-    @abstractmethod
-    async def observe(
-        self,
-        action: AgentAction,
-        result: Any,
-        *,
-        state: Optional[AgentState] = None,
-        **kwargs: Any,
-    ) -> AgentState:
-        """Process action result and update state.
-
-        Args:
-            action: Action that was taken
-            result: Result of the action
-            state: Current agent state
-            **kwargs: Additional observation parameters
-
-        Returns:
-            Updated agent state
-        """
-        pass
 
 
 class BaseAgent(BaseComponent):
@@ -248,18 +177,25 @@ class BaseAgent(BaseComponent):
             return response
         except Exception as e:
             self.state = AgentState.ERROR
-            raise StateError(f"Agent execution failed: {e}") from e
+            raise e
 
-    def validate(self) -> None:
-        """Validate agent state and configuration.
+
+class AgentProcessor(Processor[Response]):
+    """Base class for agent response processors."""
+
+    @abstractmethod
+    async def process(self, response: Response, **kwargs: Any) -> Response:
+        """Process an agent response.
+
+        Args:
+            response: The response to process
+            **kwargs: Additional processing parameters
+
+        Returns:
+            Processed response
 
         Raises:
-            StateError: If agent state is invalid
-            ConfigurationError: If configuration is invalid
+            NotImplementedError: If not implemented by subclass
 
         """
-        super().validate()
-        if not isinstance(self.state, AgentState):
-            raise StateError(f"Invalid agent state: {self.state}")
-        if not isinstance(self.config, dict):
-            raise ConfigurationError("Agent config must be a dictionary")
+        raise NotImplementedError

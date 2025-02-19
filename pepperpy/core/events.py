@@ -513,8 +513,8 @@ class EventBus:
         """Initialize event bus."""
         self.event_store: Optional["EventStore"] = None
         self.correlator: Optional["EventCorrelator"] = None
-        self._handlers: Dict[EventType, set[EventHandler]] = {}
-        self._filters: Dict[EventHandler, set[EventFilter]] = {}
+        self._handlers: Dict[EventType, Set[EventHandler]] = {}
+        self._filters: Dict[EventHandler, Set[EventFilter]] = {}
         self._queue: asyncio.Queue[Event] = asyncio.Queue()
         self._running: bool = False
         self._task: Optional[asyncio.Task] = None
@@ -525,19 +525,19 @@ class EventBus:
         await metrics.record_metric(
             name="event_bus_queue_size",
             value=0,
-            metric_type=MetricType.GAUGE,
+            metric_type="gauge",
             labels={"bus_id": str(id(self))},
         )
         await metrics.record_metric(
             name="event_bus_processed_count",
             value=0,
-            metric_type=MetricType.COUNTER,
+            metric_type="counter",
             labels={"bus_id": str(id(self))},
         )
         await metrics.record_metric(
             name="event_bus_error_count",
             value=0,
-            metric_type=MetricType.COUNTER,
+            metric_type="counter",
             labels={"bus_id": str(id(self))},
         )
 

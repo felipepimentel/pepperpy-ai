@@ -29,3 +29,34 @@ class AgentError(PepperpyError):
     """Raised when an agent operation fails."""
 
     pass
+
+
+class ContentError(PepperpyError):
+    """Raised when content processing fails."""
+
+    pass
+
+
+class LLMError(PepperpyError):
+    """Raised when LLM operations fail."""
+
+    pass
+
+
+class SynthesisError(PepperpyError):
+    """Raised when synthesis operations fail."""
+
+    pass
+
+
+# Expose public interface
+__all__ = [
+    "AgentError",
+    "ConfigurationError",
+    "ContentError",
+    "LLMError",
+    "PepperpyError",
+    "ResourceError",
+    "SynthesisError",
+    "ValidationError",
+]

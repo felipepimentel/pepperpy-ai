@@ -17,11 +17,15 @@ from typing import (
     Optional,
     Protocol,
     TypeVar,
+    Union,
     runtime_checkable,
 )
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
+
+from pepperpy.core.base import BaseComponent as Processor
+from pepperpy.core.base import BaseProvider as Provider
 
 logger = logging.getLogger(__name__)
 
@@ -619,9 +623,28 @@ class BaseMemoryStore(ABC, Generic[T]):
 
 
 class MemoryError(Exception):
-    """Memory system error."""
+    """Base class for memory-related errors."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        provider: Optional[str] = None,
+        key: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            message: Error message
+            provider: Optional provider name that caused the error
+            key: Optional key that caused the error
+            details: Optional additional details
+        """
+        super().__init__(message)
+        self.provider = provider
+        self.key = key
+        self.details = details or {}
 
 
 class MemoryInitError(MemoryError):
@@ -724,22 +747,29 @@ class MemoryItem(Generic[T]):
         self.ttl = ttl
 
 
-class BaseMemoryProvider(ABC):
+class MemoryProvider(Provider):
     """Base class for memory providers."""
 
     @abstractmethod
     async def get(
-        self, key: str, *, default: Optional[Any] = None, **kwargs: Any
-    ) -> Optional[Any]:
-        """Retrieve a value from memory.
+        self,
+        key: str,
+        *,
+        default: Any = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Get a value from memory.
 
         Args:
             key: Key to retrieve
-            default: Value to return if key not found
+            default: Default value if key doesn't exist
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Retrieved value or default
+            Stored value or default
+
+        Raises:
+            MemoryError: If retrieval fails
         """
         pass
 
@@ -749,23 +779,30 @@ class BaseMemoryProvider(ABC):
         key: str,
         value: Any,
         *,
-        ttl: Optional[int] = None,
+        expires_in: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
-        """Store a value in memory.
+        """Set a value in memory.
 
         Args:
-            key: Key to store value under
+            key: Key to store
             value: Value to store
-            ttl: Time-to-live in seconds
-            metadata: Additional metadata to store
+            expires_in: Optional expiration time in seconds
+            metadata: Optional metadata to store
             **kwargs: Additional provider-specific parameters
+
+        Raises:
+            MemoryError: If storage fails
         """
         pass
 
     @abstractmethod
-    async def delete(self, key: str, **kwargs: Any) -> bool:
+    async def delete(
+        self,
+        key: str,
+        **kwargs: Any,
+    ) -> bool:
         """Delete a value from memory.
 
         Args:
@@ -773,31 +810,113 @@ class BaseMemoryProvider(ABC):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            True if key was deleted, False if not found
+            True if key was deleted, False if it didn't exist
+
+        Raises:
+            MemoryError: If deletion fails
         """
         pass
 
     @abstractmethod
-    async def search(
-        self, pattern: str, *, limit: Optional[int] = None, **kwargs: Any
-    ) -> List[str]:
-        """Search for keys matching pattern.
+    async def exists(
+        self,
+        key: str,
+        **kwargs: Any,
+    ) -> bool:
+        """Check if a key exists in memory.
 
         Args:
-            pattern: Pattern to match against keys
-            limit: Maximum number of keys to return
+            key: Key to check
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            True if key exists, False otherwise
+
+        Raises:
+            MemoryError: If check fails
+        """
+        pass
+
+    @abstractmethod
+    async def clear(
+        self,
+        pattern: Optional[str] = None,
+        **kwargs: Any,
+    ) -> int:
+        """Clear memory entries.
+
+        Args:
+            pattern: Optional pattern to match keys
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Number of entries cleared
+
+        Raises:
+            MemoryError: If clearing fails
+        """
+        pass
+
+    @abstractmethod
+    async def keys(
+        self,
+        pattern: Optional[str] = None,
+        **kwargs: Any,
+    ) -> List[str]:
+        """Get all keys in memory.
+
+        Args:
+            pattern: Optional pattern to match keys
             **kwargs: Additional provider-specific parameters
 
         Returns:
             List of matching keys
+
+        Raises:
+            MemoryError: If key retrieval fails
         """
         pass
 
     @abstractmethod
-    async def clear(self, **kwargs: Any) -> None:
-        """Clear all values from memory.
+    async def entries(
+        self,
+        pattern: Optional[str] = None,
+        **kwargs: Any,
+    ) -> List[MemoryEntry]:
+        """Get all entries in memory.
 
         Args:
+            pattern: Optional pattern to match keys
             **kwargs: Additional provider-specific parameters
+
+        Returns:
+            List of matching entries
+
+        Raises:
+            MemoryError: If entry retrieval fails
+        """
+        pass
+
+
+class MemoryProcessor(Processor):
+    """Base class for memory processors."""
+
+    @abstractmethod
+    async def process(
+        self,
+        entries: Union[MemoryEntry, List[MemoryEntry]],
+        **kwargs: Any,
+    ) -> Union[MemoryEntry, List[MemoryEntry]]:
+        """Process memory entries.
+
+        Args:
+            entries: Single entry or list to process
+            **kwargs: Additional processor-specific parameters
+
+        Returns:
+            Processed entry(s)
+
+        Raises:
+            MemoryError: If processing fails
         """
         pass

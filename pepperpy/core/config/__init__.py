@@ -13,6 +13,9 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from .base import Configuration, ConfigurationError
+from .loader import ProcessorLoader, ProviderLoader, load_class
+from .manager import ConfigurationManager
 from .models import (
     Config,
     LoggingConfig,
@@ -25,7 +28,6 @@ from .unified import (
     ConfigHook,
     ConfigSource,
     ConfigState,
-    ConfigurationError,
     UnifiedConfig,
 )
 
@@ -147,8 +149,10 @@ def remove_config_hook(event: str, callback: Any) -> None:
 __all__ = [
     # Configuration manager
     "config_manager",
+    "ConfigurationManager",
     # Configuration models
     "Config",
+    "Configuration",
     "LoggingConfig",
     "MonitoringConfig",
     "ProviderConfig",
@@ -159,4 +163,8 @@ __all__ = [
     "ConfigSource",
     "ConfigState",
     "UnifiedConfig",
+    # Dynamic loading
+    "ProviderLoader",
+    "ProcessorLoader",
+    "load_class",
 ]

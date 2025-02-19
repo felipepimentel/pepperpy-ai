@@ -1,13 +1,13 @@
 """OpenAI provider for LLM capability."""
 
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from pydantic import BaseModel, Field
 
-from pepperpy.llm.base import BaseLLMProvider
+from pepperpy.llm.base import BaseLLMProvider, LLMError, LLMResponse
 
 
 class OpenAIConfig(BaseModel):
@@ -36,11 +36,22 @@ class OpenAIProvider(BaseLLMProvider):
 
         Args:
             **config: Configuration parameters
+
+        Raises:
+            LLMError: If configuration is invalid
         """
-        self.config = OpenAIConfig(**config)
-        self.client = AsyncOpenAI(
-            api_key=self.config.api_key or os.getenv("OPENAI_API_KEY")
-        )
+        try:
+            self.config = OpenAIConfig(**config)
+            self.client = AsyncOpenAI(
+                api_key=self.config.api_key or os.getenv("OPENAI_API_KEY")
+            )
+        except Exception as e:
+            raise LLMError(
+                "Failed to initialize OpenAI provider",
+                provider="openai",
+                model=config.get("model"),
+                details={"error": str(e)},
+            )
 
     async def generate(
         self,
@@ -50,7 +61,7 @@ class OpenAIProvider(BaseLLMProvider):
         max_tokens: Optional[int] = None,
         stop: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> LLMResponse:
         """Generate text completion for the given prompt.
 
         Args:
@@ -61,17 +72,35 @@ class OpenAIProvider(BaseLLMProvider):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Generated text completion
+            LLMResponse containing generated text and metadata
+
+        Raises:
+            LLMError: If generation fails
         """
-        response = await self.client.chat.completions.create(
-            model=self.config.model,
-            messages=[{"role": "user", "content": prompt}],
-            temperature=temperature or self.config.temperature,
-            max_tokens=max_tokens or self.config.max_tokens,
-            stop=stop,
-            **kwargs,
-        )
-        return response.choices[0].message.content
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.config.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature or self.config.temperature,
+                max_tokens=max_tokens or self.config.max_tokens,
+                stop=stop,
+                **kwargs,
+            )
+            return LLMResponse(
+                content=response.choices[0].message.content,
+                metadata={
+                    "model": self.config.model,
+                    "finish_reason": response.choices[0].finish_reason,
+                    "usage": response.usage.model_dump() if response.usage else {},
+                },
+            )
+        except Exception as e:
+            raise LLMError(
+                "Failed to generate completion",
+                provider="openai",
+                model=self.config.model,
+                details={"error": str(e), "prompt": prompt[:100]},
+            )
 
     async def chat(
         self,
@@ -81,7 +110,7 @@ class OpenAIProvider(BaseLLMProvider):
         max_tokens: Optional[int] = None,
         stop: Optional[List[str]] = None,
         **kwargs: Any,
-    ) -> str:
+    ) -> LLMResponse:
         """Generate chat completion for the given messages.
 
         Args:
@@ -92,22 +121,44 @@ class OpenAIProvider(BaseLLMProvider):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Generated chat completion
-        """
-        # Convert messages to proper type
-        chat_messages: List[ChatCompletionMessageParam] = [
-            {"role": msg["role"], "content": msg["content"]} for msg in messages
-        ]
+            LLMResponse containing generated text and metadata
 
-        response = await self.client.chat.completions.create(
-            model=self.config.model,
-            messages=chat_messages,
-            temperature=temperature or self.config.temperature,
-            max_tokens=max_tokens or self.config.max_tokens,
-            stop=stop,
-            **kwargs,
-        )
-        return response.choices[0].message.content
+        Raises:
+            LLMError: If generation fails
+        """
+        try:
+            # Convert messages to proper type
+            chat_messages = cast(
+                List[ChatCompletionMessageParam],
+                [{"role": msg["role"], "content": msg["content"]} for msg in messages],
+            )
+
+            response = await self.client.chat.completions.create(
+                model=self.config.model,
+                messages=chat_messages,
+                temperature=temperature or self.config.temperature,
+                max_tokens=max_tokens or self.config.max_tokens,
+                stop=stop,
+                **kwargs,
+            )
+            return LLMResponse(
+                content=response.choices[0].message.content,
+                metadata={
+                    "model": self.config.model,
+                    "finish_reason": response.choices[0].finish_reason,
+                    "usage": response.usage.model_dump() if response.usage else {},
+                },
+            )
+        except Exception as e:
+            raise LLMError(
+                "Failed to generate chat completion",
+                provider="openai",
+                model=self.config.model,
+                details={
+                    "error": str(e),
+                    "messages": [m.get("content", "")[:50] for m in messages[-2:]],
+                },
+            )
 
     async def embed(self, text: str, **kwargs: Any) -> List[float]:
         """Generate embeddings for the given text.
@@ -118,8 +169,19 @@ class OpenAIProvider(BaseLLMProvider):
 
         Returns:
             List of embedding values
+
+        Raises:
+            LLMError: If embedding generation fails
         """
-        response = await self.client.embeddings.create(
-            model="text-embedding-ada-002", input=text, **kwargs
-        )
-        return response.data[0].embedding
+        try:
+            response = await self.client.embeddings.create(
+                model="text-embedding-ada-002", input=text, **kwargs
+            )
+            return response.data[0].embedding
+        except Exception as e:
+            raise LLMError(
+                "Failed to generate embeddings",
+                provider="openai",
+                model="text-embedding-ada-002",
+                details={"error": str(e), "text": text[:100]},
+            )

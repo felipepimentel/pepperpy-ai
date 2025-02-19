@@ -1,25 +1,52 @@
-"""Domain exceptions for the providers module."""
+"""Domain module for providers.
+
+This module defines domain-specific classes and errors for providers.
+"""
+
+from typing import Any, Dict, Optional
+
+from pepperpy.core.errors import PepperpyError
 
 
-class ProviderError(Exception):
-    """Base class for provider-related exceptions."""
+class ProviderError(PepperpyError):
+    """Base class for provider errors."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        provider_type: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+        ----
+            message: Error message
+            provider_type: Type of provider that raised the error
+            details: Additional error details
+        """
+        super().__init__(message)
+        self.provider_type = provider_type
+        self.details = details or {}
 
 
 class ProviderNotFoundError(ProviderError):
-    """Raised when a requested provider is not found."""
+    """Error raised when a provider is not found."""
 
-    pass
+    def __init__(
+        self,
+        provider_type: str,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
 
-
-class ProviderInitializationError(ProviderError):
-    """Raised when a provider fails to initialize."""
-
-    pass
-
-
-class ProviderConfigurationError(ProviderError):
-    """Raised when a provider is misconfigured."""
-
-    pass
+        Args:
+        ----
+            provider_type: Type of provider that was not found
+            details: Additional error details
+        """
+        super().__init__(
+            f"Provider not found: {provider_type}",
+            provider_type=provider_type,
+            details=details,
+        )

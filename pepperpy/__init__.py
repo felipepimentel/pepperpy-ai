@@ -15,7 +15,7 @@ from loguru import logger
 
 from pepperpy.core.base import BaseAgent
 from pepperpy.core.client import PepperpyClient
-from pepperpy.core.config import PepperpyConfig
+from pepperpy.core.config import Configuration, PepperpyConfig
 from pepperpy.core.hub import Hub as PepperpyHub
 from pepperpy.core.hub.base import Hub, HubConfig, HubType
 from pepperpy.core.types import Message, MessageType, Response
@@ -30,6 +30,7 @@ __all__ = [
     "Pepperpy",
     "BaseAgent",
     "PepperpyClient",
+    "Configuration",
     "PepperpyConfig",
     "Message",
     "MessageType",

@@ -128,6 +128,10 @@ class ConfigError(PepperpyError):
         )
 
 
+# Alias for backward compatibility
+ConfigurationError = ConfigError
+
+
 class ValidationError(PepperpyError):
     """Raised when validation fails."""
 

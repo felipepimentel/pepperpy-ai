@@ -1,52 +1,16 @@
-"""Provider package initialization.
+"""Providers module for Pepperpy.
 
-This module provides access to different AI providers through a unified interface.
+This module provides the base classes and implementations for different providers
+that can be used with the framework.
 """
 
-from typing import Dict, Type
-
-from pepperpy.monitoring import logger as logger
-from pepperpy.providers.base import BaseProvider, Provider, ProviderConfig
-from pepperpy.providers.services.openai import OpenAIProvider
-from pepperpy.providers.services.openrouter import OpenRouterProvider
-
-# Registry of available providers
-PROVIDERS: Dict[str, Type[BaseProvider]] = {
-    "openai": OpenAIProvider,
-    "openrouter": OpenRouterProvider,
-}
-
-
-def get_provider(
-    provider_name: str, config: ProviderConfig | None = None
-) -> BaseProvider:
-    """Get a provider instance by name.
-
-    Args:
-    ----
-        provider_name: Name of the provider to get
-        config: Optional provider configuration
-
-    Returns:
-    -------
-        An instance of the provider
-
-    Raises:
-    ------
-        ValueError: If the provider is not found
-
-    """
-    if provider_name not in PROVIDERS:
-        raise ValueError(f"Provider '{provider_name}' not found")
-
-    provider_class = PROVIDERS[provider_name]
-    return provider_class(config or ProviderConfig())
-
+from pepperpy.providers.base import BaseProvider
+from pepperpy.providers.domain import ProviderError, ProviderNotFoundError
+from pepperpy.providers.manager import ProviderManager
 
 __all__ = [
     "BaseProvider",
-    "Provider",
-    "ProviderConfig",
-    "OpenAIProvider",
-    "OpenRouterProvider",
+    "ProviderError",
+    "ProviderNotFoundError",
+    "ProviderManager",
 ]

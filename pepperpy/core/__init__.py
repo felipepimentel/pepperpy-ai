@@ -11,6 +11,7 @@ from pepperpy.core.base import (
     BaseProvider,
     BaseResource,
     BaseWorkflow,
+    ComponentID,
     Identifiable,
     Lifecycle,
     Metadata,
@@ -35,7 +36,7 @@ from pepperpy.core.capabilities import (
     registry as capability_registry,
 )
 from pepperpy.core.client import PepperpyClient
-from pepperpy.core.config import PepperpyConfig
+from pepperpy.core.config import Configuration, PepperpyConfig
 from pepperpy.core.errors import (
     ConfigurationError,
     ErrorCategory,
@@ -46,6 +47,7 @@ from pepperpy.core.errors import (
 )
 from pepperpy.core.events import Event, EventBus, EventHandler, EventType
 from pepperpy.core.factory import AgentFactory, ComponentFactory
+from pepperpy.core.processor import Processor
 from pepperpy.core.protocols import (
     FrameworkAdapter,
     Memory,
@@ -81,6 +83,7 @@ __all__ = [
     "BaseProvider",
     "BaseResource",
     "BaseWorkflow",
+    "ComponentID",
     "Identifiable",
     "Lifecycle",
     "Metadata",
@@ -111,6 +114,7 @@ __all__ = [
     "capability_registry",
     # Configuration
     "ComponentFactory",
+    "Configuration",
     "PepperpyConfig",
     # Events
     "Event",
@@ -142,6 +146,7 @@ __all__ = [
     "ResourceID",
     "WorkflowID",
     "PepperpyClient",
+    "Processor",
 ]
 
 __version__ = "0.1.0"

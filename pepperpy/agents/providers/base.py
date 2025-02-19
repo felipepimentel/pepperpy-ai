@@ -1,10 +1,7 @@
-"""Base provider implementation.
+"""Base provider implementation for agents."""
 
-This module provides the base provider class that all providers must inherit from.
-It defines the core functionality and interface that all Pepperpy providers
-must implement.
-"""
-
+import asyncio
+import logging
 from abc import ABC, abstractmethod
 from typing import (
     Any,
@@ -17,11 +14,19 @@ from typing import (
     TypeVar,
     Union,
 )
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 from typing_extensions import NotRequired
 
+from pepperpy.agents.base import (
+    AgentConfig,
+    AgentError,
+    AgentMessage,
+    AgentProvider,
+    AgentResponse,
+    AgentState,
+)
 from pepperpy.core.base import BaseComponent
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.logging import get_logger
@@ -34,7 +39,7 @@ from .domain import (
 )
 from .types import ProviderMessage, ProviderResponse
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T", covariant=True)
 
@@ -375,3 +380,292 @@ class Provider(ABC):
 
         """
         pass
+
+
+class BaseAgentProvider(AgentProvider):
+    """Base implementation of agent provider."""
+
+    def __init__(self, **config: Any) -> None:
+        """Initialize provider with configuration.
+
+        Args:
+            **config: Configuration parameters
+
+        Raises:
+            ConfigurationError: If configuration is invalid
+        """
+        super().__init__()
+        self.config = config
+        self._agents: Dict[str, AgentConfig] = {}
+        self._states: Dict[str, AgentState] = {}
+        self._locks: Dict[str, asyncio.Lock] = {}
+
+    async def create(
+        self,
+        config: AgentConfig,
+        **kwargs: Any,
+    ) -> str:
+        """Create a new agent.
+
+        Args:
+            config: Agent configuration
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Agent ID
+
+        Raises:
+            AgentError: If creation fails
+            ConfigurationError: If configuration is invalid
+        """
+        try:
+            # Generate ID if not provided
+            agent_id = str(config.id or uuid4())
+
+            # Validate configuration
+            if agent_id in self._agents:
+                raise ConfigurationError(f"Agent {agent_id} already exists")
+
+            # Initialize state
+            self._agents[agent_id] = config
+            self._states[agent_id] = AgentState.CREATED
+            self._locks[agent_id] = asyncio.Lock()
+
+            # Initialize agent
+            try:
+                self._states[agent_id] = AgentState.INITIALIZING
+                await self._initialize_agent(agent_id, config, **kwargs)
+                self._states[agent_id] = AgentState.READY
+            except Exception as e:
+                self._states[agent_id] = AgentState.ERROR
+                raise AgentError(
+                    f"Failed to initialize agent: {e}",
+                    agent_id=agent_id,
+                    provider=self.__class__.__name__,
+                )
+
+            return agent_id
+
+        except Exception as e:
+            raise AgentError(
+                f"Failed to create agent: {e}",
+                provider=self.__class__.__name__,
+            )
+
+    async def execute(
+        self,
+        agent_id: str,
+        messages: List[AgentMessage],
+        **kwargs: Any,
+    ) -> AgentResponse:
+        """Execute agent with messages.
+
+        Args:
+            agent_id: Agent ID to execute
+            messages: Messages to process
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Agent response
+
+        Raises:
+            AgentError: If execution fails
+            StateError: If agent is not in valid state
+        """
+        if agent_id not in self._agents:
+            raise AgentError(
+                f"Agent {agent_id} not found",
+                agent_id=agent_id,
+                provider=self.__class__.__name__,
+            )
+
+        async with self._locks[agent_id]:
+            try:
+                # Check state
+                if self._states[agent_id] != AgentState.READY:
+                    raise StateError(
+                        f"Agent {agent_id} not ready (state: {self._states[agent_id]})"
+                    )
+
+                # Execute
+                self._states[agent_id] = AgentState.EXECUTING
+                response = await self._execute_agent(
+                    agent_id, self._agents[agent_id], messages, **kwargs
+                )
+                self._states[agent_id] = AgentState.READY
+                return response
+
+            except Exception as e:
+                self._states[agent_id] = AgentState.ERROR
+                raise AgentError(
+                    f"Failed to execute agent: {e}",
+                    agent_id=agent_id,
+                    provider=self.__class__.__name__,
+                )
+
+    async def update(
+        self,
+        agent_id: str,
+        config: AgentConfig,
+        **kwargs: Any,
+    ) -> None:
+        """Update agent configuration.
+
+        Args:
+            agent_id: Agent ID to update
+            config: New configuration
+            **kwargs: Additional provider-specific parameters
+
+        Raises:
+            AgentError: If update fails
+            StateError: If agent is not in valid state
+        """
+        if agent_id not in self._agents:
+            raise AgentError(
+                f"Agent {agent_id} not found",
+                agent_id=agent_id,
+                provider=self.__class__.__name__,
+            )
+
+        async with self._locks[agent_id]:
+            try:
+                # Check state
+                if self._states[agent_id] not in {AgentState.READY, AgentState.ERROR}:
+                    raise StateError(
+                        f"Agent {agent_id} not ready (state: {self._states[agent_id]})"
+                    )
+
+                # Update configuration
+                old_config = self._agents[agent_id]
+                self._agents[agent_id] = config
+
+                # Re-initialize if needed
+                if self._needs_reinitialization(old_config, config):
+                    self._states[agent_id] = AgentState.INITIALIZING
+                    await self._initialize_agent(agent_id, config, **kwargs)
+                    self._states[agent_id] = AgentState.READY
+
+            except Exception as e:
+                self._states[agent_id] = AgentState.ERROR
+                raise AgentError(
+                    f"Failed to update agent: {e}",
+                    agent_id=agent_id,
+                    provider=self.__class__.__name__,
+                )
+
+    async def delete(
+        self,
+        agent_id: str,
+        **kwargs: Any,
+    ) -> None:
+        """Delete an agent.
+
+        Args:
+            agent_id: Agent ID to delete
+            **kwargs: Additional provider-specific parameters
+
+        Raises:
+            AgentError: If deletion fails
+        """
+        if agent_id not in self._agents:
+            return
+
+        async with self._locks[agent_id]:
+            try:
+                # Clean up
+                self._states[agent_id] = AgentState.CLEANING
+                await self._cleanup_agent(agent_id, self._agents[agent_id], **kwargs)
+                self._states[agent_id] = AgentState.TERMINATED
+
+                # Remove from tracking
+                del self._agents[agent_id]
+                del self._states[agent_id]
+                del self._locks[agent_id]
+
+            except Exception as e:
+                self._states[agent_id] = AgentState.ERROR
+                raise AgentError(
+                    f"Failed to delete agent: {e}",
+                    agent_id=agent_id,
+                    provider=self.__class__.__name__,
+                )
+
+    async def _initialize_agent(
+        self,
+        agent_id: str,
+        config: AgentConfig,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize agent resources.
+
+        Args:
+            agent_id: Agent ID to initialize
+            config: Agent configuration
+            **kwargs: Additional provider-specific parameters
+
+        Raises:
+            AgentError: If initialization fails
+        """
+        pass
+
+    async def _execute_agent(
+        self,
+        agent_id: str,
+        config: AgentConfig,
+        messages: List[AgentMessage],
+        **kwargs: Any,
+    ) -> AgentResponse:
+        """Execute agent implementation.
+
+        Args:
+            agent_id: Agent ID to execute
+            config: Agent configuration
+            messages: Messages to process
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            Agent response
+
+        Raises:
+            AgentError: If execution fails
+        """
+        raise NotImplementedError
+
+    async def _cleanup_agent(
+        self,
+        agent_id: str,
+        config: AgentConfig,
+        **kwargs: Any,
+    ) -> None:
+        """Clean up agent resources.
+
+        Args:
+            agent_id: Agent ID to clean up
+            config: Agent configuration
+            **kwargs: Additional provider-specific parameters
+
+        Raises:
+            AgentError: If cleanup fails
+        """
+        pass
+
+    def _needs_reinitialization(
+        self,
+        old_config: AgentConfig,
+        new_config: AgentConfig,
+    ) -> bool:
+        """Check if agent needs reinitialization after config update.
+
+        Args:
+            old_config: Previous configuration
+            new_config: New configuration
+
+        Returns:
+            True if reinitialization needed
+        """
+        # Reinitialize if core settings change
+        return (
+            old_config.provider != new_config.provider
+            or old_config.model != new_config.model
+            or old_config.memory != new_config.memory
+        )
