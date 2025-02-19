@@ -4,9 +4,8 @@ This module provides integration with OpenAI's API, supporting both chat complet
 and streaming capabilities.
 """
 
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
-from typing import Any, Literal, TypeAlias, TypeVar, cast
-from uuid import UUID, uuid4
+from collections.abc import AsyncGenerator, Sequence
+from typing import Any, Dict, Literal, TypeAlias, TypeVar, Union
 
 from openai import APIError, AsyncOpenAI, AsyncStream, OpenAIError
 from openai._types import NotGiven
@@ -20,26 +19,27 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
-from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from pydantic import ConfigDict, Field, SecretStr
 
-from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
-from pepperpy.monitoring import bind_logger
-from pepperpy.providers.base import (
-    BaseProvider,
-    GenerateKwargs,
-    ProviderConfig,
-    StreamKwargs,
+from pepperpy.core.errors import ConfigurationError
+from pepperpy.core.logging import get_logger
+from pepperpy.core.messages import Message, ProviderMessage, ProviderResponse
+from pepperpy.core.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.providers.errors import (
+    ProviderConfigurationError as ProviderConfigError,
 )
-from pepperpy.providers.domain import (
-    ProviderAPIError,
-    ProviderConfigError,
+from pepperpy.core.providers.errors import (
     ProviderError,
-    ProviderInitError,
+)
+from pepperpy.core.providers.errors import (
+    ProviderResourceError as ProviderInitError,
+)
+from pepperpy.core.providers.errors import (
+    ProviderRuntimeError as ProviderAPIError,
 )
 
 # Configure logger
-logger = bind_logger(provider="openai")
+logger = get_logger(__name__)
 
 # Type variable for OpenAI response types
 ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
@@ -54,6 +54,10 @@ ModelParam: TypeAlias = str
 TemperatureParam: TypeAlias = float
 MaxTokensParam: TypeAlias = int
 
+# Type aliases for provider parameters
+GenerateKwargs = Dict[str, Any]
+StreamKwargs = Dict[str, Any]
+
 
 class OpenAIConfig(ProviderConfig):
     """OpenAI provider configuration.
@@ -66,10 +70,8 @@ class OpenAIConfig(ProviderConfig):
         stop_sequences: Optional stop sequences
         timeout: Request timeout in seconds
         max_retries: Maximum number of retries
-
     """
 
-    provider_type: str = Field(default="openai", description="The type of provider")
     api_key: SecretStr = Field(..., description="OpenAI API key")
     model: str = Field(default="gpt-4", description="Model to use")
     temperature: float = Field(default=0.7, description="Sampling temperature")
@@ -91,13 +93,18 @@ class OpenAIProvider(BaseProvider):
 
         Args:
             config: Provider configuration
-
         """
         # Convert to OpenAIConfig if needed
         openai_config = (
             config
             if isinstance(config, OpenAIConfig)
-            else OpenAIConfig(**config.model_dump())
+            else OpenAIConfig(
+                type="openai",
+                config={
+                    **config.config,
+                    "api_key": config.config.get("api_key", ""),
+                },
+            )
         )
         super().__init__(openai_config)
         self._client: AsyncOpenAI | None = None
@@ -110,12 +117,11 @@ class OpenAIProvider(BaseProvider):
             ProviderError: If initialization fails due to invalid credentials
             ProviderConfigError: If configuration is invalid
             ProviderAPIError: If API connection fails
-
         """
         try:
             base_url = (
                 "https://openrouter.ai/api/v1"
-                if self._config.provider_type == "openrouter"
+                if self._config.type == "openrouter"
                 else None
             )
             self._client = AsyncOpenAI(
@@ -125,6 +131,7 @@ class OpenAIProvider(BaseProvider):
                 base_url=base_url,
             )
             logger.info(f"Initialized OpenAI provider - Model: {self._config.model}")
+            self._initialized = True
         except OpenAIError as api_error:  # type: ignore
             msg = str(api_error)  # type: ignore
             raise ProviderAPIError(msg) from api_error
@@ -143,6 +150,8 @@ class OpenAIProvider(BaseProvider):
             try:
                 await self._client.close()
                 self._client = None
+                await super().cleanup()
+                self._initialized = False
                 logger.info("Cleaned up OpenAI provider")
             except Exception as exc:  # type: ignore
                 logger.error(f"Error during cleanup: {exc!r}")
@@ -162,307 +171,119 @@ class OpenAIProvider(BaseProvider):
 
         Returns:
             List of OpenAI chat completion messages
-
         """
         converted: list[ChatCompletionMessageParam] = []
         for msg in messages:
-            content = str(msg.content.get("text", ""))
-            if msg.type == MessageType.QUERY:
+            content = str(msg.content)
+            role = msg.metadata.get("role", "user")
+
+            if role == "user":
                 converted.append(
                     ChatCompletionUserMessageParam(role="user", content=content)
                 )
-            elif msg.type == MessageType.RESPONSE:
+            elif role == "assistant":
                 converted.append(
                     ChatCompletionAssistantMessageParam(
                         role="assistant", content=content
                     )
                 )
-            elif msg.type == MessageType.COMMAND:
+            elif role == "system":
                 converted.append(
                     ChatCompletionSystemMessageParam(role="system", content=content)
                 )
+
         return converted
 
-    async def generate(
-        self, messages: list[Message], **kwargs: GenerateKwargs
-    ) -> Response:
-        """Generate a response from OpenAI.
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message.
 
         Args:
-            messages: List of messages to generate from
-            **kwargs: Additional arguments to pass to the API
+            message: Provider message to process
 
         Returns:
-            Generated response
+            Provider response or async generator of responses
 
         Raises:
-            ProviderError: If generation fails
-
+            ProviderError: If message processing fails
+            ConfigurationError: If provider is not initialized
         """
+        if not self.is_initialized:
+            raise ConfigurationError("Provider not initialized")
+
         try:
             if not self._client:
-                raise ProviderInitError(
-                    message="Provider not initialized", provider_type="openai"
+                raise ProviderError("OpenAI client not initialized")
+
+            # Convert message to OpenAI format
+            messages = self._convert_messages([message])
+
+            # Get generation parameters
+            temperature = message.metadata.get("temperature", self._config.temperature)
+            max_tokens = message.metadata.get("max_tokens", self._config.max_tokens)
+            stream = message.metadata.get("stream", False)
+
+            # Generate response
+            if stream:
+                response = await self._client.chat.completions.create(
+                    model=self._config.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
                 )
-
-            model_params = kwargs.get("model_params", {})
-            stop_sequences = kwargs.get("stop_sequences")
-
-            converted_messages = self._convert_messages(messages)
-            model = str(model_params.get("model", self._config.model))
-            temperature = float(
-                model_params.get("temperature", self._config.temperature)
-            )
-            max_tokens = int(model_params.get("max_tokens", self._config.max_tokens))
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
-
-            response = await self._client.chat.completions.create(
-                messages=converted_messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=False,
-                stop=stop,
-            )
-
-            # Try to parse response ID as UUID, fallback to new UUID if invalid
-            try:
-                response_id = UUID(response.id)
-            except ValueError:
-                response_id = uuid4()
-                logger.debug(
-                    "Invalid UUID from provider, generated new one",
-                    original_id=response.id,
-                    new_id=str(response_id),
+                return self._stream_response(response)
+            else:
+                response = await self._client.chat.completions.create(
+                    model=self._config.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=False,
                 )
-
-            # Convert usage data to strings
-            usage_data = {}
-            if response.usage:
-                usage_data = {
-                    k: str(v) if v is not None else ""
-                    for k, v in response.usage.model_dump().items()
-                }
-
-            return Response(
-                id=response_id,
-                message_id=messages[-1].id,
-                content={"text": response.choices[0].message.content},
-                status=ResponseStatus.SUCCESS,
-                metadata={
-                    "model": model,
-                    "temperature": str(temperature),
-                    "max_tokens": str(max_tokens),
-                    "usage": usage_data,
-                },
-            )
+                return ProviderResponse(
+                    content=response.choices[0].message.content or "",
+                    metadata={
+                        "model": response.model,
+                        "usage": response.usage.model_dump() if response.usage else {},
+                    },
+                )
 
         except OpenAIError as api_error:  # type: ignore
             msg = str(api_error)  # type: ignore
             raise ProviderAPIError(msg) from api_error
-        except ValueError as val_error:
-            msg = str(val_error)
-            raise ProviderConfigError(msg) from val_error
         except Exception as exc:
             msg = str(exc)
             raise ProviderError(
-                message=msg, provider_type="openai", details={"error": str(exc)}
+                message=msg,
+                provider_type="openai",
+                details={"error": str(exc)},
             ) from exc
-
-    async def stream(
-        self, messages: list[Message], **kwargs: StreamKwargs
-    ) -> AsyncIterator[Response]:
-        """Stream responses from OpenAI.
-
-        Args:
-            messages: List of messages to generate from
-            **kwargs: Additional arguments to pass to the API
-
-        Returns:
-            AsyncIterator[Response]: Stream of responses
-
-        Raises:
-            Exception: If streaming fails
-
-        """
-        try:
-            if not self._client:
-                raise ProviderInitError(
-                    message="Provider not initialized", provider_type="openai"
-                )
-
-            model_params = kwargs.get("model_params", {})
-            stop_sequences = kwargs.get("stop_sequences")
-
-            converted_messages = self._convert_messages(messages)
-            model = str(model_params.get("model", self._config.model))
-            temperature = float(
-                model_params.get("temperature", self._config.temperature)
-            )
-            max_tokens = int(model_params.get("max_tokens", self._config.max_tokens))
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
-
-            stream = await self._client.chat.completions.create(
-                messages=converted_messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True,
-                stop=stop,
-            )
-
-            async for chunk in stream:
-                chunk_choices: Sequence[ChunkChoice] = chunk.choices
-                if not chunk_choices:
-                    continue
-                choice = chunk_choices[0]
-                if choice.delta and choice.delta.content:
-                    # Try to parse chunk ID as UUID, fallback to new UUID if invalid
-                    try:
-                        chunk_id = UUID(chunk.id)
-                    except ValueError:
-                        chunk_id = uuid4()
-                        logger.debug(
-                            "Invalid UUID from provider in stream, generated new one",
-                            original_id=chunk.id,
-                            new_id=str(chunk_id),
-                        )
-
-                    # Convert usage data to strings if present
-                    usage_data = {}
-                    if hasattr(chunk, "usage") and chunk.usage:
-                        usage_data = {
-                            k: str(v) if v is not None else ""
-                            for k, v in chunk.usage.model_dump().items()
-                        }
-
-                    yield Response(
-                        id=chunk_id,
-                        message_id=messages[-1].id,
-                        content={"text": str(choice.delta.content)},
-                        status=ResponseStatus.SUCCESS,
-                        metadata={
-                            "model": chunk.model,
-                            "index": choice.index,
-                            "usage": usage_data,
-                            "original_id": chunk.id,  # Store original ID in metadata
-                        },
-                    )
-
-        except Exception as error:
-            yield Response(
-                id=uuid4(),
-                message_id=messages[-1].id if messages else uuid4(),
-                content={"error": str(error)},
-                status=ResponseStatus.ERROR,
-                metadata={"error": str(error)},
-            )
 
     async def _stream_response(
         self, response: AsyncStream[ChatCompletionChunk]
-    ) -> AsyncGenerator[str, None]:
-        """Process streaming response.
+    ) -> AsyncGenerator[ProviderResponse, None]:
+        """Stream response chunks.
 
         Args:
-            response: Raw streaming response
+            response: OpenAI response stream
 
-        Returns:
-            AsyncGenerator[str, None]: Stream of text chunks
-
+        Yields:
+            Provider response chunks
         """
         async for chunk in response:
-            chunk_choices: list[ChunkChoice] = chunk.choices
-            if not chunk_choices:
-                continue
-            delta = chunk_choices[0].delta
-            if delta.content:
-                yield delta.content
-
-    async def complete(
-        self,
-        prompt: str,
-        *,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        stream: bool = False,
-        **kwargs: Any,
-    ) -> str | AsyncGenerator[str, None]:
-        """Complete a prompt using the provider's model.
-
-        Args:
-            prompt: The prompt to complete
-            temperature: Controls randomness (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response
-            **kwargs: Additional provider-specific parameters
-
-        Returns:
-            Generated text or async generator of text chunks if streaming
-
-        Raises:
-            ProviderError: If the API call fails or rate limit is exceeded
-            RuntimeError: If provider is not initialized
-
-        """
-        if not self._client:
-            raise ProviderInitError(
-                message="Provider not initialized", provider_type="openai"
-            )
-
-        try:
-            messages = [ChatCompletionUserMessageParam(role="user", content=prompt)]
-            model_params = kwargs.get("model_params", {})
-            stop_sequences = kwargs.get("stop_sequences")
-
-            model = model_params.get("model", self._config.model)
-            max_tokens_value = max_tokens or self._config.max_tokens
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
-
-            if stream:
-                stream_response = await self._client.chat.completions.create(
-                    messages=messages,
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens_value,
-                    stream=True,
-                    stop=stop,
-                )
-                return self._stream_response(stream_response)
-            else:
-                completion = await self._client.chat.completions.create(
-                    messages=messages,
-                    model=model,
-                    temperature=temperature,
-                    max_tokens=max_tokens_value,
-                    stream=False,
-                    stop=stop,
-                )
-                return completion.choices[0].message.content or ""
-
-        except OpenAIError as api_error:  # type: ignore[misc,attr-defined]
-            error_msg: str = "OpenAI API error"
-            if hasattr(api_error, "message"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg}: {api_error.message}"  # type: ignore[attr-defined]
-            elif hasattr(api_error, "code"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg} (code: {api_error.code})"  # type: ignore[attr-defined]
-            else:
-                error_msg = f"{error_msg}: {api_error!s}"
-            raise ProviderError(error_msg) from api_error
-        except Exception as exc:
-            msg = str(exc)
-            raise ProviderError(f"Unexpected error: {msg}") from exc
+            if chunk.choices:
+                choice = chunk.choices[0]
+                if choice.delta.content:
+                    yield ProviderResponse(
+                        content=choice.delta.content,
+                        metadata={
+                            "model": chunk.model,
+                            "finish_reason": choice.finish_reason,
+                        },
+                    )
 
     async def embed(
         self,
@@ -473,58 +294,53 @@ class OpenAIProvider(BaseProvider):
         encoding_format: Literal["float", "base64"] | None = None,
         **kwargs: Any,
     ) -> list[float]:
-        """Generate embeddings for text using OpenAI's API.
+        """Generate embeddings for the given text.
 
         Args:
-            text: The text to generate embeddings for
-            model: The model to use for embeddings
-            dimensions: The number of dimensions for the embeddings
-            encoding_format: The format to return the embeddings in
-            **kwargs: Additional provider-specific parameters
+            text: Text to generate embeddings for
+            model: Model to use for embeddings
+            dimensions: Number of dimensions for embeddings
+            encoding_format: Encoding format for embeddings
+            **kwargs: Additional keyword arguments
 
         Returns:
-            List of embedding values
+            List of embeddings
 
         Raises:
-            ProviderError: If the API call fails
-            RuntimeError: If provider is not initialized
-
+            ProviderError: If embedding generation fails
+            ConfigurationError: If provider is not initialized
         """
-        if not self._client:
-            raise ProviderInitError(
-                message="Provider not initialized", provider_type="openai"
-            )
+        if not self.is_initialized:
+            raise ConfigurationError("Provider not initialized")
 
         try:
-            # Default to text-embedding-ada-002 if no model specified
-            model_name = str(model or kwargs.get("model", "text-embedding-ada-002"))
+            if not self._client:
+                raise ProviderError("OpenAI client not initialized")
 
-            create_kwargs: dict[str, Any] = {
-                "model": model_name,
-                "input": text,
-            }
+            # Get embedding parameters
+            model_name = model or "text-embedding-3-small"
+            dimensions_value = dimensions or 1536
+            encoding = encoding_format or "float"
 
-            if dimensions is not None:
-                create_kwargs["dimensions"] = int(dimensions)
-            if encoding_format is not None:
-                create_kwargs["encoding_format"] = encoding_format
+            # Generate embeddings
+            response = await self._client.embeddings.create(
+                input=text,
+                model=model_name,
+                dimensions=dimensions_value,
+                encoding_format=encoding,
+                **kwargs,
+            )
 
-            response = await self._client.embeddings.create(**create_kwargs)
-
-            if not response.data:
-                raise ProviderError("No embeddings returned from API")
-
+            # Return embeddings
             return response.data[0].embedding
 
-        except OpenAIError as api_error:  # type: ignore[misc,attr-defined]
-            error_msg = "OpenAI API error"
-            if hasattr(api_error, "message"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg}: {api_error.message}"  # type: ignore[attr-defined]
-            elif hasattr(api_error, "code"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg} (code: {api_error.code})"  # type: ignore[attr-defined]
-            else:
-                error_msg = f"{error_msg}: {api_error!s}"
-            raise ProviderError(error_msg) from api_error
+        except OpenAIError as api_error:  # type: ignore
+            msg = str(api_error)  # type: ignore
+            raise ProviderAPIError(msg) from api_error
         except Exception as exc:
             msg = str(exc)
-            raise ProviderError(f"Unexpected error: {msg}") from exc
+            raise ProviderError(
+                message=msg,
+                provider_type="openai",
+                details={"error": str(exc)},
+            ) from exc

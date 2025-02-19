@@ -15,9 +15,12 @@ from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar
 
 from pydantic import BaseModel
 
+from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ConfigurationError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.monitoring import logger
+from pepperpy.core.logging import get_logger
+
+# Configure logging
+logger = get_logger(__name__)
 
 # Type variable for configuration models
 ConfigT = TypeVar("ConfigT", bound=BaseModel)

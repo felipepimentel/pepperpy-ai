@@ -5,7 +5,7 @@ It includes message and conversation models, as well as a hierarchy of
 provider-specific exceptions.
 
 Example:
-    >>> from pepperpy.providers.domain import Message, Conversation
+    >>> from pepperpy.agents.providers.domain import Message, Conversation
     >>> message = Message(role="user", content="Hello!")
     >>> conversation = Conversation()
     >>> conversation.add_message("user", "Hello!")

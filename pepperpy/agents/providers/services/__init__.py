@@ -8,15 +8,18 @@ reducing code duplication and standardizing error handling.
 """
 
 from typing import Final, cast
+from uuid import uuid4
 
 from pepperpy.core.errors import ProviderError
-from pepperpy.monitoring import logger
+from pepperpy.core.logging import get_logger
 
 from ..base import BaseProvider, ProviderConfig
 from ..domain import ProviderInitError
 from ..engine import ProviderEngine
 from .gemini import GeminiConfig, GeminiProvider
 from .openai import OpenAIConfig, OpenAIProvider
+
+logger = get_logger(__name__)
 
 # Provider types
 OPENAI: Final[str] = "openai"
@@ -64,8 +67,11 @@ class ProviderRegistry:
         try:
             # Create provider instance if config provided
             if config:
-                provider = provider_class(config)
-                await self.engine.register_provider(provider, provider_type)
+                provider = provider_class(uuid4())  # Pass UUID for id
+                await self.engine.register_provider(
+                    provider_type=provider_type,
+                    config=config,
+                )
 
             # Store provider class for later instantiation
             self.providers[provider_type] = provider_class

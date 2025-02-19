@@ -1,11 +1,11 @@
 """Base memory store implementation."""
 
-import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any, Dict, Optional, TypeVar
 
+from pepperpy.core.logging import get_logger
 from pepperpy.core.memory.base import (
     BaseMemory,
     MemoryEntry,
@@ -20,7 +20,8 @@ from pepperpy.core.memory.errors import (
     MemoryTypeError,
 )
 
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = get_logger(__name__)
 
 T = TypeVar("T", bound=Dict[str, Any])
 

@@ -1,172 +1,118 @@
 # Pepperpy
 
-A Python library for building AI-powered research assistants.
+A framework for building AI-powered applications with capabilities for LLM, content processing, speech synthesis, and memory management.
 
-## 🚀 Quick Win (30 seconds)
+## 🚀 Quick Start (News-to-Podcast Example)
 ```bash
 # Install Pepperpy
 pip install pepperpy
 
-# Start interactive setup
-pepperpy init
-
-# Ask your first question
-pepperpy test "What is AI?"
-```
-
-That's it! You're ready to use Pepperpy's powerful features:
-```python
-from pepperpy import Pepperpy
-
-async def main():
-    # Auto-configuration (or use Pepperpy.quick_start() for interactive setup)
-    pepper = await Pepperpy.create()
-    
-    # Simple question
-    result = await pepper.ask("What is AI?")
-    print(result)
-    
-    # Interactive chat
-    await pepper.chat("Tell me about AI")  # With initial message
-    # Or just:
-    await pepper.chat()  # Start blank chat
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
-
-## Quick Start
-
-```python
-from pepperpy import Pepperpy
-
-# Quick setup with interactive wizard
-pepper = Pepperpy.quick_start()
-
-# Or configure programmatically
-async with await Pepperpy.create(api_key="your-key") as pepper:
-    # Ask simple questions
-    result = await pepper.ask("What is AI?")
-    print(result)
-    
-    # Research topics in depth
-    result = await pepper.research("Impact of AI in Healthcare")
-    print(result.tldr)  # Short summary
-    print(result.full)  # Full report
-    print(result.bullets)  # Key points
-    print(result.references)  # Sources
-    
-    # Use pre-configured teams
-    team = await pepper.hub.team("research-team")
-    async with team.run("Analyze AI trends") as session:
-        print(f"Current step: {session.current_step}")
-        print(f"Progress: {session.progress * 100:.0f}%")
+# Run the news-to-podcast example
+python examples/news_podcast.py --topic "technology"
 ```
 
 ## Features
 
-- 🚀 Zero-config setup with smart defaults
-- 🤖 Pre-configured agents and teams
-- 📚 Built-in research capabilities
-- 🔄 Flexible workflows
-- 🎯 Progress monitoring
-- 🔌 Easy integration
+- 🤖 LLM Integration (OpenAI, LangChain)
+- 📰 Content Processing
+- 🎙️ Speech Synthesis
+- 🧠 Memory Management
+- 🔄 Agent Orchestration
+
+## Project Structure
+
+```
+pepperpy/
+├── core/          - Core abstractions and utilities
+├── llm/           - LLM integration and providers
+├── content/       - Content processing and providers
+├── synthesis/     - Speech synthesis capabilities
+├── memory/        - Memory and storage management
+└── agents/        - Agent orchestration system
+
+examples/
+├── news_podcast.py  - News-to-Podcast generator
+├── story_creation.py - Story creation example
+└── README.md        - Examples documentation
+```
 
 ## Installation
 
 ```bash
+# Install with Poetry
+poetry install
+
+# Or with pip
 pip install pepperpy
 ```
 
 ## Documentation
 
-### Basic Usage
-
-The simplest way to get started is with the interactive setup:
-
-```bash
-# Run interactive setup
-$ pepperpy init
-
-# Test it out
-$ pepperpy test "What is AI?"
-```
-
-Or in your code:
+### News-to-Podcast Example
 
 ```python
 from pepperpy import Pepperpy
+from pepperpy.content import NewsProvider
+from pepperpy.synthesis import TTSProvider
 
-# Auto-configuration
-pepper = await Pepperpy.create()
-
-# With custom settings
-pepper = await Pepperpy.create(
-    api_key="your-key",
-    model="openai/gpt-4"
-)
-```
-
-### Research Assistant
-
-```python
-# Simple research
-result = await pepper.research("Quantum Computing")
-print(result.tldr)  # Short summary
-print(result.full)  # Full report
-
-# With custom parameters
-result = await pepper.research(
-    topic="Quantum Computing",
-    depth="academic",
-    max_sources=10
-)
-```
-
-### Teams & Workflows
-
-```python
-# Use a pre-configured team
-team = await pepper.hub.team("research-team")
-async with team.run("Analyze AI trends") as session:
-    # Monitor progress
-    print(f"Step: {session.current_step}")
-    print(f"Progress: {session.progress * 100:.0f}%")
+async def create_podcast(topic: str) -> str:
+    # Initialize Pepperpy
+    pepper = await Pepperpy.create()
     
-    # Provide input if needed
-    if session.needs_input:
-        value = input(f"{session.input_prompt}: ")
-        session.provide_input(value)
+    # Get news content
+    news = await pepper.content.get_provider("news")
+    articles = await news.fetch(topic=topic)
+    
+    # Generate script
+    llm = await pepper.llm.get_provider("openai")
+    script = await llm.generate(
+        prompt="Create a podcast script from these articles",
+        context=articles
+    )
+    
+    # Convert to speech
+    tts = await pepper.synthesis.get_provider("gtts")
+    audio_path = await tts.synthesize(script)
+    
+    return audio_path
+
+if __name__ == "__main__":
+    import asyncio
+    import argparse
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--topic", default="technology")
+    args = parser.parse_args()
+    
+    audio_path = asyncio.run(create_podcast(args.topic))
+    print(f"Podcast created: {audio_path}")
 ```
 
-### Custom Agents
+### Story Creation Example
 
 ```python
-# Create a custom agent
-agent = await pepper.hub.create_agent(
-    name="custom-researcher",
-    base="researcher",  # Inherit from base agent
-    config={
-        "style": "technical",
-        "depth": "deep"
+from pepperpy import Pepperpy
+from pepperpy.agents import Chain
+
+async def create_story() -> dict:
+    pepper = await Pepperpy.create()
+    
+    # Create agent chain
+    chain = Chain([
+        "story_planner",
+        "story_writer",
+        "story_editor",
+        "narrator"
+    ])
+    
+    # Run the chain
+    result = await chain.run()
+    
+    return {
+        "text": result.story,
+        "audio_path": result.audio
     }
-)
-
-# Use the agent
-result = await agent.research("Topic")
-
-# Share with others
-await pepper.hub.publish("custom-researcher")
 ```
-
-## Examples
-
-Check out the `examples/` directory for more usage examples:
-
-- `quick_start.py`: Basic usage with interactive setup
-- `research_workflow.py`: Advanced research workflow
-- `custom_agent.py`: Creating custom agents
-- `team_collaboration.py`: Using teams and workflows
 
 ## Contributing
 

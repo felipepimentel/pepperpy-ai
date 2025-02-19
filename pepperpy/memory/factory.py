@@ -2,14 +2,15 @@
 
 from typing import Any, cast
 
+from pepperpy.core.logging import get_logger
 from pepperpy.memory.base import BaseMemoryStore
 from pepperpy.memory.config import MemoryConfig, MemoryStoreConfig, StoreType
 from pepperpy.memory.stores.composite import CompositeMemoryStore
 from pepperpy.memory.stores.postgres import PostgresMemoryStore
 from pepperpy.memory.stores.redis import RedisMemoryStore
 from pepperpy.memory.stores.vector import VectorMemoryStore
-from pepperpy.monitoring.logger import get_logger
 
+# Configure logger
 logger = get_logger(__name__)
 
 

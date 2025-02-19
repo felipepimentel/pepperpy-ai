@@ -24,6 +24,7 @@ except ImportError:
     SentenceTransformer = None  # type: ignore[assignment,valid-type]
     NDArrayFloat = Any  # type: ignore[misc,valid-type]
 
+from pepperpy.core.logging import get_logger
 from pepperpy.memory.base import (
     BaseMemoryStore,
     MemoryEntry,
@@ -32,7 +33,6 @@ from pepperpy.memory.base import (
 )
 from pepperpy.memory.config import VectorStoreConfig
 from pepperpy.memory.exceptions import MemoryError
-from pepperpy.monitoring.logger import get_logger
 
 # Type aliases
 T = TypeVar("T")
@@ -232,9 +232,9 @@ class VectorMemoryStore(BaseMemoryStore[dict[str, Any]]):
             MemoryError: If retrieval fails.
         """
 
-        async def retrieve_generator() -> AsyncIterator[
-            MemorySearchResult[dict[str, Any]]
-        ]:
+        async def retrieve_generator() -> (
+            AsyncIterator[MemorySearchResult[dict[str, Any]]]
+        ):
             try:
                 # Ensure embeddings are loaded
                 self._load_embeddings()

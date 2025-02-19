@@ -18,37 +18,46 @@ Example:
 """
 
 from collections.abc import AsyncGenerator
-from typing import cast
+from typing import Any, Dict, Union, cast
 
 import google.generativeai as genai  # type: ignore[import]
 from google.generativeai.client import configure  # type: ignore[import]
 from google.generativeai.generative_models import (
     GenerativeModel,  # type: ignore[import]
 )
-from google.generativeai.types import GenerationConfig  # type: ignore[import]
-from pydantic import Field
+from google.generativeai.types import (
+    AsyncGenerateContentResponse,  # type: ignore[import]
+    GenerationConfig,  # type: ignore[import]
+)
+from pydantic import Field, SecretStr
 
-from pepperpy.monitoring.logger import structured_logger as logger
+from pepperpy.core.errors import ConfigurationError
+from pepperpy.core.logging import get_logger
+from pepperpy.core.messages import ProviderMessage, ProviderResponse
+from pepperpy.core.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.providers.errors import (
+    ProviderError,
+)
+from pepperpy.core.providers.errors import (
+    ProviderResourceError as ProviderInitError,
+)
+from pepperpy.core.providers.errors import (
+    ProviderRuntimeError as ProviderAPIError,
+)
 
-from ..base import (
-    BaseProvider as Provider,
-)
-from ..base import (
-    EmbeddingKwargs,
-    ProviderConfig,
-    ProviderKwargs,
-)
-from ..domain import (
-    ProviderAPIError,
-    ProviderInitError,
-    ProviderRateLimitError,
-)
+# Configure logger
+logger = get_logger(__name__)
+
+# Type aliases for provider parameters
+GenerateKwargs = Dict[str, Any]
+StreamKwargs = Dict[str, Any]
 
 
 class GeminiConfig(ProviderConfig):
     """Configuration for the Gemini provider.
 
     Attributes:
+        api_key: Gemini API key
         model: Model to use (default: gemini-pro)
         temperature: Sampling temperature (default: 0.7)
         max_tokens: Maximum tokens per request (default: 2048)
@@ -56,14 +65,18 @@ class GeminiConfig(ProviderConfig):
         top_k: Top-k sampling parameter (default: 40)
     """
 
+    api_key: SecretStr = Field(default=SecretStr(""), description="Gemini API key")
     model: str = Field(default="gemini-pro", description="Model to use")
     temperature: float = Field(default=0.7, description="Sampling temperature")
     max_tokens: int = Field(default=2048, description="Maximum tokens per request")
     top_p: float = Field(default=1.0, description="Top-p sampling parameter")
     top_k: int = Field(default=40, description="Top-k sampling parameter")
 
+    class Config:
+        extra = "forbid"
 
-class GeminiProvider(Provider):
+
+class GeminiProvider(BaseProvider):
     """Provider implementation for Google's Gemini API.
 
     This provider implements the Provider protocol for Google's Generative AI API,
@@ -88,10 +101,22 @@ class GeminiProvider(Provider):
         Note:
             The provider is not ready for use until initialize() is called
         """
-        super().__init__(config)
+        # Convert to GeminiConfig if needed
+        gemini_config = (
+            config
+            if isinstance(config, GeminiConfig)
+            else GeminiConfig(
+                type="gemini",
+                config={
+                    **config.config,
+                    "api_key": config.config.get("api_key", ""),
+                },
+            )
+        )
+        super().__init__(gemini_config)
         self._client: GenerativeModel | None = None
-        self._model = config.model or "gemini-pro"
-        self.config = cast(GeminiConfig, config)
+        self._model = gemini_config.model
+        self._config = gemini_config
 
     async def initialize(self) -> None:
         """Initialize the Gemini client.
@@ -102,17 +127,17 @@ class GeminiProvider(Provider):
         Raises:
             ProviderInitError: If initialization fails
         """
-        if not self.config.api_key:
+        if not self._config.api_key:
             raise ProviderInitError(
                 "API key is required",
                 provider_type="gemini",
             )
 
         try:
-            configure(api_key=self.config.api_key.get_secret_value())  # type: ignore[call-arg]
+            configure(api_key=self._config.api_key.get_secret_value())  # type: ignore[call-arg]
             self._client = GenerativeModel(self._model)
             self._initialized = True  # Set initialized flag
-            logger.info("Initialized Gemini provider", model=self._model)
+            logger.info("Initialized Gemini provider", extra={"model": self._model})
         except Exception as e:
             raise ProviderInitError(
                 f"Failed to initialize Gemini provider: {e}",
@@ -120,105 +145,143 @@ class GeminiProvider(Provider):
                 details={"error": str(e)},
             ) from e
 
-    async def complete(
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self._client:
+            try:
+                self._client = None
+                await super().cleanup()
+                self._initialized = False
+                logger.info("Gemini provider cleaned up", extra={"model": self._model})
+            except Exception as exc:
+                logger.error(f"Error during cleanup: {exc!r}")
+                raise ProviderError(
+                    message=f"Cleanup failed: {exc}",
+                    provider_type="gemini",
+                    details={"error": str(exc)},
+                ) from exc
+
+    async def process_message(
         self,
-        prompt: str,
-        *,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        stream: bool = False,
-        **kwargs: ProviderKwargs,
-    ) -> str | AsyncGenerator[str, None]:
-        """Complete a text prompt using the Gemini model.
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message.
 
         Args:
-            prompt: The text prompt to complete
-            temperature: Sampling temperature (default: 0.7)
-            max_tokens: Maximum tokens to generate (default: None)
-            stream: Whether to stream the response (default: False)
-            **kwargs: Additional keyword arguments passed to the model
+            message: Provider message to process
 
         Returns:
-            Either a string containing the complete response, or an async
-            generator yielding response chunks if streaming is enabled.
+            Provider response or async generator of responses
 
         Raises:
-            ProviderAPIError: If the API request fails
-            ProviderRateLimitError: If rate limits are exceeded
-            ProviderInitError: If the provider is not initialized
+            ProviderError: If message processing fails
+            ConfigurationError: If provider is not initialized
         """
-        if not self._client:
-            raise ProviderInitError(
-                "Provider not initialized",
-                provider_type="gemini",
-            )
+        if not self.is_initialized:
+            raise ConfigurationError("Provider not initialized")
 
-        client = self._client  # Type guard
         try:
-            model_params = kwargs.get("model_params", {})
+            if not self._client:
+                raise ProviderError("Gemini client not initialized")
+
+            # Get generation parameters
+            temperature = message.metadata.get("temperature", self._config.temperature)
+            max_tokens = message.metadata.get("max_tokens", self._config.max_tokens)
+            stream = message.metadata.get("stream", False)
+            top_p = message.metadata.get("top_p", self._config.top_p)
+            top_k = message.metadata.get("top_k", self._config.top_k)
+
+            # Configure generation
             generation_config = GenerationConfig(
                 temperature=temperature,
                 max_output_tokens=max_tokens,
-                top_p=model_params.get("top_p", 1.0),
-                top_k=model_params.get("top_k", 40),
+                top_p=top_p,
+                top_k=top_k,
             )
 
+            # Generate response
             if stream:
-
-                async def response_generator() -> AsyncGenerator[str, None]:
-                    response = await client.generate_content_async(  # type: ignore[call-arg]
-                        prompt,
-                        generation_config=generation_config,
-                        stream=True,
-                    )
-                    async for chunk in response:
-                        yield cast(str, chunk.text)
-
-                return response_generator()
-
-            response = await client.generate_content_async(  # type: ignore[call-arg]
-                prompt,
-                generation_config=generation_config,
-                stream=False,
-            )
-            return cast(str, response.text)
+                response = await self._client.generate_content_async(  # type: ignore[call-arg]
+                    str(message.content),
+                    generation_config=generation_config,
+                    stream=True,
+                )
+                return self._stream_response(response)
+            else:
+                response = await self._client.generate_content_async(  # type: ignore[call-arg]
+                    str(message.content),
+                    generation_config=generation_config,
+                    stream=False,
+                )
+                return ProviderResponse(
+                    content=cast(str, response.text),
+                    metadata={
+                        "model": self._model,
+                        "finish_reason": response.prompt_feedback.block_reason
+                        or "stop",
+                    },
+                )
 
         except Exception as e:
             if "quota" in str(e).lower():
-                raise ProviderRateLimitError(
+                raise ProviderAPIError(
                     "Gemini rate limit exceeded",
                     provider_type="gemini",
                     details={"error": str(e)},
                 ) from e
-            raise ProviderAPIError(
-                f"Gemini API error: {e}",
+            raise ProviderError(
+                message=f"Gemini API error: {e}",
                 provider_type="gemini",
                 details={"error": str(e)},
             ) from e
 
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        self._client = None
-        logger.info("Gemini provider cleaned up", model=self._model)
+    async def _stream_response(
+        self, response: AsyncGenerateContentResponse
+    ) -> AsyncGenerator[ProviderResponse, None]:
+        """Stream response chunks.
 
-    async def embed(self, text: str, **kwargs: EmbeddingKwargs) -> list[float]:
-        """Generate embeddings for text using Gemini.
+        Args:
+            response: Gemini response stream
+
+        Yields:
+            Provider response chunks
+        """
+        async for chunk in response:
+            if chunk.text:
+                yield ProviderResponse(
+                    content=cast(str, chunk.text),
+                    metadata={
+                        "model": self._model,
+                        "finish_reason": chunk.prompt_feedback.block_reason or "stop",
+                    },
+                )
+
+    async def embed(
+        self,
+        text: str,
+        *,
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> list[float]:
+        """Generate embeddings for the given text.
 
         Args:
             text: Text to generate embeddings for
+            model: Model to use for embeddings
             **kwargs: Additional keyword arguments
 
         Returns:
-            List of embedding values
+            List of embeddings
 
         Raises:
-            ProviderAPIError: If the API request fails
-            ProviderRateLimitError: If rate limit is exceeded
+            ProviderError: If embedding generation fails
+            ConfigurationError: If provider is not initialized
         """
-        self._check_initialized()
+        if not self.is_initialized:
+            raise ConfigurationError("Provider not initialized")
 
         try:
-            model_name = str(kwargs.get("model", "models/embedding-001"))
+            model_name = model or "models/embedding-001"
             result = genai.embed_content(  # type: ignore[attr-defined]
                 model=model_name,  # type: ignore[arg-type]
                 content=text,
@@ -227,13 +290,13 @@ class GeminiProvider(Provider):
             return result["embedding"]  # type: ignore[index]
         except Exception as e:
             if "quota exceeded" in str(e).lower():
-                raise ProviderRateLimitError(
+                raise ProviderAPIError(
                     "Gemini rate limit exceeded",
                     provider_type="gemini",
                     details={"error": str(e)},
                 ) from e
-            raise ProviderAPIError(
-                f"Gemini API error: {e}",
+            raise ProviderError(
+                message=f"Gemini API error: {e}",
                 provider_type="gemini",
                 details={"error": str(e)},
             ) from e

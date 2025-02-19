@@ -5,7 +5,6 @@ including zero-config setup, agent management, and workflow execution.
 """
 
 import asyncio
-import logging
 import time
 from collections.abc import AsyncGenerator, Sequence
 from pathlib import Path
@@ -15,34 +14,34 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from pepperpy.agents.factory import AgentFactory
-from pepperpy.core.base import BaseAgent
+from pepperpy.core.base import (
+    BaseAgent,
+    Lifecycle,
+)
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.hooks import HookCallback as HookCallbackType
+from pepperpy.core.logging import get_logger
 from pepperpy.core.memory.store import BaseMemoryStore, create_memory_store
-from pepperpy.core.messages import Response
-from pepperpy.core.prompt.template import PromptTemplate, create_prompt_template
-from pepperpy.core.types import (
-    Message as CoreMessage,
+from pepperpy.core.messages import (
+    Message,
+    ProviderMessage,
+    ProviderResponse,
+    Response,
 )
-from pepperpy.core.types import (
-    PepperpyClientProtocol,
-    ProviderConfig,
-)
-from pepperpy.monitoring import logger as log
-from pepperpy.providers.base import (
+from pepperpy.core.prompts import PromptTemplate, create_prompt_template
+from pepperpy.core.providers import (
     BaseProvider,
+    ProviderConfig,
+    ProviderManager,
 )
-from pepperpy.providers.base import (
-    Message as ProviderMessage,
+from pepperpy.core.providers.errors import (
+    ProviderError,
+    ProviderNotFoundError,
 )
-from pepperpy.providers.base import (
-    Response as ProviderResponse,
-)
-from pepperpy.providers.domain import ProviderError, ProviderNotFoundError
-from pepperpy.providers.manager import ProviderManager
+from pepperpy.core.types import PepperpyClientProtocol
 
 # Configure logging
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Type aliases for better readability
 ProviderErrorType = type[ProviderError]
@@ -59,8 +58,7 @@ AgentType = TypeVar("AgentType", bound=BaseAgent)
 class ClientConfig(BaseModel):
     """Configuration for the Pepperpy client.
 
-    Attributes
-    ----------
+    Attributes:
         timeout: Operation timeout in seconds
         max_retries: Maximum number of retries
         retry_delay: Delay between retries in seconds
@@ -68,19 +66,18 @@ class ClientConfig(BaseModel):
         provider_config: Provider-specific configuration
         memory_config: Memory store configuration
         prompt_config: Prompt template configuration
-
     """
 
     timeout: float = Field(default=30.0, gt=0)
     max_retries: int = Field(default=3, ge=0)
     retry_delay: float = Field(default=1.0, ge=0)
     provider_type: str = Field(default="openrouter")
-    provider_config: dict[str, Any] = Field(default_factory=lambda: {})
-    memory_config: dict[str, Any] = Field(default_factory=lambda: {})
-    prompt_config: dict[str, Any] = Field(default_factory=lambda: {})
+    provider_config: Dict[str, Any] = Field(default_factory=dict)
+    memory_config: Dict[str, Any] = Field(default_factory=dict)
+    prompt_config: Dict[str, Any] = Field(default_factory=dict)
 
 
-class PepperpyClient(PepperpyClientProtocol):
+class PepperpyClient(PepperpyClientProtocol, Lifecycle):
     """Main client interface for the Pepperpy framework.
 
     This class provides a high-level interface for:
@@ -107,7 +104,7 @@ class PepperpyClient(PepperpyClientProtocol):
         self._memory: Optional[BaseMemoryStore] = None
         self._prompt: Optional[PromptTemplate] = None
         self._updated_at = time.time()
-        self._manager: Optional[ProviderManager] = None
+        self._manager = ProviderManager()
 
     @classmethod
     async def auto(cls) -> "PepperpyClient":
@@ -121,24 +118,28 @@ class PepperpyClient(PepperpyClientProtocol):
         if self._initialized:
             raise StateError("Client already initialized")
 
-        # Initialize provider manager and get provider
-        self._manager = ProviderManager()
-        provider_type = self._raw_config.get("provider_type", "openrouter")
-        provider_config = self._raw_config.get("provider_config", {})
+        try:
+            # Get provider instance
+            provider_type = self._raw_config.get("provider_type", "openrouter")
+            provider_config = self._raw_config.get("provider_config", {})
+            provider_config_obj = ProviderConfig(
+                id=uuid4(),
+                type=provider_type,
+                config=provider_config,
+            )
+            self._provider = await self._manager.get_provider(
+                provider_type,
+                provider_config_obj.config,
+            )
 
-        provider = await self._manager.get_provider(
-            provider_type,
-            provider_config,
-        )
+            # Initialize components
+            await self._initialize_components()
+            self._initialized = True
+            self._updated_at = time.time()
 
-        if provider is None:
-            raise ConfigurationError("Failed to initialize provider")
-
-        # Initialize provider
-        await provider.initialize()
-        self._provider = provider
-        self._initialized = True
-        self._updated_at = time.time()
+        except Exception:
+            logger.error("Failed to initialize client", exc_info=True)
+            raise
 
     async def cleanup(self) -> None:
         """Clean up client resources."""
@@ -155,6 +156,10 @@ class PepperpyClient(PepperpyClientProtocol):
             # Wait for all cleanup tasks to complete
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
+            # Clean up manager and provider
+            if self._manager:
+                await self._manager.cleanup()
+
             self._agents.clear()
             self._provider = None
             self._memory = None
@@ -162,18 +167,16 @@ class PepperpyClient(PepperpyClientProtocol):
             self._initialized = False
             self._updated_at = time.time()
 
-        except Exception as e:
-            log.error("Failed to cleanup client", error=str(e))
+        except Exception:
+            logger.error("Failed to cleanup client", exc_info=True)
             raise
 
     def add_lifecycle_hook(self, event: str, callback: HookCallback) -> None:
         """Add a lifecycle hook.
 
         Args:
-        ----
             event: Event to hook
             callback: Function to call on event
-
         """
         if event not in self._lifecycle_hooks:
             raise ValueError(f"Invalid event: {event}")
@@ -183,10 +186,8 @@ class PepperpyClient(PepperpyClientProtocol):
         """Remove a lifecycle hook.
 
         Args:
-        ----
             event: Event to unhook
             callback: Function to remove
-
         """
         if event not in self._lifecycle_hooks:
             raise ValueError(f"Invalid event: {event}")
@@ -219,19 +220,33 @@ class PepperpyClient(PepperpyClientProtocol):
                 topic="AI in Healthcare"
             )
             ```
-
         """
-        agent = await self.get_agent(agent_type)
+        if not self._agent_factory:
+            raise StateError("Agent factory not configured")
+
         try:
+            agent = await self._agent_factory.execute(
+                agent_type=agent_type,
+                **kwargs,
+            )
             if not hasattr(agent, action):
                 raise ValueError(f"Action not found: {action}")
+
             method = getattr(agent, action)
             result = await method(**kwargs)
             await agent.cleanup()
             return result
-        except Exception:
-            if agent:
-                await agent.cleanup()
+
+        except Exception as e:
+            logger.error(
+                "Failed to run agent action",
+                exc_info=True,
+                extra={
+                    "agent_type": agent_type,
+                    "action": action,
+                    "error": str(e),
+                },
+            )
             raise
 
     async def run_workflow(
@@ -258,7 +273,6 @@ class PepperpyClient(PepperpyClientProtocol):
                 max_sources=5
             )
             ```
-
         """
         workflow_path = (
             Path.home() / ".pepper_hub" / "workflows" / f"{workflow_name}.yml"
@@ -270,11 +284,14 @@ class PepperpyClient(PepperpyClientProtocol):
             # TODO: Implement workflow execution
             raise NotImplementedError("Workflow execution not implemented yet")
         except Exception as e:
-            log.error(
+            logger.error(
                 "Workflow execution failed",
-                workflow=workflow_name,
-                error=str(e),
-                **kwargs,
+                exc_info=True,
+                extra={
+                    "workflow_name": workflow_name,
+                    "error": str(e),
+                    **kwargs,
+                },
             )
             raise
 
@@ -283,25 +300,22 @@ class PepperpyClient(PepperpyClientProtocol):
 
         Args:
             factory: Factory instance for creating agents
-
         """
         self._agent_factory = factory
 
     async def _initialize_components(self) -> None:
         """Initialize client components."""
-        self._manager = ProviderManager()
-        self._provider = await self._manager.get_provider(
-            self._raw_config.get("provider_type", "openrouter"),
-            self._raw_config.get("provider_config", {}),
-        )
-        self._memory = await create_memory_store(
-            self._raw_config.get("memory_config", {})
-        )
-        self._prompt = await create_prompt_template(
-            self._raw_config.get("prompt_config", {})
-        )
+        try:
+            self._memory = await create_memory_store(
+                self._raw_config.get("memory_config", {})
+            )
+            self._prompt = await create_prompt_template(
+                self._raw_config.get("prompt_config", {})
+            )
 
-        await self._provider.initialize()
+        except Exception:
+            logger.error("Failed to initialize components", exc_info=True)
+            raise
 
     async def _cleanup_components(self) -> None:
         """Clean up client components."""
@@ -310,6 +324,9 @@ class PepperpyClient(PepperpyClientProtocol):
 
         for agent in self._agents.values():
             await agent.cleanup()
+
+        if self._manager:
+            await self._manager.cleanup()
 
         self._agents.clear()
         self._provider = None
@@ -334,8 +351,33 @@ class PepperpyClient(PepperpyClientProtocol):
         if not self._provider:
             raise StateError("Provider not initialized")
 
-        response = await self._provider.send_message(message)
-        return response.content
+        try:
+            provider_type = self._raw_config.get("provider_type", "openrouter")
+            provider_config = self._raw_config.get("provider_config", {})
+            provider_config_obj = ProviderConfig(
+                id=uuid4(),
+                type=provider_type,
+                config=provider_config,
+            )
+            self._provider = await self._manager.get_provider(
+                provider_type,
+                provider_config_obj.config,
+            )
+
+            provider_message = ProviderMessage(
+                content=message,
+                provider_type=provider_type,
+                provider_id=self._provider.id if self._provider else None,
+            )
+            response = await self._provider.process_message(provider_message)
+            if isinstance(response, AsyncGenerator):
+                raise TypeError("Provider returned a streaming response")
+            if isinstance(response, ProviderResponse):
+                return str(response.content)
+            return str(response)
+        except Exception:
+            logger.error("Failed to send message", exc_info=True)
+            raise
 
     async def chat(self, message: str, **kwargs: Any) -> str:
         """Send a chat message and get a response.
@@ -355,32 +397,28 @@ class PepperpyClient(PepperpyClientProtocol):
             TypeError: If provider returns a streaming response
             ConfigurationError: If provider configuration is invalid
             TimeoutError: If operation times out
-
         """
-        self._ensure_initialized()
-        if not self._manager:
-            raise StateError("Provider manager not available")
+        if not self._initialized:
+            await self.initialize()
+
+        if not self._provider:
+            raise StateError("Provider not initialized")
 
         try:
-            # Apply kwargs to provider config
-            provider_kwargs = {
-                "temperature": kwargs.get("temperature", 0.7),
-                "max_tokens": kwargs.get("max_tokens", 2048),
-                "stream": False,
-                **kwargs,
-            }
-
-            response = await self._manager.complete(message, **provider_kwargs)
+            provider_message = ProviderMessage(
+                content=message,
+                provider_type=self._provider.type,
+                provider_id=self._provider.id,
+            )
+            response = await self._provider.process_message(provider_message)
             if isinstance(response, AsyncGenerator):
                 raise TypeError("Provider returned a streaming response")
-            if isinstance(response.content, dict):
-                text = response.content.get("text", "")
-            else:
-                text = str(response.content)
-            return text
+            if isinstance(response, ProviderResponse):
+                return str(response.content)
+            return str(response)
         except Exception as e:
             if isinstance(
-                e, StateError | ProviderNotFoundError | TimeoutError | TypeError
+                e, (StateError, ProviderNotFoundError, TimeoutError, TypeError)
             ):
                 raise
             raise ConfigurationError(f"Chat completion failed: {e!s}") from e
@@ -392,64 +430,78 @@ class PepperpyClient(PepperpyClientProtocol):
         streaming chat interactions.
 
         Args:
-        ----
             message: The message to send
 
         Returns:
-        -------
             An async generator yielding response chunks
 
         Raises:
-        ------
             StateError: If client is not initialized
             ConfigurationError: If provider configuration is invalid
             TimeoutError: If operation times out
-
         """
         self._ensure_initialized()
-        if not self._manager:
-            raise StateError("Provider manager not available")
+        if not self._provider:
+            raise StateError("Provider not initialized")
 
         try:
-            response = await self._manager.complete(message, stream=True)
+            provider_message = ProviderMessage(
+                content=message,
+                provider_type=self._provider.type,
+                provider_id=self._provider.id,
+            )
+            response = await self._provider.process_message(provider_message)
             if isinstance(response, AsyncGenerator):
-                return response
+                async for chunk in response:
+                    if isinstance(chunk, ProviderResponse):
+                        yield Response(
+                            id=uuid4(),
+                            content=str(chunk.content),
+                            metadata={"original_id": str(chunk.id)},
+                        )
             else:
-                # If provider doesn't support streaming, yield the entire response
-                async def single_response() -> AsyncGenerator[Response, None]:
-                    yield response
-
-                return single_response()
+                if isinstance(response, ProviderResponse):
+                    yield Response(
+                        id=uuid4(),
+                        content=str(response.content),
+                        metadata={"original_id": str(response.id)},
+                    )
         except Exception as e:
-            if isinstance(e, StateError | ProviderNotFoundError | TimeoutError):
+            if isinstance(e, (StateError, ProviderNotFoundError, TimeoutError)):
                 raise
             raise ConfigurationError(f"Streaming chat completion failed: {e!s}") from e
 
     async def create_agent(self, agent_type: str) -> BaseAgent:
-        """Create a new agent instance."""
+        """Create a new agent instance.
+
+        Args:
+            agent_type: Type of agent to create
+
+        Returns:
+            Created agent instance
+
+        Raises:
+            ConfigurationError: If agent factory is not set
+            AgentError: If agent creation fails
+        """
         if not self._agent_factory:
             raise ConfigurationError("Agent factory not set")
 
         try:
-            # Import here to avoid circular imports
-            from pepperpy.hub.registry import AgentRegistry
-
-            # Get agent configuration from registry
-            registry = AgentRegistry()
-            config = await registry.get_agent_config(agent_type)
-
             # Create and initialize the agent
-            agent = await self._agent_factory.create(agent_type)
+            agent = await self._agent_factory.execute(agent_type=agent_type)
             agent_id = uuid4()
             self._agents[agent_id] = agent
             await agent.initialize()
             return agent
 
         except Exception as e:
-            log.error(
+            logger.error(
                 "Failed to create agent",
-                agent_type=agent_type,
-                error=str(e),
+                extra={
+                    "agent_type": agent_type,
+                    "error": str(e),
+                },
             )
             raise
 
@@ -464,7 +516,6 @@ class PepperpyClient(PepperpyClientProtocol):
 
         Raises:
             ValueError: If agent not found
-
         """
         if isinstance(agent_id, str):
             # Try to convert string to UUID
@@ -481,14 +532,11 @@ class PepperpyClient(PepperpyClientProtocol):
     def list_agents(self) -> Sequence[BaseAgent]:
         """Get a list of all active agents.
 
-        Returns
-        -------
+        Returns:
             List of active agent instances
 
-        Raises
-        ------
+        Raises:
             StateError: If client is not initialized
-
         """
         self._ensure_initialized()
         return list(self._agents.values())
@@ -505,7 +553,6 @@ class PepperpyClient(PepperpyClientProtocol):
             StateError: If client is not initialized
             NotFoundError: If agent is not found
             RuntimeError: If cleanup fails
-
         """
         self._ensure_initialized()
 
@@ -533,10 +580,8 @@ class PepperpyClient(PepperpyClientProtocol):
     def get_provider(self) -> BaseProvider | None:
         """Get the current provider.
 
-        Returns
-        -------
+        Returns:
             Current provider instance or None if not set
-
         """
         return self._provider
 
@@ -549,13 +594,10 @@ class PepperpyClient(PepperpyClientProtocol):
         """Get a cached result if available.
 
         Args:
-        ----
             key: Cache key
 
         Returns:
-        -------
             Cached result if found and valid, None otherwise
-
         """
         if not self._cache_enabled or not self._memory:
             return None
@@ -572,10 +614,8 @@ class PepperpyClient(PepperpyClientProtocol):
         """Cache a result.
 
         Args:
-        ----
             key: Cache key
             value: Value to cache
-
         """
         if not self._cache_enabled or not self._memory:
             return
@@ -593,10 +633,8 @@ class PepperpyClient(PepperpyClientProtocol):
         """Trigger lifecycle hooks for an event.
 
         Args:
-        ----
             event: Event that triggered the hooks
             error_context: Optional context for error logging
-
         """
         for hook in self._lifecycle_hooks[event]:
             try:
@@ -627,20 +665,22 @@ class PepperpyClient(PepperpyClientProtocol):
 
         # Create base config with required fields
         config = ProviderConfig(
-            api_key=api_key,
-            provider_type="openai",  # Default provider
-            timeout=int(timeout or 30),  # Convert to int
-            max_retries=max_retries or 3,
-            model=model or "gpt-4-turbo-preview",
-            temperature=temperature or 0.7,
-            max_tokens=max_tokens or 1000,
-            base_url=base_url,  # Can be None
-            settings={},  # Initialize empty settings
+            id=uuid4(),
+            type="openai",  # Default provider
+            config={
+                "api_key": api_key,
+                "model": model or "gpt-4-turbo-preview",
+                "temperature": temperature or 0.7,
+                "max_tokens": max_tokens or 1000,
+                "timeout": int(timeout or 30),  # Convert to int
+                "max_retries": max_retries or 3,
+                "base_url": base_url,  # Can be None
+            },
         )
 
         # Add extra parameters if provided
         if extra:
-            config.settings.update(extra)
+            config.config.update(extra)
 
         return config
 
@@ -659,25 +699,31 @@ class PepperpyClient(PepperpyClientProtocol):
             # Convert dict messages to provider messages
             provider_messages = [
                 ProviderMessage(
-                    id=str(uuid4()),
                     content=msg.get("content", ""),
+                    provider_type=self._provider.type,
+                    provider_id=self._provider.id,
                     metadata={"role": msg.get("role", "user")},
                 )
                 for msg in messages
             ]
 
-            # Use provider's streaming interface
-            async for response in await self._provider.stream(
-                provider_messages, **kwargs
-            ):
-                yield response
+            # Use provider's process_message interface
+            response = await self._provider.process_message(provider_messages[0])
+            if isinstance(response, AsyncGenerator):
+                async for chunk in response:
+                    if isinstance(chunk, ProviderResponse):
+                        yield chunk
+            else:
+                if isinstance(response, ProviderResponse):
+                    yield response
+
         except Exception as e:
-            if isinstance(e, StateError | ProviderNotFoundError | TimeoutError):
+            if isinstance(e, (StateError, ProviderNotFoundError, TimeoutError)):
                 raise
             raise ConfigurationError(f"Streaming chat completion failed: {e!s}") from e
 
     async def stream(
-        self, messages: Sequence[CoreMessage], **kwargs: Any
+        self, messages: Sequence[Message], **kwargs: Any
     ) -> AsyncGenerator[Response, None]:
         """Stream responses from the provider.
 
@@ -691,7 +737,6 @@ class PepperpyClient(PepperpyClientProtocol):
         Raises:
             ConfigurationError: If client is not initialized
             ProviderError: If provider fails to generate response
-
         """
         if not self._initialized:
             raise ConfigurationError("Client not initialized")
@@ -701,22 +746,31 @@ class PepperpyClient(PepperpyClientProtocol):
 
         provider_messages = [
             ProviderMessage(
-                id=str(uuid4()),
-                content=str(msg.content.get("text", "")),  # Extract text content
-                metadata={"role": msg.type.value},
+                content=msg.content,
+                provider_type=self._provider.type,
+                provider_id=self._provider.id,
+                metadata={"role": "user"},
             )
             for msg in messages
         ]
 
         try:
-            async for response in await self._provider.stream(
-                provider_messages, **kwargs
-            ):
-                yield Response(
-                    id=uuid4(),
-                    content=response.content,
-                    metadata={"original_id": str(response.id)},
-                )
+            response = await self._provider.process_message(provider_messages[0])
+            if isinstance(response, AsyncGenerator):
+                async for chunk in response:
+                    if isinstance(chunk, ProviderResponse):
+                        yield Response(
+                            id=uuid4(),
+                            content=str(chunk.content),
+                            metadata={"original_id": str(chunk.id)},
+                        )
+            else:
+                if isinstance(response, ProviderResponse):
+                    yield Response(
+                        id=uuid4(),
+                        content=str(response.content),
+                        metadata={"original_id": str(response.id)},
+                    )
         except Exception as e:
             raise ProviderError(f"Failed to stream response: {str(e)}") from e
 
@@ -728,7 +782,6 @@ class PepperpyClient(PepperpyClientProtocol):
 
         Example:
             >>> await client.clear_history()  # Reset conversation
-
         """
         self._ensure_initialized()
         if self._memory:

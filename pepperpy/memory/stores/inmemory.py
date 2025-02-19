@@ -9,6 +9,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any
 
+from pepperpy.core.logging import get_logger
 from pepperpy.memory.store import BaseMemoryStore
 from pepperpy.memory.types import (
     MemoryEntry,
@@ -17,8 +18,8 @@ from pepperpy.memory.types import (
     MemoryScope,
     MemoryType,
 )
-from pepperpy.monitoring.logger import get_logger
 
+# Configure logger
 logger = get_logger(__name__)
 
 

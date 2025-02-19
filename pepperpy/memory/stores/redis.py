@@ -8,7 +8,8 @@ from typing import Any, TypeVar
 import redis.asyncio as redis
 from redis.asyncio.client import Redis
 
-from pepperpy.core.errors import ErrorCategory, PepperpyError
+from pepperpy.core.errors import PepperpyError
+from pepperpy.core.logging import get_logger
 from pepperpy.memory.base import (
     BaseMemoryStore,
     MemoryEntry,
@@ -16,7 +17,9 @@ from pepperpy.memory.base import (
     MemorySearchResult,
 )
 from pepperpy.memory.config import RedisConfig
-from pepperpy.monitoring.logger import structured_logger as logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 T = TypeVar("T", bound=dict[str, Any])
 
@@ -39,9 +42,6 @@ class RedisMemoryError(PepperpyError):
         """
         super().__init__(
             message=message,
-            category=ErrorCategory.RESOURCE,
-            # Using RESOURCE category for storage errors
-            # since it's a resource access issue
             details={"store_type": store_type, **(details or {})},
         )
 
@@ -171,8 +171,10 @@ class RedisMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to initialize Redis client",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise RedisMemoryError(
                 "Failed to initialize Redis client",
@@ -216,8 +218,10 @@ class RedisMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to store in Redis",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise RedisMemoryError(
                 "Failed to store in Redis",
@@ -284,9 +288,11 @@ class RedisMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.warning(
                 "Failed to load entry",
-                store_type=self.__class__.__name__,
-                key=key,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "key": key,
+                    "error": str(e),
+                },
             )
             return None
 
@@ -335,15 +341,19 @@ class RedisMemoryStore(BaseMemoryStore[T]):
             await self._client.delete(f"{self.config.prefix}:{key}")
             logger.debug(
                 "Deleted memory entry",
-                store_type=self.__class__.__name__,
-                key=key,
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "key": key,
+                },
             )
 
         except Exception as e:
             logger.error(
                 "Failed to delete from Redis",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise RedisMemoryError(
                 "Failed to delete from Redis",

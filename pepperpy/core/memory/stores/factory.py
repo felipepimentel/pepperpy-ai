@@ -1,15 +1,16 @@
 """Memory store factory."""
 
-import logging
 from enum import Enum
 from typing import Any, Dict, List, Optional, TypeVar
 
+from pepperpy.core.logging import get_logger
 from pepperpy.core.memory.errors import MemoryTypeError
 from pepperpy.core.memory.stores.base import BaseMemoryStore
 from pepperpy.core.memory.stores.composite import CompositeMemoryStore
 from pepperpy.core.memory.stores.memory import InMemoryStore
 
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = get_logger(__name__)
 
 T = TypeVar("T", bound=Dict[str, Any])
 

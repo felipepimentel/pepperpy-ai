@@ -6,14 +6,17 @@ from typing import Any, TypeVar
 import asyncpg  # type: ignore
 from asyncpg import Pool  # type: ignore
 
-from pepperpy.core.errors import ErrorCategory, PepperpyError
+from pepperpy.core.errors import PepperpyError
+from pepperpy.core.logging import get_logger
 from pepperpy.memory.base import (
     BaseMemoryStore,
     MemoryEntry,
     MemoryQuery,
     MemorySearchResult,
 )
-from pepperpy.monitoring.logger import structured_logger as logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 T = TypeVar("T", bound=dict[str, Any])
 
@@ -36,9 +39,6 @@ class PostgresMemoryError(PepperpyError):
         """
         super().__init__(
             message=message,
-            category=ErrorCategory.RESOURCE,
-            # Using RESOURCE category for storage errors
-            # since it's a resource access issue
             details={"store_type": store_type, **(details or {})},
         )
 
@@ -118,8 +118,10 @@ class PostgresMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to initialize PostgreSQL store",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise PostgresMemoryError(
                 "Failed to initialize PostgreSQL store",
@@ -173,8 +175,10 @@ class PostgresMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to store entry",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise PostgresMemoryError(
                 "Failed to store entry",
@@ -308,8 +312,10 @@ class PostgresMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to retrieve entries",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise PostgresMemoryError(
                 "Failed to retrieve entries",
@@ -352,8 +358,10 @@ class PostgresMemoryStore(BaseMemoryStore[T]):
         except Exception as e:
             logger.error(
                 "Failed to delete entry",
-                store_type=self.__class__.__name__,
-                error=str(e),
+                extra={
+                    "store_type": self.__class__.__name__,
+                    "error": str(e),
+                },
             )
             raise PostgresMemoryError(
                 "Failed to delete entry",

@@ -4,12 +4,11 @@ This module provides integration with Perplexity's API, supporting both chat com
 and streaming capabilities.
 """
 
-from collections.abc import AsyncGenerator, AsyncIterator, Sequence
-from typing import Any, Literal, Mapping, TypeAlias, TypeVar, cast
-from uuid import UUID, uuid4
+from collections.abc import AsyncGenerator, Sequence
+from typing import Any, Dict, Literal, TypeAlias, TypeVar, Union
 
 from openai import APIError, AsyncOpenAI, AsyncStream, OpenAIError
-from openai._types import NotGiven, Omit
+from openai._types import NotGiven
 from openai.types.chat import (
     ChatCompletion,
     ChatCompletionChunk,
@@ -20,26 +19,27 @@ from openai.types.chat import (
 from openai.types.chat.chat_completion_assistant_message_param import (
     ChatCompletionAssistantMessageParam,
 )
-from openai.types.chat.chat_completion_chunk import Choice as ChunkChoice
 from pydantic import ConfigDict, Field, SecretStr
 
-from pepperpy.core.types import Message, MessageType, Response, ResponseStatus
-from pepperpy.monitoring import logger
-from pepperpy.providers.base import (
-    BaseProvider,
-    GenerateKwargs,
-    ProviderConfig,
-    StreamKwargs,
+from pepperpy.core.errors import ConfigurationError
+from pepperpy.core.logging import get_logger
+from pepperpy.core.messages import Message, ProviderMessage, ProviderResponse
+from pepperpy.core.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.providers.errors import (
+    ProviderConfigurationError as ProviderConfigError,
 )
-from pepperpy.providers.domain import (
-    ProviderAPIError,
-    ProviderConfigError,
+from pepperpy.core.providers.errors import (
     ProviderError,
-    ProviderInitError,
+)
+from pepperpy.core.providers.errors import (
+    ProviderResourceError as ProviderInitError,
+)
+from pepperpy.core.providers.errors import (
+    ProviderRuntimeError as ProviderAPIError,
 )
 
 # Configure logger
-logger = logger.bind()
+logger = get_logger(__name__)
 
 # Type variable for Perplexity response types
 ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
@@ -53,6 +53,10 @@ PerplexityStop = list[str] | NotGiven
 ModelParam: TypeAlias = str
 TemperatureParam: TypeAlias = float
 MaxTokensParam: TypeAlias = int
+
+# Type aliases for provider parameters
+GenerateKwargs = Dict[str, Any]
+StreamKwargs = Dict[str, Any]
 
 
 class PerplexityConfig(ProviderConfig):
@@ -68,8 +72,7 @@ class PerplexityConfig(ProviderConfig):
         max_retries: Maximum number of retries
     """
 
-    provider_type: str = Field(default="perplexity", description="The type of provider")
-    api_key: SecretStr = Field(..., description="Perplexity API key")
+    api_key: SecretStr = Field(default=SecretStr(""), description="Perplexity API key")
     model: str = Field(
         default="llama-3.1-sonar-small-128k-online", description="Model to use"
     )
@@ -97,7 +100,13 @@ class PerplexityProvider(BaseProvider):
         perplexity_config = (
             config
             if isinstance(config, PerplexityConfig)
-            else PerplexityConfig(**config.model_dump())
+            else PerplexityConfig(
+                type="perplexity",
+                config={
+                    **config.config,
+                    "api_key": config.config.get("api_key", ""),
+                },
+            )
         )
         super().__init__(perplexity_config)
         self._client: AsyncOpenAI | None = None
@@ -121,6 +130,7 @@ class PerplexityProvider(BaseProvider):
             logger.info(
                 f"Initialized Perplexity provider - Model: {self._config.model}"
             )
+            self._initialized = True
         except OpenAIError as api_error:  # type: ignore
             msg = str(api_error)  # type: ignore
             raise ProviderAPIError(msg) from api_error
@@ -139,6 +149,8 @@ class PerplexityProvider(BaseProvider):
             try:
                 await self._client.close()
                 self._client = None
+                await super().cleanup()
+                self._initialized = False
                 logger.info("Cleaned up Perplexity provider")
             except Exception as exc:  # type: ignore
                 logger.error(f"Error during cleanup: {exc!r}")
@@ -161,292 +173,173 @@ class PerplexityProvider(BaseProvider):
         """
         converted: list[ChatCompletionMessageParam] = []
         for msg in messages:
-            content = str(msg.content.get("text", ""))
-            if msg.type == MessageType.QUERY:
+            content = str(msg.content)
+            role = msg.metadata.get("role", "user")
+
+            if role == "user":
                 converted.append(
                     ChatCompletionUserMessageParam(role="user", content=content)
                 )
-            elif msg.type == MessageType.RESPONSE:
+            elif role == "assistant":
                 converted.append(
                     ChatCompletionAssistantMessageParam(
                         role="assistant", content=content
                     )
                 )
-            elif msg.type == MessageType.COMMAND:
+            elif role == "system":
                 converted.append(
                     ChatCompletionSystemMessageParam(role="system", content=content)
                 )
+
         return converted
 
-    async def generate(
-        self, messages: list[Message], **kwargs: GenerateKwargs
-    ) -> Response:
-        """Generate a response from Perplexity.
-
-        Args:
-            messages: List of messages to generate from
-            **kwargs: Additional arguments to pass to the API
-
-        Returns:
-            Generated response
-
-        Raises:
-            ProviderError: If generation fails
-        """
-        try:
-            if not self._client:
-                raise ProviderInitError(
-                    message="Provider not initialized", provider_type="perplexity"
-                )
-
-            model_params = kwargs.get("model_params", {})
-            stop_sequences = kwargs.get("stop_sequences")
-
-            converted_messages = self._convert_messages(messages)
-            model = str(model_params.get("model", self._config.model))
-            temperature = float(
-                model_params.get("temperature", self._config.temperature)
-            )
-            max_tokens = int(model_params.get("max_tokens", self._config.max_tokens))
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
-
-            response = await self._client.chat.completions.create(
-                messages=converted_messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=False,
-                stop=stop,
-            )
-
-            # Try to parse response ID as UUID, fallback to new UUID if invalid
-            try:
-                response_id = UUID(response.id)
-            except ValueError:
-                response_id = uuid4()
-                logger.debug(
-                    "Invalid UUID from provider, generated new one",
-                    original_id=response.id,
-                    new_id=str(response_id),
-                )
-
-            # Convert usage data to strings
-            usage_data = {}
-            if response.usage:
-                usage_data = {
-                    k: str(v) if v is not None else ""
-                    for k, v in response.usage.model_dump().items()
-                }
-
-            return Response(
-                id=response_id,
-                message_id=messages[-1].id,
-                content={"text": response.choices[0].message.content},
-                status=ResponseStatus.SUCCESS,
-                metadata={
-                    "model": response.model,
-                    "usage": usage_data,
-                    "original_id": response.id,  # Store original ID in metadata
-                },
-            )
-
-        except Exception as error:
-            return Response(
-                id=uuid4(),
-                message_id=messages[-1].id if messages else uuid4(),
-                content={"error": str(error)},
-                status=ResponseStatus.ERROR,
-                metadata={"error": str(error)},
-            )
-
-    async def stream(
-        self, messages: list[Message], **kwargs: StreamKwargs
-    ) -> AsyncIterator[Response]:
-        """Stream responses from Perplexity.
-
-        Args:
-            messages: List of messages to generate from
-            **kwargs: Additional arguments to pass to the API
-
-        Returns:
-            AsyncIterator[Response]: Stream of responses
-
-        Raises:
-            Exception: If streaming fails
-        """
-        try:
-            if not self._client:
-                raise ProviderInitError(
-                    message="Provider not initialized", provider_type="perplexity"
-                )
-
-            model_params = kwargs.get("model_params", {})
-            stop_sequences = kwargs.get("stop_sequences")
-
-            converted_messages = self._convert_messages(messages)
-            model = str(model_params.get("model", self._config.model))
-            temperature = float(
-                model_params.get("temperature", self._config.temperature)
-            )
-            max_tokens = int(model_params.get("max_tokens", self._config.max_tokens))
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
-
-            stream = await self._client.chat.completions.create(
-                messages=converted_messages,
-                model=model,
-                temperature=temperature,
-                max_tokens=max_tokens,
-                stream=True,
-                stop=stop,
-            )
-
-            async for chunk in stream:
-                chunk_choices: Sequence[ChunkChoice] = chunk.choices
-                if not chunk_choices:
-                    continue
-                choice = chunk_choices[0]
-                if choice.delta and choice.delta.content:
-                    # Try to parse chunk ID as UUID, fallback to new UUID if invalid
-                    try:
-                        chunk_id = UUID(chunk.id)
-                    except ValueError:
-                        chunk_id = uuid4()
-                        logger.debug(
-                            "Invalid UUID from provider in stream, generated new one",
-                            original_id=chunk.id,
-                            new_id=str(chunk_id),
-                        )
-
-                    # Convert usage data to strings if present
-                    usage_data = {}
-                    if hasattr(chunk, "usage") and chunk.usage:
-                        usage_data = {
-                            k: str(v) if v is not None else ""
-                            for k, v in chunk.usage.model_dump().items()
-                        }
-
-                    yield Response(
-                        id=chunk_id,
-                        message_id=messages[-1].id,
-                        content={"text": str(choice.delta.content)},
-                        status=ResponseStatus.SUCCESS,
-                        metadata={
-                            "model": chunk.model,
-                            "index": choice.index,
-                            "usage": usage_data,
-                            "original_id": chunk.id,  # Store original ID in metadata
-                        },
-                    )
-
-        except Exception as error:
-            yield Response(
-                id=uuid4(),
-                message_id=messages[-1].id if messages else uuid4(),
-                content={"error": str(error)},
-                status=ResponseStatus.ERROR,
-                metadata={"error": str(error)},
-            )
-
-    async def complete(
+    async def process_message(
         self,
-        prompt: str,
-        *,
-        temperature: float = 0.7,
-        max_tokens: int | None = None,
-        stream: bool = False,
-        **kwargs: Any,
-    ) -> str | AsyncGenerator[str, None]:
-        """Complete a prompt using the provider's model.
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message.
 
         Args:
-            prompt: The prompt to complete
-            temperature: Controls randomness (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
-            stream: Whether to stream the response
-            **kwargs: Additional provider-specific parameters
+            message: Provider message to process
 
         Returns:
-            Generated text or async generator of text chunks if streaming
+            Provider response or async generator of responses
 
         Raises:
-            ProviderError: If the API call fails or rate limit is exceeded
-            RuntimeError: If provider is not initialized
+            ProviderError: If message processing fails
+            ConfigurationError: If provider is not initialized
         """
-        if not self._client:
-            raise ProviderInitError(
-                message="Provider not initialized", provider_type="perplexity"
-            )
+        if not self.is_initialized:
+            raise ConfigurationError("Provider not initialized")
 
         try:
-            messages = [ChatCompletionUserMessageParam(role="user", content=prompt)]
-            model_params = kwargs.get("model_params", {})
-            stop_sequences = kwargs.get("stop_sequences")
+            if not self._client:
+                raise ProviderError("Perplexity client not initialized")
 
-            model = model_params.get("model", self._config.model)
-            max_tokens_value = max_tokens or self._config.max_tokens
-            stop = (
-                cast(list[str], stop_sequences)
-                if stop_sequences is not None
-                else NotGiven()
-            )
+            # Convert message to Perplexity format
+            messages = self._convert_messages([message])
 
+            # Get generation parameters
+            temperature = message.metadata.get("temperature", self._config.temperature)
+            max_tokens = message.metadata.get("max_tokens", self._config.max_tokens)
+            stream = message.metadata.get("stream", False)
+
+            # Generate response
             if stream:
-                stream_response = await self._client.chat.completions.create(
+                response = await self._client.chat.completions.create(
+                    model=self._config.model,
                     messages=messages,
-                    model=model,
                     temperature=temperature,
-                    max_tokens=max_tokens_value,
+                    max_tokens=max_tokens,
                     stream=True,
-                    stop=stop,
                 )
-                return self._stream_response(stream_response)
+                return self._stream_response(response)
             else:
-                completion = await self._client.chat.completions.create(
+                response = await self._client.chat.completions.create(
+                    model=self._config.model,
                     messages=messages,
-                    model=model,
                     temperature=temperature,
-                    max_tokens=max_tokens_value,
+                    max_tokens=max_tokens,
                     stream=False,
-                    stop=stop,
                 )
-                return completion.choices[0].message.content or ""
+                return ProviderResponse(
+                    content=response.choices[0].message.content or "",
+                    metadata={
+                        "model": response.model,
+                        "usage": response.usage.model_dump() if response.usage else {},
+                    },
+                )
 
-        except OpenAIError as api_error:  # type: ignore[misc,attr-defined]
-            error_msg: str = "Perplexity API error"
-            if hasattr(api_error, "message"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg}: {api_error.message}"  # type: ignore[attr-defined]
-            elif hasattr(api_error, "code"):  # type: ignore[attr-defined]
-                error_msg = f"{error_msg} (code: {api_error.code})"  # type: ignore[attr-defined]
-            else:
-                error_msg = f"{error_msg}: {api_error!s}"
-            raise ProviderError(error_msg) from api_error
+        except OpenAIError as api_error:  # type: ignore
+            msg = str(api_error)  # type: ignore
+            raise ProviderAPIError(msg) from api_error
         except Exception as exc:
             msg = str(exc)
-            raise ProviderError(f"Unexpected error: {msg}") from exc
+            raise ProviderError(
+                message=msg,
+                provider_type="perplexity",
+                details={"error": str(exc)},
+            ) from exc
 
     async def _stream_response(
         self, response: AsyncStream[ChatCompletionChunk]
-    ) -> AsyncGenerator[str, None]:
-        """Process streaming response.
+    ) -> AsyncGenerator[ProviderResponse, None]:
+        """Stream response chunks.
 
         Args:
-            response: Raw streaming response
+            response: Perplexity response stream
 
-        Returns:
-            AsyncGenerator[str, None]: Stream of text chunks
+        Yields:
+            Provider response chunks
         """
         async for chunk in response:
-            chunk_choices: list[ChunkChoice] = chunk.choices
-            if not chunk_choices:
-                continue
-            delta = chunk_choices[0].delta
-            if delta.content:
-                yield delta.content
+            if chunk.choices:
+                choice = chunk.choices[0]
+                if choice.delta.content:
+                    yield ProviderResponse(
+                        content=choice.delta.content,
+                        metadata={
+                            "model": chunk.model,
+                            "finish_reason": choice.finish_reason,
+                        },
+                    )
+
+    async def embed(
+        self,
+        text: str,
+        *,
+        model: str | None = None,
+        dimensions: int | None = None,
+        encoding_format: Literal["float", "base64"] | None = None,
+        **kwargs: Any,
+    ) -> list[float]:
+        """Generate embeddings for the given text.
+
+        Args:
+            text: Text to generate embeddings for
+            model: Model to use for embeddings
+            dimensions: Number of dimensions for embeddings
+            encoding_format: Encoding format for embeddings
+            **kwargs: Additional keyword arguments
+
+        Returns:
+            List of embeddings
+
+        Raises:
+            ProviderError: If embedding generation fails
+            ConfigurationError: If provider is not initialized
+        """
+        if not self.is_initialized:
+            raise ConfigurationError("Provider not initialized")
+
+        try:
+            if not self._client:
+                raise ProviderError("Perplexity client not initialized")
+
+            # Get embedding parameters
+            model_name = model or "text-embedding-3-small"
+            dimensions_value = dimensions or 1536
+            encoding = encoding_format or "float"
+
+            # Generate embeddings
+            response = await self._client.embeddings.create(
+                input=text,
+                model=model_name,
+                dimensions=dimensions_value,
+                encoding_format=encoding,
+                **kwargs,
+            )
+
+            # Return embeddings
+            return response.data[0].embedding
+
+        except OpenAIError as api_error:  # type: ignore
+            msg = str(api_error)  # type: ignore
+            raise ProviderAPIError(msg) from api_error
+        except Exception as exc:
+            msg = str(exc)
+            raise ProviderError(
+                message=msg,
+                provider_type="perplexity",
+                details={"error": str(exc)},
+            ) from exc

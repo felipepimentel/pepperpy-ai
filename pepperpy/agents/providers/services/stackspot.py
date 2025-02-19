@@ -5,27 +5,29 @@ various language models through a unified interface.
 """
 
 from collections.abc import AsyncGenerator
-from typing import Any, cast
+from typing import Any, Dict, Union, cast
 
 import aiohttp
 from pydantic import SecretStr
 
-from pepperpy.core.types import Message, MetadataDict, Response, ResponseStatus
-from pepperpy.monitoring.logger import logger
-from pepperpy.providers.base import (
-    BaseProvider,
-    EmbeddingKwargs,
-    GenerateKwargs,
-    ProviderConfig,
-    ProviderKwargs,
-    StreamKwargs,
+from pepperpy.agents.providers.domain import ProviderRateLimitError
+from pepperpy.core.logging import get_logger
+from pepperpy.core.messages import ProviderMessage, ProviderResponse
+from pepperpy.core.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.providers.errors import (
+    ProviderResourceError as ProviderInitError,
 )
-from pepperpy.providers.domain import (
-    ProviderAPIError,
-    ProviderError,
-    ProviderInitError,
-    ProviderRateLimitError,
+from pepperpy.core.providers.errors import (
+    ProviderRuntimeError as ProviderAPIError,
 )
+
+# Configure logger
+logger = get_logger(__name__)
+
+# Type aliases for provider parameters
+GenerateKwargs = Dict[str, Any]
+StreamKwargs = Dict[str, Any]
+EmbeddingKwargs = Dict[str, Any]
 
 
 class StackSpotProvider(BaseProvider):
@@ -43,15 +45,17 @@ class StackSpotProvider(BaseProvider):
         """Initialize the StackSpot provider.
 
         Args:
-            config: Provider configuration containing API key and other settings
+            config: Provider configuration
 
         Note:
             The provider is not ready for use until initialize() is called
         """
         super().__init__(config)
         self._session: aiohttp.ClientSession | None = None
-        self._api_key: SecretStr | None = None
-        self._base_url = "https://api.stackspot.com/v1"
+        self._base_url = config.config.get("base_url", "https://api.stackspot.com/v1")
+        self._api_key = SecretStr(config.config.get("api_key", ""))
+        self._model = config.config.get("model", "gpt-4")
+        self._extra_config = config.config.get("extra_config", {})
 
     async def initialize(self) -> None:
         """Initialize the StackSpot client.
@@ -61,14 +65,7 @@ class StackSpotProvider(BaseProvider):
         Raises:
             ProviderInitError: If initialization fails
         """
-        if not self.config.api_key:
-            raise ProviderInitError(
-                message="API key is required",
-                provider_type="stackspot",
-            )
-
         try:
-            self._api_key = self.config.api_key
             self._session = aiohttp.ClientSession(
                 headers={
                     "Authorization": f"Bearer {self._api_key.get_secret_value()}",
@@ -86,7 +83,7 @@ class StackSpotProvider(BaseProvider):
         self,
         prompt: str,
         *,
-        kwargs: ProviderKwargs | None = None,
+        kwargs: GenerateKwargs | None = None,
     ) -> str | AsyncGenerator[str, None]:
         """Complete a prompt using the StackSpot API.
 
@@ -107,11 +104,11 @@ class StackSpotProvider(BaseProvider):
             )
 
         kwargs = kwargs or {}
-        model_params = self.config.extra_config.get("model_params", {})
+        model_params = self._extra_config.get("model_params", {})
         excluded_params = ("temperature", "max_tokens", "stream")
         extra_params = {k: v for k, v in kwargs.items() if k not in excluded_params}
         payload = {
-            "model": model_params.get("model", self.config.model),
+            "model": model_params.get("model", self._model),
             "prompt": prompt,
             "temperature": kwargs.get("temperature", 0.7),
             "max_tokens": kwargs.get("max_tokens"),
@@ -134,8 +131,10 @@ class StackSpotProvider(BaseProvider):
                     text = await response.text()
                     logger.warning(
                         "StackSpot API error",
-                        status=str(response.status),
-                        response=text,
+                        extra={
+                            "status": str(response.status),
+                            "response": text,
+                        },
                     )
                     raise ProviderAPIError(
                         message=f"StackSpot API error: {response.status}",
@@ -211,7 +210,7 @@ class StackSpotProvider(BaseProvider):
 
         model_params = kwargs.get("model_params", {})
         payload = {
-            "model": model_params.get("model", self.config.model),
+            "model": model_params.get("model", self._model),
             "input": text,
             **kwargs,
         }
@@ -231,8 +230,10 @@ class StackSpotProvider(BaseProvider):
                     text = await response.text()
                     logger.warning(
                         "StackSpot API error",
-                        status=str(response.status),
-                        response=text,
+                        extra={
+                            "status": str(response.status),
+                            "response": text,
+                        },
                     )
                     raise ProviderAPIError(
                         message=f"StackSpot API error: {response.status}",
@@ -245,5 +246,68 @@ class StackSpotProvider(BaseProvider):
         except aiohttp.ClientError as e:
             raise ProviderAPIError(
                 message=f"StackSpot API request failed: {e}",
+                provider_type="stackspot",
+            ) from e
+
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message.
+
+        Args:
+            message: Provider message to process
+
+        Returns:
+            Provider response or async generator of responses
+
+        Raises:
+            ProviderError: If message processing fails
+            ConfigurationError: If provider is not initialized
+        """
+        if not self._session:
+            raise ProviderInitError(
+                message="StackSpot provider not initialized",
+                provider_type="stackspot",
+            )
+
+        # Get generation parameters from message metadata
+        kwargs = message.metadata or {}
+        stream = kwargs.get("stream", False)
+
+        # Generate response
+        try:
+            if stream:
+                response = await self.complete(str(message.content), kwargs=kwargs)
+                if isinstance(response, AsyncGenerator):
+
+                    async def stream_responses():
+                        async for chunk in response:
+                            yield ProviderResponse(
+                                provider_id=self.id,
+                                provider_type=self.type,
+                                content=chunk,
+                                metadata={"model": self._model},
+                            )
+
+                    return stream_responses()
+            else:
+                response = await self.complete(str(message.content), kwargs=kwargs)
+                if isinstance(response, str):
+                    return ProviderResponse(
+                        provider_id=self.id,
+                        provider_type=self.type,
+                        content=response,
+                        metadata={"model": self._model},
+                    )
+
+            raise ProviderAPIError(
+                message="Invalid response type from complete method",
+                provider_type="stackspot",
+            )
+
+        except Exception as e:
+            raise ProviderAPIError(
+                message=f"Failed to process message: {e}",
                 provider_type="stackspot",
             ) from e
