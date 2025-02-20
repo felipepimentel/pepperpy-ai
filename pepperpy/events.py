@@ -111,21 +111,21 @@ class EventMetrics:
             labels={"type": "event"},
         )
 
-    async def record_event(self):
+    def record_event(self):
         """Record event processing."""
         if self._events_counter is not None:
-            await self._events_counter.record(1)
+            self._events_counter.record(1)
 
-    async def record_latency(self, latency: float):
+    def record_latency(self, latency: float):
         """Record event processing latency."""
         if self._latency_gauge is not None:
-            await self._latency_gauge.record(latency)
+            self._latency_gauge.record(latency)
 
-    async def record_metric(self, name: str, value: float):
+    def record_metric(self, name: str, value: float):
         """Record a metric value."""
         metric = self._metrics_manager.get_metric(name)
         if metric is not None:
-            await metric.record(value)
+            metric.record(value)
 
 
 # Initialize metrics manager
@@ -169,7 +169,7 @@ class EventBus:
     async def publish(self, event: Event):
         """Publish an event to all subscribed handlers."""
         self._events[event.id] = event
-        await metrics.record_event()
+        metrics.record_event()
 
         start_time = time.time()
 
@@ -182,7 +182,7 @@ class EventBus:
                     except Exception as e:
                         logger.error(f"Error handling event {event.id}: {e}")
 
-        await metrics.record_latency(time.time() - start_time)
+        metrics.record_latency(time.time() - start_time)
 
 
 class EventEmitter:
@@ -204,7 +204,7 @@ class EventEmitter:
             data: Optional event data
         """
         self._event_count += 1
-        await metrics.record_metric("events_total", self._event_count)
+        metrics.record_metric("events_total", self._event_count)
 
     async def emit_error(
         self, error_type: str, error: Exception, data: Optional[Dict[str, Any]] = None
@@ -217,4 +217,4 @@ class EventEmitter:
             data: Optional error data
         """
         self._error_count += 1
-        await metrics.record_metric("errors_total", self._error_count)
+        metrics.record_metric("errors_total", self._error_count)
