@@ -74,6 +74,9 @@ class VectorStoreConfig(BaseConfig):
     storage_path: Path | None = Field(default=None)
     redis_config: RedisConfig | None = Field(default=None)
     postgres_config: PostgresConfig | None = Field(default=None)
+    dimension: int = Field(default=1536)  # Default for OpenAI embeddings
+    similarity_threshold: float = Field(default=0.8)
+    max_results: int = Field(default=10)
 
 
 class CompositeStoreConfig(BaseConfig):
@@ -108,73 +111,66 @@ class MemoryStoreConfig(BaseConfig):
         ):
             return
 
-        match self.store_type:
-            case StoreType.REDIS:
-                if not self.redis_config:
-                    raise ValueError("Redis configuration is required for Redis store")
-                if self.postgres_config:
-                    raise ValueError(
-                        "Postgres configuration cannot be used with Redis store"
-                    )
-                if self.vector_config:
-                    raise ValueError(
-                        "Vector configuration cannot be used with Redis store"
-                    )
-                if self.composite_config:
-                    raise ValueError(
-                        "Composite configuration cannot be used with Redis store"
-                    )
-            case StoreType.POSTGRES:
-                if not self.postgres_config:
-                    raise ValueError(
-                        "Postgres configuration is required for Postgres store"
-                    )
-                if self.redis_config:
-                    raise ValueError(
-                        "Redis configuration cannot be used with Postgres store"
-                    )
-                if self.vector_config:
-                    raise ValueError(
-                        "Vector configuration cannot be used with Postgres store"
-                    )
-                if self.composite_config:
-                    raise ValueError(
-                        "Composite configuration cannot be used with Postgres store"
-                    )
-            case StoreType.VECTOR:
-                if not self.vector_config:
-                    raise ValueError(
-                        "Vector configuration is required for Vector store"
-                    )
-                if self.redis_config:
-                    raise ValueError(
-                        "Redis configuration cannot be used with Vector store"
-                    )
-                if self.postgres_config:
-                    raise ValueError(
-                        "Postgres configuration cannot be used with Vector store"
-                    )
-                if self.composite_config:
-                    raise ValueError(
-                        "Composite configuration cannot be used with Vector store"
-                    )
-            case StoreType.COMPOSITE:
-                if not self.composite_config:
-                    raise ValueError(
-                        "Composite configuration is required for Composite store"
-                    )
-                if self.redis_config:
-                    raise ValueError(
-                        "Redis configuration cannot be used with Composite store"
-                    )
-                if self.postgres_config:
-                    raise ValueError(
-                        "Postgres configuration cannot be used with Composite store"
-                    )
-                if self.vector_config:
-                    raise ValueError(
-                        "Vector configuration cannot be used with Composite store"
-                    )
+        if self.store_type == StoreType.REDIS:
+            if not self.redis_config:
+                raise ValueError("Redis configuration is required for Redis store")
+            if self.postgres_config:
+                raise ValueError(
+                    "Postgres configuration cannot be used with Redis store"
+                )
+            if self.vector_config:
+                raise ValueError("Vector configuration cannot be used with Redis store")
+            if self.composite_config:
+                raise ValueError(
+                    "Composite configuration cannot be used with Redis store"
+                )
+        elif self.store_type == StoreType.POSTGRES:
+            if not self.postgres_config:
+                raise ValueError(
+                    "Postgres configuration is required for Postgres store"
+                )
+            if self.redis_config:
+                raise ValueError(
+                    "Redis configuration cannot be used with Postgres store"
+                )
+            if self.vector_config:
+                raise ValueError(
+                    "Vector configuration cannot be used with Postgres store"
+                )
+            if self.composite_config:
+                raise ValueError(
+                    "Composite configuration cannot be used with Postgres store"
+                )
+        elif self.store_type == StoreType.VECTOR:
+            if not self.vector_config:
+                raise ValueError("Vector configuration is required for Vector store")
+            if self.redis_config:
+                raise ValueError("Redis configuration cannot be used with Vector store")
+            if self.postgres_config:
+                raise ValueError(
+                    "Postgres configuration cannot be used with Vector store"
+                )
+            if self.composite_config:
+                raise ValueError(
+                    "Composite configuration cannot be used with Vector store"
+                )
+        elif self.store_type == StoreType.COMPOSITE:
+            if not self.composite_config:
+                raise ValueError(
+                    "Composite configuration is required for Composite store"
+                )
+            if self.redis_config:
+                raise ValueError(
+                    "Redis configuration cannot be used with Composite store"
+                )
+            if self.postgres_config:
+                raise ValueError(
+                    "Postgres configuration cannot be used with Composite store"
+                )
+            if self.vector_config:
+                raise ValueError(
+                    "Vector configuration cannot be used with Composite store"
+                )
 
 
 class MemoryConfig(BaseConfig):

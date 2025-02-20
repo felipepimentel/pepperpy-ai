@@ -22,7 +22,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, Field
 
 from pepperpy.monitoring import logger
-from pepperpy.monitoring.metrics import Metric, MetricsManager, MetricType
+from pepperpy.monitoring.metrics import MetricsManager
 
 # Configure logging
 logger = logger.getChild(__name__)
@@ -90,48 +90,42 @@ class EventFilter(Protocol):
 
 
 class EventMetrics:
-    """Manages metrics for the event system."""
+    """Event metrics collector."""
 
     def __init__(self):
+        """Initialize event metrics."""
         self._metrics_manager = MetricsManager.get_instance()
-        self._setup_metrics()
+        self._events_counter = None
+        self._latency_gauge = None
 
-    def _setup_metrics(self):
-        """Set up event metrics."""
-        self._metrics_manager._metrics.update(
-            {
-                "events_processed": Metric(
-                    name="events_processed",
-                    type=MetricType.COUNTER,
-                    description="Number of events processed",
-                ),
-                "event_latency": Metric(
-                    name="event_latency",
-                    type=MetricType.GAUGE,
-                    description="Event processing latency",
-                ),
-            }
+    async def initialize(self):
+        """Initialize metrics."""
+        self._events_counter = await self._metrics_manager.create_counter(
+            "events_processed",
+            "Total number of events processed",
+            labels={"type": "event"},
+        )
+        self._latency_gauge = await self._metrics_manager.create_gauge(
+            "event_latency",
+            "Event processing latency in seconds",
+            labels={"type": "event"},
         )
 
-    def record_event(self):
-        """Record an event being processed."""
-        metric = self._metrics_manager._metrics.get("events_processed")
-        if metric:
-            metric.value += 1
+    async def record_event(self):
+        """Record event processing."""
+        if self._events_counter is not None:
+            await self._events_counter.record(1)
 
-    def record_latency(self, latency: float):
+    async def record_latency(self, latency: float):
         """Record event processing latency."""
-        metric = self._metrics_manager._metrics.get("event_latency")
-        if metric:
-            metric.value = latency
+        if self._latency_gauge is not None:
+            await self._latency_gauge.record(latency)
 
-    def record_metric(self, name: str, value: float):
+    async def record_metric(self, name: str, value: float):
         """Record a metric value."""
-        metric = self._metrics_manager._metrics.get(name)
-        if metric:
-            metric.value = (
-                value if metric.type == MetricType.GAUGE else metric.value + value
-            )
+        metric = self._metrics_manager.get_metric(name)
+        if metric is not None:
+            await metric.record(value)
 
 
 # Initialize metrics manager
@@ -175,7 +169,7 @@ class EventBus:
     async def publish(self, event: Event):
         """Publish an event to all subscribed handlers."""
         self._events[event.id] = event
-        metrics.record_event()
+        await metrics.record_event()
 
         start_time = time.time()
 
@@ -188,7 +182,7 @@ class EventBus:
                     except Exception as e:
                         logger.error(f"Error handling event {event.id}: {e}")
 
-        metrics.record_latency(time.time() - start_time)
+        await metrics.record_latency(time.time() - start_time)
 
 
 class EventEmitter:
@@ -210,7 +204,7 @@ class EventEmitter:
             data: Optional event data
         """
         self._event_count += 1
-        metrics.record_metric("events_total", self._event_count)
+        await metrics.record_metric("events_total", self._event_count)
 
     async def emit_error(
         self, error_type: str, error: Exception, data: Optional[Dict[str, Any]] = None
@@ -223,4 +217,4 @@ class EventEmitter:
             data: Optional error data
         """
         self._error_count += 1
-        metrics.record_metric("errors_total", self._error_count)
+        await metrics.record_metric("errors_total", self._error_count)

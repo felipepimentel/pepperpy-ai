@@ -5,9 +5,11 @@ from typing import Any, Dict, List, Optional
 
 from pepperpy.core.logging import get_logger
 from pepperpy.memory.base import BaseMemoryStore
+from pepperpy.memory.config import VectorStoreConfig
 from pepperpy.memory.errors import MemoryTypeError
 from pepperpy.memory.stores.composite import CompositeMemoryStore
 from pepperpy.memory.stores.memory import InMemoryStore
+from pepperpy.memory.stores.vector import VectorStore
 
 # Configure logger
 logger = get_logger(__name__)
@@ -18,6 +20,7 @@ class MemoryStoreType(str, Enum):
 
     MEMORY = "memory"  # In-memory store
     COMPOSITE = "composite"  # Composite store
+    VECTOR = "vector"  # Vector store
 
 
 def create_memory_store(
@@ -45,5 +48,8 @@ def create_memory_store(
         return CompositeMemoryStore(name="composite", stores=stores, config=config)
     elif store_type == MemoryStoreType.MEMORY:
         return InMemoryStore(name=str(store_type), config=config)
+    elif store_type == MemoryStoreType.VECTOR:
+        vector_config = VectorStoreConfig(**config) if config else None
+        return VectorStore(config=vector_config)
     else:
         raise MemoryTypeError(f"Invalid memory store type: {store_type}")

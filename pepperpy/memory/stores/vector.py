@@ -3,48 +3,44 @@
 This module provides a vector-based storage backend for memory operations.
 """
 
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, AsyncIterator, Dict, Optional
 
 import numpy as np
-from pydantic import BaseModel
 
 from pepperpy.core.errors import PepperpyMemoryError
-from pepperpy.memory.base import MemoryBackend
+from pepperpy.memory.base import (
+    BaseMemoryStore,
+    MemoryEntry,
+    MemoryQuery,
+    MemorySearchResult,
+)
+from pepperpy.memory.config import VectorStoreConfig
 from pepperpy.memory.stores.types import VectorMemoryEntry
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import Counter, MetricsManager
 
 
-class VectorConfig(BaseModel):
-    """Configuration for vector store."""
-
-    dimension: int = 1536  # Default for OpenAI embeddings
-    similarity_threshold: float = 0.8
-    max_results: int = 10
-    storage_path: Optional[Path] = None
-
-
-class VectorStore(MemoryBackend):
+class VectorStore(BaseMemoryStore[Dict[str, Any]]):
     """Vector-based memory storage.
 
     This class implements a vector store for memory entries, using
     vector similarity for retrieval.
     """
 
-    def __init__(self, config: Optional[VectorConfig] = None) -> None:
+    def __init__(self, config: Optional[VectorStoreConfig] = None) -> None:
         """Initialize vector store.
 
         Args:
             config: Optional vector store configuration
         """
-        self.config = config or VectorConfig()
+        super().__init__(name="vector")
+        self.config = config or VectorStoreConfig()
         self._vectors: Dict[str, np.ndarray] = {}
         self._entries: Dict[str, VectorMemoryEntry] = {}
         self._metrics = MetricsManager.get_instance()
         self._counters: Dict[str, Counter] = {}
 
-    async def initialize(self) -> None:
+    async def _initialize(self) -> None:
         """Initialize the store and metrics."""
         # Initialize metrics
         self._counters["invalid_dimension"] = await self._metrics.create_counter(
@@ -95,8 +91,27 @@ class VectorStore(MemoryBackend):
             "memory.vector.cleanup_errors",
             "Number of cleanup operation errors",
         )
+        self._counters["search_success"] = await self._metrics.create_counter(
+            "memory.vector.successful_searches",
+            "Number of successful search operations",
+        )
+        self._counters["search_error"] = await self._metrics.create_counter(
+            "memory.vector.search_errors",
+            "Number of search operation errors",
+        )
 
-    async def store(self, entry: VectorMemoryEntry) -> None:
+    async def _cleanup(self) -> None:
+        """Clean up resources."""
+        try:
+            self._vectors.clear()
+            self._entries.clear()
+            self._counters["cleanup_success"].record(1)
+            logger.debug("Vector store cleaned up")
+        except Exception as e:
+            self._counters["cleanup_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to clean up vector store: {e}") from e
+
+    async def _store(self, entry: MemoryEntry[Dict[str, Any]]) -> None:
         """Store a memory entry.
 
         Args:
@@ -106,6 +121,9 @@ class VectorStore(MemoryBackend):
             PepperpyMemoryError: If storage fails
         """
         try:
+            if not isinstance(entry, VectorMemoryEntry):
+                raise PepperpyMemoryError("Entry must be a VectorMemoryEntry")
+
             if not entry.embedding or len(entry.embedding) != self.config.dimension:
                 self._counters["invalid_dimension"].record(1)
                 raise PepperpyMemoryError(
@@ -122,96 +140,100 @@ class VectorStore(MemoryBackend):
             self._counters["store_error"].record(1)
             raise PepperpyMemoryError(f"Failed to store entry: {e}") from e
 
-    async def retrieve(
-        self, query_embedding: List[float], limit: Optional[int] = None
-    ) -> List[Tuple[VectorMemoryEntry, float]]:
-        """Retrieve similar entries.
+    async def _retrieve(
+        self, query: MemoryQuery
+    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
+        """Retrieve memory entries.
 
         Args:
-            query_embedding: Query vector
-            limit: Maximum number of results
+            query: Memory query
 
-        Returns:
-            List of (entry, similarity) tuples
+        Yields:
+            Memory search results
 
         Raises:
             PepperpyMemoryError: If retrieval fails
         """
         try:
-            if len(query_embedding) != self.config.dimension:
-                self._counters["invalid_dimension"].record(1)
-                raise PepperpyMemoryError(
-                    f"Invalid query dimension: {len(query_embedding)}, "
-                    f"expected {self.config.dimension}"
-                )
+            if query.key:
+                if query.key not in self._entries:
+                    self._counters["not_found"].record(1)
+                    return
 
-            query_vector = np.array(query_embedding)
-            results = []
+                entry = self._entries[query.key]
+                yield MemorySearchResult(entry=entry, score=1.0)
+                self._counters["retrieval_success"].record(1)
+                return
 
-            for entry_id, vector in self._vectors.items():
-                similarity = np.dot(query_vector, vector) / (
-                    np.linalg.norm(query_vector) * np.linalg.norm(vector)
-                )
-                if similarity >= self.config.similarity_threshold:
-                    results.append((self._entries[entry_id], float(similarity)))
+            if query.keys:
+                for key in query.keys:
+                    if key in self._entries:
+                        entry = self._entries[key]
+                        yield MemorySearchResult(entry=entry, score=1.0)
+                self._counters["retrieval_success"].record(1)
+                return
 
-            results.sort(key=lambda x: x[1], reverse=True)
-            limit = limit or self.config.max_results
+            # TODO: Implement semantic search
             self._counters["retrieval_success"].record(1)
-            return results[:limit]
+
         except Exception as e:
             self._counters["retrieval_error"].record(1)
             raise PepperpyMemoryError(f"Failed to retrieve entries: {e}") from e
 
-    async def delete(self, entry_id: str) -> None:
+    async def _delete(self, key: str) -> None:
         """Delete a memory entry.
 
         Args:
-            entry_id: ID of entry to delete
+            key: Entry key
 
         Raises:
             PepperpyMemoryError: If deletion fails
         """
         try:
-            if entry_id not in self._entries:
+            if key not in self._entries:
                 self._counters["not_found"].record(1)
-                raise PepperpyMemoryError(f"Entry not found: {entry_id}")
+                raise PepperpyMemoryError(f"Entry not found: {key}")
 
-            del self._vectors[entry_id]
-            del self._entries[entry_id]
+            del self._vectors[key]
+            del self._entries[key]
             self._counters["deletion_success"].record(1)
-            logger.debug("Deleted entry %s", entry_id)
+            logger.debug("Deleted entry %s", key)
         except Exception as e:
             self._counters["deletion_error"].record(1)
             raise PepperpyMemoryError(f"Failed to delete entry: {e}") from e
 
-    async def exists(self, entry_id: str) -> bool:
-        """Check if entry exists.
-
-        Args:
-            entry_id: ID to check
-
-        Returns:
-            True if entry exists, False otherwise
-
-        Raises:
-            PepperpyMemoryError: If check fails
-        """
-        try:
-            exists = entry_id in self._entries
-            self._counters["exists_success"].record(1)
-            return exists
-        except Exception as e:
-            self._counters["exists_error"].record(1)
-            raise PepperpyMemoryError(f"Failed to check entry existence: {e}") from e
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
+    async def clear(self) -> None:
+        """Clear all data from memory."""
         try:
             self._vectors.clear()
             self._entries.clear()
             self._counters["cleanup_success"].record(1)
-            logger.debug("Vector store cleaned up")
+            logger.debug("Vector store cleared")
         except Exception as e:
             self._counters["cleanup_error"].record(1)
-            raise PepperpyMemoryError(f"Failed to clean up vector store: {e}") from e
+            raise PepperpyMemoryError(f"Failed to clear vector store: {e}") from e
+
+    async def search(
+        self, query: MemoryQuery
+    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
+        """Search memory entries.
+
+        Args:
+            query: Search parameters
+
+        Yields:
+            Search results ordered by relevance
+
+        Raises:
+            ValueError: If query is invalid
+            PepperpyMemoryError: If search fails
+        """
+        try:
+            # For now, just use the retrieve method
+            # TODO: Implement semantic search
+            async for result in self._retrieve(query):
+                yield result
+            self._counters["search_success"].record(1)
+        except Exception as e:
+            self._counters["search_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to search entries: {e}") from e

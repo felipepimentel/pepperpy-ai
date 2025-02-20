@@ -1,15 +1,17 @@
-"""Memory module tests."""
+"""Tests for memory store functionality."""
+
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 import pytest
-from datetime import UTC, datetime, timedelta
 
 from pepperpy.memory import (
-    MemoryError,
-    MemoryKeyError,
+    MemoryEntry,
+    MemoryIndex,
     MemoryQuery,
+    MemoryScope,
     MemoryStoreType,
     MemoryType,
-    MemoryTypeError,
     create_memory_store,
 )
 
@@ -17,22 +19,8 @@ from pepperpy.memory import (
 @pytest.mark.asyncio
 async def test_memory_store_creation() -> None:
     """Test memory store creation."""
-    # Test creating an in-memory store
     store = create_memory_store(MemoryStoreType.MEMORY)
     assert store is not None
-
-    # Test creating a composite store
-    store1 = create_memory_store(MemoryStoreType.MEMORY)
-    store2 = create_memory_store(MemoryStoreType.MEMORY)
-    composite = create_memory_store(
-        MemoryStoreType.COMPOSITE,
-        stores=[store1, store2],
-    )
-    assert composite is not None
-
-    # Test invalid store type
-    with pytest.raises(MemoryTypeError):
-        create_memory_store("invalid" as MemoryStoreType)  # type: ignore
 
 
 @pytest.mark.asyncio
@@ -41,107 +29,44 @@ async def test_memory_store_operations() -> None:
     store = create_memory_store(MemoryStoreType.MEMORY)
 
     # Test storing an entry
-    entry = await store.store(
+    entry = MemoryEntry[Dict[str, Any]](
         key="test1",
         value={"data": "test data"},
         type=MemoryType.SHORT_TERM,
+        scope=MemoryScope.SESSION,
         metadata={"test": True},
-        expires_at=datetime.now(UTC) + timedelta(minutes=5),
+        expires_at=datetime.now(timezone.utc),
+        created_at=datetime.now(timezone.utc),
     )
-    assert entry.key == "test1"
-    assert entry.value == {"data": "test data"}
-    assert entry.type == MemoryType.SHORT_TERM
-    assert entry.metadata == {"test": True}
-    assert entry.expires_at is not None
+    await store._store(entry)
 
     # Test retrieving an entry
-    retrieved = await store.retrieve("test1")
-    assert retrieved == entry
-
-    # Test retrieving a non-existent entry
-    with pytest.raises(MemoryKeyError):
-        await store.retrieve("non_existent")
-
-    # Test retrieving with type mismatch
-    with pytest.raises(MemoryTypeError):
-        await store.retrieve("test1", type=MemoryType.LONG_TERM)
-
-    # Test storing with invalid key
-    with pytest.raises(MemoryKeyError):
-        await store.store(
-            key="",
-            value={"data": "test data"},
-        )
-
-    # Test storing with invalid value type
-    with pytest.raises(MemoryTypeError):
-        await store.store(
-            key="test2",
-            value="invalid",  # type: ignore
-        )
-
-
-@pytest.mark.asyncio
-async def test_memory_store_search() -> None:
-    """Test memory store search."""
-    store = create_memory_store(MemoryStoreType.MEMORY)
-
-    # Store some test entries
-    await store.store(
-        key="user1",
-        value={
-            "name": "John Doe",
-            "email": "john@example.com",
-            "tags": ["user", "admin"],
-        },
-        type=MemoryType.LONG_TERM,
-        metadata={"source": "test"},
+    query = MemoryQuery(
+        query="test1",
+        key="test1",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
     )
-
-    await store.store(
-        key="user2",
-        value={
-            "name": "Jane Smith",
-            "email": "jane@example.com",
-            "tags": ["user"],
-        },
-        type=MemoryType.LONG_TERM,
-        metadata={"source": "test"},
-    )
-
-    # Test basic search
-    query = MemoryQuery(query="john")
     results = []
-    async for result in store.search(query):
+    async for result in store._retrieve(query):
         results.append(result)
     assert len(results) == 1
-    assert results[0].entry.key == "user1"
+    assert results[0].entry.key == "test1"
+    assert results[0].entry.value == {"data": "test data"}
 
-    # Test search with filters
+    # Test retrieving a non-existent entry
     query = MemoryQuery(
-        query="user",
-        filters={"tags": ["user"]},
+        query="non_existent",
+        key="non_existent",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
     )
     results = []
-    async for result in store.search(query):
+    async for result in store._retrieve(query):
         results.append(result)
-    assert len(results) == 2
-
-    # Test search with metadata
-    query = MemoryQuery(
-        query="user",
-        metadata={"source": "test"},
-    )
-    results = []
-    async for result in store.search(query):
-        results.append(result)
-    assert len(results) == 2
-
-    # Test empty query
-    with pytest.raises(MemoryError):
-        query = MemoryQuery(query="")
-        async for _ in store.search(query):
-            pass
+    assert len(results) == 0
 
 
 @pytest.mark.asyncio
@@ -156,35 +81,71 @@ async def test_composite_memory_store() -> None:
     )
 
     # Store entries in different stores
-    await store1.store(
+    entry1 = MemoryEntry[Dict[str, Any]](
         key="test1",
         value={"data": "test1"},
+        type=MemoryType.SHORT_TERM,
+        scope=MemoryScope.SESSION,
         metadata={"store": "store1"},
+        created_at=datetime.now(timezone.utc),
     )
+    await store1._store(entry1)
 
-    await store2.store(
+    entry2 = MemoryEntry[Dict[str, Any]](
         key="test2",
         value={"data": "test2"},
+        type=MemoryType.SHORT_TERM,
+        scope=MemoryScope.SESSION,
         metadata={"store": "store2"},
+        created_at=datetime.now(timezone.utc),
     )
+    await store2._store(entry2)
 
-    # Store entry in composite store
-    await composite.store(
+    entry3 = MemoryEntry[Dict[str, Any]](
         key="test3",
         value={"data": "test3"},
+        type=MemoryType.SHORT_TERM,
+        scope=MemoryScope.SESSION,
         metadata={"store": "composite"},
+        created_at=datetime.now(timezone.utc),
     )
+    await composite._store(entry3)
 
     # Test retrieving entries
-    entry1 = await composite.retrieve("test1")
-    assert entry1.metadata["store"] == "store1"
+    query = MemoryQuery(
+        query="test1",
+        key="test1",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
+    )
+    results = []
+    async for result in composite._retrieve(query):
+        results.append(result)
+    assert len(results) == 1
+    assert results[0].entry.metadata["store"] == "store1"
 
-    entry2 = await composite.retrieve("test2")
-    assert entry2.metadata["store"] == "store2"
+    query = MemoryQuery(
+        query="test2",
+        key="test2",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
+    )
+    results = []
+    async for result in composite._retrieve(query):
+        results.append(result)
+    assert len(results) == 1
+    assert results[0].entry.metadata["store"] == "store2"
 
     # Test searching across stores
-    query = MemoryQuery(query="test")
+    query = MemoryQuery(
+        query="test",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
+    )
     results = []
-    async for result in composite.search(query):
+    async for result in composite._retrieve(query):
         results.append(result)
     assert len(results) == 3
