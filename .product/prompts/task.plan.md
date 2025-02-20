@@ -8,6 +8,11 @@ yolo: true
 strict_mode: true
 ---
 
+# Task File Location
+Tasks should be created in the `.product/tasks/` directory following the naming convention:
+- File path: `.product/tasks/TASK-{ID}.md`
+- Example: `.product/tasks/TASK-005.md`
+
 ```markdown
 ---
 title: {task_title}
@@ -103,4 +108,7 @@ updated: 2024-02-14
 - Completed: Initial requirements definition
 - Next Steps: Begin implementation
 ```
-Remember: Reference task_management_workflow for task creation and ai_knowledge_base_management for pattern tracking.
+Remember: 
+1. All tasks must be saved in `.product/tasks/TASK-{ID}.md`
+2. Reference task_management_workflow for task creation
+3. Reference ai_knowledge_base_management for pattern tracking

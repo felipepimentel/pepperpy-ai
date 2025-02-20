@@ -12,9 +12,9 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from pepperpy.core.errors import FactoryError, ValidationError
-from pepperpy.core.events import Event, EventBus, EventType
 from pepperpy.core.factory import ComponentFactory, Factory
 from pepperpy.core.types import ComponentConfig
+from pepperpy.events import Event, EventBus, EventType
 
 
 class MockComponent:
@@ -231,8 +231,8 @@ async def test_component_creation_error(factory, component_config):
     with pytest.raises(FactoryError) as exc_info:
         await factory.create(component_config)
 
-    assert "Unknown component type" in str(exc_info.value)
-    assert exc_info.value.component_type == "mock_component"
+    assert "Component type not found" in str(exc_info.value)
+    assert exc_info.value.details.get("component_type") == "mock_component"
 
 
 async def test_component_lifecycle(factory, component_config):
@@ -251,16 +251,16 @@ async def test_component_lifecycle(factory, component_config):
 async def test_factory_lifecycle_hooks(factory, component_config):
     """Test factory lifecycle hooks."""
     factory.register("mock_component", MockComponent)
-    
+
     # Set up hooks
     before_create = AsyncMock()
     after_create = AsyncMock()
     factory.add_hook("before_create", before_create)
     factory.add_hook("after_create", after_create)
-    
+
     # Create component
     component = await factory.create(component_config)
-    
+
     # Verify hooks were called
     before_create.assert_called_once_with(component_config)
     after_create.assert_called_once_with(component)

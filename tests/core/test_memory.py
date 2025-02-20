@@ -3,7 +3,7 @@
 import pytest
 from datetime import UTC, datetime, timedelta
 
-from pepperpy.core.memory import (
+from pepperpy.memory import (
     MemoryError,
     MemoryKeyError,
     MemoryQuery,

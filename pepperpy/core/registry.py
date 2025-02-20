@@ -27,7 +27,7 @@ from pepperpy.core.errors import (
     StateError,
     ValidationError,
 )
-from pepperpy.core.events import Event, EventBus, EventHandler, EventPriority, EventType
+from pepperpy.events import Event, EventBus, EventHandler, EventPriority, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +279,7 @@ class Registry(Generic[T]):
                     event = RegistryEvent(
                         type=EventType.PROVIDER_REGISTERED,
                         source_id=self.name,
-                        priority=EventPriority.HIGH,
+                        priority=EventPriority.NORMAL,
                         item_id=item.id,
                         item_key=item.key,
                         item_type=(f"{item_type.__module__}.{item_type.__qualname__}"),
@@ -326,7 +326,7 @@ class Registry(Generic[T]):
                         event = RegistryEvent(
                             type=EventType.PROVIDER_UNREGISTERED,
                             source_id=self.name,
-                            priority=EventPriority.HIGH,
+                            priority=EventPriority.NORMAL,
                             item_id=item.id,
                             item_key=item.key,
                             item_type=(
@@ -436,7 +436,7 @@ class Registry(Generic[T]):
                 event = RegistryEvent(
                     type=EventType.SYSTEM_STARTED,
                     source_id=self.name,
-                    priority=EventPriority.MEDIUM,
+                    priority=EventPriority.NORMAL,
                     item_id=item.id,
                     item_key=item.key,
                     item_type=(f"{item.type.__module__}.{item.type.__qualname__}"),
@@ -494,7 +494,7 @@ class Registry(Generic[T]):
                         event = RegistryEvent(
                             type=EventType.PROVIDER_UNREGISTERED,
                             source_id=self.name,
-                            priority=EventPriority.HIGH,
+                            priority=EventPriority.NORMAL,
                             item_id=item.id,
                             item_key=item.key,
                             item_type=(

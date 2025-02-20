@@ -6,15 +6,6 @@ This module defines enums used throughout the project.
 from enum import Enum, auto
 
 
-class MetricType(Enum):
-    """Types of metrics that can be collected."""
-
-    COUNTER = auto()
-    GAUGE = auto()
-    HISTOGRAM = auto()
-    SUMMARY = auto()
-
-
 class ProviderType(Enum):
     """Types of AI providers."""
 

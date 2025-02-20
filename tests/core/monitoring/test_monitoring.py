@@ -7,22 +7,12 @@ import pytest
 import structlog
 from structlog.testing import LogCapture
 
-from pepperpy.core.monitoring.logging import (
-    LoggerManager,
-    get_logger,
-    setup_logging,
-)
-from pepperpy.core.monitoring.metrics import (
-    Metric,
+from pepperpy.monitoring import configure_logging
+from pepperpy.monitoring.metrics import (
+    BaseMetric,
     MetricExporter,
-    MetricType,
-    metrics_manager,
-    record_metric,
-)
-from pepperpy.core.monitoring.tracing import (
-    SpanKind,
-    trace_span,
-    tracing_manager,
+    MetricsManager,
+    MetricUnit,
 )
 
 
@@ -30,10 +20,10 @@ class TestMetricExporter(MetricExporter):
     """Test implementation of a metric exporter."""
 
     def __init__(self) -> None:
-        self.exported_metrics: Dict[str, Metric] = {}
+        self.exported_metrics: Dict[str, BaseMetric] = {}
         self.flush_called = False
 
-    async def export(self, metric: Metric) -> None:
+    async def export(self, metric: BaseMetric) -> None:
         """Export a test metric."""
         self.exported_metrics[metric.name] = metric
 
@@ -51,33 +41,10 @@ def log_capture() -> LogCapture:
 
 
 @pytest.mark.asyncio
-async def test_logger_manager():
-    """Test logger manager functionality."""
-    manager = LoggerManager()
-    await manager.initialize()
-
-    # Test getting logger
-    logger = manager.get_logger("test")
-    assert logger is not None
-
-    # Test context binding
-    context_logger = manager.get_logger("test", {"key": "value"})
-    assert context_logger is not None
-
-    # Test global context
-    manager.add_global_context(env="test")
-    new_logger = manager.get_logger("test2")
-    assert new_logger is not None
-
-    # Test cleanup
-    await manager.cleanup()
-
-
-@pytest.mark.asyncio
 async def test_logging_output(log_capture: LogCapture):
     """Test logging output capture."""
-    logger = get_logger("test")
-    logger.info("Test message", key="value")
+    logger = logging.getLogger("test")
+    logger.info("Test message", extra={"key": "value"})
 
     # Verify log output
     assert len(log_capture.entries) > 0
@@ -90,116 +57,80 @@ async def test_logging_output(log_capture: LogCapture):
 @pytest.mark.asyncio
 async def test_metrics_manager():
     """Test metrics manager functionality."""
-    await metrics_manager.initialize()
+    metrics = MetricsManager.get_instance()
+    await metrics.initialize()
 
     # Add test exporter
     exporter = TestMetricExporter()
-    metrics_manager.add_exporter(exporter)
+    metrics.add_exporter(exporter)
 
-    # Record metric
-    await metrics_manager.record(
+    # Create and record metrics
+    counter = await metrics.create_counter(
         "test_counter",
-        1.0,
-        MetricType.COUNTER,
-        {"label": "test"},
-        "Test metric",
+        "Test counter",
+        labels={"label": "test"},
     )
+    counter.record(1.0)
 
-    # Verify metric was recorded and exported
-    metric = metrics_manager.get_metric("test_counter")
-    assert metric is not None
-    assert metric.value == 1.0
-    assert metric.type == MetricType.COUNTER
-    assert metric.labels == {"label": "test"}
-    assert metric.description == "Test metric"
+    # Verify metric was recorded
+    assert counter.get_points()[-1].value == 1.0
+    assert counter.get_points()[-1].labels == {"label": "test"}
 
-    # Verify export
-    assert "test_counter" in exporter.exported_metrics
-    exported = exporter.exported_metrics["test_counter"]
-    assert exported.value == 1.0
+    # Create and record gauge
+    gauge = await metrics.create_gauge(
+        "test_gauge",
+        "Test gauge",
+        unit=MetricUnit.PERCENT,
+    )
+    gauge.record(42.0)
+
+    # Verify gauge was recorded
+    assert gauge.get_points()[-1].value == 42.0
+    assert gauge.unit == MetricUnit.PERCENT
+
+    # Create and record histogram
+    histogram = await metrics.create_histogram(
+        "test_histogram",
+        "Test histogram",
+        buckets=[0.1, 1.0, 10.0],
+    )
+    histogram.record(2.0)
+
+    # Verify histogram was recorded
+    assert histogram.count == 1
+    assert histogram.sum == 2.0
+    assert histogram.buckets == [0.1, 1.0, 10.0]
 
     # Test cleanup
-    await metrics_manager.cleanup()
+    await metrics.cleanup()
     assert exporter.flush_called
-
-
-@pytest.mark.asyncio
-async def test_metrics_convenience_function():
-    """Test metrics convenience function."""
-    exporter = TestMetricExporter()
-    metrics_manager.add_exporter(exporter)
-
-    await record_metric(
-        "test_gauge",
-        42.0,
-        MetricType.GAUGE,
-        {"service": "test"},
-    )
-
-    assert "test_gauge" in exporter.exported_metrics
-    metric = exporter.exported_metrics["test_gauge"]
-    assert metric.value == 42.0
-    assert metric.type == MetricType.GAUGE
-    assert metric.labels == {"service": "test"}
-
-
-@pytest.mark.asyncio
-async def test_tracing_manager():
-    """Test tracing manager functionality."""
-    await tracing_manager.initialize()
-
-    # Test span creation
-    async with tracing_manager.span(
-        "test_operation",
-        kind=SpanKind.INTERNAL,
-        attributes={"service": "test"},
-    ) as span:
-        assert span is not None
-        span.set_attribute("key", "value")
-
-    # Test context injection/extraction
-    carrier: Dict[str, str] = {}
-    tracing_manager.inject_context(carrier)
-    assert carrier  # Context should be injected
-
-    context = tracing_manager.extract_context(carrier)
-    assert context is not None
-
-    await tracing_manager.cleanup()
-
-
-@pytest.mark.asyncio
-async def test_tracing_convenience_function():
-    """Test tracing convenience function."""
-    async with trace_span(
-        "test_span",
-        attributes={"test": "value"},
-    ) as span:
-        assert span is not None
-        span.set_attribute("key", "value")
-
-
-@pytest.mark.asyncio
-async def test_tracing_error_handling():
-    """Test tracing error handling."""
-    with pytest.raises(ValueError):
-        async with tracing_manager.span("error_span") as span:
-            assert span is not None
-            raise ValueError("Test error")
 
 
 @pytest.mark.asyncio
 async def test_logging_setup():
     """Test logging setup function."""
     # Test default setup
-    setup_logging()
+    configure_logging()
     root_logger = logging.getLogger()
     assert root_logger.level == logging.INFO
 
     # Test custom level
-    setup_logging(level="DEBUG")
+    configure_logging(level="DEBUG")
     assert root_logger.level == logging.DEBUG
 
-    # Test JSON formatting
-    setup_logging(enable_json=True)
-    # JSON formatter should be configured
+    # Test file logging
+    import os
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        log_file = f.name
+        configure_logging(log_file=log_file)
+        root_logger.info("Test log message")
+
+        # Verify log file was written
+        with open(log_file) as f:
+            log_content = f.read()
+            assert "Test log message" in log_content
+
+        # Clean up
+        os.unlink(log_file)

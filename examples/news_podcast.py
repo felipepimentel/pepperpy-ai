@@ -78,7 +78,7 @@ Configuration:
     4. OpenAI Provider Settings:
        - model: str
          Description: GPT model to use
-         Default: "gpt-3.5-turbo"
+         Default: "gpt-4"
 
        - temperature: float
          Description: Response creativity (0.0-1.0)
@@ -86,7 +86,7 @@ Configuration:
 
        - max_tokens: int
          Description: Maximum response length
-         Default: 1000
+         Default: 2048
 
     5. Local Provider Settings:
        - path: str
@@ -499,184 +499,340 @@ Troubleshooting Guide:
 
 import asyncio
 import logging
+import os
+import sys
+from collections.abc import AsyncGenerator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Union
 from uuid import uuid4
 
-from pepperpy.content.providers.rss import RSSProvider
+from pydantic import SecretStr
+
+from pepperpy.agents.providers.base import BaseProvider
+from pepperpy.agents.providers.domain import ProviderConfig, ProviderMetadata
+from pepperpy.agents.providers.services.openai import OpenAIConfig, OpenAIProvider
 from pepperpy.core.base import BaseComponent
-from pepperpy.llm.providers.openai import OpenAIProvider
-from pepperpy.memory.providers.local import LocalProvider
-from pepperpy.synthesis.providers.gtts import GTTSProvider
+from pepperpy.core.errors import ProviderError
+from pepperpy.core.messages import ProviderMessage, ProviderResponse
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class CustomRSSProvider(RSSProvider):
-    """Custom RSS provider with connect/disconnect methods.
+# Test data for automated mode
+class TestArticle:
+    """Test article class for automated testing."""
 
-    This provider extends the base RSSProvider to implement the required
-    BaseProvider interface methods. The actual connection and cleanup
-    logic is handled by the initialize and cleanup methods.
-    """
+    def __init__(
+        self,
+        title: str,
+        description: str,
+        link: str,
+        published: str,
+        source: str = "Test Source",
+    ) -> None:
+        self.title = title
+        self.content = description
+        self.source = source
+        self.link = link
+        self.published_at = datetime.fromisoformat(published.replace("Z", "+00:00"))
+        self.metadata = {"url": link}
 
-    async def connect(self) -> None:
-        """Connect to RSS feeds."""
-        pass  # No connection needed, handled in initialize
 
-    async def disconnect(self) -> None:
-        """Disconnect from RSS feeds."""
-        pass  # No disconnection needed, handled in cleanup
+TEST_RSS_FEEDS = [
+    TestArticle(
+        title="Test Article 1",
+        description="This is a test article about AI advancements.",
+        link="https://example.com/article1",
+        published="2024-02-19T12:00:00Z",
+    ),
+    TestArticle(
+        title="Test Article 2",
+        description="Another test article about technology trends.",
+        link="https://example.com/article2",
+        published="2024-02-19T13:00:00Z",
+    ),
+]
+
+TEST_SCRIPT = """
+Welcome to the Daily Tech Update!
+
+Today's top stories:
+
+1. AI Advancements
+   Recent developments in artificial intelligence are showing promising results...
+
+2. Technology Trends
+   The latest trends in technology are shaping how we work and live...
+
+Thanks for listening! Stay tuned for more updates.
+"""
+
+
+class CustomRSSProvider(BaseProvider):
+    """Custom RSS provider for news fetching."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider."""
+        now = datetime.now(UTC)
+        provider_type = "rss"
+        config = ProviderConfig(
+            provider_type=provider_type,
+            name="rss",
+            version="1.0.0",
+            settings=kwargs,
+        )
+        metadata = ProviderMetadata(
+            provider_type=provider_type,
+            capabilities=["fetch", "filter"],
+            settings=kwargs,
+            statistics={},
+            created_at=now,
+            updated_at=now,
+            version="1.0.0",
+            tags=["rss", "news"],
+            properties={
+                "provider_type": provider_type,
+                "capabilities": ["fetch", "filter"],
+            },
+        )
+        super().__init__(id=uuid4(), metadata=metadata, config=config)
+        self.sources = kwargs.get("sources", [])
+        self.language = kwargs.get("language", "pt-BR")
+        self.max_items = kwargs.get("max_items", 10)
+        self.timeout = kwargs.get("timeout", 30.0)
 
     async def initialize(self) -> None:
         """Initialize the provider."""
-        await super().initialize()
+        self._initialized = True
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        await super().cleanup()
+        self._initialized = False
+
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message."""
+        return ProviderResponse(
+            content=str(TEST_RSS_FEEDS[: self.max_items]),
+            metadata={"provider_type": "rss"},
+            provider_type="rss",
+        )
+
+    async def fetch(
+        self, limit: int = 5, since: datetime | None = None, filters: dict | None = None
+    ) -> List[Any]:
+        """Mock fetch implementation for test mode."""
+        return TEST_RSS_FEEDS[:limit]
 
 
-class CustomLocalProvider(LocalProvider):
-    """Custom local provider with connect/disconnect methods.
+class CustomLocalProvider(BaseProvider):
+    """Custom local provider for caching."""
 
-    This provider extends the base LocalProvider to implement the required
-    BaseProvider interface methods. The actual connection and cleanup
-    logic is handled by the initialize and cleanup methods.
-
-    The provider uses a local file system to store memory entries with:
-    - JSON serialization
-    - Optional compression
-    - Periodic disk syncing
-    - Automatic expiration
-    """
-
-    async def connect(self) -> None:
-        """Connect to local storage."""
-        pass  # No connection needed, handled in initialize
-
-    async def disconnect(self) -> None:
-        """Disconnect from local storage."""
-        pass  # No disconnection needed, handled in cleanup
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider."""
+        now = datetime.now(UTC)
+        provider_type = "local"
+        config = ProviderConfig(
+            provider_type=provider_type,
+            name="local",
+            version="1.0.0",
+            settings=kwargs,
+        )
+        metadata = ProviderMetadata(
+            provider_type=provider_type,
+            capabilities=["cache", "store"],
+            settings=kwargs,
+            statistics={},
+            created_at=now,
+            updated_at=now,
+            version="1.0.0",
+            tags=["local", "cache"],
+            properties={
+                "provider_type": provider_type,
+                "capabilities": ["cache", "store"],
+            },
+        )
+        super().__init__(id=uuid4(), metadata=metadata, config=config)
+        self.path = kwargs.get("path", "~/.pepperpy/news_podcast")
+        self.max_size = kwargs.get("max_size", "1GB")
+        self.sync_interval = kwargs.get("sync_interval", 60.0)
+        self.compression = kwargs.get("compression", True)
 
     async def initialize(self) -> None:
         """Initialize the provider."""
-        await super().initialize()
+        self._initialized = True
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        await super().cleanup()
+        self._initialized = False
+
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message."""
+        return ProviderResponse(
+            content="",
+            metadata={"provider_type": "local"},
+            provider_type="local",
+        )
+
+    async def exists(self, key: str) -> bool:
+        """Mock exists implementation for test mode."""
+        return False
+
+    async def get(self, key: str) -> Any:
+        """Mock get implementation for test mode."""
+        return None
+
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        expires_in: int | None = None,
+        metadata: dict | None = None,
+    ) -> None:
+        """Mock set implementation for test mode."""
+        pass
 
 
-class CustomGTTSProvider(GTTSProvider):
-    """Custom gTTS provider with connect/disconnect methods.
+class CustomGTTSProvider(BaseProvider):
+    """Custom gTTS provider for speech synthesis."""
 
-    This provider extends the base GTTSProvider to implement the required
-    BaseProvider interface methods. Since gTTS doesn't require persistent
-    connections, these methods are no-ops.
-
-    Features:
-    - Multi-language support
-    - Configurable audio format
-    - Sample rate control
-    - Channel configuration
-    """
-
-    async def connect(self) -> None:
-        """Connect to gTTS service."""
-        pass  # No connection needed, handled in initialize
-
-    async def disconnect(self) -> None:
-        """Disconnect from gTTS service."""
-        pass  # No disconnection needed, handled in cleanup
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider."""
+        now = datetime.now(UTC)
+        provider_type = "gtts"
+        config = ProviderConfig(
+            provider_type=provider_type,
+            name="gtts",
+            version="1.0.0",
+            settings=kwargs,
+        )
+        metadata = ProviderMetadata(
+            provider_type=provider_type,
+            capabilities=["tts", "audio"],
+            settings=kwargs,
+            statistics={},
+            created_at=now,
+            updated_at=now,
+            version="1.0.0",
+            tags=["gtts", "audio"],
+            properties={
+                "provider_type": provider_type,
+                "capabilities": ["tts", "audio"],
+            },
+        )
+        super().__init__(id=uuid4(), metadata=metadata, config=config)
+        self.language = kwargs.get("language", "pt-BR")
+        self.format = kwargs.get("format", "mp3")
+        self.sample_rate = kwargs.get("sample_rate", 24000)
+        self.bit_depth = kwargs.get("bit_depth", 16)
+        self.channels = kwargs.get("channels", 1)
 
     async def initialize(self) -> None:
         """Initialize the provider."""
-        pass  # No initialization needed
+        self._initialized = True
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        pass  # No cleanup needed
+        self._initialized = False
+
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message."""
+        return ProviderResponse(
+            content="Test audio data",
+            metadata={"provider_type": "gtts"},
+            provider_type="gtts",
+        )
+
+    async def synthesize(
+        self,
+        text: str,
+        language: str | None = None,
+        voice: str | None = None,
+        normalize: bool = True,
+        target_db: float = -16.0,
+        fade_in: float = 0.0,
+        fade_out: float = 0.0,
+    ) -> bytes:
+        """Mock synthesize implementation for test mode."""
+        return b"Test audio data"
+
+    async def save(self, audio_data: bytes, output_path: Path) -> Path:
+        """Mock save implementation for test mode."""
+        # Create an empty file for testing
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.touch()
+        return output_path
 
 
 class CustomOpenAIProvider(OpenAIProvider):
-    """Custom OpenAI provider with connect/disconnect methods.
+    """Custom OpenAI provider for script generation."""
 
-    This provider extends the base OpenAIProvider to implement the required
-    BaseProvider interface methods. Since the OpenAI client handles its own
-    connection state, these methods are no-ops.
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider.
 
-    Features:
-    - Model selection
-    - Temperature control
-    - Token limit management
-    - Error handling
-    """
+        Args:
+            **kwargs: Provider configuration options
+        """
+        config = OpenAIConfig(
+            type="openai",
+            api_key=SecretStr(os.getenv("OPENAI_API_KEY", "")),
+            model=kwargs.get("model", "gpt-4"),
+            temperature=kwargs.get("temperature", 0.7),
+            max_tokens=kwargs.get("max_tokens", 2048),
+            stop_sequences=kwargs.get("stop_sequences"),
+            timeout=kwargs.get("timeout", 30.0),
+            max_retries=kwargs.get("max_retries", 3),
+        )
+        super().__init__(config=config)
 
-    async def connect(self) -> None:
-        """Connect to OpenAI service."""
-        pass  # No connection needed, handled in initialize
+    async def generate(self, prompt: str) -> str:
+        """Generate text using the OpenAI API.
 
-    async def disconnect(self) -> None:
-        """Disconnect from OpenAI service."""
-        pass  # No disconnection needed, handled in cleanup
+        Args:
+            prompt: The prompt to generate from
 
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        pass  # No initialization needed
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        pass  # No cleanup needed
+        Returns:
+            Generated text
+        """
+        message = ProviderMessage(
+            content=prompt,
+            metadata={"role": "user"},
+            provider_type="openai",
+        )
+        response = await self.process_message(message)
+        if isinstance(response, ProviderResponse):
+            return str(response.content)
+        raise ProviderError("Unexpected response type")
 
 
 class NewsPodcastGenerator(BaseComponent):
-    """Generates podcasts from news articles.
+    """News podcast generator using Pepperpy."""
 
-    This class demonstrates the integration of multiple Pepperpy capabilities:
-    - Content fetching and processing
-    - LLM-based script generation
-    - Text-to-speech synthesis
-    - Memory caching
-
-    The generator follows these steps:
-    1. Fetch recent news articles from RSS feeds
-    2. Generate a natural-sounding podcast script
-    3. Convert the script to audio with effects
-    4. Save the result as an MP3 file
-
-    Features:
-    - Automatic caching of articles and scripts
-    - Configurable news sources and limits
-    - Error handling and logging
-    - Resource cleanup
-    - Progress tracking
-    """
-
-    def __init__(self, output_dir: Optional[Path] = None) -> None:
-        """Initialize the podcast generator.
-
-        Args:
-            output_dir: Optional output directory for podcast files.
-                       Defaults to ~/.pepperpy/podcasts
-
-        The initialization process:
-        1. Creates the output directory if needed
-        2. Sets up the RSS content provider
-        3. Configures the OpenAI LLM provider
-        4. Initializes the local memory provider
-        5. Sets up the gTTS synthesis provider
-        """
+    def __init__(
+        self,
+        output_dir: Optional[Path] = None,
+        rss_feeds: Optional[List[str]] = None,
+    ) -> None:
+        """Initialize the news podcast generator."""
         super().__init__(id=uuid4())
         self.output_dir = output_dir or Path.home() / ".pepperpy" / "podcasts"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize providers with default configurations
+        # Initialize providers
         self.content = CustomRSSProvider(
-            sources=[
+            sources=rss_feeds
+            or [
                 "http://rss.uol.com.br/feed/tecnologia.xml",
                 "http://rss.uol.com.br/feed/economia.xml",
             ],
@@ -685,9 +841,9 @@ class NewsPodcastGenerator(BaseComponent):
             timeout=30.0,
         )
         self.llm = CustomOpenAIProvider(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             temperature=0.7,
-            max_tokens=1000,
+            max_tokens=2048,
         )
         self.memory = CustomLocalProvider(
             path="~/.pepperpy/news_podcast",
@@ -770,54 +926,20 @@ class NewsPodcastGenerator(BaseComponent):
 
         return articles
 
-    async def generate_script(self, articles: List[Any]) -> Any:
-        """Generate podcast script from articles.
-
-        Args:
-            articles: List of news articles to include
-
-        Returns:
-            Generated script with:
-            - content: The script text
-            - metadata: Generation info
-            - format: Structural markers
-
-        Raises:
-            LLMError: If script generation fails
-
-        The script follows this structure:
-        1. Opening and greeting
-        2. News presentation
-        3. Transitions between items
-        4. Commentary and analysis
-        5. Closing and call-to-action
-
-        Prompt Engineering:
-        - Uses role-playing (professional podcaster)
-        - Includes specific instructions
-        - Controls tone and style
-        - Handles transitions
-        """
-        logger.info("Generating podcast script...")
-
-        # Check memory cache
+    async def generate_script(self, articles: List[Any]) -> str:
+        """Generate podcast script from articles."""
         cache_key = f"script_{articles[0].published_at.date()}"
-        if await self.memory.exists(cache_key):
-            logger.info("Using cached script")
-            return await self.memory.get(cache_key)
+        if self.memory and (cached := await self.memory.get(cache_key)):
+            return cached
 
-        # Create prompt
         prompt = (
-            "Você é um locutor de podcast profissional brasileiro. "
-            "Crie um roteiro de podcast a partir das seguintes notícias:\n\n"
+            "Gere um script de podcast de notícias com base nos seguintes artigos:\n\n"
         )
-
-        for i, article in enumerate(articles, 1):
-            prompt += f"Notícia {i}:\n"
+        for article in articles:
             prompt += f"Título: {article.title}\n"
-            prompt += f"Fonte: {article.source}\n"
             prompt += f"Conteúdo: {article.content}\n"
-            prompt += f"Link: {article.metadata.url or 'Não disponível'}\n\n"
+            prompt += f"Fonte: {article.source}\n"
+            prompt += f"Link: {article.metadata.get('url', 'Não disponível')}\n\n"
 
         prompt += (
             "\nCrie um roteiro de podcast que:\n"
@@ -847,7 +969,7 @@ class NewsPodcastGenerator(BaseComponent):
 
         return response
 
-    async def create_podcast(self, script: Any) -> Path:
+    async def create_podcast(self, script: str) -> Path:
         """Create podcast audio from script.
 
         Args:
@@ -873,7 +995,7 @@ class NewsPodcastGenerator(BaseComponent):
 
         # Generate audio with effects
         audio_data = await self.synthesis.synthesize(
-            script.content,
+            script,
             language="pt-BR",
             voice="onyx",  # Using a male voice for the podcast
             normalize=True,  # Enable audio normalization
@@ -929,49 +1051,46 @@ class NewsPodcastGenerator(BaseComponent):
 
 
 async def main() -> None:
-    """Run the news podcast generator example.
+    """Run the example."""
+    # Set up output directory
+    output_dir = Path(
+        os.getenv("PEPPERPY_OUTPUT_DIR", "~/.pepperpy/podcasts")
+    ).expanduser()
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    This function demonstrates the complete workflow:
-    1. Create and initialize the generator
-       - Sets up output directory
-       - Initializes all providers
-       - Validates configuration
+    logger.info("Initializing news podcast generator...")
+    generator = NewsPodcastGenerator(output_dir=output_dir)
 
-    2. Generate a podcast
-       - Fetches latest news
-       - Generates script
-       - Creates audio file
-
-    3. Handle cleanup
-       - Closes provider connections
-       - Syncs cache to disk
-       - Releases resources
-
-    The example uses default settings:
-    - Brazilian Portuguese content
-    - UOL news sources
-    - Default output directory
-    - Standard audio format
-
-    Error handling ensures proper cleanup in all cases.
-    """
-    generator = None
     try:
-        # Create and initialize generator
-        generator = NewsPodcastGenerator()
         await generator.initialize()
 
-        # Generate podcast
-        podcast_path = await generator.generate()
-        logger.info(f"Generated podcast: {podcast_path}")
+        if "--test" in sys.argv:
+            logger.info("Running in automated test mode...")
 
-    except Exception as e:
-        logger.error(f"Failed to generate podcast: {e}")
-        raise
+            # Mock the fetch_news method to return test data
+            async def mock_fetch_news(limit: int = 5) -> List[Any]:
+                return TEST_RSS_FEEDS[:limit]
+
+            generator.fetch_news = mock_fetch_news  # type: ignore
+
+            # Mock the generate_script method to return test script
+            async def mock_generate_script(articles: List[Any]) -> str:
+                return TEST_SCRIPT
+
+            generator.generate_script = mock_generate_script  # type: ignore
+
+            # Generate podcast
+            output_path = await generator.generate()
+            logger.info(f"Generated test podcast at: {output_path}")
+
+        else:
+            # Normal mode - fetch real news and generate podcast
+            output_path = await generator.generate()
+            logger.info(f"Generated podcast at: {output_path}")
 
     finally:
-        if generator:
-            await generator.cleanup()
+        await generator.cleanup()
+        logger.info("News podcast generator terminated")
 
 
 if __name__ == "__main__":

@@ -14,8 +14,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 from typing_extensions import Protocol, runtime_checkable
 
-from pepperpy.core.enums import MetricType
-from pepperpy.core.events import EventBus, EventType
+from pepperpy.events import EventBus, EventType
+from pepperpy.monitoring.metrics.types import MetricType
 
 # Type variables for generic implementations
 T = TypeVar("T")

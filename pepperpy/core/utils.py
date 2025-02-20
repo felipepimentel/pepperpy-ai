@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Generator, Optional, Type, TypeVar, Union
 
 from pepperpy.core.errors import ConfigurationError, PepperpyError
+from pepperpy.monitoring import configure_logging
 
 logger = logging.getLogger(__name__)
 
@@ -220,8 +221,8 @@ def validate_path(path: Union[str, Path], must_exist: bool = True) -> Path:
 
 
 def setup_logging(
-    level: Union[str, int] = logging.INFO,
-    log_file: Optional[Union[str, Path]] = None,
+    level: Optional[str] = None,
+    log_file: Optional[str] = None,
     format_string: Optional[str] = None,
 ) -> None:
     """Set up logging configuration.
@@ -232,22 +233,7 @@ def setup_logging(
         format_string: Optional format string
 
     """
-    if isinstance(level, str):
-        level = getattr(logging, level.upper())
-
-    format_string = format_string or (
-        "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-
-    handlers: list[logging.Handler] = [logging.StreamHandler()]
-    if log_file:
-        handlers.append(logging.FileHandler(str(log_file)))
-
-    logging.basicConfig(
-        level=level,
-        format=format_string,
-        handlers=handlers,
-    )
+    configure_logging(level=level, log_file=log_file)
 
 
 def is_running_in_test() -> bool:

@@ -21,7 +21,6 @@ from pepperpy.core.base import (
 from pepperpy.core.errors import ConfigurationError, StateError
 from pepperpy.core.hooks import HookCallback as HookCallbackType
 from pepperpy.core.logging import get_logger
-from pepperpy.core.memory.store import BaseMemoryStore, create_memory_store
 from pepperpy.core.messages import (
     Message,
     ProviderMessage,
@@ -39,6 +38,8 @@ from pepperpy.core.providers.errors import (
     ProviderNotFoundError,
 )
 from pepperpy.core.types import PepperpyClientProtocol
+from pepperpy.memory.base import BaseMemoryStore
+from pepperpy.memory.stores import create_memory_store
 
 # Configure logging
 logger = get_logger(__name__)

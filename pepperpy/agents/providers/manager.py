@@ -7,8 +7,8 @@ lifecycle.
 from collections.abc import AsyncGenerator
 from typing import Optional
 
+from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ConfigurationError, ProviderError
-from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.logging import get_logger
 from pepperpy.core.types import MessageType, Response
 

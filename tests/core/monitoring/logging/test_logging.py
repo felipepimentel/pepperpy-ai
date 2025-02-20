@@ -1,18 +1,19 @@
 """Tests for logging functionality."""
 
 import json
-from datetime import datetime
+import logging
 from io import StringIO
 
 import pytest
 
-from pepperpy.core.monitoring.logging import LoggerFactory, LogLevel, LogRecord
+from pepperpy.monitoring import configure_logging
 
 
 @pytest.mark.asyncio
-async def test_logger_basic(logger_factory: LoggerFactory, output_stream: StringIO):
+async def test_logger_basic(output_stream: StringIO):
     """Test basic logger functionality."""
-    logger = logger_factory.get_logger("test")
+    configure_logging()
+    logger = logging.getLogger("test")
     logger.info("Test message")
 
     output = output_stream.getvalue()
@@ -24,9 +25,10 @@ async def test_logger_basic(logger_factory: LoggerFactory, output_stream: String
 
 
 @pytest.mark.asyncio
-async def test_logger_levels(logger_factory: LoggerFactory, output_stream: StringIO):
+async def test_logger_levels(output_stream: StringIO):
     """Test different log levels."""
-    logger = logger_factory.get_logger("test")
+    configure_logging()
+    logger = logging.getLogger("test")
 
     # Test all log levels
     logger.debug("Debug message")
@@ -47,82 +49,48 @@ async def test_logger_levels(logger_factory: LoggerFactory, output_stream: Strin
 
 
 @pytest.mark.asyncio
-async def test_logger_context(logger_factory: LoggerFactory, output_stream: StringIO):
+async def test_logger_context(output_stream: StringIO):
     """Test logger context handling."""
-    # Create logger with context
-    logger = logger_factory.get_logger(
-        "test",
-        context={"app": "test_app"},
-        metadata={"version": "1.0"},
-    )
-
-    logger.info("Test message")
+    configure_logging()
+    logger = logging.getLogger("test")
+    logger.info("Test message", extra={"app": "test_app", "version": "1.0"})
 
     log_data = json.loads(output_stream.getvalue())
-    assert log_data["context"]["app"] == "test_app"
-    assert log_data["metadata"]["version"] == "1.0"
+    assert log_data["app"] == "test_app"
+    assert log_data["version"] == "1.0"
 
 
 @pytest.mark.asyncio
-async def test_logger_error_handling(
-    logger_factory: LoggerFactory, output_stream: StringIO
-):
+async def test_logger_error_handling(output_stream: StringIO):
     """Test error logging."""
-    logger = logger_factory.get_logger("test")
+    configure_logging()
+    logger = logging.getLogger("test")
 
     try:
         raise ValueError("Test error")
     except Exception as e:
-        logger.error("Error occurred", error=e)
+        logger.error("Error occurred", extra={"error": str(e)})
 
     log_data = json.loads(output_stream.getvalue())
     assert log_data["level"] == "error"
-    assert log_data["error"]["type"] == "ValueError"
-    assert log_data["error"]["message"] == "Test error"
+    assert log_data["error"] == "Test error"
 
 
 @pytest.mark.asyncio
-async def test_log_record():
-    """Test log record creation and formatting."""
-    # Create a log record
-    record = LogRecord(
-        level=LogLevel.INFO,
-        message="Test message",
-        module="test",
-        context={"app": "test_app"},
-        metadata={"version": "1.0"},
-    )
+async def test_log_levels():
+    """Test log level handling."""
+    # Test level comparison
+    assert logging.DEBUG < logging.INFO
+    assert logging.INFO < logging.WARNING
+    assert logging.WARNING < logging.ERROR
+    assert logging.ERROR < logging.CRITICAL
 
-    # Convert to dict
-    data = record.to_dict()
-
-    # Verify fields
-    assert data["level"] == "info"
-    assert data["message"] == "Test message"
-    assert data["module"] == "test"
-    assert data["context"]["app"] == "test_app"
-    assert data["metadata"]["version"] == "1.0"
-    assert datetime.fromisoformat(data["timestamp"])  # Valid timestamp
+    # Test string conversion
+    assert logging.getLevelName(logging.INFO).lower() == "info"
+    assert logging.getLevelName(logging.ERROR).lower() == "error"
 
 
-@pytest.mark.asyncio
-async def test_logger_factory_cleanup(logger_factory: LoggerFactory):
-    """Test logger factory cleanup."""
-    # Create some loggers
-    logger1 = logger_factory.get_logger("test1")
-    logger2 = logger_factory.get_logger("test2")
-
-    # Verify loggers are created
-    assert logger_factory.get_logger("test1") is logger1
-    assert logger_factory.get_logger("test2") is logger2
-
-    # Clean up
-    await logger_factory.cleanup()
-
-    # Create new loggers
-    new_logger1 = logger_factory.get_logger("test1")
-    new_logger2 = logger_factory.get_logger("test2")
-
-    # Verify they are different instances
-    assert new_logger1 is not logger1
-    assert new_logger2 is not logger2
+@pytest.fixture
+def output_stream() -> StringIO:
+    """Provide a string buffer for capturing log output."""
+    return StringIO()

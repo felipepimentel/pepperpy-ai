@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Set, Type,
 import yaml
 from pydantic import ValidationError
 
-from pepperpy.core.lifecycle import Lifecycle
+from pepperpy.core.base import Lifecycle
 
 from .types import ConfigT, ConfigValidationError, ConfigWatcher
 

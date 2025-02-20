@@ -17,7 +17,6 @@ import pytest
 
 from pepperpy.core.agents import BaseAgent
 from pepperpy.core.errors import ValidationError
-from pepperpy.core.events import Event, EventBus, EventType
 from pepperpy.core.types import (
     AgentState,
     Message,
@@ -26,6 +25,7 @@ from pepperpy.core.types import (
     Response,
     ResponseStatus,
 )
+from pepperpy.events import Event, EventBus, EventType
 
 
 class TestAgent(BaseAgent):

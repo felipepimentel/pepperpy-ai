@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "name": "test_prompt",
+    "type": "prompt",
+    "version": "1.0.0",
+    "tags": [
+      "example",
+      "test"
+    ],
+    "properties": {
+      "description": "Generate test cases for code"
+    },
+    "created_at": "2025-02-19T16:53:29.754323"
+  },
+  "content": {
+    "model": "gpt-4",
+    "temperature": 0.5,
+    "template": "Generate unit tests for:\n{code}\n\nInclude tests for:\n1. Happy path\n2. Edge cases\n3. Error handling"
+  }
+}

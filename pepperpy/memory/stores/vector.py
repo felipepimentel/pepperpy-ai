@@ -1,303 +1,217 @@
-"""Vector memory store implementation.
+"""Vector store implementation for memory storage.
 
-This module implements a memory store using vector embeddings for semantic search.
-Memory entries are stored with their vector embeddings for efficient similarity search.
+This module provides a vector-based storage backend for memory operations.
 """
 
-import json
-from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from typing import Dict, List, Optional, Tuple
 
-# Import vector dependencies with proper error handling
-try:
-    import numpy as np  # type: ignore[import]
-    import numpy.typing as npt  # type: ignore[import]
-    from sentence_transformers import SentenceTransformer  # type: ignore[import]
+import numpy as np
+from pydantic import BaseModel
 
-    has_vector_deps = True
-    NDArrayFloat = npt.NDArray[np.float32]  # type: ignore[name-defined]
-except ImportError:
-    has_vector_deps = False
-    np = None  # type: ignore[assignment]
-    npt = None  # type: ignore[assignment]
-    SentenceTransformer = None  # type: ignore[assignment,valid-type]
-    NDArrayFloat = Any  # type: ignore[misc,valid-type]
-
-from pepperpy.core.logging import get_logger
-from pepperpy.memory.base import (
-    BaseMemoryStore,
-    MemoryEntry,
-    MemoryQuery,
-    MemorySearchResult,
-)
-from pepperpy.memory.config import VectorStoreConfig
-from pepperpy.memory.exceptions import MemoryError
-
-# Type aliases
-T = TypeVar("T")
-
-logger = get_logger(__name__)
+from pepperpy.core.errors import PepperpyMemoryError
+from pepperpy.memory.base import MemoryBackend
+from pepperpy.memory.stores.types import VectorMemoryEntry
+from pepperpy.monitoring import logger
+from pepperpy.monitoring.metrics import Counter, MetricsManager
 
 
-class VectorMemoryStore(BaseMemoryStore[dict[str, Any]]):
-    """Vector memory store implementation.
+class VectorConfig(BaseModel):
+    """Configuration for vector store."""
 
-    This store uses sentence transformers to create vector embeddings of content
-    for semantic similarity search.
+    dimension: int = 1536  # Default for OpenAI embeddings
+    similarity_threshold: float = 0.8
+    max_results: int = 10
+    storage_path: Optional[Path] = None
+
+
+class VectorStore(MemoryBackend):
+    """Vector-based memory storage.
+
+    This class implements a vector store for memory entries, using
+    vector similarity for retrieval.
     """
 
-    def __init__(self, config: VectorStoreConfig) -> None:
-        """Initialize the vector store.
+    def __init__(self, config: Optional[VectorConfig] = None) -> None:
+        """Initialize vector store.
 
         Args:
-            config: Store configuration
-
-        Raises:
-            ImportError: If required dependencies are not installed
+            config: Optional vector store configuration
         """
-        if not has_vector_deps:
-            raise ImportError(
-                "Vector store dependencies not installed. "
-                "Please install with 'pip install pepperpy[vector]'"
-            )
+        self.config = config or VectorConfig()
+        self._vectors: Dict[str, np.ndarray] = {}
+        self._entries: Dict[str, VectorMemoryEntry] = {}
+        self._metrics = MetricsManager.get_instance()
+        self._counters: Dict[str, Counter] = {}
 
-        super().__init__("vector")
-        self.config = config
-        self.model = SentenceTransformer(str(config.model_name))  # type: ignore[operator]
-        self.embeddings: NDArrayFloat | None = None  # type: ignore[valid-type]
-        self.keys: list[str] = []
-        self.storage_path = Path(str(config.storage_path or "data/vector_store"))
-        self.storage_path.mkdir(parents=True, exist_ok=True)
+    async def initialize(self) -> None:
+        """Initialize the store and metrics."""
+        # Initialize metrics
+        self._counters["invalid_dimension"] = await self._metrics.create_counter(
+            "memory.vector.invalid_dimension",
+            "Number of invalid dimension errors",
+        )
+        self._counters["store_success"] = await self._metrics.create_counter(
+            "memory.vector.successful_stores",
+            "Number of successful store operations",
+        )
+        self._counters["store_error"] = await self._metrics.create_counter(
+            "memory.vector.store_errors",
+            "Number of store operation errors",
+        )
+        self._counters["retrieval_success"] = await self._metrics.create_counter(
+            "memory.vector.successful_retrievals",
+            "Number of successful retrieval operations",
+        )
+        self._counters["retrieval_error"] = await self._metrics.create_counter(
+            "memory.vector.retrieval_errors",
+            "Number of retrieval operation errors",
+        )
+        self._counters["not_found"] = await self._metrics.create_counter(
+            "memory.vector.not_found",
+            "Number of not found errors",
+        )
+        self._counters["deletion_success"] = await self._metrics.create_counter(
+            "memory.vector.successful_deletions",
+            "Number of successful deletion operations",
+        )
+        self._counters["deletion_error"] = await self._metrics.create_counter(
+            "memory.vector.deletion_errors",
+            "Number of deletion operation errors",
+        )
+        self._counters["exists_success"] = await self._metrics.create_counter(
+            "memory.vector.successful_exists_checks",
+            "Number of successful exists checks",
+        )
+        self._counters["exists_error"] = await self._metrics.create_counter(
+            "memory.vector.exists_check_errors",
+            "Number of exists check errors",
+        )
+        self._counters["cleanup_success"] = await self._metrics.create_counter(
+            "memory.vector.successful_cleanups",
+            "Number of successful cleanup operations",
+        )
+        self._counters["cleanup_error"] = await self._metrics.create_counter(
+            "memory.vector.cleanup_errors",
+            "Number of cleanup operation errors",
+        )
 
-    async def _initialize(self) -> None:
-        """Initialize the vector store."""
-        # Load existing embeddings if any
-        if (self.storage_path / "embeddings.npy").exists():
-            self.embeddings = cast(
-                NDArrayFloat,  # type: ignore[valid-type]
-                np.load(str(self.storage_path / "embeddings.npy")),  # type: ignore[union-attr]
-            )
-            with open(self.storage_path / "keys.json") as f:
-                self.keys = json.load(f)
-
-    async def _cleanup(self) -> None:
-        """Clean up the vector store."""
-        self.embeddings = None
-        self.keys = []
-
-    async def _store(self, entry: MemoryEntry[dict[str, Any]]) -> None:
+    async def store(self, entry: VectorMemoryEntry) -> None:
         """Store a memory entry.
 
         Args:
             entry: Memory entry to store
 
         Raises:
-            MemoryError: If storing fails
+            PepperpyMemoryError: If storage fails
         """
         try:
-            # Save entry data
-            entry_path = self.storage_path / f"{entry.key}.json"
-            entry_data = entry.model_dump()
-            with open(entry_path, "w") as f:
-                json.dump(entry_data, f)
+            if not entry.embedding or len(entry.embedding) != self.config.dimension:
+                self._counters["invalid_dimension"].record(1)
+                raise PepperpyMemoryError(
+                    f"Invalid embedding dimension: {len(entry.embedding) if entry.embedding else 0}, "
+                    f"expected {self.config.dimension}"
+                )
 
-            # Create and store embedding
-            content_str = json.dumps(entry.value)
-            embedding = cast(
-                NDArrayFloat,  # type: ignore[valid-type]
-                self.model.encode(  # type: ignore[union-attr]
-                    content_str,
-                    convert_to_numpy=True,
-                    normalize_embeddings=True,
-                ),
-            )
-
-            if self.embeddings is None:  # type: ignore[has-type]
-                self.embeddings = embedding.reshape(1, -1)  # type: ignore[union-attr]
-                self.keys = [entry.key]
-            else:
-                if entry.key in self.keys:
-                    idx = self.keys.index(entry.key)
-                    self.embeddings[idx] = embedding  # type: ignore[index]
-                else:
-                    self.embeddings = np.vstack([self.embeddings, embedding])  # type: ignore[union-attr]
-                    self.keys.append(entry.key)
-
-            # Save embeddings
-            np.save(str(self.storage_path / "embeddings.npy"), self.embeddings)  # type: ignore[union-attr]
-            with open(self.storage_path / "keys.json", "w") as f:
-                json.dump(self.keys, f)
-
+            entry_id = str(entry.id)
+            self._vectors[entry_id] = np.array(entry.embedding)
+            self._entries[entry_id] = entry
+            self._counters["store_success"].record(1)
+            logger.debug("Stored entry %s", entry_id)
         except Exception as e:
-            logger.error(
-                "Failed to store in vector store",
-                extra={"key": entry.key, "error": str(e)},
-            )
-            raise MemoryError(f"Failed to store in vector store: {e}") from e
+            self._counters["store_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to store entry: {e}") from e
 
-    def _load_embeddings(self) -> None:
-        """Load embeddings from storage if needed.
-
-        This is a helper function to ensure embeddings are loaded when required.
-        """
-        if self.embeddings is None and (self.storage_path / "embeddings.npy").exists():
-            self.embeddings = cast(
-                NDArrayFloat,  # type: ignore[valid-type]
-                np.load(str(self.storage_path / "embeddings.npy")),  # type: ignore[union-attr]
-            )
-            with open(self.storage_path / "keys.json") as f:
-                self.keys = json.load(f)
-
-    def _compute_similarities(self, query_text: str) -> list[tuple[str, float]]:
-        """Compute similarity scores between query and stored embeddings.
+    async def retrieve(
+        self, query_embedding: List[float], limit: Optional[int] = None
+    ) -> List[Tuple[VectorMemoryEntry, float]]:
+        """Retrieve similar entries.
 
         Args:
-            query_text: The query text to compare against stored embeddings
+            query_embedding: Query vector
+            limit: Maximum number of results
 
         Returns:
-            List of (key, similarity) pairs sorted by similarity
-        """
-        if self.embeddings is None:  # type: ignore[has-type]
-            return []
-
-        query_embedding = cast(
-            NDArrayFloat,  # type: ignore[valid-type]
-            self.model.encode(  # type: ignore[union-attr]
-                query_text,
-                convert_to_numpy=True,
-                normalize_embeddings=True,
-            ),
-        )
-
-        similarities = np.dot(self.embeddings, query_embedding)  # type: ignore[union-attr]
-        return [
-            (key, float(sim))
-            for key, sim in zip(self.keys, similarities, strict=False)  # type: ignore[arg-type]
-        ]
-
-    def _load_entry(self, key: str) -> MemoryEntry[dict[str, Any]] | None:
-        """Load a memory entry from storage.
-
-        Args:
-            key: The key of the entry to load
-
-        Returns:
-            The loaded memory entry or None if not found
-        """
-        entry_path = self.storage_path / f"{key}.json"
-        if not entry_path.exists():
-            return None
-
-        with open(entry_path) as f:
-            entry_data = json.load(f)
-            return MemoryEntry[dict[str, Any]].model_validate(entry_data)
-
-    def _matches_filters(
-        self, entry: MemoryEntry[dict[str, Any]], query: MemoryQuery
-    ) -> bool:
-        """Check if an entry matches the query filters.
-
-        Args:
-            entry: The entry to check
-            query: The query containing filters
-
-        Returns:
-            True if the entry matches all filters, False otherwise
-        """
-        if "type" in query.filters and entry.type != query.filters["type"]:
-            return False
-        if "scope" in query.filters and entry.scope != query.filters["scope"]:
-            return False
-        if query.metadata:
-            if not entry.metadata:
-                return False
-            if not all(entry.metadata.get(k) == v for k, v in query.metadata.items()):
-                return False
-        return True
-
-    def _retrieve(
-        self,
-        query: MemoryQuery,
-    ) -> AsyncIterator[MemorySearchResult[dict[str, Any]]]:
-        """Retrieve memory entries.
-
-        Args:
-            query: Memory query parameters.
-
-        Yields:
-            Memory search results.
+            List of (entry, similarity) tuples
 
         Raises:
-            MemoryError: If retrieval fails.
+            PepperpyMemoryError: If retrieval fails
         """
-
-        async def retrieve_generator() -> (
-            AsyncIterator[MemorySearchResult[dict[str, Any]]]
-        ):
-            try:
-                # Ensure embeddings are loaded
-                self._load_embeddings()
-                if not self.embeddings is not None:  # type: ignore[has-type]
-                    return
-
-                # Get similarity scores
-                matching_keys: list[tuple[str, float]] = [
-                    (key, sim)
-                    for key, sim in self._compute_similarities(query.query)
-                    if sim >= query.min_score
-                ]
-                matching_keys.sort(key=lambda x: x[1], reverse=True)  # type: ignore[arg-type]
-
-                # Process entries
-                count = 0
-                for key, similarity in matching_keys:
-                    if query.limit and count >= query.limit:
-                        break
-
-                    entry = self._load_entry(key)
-                    if entry is None:
-                        continue
-
-                    if not self._matches_filters(entry, query):
-                        continue
-
-                    yield MemorySearchResult(
-                        entry=entry,
-                        score=similarity,
-                    )
-                    count += 1
-
-            except Exception as e:
-                logger.error(
-                    "Failed to retrieve from vector store",
-                    extra={"query": query.model_dump(), "error": str(e)},
+        try:
+            if len(query_embedding) != self.config.dimension:
+                self._counters["invalid_dimension"].record(1)
+                raise PepperpyMemoryError(
+                    f"Invalid query dimension: {len(query_embedding)}, "
+                    f"expected {self.config.dimension}"
                 )
-                raise MemoryError(f"Failed to retrieve from vector store: {e}") from e
 
-        return retrieve_generator()
+            query_vector = np.array(query_embedding)
+            results = []
 
-    async def _delete(self, key: str) -> None:
+            for entry_id, vector in self._vectors.items():
+                similarity = np.dot(query_vector, vector) / (
+                    np.linalg.norm(query_vector) * np.linalg.norm(vector)
+                )
+                if similarity >= self.config.similarity_threshold:
+                    results.append((self._entries[entry_id], float(similarity)))
+
+            results.sort(key=lambda x: x[1], reverse=True)
+            limit = limit or self.config.max_results
+            self._counters["retrieval_success"].record(1)
+            return results[:limit]
+        except Exception as e:
+            self._counters["retrieval_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to retrieve entries: {e}") from e
+
+    async def delete(self, entry_id: str) -> None:
         """Delete a memory entry.
 
         Args:
-            key: The key of the entry to delete
+            entry_id: ID of entry to delete
+
+        Raises:
+            PepperpyMemoryError: If deletion fails
         """
-        if key not in self.keys:
-            return
+        try:
+            if entry_id not in self._entries:
+                self._counters["not_found"].record(1)
+                raise PepperpyMemoryError(f"Entry not found: {entry_id}")
 
-        # Delete entry file
-        entry_path = self.storage_path / f"{key}.json"
-        if entry_path.exists():
-            entry_path.unlink()
+            del self._vectors[entry_id]
+            del self._entries[entry_id]
+            self._counters["deletion_success"].record(1)
+            logger.debug("Deleted entry %s", entry_id)
+        except Exception as e:
+            self._counters["deletion_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to delete entry: {e}") from e
 
-        # Update embeddings
-        if self.embeddings is not None:  # type: ignore[has-type]
-            idx = self.keys.index(key)
-            self.embeddings = np.delete(self.embeddings, idx, axis=0)  # type: ignore[union-attr]
-            self.keys.remove(key)
+    async def exists(self, entry_id: str) -> bool:
+        """Check if entry exists.
 
-            # Save updated embeddings
-            np.save(str(self.storage_path / "embeddings.npy"), self.embeddings)  # type: ignore[union-attr]
-            with open(self.storage_path / "keys.json", "w") as f:
-                json.dump(self.keys, f)
+        Args:
+            entry_id: ID to check
+
+        Returns:
+            True if entry exists, False otherwise
+
+        Raises:
+            PepperpyMemoryError: If check fails
+        """
+        try:
+            exists = entry_id in self._entries
+            self._counters["exists_success"].record(1)
+            return exists
+        except Exception as e:
+            self._counters["exists_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to check entry existence: {e}") from e
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        try:
+            self._vectors.clear()
+            self._entries.clear()
+            self._counters["cleanup_success"].record(1)
+            logger.debug("Vector store cleaned up")
+        except Exception as e:
+            self._counters["cleanup_error"].record(1)
+            raise PepperpyMemoryError(f"Failed to clean up vector store: {e}") from e

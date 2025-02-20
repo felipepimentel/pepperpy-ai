@@ -19,16 +19,22 @@ Requirements:
 
 import asyncio
 import logging
+import sys
+from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any, Dict, List
 from uuid import uuid4
 
 from pepperpy.core.base import BaseComponent
-from pepperpy.resources import (
-    MemoryResource,
-    ResourceMetadata,
-    ResourceResult,
-    ResourceType,
+from pepperpy.memory.base import BaseMemory
+from pepperpy.memory.types import (
+    MemoryEntry,
+    MemoryQuery,
+    MemoryScope,
+    MemoryType,
+)
+from pepperpy.memory.types import (
+    MemoryResult as MemorySearchResult,
 )
 
 # Configure logging
@@ -36,68 +42,70 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-class SimpleMemoryResource(MemoryResource):
-    """Simple memory resource implementation."""
+class SimpleMemory(BaseMemory[str, Dict[str, Any]]):
+    """Simple memory implementation."""
 
-    def __init__(self, metadata: ResourceMetadata) -> None:
-        """Initialize memory resource."""
-        super().__init__(metadata=metadata)
-        self._data: Dict[str, Any] = {}
+    def __init__(self) -> None:
+        """Initialize memory."""
+        self._data: Dict[str, Dict[str, Any]] = {}
 
-    async def _initialize(self) -> None:
-        """Initialize the memory store."""
-        self._data = {}
-
-    async def _cleanup(self) -> None:
-        """Clean up the memory store."""
-        self._data.clear()
-
-    async def execute(self, **kwargs: Any) -> ResourceResult[Dict[str, Any]]:
-        """Execute memory operations.
-
-        Supports:
-        - store: Store a value with a key
-        - retrieve: Get a value by key
-        - list: List all stored keys
-        - clear: Clear all stored data
-        """
-        operation = kwargs.get("operation")
-
-        if operation == "store":
-            key = kwargs.get("key")
-            value = kwargs.get("value")
-            if key is None or value is None:
-                return ResourceResult(
-                    success=False,
-                    error="Key and value required for store operation",
-                )
-            self._data[key] = value
-            return ResourceResult(success=True, result={"status": "stored"})
-
-        elif operation == "retrieve":
-            key = kwargs.get("key")
-            if key is None:
-                return ResourceResult(
-                    success=False,
-                    error="Key required for retrieve operation",
-                )
-            value = self._data.get(key)
-            return ResourceResult(success=True, result={"value": value})
-
-        elif operation == "list":
-            return ResourceResult(
-                success=True,
-                result={"keys": list(self._data.keys())},
-            )
-
-        elif operation == "clear":
-            self._data.clear()
-            return ResourceResult(success=True, result={"status": "cleared"})
-
-        return ResourceResult(
-            success=False,
-            error=f"Unknown operation: {operation}",
+    async def store(
+        self,
+        key: str,
+        value: Dict[str, Any],
+        type: str = MemoryType.SHORT_TERM,
+        scope: str = MemoryScope.SESSION,
+        metadata: Dict[str, Any] | None = None,
+        expires_at: datetime | None = None,
+        indices: set[str] | None = None,
+    ) -> MemoryEntry[Dict[str, Any]]:
+        """Store a value in memory."""
+        entry = MemoryEntry(
+            key=key,
+            value=value,
+            type=type,
+            scope=scope,
+            metadata=metadata or {},
+            expires_at=expires_at,
         )
+        self._data[key] = value
+        return entry
+
+    async def retrieve(
+        self,
+        key: str,
+        type: str | None = None,
+    ) -> MemoryEntry[Dict[str, Any]]:
+        """Retrieve a value from memory."""
+        value = self._data.get(key)
+        if value is None:
+            raise KeyError(f"Key not found: {key}")
+        return MemoryEntry(
+            key=key,
+            value=value,
+            type=type or MemoryType.SHORT_TERM,
+            scope=MemoryScope.SESSION,
+        )
+
+    async def search(
+        self,
+        query: MemoryQuery,
+    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
+        """Search memory (not implemented)."""
+        raise NotImplementedError("Search not implemented")
+
+    async def similar(
+        self,
+        key: str,
+        limit: int = 10,
+        min_score: float = 0.0,
+    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
+        """Find similar entries (not implemented)."""
+        raise NotImplementedError("Similar not implemented")
+
+    async def cleanup_expired(self) -> int:
+        """Clean up expired entries (not implemented)."""
+        return 0
 
 
 class TaskAssistant(BaseComponent):
@@ -106,25 +114,24 @@ class TaskAssistant(BaseComponent):
     def __init__(self) -> None:
         """Initialize the task assistant."""
         super().__init__(id=uuid4())
-        self.memory = SimpleMemoryResource(
-            metadata=ResourceMetadata(
-                resource_type=ResourceType.MEMORY,
-                resource_name="assistant_memory",
-                tags=["memory", "context"],
-                properties={},
-            ),
-        )
+        self.memory = SimpleMemory()
         self.tasks: List[Dict[str, Any]] = []
 
     async def initialize(self) -> None:
         """Initialize the assistant."""
         logger.info("Initializing task assistant...")
-        await self.memory.initialize()
+        # Memory is initialized on creation
 
     async def cleanup(self) -> None:
         """Clean up resources."""
         logger.info("Cleaning up task assistant...")
-        await self.memory.cleanup()
+        # Store final state in memory
+        await self.memory.store(
+            "tasks",
+            {"tasks": self.tasks},
+            type=MemoryType.LONG_TERM,
+            scope=MemoryScope.GLOBAL,
+        )
 
     async def process_command(self, command: str) -> str:
         """Process a user command.
@@ -149,95 +156,98 @@ class TaskAssistant(BaseComponent):
         elif command.startswith("add task "):
             task = {
                 "description": command[9:],
-                "created_at": datetime.now(),
+                "created_at": datetime.now().isoformat(),
                 "completed": False,
             }
             self.tasks.append(task)
-
-            # Store task in memory
-            await self.memory.execute(
-                operation="store",
-                key=f"task_{len(self.tasks)}",
-                value=task,
+            # Store in memory
+            await self.memory.store(
+                f"task_{len(self.tasks)}",
+                task,
+                type=MemoryType.SHORT_TERM,
+                scope=MemoryScope.SESSION,
             )
-
             return f"Added task: {task['description']}"
 
         elif command == "list tasks":
             if not self.tasks:
-                return "No tasks found."
+                return "No tasks found"
 
-            response = "Tasks:\n"
+            task_list = []
             for i, task in enumerate(self.tasks, 1):
                 status = "✓" if task["completed"] else " "
-                response += f"{i}. [{status}] {task['description']}\n"
-            return response
+                task_list.append(f"{i}. [{status}] {task['description']}")
+            return "\n".join(task_list)
 
         elif command.startswith("complete task "):
             try:
-                num = int(command[13:]) - 1
-                if 0 <= num < len(self.tasks):
-                    self.tasks[num]["completed"] = True
-
-                    # Update task in memory
-                    await self.memory.execute(
-                        operation="store",
-                        key=f"task_{num + 1}",
-                        value=self.tasks[num],
+                task_num = int(command[13:]) - 1
+                if 0 <= task_num < len(self.tasks):
+                    self.tasks[task_num]["completed"] = True
+                    # Update in memory
+                    await self.memory.store(
+                        f"task_{task_num + 1}",
+                        self.tasks[task_num],
+                        type=MemoryType.SHORT_TERM,
+                        scope=MemoryScope.SESSION,
                     )
-
-                    return f"Marked task {num + 1} as complete."
-                return "Invalid task number."
+                    return f"Marked task {task_num + 1} as complete"
+                return "Invalid task number"
             except ValueError:
-                return "Please specify a valid task number."
+                return "Invalid task number format"
 
-        else:
-            return "Unknown command. Type 'help' for available commands."
-
-
-async def interactive_session(assistant: TaskAssistant) -> None:
-    """Run a demo session with predefined inputs to showcase all features.
-
-    Args:
-        assistant: Task assistant instance
-
-    """
-    print("\nSimple Task Assistant Demo")
-    print("-" * 50)
-
-    # Predefined commands to demonstrate functionality
-    demo_commands = [
-        "help",  # Show available commands
-        "add task Implement new feature",  # Add first task
-        "add task Write documentation",  # Add second task
-        "add task Review code",  # Add third task
-        "list tasks",  # Show all tasks
-        "complete task 2",  # Complete second task
-        "list tasks",  # Show updated task list
-    ]
-
-    try:
-        for command in demo_commands:
-            print(f"\nExecuting command: {command}")
-            response = await assistant.process_command(command)
-            print("\nResponse:")
-            print(response)
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-    print("\nDemo completed successfully!")
+        return "Unknown command. Type 'help' for available commands."
 
 
 async def main() -> None:
-    """Run the quickstart example."""
+    """Run the example."""
+    logger.info("Initializing task assistant...")
     assistant = TaskAssistant()
+    await assistant.initialize()
 
     try:
-        await assistant.initialize()
-        await interactive_session(assistant)
+        # Check if we should run in automated test mode
+        if "--test" in sys.argv:
+            # Run automated test sequence
+            test_commands = [
+                "help",
+                "add task Write documentation",
+                "add task Review code",
+                "add task Deploy application",
+                "list tasks",
+                "complete task 1",
+                "list tasks",
+                "quit",
+            ]
+
+            print("Welcome to the Task Assistant!")
+            print("Running in automated test mode...")
+            print()
+
+            for command in test_commands:
+                print(f"Command: {command}")
+                if command == "quit":
+                    break
+                response = await assistant.process_command(command)
+                print(response)
+                print()
+        else:
+            # Interactive mode
+            print("Welcome to the Task Assistant!")
+            print("Type 'help' for available commands or 'quit' to exit.")
+            print()
+
+            while True:
+                command = input("Enter command: ").strip()
+                if command == "quit":
+                    break
+                response = await assistant.process_command(command)
+                print(response)
+                print()
+
     finally:
         await assistant.cleanup()
+        logger.info("Task assistant terminated")
 
 
 if __name__ == "__main__":

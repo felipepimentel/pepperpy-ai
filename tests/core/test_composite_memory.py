@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from pepperpy.core.memory import (
+from pepperpy.memory import (
     MemoryError,
     MemoryKeyError,
     MemoryQuery,

@@ -4,6 +4,7 @@ This module provides integration with StackSpot's API for accessing
 various language models through a unified interface.
 """
 
+import logging
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, Union, cast
 
@@ -11,7 +12,6 @@ import aiohttp
 from pydantic import SecretStr
 
 from pepperpy.agents.providers.domain import ProviderRateLimitError
-from pepperpy.core.logging import get_logger
 from pepperpy.core.messages import ProviderMessage, ProviderResponse
 from pepperpy.core.providers.base import BaseProvider, ProviderConfig
 from pepperpy.core.providers.errors import (
@@ -22,7 +22,7 @@ from pepperpy.core.providers.errors import (
 )
 
 # Configure logger
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 # Type aliases for provider parameters
 GenerateKwargs = Dict[str, Any]

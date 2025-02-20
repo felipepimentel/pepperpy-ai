@@ -256,10 +256,18 @@ class RegistryError(PepperpyError):
         recovery_hint: Optional[str] = None,
         context: Optional[ErrorContext] = None,
     ) -> None:
-        """Initialize the error."""
+        """Initialize the registry error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
         super().__init__(
             message,
-            "ERR006",
+            "ERR008",
             details,
             user_message,
             recovery_hint,
@@ -307,10 +315,18 @@ class CapabilityError(PepperpyError):
         recovery_hint: Optional[str] = None,
         context: Optional[ErrorContext] = None,
     ) -> None:
-        """Initialize the error."""
+        """Initialize the capability error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
         super().__init__(
             message,
-            "ERR006",
+            "ERR100",
             details,
             user_message,
             recovery_hint,
@@ -329,7 +345,15 @@ class LearningError(CapabilityError):
         recovery_hint: Optional[str] = None,
         context: Optional[ErrorContext] = None,
     ) -> None:
-        """Initialize the error."""
+        """Initialize the learning error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
         super().__init__(
             message,
             details,
@@ -601,15 +625,19 @@ def get_error_class(code: str) -> Type[PepperpyError]:
         "ERR003": StateError,
         "ERR004": ProviderError,
         "ERR005": ResourceError,
-        "ERR006": CapabilityError,
+        "ERR008": RegistryError,
         "ERR007": WorkflowError,
-        "ERR008": PepperpyMemoryError,
-        "ERR009": PepperpyTimeoutError,
-        "ERR010": AuthenticationError,
-        "ERR011": AuthorizationError,
-        "ERR012": NetworkError,
+        "ERR009": PepperpyMemoryError,
+        "ERR010": PepperpyTimeoutError,
+        "ERR011": AuthenticationError,
+        "ERR012": AuthorizationError,
         "ERR013": NotFoundError,
         "ERR014": DuplicateError,
+        "ERR100": CapabilityError,
+        "ERR300": AgentError,
+        "ERR400": ContentError,
+        "ERR500": LLMError,
+        "ERR600": SynthesisError,
     }
     if code not in error_classes:
         raise ValueError(f"Unknown error code: {code}")
@@ -648,3 +676,303 @@ def create_error(
         recovery_hint=recovery_hint,
         context=context,
     )
+
+
+class AgentError(PepperpyError):
+    """Raised when an agent operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code="ERR300",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class ContentError(PepperpyError):
+    """Raised when content processing fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code="ERR400",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class LLMError(PepperpyError):
+    """Raised when LLM operations fail."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code="ERR500",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class SynthesisError(PepperpyError):
+    """Raised when synthesis operations fail."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            code="ERR600",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryBackendError(PepperpyMemoryError):
+    """Error raised when memory backend operations fail."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        """Initialize memory backend error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryStorageError(MemoryBackendError):
+    """Exception raised when storing data in memory fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryRetrievalError(MemoryBackendError):
+    """Exception raised when retrieving data from memory fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryDeletionError(MemoryBackendError):
+    """Exception raised when deleting data from memory fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryExistsError(MemoryBackendError):
+    """Exception raised when checking key existence in memory fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryCleanupError(MemoryBackendError):
+    """Exception raised when cleaning up memory resources fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryBackendNotFoundError(PepperpyMemoryError):
+    """Error raised when memory backend is not found."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        """Initialize memory backend not found error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
+    """Error raised when memory backend already exists."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        """Initialize memory backend already exists error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )
+
+
+class MemoryBackendInvalidError(PepperpyMemoryError):
+    """Error raised when memory backend is invalid."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
+        context: Optional[ErrorContext] = None,
+    ) -> None:
+        """Initialize memory backend invalid error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            user_message: Optional user-friendly message
+            recovery_hint: Optional recovery hint
+            context: Optional error context
+        """
+        super().__init__(
+            message,
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
+            context=context,
+        )

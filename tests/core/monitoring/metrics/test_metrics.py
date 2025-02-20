@@ -2,7 +2,7 @@
 
 import pytest
 
-from pepperpy.core.monitoring.metrics import (
+from pepperpy.monitoring.metrics import (
     Counter,
     Gauge,
     Histogram,

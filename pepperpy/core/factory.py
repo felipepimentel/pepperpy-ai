@@ -8,6 +8,7 @@ This module provides factory classes for creating system components with:
 - Version tracking
 """
 
+import logging
 from abc import abstractmethod
 from collections.abc import Callable
 from datetime import datetime
@@ -15,14 +16,14 @@ from typing import Any, Dict, Generic, Type, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
-from pepperpy.core.errors import ConfigurationError, FactoryError, ValidationError
-
-from .base import (
+from pepperpy.core.base import (
     BaseAgent,
 )
-from .events import Event, EventBus, EventType
-from .monitoring import logger
-from .types import AgentConfig
+from pepperpy.core.errors import ConfigurationError, FactoryError, ValidationError
+from pepperpy.core.types import AgentConfig
+from pepperpy.events import Event, EventBus, EventType
+
+logger = logging.getLogger(__name__)
 
 # Type variables for generic implementations
 T = TypeVar("T")

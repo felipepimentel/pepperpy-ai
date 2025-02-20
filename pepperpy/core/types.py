@@ -105,22 +105,31 @@ class MessageContent(TypedDict):
     content: Dict[str, Any]
 
 
-@dataclass
-class Message:
-    """A message that can be exchanged between agents.
+class Message(BaseModel, Generic[T]):
+    """A message that can be exchanged between components.
 
     Attributes:
-        id: Unique identifier for the message.
-        content: The content of the message (can be string or dict).
-        type: The type of message.
-        metadata: Optional metadata associated with the message.
-
+        id: Unique identifier
+        content: Message content
+        type: Message type
+        metadata: Optional metadata
     """
 
-    content: Union[str, Dict[str, Any]]
+    id: UUID = Field(default_factory=uuid4)
+    content: T
     type: MessageType
-    id: UUID = uuid4()
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        """Pydantic model configuration."""
+
+        frozen = True
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure metadata is immutable."""
+        return dict(v)
 
 
 class ResponseStatus(str, Enum):
@@ -138,6 +147,7 @@ class AgentState(Enum):
     INITIALIZING = auto()
     READY = auto()
     PROCESSING = auto()
+    EXECUTING = auto()
     CLEANING = auto()
     TERMINATED = auto()
     ERROR = auto()
@@ -202,13 +212,25 @@ class ErrorCategory(str, Enum):
     UNKNOWN = "unknown"  # Uncategorized errors
 
 
-class Response(BaseModel):
-    """A response from the system."""
+class Response(BaseModel, Generic[T]):
+    """A response from the system.
+
+    Attributes:
+        id: Unique identifier
+        message_id: ID of the message this is responding to
+        content: Response content
+        status: Response status
+    """
 
     id: UUID = Field(default_factory=uuid4)
     message_id: str
-    content: MessageContent
+    content: T
     status: ResponseStatus = ResponseStatus.SUCCESS
+
+    class Config:
+        """Pydantic model configuration."""
+
+        frozen = True
 
 
 @runtime_checkable
@@ -253,7 +275,10 @@ class AgentConfig(BaseModel):
         capabilities: List of agent capabilities
         settings: Additional agent-specific settings
         metadata: Optional metadata for the agent
-
+        id: Unique identifier for the agent
+        provider: Provider configuration
+        model: Model configuration
+        memory: Memory configuration
     """
 
     type: str = Field(..., min_length=1)
@@ -263,6 +288,10 @@ class AgentConfig(BaseModel):
     capabilities: List[str] = Field(default_factory=list)
     settings: Dict[str, Any] = Field(default_factory=dict)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    id: Optional[UUID] = Field(default=None)
+    provider: Optional[str] = Field(default=None)
+    model: Optional[str] = Field(default=None)
+    memory: Optional[str] = Field(default=None)
 
     class Config:
         """Pydantic model configuration."""
@@ -681,3 +710,169 @@ class Event:
             data=data.get("data", {}),
             timestamp=data["timestamp"],
         )
+
+
+class ComponentState(str, Enum):
+    """Component lifecycle states."""
+
+    CREATED = "created"
+    INITIALIZING = "initializing"
+    INITIALIZED = "initialized"
+    READY = "ready"
+    ERROR = "error"
+    SHUTTING_DOWN = "shutting_down"
+    TERMINATED = "terminated"
+
+
+class AgentError(Exception):
+    """Base class for agent-related errors.
+
+    Attributes:
+        message: Error message
+        agent_id: Optional agent ID that caused the error
+        provider: Optional provider name that caused the error
+        details: Optional additional error details
+    """
+
+    def __init__(
+        self,
+        message: str,
+        agent_id: Optional[str] = None,
+        provider: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.agent_id = agent_id
+        self.provider = provider
+        self.details = details or {}
+
+
+class AgentMessage(BaseModel):
+    """A message that can be sent to or received from an agent.
+
+    Attributes:
+        content: Message content
+        role: Message role (e.g., "user", "assistant", "system")
+        metadata: Optional metadata
+    """
+
+    content: str = Field(..., min_length=1)
+    role: str = Field(default="user")
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        """Pydantic model configuration."""
+
+        frozen = True
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure metadata is immutable."""
+        return dict(v)
+
+
+class AgentResponse(BaseModel):
+    """A response from an agent.
+
+    Attributes:
+        content: Response content
+        metadata: Optional metadata
+    """
+
+    content: str = Field(..., min_length=1)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    class Config:
+        """Pydantic model configuration."""
+
+        frozen = True
+
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """Ensure metadata is immutable."""
+        return dict(v)
+
+
+class AgentProvider(Protocol):
+    """Protocol defining the interface for agent providers.
+
+    This protocol defines the methods that all agent providers must implement
+    to be compatible with the Pepperpy framework.
+    """
+
+    async def create(
+        self,
+        config: AgentConfig,
+        **kwargs: Any,
+    ) -> str:
+        """Create a new agent.
+
+        Args:
+            config: Agent configuration
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Agent ID
+
+        Raises:
+            AgentError: If agent creation fails
+        """
+        ...
+
+    async def execute(
+        self,
+        agent_id: str,
+        messages: List[AgentMessage],
+        **kwargs: Any,
+    ) -> AgentResponse:
+        """Execute an agent with messages.
+
+        Args:
+            agent_id: Agent ID
+            messages: List of messages to process
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Agent response
+
+        Raises:
+            AgentError: If execution fails
+        """
+        ...
+
+    async def update(
+        self,
+        agent_id: str,
+        config: AgentConfig,
+        **kwargs: Any,
+    ) -> None:
+        """Update an agent's configuration.
+
+        Args:
+            agent_id: Agent ID
+            config: New configuration
+            **kwargs: Additional provider-specific arguments
+
+        Raises:
+            AgentError: If update fails
+        """
+        ...
+
+    async def delete(
+        self,
+        agent_id: str,
+        **kwargs: Any,
+    ) -> None:
+        """Delete an agent.
+
+        Args:
+            agent_id: Agent ID
+            **kwargs: Additional provider-specific arguments
+
+        Raises:
+            AgentError: If deletion fails
+        """
+        ...

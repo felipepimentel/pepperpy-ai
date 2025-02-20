@@ -19,7 +19,10 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel
 from typing_extensions import NotRequired
 
-from pepperpy.agents.base import (
+from pepperpy.core.base import BaseComponent
+from pepperpy.core.errors import ConfigurationError, StateError
+from pepperpy.core.logging import get_logger
+from pepperpy.core.types import (
     AgentConfig,
     AgentError,
     AgentMessage,
@@ -27,9 +30,6 @@ from pepperpy.agents.base import (
     AgentResponse,
     AgentState,
 )
-from pepperpy.core.base import BaseComponent
-from pepperpy.core.errors import ConfigurationError, StateError
-from pepperpy.core.logging import get_logger
 
 from .domain import (
     ProviderCapability,
@@ -47,14 +47,16 @@ T = TypeVar("T", covariant=True)
 ProviderCallback = Callable[[Dict[str, Any]], None]
 
 # Valid provider types
-VALID_PROVIDER_TYPES = frozenset({
-    "services.openai",
-    "services.openrouter",
-    "services.anthropic",
-    "services.gemini",
-    "services.perplexity",
-    "services.stackspot",
-})
+VALID_PROVIDER_TYPES = frozenset(
+    {
+        "services.openai",
+        "services.openrouter",
+        "services.anthropic",
+        "services.gemini",
+        "services.perplexity",
+        "services.stackspot",
+    }
+)
 
 # Configure logger
 logger = get_logger(__name__)

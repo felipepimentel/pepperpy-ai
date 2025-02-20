@@ -8,6 +8,9 @@ yolo: true
 strict_mode: true
 ---
 
+# Task File Access
+All task files are located at `./product/tasks/<TASK-ID>.md`. For example, TASK-004 would be located at `./product/tasks/TASK-004.md`. Always use this path when accessing task files.
+
 # Execution Rules
 ```yaml
 validation:
@@ -193,4 +196,4 @@ test_process_error ⏳
    - All tests passing
    - Status marked as done
    - Kanban updated
-   - Original plan verified
+   - Original plan verified 

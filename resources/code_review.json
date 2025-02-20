@@ -1,0 +1,26 @@
+{
+  "metadata": {
+    "name": "code_review",
+    "type": "workflow",
+    "version": "1.0.0",
+    "tags": [
+      "example",
+      "test"
+    ],
+    "properties": {
+      "description": "AI-powered code review workflow"
+    },
+    "created_at": "2025-02-19T16:53:29.753553"
+  },
+  "content": {
+    "steps": [
+      "analyze",
+      "suggest",
+      "report"
+    ],
+    "config": {
+      "max_files": 10,
+      "review_type": "comprehensive"
+    }
+  }
+}

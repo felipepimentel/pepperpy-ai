@@ -5,16 +5,16 @@ Pepperpy framework.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, TypeVar, Union, cast
+from typing import Any, Dict, TypeVar, Union
 from uuid import UUID, uuid4
 
-from pepperpy.core.types import Message, MessageContent, MessageType, Response
+from pepperpy.core.types import Message, MessageType, Response
 
 T = TypeVar("T")
 
 
 @dataclass
-class ProviderMessage(Message):
+class ProviderMessage(Message[Union[str, Dict[str, Any]]]):
     """Message that can be processed by providers.
 
     Attributes:
@@ -42,7 +42,9 @@ class ProviderMessage(Message):
 
         """
         super().__init__(
-            content=content, type=kwargs.get("type", MessageType.QUERY), **kwargs
+            content=content,
+            type=kwargs.get("type", MessageType.QUERY),
+            metadata=kwargs.get("metadata", {}),
         )
         self.provider_type = provider_type
         self.parameters = kwargs.get("parameters", {})
@@ -83,13 +85,9 @@ class ProviderResponse(Response[T]):
             **kwargs: Additional keyword arguments passed to parent
 
         """
-        message_content: MessageContent = {
-            "type": MessageType.RESPONSE,
-            "content": cast(Dict[str, Any], content),
-        }
         super().__init__(
             message_id=str(kwargs.get("message_id", uuid4())),
-            content=message_content,
+            content=content,
             **kwargs,
         )
         self.provider_type = provider_type

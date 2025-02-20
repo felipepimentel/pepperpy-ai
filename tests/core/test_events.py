@@ -11,8 +11,8 @@ from uuid import uuid4
 
 import pytest
 
-from pepperpy.core.events import Event, EventBus, EventHandler, EventPriority, EventType
-from pepperpy.core.exceptions import ValidationError
+from pepperpy.core.errors import ValidationError
+from pepperpy.events import Event, EventBus, EventHandler, EventType
 
 
 class MockEventHandler(EventHandler):
@@ -25,13 +25,19 @@ class MockEventHandler(EventHandler):
         self.handled_events.append(event)
 
 
+class ErrorEventHandler(EventHandler):
+    """Event handler that raises an error for testing."""
+
+    async def handle_event(self, event: Event) -> None:
+        raise RuntimeError("Test error")
+
+
 @pytest.fixture
 def event():
     """Create a test event."""
     return Event(
         id=uuid4(),
-        type=EventType.SYSTEM_STARTED,
-        source_id="test_source",
+        type=EventType.SYSTEM,
         timestamp=datetime.fromtimestamp(1234567890),
         data={"test": True},
     )
@@ -56,13 +62,11 @@ async def test_event_handler_registration(event_bus):
     # Register handler
     event_bus.register_handler(
         handler=handler,
-        event_types=[EventType.SYSTEM_STARTED],
-        priority=EventPriority.MEDIUM,
+        event_types=[EventType.SYSTEM],
     )
 
     # Verify registration
-    assert handler in event_bus._handlers[EventType.SYSTEM_STARTED]
-    assert event_bus._priorities[handler] == EventPriority.MEDIUM
+    assert handler in event_bus._handlers[EventType.SYSTEM]
 
 
 async def test_event_handler_deregistration(event_bus):
@@ -70,11 +74,11 @@ async def test_event_handler_deregistration(event_bus):
     handler = MockEventHandler()
 
     # Register and then deregister handler
-    event_bus.register_handler(handler=handler, event_types=[EventType.SYSTEM_STARTED])
+    event_bus.register_handler(handler=handler, event_types=[EventType.SYSTEM])
     event_bus.deregister_handler(handler)
 
     # Verify deregistration
-    assert handler not in event_bus._handlers[EventType.SYSTEM_STARTED]
+    assert handler not in event_bus._handlers[EventType.SYSTEM]
     assert handler not in event_bus._priorities
 
 
@@ -91,53 +95,19 @@ async def test_event_emission(event_bus, event):
     assert handler.handled_events[0] == event
 
 
-async def test_event_prioritization(event_bus, event):
-    """Test event handler prioritization."""
-    high_priority = MockEventHandler()
-    medium_priority = MockEventHandler()
-    low_priority = MockEventHandler()
-
-    # Register handlers with different priorities
-    event_bus.register_handler(
-        handler=medium_priority, event_types=[event.type], priority=EventPriority.MEDIUM
-    )
-    event_bus.register_handler(
-        handler=high_priority, event_types=[event.type], priority=EventPriority.HIGH
-    )
-    event_bus.register_handler(
-        handler=low_priority, event_types=[event.type], priority=EventPriority.LOW
-    )
-
-    # Emit event
-    await event_bus.emit(event)
-
-    # Verify execution order
-    assert len(high_priority.handled_events) == 1
-    assert len(medium_priority.handled_events) == 1
-    assert len(low_priority.handled_events) == 1
-
-    # Check timestamps to verify order
-    high_time = high_priority.handled_events[0].timestamp
-    medium_time = medium_priority.handled_events[0].timestamp
-    low_time = low_priority.handled_events[0].timestamp
-
-    assert high_time < medium_time < low_time
-
-
 async def test_event_filtering(event_bus, event):
     """Test event type filtering."""
     handler = MockEventHandler()
 
     # Register handler for specific event type
-    event_bus.register_handler(handler=handler, event_types=[EventType.SYSTEM_STARTED])
+    event_bus.register_handler(handler=handler, event_types=[EventType.SYSTEM])
 
     # Emit events of different types
-    await event_bus.emit(event)  # SYSTEM_STARTED
+    await event_bus.emit(event)  # SYSTEM
     await event_bus.emit(
         Event(
             id=uuid4(),
-            type=EventType.SYSTEM_STOPPED,
-            source_id="test_source",
+            type=EventType.USER,
             timestamp=datetime.fromtimestamp(1234567890),
             data={"test": True},
         )
@@ -145,7 +115,7 @@ async def test_event_filtering(event_bus, event):
 
     # Verify only matching events were handled
     assert len(handler.handled_events) == 1
-    assert handler.handled_events[0].type == EventType.SYSTEM_STARTED
+    assert handler.handled_events[0].type == EventType.SYSTEM
 
 
 async def test_event_validation(event_bus):
@@ -156,7 +126,6 @@ async def test_event_validation(event_bus):
             Event(
                 id=uuid4(),
                 type="invalid_type",  # type: ignore
-                source_id="test_source",
                 timestamp=datetime.fromtimestamp(1234567890),
                 data={},
             )
@@ -166,21 +135,26 @@ async def test_event_validation(event_bus):
     with pytest.raises(ValidationError):
         await event_bus.emit(
             Event(  # type: ignore
-                type=EventType.SYSTEM_STARTED,
-                source_id="test_source",
+                type=EventType.SYSTEM,
                 timestamp=datetime.fromtimestamp(1234567890),
+            )
+        )
+
+    # Test invalid data type
+    with pytest.raises(ValidationError):
+        await event_bus.emit(
+            Event(
+                id=uuid4(),
+                type=EventType.SYSTEM,
+                timestamp=datetime.fromtimestamp(1234567890),
+                data=123,  # type: ignore
             )
         )
 
 
 async def test_event_error_handling(event_bus, event):
     """Test event handler error handling."""
-
-    class ErrorHandler(EventHandler):
-        async def handle_event(self, event: Event) -> None:
-            raise RuntimeError("Test error")
-
-    handler = ErrorHandler()
+    handler = ErrorEventHandler()
     backup_handler = MockEventHandler()
 
     # Register both handlers
@@ -193,3 +167,56 @@ async def test_event_error_handling(event_bus, event):
     # Verify backup handler still processed event
     assert len(backup_handler.handled_events) == 1
     assert backup_handler.handled_events[0] == event
+
+
+async def test_multiple_event_types(event_bus):
+    """Test handling multiple event types."""
+    handler = MockEventHandler()
+    event_types = [EventType.SYSTEM, EventType.USER]
+
+    # Register handler for multiple event types
+    event_bus.register_handler(handler=handler, event_types=event_types)
+
+    # Emit events of different types
+    events = [
+        Event(
+            id=uuid4(),
+            type=event_type,
+            timestamp=datetime.fromtimestamp(1234567890),
+            data={"test": True},
+        )
+        for event_type in event_types
+    ]
+
+    for event in events:
+        await event_bus.emit(event)
+
+    # Verify all events were handled
+    assert len(handler.handled_events) == len(events)
+    assert all(event in handler.handled_events for event in events)
+
+
+async def test_event_timestamp_validation(event_bus):
+    """Test event timestamp validation."""
+    # Test future timestamp
+    future_time = datetime.now().timestamp() + 3600
+    with pytest.raises(ValidationError):
+        await event_bus.emit(
+            Event(
+                id=uuid4(),
+                type=EventType.SYSTEM,
+                timestamp=datetime.fromtimestamp(future_time),
+                data={},
+            )
+        )
+
+    # Test invalid timestamp format
+    with pytest.raises(ValidationError):
+        await event_bus.emit(
+            Event(
+                id=uuid4(),
+                type=EventType.SYSTEM,
+                timestamp="invalid",  # type: ignore
+                data={},
+            )
+        )

@@ -2,27 +2,27 @@
 
 import pytest
 
-from pepperpy.memory.exceptions import (
+from pepperpy.core.errors import (
     MemoryBackendAlreadyExistsError,
     MemoryBackendError,
     MemoryBackendInvalidError,
     MemoryBackendNotFoundError,
     MemoryCleanupError,
     MemoryDeletionError,
-    MemoryError,
     MemoryExistsError,
     MemoryRetrievalError,
     MemoryStorageError,
+    PepperpyMemoryError,
 )
 
 
 def test_memory_error_hierarchy():
     """Test memory error class hierarchy."""
     # Test base exception
-    assert issubclass(MemoryError, Exception)
+    assert issubclass(PepperpyMemoryError, Exception)
 
     # Test backend error hierarchy
-    assert issubclass(MemoryBackendError, MemoryError)
+    assert issubclass(MemoryBackendError, PepperpyMemoryError)
     assert issubclass(MemoryStorageError, MemoryBackendError)
     assert issubclass(MemoryRetrievalError, MemoryBackendError)
     assert issubclass(MemoryDeletionError, MemoryBackendError)
@@ -30,15 +30,15 @@ def test_memory_error_hierarchy():
     assert issubclass(MemoryCleanupError, MemoryBackendError)
 
     # Test other memory errors
-    assert issubclass(MemoryBackendNotFoundError, MemoryError)
-    assert issubclass(MemoryBackendAlreadyExistsError, MemoryError)
-    assert issubclass(MemoryBackendInvalidError, MemoryError)
+    assert issubclass(MemoryBackendNotFoundError, PepperpyMemoryError)
+    assert issubclass(MemoryBackendAlreadyExistsError, PepperpyMemoryError)
+    assert issubclass(MemoryBackendInvalidError, PepperpyMemoryError)
 
 
 def test_memory_error_messages():
     """Test memory error messages."""
     # Test base exception
-    error = MemoryError("Test error")
+    error = PepperpyMemoryError("Test error")
     assert str(error) == "Test error"
 
     # Test backend errors
@@ -74,8 +74,8 @@ def test_memory_error_messages():
 def test_memory_error_raising():
     """Test raising memory errors."""
     # Test base exception
-    with pytest.raises(MemoryError, match="Test error"):
-        raise MemoryError("Test error")
+    with pytest.raises(PepperpyMemoryError, match="Test error"):
+        raise PepperpyMemoryError("Test error")
 
     # Test backend errors
     with pytest.raises(MemoryBackendError, match="Backend error"):
