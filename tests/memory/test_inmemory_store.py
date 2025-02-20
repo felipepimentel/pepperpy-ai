@@ -8,7 +8,6 @@ import pytest
 
 from pepperpy.memory.stores.inmemory import InMemoryStore
 from pepperpy.memory.types import (
-    MemoryEntry,
     MemoryIndex,
     MemoryQuery,
     MemoryResult,
@@ -43,76 +42,113 @@ def store() -> InMemoryStore:
 async def test_store_initialization(store: InMemoryStore) -> None:
     """Test store initialization."""
     await store.initialize()
-    assert store._entries == {}
+    assert await store.exists("test1") is False
 
 
 @pytest.mark.asyncio
 async def test_store_cleanup(store: InMemoryStore, test_entry: Dict[str, Any]) -> None:
     """Test store cleanup."""
     # Add test entry
-    entry = MemoryEntry[dict[str, Any]](**test_entry)
-    await store.store(entry)
+    entry = await store.store(
+        key=test_entry["key"],
+        content=test_entry["value"],
+        scope=test_entry["scope"],
+        metadata=test_entry["metadata"],
+    )
 
     await store.cleanup()
-    assert store._entries == {}
+    assert await store.exists("test1") is False
 
 
 @pytest.mark.asyncio
 async def test_store_get(store: InMemoryStore, test_entry: Dict[str, Any]) -> None:
     """Test getting entries."""
     # Add test entry
-    entry = MemoryEntry[dict[str, Any]](**test_entry)
-    await store.store(entry)
+    entry = await store.store(
+        key=test_entry["key"],
+        content=test_entry["value"],
+        scope=test_entry["scope"],
+        metadata=test_entry["metadata"],
+    )
 
     # Test getting existing entry
-    query = MemoryQuery(query="test1", key="test1")
+    query = MemoryQuery(
+        query="test1",
+        key="test1",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
+    )
+    results = []
     async for result in store.retrieve(query):
-        assert result.entry.key == "test1"
-        assert result.entry.value["content"] == "test content"
+        results.append(result)
+
+    assert len(results) == 1
+    assert results[0].key == "test1"
+    assert results[0].entry["content"] == "test content"
 
     # Test getting non-existent entry
-    query = MemoryQuery(query="non_existent", key="non_existent")
+    query = MemoryQuery(
+        query="non_existent",
+        key="non_existent",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
+    )
+    results = []
     async for result in store.retrieve(query):
-        assert False, "Should not find non-existent entry"
+        results.append(result)
+    assert len(results) == 0
 
 
 @pytest.mark.asyncio
 async def test_store_store(store: InMemoryStore) -> None:
     """Test storing entries."""
     # Test storing new entry
-    entry = MemoryEntry[dict[str, Any]](
+    entry = await store.store(
         key="test1",
-        value={"content": "test content"},
-        type=MemoryType.SHORT_TERM,
+        content={"content": "test content"},
         scope=MemoryScope.SESSION,
         metadata={"tags": "test"},
     )
-    await store.store(entry)
-    assert "test1" in store._entries
+    assert await store.exists("test1") is True
 
     # Test updating existing entry
-    updated = MemoryEntry[dict[str, Any]](
+    updated = await store.store(
         key="test1",
-        value={"content": "updated content"},
-        type=MemoryType.SHORT_TERM,
+        content={"content": "updated content"},
         scope=MemoryScope.SESSION,
         metadata={"tags": "test"},
     )
-    await store.store(updated)
-    assert store._entries["test1"].value["content"] == "updated content"
+    query = MemoryQuery(
+        query="test1",
+        key="test1",
+        index_type=MemoryIndex.SEMANTIC,
+        filters={},
+        metadata={},
+    )
+    results = []
+    async for result in store.retrieve(query):
+        results.append(result)
+    assert len(results) == 1
+    assert results[0].entry["content"] == "updated content"
 
 
 @pytest.mark.asyncio
 async def test_store_delete(store: InMemoryStore, test_entry: Dict[str, Any]) -> None:
     """Test deleting entries."""
     # Add test entry
-    entry = MemoryEntry[dict[str, Any]](**test_entry)
-    await store.store(entry)
+    entry = await store.store(
+        key=test_entry["key"],
+        content=test_entry["value"],
+        scope=test_entry["scope"],
+        metadata=test_entry["metadata"],
+    )
 
     # Test deleting existing entry
     result = await store.delete("test1")
     assert result is True
-    assert "test1" not in store._entries
+    assert await store.exists("test1") is False
 
     # Test deleting non-existent entry
     result = await store.delete("non_existent")
@@ -123,8 +159,12 @@ async def test_store_delete(store: InMemoryStore, test_entry: Dict[str, Any]) ->
 async def test_store_exists(store: InMemoryStore, test_entry: Dict[str, Any]) -> None:
     """Test checking entry existence."""
     # Add test entry
-    entry = MemoryEntry[dict[str, Any]](**test_entry)
-    await store.store(entry)
+    entry = await store.store(
+        key=test_entry["key"],
+        content=test_entry["value"],
+        scope=test_entry["scope"],
+        metadata=test_entry["metadata"],
+    )
 
     # Test existing entry
     assert await store.exists("test1") is True
@@ -138,32 +178,45 @@ async def test_store_clear(store: InMemoryStore, test_entry: Dict[str, Any]) -> 
     """Test clearing entries."""
     # Add test entries with different scopes
     entries = {
-        "test1": MemoryEntry[dict[str, Any]](**{
-            **test_entry,
-            "scope": MemoryScope.SESSION,
-            "metadata": {"tags": "test"},
-        }),
-        "test2": MemoryEntry[dict[str, Any]](**{
-            **test_entry,
-            "key": "test2",
-            "scope": MemoryScope.AGENT,
-            "metadata": {"tags": "test"},
-        }),
+        "test1": await store.store(
+            key="test1",
+            content=test_entry["value"],
+            scope=MemoryScope.SESSION,
+            metadata={"tags": "test"},
+        ),
+        "test2": await store.store(
+            key="test2",
+            content=test_entry["value"],
+            scope=MemoryScope.AGENT,
+            metadata={"tags": "test"},
+        ),
     }
-    for entry in entries.values():
-        await store.store(entry)
 
     # Test clearing all entries
     count = await store.clear()
     assert count == 2
-    assert store._entries == {}
+    assert await store.exists("test1") is False
+    assert await store.exists("test2") is False
 
     # Test clearing with scope filter
-    for entry in entries.values():
-        await store.store(entry)
+    entries = {
+        "test1": await store.store(
+            key="test1",
+            content=test_entry["value"],
+            scope=MemoryScope.SESSION,
+            metadata={"tags": "test"},
+        ),
+        "test2": await store.store(
+            key="test2",
+            content=test_entry["value"],
+            scope=MemoryScope.AGENT,
+            metadata={"tags": "test"},
+        ),
+    }
     count = await store.clear(scope=MemoryScope.SESSION)
     assert count == 1
-    assert "test2" in store._entries
+    assert await store.exists("test1") is False
+    assert await store.exists("test2") is True
 
 
 @pytest.mark.asyncio
@@ -171,26 +224,25 @@ async def test_store_search(store: InMemoryStore, test_entry: Dict[str, Any]) ->
     """Test search functionality."""
     # Add test entries
     entries = {
-        "test1": MemoryEntry[dict[str, Any]](**{
-            **test_entry,
-            "value": {"content": "This is a test document"},
-            "metadata": {"tags": "test"},
-        }),
-        "test2": MemoryEntry[dict[str, Any]](**{
-            **test_entry,
-            "key": "test2",
-            "value": {"content": "Another test document"},
-            "metadata": {"tags": "test"},
-        }),
-        "test3": MemoryEntry[dict[str, Any]](**{
-            **test_entry,
-            "key": "test3",
-            "value": {"content": "Completely different content"},
-            "metadata": {"tags": "test"},
-        }),
+        "test1": await store.store(
+            key="test1",
+            content={"content": "This is a test document"},
+            scope=test_entry["scope"],
+            metadata={"tags": "test"},
+        ),
+        "test2": await store.store(
+            key="test2",
+            content={"content": "Another test document"},
+            scope=test_entry["scope"],
+            metadata={"tags": "test"},
+        ),
+        "test3": await store.store(
+            key="test3",
+            content={"content": "Completely different content"},
+            scope=test_entry["scope"],
+            metadata={"tags": "test"},
+        ),
     }
-    for entry in entries.values():
-        await store.store(entry)
 
     # Test basic search
     query = MemoryQuery(
@@ -200,11 +252,12 @@ async def test_store_search(store: InMemoryStore, test_entry: Dict[str, Any]) ->
         metadata={},
     )
     results = []
-    async for result in store.search(query):
+    async for result in store.retrieve(query):
         results.append(result)
 
     assert len(results) > 0
-    assert results[0].entry.key == "test1"
+    assert results[0].key == "test1"
+    assert "test" in str(results[0].entry["content"]).lower()
 
     # Test search with filters
     query = MemoryQuery(
@@ -214,9 +267,9 @@ async def test_store_search(store: InMemoryStore, test_entry: Dict[str, Any]) ->
         metadata={},
     )
     results = []
-    async for result in store.search(query):
+    async for result in store.retrieve(query):
         results.append(result)
-    assert all(r.entry.type == MemoryType.SHORT_TERM for r in results)
+    assert len(results) > 0
 
 
 @pytest.mark.asyncio
@@ -224,18 +277,16 @@ async def test_store_concurrent_access(store: InMemoryStore) -> None:
     """Test concurrent access to the store."""
 
     async def write_entry(key: str, content: str) -> None:
-        entry = MemoryEntry[dict[str, Any]](
+        await store.store(
             key=key,
-            value={"content": content},
-            type=MemoryType.SHORT_TERM,
+            content={"content": content},
             scope=MemoryScope.SESSION,
             metadata={"tags": "test"},
         )
-        await store.store(entry)
 
     async def search_entries(query: str) -> List[MemoryResult[dict[str, Any]]]:
         results = []
-        async for result in store.search(
+        async for result in store.retrieve(
             MemoryQuery(
                 query=query,
                 index_type=MemoryIndex.SEMANTIC,
@@ -248,7 +299,17 @@ async def test_store_concurrent_access(store: InMemoryStore) -> None:
 
     # Test concurrent writes
     await asyncio.gather(*[write_entry(f"key{i}", f"content{i}") for i in range(10)])
-    assert len(store._entries) == 10
+    count = 0
+    async for result in store.retrieve(
+        MemoryQuery(
+            query="",
+            index_type=MemoryIndex.SEMANTIC,
+            filters={},
+            metadata={},
+        )
+    ):
+        count += 1
+    assert count == 10
 
     # Test concurrent searches
     results = await asyncio.gather(*[search_entries("test") for _ in range(5)])

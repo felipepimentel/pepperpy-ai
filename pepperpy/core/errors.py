@@ -56,51 +56,44 @@ class ErrorMetadata:
 class PepperpyError(Exception):
     """Base class for all Pepperpy errors.
 
-    Attributes
-    ----------
-        message: Error message
-        code: Error code
-        details: Additional error details
-        user_message: User-friendly error message
-        recovery_hint: Hint for recovering from the error
-        context: Error context information
-        metadata: Error tracking metadata
-
+    This class provides a consistent interface for error handling across
+    the Pepperpy framework, including support for:
+    - Detailed error messages
+    - Additional error details
+    - Recovery hints
+    - User-friendly messages
     """
 
     def __init__(
         self,
         message: str,
-        code: str = "ERR000",
         details: Optional[Dict[str, Any]] = None,
-        user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
+        user_message: Optional[str] = None,
     ) -> None:
         """Initialize the error.
 
         Args:
-        ----
-            message: Error message
-            code: Error code
-            details: Additional error details
-            user_message: User-friendly error message
-            recovery_hint: Hint for recovering from the error
-            context: Error context information
-
+            message: Technical error message.
+            details: Optional dictionary of additional error details.
+            recovery_hint: Optional hint for recovering from the error.
+            user_message: Optional user-friendly error message.
         """
         super().__init__(message)
         self.message = message
-        self.code = code
         self.details = details or {}
-        self.user_message = user_message or message
         self.recovery_hint = recovery_hint
-        self.context = context or {}
-        self.metadata = ErrorMetadata()
+        self.user_message = user_message or message
 
     def __str__(self) -> str:
-        """Return string representation of error."""
-        return f"[{self.code}] {self.message}"
+        """Get string representation of the error.
+
+        Returns:
+            str: Error message with optional recovery hint.
+        """
+        if self.recovery_hint:
+            return f"{self.message} ({self.recovery_hint})"
+        return self.message
 
 
 # System Errors
@@ -115,7 +108,6 @@ class ConfigError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the configuration error."""
         super().__init__(
@@ -124,7 +116,6 @@ class ConfigError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -141,7 +132,6 @@ class ValidationError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the validation error."""
         super().__init__(
@@ -150,7 +140,6 @@ class ValidationError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -163,7 +152,6 @@ class StateError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -172,7 +160,6 @@ class StateError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -185,7 +172,6 @@ class LifecycleError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -194,7 +180,6 @@ class LifecycleError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -210,7 +195,6 @@ class ProviderError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -219,7 +203,6 @@ class ProviderError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -232,7 +215,6 @@ class ResourceError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -241,7 +223,6 @@ class ResourceError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -254,7 +235,6 @@ class RegistryError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the registry error.
 
@@ -263,7 +243,6 @@ class RegistryError(PepperpyError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
@@ -271,7 +250,6 @@ class RegistryError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -288,7 +266,6 @@ class FactoryError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the factory error."""
         super().__init__(
@@ -297,7 +274,6 @@ class FactoryError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -313,7 +289,6 @@ class CapabilityError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the capability error.
 
@@ -322,7 +297,6 @@ class CapabilityError(PepperpyError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
@@ -330,7 +304,6 @@ class CapabilityError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -343,7 +316,6 @@ class LearningError(CapabilityError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the learning error.
 
@@ -352,14 +324,12 @@ class LearningError(CapabilityError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -372,7 +342,6 @@ class PlanningError(CapabilityError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -380,7 +349,6 @@ class PlanningError(CapabilityError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -393,7 +361,6 @@ class ReasoningError(CapabilityError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -401,7 +368,6 @@ class ReasoningError(CapabilityError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -417,7 +383,6 @@ class WorkflowError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -426,7 +391,6 @@ class WorkflowError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -442,7 +406,6 @@ class PepperpyMemoryError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -451,7 +414,6 @@ class PepperpyMemoryError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -467,7 +429,6 @@ class PepperpyTimeoutError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -476,7 +437,6 @@ class PepperpyTimeoutError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -492,7 +452,6 @@ class AuthenticationError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -501,7 +460,6 @@ class AuthenticationError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -514,7 +472,6 @@ class AuthorizationError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -523,7 +480,6 @@ class AuthorizationError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -539,7 +495,6 @@ class NetworkError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -548,7 +503,6 @@ class NetworkError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -564,7 +518,6 @@ class NotFoundError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -573,7 +526,6 @@ class NotFoundError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -586,7 +538,6 @@ class DuplicateError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -595,7 +546,6 @@ class DuplicateError(PepperpyError):
             details,
             user_message,
             recovery_hint,
-            context,
         )
 
 
@@ -650,7 +600,6 @@ def create_error(
     details: Optional[Dict[str, Any]] = None,
     user_message: Optional[str] = None,
     recovery_hint: Optional[str] = None,
-    context: Optional[ErrorContext] = None,
 ) -> PepperpyError:
     """Create error instance by error code.
 
@@ -661,7 +610,6 @@ def create_error(
         details: Additional error details
         user_message: User-friendly error message
         recovery_hint: Hint for recovering from the error
-        context: Error context information
 
     Returns:
     -------
@@ -674,7 +622,6 @@ def create_error(
         details=details,
         user_message=user_message,
         recovery_hint=recovery_hint,
-        context=context,
     )
 
 
@@ -687,7 +634,6 @@ class AgentError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
@@ -695,7 +641,6 @@ class AgentError(PepperpyError):
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -708,7 +653,6 @@ class ContentError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
@@ -716,7 +660,6 @@ class ContentError(PepperpyError):
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -729,7 +672,6 @@ class LLMError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
@@ -737,7 +679,6 @@ class LLMError(PepperpyError):
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -750,7 +691,6 @@ class SynthesisError(PepperpyError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
@@ -758,7 +698,6 @@ class SynthesisError(PepperpyError):
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -771,7 +710,6 @@ class MemoryBackendError(PepperpyMemoryError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize memory backend error.
 
@@ -780,14 +718,12 @@ class MemoryBackendError(PepperpyMemoryError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -800,14 +736,12 @@ class MemoryStorageError(MemoryBackendError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -820,14 +754,12 @@ class MemoryRetrievalError(MemoryBackendError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -840,14 +772,12 @@ class MemoryDeletionError(MemoryBackendError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -860,14 +790,12 @@ class MemoryExistsError(MemoryBackendError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -880,14 +808,12 @@ class MemoryCleanupError(MemoryBackendError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -900,7 +826,6 @@ class MemoryBackendNotFoundError(PepperpyMemoryError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize memory backend not found error.
 
@@ -909,14 +834,12 @@ class MemoryBackendNotFoundError(PepperpyMemoryError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -929,7 +852,6 @@ class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize memory backend already exists error.
 
@@ -938,14 +860,12 @@ class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
 
 
@@ -958,7 +878,6 @@ class MemoryBackendInvalidError(PepperpyMemoryError):
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
-        context: Optional[ErrorContext] = None,
     ) -> None:
         """Initialize memory backend invalid error.
 
@@ -967,12 +886,16 @@ class MemoryBackendInvalidError(PepperpyMemoryError):
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
-            context: Optional error context
         """
         super().__init__(
             message,
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
-            context=context,
         )
+
+
+class StorageError(PepperpyError):
+    """Error raised by storage operations."""
+
+    pass

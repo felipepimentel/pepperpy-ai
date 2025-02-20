@@ -1,144 +1,156 @@
-"""Base interfaces for content capability."""
+"""Base types and interfaces for content management.
 
-from abc import abstractmethod
+This module defines the core abstractions for managing content in Pepperpy:
+- Content: Base class for all content types
+- ContentType: Enum of supported content types
+- ContentMetadata: Class for storing content metadata
+- ContentManager: Interface for content management operations
+"""
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
-
-from pydantic import BaseModel, Field, HttpUrl
-
-from pepperpy.core.base import BaseComponent as Processor
-from pepperpy.core.base import BaseProvider as Provider
+from enum import Enum, auto
+from pathlib import Path
+from typing import Any, Dict, Optional, Union
+from uuid import UUID, uuid4
 
 
-class ContentError(Exception):
-    """Base class for content-related errors."""
+class ContentType(Enum):
+    """Supported content types."""
+
+    TEXT = auto()
+    FILE = auto()
+    IMAGE = auto()
+    AUDIO = auto()
+    VIDEO = auto()
+    BINARY = auto()
+
+
+@dataclass
+class ContentMetadata:
+    """Metadata for content items."""
+
+    id: UUID
+    type: ContentType
+    name: str
+    created_at: datetime
+    modified_at: datetime
+    size: int
+    mime_type: Optional[str] = None
+    encoding: Optional[str] = None
+    tags: Dict[str, str] = field(default_factory=dict)
+    extra: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.tags is None:
+            self.tags = {}
+        if self.extra is None:
+            self.extra = {}
+
+
+class Content(ABC):
+    """Base class for all content types."""
 
     def __init__(
         self,
-        message: str,
-        *,
-        provider: Optional[str] = None,
-        source: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize the error.
+        content_type: ContentType,
+        name: str,
+        data: Any = None,
+        metadata: Optional[ContentMetadata] = None,
+    ):
+        """Initialize content.
 
         Args:
-            message: Error message
-            provider: Optional provider name that caused the error
-            source: Optional content source that caused the error
-            details: Optional additional details
+            content_type: Type of the content
+            name: Name of the content
+            data: Content data
+            metadata: Content metadata
         """
-        super().__init__(message)
-        self.provider = provider
-        self.source = source
-        self.details = details or {}
+        self.type = content_type
+        self.name = name
+        self.data = data
 
-
-class ContentMetadata(BaseModel):
-    """Metadata for content items."""
-
-    language: str = Field(default="en", description="Content language code")
-    category: Optional[str] = Field(default=None, description="Content category")
-    tags: List[str] = Field(default_factory=list, description="Content tags")
-    url: Optional[HttpUrl] = Field(default=None, description="Source URL")
-    author: Optional[str] = Field(default=None, description="Content author")
-    summary: Optional[str] = Field(default=None, description="Content summary")
-    word_count: Optional[int] = Field(default=None, description="Word count")
-    read_time: Optional[int] = Field(
-        default=None, description="Estimated read time in minutes"
-    )
-    extra: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
-    )
-
-
-class ContentItem(BaseModel):
-    """Represents a single content item."""
-
-    title: str = Field(description="Content title")
-    content: str = Field(description="Main content text")
-    source: str = Field(description="Content source identifier")
-    published_at: datetime = Field(description="Publication timestamp")
-    metadata: ContentMetadata = Field(
-        default_factory=ContentMetadata,
-        description="Content metadata",
-    )
-
-
-class ContentProvider(Provider):
-    """Base class for content providers."""
+        if metadata is None:
+            now = datetime.utcnow()
+            self.metadata = ContentMetadata(
+                id=uuid4(),
+                type=content_type,
+                name=name,
+                created_at=now,
+                modified_at=now,
+                size=self._calculate_size(),
+            )
+        else:
+            self.metadata = metadata
 
     @abstractmethod
-    async def fetch(
-        self,
-        *,
-        limit: Optional[int] = None,
-        since: Optional[datetime] = None,
-        filters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> List[ContentItem]:
-        """Fetch content items from the source.
-
-        Args:
-            limit: Maximum number of items to fetch
-            since: Only fetch items published after this time
-            filters: Additional filters to apply
-            **kwargs: Additional provider-specific parameters
-
-        Returns:
-            List of content items
-
-        Raises:
-            ContentError: If fetching fails
-        """
+    def _calculate_size(self) -> int:
+        """Calculate the size of the content in bytes."""
         pass
 
     @abstractmethod
-    async def search(
-        self,
-        query: str,
-        *,
-        limit: Optional[int] = None,
-        filters: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> List[ContentItem]:
-        """Search for content items matching the query.
+    def load(self) -> Any:
+        """Load the content data."""
+        pass
+
+    @abstractmethod
+    def save(self, path: Union[str, Path]) -> None:
+        """Save the content to a file.
 
         Args:
-            query: Search query string
-            limit: Maximum number of items to return
-            filters: Additional filters to apply
-            **kwargs: Additional provider-specific parameters
-
-        Returns:
-            List of matching content items
-
-        Raises:
-            ContentError: If search fails
+            path: Path to save the content to
         """
         pass
 
 
-class ContentProcessor(Processor):
-    """Base class for content processors."""
+class ContentManager(ABC):
+    """Interface for content management operations."""
 
     @abstractmethod
-    async def process(
-        self,
-        items: Union[ContentItem, List[ContentItem]],
-        **kwargs: Any,
-    ) -> Union[ContentItem, List[ContentItem]]:
-        """Process content items.
+    def load(self, content_id: UUID) -> Content:
+        """Load content by ID.
 
         Args:
-            items: Single item or list of items to process
-            **kwargs: Additional processor-specific parameters
+            content_id: ID of the content to load
 
         Returns:
-            Processed item(s)
+            The loaded content
+        """
+        pass
 
-        Raises:
-            ContentError: If processing fails
+    @abstractmethod
+    def save(self, content: Content) -> UUID:
+        """Save content.
+
+        Args:
+            content: Content to save
+
+        Returns:
+            ID of the saved content
+        """
+        pass
+
+    @abstractmethod
+    def delete(self, content_id: UUID) -> None:
+        """Delete content by ID.
+
+        Args:
+            content_id: ID of the content to delete
+        """
+        pass
+
+    @abstractmethod
+    def list(
+        self, content_type: Optional[ContentType] = None
+    ) -> Dict[UUID, ContentMetadata]:
+        """List available content.
+
+        Args:
+            content_type: Optional filter by content type
+
+        Returns:
+            Dictionary mapping content IDs to metadata
         """
         pass

@@ -3,13 +3,17 @@
 from collections.abc import AsyncIterator
 from typing import Any, Dict, List, Optional
 
-from pepperpy.memory.base import (
-    BaseMemoryStore,
+from pepperpy.core.logging import get_logger
+from pepperpy.memory.store import BaseMemoryStore
+from pepperpy.memory.types import (
     MemoryEntry,
     MemoryQuery,
-    MemorySearchResult,
+    MemoryResult,
+    MemoryScope,
 )
-from pepperpy.memory.errors import MemoryError
+
+# Configure logger
+logger = get_logger(__name__)
 
 
 class CompositeMemoryStore(BaseMemoryStore[Dict[str, Any]]):
@@ -21,100 +25,173 @@ class CompositeMemoryStore(BaseMemoryStore[Dict[str, Any]]):
 
     def __init__(
         self,
-        name: str,
         stores: Optional[List[BaseMemoryStore[Dict[str, Any]]]] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize composite store.
 
         Args:
-            name: Store name
             stores: List of memory stores
             config: Store configuration
-
         """
-        super().__init__(name=name)
         self._stores = stores or []
         self._config = config or {}
 
-    async def _initialize(self) -> None:
-        """Initialize all stores."""
-        for store in self._stores:
-            await store.initialize()
-
-    async def _cleanup(self) -> None:
-        """Clean up all stores."""
-        for store in self._stores:
-            await store.cleanup()
-
-    async def _store(self, entry: MemoryEntry[Dict[str, Any]]) -> None:
-        """Store entry in all stores.
+    async def _store_impl(
+        self,
+        key: str,
+        content: Dict[str, Any],
+        scope: MemoryScope,
+        metadata: Dict[str, str] | None,
+    ) -> MemoryEntry[Dict[str, Any]]:
+        """Store content in memory.
 
         Args:
-            entry: Memory entry to store
+            key: Key to store under
+            content: Content to store
+            scope: Storage scope
+            metadata: Optional metadata
+
+        Returns:
+            Created memory entry
 
         Raises:
-            MemoryError: If storing fails in any store
-
+            RuntimeError: If storage fails
         """
         errors = []
+        entry = None
+
         for store in self._stores:
             try:
-                await store.store(entry)
+                entry = await store.store(key, content, scope, metadata)
             except Exception as e:
-                errors.append(f"{store.name}: {e}")
+                errors.append(str(e))
 
         if errors:
-            raise MemoryError(f"Failed to store in some stores: {', '.join(errors)}")
+            raise RuntimeError(f"Failed to store in some stores: {', '.join(errors)}")
 
-    async def _retrieve(
-        self, query: MemoryQuery
-    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
-        """Retrieve from all stores.
+        if not entry:
+            raise RuntimeError("No stores available to store content")
+
+        return entry
+
+    def _retrieve_impl(
+        self,
+        query: MemoryQuery,
+    ) -> AsyncIterator[MemoryResult[Dict[str, Any]]]:
+        """Retrieve entries from memory.
 
         Args:
-            query: Memory query
+            query: Query parameters
 
-        Yields:
-            Memory search results from all stores
+        Returns:
+            Iterator of memory results
 
+        Raises:
+            RuntimeError: If retrieval fails
         """
-        seen_keys = set()
-        for store in self._stores:
-            async for result in store.retrieve(query):
-                if result.entry.key not in seen_keys:
-                    seen_keys.add(result.entry.key)
-                    yield result
 
-    async def _delete(self, key: str) -> None:
-        """Delete from all stores.
+        async def _retrieve() -> AsyncIterator[MemoryResult[Dict[str, Any]]]:
+            seen_keys = set()
+            for store in self._stores:
+                try:
+                    async for result in store.retrieve(query):
+                        if result.key not in seen_keys:
+                            seen_keys.add(result.key)
+                            yield result
+                except Exception as e:
+                    logger.error(
+                        "Failed to retrieve from store",
+                        extra={"error": str(e)},
+                    )
+
+        return _retrieve()
+
+    async def _delete_impl(self, key: str) -> bool:
+        """Delete an entry from memory.
 
         Args:
             key: Key to delete
 
-        Raises:
-            MemoryError: If deletion fails in any store
+        Returns:
+            True if deleted, False if not found
 
+        Raises:
+            RuntimeError: If deletion fails
         """
         errors = []
+        deleted = False
+
         for store in self._stores:
             try:
-                await store.delete(key)
+                if await store.delete(key):
+                    deleted = True
             except Exception as e:
-                errors.append(f"{store.name}: {e}")
+                errors.append(str(e))
 
         if errors:
-            raise MemoryError(f"Failed to delete from some stores: {', '.join(errors)}")
+            raise RuntimeError(
+                f"Failed to delete from some stores: {', '.join(errors)}"
+            )
+
+        return deleted
+
+    async def _exists_impl(self, key: str) -> bool:
+        """Check if key exists in memory.
+
+        Args:
+            key: Key to check
+
+        Returns:
+            True if exists, False otherwise
+
+        Raises:
+            RuntimeError: If check fails
+        """
+        for store in self._stores:
+            try:
+                if await store.exists(key):
+                    return True
+            except Exception as e:
+                logger.error(
+                    "Failed to check existence in store",
+                    extra={"error": str(e)},
+                )
+        return False
+
+    async def _clear_impl(self, scope: MemoryScope | None = None) -> int:
+        """Clear entries from memory.
+
+        Args:
+            scope: Optional scope to clear
+
+        Returns:
+            Number of entries cleared
+
+        Raises:
+            RuntimeError: If clearing fails
+        """
+        errors = []
+        total_cleared = 0
+
+        for store in self._stores:
+            try:
+                cleared = await store.clear(scope)
+                total_cleared += cleared
+            except Exception as e:
+                errors.append(str(e))
+
+        if errors:
+            raise RuntimeError(f"Failed to clear some stores: {', '.join(errors)}")
+
+        return total_cleared
 
     async def add_store(self, store: BaseMemoryStore[Dict[str, Any]]) -> None:
         """Add a store to the composite.
 
         Args:
             store: Store to add
-
         """
-        if not store.is_initialized:
-            await store.initialize()
         self._stores.append(store)
 
     async def remove_store(self, store: BaseMemoryStore[Dict[str, Any]]) -> None:
@@ -122,8 +199,6 @@ class CompositeMemoryStore(BaseMemoryStore[Dict[str, Any]]):
 
         Args:
             store: Store to remove
-
         """
         if store in self._stores:
-            await store.cleanup()
             self._stores.remove(store)

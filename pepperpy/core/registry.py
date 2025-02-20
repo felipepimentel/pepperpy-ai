@@ -10,8 +10,6 @@ This module provides a comprehensive registry system for managing:
 
 import asyncio
 import importlib
-import logging
-from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -27,9 +25,16 @@ from pepperpy.core.errors import (
     StateError,
     ValidationError,
 )
-from pepperpy.events import Event, EventBus, EventHandler, EventPriority, EventType
+from pepperpy.events import (
+    EventBus,
+    EventPriority,
+    EventType,
+    RegistryEvent,
+)
+from pepperpy.monitoring import logger
 
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = logger.getChild(__name__)
 
 T = TypeVar("T")
 
@@ -128,50 +133,6 @@ class CapabilityMetadata(RegistryMetadata):
     upgrade_path: str | None = None
 
 
-class RegistryEvent(Event):
-    """Event specific to registry operations."""
-
-    item_id: UUID
-    item_key: str
-    item_type: str
-    version: str | None = None
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class RegistryEventHandler(EventHandler):
-    """Base class for registry event handlers."""
-
-    @abstractmethod
-    async def on_item_registered(self, event: RegistryEvent) -> None:
-        """Handle item registration event."""
-        pass
-
-    @abstractmethod
-    async def on_item_unregistered(self, event: RegistryEvent) -> None:
-        """Handle item unregistration event."""
-        pass
-
-    @abstractmethod
-    async def on_item_updated(self, event: RegistryEvent) -> None:
-        """Handle item update event."""
-        pass
-
-    async def handle_event(self, event: Event) -> None:
-        """Route events to specific handlers."""
-        if not isinstance(event, RegistryEvent):
-            return
-
-        try:
-            if event.type == EventType.PROVIDER_REGISTERED:
-                await self.on_item_registered(event)
-            elif event.type == EventType.PROVIDER_UNREGISTERED:
-                await self.on_item_unregistered(event)
-            elif event.type == EventType.SYSTEM_STARTED:
-                await self.on_item_updated(event)
-        except Exception as e:
-            logger.error(f"Error handling registry event: {e!s}")
-
-
 class Registry(Generic[T]):
     """Generic registry for managing system components.
 
@@ -242,100 +203,118 @@ class Registry(Generic[T]):
             metadata: Optional metadata for the item
 
         Returns:
-            UUID of the registered item
+            UUID: Unique identifier for the registered item
 
         Raises:
-            ValidationError: If key is invalid or already exists
             StateError: If registry is not active
+            ValidationError: If validation fails
+            RegistryError: If registration fails
 
         """
         self._ensure_active()
 
-        async with self._lock:
-            if key not in self._items:
-                self._items[key] = {}
+        if metadata is None:
+            metadata = {}
 
-            # Validate version
-            try:
-                Version.from_string(version)
-            except ValueError as e:
-                raise ValidationError(f"Invalid version format: {e}") from e
+        try:
+            async with self._lock:
+                if key not in self._items:
+                    self._items[key] = {}
 
-            if version in self._items[key]:
-                raise ValidationError(
-                    f"Version {version} already exists for key: {key}"
-                )
+                if version in self._items[key]:
+                    raise RegistryError(f"Item already registered: {key}@{version}")
 
-            try:
-                item = RegistryMetadata[T](
+                item_metadata = RegistryMetadata(
                     key=key,
                     type=item_type,
                     version=version,
-                    metadata=metadata or {},
+                    metadata=metadata,
                 )
-                self._items[key][version] = item
+
+                self._items[key][version] = item_metadata
 
                 if self._event_bus:
                     event = RegistryEvent(
                         type=EventType.PROVIDER_REGISTERED,
                         source_id=self.name,
                         priority=EventPriority.NORMAL,
-                        item_id=item.id,
-                        item_key=item.key,
-                        item_type=(f"{item_type.__module__}.{item_type.__qualname__}"),
-                        version=version,
-                        metadata=metadata if metadata is not None else {},
+                        registry_id=uuid4(),
+                        operation="register",
+                        item_type=item_type.__name__,
+                        item_id=str(item_metadata.id),
+                        metadata=metadata,
                     )
                     await self._event_bus.publish(event)
 
-                return item.id
+                return item_metadata.id
 
-            except Exception as e:
-                raise ValidationError(f"Failed to register item: {e!s}") from e
+        except Exception as e:
+            raise RegistryError(f"Failed to register item: {e}") from e
 
     async def unregister(self, key: str, version: str | None = None) -> None:
-        """Remove an item from the registry.
+        """Unregister an item from the registry.
 
         Args:
-            key: Key of the item to remove
-            version: Optional specific version to remove
+            key: Item key to unregister
+            version: Optional version to unregister. If None, unregisters all versions.
 
         Raises:
-            NotFoundError: If key or version is not found
             StateError: If registry is not active
+            NotFoundError: If item not found
+            RegistryError: If unregistration fails
 
         """
         self._ensure_active()
 
-        async with self._lock:
-            if key not in self._items:
-                raise NotFoundError(f"Item not found with key: {key}")
+        try:
+            async with self._lock:
+                if key not in self._items:
+                    raise NotFoundError(f"Item not found: {key}")
 
-            if version:
-                if version not in self._items[key]:
-                    raise NotFoundError(f"Version {version} not found for key: {key}")
-                item = self._items[key][version]
-                del self._items[key][version]
+                if version:
+                    if version not in self._items[key]:
+                        raise NotFoundError(f"Version not found: {key}@{version}")
 
-                if not self._items[key]:
-                    del self._items[key]
-            else:
-                # Remove all versions
-                for ver, item in self._items[key].items():
+                    item_metadata = self._items[key][version]
+                    del self._items[key][version]
+
+                    if not self._items[key]:
+                        del self._items[key]
+
                     if self._event_bus:
                         event = RegistryEvent(
                             type=EventType.PROVIDER_UNREGISTERED,
                             source_id=self.name,
                             priority=EventPriority.NORMAL,
-                            item_id=item.id,
-                            item_key=item.key,
-                            item_type=(
-                                f"{item.type.__module__}.{item.type.__qualname__}"
-                            ),
-                            version=ver,
+                            registry_id=uuid4(),
+                            operation="unregister",
+                            item_type=item_metadata.type.__name__,
+                            item_id=str(item_metadata.id),
+                            metadata=item_metadata.metadata,
                         )
                         await self._event_bus.publish(event)
-                del self._items[key]
+                else:
+                    # Unregister all versions
+                    for ver, item_metadata in self._items[key].items():
+                        if self._event_bus:
+                            event = RegistryEvent(
+                                type=EventType.PROVIDER_UNREGISTERED,
+                                source_id=self.name,
+                                priority=EventPriority.NORMAL,
+                                registry_id=uuid4(),
+                                operation="unregister",
+                                item_type=item_metadata.type.__name__,
+                                item_id=str(item_metadata.id),
+                                metadata=item_metadata.metadata,
+                            )
+                            await self._event_bus.publish(event)
+
+                    del self._items[key]
+
+        except NotFoundError:
+            raise
+        except Exception as e:
+            raise RegistryError(f"Failed to unregister item: {e}") from e
 
     async def get(
         self, key: str, version: str | None = None
@@ -437,10 +416,10 @@ class Registry(Generic[T]):
                     type=EventType.SYSTEM_STARTED,
                     source_id=self.name,
                     priority=EventPriority.NORMAL,
-                    item_id=item.id,
-                    item_key=item.key,
-                    item_type=(f"{item.type.__module__}.{item.type.__qualname__}"),
-                    version=version,
+                    registry_id=uuid4(),
+                    operation="update",
+                    item_type=item.type.__name__,
+                    item_id=str(item.id),
                     metadata=metadata,
                 )
                 await self._event_bus.publish(event)
@@ -495,12 +474,11 @@ class Registry(Generic[T]):
                             type=EventType.PROVIDER_UNREGISTERED,
                             source_id=self.name,
                             priority=EventPriority.NORMAL,
-                            item_id=item.id,
-                            item_key=item.key,
-                            item_type=(
-                                f"{item.type.__module__}.{item.type.__qualname__}"
-                            ),
-                            version=version,
+                            registry_id=uuid4(),
+                            operation="unregister",
+                            item_type=item.type.__name__,
+                            item_id=str(item.id),
+                            metadata=item.metadata,
                         )
                         await self._event_bus.publish(event)
 

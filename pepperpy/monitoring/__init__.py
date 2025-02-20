@@ -1,76 +1,47 @@
-"""Core monitoring functionality for Pepperpy.
+"""Monitoring module for Pepperpy.
 
-This package provides monitoring capabilities including:
-- Metrics collection and reporting
-- Logging configuration and management
-- Tracing and distributed tracing
+This module provides monitoring functionality, including:
+- Logging configuration
+- Metrics collection
+- Tracing utilities
+- Audit logging
 """
 
 import logging
-from typing import Optional
+import os
+from pathlib import Path
 
-from pepperpy.monitoring.metrics import (
-    Counter,
-    Gauge,
-    Histogram,
-    MetricExporter,
-    MetricsManager,
-    MetricType,
-    MetricUnit,
+# Configure root logger
+logger = logging.getLogger("pepperpy")
+logger.setLevel(logging.INFO)
+
+# Create formatters
+console_formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+file_formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
 )
 
-logger = logging.getLogger(__name__)
+# Create console handler
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(console_formatter)
+logger.addHandler(console_handler)
 
+# Create file handler if log directory exists
+log_dir = Path.home() / ".pepperpy/logs"
+if not log_dir.exists():
+    try:
+        log_dir.mkdir(parents=True)
+        file_handler = logging.FileHandler(log_dir / "pepperpy.log")
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(file_formatter)
+        logger.addHandler(file_handler)
+    except Exception as e:
+        logger.warning(f"Failed to create log directory: {e}")
 
-def configure_logging(
-    level: Optional[str] = None,
-    log_file: Optional[str] = None,
-) -> None:
-    """Configure logging for the framework.
+# Import audit logger
+from pepperpy.monitoring.audit import audit_logger
 
-    Args:
-        level: Optional log level (default: INFO)
-        log_file: Optional log file path
-    """
-    if level is None:
-        level = "INFO"
-
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(getattr(logging, level.upper()))
-
-    # Add console handler if not already present
-    if not root_logger.handlers:
-        console_handler = logging.StreamHandler()
-        console_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        )
-        root_logger.addHandler(console_handler)
-
-    # Add file handler if specified
-    if log_file:
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        )
-        root_logger.addHandler(file_handler)
-
-    logger.info(
-        "Logging configured",
-        extra={
-            "level": level,
-            "log_file": log_file,
-        },
-    )
-
-
-__all__ = [
-    "configure_logging",
-    "Counter",
-    "Gauge",
-    "Histogram",
-    "MetricExporter",
-    "MetricsManager",
-    "MetricType",
-    "MetricUnit",
-]
+__all__ = ["logger", "audit_logger"]

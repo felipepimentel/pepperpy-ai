@@ -1,0 +1,204 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Workflow Artifact Schema",
+  "description": "Schema for workflow artifacts in the Pepperpy Hub",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "author",
+    "steps",
+    "configuration"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the workflow",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the workflow (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the workflow's purpose and functionality"
+    },
+    "author": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author's name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author's email",
+          "format": "email"
+        },
+        "organization": {
+          "type": "string",
+          "description": "Optional organization name"
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "description": "Workflow steps",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "config"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Step name"
+          },
+          "type": {
+            "type": "string",
+            "description": "Step type",
+            "enum": ["agent", "tool", "condition", "loop", "parallel"]
+          },
+          "config": {
+            "type": "object",
+            "description": "Step configuration",
+            "additionalProperties": true
+          },
+          "inputs": {
+            "type": "object",
+            "description": "Step input mappings",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Input mapping expression"
+            }
+          },
+          "outputs": {
+            "type": "object",
+            "description": "Step output mappings",
+            "additionalProperties": {
+              "type": "string",
+              "description": "Output mapping expression"
+            }
+          },
+          "condition": {
+            "type": "string",
+            "description": "Conditional expression for step execution"
+          },
+          "retry": {
+            "type": "object",
+            "description": "Retry configuration",
+            "properties": {
+              "max_attempts": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "delay": {
+                "type": "number",
+                "description": "Delay between retries in seconds",
+                "minimum": 0
+              }
+            }
+          },
+          "timeout": {
+            "type": "number",
+            "description": "Step timeout in seconds",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "description": "Workflow configuration schema",
+      "required": ["settings"],
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Workflow settings schema",
+          "additionalProperties": true
+        },
+        "environment": {
+          "type": "object",
+          "description": "Required environment variables",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Environment variable description"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "External dependencies",
+      "properties": {
+        "agents": {
+          "type": "array",
+          "description": "Required agent artifacts",
+          "items": {
+            "type": "object",
+            "required": ["name", "version"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Agent artifact name"
+              },
+              "version": {
+                "type": "string",
+                "description": "Required version (semver)",
+                "pattern": "^\\d+\\.\\d+\\.\\d+$"
+              }
+            }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "description": "Required tool artifacts",
+          "items": {
+            "type": "object",
+            "required": ["name", "version"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Tool artifact name"
+              },
+              "version": {
+                "type": "string",
+                "description": "Required version (semver)",
+                "pattern": "^\\d+\\.\\d+\\.\\d+$"
+              }
+            }
+          }
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "Security requirements and permissions",
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "description": "Required permissions",
+          "items": {
+            "type": "string",
+            "enum": ["file_system", "network", "process", "env"]
+          }
+        },
+        "sandbox": {
+          "type": "boolean",
+          "description": "Whether the workflow requires sandboxing",
+          "default": true
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "additionalProperties": true
+    }
+  }
+} 

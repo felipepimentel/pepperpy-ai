@@ -13,21 +13,21 @@ from pepperpy.monitoring.metrics import (
 @pytest.mark.asyncio
 async def test_counter_basic(test_counter: Counter):
     """Test basic counter functionality."""
-    test_counter.inc()
-    assert test_counter.value == 1
-    test_counter.inc(2)
-    assert test_counter.value == 3
+    test_counter.record(1)
+    assert test_counter._value == 1
+    test_counter.record(2)
+    assert test_counter._value == 3
 
 
 @pytest.mark.asyncio
 async def test_gauge_basic(test_gauge: Gauge):
     """Test basic gauge functionality."""
-    test_gauge.set(5)
-    assert test_gauge.value == 5
-    test_gauge.inc(2)
-    assert test_gauge.value == 7
-    test_gauge.dec(3)
-    assert test_gauge.value == 4
+    test_gauge.record(5)
+    assert test_gauge._value == 5
+    test_gauge.record(7)
+    assert test_gauge._value == 7
+    test_gauge.record(4)
+    assert test_gauge._value == 4
 
 
 @pytest.mark.asyncio
@@ -35,10 +35,10 @@ async def test_histogram_basic(test_histogram: Histogram):
     """Test basic histogram functionality."""
     values = [0.2, 0.7, 1.5, 3.0, 4.0]
     for value in values:
-        test_histogram.observe(value)
+        test_histogram.record(value)
 
-    assert test_histogram.count == 5
-    assert test_histogram.sum == sum(values)
+    assert test_histogram._count == 5
+    assert test_histogram._sum == sum(values)
 
 
 @pytest.mark.asyncio
@@ -65,15 +65,15 @@ async def test_metrics_manager(metrics_manager: MetricsManager):
     assert metrics_manager.get_metric("test_histogram") is histogram
 
     # Test metric updates
-    counter.inc()
-    gauge.set(5)
-    histogram.observe(2.0)
+    counter.record(1)
+    gauge.record(5)
+    histogram.record(2.0)
 
     # Verify values
-    assert counter.value == 1
-    assert gauge.value == 5
-    assert histogram.count == 1
-    assert histogram.sum == 2.0
+    assert counter._value == 1
+    assert gauge._value == 5
+    assert histogram._count == 1
+    assert histogram._sum == 2.0
 
 
 @pytest.mark.asyncio
@@ -84,8 +84,8 @@ async def test_metrics_cleanup(metrics_manager: MetricsManager):
     counter2 = await metrics_manager.create_counter("counter2", "Counter 2")
 
     # Update metrics
-    counter1.inc()
-    counter2.inc(2)
+    counter1.record(1)
+    counter2.record(2)
 
     # Clean up
     await metrics_manager.cleanup()
@@ -97,8 +97,8 @@ async def test_metrics_cleanup(metrics_manager: MetricsManager):
     # Verify they are different instances
     assert new_counter1 is not counter1
     assert new_counter2 is not counter2
-    assert new_counter1.value == 0
-    assert new_counter2.value == 0
+    assert new_counter1._value == 0
+    assert new_counter2._value == 0
 
 
 @pytest.mark.asyncio

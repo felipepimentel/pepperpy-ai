@@ -7,17 +7,18 @@ Useful for testing and development purposes.
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any
+from typing import Any, AsyncIterator, Dict
 
 from pepperpy.core.logging import get_logger
-from pepperpy.memory.store import BaseMemoryStore
-from pepperpy.memory.types import (
+from pepperpy.memory.base import (
+    BaseMemoryStore,
     MemoryEntry,
     MemoryQuery,
-    MemoryResult,
     MemoryScope,
     MemoryType,
 )
+from pepperpy.memory.errors import MemoryError, MemoryKeyError
+from pepperpy.memory.types import MemoryResult
 
 # Configure logger
 logger = get_logger(__name__)
@@ -160,8 +161,7 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
                 metadata=metadata or {},
                 type=MemoryType.SHORT_TERM,
                 created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-                indices=set(),
+                expires_at=None,
             )
 
             async with self._lock:
@@ -293,6 +293,7 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
                             key=key,
                             entry=entry.value,
                             similarity=1.0,  # Basic search doesn't compute similarity
+                            metadata=entry.metadata or {},
                         )
 
                         count += 1
@@ -411,3 +412,35 @@ class InMemoryStore(BaseMemoryStore[dict[str, Any]]):
                 extra={"scope": scope, "error": str(e)},
             )
             raise RuntimeError(f"Failed to clear memory entries: {e}") from e
+
+    async def store(
+        self,
+        entry: MemoryEntry[Dict[str, Any]],
+    ) -> MemoryEntry[Dict[str, Any]]:
+        """Store a memory entry.
+
+        Args:
+            entry: Entry to store
+
+        Returns:
+            Stored entry
+
+        Raises:
+            MemoryError: If store operation fails
+        """
+        try:
+            if not entry.key:
+                raise MemoryKeyError("Entry key cannot be empty")
+
+            self._entries[entry.key] = MemoryEntry(
+                key=entry.key,
+                value=entry.value,
+                type=entry.type,
+                scope=entry.scope,
+                metadata=entry.metadata,
+                created_at=entry.created_at,
+                expires_at=entry.expires_at,
+            )
+            return entry
+        except Exception as e:
+            raise MemoryError(f"Failed to store entry: {e}") from e

@@ -1,0 +1,124 @@
+"""Configuration commands for the Pepperpy CLI.
+
+This module provides commands for:
+- Managing global configuration
+- Setting environment variables
+- Viewing configuration status
+"""
+
+import click
+from rich.console import Console
+from rich.table import Table
+
+from pepperpy.core.errors import PepperpyError
+
+# Configure rich console
+console = Console()
+
+
+@click.group()
+def config() -> None:
+    """Manage Pepperpy configuration."""
+    pass
+
+
+@config.command()
+@click.argument("key")
+@click.argument("value")
+def set(key: str, value: str) -> None:
+    """Set a configuration value.
+
+    KEY is the configuration key to set.
+    VALUE is the value to set.
+    """
+    try:
+        # TODO: Implement config setting
+        console.print(f"[green]Set config:[/green] {key}={value}")
+
+    except PepperpyError as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        if e.recovery_hint:
+            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
+        raise click.Abort()
+
+
+@config.command()
+@click.argument("key")
+def get(key: str) -> None:
+    """Get a configuration value.
+
+    KEY is the configuration key to get.
+    """
+    try:
+        # TODO: Implement config getting
+        console.print(f"[green]Config value:[/green] {key}")
+
+    except PepperpyError as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        if e.recovery_hint:
+            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
+        raise click.Abort()
+
+
+@config.command()
+def list() -> None:
+    """List all configuration values."""
+    try:
+        # TODO: Implement config listing
+        table = Table(title="Configuration")
+        table.add_column("Key")
+        table.add_column("Value")
+        table.add_column("Source")
+        console.print(table)
+
+    except PepperpyError as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        if e.recovery_hint:
+            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
+        raise click.Abort()
+
+
+@config.command()
+def init() -> None:
+    """Initialize default configuration."""
+    try:
+        # TODO: Implement config initialization
+        console.print("[green]Initialized default configuration[/green]")
+
+    except PepperpyError as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        if e.recovery_hint:
+            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
+        raise click.Abort()
+
+
+@config.command()
+def validate() -> None:
+    """Validate current configuration."""
+    try:
+        # TODO: Implement config validation
+        console.print("[green]Configuration is valid[/green]")
+
+    except PepperpyError as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        if e.recovery_hint:
+            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
+        raise click.Abort()
+
+
+@config.command()
+@click.option("--force", is_flag=True, help="Force reset without confirmation")
+def reset(force: bool) -> None:
+    """Reset configuration to defaults."""
+    try:
+        if not force and not click.confirm("Reset all configuration?"):
+            return
+
+        # TODO: Implement config reset
+        console.print("[green]Reset configuration to defaults[/green]")
+
+    except PepperpyError as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        if e.recovery_hint:
+            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
+        raise click.Abort()

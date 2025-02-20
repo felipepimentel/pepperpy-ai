@@ -1,0 +1,191 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Tool Artifact Schema",
+  "description": "Schema for tool artifacts in the Pepperpy Hub",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "author",
+    "interface",
+    "configuration"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the tool",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the tool (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the tool's purpose and functionality"
+    },
+    "author": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author's name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author's email",
+          "format": "email"
+        },
+        "organization": {
+          "type": "string",
+          "description": "Optional organization name"
+        }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "description": "Tool interface definition",
+      "required": ["inputs", "outputs"],
+      "properties": {
+        "inputs": {
+          "type": "object",
+          "description": "Input parameter definitions",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type", "description"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Parameter type",
+                "enum": ["string", "number", "boolean", "array", "object"]
+              },
+              "description": {
+                "type": "string",
+                "description": "Parameter description"
+              },
+              "required": {
+                "type": "boolean",
+                "description": "Whether the parameter is required",
+                "default": true
+              },
+              "default": {
+                "description": "Default value for the parameter"
+              },
+              "enum": {
+                "type": "array",
+                "description": "Allowed values for the parameter"
+              },
+              "pattern": {
+                "type": "string",
+                "description": "Regex pattern for string validation"
+              },
+              "minimum": {
+                "type": "number",
+                "description": "Minimum value for numbers"
+              },
+              "maximum": {
+                "type": "number",
+                "description": "Maximum value for numbers"
+              }
+            }
+          }
+        },
+        "outputs": {
+          "type": "object",
+          "description": "Output definitions",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["type", "description"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Output type",
+                "enum": ["string", "number", "boolean", "array", "object"]
+              },
+              "description": {
+                "type": "string",
+                "description": "Output description"
+              }
+            }
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "description": "Tool configuration schema",
+      "required": ["settings"],
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Tool settings schema",
+          "additionalProperties": true
+        },
+        "environment": {
+          "type": "object",
+          "description": "Required environment variables",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Environment variable description"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "External dependencies",
+      "properties": {
+        "python": {
+          "type": "string",
+          "description": "Required Python version",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+        },
+        "packages": {
+          "type": "object",
+          "description": "Required Python packages",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Package version constraint"
+          }
+        },
+        "system": {
+          "type": "array",
+          "description": "Required system packages",
+          "items": {
+            "type": "string",
+            "description": "System package name"
+          }
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "Security requirements and permissions",
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "description": "Required permissions",
+          "items": {
+            "type": "string",
+            "enum": ["file_system", "network", "process", "env"]
+          }
+        },
+        "sandbox": {
+          "type": "boolean",
+          "description": "Whether the tool requires sandboxing",
+          "default": true
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "additionalProperties": true
+    }
+  }
+} 

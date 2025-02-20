@@ -1,7 +1,7 @@
 ---
 title: Task Execution Template
 description: Template for executing planned tasks with strict format maintenance and clear status tracking.
-version: 5.0
+version: 5.1
 category: execution
 tags: [execution, implementation]
 yolo: true
@@ -31,11 +31,11 @@ validation:
       - verify validation criteria preserved
 
   status_transitions:
-    - "📋 To Do" -> "🏃 In Progress": 
+    - "📋 To Do" -> "🏃 In Progress":
         - update mode to Act
         - preserve all planning details
         - maintain validation criteria
-    - "🏃 In Progress" -> "✅ Done": 
+    - "🏃 In Progress" -> "✅ Done":
         - validate all requirements complete
         - verify no planning details were lost
     
@@ -61,7 +61,7 @@ updated: YYYY-MM-DD
 
 - [-] Requirement: {exact description from plan}  # 🏃 Started: YYYY-MM-DD
   ## Implementation Status
-  \```python
+  ```python
   # Only show implemented code with status
   def implemented_feature():  # ✅ Complete
       return "working"
@@ -71,15 +71,15 @@ updated: YYYY-MM-DD
 
   def pending_feature():  # ⏳ Pending
       pass
-  \```
+  ```
 
   ## Validation Status
-  \```python
+  ```python
   # Only show test results
   test_implemented ✅
   test_in_progress 🏃
   test_pending ⏳
-  \```
+  ```
 
 # Progress Updates
 
@@ -120,6 +120,7 @@ updated: YYYY-MM-DD
    - Keep original test structure
 
 4. **Progress Updates:**
+   - **Every progress update must reflect in all relevant sections (Requirements, Implementation, Validation, and Progress).**
    - Add new entries at top
    - Keep entries focused and specific
    - Use consistent emoji markers
@@ -138,27 +139,27 @@ updated: YYYY-MM-DD
 ## Starting Implementation
 ```markdown
 - [ ] Feature: Add error handling  # Original
--> 
+->
 - [-] Feature: Add error handling  # 🏃 Started: 2024-02-14
 ```
 
 ## Implementation Progress
 ```markdown
 ## Implementation Status
-\```python
+```python
 def handle_error(error: Exception):  # ✅ Complete
     return ErrorResult(str(error))
 
 def process_error(error: Exception):  # 🏃 In Progress
     pass
-\```
+```
 
 ## Validation Status
-\```python
+```python
 test_handle_error_basic ✅
 test_handle_error_complex 🏃
 test_process_error ⏳
-\```
+```
 ```
 
 ## Completion
@@ -185,6 +186,7 @@ test_process_error ⏳
    - Preserve section hierarchy
 
 3. **Updates Flow:**
+   - **Every modification in execution (code and tests) must be reflected immediately in the task status.**
    - Add new progress entries at top
    - Keep implementation current
    - Remove completed code
@@ -196,4 +198,4 @@ test_process_error ⏳
    - All tests passing
    - Status marked as done
    - Kanban updated
-   - Original plan verified 
+   - Original plan verified

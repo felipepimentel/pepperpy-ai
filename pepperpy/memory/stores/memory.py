@@ -1,29 +1,26 @@
 """In-memory store implementation."""
 
-from collections.abc import AsyncIterator
-from datetime import UTC, datetime
-from typing import Any, Dict, Optional
+from typing import Any, AsyncIterator, Dict, Optional
 
+from pepperpy.core.protocols import MemoryScope
 from pepperpy.memory.base import (
     BaseMemoryStore,
     MemoryEntry,
     MemoryQuery,
     MemorySearchResult,
-    MemoryType,
 )
-from pepperpy.memory.errors import MemoryKeyError
+from pepperpy.memory.errors import MemoryError, MemoryKeyError
 
 
 class InMemoryStore(BaseMemoryStore[Dict[str, Any]]):
     """In-memory store implementation."""
 
-    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:
-        """Initialize in-memory store.
+    def __init__(self, name: str = "memory", config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize the store.
 
         Args:
             name: Store name
-            config: Store configuration
-
+            config: Optional configuration
         """
         super().__init__(name=name)
         self._store: Dict[str, MemoryEntry[Dict[str, Any]]] = {}
@@ -31,160 +28,143 @@ class InMemoryStore(BaseMemoryStore[Dict[str, Any]]):
 
     async def _initialize(self) -> None:
         """Initialize the store."""
-        pass  # No initialization needed for in-memory store
+        pass
 
     async def _cleanup(self) -> None:
-        """Clean up the store."""
+        """Clean up resources."""
         self._store.clear()
 
-    async def _store_entry(self, entry: MemoryEntry[Dict[str, Any]]) -> None:
-        """Store a memory entry.
+    async def _store_entry(
+        self,
+        entry: MemoryEntry[Dict[str, Any]],
+    ) -> MemoryEntry[Dict[str, Any]]:
+        """Store an entry.
 
         Args:
-            entry: Memory entry to store
+            entry: Entry to store
+
+        Returns:
+            Stored entry
 
         Raises:
-            MemoryKeyError: If key is invalid
-
+            MemoryError: If entry is invalid
         """
         if not entry.key:
-            raise MemoryKeyError("Key cannot be empty")
+            raise MemoryKeyError("Entry key cannot be empty")
+
         self._store[entry.key] = entry
+        return entry
 
     async def _retrieve(
-        self, query: MemoryQuery
-    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
-        """Retrieve memory entries.
-
-        Args:
-            query: Memory query
-
-        Yields:
-            Memory search results
-
-        """
-        if query.key:
-            if query.key in self._store:
-                entry = self._store[query.key]
-                yield MemorySearchResult(
-                    entry=entry,
-                    score=1.0,  # Exact match
-                    metadata={},
-                )
-            return
-
-        for entry in self._store.values():
-            # Simple substring search for demo
-            if query.query.lower() in str(entry.value).lower():
-                yield MemorySearchResult(
-                    entry=entry,
-                    score=1.0,  # Simple match score
-                    metadata={},
-                )
-
-    async def _delete(self, key: str) -> None:
-        """Delete a memory entry.
-
-        Args:
-            key: Key to delete
-
-        Raises:
-            MemoryKeyError: If key not found
-
-        """
-        if key not in self._store:
-            raise MemoryKeyError(f"Key not found: {key}")
-        del self._store[key]
-
-    async def store(
-        self,
-        key: str,
-        value: Dict[str, Any],
-        type: MemoryType = MemoryType.SHORT_TERM,
-        metadata: Optional[Dict[str, Any]] = None,
-        expires_at: Optional[datetime] = None,
-    ) -> MemoryEntry:
-        """Store a value in memory.
-
-        Args:
-            key: Key to store value under
-            value: Value to store
-            type: Type of memory
-            metadata: Optional metadata
-            expires_at: Optional expiration time
-
-        Returns:
-            Memory entry
-
-        """
-        entry = MemoryEntry(
-            key=key,
-            value=value,
-            type=type,
-            metadata=metadata or {},
-            expires_at=expires_at,
-            created_at=datetime.now(UTC),
-        )
-        self._store[key] = entry
-        return entry
-
-    async def retrieve(
-        self,
-        key: str,
-        type: Optional[MemoryType] = None,
-    ) -> MemoryEntry:
-        """Retrieve a value from memory.
-
-        Args:
-            key: Key to retrieve
-            type: Optional type filter
-
-        Returns:
-            Memory entry
-
-        Raises:
-            MemoryKeyError: If key not found
-
-        """
-        if key not in self._store:
-            raise MemoryKeyError(f"Key not found: {key}")
-
-        entry = self._store[key]
-
-        if type is not None and entry.type != type:
-            raise MemoryKeyError(f"Key {key} has wrong type: {entry.type} != {type}")
-
-        return entry
-
-    async def search(
         self,
         query: MemoryQuery,
-    ) -> AsyncIterator[MemorySearchResult]:
-        """Search memory entries.
+    ) -> AsyncIterator[MemorySearchResult[Dict[str, Any]]]:
+        """Retrieve entries matching query.
 
         Args:
-            query: Search query
+            query: Query to match
 
         Yields:
-            Memory search results
+            Matching entries
 
+        Raises:
+            MemoryError: If query is invalid
         """
+        if not query.query:
+            raise MemoryError("Query cannot be empty")
+
         for entry in self._store.values():
-            # Simple substring search for demo
-            if query.query.lower() in str(entry.value).lower():
+            if self._matches_query(entry, query):
                 yield MemorySearchResult(
                     entry=entry,
-                    score=1.0,  # Simple exact match score
-                    metadata={},
+                    score=1.0 if query.query == entry.key else 0.5,
                 )
 
-    async def cleanup(self) -> None:
-        """Clean up expired entries."""
-        now = datetime.now(UTC)
-        expired = [
-            key
-            for key, entry in self._store.items()
-            if entry.expires_at and entry.expires_at <= now
-        ]
-        for key in expired:
+    async def _delete(self, key: str) -> bool:
+        """Delete an entry.
+
+        Args:
+            key: Entry key
+
+        Returns:
+            True if deleted, False if not found
+        """
+        if key in self._store:
             del self._store[key]
+            return True
+        return False
+
+    async def _exists(self, key: str) -> bool:
+        """Check if entry exists.
+
+        Args:
+            key: Entry key
+
+        Returns:
+            True if exists, False otherwise
+        """
+        return key in self._store
+
+    async def _clear(self, scope: Optional[MemoryScope] = None) -> int:
+        """Clear entries.
+
+        Args:
+            scope: Optional scope to clear
+
+        Returns:
+            Number of entries cleared
+        """
+        if scope is None:
+            count = len(self._store)
+            self._store.clear()
+            return count
+
+        count = 0
+        keys_to_delete = []
+        for key, entry in self._store.items():
+            if entry.scope == scope:
+                keys_to_delete.append(key)
+                count += 1
+
+        for key in keys_to_delete:
+            del self._store[key]
+
+        return count
+
+    def _matches_query(
+        self,
+        entry: MemoryEntry[Dict[str, Any]],
+        query: MemoryQuery,
+    ) -> bool:
+        """Check if entry matches query.
+
+        Args:
+            entry: Memory entry
+            query: Memory query
+
+        Returns:
+            bool: True if matches, False otherwise
+        """
+        # Match key if specified
+        if query.key and entry.key != query.key:
+            return False
+
+        # Match query text if specified
+        if query.query:
+            entry_text = str(entry.value).lower()
+            if query.query.lower() not in entry_text:
+                return False
+
+        # Match filters if specified
+        if query.filters:
+            for key, value in query.filters.items():
+                if key not in entry.value or entry.value[key] != value:
+                    return False
+
+        # Match metadata if specified
+        if query.metadata:
+            for key, value in query.metadata.items():
+                if key not in entry.metadata or entry.metadata[key] != value:
+                    return False
+
+        return True

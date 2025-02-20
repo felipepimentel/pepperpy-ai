@@ -1,0 +1,138 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent Artifact Schema",
+  "description": "Schema for agent artifacts in the Pepperpy Hub",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "author",
+    "capabilities",
+    "configuration"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the agent",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the agent (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the agent's purpose and functionality"
+    },
+    "author": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author's name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author's email",
+          "format": "email"
+        },
+        "organization": {
+          "type": "string",
+          "description": "Optional organization name"
+        }
+      }
+    },
+    "capabilities": {
+      "type": "array",
+      "description": "List of agent capabilities",
+      "items": {
+        "type": "object",
+        "required": ["name", "version"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Capability name"
+          },
+          "version": {
+            "type": "string",
+            "description": "Capability version (semver)",
+            "pattern": "^\\d+\\.\\d+\\.\\d+$"
+          },
+          "required": {
+            "type": "boolean",
+            "description": "Whether this capability is required",
+            "default": true
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "description": "Agent configuration schema",
+      "required": ["settings"],
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Agent settings schema",
+          "additionalProperties": true
+        },
+        "environment": {
+          "type": "object",
+          "description": "Required environment variables",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Environment variable description"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "External dependencies",
+      "properties": {
+        "python": {
+          "type": "string",
+          "description": "Required Python version",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+        },
+        "packages": {
+          "type": "object",
+          "description": "Required Python packages",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Package version constraint"
+          }
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "Security requirements and permissions",
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "description": "Required permissions",
+          "items": {
+            "type": "string",
+            "enum": ["file_system", "network", "process", "env"]
+          }
+        },
+        "sandbox": {
+          "type": "boolean",
+          "description": "Whether the agent requires sandboxing",
+          "default": true
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "additionalProperties": true
+    }
+  }
+} 

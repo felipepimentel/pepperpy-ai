@@ -1,0 +1,186 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Knowledge Artifact",
+  "description": "Schema for knowledge artifacts in the PepperPy Hub",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "author",
+    "content",
+    "type"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the knowledge artifact",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the knowledge artifact",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the knowledge artifact's purpose and content",
+      "minLength": 10,
+      "maxLength": 1000
+    },
+    "author": {
+      "type": "string",
+      "description": "Author of the knowledge artifact",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "type": {
+      "type": "string",
+      "description": "Type of knowledge content",
+      "enum": [
+        "fact",
+        "rule",
+        "concept",
+        "procedure",
+        "reference",
+        "example",
+        "definition",
+        "guideline"
+      ]
+    },
+    "content": {
+      "type": "object",
+      "description": "The knowledge content",
+      "required": ["data", "format"],
+      "properties": {
+        "data": {
+          "description": "The actual knowledge content",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "object"
+            },
+            {
+              "type": "array"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "description": "Format of the content",
+          "enum": [
+            "text",
+            "markdown",
+            "json",
+            "yaml",
+            "xml",
+            "html"
+          ]
+        },
+        "schema": {
+          "type": "object",
+          "description": "Optional schema for structured content"
+        }
+      }
+    },
+    "domain": {
+      "type": "string",
+      "description": "Knowledge domain or subject area",
+      "minLength": 1,
+      "maxLength": 100
+    },
+    "tags": {
+      "type": "array",
+      "description": "Tags for categorizing the knowledge",
+      "items": {
+        "type": "string"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "description": "Related knowledge artifacts",
+      "items": {
+        "type": "object",
+        "required": ["artifact_id", "type"],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "description": "ID of the related artifact"
+          },
+          "type": {
+            "type": "string",
+            "description": "Type of relationship",
+            "enum": [
+              "depends_on",
+              "related_to",
+              "supersedes",
+              "contradicts",
+              "supports"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "description": "Description of the relationship"
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "description": "Validation rules and constraints",
+      "properties": {
+        "rules": {
+          "type": "array",
+          "description": "List of validation rules",
+          "items": {
+            "type": "object",
+            "required": ["type", "condition"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "description": "Type of validation rule"
+              },
+              "condition": {
+                "type": "string",
+                "description": "Validation condition"
+              },
+              "message": {
+                "type": "string",
+                "description": "Validation error message"
+              }
+            }
+          }
+        },
+        "last_validated": {
+          "type": "string",
+          "description": "Timestamp of last validation",
+          "format": "date-time"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "additionalProperties": true
+    },
+    "signature": {
+      "type": "string",
+      "description": "Cryptographic signature of the artifact"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Creation timestamp",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "Last update timestamp",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+} 

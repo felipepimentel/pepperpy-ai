@@ -1,30 +1,24 @@
-"""Core hub management module.
+"""Pepperpy Hub module.
 
-This module provides a unified system for managing and organizing resources,
-workflows, and configurations in a centralized hub structure.
+This module provides functionality for the Pepperpy Hub, including:
+- Artifact storage and management
+- Marketplace integration
+- Publishing tools
+- Security features
 """
 
-from .base import Hub, HubConfig, HubType
-from .errors import (
-    HubError,
-    HubNotFoundError,
-    HubValidationError,
-    ResourceError,
-    ResourceNotFoundError,
-)
-from .manager import HubManager
+from pepperpy.hub.marketplace import MarketplaceConfig, MarketplaceManager
+from pepperpy.hub.publishing import Publisher
+from pepperpy.hub.security import SecurityConfig, SecurityManager
+from pepperpy.hub.storage import LocalStorageBackend, StorageBackend, StorageMetadata
 
 __all__ = [
-    # Base components
-    "HubType",
-    "HubConfig",
-    "Hub",
-    # Manager
-    "HubManager",
-    # Errors
-    "HubError",
-    "HubNotFoundError",
-    "HubValidationError",
-    "ResourceError",
-    "ResourceNotFoundError",
+    "MarketplaceConfig",
+    "MarketplaceManager",
+    "Publisher",
+    "SecurityConfig",
+    "SecurityManager",
+    "StorageBackend",
+    "StorageMetadata",
+    "LocalStorageBackend",
 ]

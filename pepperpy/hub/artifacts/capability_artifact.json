@@ -1,0 +1,252 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Capability Artifact Schema",
+  "description": "Schema for capability artifacts in the Pepperpy Hub",
+  "type": "object",
+  "required": [
+    "name",
+    "version",
+    "description",
+    "author",
+    "interface",
+    "configuration"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the capability",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "minLength": 3,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "string",
+      "description": "Version of the capability (semver)",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "description": {
+      "type": "string",
+      "description": "Description of the capability's purpose and functionality"
+    },
+    "author": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Author's name"
+        },
+        "email": {
+          "type": "string",
+          "description": "Author's email",
+          "format": "email"
+        },
+        "organization": {
+          "type": "string",
+          "description": "Optional organization name"
+        }
+      }
+    },
+    "interface": {
+      "type": "object",
+      "description": "Capability interface definition",
+      "required": ["methods"],
+      "properties": {
+        "methods": {
+          "type": "object",
+          "description": "Method definitions",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["description", "inputs", "outputs"],
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Method description"
+              },
+              "inputs": {
+                "type": "object",
+                "description": "Input parameter definitions",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["type", "description"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "description": "Parameter type",
+                      "enum": ["string", "number", "boolean", "array", "object"]
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Parameter description"
+                    },
+                    "required": {
+                      "type": "boolean",
+                      "description": "Whether the parameter is required",
+                      "default": true
+                    },
+                    "default": {
+                      "description": "Default value for the parameter"
+                    }
+                  }
+                }
+              },
+              "outputs": {
+                "type": "object",
+                "description": "Output definitions",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["type", "description"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "description": "Output type",
+                      "enum": ["string", "number", "boolean", "array", "object"]
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Output description"
+                    }
+                  }
+                }
+              },
+              "async": {
+                "type": "boolean",
+                "description": "Whether the method is asynchronous",
+                "default": true
+              },
+              "errors": {
+                "type": "array",
+                "description": "Possible error types",
+                "items": {
+                  "type": "object",
+                  "required": ["type", "description"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "description": "Error type name"
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Error description"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "events": {
+          "type": "object",
+          "description": "Event definitions",
+          "additionalProperties": {
+            "type": "object",
+            "required": ["description", "data"],
+            "properties": {
+              "description": {
+                "type": "string",
+                "description": "Event description"
+              },
+              "data": {
+                "type": "object",
+                "description": "Event data schema",
+                "additionalProperties": {
+                  "type": "object",
+                  "required": ["type", "description"],
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "description": "Data field type",
+                      "enum": ["string", "number", "boolean", "array", "object"]
+                    },
+                    "description": {
+                      "type": "string",
+                      "description": "Data field description"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "configuration": {
+      "type": "object",
+      "description": "Capability configuration schema",
+      "required": ["settings"],
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Capability settings schema",
+          "additionalProperties": true
+        },
+        "environment": {
+          "type": "object",
+          "description": "Required environment variables",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Environment variable description"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "External dependencies",
+      "properties": {
+        "python": {
+          "type": "string",
+          "description": "Required Python version",
+          "pattern": "^\\d+\\.\\d+(\\.\\d+)?$"
+        },
+        "packages": {
+          "type": "object",
+          "description": "Required Python packages",
+          "additionalProperties": {
+            "type": "string",
+            "description": "Package version constraint"
+          }
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "description": "Security requirements and permissions",
+      "properties": {
+        "permissions": {
+          "type": "array",
+          "description": "Required permissions",
+          "items": {
+            "type": "string",
+            "enum": ["file_system", "network", "process", "env"]
+          }
+        },
+        "sandbox": {
+          "type": "boolean",
+          "description": "Whether the capability requires sandboxing",
+          "default": true
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Additional metadata",
+      "additionalProperties": true
+    },
+    "signature": {
+      "type": "string",
+      "description": "Cryptographic signature of the artifact"
+    },
+    "created_at": {
+      "type": "string",
+      "description": "Creation timestamp",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "description": "Last update timestamp",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+} 
