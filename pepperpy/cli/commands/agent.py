@@ -1,99 +1,242 @@
-"""Agent commands for the Pepperpy CLI.
+"""Agent management commands.
 
-This module provides commands for:
-- Creating agents
-- Running agents
-- Managing agent configuration
-- Listing available agents
+This module provides the implementation for agent-related CLI commands.
+It includes commands for creating, listing, and managing agents.
 """
 
-import click
+from typing import Dict, List, Optional
+
 from rich.console import Console
+from rich.table import Table
 
+from pepperpy.agents.base import AgentConfig, BaseAgent
+from pepperpy.agents.registry import AgentRegistry
 from pepperpy.core.errors import PepperpyError
+from pepperpy.core.logging import get_logger
 
-# Configure rich console
+# Configure logging
+logger = get_logger(__name__)
+
+# Configure console
 console = Console()
 
 
-@click.group()
-def agent() -> None:
-    """Manage Pepperpy agents."""
-    pass
-
-
-@agent.command()
-@click.argument("name")
-@click.option("--type", "agent_type", help="Agent type")
-@click.option("--config", type=click.Path(exists=True), help="Config file")
-def create(name: str, agent_type: str, config: str) -> None:
+async def create_agent(
+    name: str,
+    agent_type: str,
+    description: Optional[str] = None,
+    parameters: Optional[Dict[str, str]] = None,
+) -> str:
     """Create a new agent.
 
-    NAME is the name of the agent to create.
+    Args:
+        name: Agent name
+        agent_type: Type of agent
+        description: Optional agent description
+        parameters: Optional agent parameters
+
+    Returns:
+        str: Agent ID
+
+    Raises:
+        PepperpyError: If agent creation fails
     """
     try:
-        # TODO: Implement agent creation
-        console.print(f"[green]Created agent:[/green] {name}")
+        # Create agent configuration
+        config = AgentConfig(
+            name=name,
+            description=description or f"{agent_type.title()} agent",
+            parameters=parameters or {},
+        )
 
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        # Create agent instance
+        agent = BaseAgent(
+            name=name,
+            version="0.1.0",
+            config=config,
+        )
+
+        # Register agent
+        registry = AgentRegistry()
+        agent_id = await registry.register(agent)
+
+        return agent_id
+
+    except Exception as e:
+        raise PepperpyError(
+            message=f"Failed to create agent: {e}",
+            details={
+                "name": name,
+                "type": agent_type,
+                "description": description,
+            },
+            recovery_hint="Check agent configuration and try again",
+        )
 
 
-@agent.command()
-@click.argument("name")
-@click.option("--task", help="Task to run")
-@click.option("--config", type=click.Path(exists=True), help="Config file")
-def run(name: str, task: str, config: str) -> None:
-    """Run an agent.
+async def list_agents(
+    agent_type: Optional[str] = None,
+    status: Optional[str] = None,
+) -> List[Dict[str, str]]:
+    """List available agents.
 
-    NAME is the name of the agent to run.
+    Args:
+        agent_type: Optional agent type filter
+        status: Optional status filter
+
+    Returns:
+        List[Dict[str, str]]: List of agent information
+
+    Raises:
+        PepperpyError: If agent listing fails
     """
     try:
-        # TODO: Implement agent execution
-        console.print(f"[green]Running agent:[/green] {name}")
+        # Get agent registry
+        registry = AgentRegistry()
 
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        # List agents with filters
+        agents = await registry.list(
+            filters={
+                "type": agent_type,
+                "status": status,
+            }
+            if agent_type or status
+            else None
+        )
+
+        # Format agent information
+        result = []
+        for agent in agents:
+            result.append({
+                "id": agent.id,
+                "name": agent.name,
+                "type": agent.type,
+                "status": agent.status,
+                "description": agent.description,
+            })
+
+        return result
+
+    except Exception as e:
+        raise PepperpyError(
+            message=f"Failed to list agents: {e}",
+            details={
+                "type": agent_type,
+                "status": status,
+            },
+            recovery_hint="Check agent registry and try again",
+        )
 
 
-@agent.command()
-@click.argument("name")
-@click.option("--key", help="Config key to get/set")
-@click.option("--value", help="Value to set")
-def config(name: str, key: str, value: str) -> None:
-    """Manage agent configuration.
+def display_agents(agents: List[Dict[str, str]]) -> None:
+    """Display agents in a formatted table.
 
-    NAME is the name of the agent to configure.
+    Args:
+        agents: List of agent information
+    """
+    # Create table
+    table = Table(
+        title="Available Agents",
+        show_header=True,
+        header_style="bold magenta",
+    )
+
+    # Add columns
+    table.add_column("ID", style="dim")
+    table.add_column("Name", style="cyan")
+    table.add_column("Type", style="green")
+    table.add_column("Status", style="yellow")
+    table.add_column("Description")
+
+    # Add rows
+    for agent in agents:
+        table.add_row(
+            agent["id"],
+            agent["name"],
+            agent["type"],
+            agent["status"],
+            agent["description"],
+        )
+
+    # Display table
+    console.print(table)
+
+
+async def delete_agent(agent_id: str) -> None:
+    """Delete an agent.
+
+    Args:
+        agent_id: ID of the agent to delete
+
+    Raises:
+        PepperpyError: If agent deletion fails
     """
     try:
-        # TODO: Implement config management
-        if value:
-            console.print(f"[green]Set config:[/green] {key}={value}")
-        else:
-            console.print(f"[green]Config value:[/green] {key}")
+        # Get agent registry
+        registry = AgentRegistry()
 
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        # Delete agent
+        await registry.delete(agent_id)
+
+    except Exception as e:
+        raise PepperpyError(
+            message=f"Failed to delete agent: {e}",
+            details={"agent_id": agent_id},
+            recovery_hint="Check agent ID and try again",
+        )
 
 
-@agent.command()
-def list() -> None:
-    """List available agents."""
+async def update_agent(
+    agent_id: str,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    parameters: Optional[Dict[str, str]] = None,
+) -> None:
+    """Update an agent.
+
+    Args:
+        agent_id: ID of the agent to update
+        name: Optional new name
+        description: Optional new description
+        parameters: Optional new parameters
+
+    Raises:
+        PepperpyError: If agent update fails
+    """
     try:
-        # TODO: Implement agent listing
-        console.print("[green]Available agents:[/green]")
+        # Get agent registry
+        registry = AgentRegistry()
 
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        # Get current agent
+        agent = await registry.get(agent_id)
+        if not agent:
+            raise PepperpyError(
+                message=f"Agent not found: {agent_id}",
+                details={"agent_id": agent_id},
+                recovery_hint="Check agent ID and try again",
+            )
+
+        # Update agent configuration
+        config = agent.config
+        if name:
+            config.name = name
+        if description:
+            config.description = description
+        if parameters:
+            config.parameters.update(parameters)
+
+        # Update agent
+        await registry.update(agent_id, agent)
+
+    except PepperpyError:
+        raise
+    except Exception as e:
+        raise PepperpyError(
+            message=f"Failed to update agent: {e}",
+            details={
+                "agent_id": agent_id,
+                "name": name,
+                "description": description,
+            },
+            recovery_hint="Check agent configuration and try again",
+        )

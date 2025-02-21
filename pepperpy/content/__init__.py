@@ -9,7 +9,7 @@ This module provides functionality for managing and processing content:
 
 from pepperpy.content.base import (
     Content,
-    ContentManager,
+    ContentConfig,
     ContentMetadata,
     ContentType,
 )
@@ -33,7 +33,7 @@ from pepperpy.content.storage import (
 __all__ = [
     # Base types
     "Content",
-    "ContentManager",
+    "ContentConfig",
     "ContentMetadata",
     "ContentType",
     # Loaders

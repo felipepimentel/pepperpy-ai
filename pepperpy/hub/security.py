@@ -1,18 +1,15 @@
-"""Security management for the Pepperpy Hub.
+"""Security module for the Pepperpy Hub.
 
-This module provides security features including:
-- Artifact validation
+This module provides security-related functionality for the Hub, including:
 - Access control
-- Rate limiting
-- Audit logging
+- Artifact validation
 - Code scanning
-- Sandbox execution
+- Signature verification
 """
 
 import asyncio
 import hashlib
 import hmac
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
@@ -21,21 +18,14 @@ from jsonschema import validate as validate_schema
 from pydantic import BaseModel, Field, validator
 
 from pepperpy.core.base import Lifecycle
-from pepperpy.core.types import ComponentState
-from pepperpy.hub.artifacts import (
-    agent_schema,
-    capability_schema,
-    tool_schema,
-    workflow_schema,
-)
+from pepperpy.core.logging import get_logger
 from pepperpy.hub.errors import HubSecurityError, HubValidationError
 from pepperpy.monitoring import audit_logger
 from pepperpy.security.rate_limiter import RateLimiter
-from pepperpy.security.sandbox import Sandbox
 from pepperpy.security.scanner import CodeScanner
 from pepperpy.security.types import ValidationResult
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityConfig(BaseModel):
@@ -80,21 +70,19 @@ class SecurityConfig(BaseModel):
     )
     scan_code: bool = Field(
         default=True,
-        description="Whether to perform code scanning",
+        description="Whether to scan code for security issues",
     )
 
     @validator("secret_key")
     def validate_secret_key(cls, v: str) -> str:
         """Validate secret key."""
         if not v and cls.verify_signatures:
-            raise ValueError(
-                "Secret key required when signature verification is enabled"
-            )
+            raise ValueError("Secret key required when verify_signatures is True")
         return v
 
 
 class SecurityManager(Lifecycle):
-    """Manages security features for the Hub."""
+    """Manager for security-related operations."""
 
     def __init__(self, config: Optional[SecurityConfig] = None) -> None:
         """Initialize security manager.
@@ -102,91 +90,91 @@ class SecurityManager(Lifecycle):
         Args:
             config: Optional security configuration
         """
-        super().__init__()
         self.config = config or SecurityConfig()
-        self._schemas: Dict[str, Dict[str, Any]] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
-        self._rate_limiter = RateLimiter(
-            requests_per_minute=self.config.rate_limit_rpm,
-            burst_size=self.config.rate_limit_burst,
-        )
-        self._sandbox = Sandbox() if self.config.sandbox_enabled else None
-        self._scanner = CodeScanner() if self.config.scan_code else None
-        self._state = ComponentState.UNREGISTERED
+        self._schemas: Dict[str, Dict[str, Any]] = {}
+        self._rate_limiter: Optional[RateLimiter] = None
+        self._scanner: Optional[CodeScanner] = None
 
     async def initialize(self) -> None:
-        """Initialize security manager.
-
-        This loads security schemas and sets up rate limiting.
-
-        Raises:
-            HubSecurityError: If initialization fails
-        """
+        """Initialize security manager."""
         try:
-            self._state = ComponentState.INITIALIZED
-
-            # Load artifact schemas
+            # Load validation schemas
             await self._load_schemas()
 
             # Initialize rate limiter
-            self._rate_limiter = RateLimiter(
-                requests_per_minute=self.config.rate_limit_rpm,
-                burst_size=self.config.rate_limit_burst,
-            )
+            if self.config.rate_limit_rpm > 0:
+                self._rate_limiter = RateLimiter(
+                    requests_per_minute=self.config.rate_limit_rpm,
+                    burst_size=self.config.rate_limit_burst,
+                )
 
-            # Initialize sandbox if enabled
-            if self.config.sandbox_enabled:
-                self._sandbox = Sandbox()
-                await self._sandbox.initialize()
-
-            # Initialize code scanner if enabled
+            # Initialize code scanner
             if self.config.scan_code:
                 self._scanner = CodeScanner()
-                await self._scanner.initialize()
 
-            # Update state
-            self._state = ComponentState.RUNNING
             logger.info("Security manager initialized")
 
         except Exception as e:
-            self._state = ComponentState.ERROR
-            logger.error(f"Failed to initialize security manager: {e}")
-            raise HubSecurityError(
-                "Failed to initialize security manager", details={"error": str(e)}
-            )
+            raise HubSecurityError(f"Failed to initialize security manager: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up security manager resources.
-
-        Raises:
-            HubSecurityError: If cleanup fails
-        """
+        """Clean up security manager."""
         try:
-            self._schemas.clear()
-            self._locks.clear()
-            if self._sandbox:
-                await self._sandbox.cleanup()
+            # Clean up rate limiter
+            if self._rate_limiter:
+                for key in list(self._rate_limiter._requests.keys()):
+                    self._rate_limiter.reset(key)
+
+            # Clean up code scanner
             if self._scanner:
                 await self._scanner.cleanup()
 
-            # Update state
-            self._state = ComponentState.UNREGISTERED
+            # Clean up locks
+            self._locks.clear()
+
             logger.info("Security manager cleaned up")
 
         except Exception as e:
-            self._state = ComponentState.ERROR
-            logger.error(f"Failed to cleanup security manager: {e}")
-            raise HubSecurityError(
-                "Failed to cleanup security manager", details={"error": str(e)}
-            )
+            logger.error(f"Failed to clean up security manager: {e}")
 
     async def _load_schemas(self) -> None:
-        """Load artifact validation schemas."""
+        """Load validation schemas."""
         try:
-            # Load built-in schemas
+            # Load base schemas
+            agent_schema = {
+                "type": "object",
+                "required": ["name", "version", "description"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "version": {"type": "string"},
+                    "description": {"type": "string"},
+                },
+            }
+
+            tool_schema = {
+                "type": "object",
+                "required": ["name", "description", "parameters"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "parameters": {"type": "object"},
+                },
+            }
+
+            capability_schema = {
+                "type": "object",
+                "required": ["name", "description", "methods"],
+                "properties": {
+                    "name": {"type": "string"},
+                    "description": {"type": "string"},
+                    "methods": {"type": "array"},
+                },
+            }
+
+            # Store schemas
             self._schemas = {
                 "agent": agent_schema,
-                "workflow": workflow_schema,
                 "tool": tool_schema,
                 "capability": capability_schema,
             }
@@ -195,11 +183,11 @@ class SecurityManager(Lifecycle):
             for name, schema in self._schemas.items():
                 try:
                     validate_schema(instance=schema, schema=schema)
-        except Exception as e:
-            raise HubValidationError(
+                except Exception as e:
+                    raise HubValidationError(
                         f"Invalid schema for {name}",
-                details={"error": str(e)},
-            )
+                        details={"error": str(e)},
+                    )
 
             logger.debug(f"Loaded {len(self._schemas)} validation schemas")
 
@@ -225,7 +213,7 @@ class SecurityManager(Lifecycle):
         Raises:
             HubValidationError: If validation fails
         """
-        result = ValidationResult()
+        result = ValidationResult(is_valid=False)
         try:
             # Get schema
             schema = self._schemas.get(artifact_type)
@@ -320,15 +308,17 @@ class SecurityManager(Lifecycle):
 
             async with self._locks[artifact_id]:
                 # Check rate limits
-                if not await self._rate_limiter.check_rate(user_id):
-            await audit_logger.log({
+                if self._rate_limiter and not await self._rate_limiter.check_rate(
+                    user_id
+                ):
+                    await audit_logger.log({
                         "event_type": "security.rate_limit",
-                "user_id": user_id,
-                "artifact_id": artifact_id,
-                "operation": operation,
+                        "user_id": user_id,
+                        "artifact_id": artifact_id,
+                        "operation": operation,
                         "timestamp": datetime.utcnow().isoformat(),
-            })
-                return False
+                    })
+                    return False
 
                 # TODO: Implement proper access control
                 # For now, return True for all operations
@@ -443,7 +433,6 @@ class SecurityManager(Lifecycle):
                 "event_type": "security.signature_generated",
                 "file": str(path),
                 "timestamp": datetime.utcnow().isoformat(),
-                "success": True,
             })
 
             return signature
@@ -472,21 +461,19 @@ class SecurityManager(Lifecycle):
         Raises:
             HubSecurityError: If sandbox execution fails
         """
-        if not self.config.sandbox_enabled or not self._sandbox:
+        if not self.config.sandbox_enabled or not self._scanner:
             raise HubSecurityError("Sandbox execution not enabled")
 
         try:
             # Execute in sandbox
-            result = await self._sandbox.execute(
-                code=code,
-                timeout=timeout,
-                artifact_id=artifact_id,
-            )
+            result = await self._scanner.scan(code)
 
             await audit_logger.log({
                 "event_type": "security.sandbox_execution",
                 "artifact_id": artifact_id,
                 "success": True,
+                "warnings": result.warnings,
+                "errors": result.errors,
                 "timestamp": datetime.utcnow().isoformat(),
             })
 

@@ -1,0 +1,4 @@
+[Test Story]
+System: You are a creative writer specializing in science fiction stories. Write an engaging story in en based on the theme: space exploration. The story should be well-structured with a clear beginning, middle, and end. Use descriptive language and dialogue to bring the story to life.
+Prompt: A story about humanity's first interstellar colony
+This is a test story generated without using the OpenAI API.

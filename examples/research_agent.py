@@ -9,15 +9,14 @@ capabilities and resources, including:
 - Monitoring and logging integration
 - Error handling and recovery
 
-Example:
-    $ python examples/use_cases/research_agent.py
-
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - pydantic
     - aiohttp (for async HTTP requests)
     - rich (for pretty printing)
 
+Usage:
+    poetry run python examples/research_agent.py
 """
 
 import asyncio
@@ -37,6 +36,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 console = Console()
+
+# Test data
+TEST_TOPICS = [
+    "AI in Software Development",
+    "Machine Learning Testing",
+    "Natural Language Processing",
+]
+
+TEST_PROMPTS = {
+    "research_summary": """
+    Analyze the following research topic and sources to create a comprehensive summary:
+    
+    Topic: {topic}
+    
+    Sources:
+    {sources}
+    
+    Please provide:
+    1. Key findings and insights
+    2. Practical implications
+    3. Future directions
+    """,
+}
 
 
 class MetricsTracker:
@@ -226,7 +248,6 @@ class PromptCapability(BaseCapability):
 
         Raises:
             ValueError: If prompt is invalid
-
         """
         if not prompt:
             raise ValueError("Prompt cannot be empty")
@@ -237,31 +258,40 @@ class PromptCapability(BaseCapability):
         # Format prompt with context
         formatted_prompt = prompt.format(**context)
 
-        # Simulate text generation
+        # Simulate text generation based on topic
         topic = context.get("topic", "")
-        sources = context.get("sources", [])
+        sources = context.get("sources", "")
 
-        # Generate a more detailed response based on the sources
+        # Generate a detailed response
         response = f"Research Summary: {topic}\n\n"
-        response += "Key Findings:\n"
-
-        for i, source in enumerate(sources, 1):
-            response += f"\n{i}. {source.title}\n"
-            response += f"   {source.content}\n"
-            response += (
-                f"   Source: {source.source} (Relevance: {source.relevance:.2f})\n"
-            )
-
-        response += "\nConclusion:\n"
+        response += "Key Findings and Insights:\n"
         response += (
-            f"Based on the analyzed sources, {topic} has significant implications "
+            "1. The field is rapidly evolving with new developments and breakthroughs\n"
         )
-        response += (
-            "for the software development industry. The research indicates multiple "
-        )
-        response += "transformative trends and potential future developments."
+        response += "2. Integration with existing systems is a key challenge\n"
+        response += "3. Best practices and standards are still emerging\n\n"
 
-        metrics.track("prompt.tokens", len(response.split()))
+        response += "Practical Implications:\n"
+        response += "1. Organizations need to adapt their processes and workflows\n"
+        response += "2. Training and skill development are crucial\n"
+        response += "3. Investment in infrastructure and tools is necessary\n\n"
+
+        response += "Future Directions:\n"
+        response += "1. Further research in scalability and performance\n"
+        response += "2. Development of standardized frameworks\n"
+        response += "3. Focus on ethical considerations and governance\n\n"
+
+        response += "Source Analysis:\n"
+        response += sources
+
+        logger.info(
+            "Generated text",
+            extra={
+                "topic": topic,
+                "length": len(response),
+            },
+        )
+
         return response
 
 
@@ -269,7 +299,7 @@ class ResearchAgent:
     """Research agent implementation."""
 
     def __init__(self) -> None:
-        """Initialize the research agent."""
+        """Initialize research agent."""
         self.search = SearchCapability()
         self.prompt = PromptCapability()
         self.initialized = False
@@ -277,29 +307,27 @@ class ResearchAgent:
     async def initialize(self) -> None:
         """Initialize agent capabilities."""
         if self.initialized:
+            logger.warning("Agent already initialized")
             return
-
-        logger.info("Initializing research agent")
-        metrics.track("agent.initialization")
 
         await self.search.initialize()
         await self.prompt.initialize()
         self.initialized = True
+        logger.info("Research agent initialized")
 
     async def cleanup(self) -> None:
         """Clean up agent resources."""
         if not self.initialized:
+            logger.warning("Agent not initialized")
             return
-
-        logger.info("Cleaning up research agent")
-        metrics.track("agent.cleanup")
 
         await self.search.cleanup()
         await self.prompt.cleanup()
         self.initialized = False
+        logger.info("Research agent cleaned up")
 
     async def research(self, topic: str) -> ResearchResult:
-        """Execute research workflow.
+        """Conduct research on a topic.
 
         Args:
             topic: Research topic
@@ -309,8 +337,7 @@ class ResearchAgent:
 
         Raises:
             ValueError: If topic is invalid
-            RuntimeError: If research fails
-
+            RuntimeError: If agent not initialized
         """
         if not self.initialized:
             raise RuntimeError("Agent not initialized")
@@ -319,120 +346,116 @@ class ResearchAgent:
             raise ValueError("Research topic cannot be empty")
 
         logger.info("Starting research on: %s", topic)
-        metrics.track("agent.research.started")
+        metrics.track("research.topics")
 
-        try:
-            # Search for information
-            search_results = await self.search.search(
-                query=topic,
-                max_results=5,
-                min_relevance=0.7,
-            )
+        # Search for relevant information
+        results = await self.search.search(
+            query=topic,
+            max_results=5,
+            min_relevance=0.7,
+        )
 
-            if not search_results:
-                raise RuntimeError("No search results found")
+        # Generate summary from search results
+        sources_text = "\n".join(
+            f"- {r.title}: {r.content} (relevance: {r.relevance:.2f})" for r in results
+        )
 
-            # Generate summary
-            summary_prompt = """
-            Analyze and summarize research findings about {topic}:
+        summary = await self.prompt.generate(
+            prompt=TEST_PROMPTS["research_summary"],
+            context={
+                "topic": topic,
+                "sources": sources_text,
+            },
+        )
 
-            Sources:
-            {sources}
+        # Calculate confidence based on result relevance
+        confidence = sum(r.relevance for r in results) / len(results)
 
-            Provide a comprehensive summary focusing on key insights.
-            """
+        # Create research result
+        result = ResearchResult(
+            topic=topic,
+            summary=summary,
+            sources=results,
+            confidence=confidence,
+            metadata={
+                "timestamp": datetime.now(UTC).isoformat(),
+                "metrics": metrics.get_summary(),
+            },
+        )
 
-            summary = await self.prompt.generate(
-                prompt=summary_prompt,
-                context={
-                    "topic": topic,
-                    "sources": search_results,
-                },
-            )
+        logger.info(
+            "Research completed",
+            extra={
+                "topic": topic,
+                "confidence": confidence,
+                "sources": len(results),
+            },
+        )
 
-            # Create research result
-            result = ResearchResult(
-                topic=topic,
-                summary=summary,
-                sources=search_results,
-                confidence=0.85,
-                metadata={
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "metrics": metrics.get_summary(),
-                },
-            )
-
-            metrics.track("agent.research.completed")
-            logger.info("Research completed successfully")
-
-            return result
-
-        except Exception as e:
-            metrics.track("agent.research.errors")
-            logger.error("Research failed: %s", str(e))
-            raise
+        return result
 
 
 def print_results(result: ResearchResult) -> None:
-    """Print research results in a formatted way."""
+    """Print research results.
+
+    Args:
+        result: Research results to print
+    """
     console.print("\n")
-    console.print(Panel(f"[bold blue]Research Topic:[/] {result.topic}"))
-    console.print("\n[bold green]Summary:[/]")
-    console.print(result.summary)
+    console.print(
+        Panel(
+            f"[bold]Research Results: {result.topic}[/bold]\n\n"
+            f"{result.summary}\n\n"
+            f"[dim]Confidence: {result.confidence:.2%}[/dim]",
+            title="Research Summary",
+            expand=False,
+        )
+    )
 
-    console.print("\n[bold yellow]Sources:[/]")
-    for i, source in enumerate(result.sources, 1):
-        console.print(f"\n{i}. [bold]{source.title}[/]")
-        console.print(f"   Content: {source.content}")
-        console.print(f"   Source: {source.source}")
-        console.print(f"   Relevance: {source.relevance:.2f}")
-
-    console.print("\n[bold magenta]Metrics:[/]")
-    metrics_data = result.metadata["metrics"]
-    console.print(f"Duration: {metrics_data['duration']:.2f} seconds")
-    for name, value in metrics_data["metrics"].items():
-        console.print(f"{name}: {value}")
+    console.print("\n[bold]Sources:[/bold]")
+    for source in result.sources:
+        console.print(
+            Panel(
+                f"[bold]{source.title}[/bold]\n"
+                f"{source.content}\n"
+                f"[dim]Relevance: {source.relevance:.2%}[/dim]",
+                expand=False,
+            )
+        )
 
 
 async def main() -> None:
-    """Run the research agent example with predefined topics."""
-    # Test topics to demonstrate different research scenarios
-    test_topics = [
-        "AI-Driven Code Review Best Practices",
-        "Impact of Machine Learning on Software Testing",
-        "Future of DevOps with Artificial Intelligence",
-    ]
+    """Run the research agent example."""
+    try:
+        # Create and initialize agent
+        agent = ResearchAgent()
+        await agent.initialize()
 
-    for topic in test_topics:
-        print(f"\nResearching topic: {topic}")
-        print("=" * 80)
+        # Process test topics
+        for topic in TEST_TOPICS:
+            try:
+                # Conduct research
+                result = await agent.research(topic)
 
-        agent = None
-        try:
-            # Initialize agent
-            agent = ResearchAgent()
-            await agent.initialize()
+                # Print results
+                print_results(result)
 
-            # Perform research
-            result = await agent.research(topic)
+            except Exception as e:
+                logger.error(
+                    "Research failed",
+                    extra={
+                        "topic": topic,
+                        "error": str(e),
+                    },
+                )
 
-            # Display results
-            print_results(result)
+        # Clean up
+        await agent.cleanup()
 
-        except Exception as e:
-            print(f"Error researching {topic}: {e}")
-        finally:
-            if agent:
-                await agent.cleanup()
-
-    print("\nResearch demo completed successfully!")
+    except Exception as e:
+        logger.error("Research agent example failed", extra={"error": str(e)})
+        raise
 
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Example interrupted by user")
-    except Exception as e:
-        logger.error("Example failed: %s", e)
-        raise
+    asyncio.run(main())

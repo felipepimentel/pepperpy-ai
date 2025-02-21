@@ -10,7 +10,7 @@ Example:
     $ python examples/use_cases/collaborative_research.py
 
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - pydantic
     - rich (for pretty printing)
 

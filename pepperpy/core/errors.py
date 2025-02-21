@@ -31,6 +31,7 @@ class ErrorCategory(str, Enum):
     REASONING = "reasoning"
     LEARNING = "learning"
     FACTORY = "factory"
+    EXTENSION = "extension"
 
 
 class ErrorContext(TypedDict, total=False):
@@ -911,3 +912,27 @@ class StorageError(PepperpyError):
     """Error raised by storage operations."""
 
     pass
+
+
+class ExtensionError(PepperpyError):
+    """Error raised when extension operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        recovery_hint: Optional[str] = None,
+    ) -> None:
+        """Initialize extension error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            recovery_hint: Optional recovery hint
+        """
+        super().__init__(
+            message=message,
+            error_code="ERR-106",
+            details=details or {},
+            recovery_hint=recovery_hint,
+        )

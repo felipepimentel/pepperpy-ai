@@ -1,41 +1,30 @@
-"""Pepperpy: A Python framework for building AI-powered applications.
+"""Pepperpy - A powerful framework for building AI applications.
 
-This package provides tools and abstractions for:
-- Building and running AI agents
-- Managing workflows and pipelines
-- Integrating with language models and tools
-- Sharing and discovering artifacts via the Hub
+This module provides the core functionality for the Pepperpy framework,
+including agents, workflows, content management, and more.
 """
 
 __version__ = "0.1.0"
 
-from pepperpy.cli import cli
+# Core components
+from pepperpy.core.base import BaseComponent, Metadata
+from pepperpy.core.client import PepperpyClient
 from pepperpy.core.errors import PepperpyError
-from pepperpy.hub import (
-    LocalStorageBackend,
-    MarketplaceConfig,
-    MarketplaceManager,
-    Publisher,
-    SecurityConfig,
-    SecurityManager,
-    StorageBackend,
-    StorageMetadata,
-)
+from pepperpy.core.messages import Message, Response
+from pepperpy.core.prompts import PromptTemplate
+from pepperpy.core.providers import BaseProvider, ProviderConfig
+from pepperpy.core.types import ComponentState
 
 __all__ = [
-    # Version
-    "__version__",
-    # CLI
-    "cli",
-    # Errors
+    "BaseComponent",
+    "BaseProvider",
+    "ComponentState",
+    "Message",
+    "Metadata",
+    "PepperpyClient",
     "PepperpyError",
-    # Hub
-    "MarketplaceConfig",
-    "MarketplaceManager",
-    "Publisher",
-    "SecurityConfig",
-    "SecurityManager",
-    "StorageBackend",
-    "StorageMetadata",
-    "LocalStorageBackend",
+    "PromptTemplate",
+    "ProviderConfig",
+    "Response",
+    "__version__",
 ]

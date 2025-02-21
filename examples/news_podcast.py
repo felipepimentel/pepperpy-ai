@@ -29,7 +29,7 @@ Purpose:
        - Metadata storage
 
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - Pepperpy library
     - OpenAI API key
     - Internet connection (for RSS feeds)
@@ -348,7 +348,7 @@ Troubleshooting Guide:
 
        Problem: Poetry installation fails
        Solution:
-       - Ensure Python 3.9+ is installed: python --version
+       - Ensure Python 3.12+ is installed: python --version
        - Update pip: pip install --upgrade pip
        - Install Poetry: curl -sSL https://install.python-poetry.org | python3 -
        - Try clean install: poetry env remove && poetry install
@@ -513,7 +513,7 @@ from pepperpy.agents.providers.base import BaseProvider
 from pepperpy.agents.providers.domain import ProviderConfig, ProviderMetadata
 from pepperpy.agents.providers.services.openai import OpenAIConfig, OpenAIProvider
 from pepperpy.core.base import BaseComponent
-from pepperpy.core.errors import ProviderError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.core.messages import ProviderMessage, ProviderResponse
 
 # Configure logging
@@ -521,9 +521,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-# Test data for automated mode
 class TestArticle:
-    """Test article class for automated testing."""
+    """Test article data structure."""
 
     def __init__(
         self,
@@ -533,42 +532,76 @@ class TestArticle:
         published: str,
         source: str = "Test Source",
     ) -> None:
+        """Initialize test article.
+
+        Args:
+            title: Article title
+            description: Article description
+            link: Article URL
+            published: Publication timestamp
+            source: Article source
+        """
         self.title = title
-        self.content = description
-        self.source = source
+        self.description = description
         self.link = link
-        self.published_at = datetime.fromisoformat(published.replace("Z", "+00:00"))
-        self.metadata = {"url": link}
+        self.published_at = datetime.fromisoformat(published)
+        self.source = source
+
+    def __str__(self) -> str:
+        """Get string representation.
+
+        Returns:
+            Article string
+        """
+        return f"{self.title} ({self.source})"
 
 
-TEST_RSS_FEEDS = [
-    TestArticle(
-        title="Test Article 1",
-        description="This is a test article about AI advancements.",
-        link="https://example.com/article1",
-        published="2024-02-19T12:00:00Z",
-    ),
-    TestArticle(
-        title="Test Article 2",
-        description="Another test article about technology trends.",
-        link="https://example.com/article2",
-        published="2024-02-19T13:00:00Z",
-    ),
+# Test data
+TEST_ARTICLES = [
+    {
+        "title": "AI Breakthrough in Natural Language Processing",
+        "description": "Researchers achieve new milestone in language understanding.",
+        "link": "https://example.com/ai-nlp",
+        "published": datetime.now(UTC).isoformat(),
+        "source": "Tech News",
+    },
+    {
+        "title": "Future of Remote Work",
+        "description": "Companies adapt to hybrid work models post-pandemic.",
+        "link": "https://example.com/remote-work",
+        "published": datetime.now(UTC).isoformat(),
+        "source": "Business News",
+    },
+    {
+        "title": "Sustainable Technology Trends",
+        "description": "Green tech innovations shaping the industry.",
+        "link": "https://example.com/green-tech",
+        "published": datetime.now(UTC).isoformat(),
+        "source": "Tech News",
+    },
 ]
 
 TEST_SCRIPT = """
-Welcome to the Daily Tech Update!
+Welcome to the Tech News Podcast!
 
 Today's top stories:
 
-1. AI Advancements
-   Recent developments in artificial intelligence are showing promising results...
+1. AI Breakthrough in Natural Language Processing
+   Researchers have achieved a significant milestone in language understanding,
+   bringing us closer to more natural human-computer interactions.
 
-2. Technology Trends
-   The latest trends in technology are shaping how we work and live...
+2. Future of Remote Work
+   As companies continue to adapt to post-pandemic realities, hybrid work models
+   are becoming the new standard, combining office and remote work flexibility.
 
-Thanks for listening! Stay tuned for more updates.
+3. Sustainable Technology Trends
+   The tech industry is increasingly focusing on green innovations, with new
+   developments in sustainable computing and energy-efficient solutions.
+
+That's all for today's news. Thanks for listening!
 """
+
+TEST_AUDIO = b"This is simulated audio data"
 
 
 class CustomRSSProvider(BaseProvider):
@@ -618,7 +651,7 @@ class CustomRSSProvider(BaseProvider):
     ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
         """Process a provider message."""
         return ProviderResponse(
-            content=str(TEST_RSS_FEEDS[: self.max_items]),
+            content=str(TEST_ARTICLES[: self.max_items]),
             metadata={"provider_type": "rss"},
             provider_type="rss",
         )
@@ -626,8 +659,19 @@ class CustomRSSProvider(BaseProvider):
     async def fetch(
         self, limit: int = 5, since: datetime | None = None, filters: dict | None = None
     ) -> List[Any]:
-        """Mock fetch implementation for test mode."""
-        return TEST_RSS_FEEDS[:limit]
+        """Fetch news articles.
+
+        Args:
+            limit: Maximum number of articles
+            since: Only fetch articles since this time
+            filters: Optional filters
+
+        Returns:
+            List of articles
+        """
+        logger.info("Fetching test articles")
+        articles = [TestArticle(**article) for article in TEST_ARTICLES[:limit]]
+        return articles
 
 
 class CustomLocalProvider(BaseProvider):
@@ -747,9 +791,9 @@ class CustomGTTSProvider(BaseProvider):
         self,
         message: ProviderMessage,
     ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
-        """Process a provider message."""
+        """Process provider message."""
         return ProviderResponse(
-            content="Test audio data",
+            content=TEST_AUDIO.decode("utf-8"),
             metadata={"provider_type": "gtts"},
             provider_type="gtts",
         )
@@ -765,7 +809,7 @@ class CustomGTTSProvider(BaseProvider):
         fade_out: float = 0.0,
     ) -> bytes:
         """Mock synthesize implementation for test mode."""
-        return b"Test audio data"
+        return TEST_AUDIO
 
     async def save(self, audio_data: bytes, output_path: Path) -> Path:
         """Mock save implementation for test mode."""
@@ -776,44 +820,49 @@ class CustomGTTSProvider(BaseProvider):
 
 
 class CustomOpenAIProvider(OpenAIProvider):
-    """Custom OpenAI provider for script generation."""
+    """Custom OpenAI provider."""
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize the provider.
-
-        Args:
-            **kwargs: Provider configuration options
-        """
+        """Initialize provider."""
         config = OpenAIConfig(
             type="openai",
-            api_key=SecretStr(os.getenv("OPENAI_API_KEY", "")),
-            model=kwargs.get("model", "gpt-4"),
-            temperature=kwargs.get("temperature", 0.7),
-            max_tokens=kwargs.get("max_tokens", 2048),
-            stop_sequences=kwargs.get("stop_sequences"),
-            timeout=kwargs.get("timeout", 30.0),
-            max_retries=kwargs.get("max_retries", 3),
+            api_key=SecretStr("test-key"),
+            model="gpt-4",
+            temperature=0.7,
+            max_tokens=2048,
         )
         super().__init__(config=config)
 
+    async def initialize(self) -> None:
+        """Initialize provider."""
+        logger.info("OpenAI provider initialized")
+
+    async def cleanup(self) -> None:
+        """Clean up provider."""
+        logger.info("OpenAI provider cleaned up")
+
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process provider message."""
+        return ProviderResponse(
+            content=TEST_SCRIPT,
+            metadata={"provider_type": "openai"},
+            provider_type="openai",
+        )
+
     async def generate(self, prompt: str) -> str:
-        """Generate text using the OpenAI API.
+        """Generate text from prompt.
 
         Args:
-            prompt: The prompt to generate from
+            prompt: Input prompt
 
         Returns:
             Generated text
         """
-        message = ProviderMessage(
-            content=prompt,
-            metadata={"role": "user"},
-            provider_type="openai",
-        )
-        response = await self.process_message(message)
-        if isinstance(response, ProviderResponse):
-            return str(response.content)
-        raise ProviderError("Unexpected response type")
+        logger.info("Generating test script")
+        return TEST_SCRIPT
 
 
 class NewsPodcastGenerator(BaseComponent):
@@ -927,47 +976,49 @@ class NewsPodcastGenerator(BaseComponent):
         return articles
 
     async def generate_script(self, articles: List[Any]) -> str:
-        """Generate podcast script from articles."""
-        cache_key = f"script_{articles[0].published_at.date()}"
-        if self.memory and (cached := await self.memory.get(cache_key)):
-            return cached
+        """Generate podcast script.
 
-        prompt = (
-            "Gere um script de podcast de notícias com base nos seguintes artigos:\n\n"
-        )
-        for article in articles:
-            prompt += f"Título: {article.title}\n"
-            prompt += f"Conteúdo: {article.content}\n"
-            prompt += f"Fonte: {article.source}\n"
-            prompt += f"Link: {article.metadata.get('url', 'Não disponível')}\n\n"
+        Args:
+            articles: News articles
 
-        prompt += (
-            "\nCrie um roteiro de podcast que:\n"
-            "1. Tenha uma introdução cativante e saudação\n"
-            "2. Apresente cada notícia de forma natural e envolvente\n"
-            "3. Use transições suaves entre as notícias\n"
-            "4. Inclua comentários relevantes e análises breves\n"
-            "5. Tenha uma conclusão que convide o ouvinte a retornar\n"
-            "6. Use linguagem informal mas profissional\n"
-            "7. Inclua pausas naturais indicadas por '...'\n"
-            "8. Mantenha um tom amigável e conversacional\n"
-            "9. Tenha duração aproximada de 5-7 minutos\n"
-            "10. Seja totalmente em português brasileiro\n\n"
-            "Comece o roteiro agora:"
-        )
+        Returns:
+            Generated script
 
-        # Generate script
-        response = await self.llm.generate(prompt)
+        Raises:
+            PepperpyError: If generation fails
+        """
+        try:
+            # Check cache first
+            cache_key = f"script_{datetime.now(UTC).date()}"
+            if await self.memory.exists(cache_key):
+                logger.info("Using cached script")
+                return await self.memory.get(cache_key)
 
-        # Cache result
-        await self.memory.set(
-            cache_key,
-            response,
-            expires_in=86400,  # 24 hours
-            metadata={"generated_at": datetime.now(UTC).isoformat()},
-        )
+            # Generate script
+            prompt = "Generate a podcast script for the following news articles:\n\n"
+            for article in articles:
+                prompt += f"Title: {article.title}\n"
+                prompt += f"Description: {article.description}\n"
+                prompt += f"Source: {article.source}\n\n"
 
-        return response
+            script = await self.llm.generate(prompt)
+            if not script:
+                raise PepperpyError("Failed to generate script")
+
+            # Cache script
+            await self.memory.set(
+                cache_key,
+                script,
+                expires_in=24 * 60 * 60,  # 24 hours
+                metadata={"generated_at": datetime.now(UTC).isoformat()},
+            )
+
+            logger.info("Generated script with %d characters", len(script))
+            return script
+
+        except Exception as e:
+            logger.error("Failed to generate script", extra={"error": str(e)})
+            raise PepperpyError(f"Failed to generate script: {e}")
 
     async def create_podcast(self, script: str) -> Path:
         """Create podcast audio from script.
@@ -1069,7 +1120,7 @@ async def main() -> None:
 
             # Mock the fetch_news method to return test data
             async def mock_fetch_news(limit: int = 5) -> List[Any]:
-                return TEST_RSS_FEEDS[:limit]
+                return TEST_ARTICLES[:limit]
 
             generator.fetch_news = mock_fetch_news  # type: ignore
 

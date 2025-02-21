@@ -1,127 +1,176 @@
 # Pepperpy
 
-A framework for building AI-powered applications with capabilities for LLM, content processing, speech synthesis, and memory management.
-
-## 🚀 Quick Start (News-to-Podcast Example)
-```bash
-# Install Pepperpy
-pip install pepperpy
-
-# Run the news-to-podcast example
-python examples/news_podcast.py --topic "technology"
-```
+A powerful AI agent framework for building intelligent applications.
 
 ## Features
 
-- 🤖 LLM Integration (OpenAI, LangChain)
-- 📰 Content Processing
-- 🎙️ Speech Synthesis
-- 🧠 Memory Management
-- 🔄 Agent Orchestration
+- 🤖 Agent-based architecture
+- 🔄 Event-driven communication
+- 🔌 Provider abstraction (LLM, Storage, Memory)
+- 📝 Content synthesis
+- 🔄 Workflow management
+- 📊 Monitoring and metrics
+- 🔒 Security and validation
 
-## Project Structure
+## Requirements
 
-```
-pepperpy/
-├── core/          - Core abstractions and utilities
-├── llm/           - LLM integration and providers
-├── content/       - Content processing and providers
-├── synthesis/     - Speech synthesis capabilities
-├── memory/        - Memory and storage management
-└── agents/        - Agent orchestration system
-
-examples/
-├── news_podcast.py  - News-to-Podcast generator
-├── story_creation.py - Story creation example
-└── README.md        - Examples documentation
-```
+- Python 3.12 or higher
+- Poetry (recommended) or pip
+- Redis (optional, for memory provider)
+- PostgreSQL (optional, for memory provider)
 
 ## Installation
 
+### Using Poetry (Recommended)
+
 ```bash
-# Install with Poetry
+# Install Poetry if you haven't already
+curl -sSL https://install.python-poetry.org | python3 -
+
+# Clone the repository
+git clone https://github.com/yourusername/pepperpy.git
+cd pepperpy
+
+# Install dependencies
 poetry install
 
-# Or with pip
+# Install specific extras
+poetry install --extras "llm"  # For LLM support
+poetry install --extras "storage"  # For storage support
+poetry install --extras "memory"  # For memory support
+```
+
+### Using pip
+
+```bash
+# Install from PyPI
 pip install pepperpy
+
+# Install with extras
+pip install pepperpy[llm]  # For LLM support
+pip install pepperpy[storage]  # For storage support
+pip install pepperpy[memory]  # For memory support
+pip install pepperpy[all]  # Install all extras
+```
+
+## Quick Start
+
+1. Set up your environment:
+```bash
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install dependencies
+poetry install  # or: pip install -r requirements.txt
+```
+
+2. Set required environment variables:
+```bash
+# For OpenAI provider
+export PEPPERPY_OPENAI_API_KEY=your_api_key
+
+# For Anthropic provider
+export PEPPERPY_ANTHROPIC_API_KEY=your_api_key
+
+# For Redis memory provider
+export PEPPERPY_REDIS_URL=redis://localhost:6379
+```
+
+3. Run an example:
+```bash
+# Run the quickstart example
+python examples/quickstart.py
+
+# Run with test mode
+python examples/quickstart.py --test
+```
+
+## Examples
+
+The `examples/` directory contains several examples demonstrating different features:
+
+- `quickstart.py`: Basic task assistant
+- `content_example.py`: Content module functionality
+- `research_agent.py`: Research workflow
+- `news_podcast.py`: News-to-podcast generation
+- `personal_assistant.py`: Personal assistant features
+- `story_creation.py`: Story generation
+- `collaborative_research.py`: Multi-agent research
+- `hub_integration.py`: Hub system integration
+
+Each example includes detailed comments and demonstrates proper:
+- Resource initialization
+- Error handling
+- Resource cleanup
+- Configuration management
+- Logging
+
+## Development
+
+1. Set up development environment:
+```bash
+# Install development dependencies
+poetry install --with dev
+
+# Install pre-commit hooks
+pre-commit install
+```
+
+2. Run tests:
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=pepperpy
+
+# Run specific test file
+pytest tests/test_specific.py
+```
+
+3. Run code quality checks:
+```bash
+# Run all checks
+./scripts/check.sh
+
+# Run specific checks
+black pepperpy/
+isort pepperpy/
+mypy pepperpy/
+```
+
+4. Clean up:
+```bash
+# Clean temporary files
+./scripts/clean.sh
+
+# Clean including virtual environment
+./scripts/clean.sh --venv
 ```
 
 ## Documentation
 
-### News-to-Podcast Example
+Build the documentation:
+```bash
+# Install documentation dependencies
+poetry install --with docs
 
-```python
-from pepperpy import Pepperpy
-from pepperpy.content import NewsProvider
-from pepperpy.synthesis import TTSProvider
-
-async def create_podcast(topic: str) -> str:
-    # Initialize Pepperpy
-    pepper = await Pepperpy.create()
-    
-    # Get news content
-    news = await pepper.content.get_provider("news")
-    articles = await news.fetch(topic=topic)
-    
-    # Generate script
-    llm = await pepper.llm.get_provider("openai")
-    script = await llm.generate(
-        prompt="Create a podcast script from these articles",
-        context=articles
-    )
-    
-    # Convert to speech
-    tts = await pepper.synthesis.get_provider("gtts")
-    audio_path = await tts.synthesize(script)
-    
-    return audio_path
-
-if __name__ == "__main__":
-    import asyncio
-    import argparse
-    
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--topic", default="technology")
-    args = parser.parse_args()
-    
-    audio_path = asyncio.run(create_podcast(args.topic))
-    print(f"Podcast created: {audio_path}")
+# Build documentation
+cd docs
+make html
 ```
 
-### Story Creation Example
-
-```python
-from pepperpy import Pepperpy
-from pepperpy.agents import Chain
-
-async def create_story() -> dict:
-    pepper = await Pepperpy.create()
-    
-    # Create agent chain
-    chain = Chain([
-        "story_planner",
-        "story_writer",
-        "story_editor",
-        "narrator"
-    ])
-    
-    # Run the chain
-    result = await chain.run()
-    
-    return {
-        "text": result.story,
-        "audio_path": result.audio
-    }
-```
+View the documentation at `docs/_build/html/index.html`
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Run tests: `pytest`
+4. Run tests and checks
 5. Submit a pull request
 
 ## License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

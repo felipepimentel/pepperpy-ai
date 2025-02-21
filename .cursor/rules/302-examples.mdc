@@ -173,7 +173,7 @@ Purpose:
     - Report generation
 
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - Pepperpy library
     - OpenAI API key
 
@@ -414,7 +414,7 @@ Purpose:
     - Response generation
 
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - Pepperpy library
     - OpenAI API key
 
@@ -465,7 +465,7 @@ Purpose:
     Pepperpy's agent system.
 
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - Pepperpy library
     - OpenAI API key
 

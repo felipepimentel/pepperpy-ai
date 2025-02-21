@@ -8,18 +8,16 @@ import asyncio
 import time
 from collections.abc import AsyncGenerator, Sequence
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Set, TypeVar, Union
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from pepperpy.agents.factory import AgentFactory
 from pepperpy.core.base import (
     BaseAgent,
     Lifecycle,
 )
 from pepperpy.core.errors import ConfigurationError, StateError
-from pepperpy.core.hooks import HookCallback as HookCallbackType
 from pepperpy.core.logging import get_logger
 from pepperpy.core.messages import (
     Message,
@@ -38,8 +36,11 @@ from pepperpy.core.providers.errors import (
     ProviderNotFoundError,
 )
 from pepperpy.core.types import PepperpyClientProtocol
-from pepperpy.memory.base import BaseMemoryStore
-from pepperpy.memory.stores import create_memory_store
+from pepperpy.memory.base import BaseMemoryStore, MemoryEntry, MemoryQuery, MemoryType
+from pepperpy.memory.stores.memory import InMemoryStore
+
+if TYPE_CHECKING:
+    from pepperpy.agents.factory import AgentFactory
 
 # Configure logging
 logger = get_logger(__name__)
@@ -51,8 +52,14 @@ ExceptionType = type[BaseException]
 # Valid hook event types
 VALID_HOOK_EVENTS = ["before_request", "after_request", "on_error"]
 
+
 # Type alias for lifecycle hooks
-HookCallback = HookCallbackType
+class HookCallback(Protocol):
+    """Protocol for lifecycle hooks."""
+
+    def __call__(self, client: "PepperpyClient") -> None: ...
+
+
 AgentType = TypeVar("AgentType", bound=BaseAgent)
 
 
@@ -98,11 +105,11 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
             "after_request": set(),
             "on_error": set(),
         }
-        self._agent_factory: Optional[AgentFactory] = None
+        self._agent_factory: Optional["AgentFactory"] = None
         self._cache_enabled = True
         self._cache_store = "memory"
         self._agents: Dict[UUID, BaseAgent] = {}
-        self._memory: Optional[BaseMemoryStore] = None
+        self._memory: Optional[BaseMemoryStore[Dict[str, Any]]] = None
         self._prompt: Optional[PromptTemplate] = None
         self._updated_at = time.time()
         self._manager = ProviderManager()
@@ -296,7 +303,7 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
             )
             raise
 
-    def set_agent_factory(self, factory: AgentFactory) -> None:
+    def set_agent_factory(self, factory: "AgentFactory") -> None:
         """Set the agent factory.
 
         Args:
@@ -307,9 +314,10 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
     async def _initialize_components(self) -> None:
         """Initialize client components."""
         try:
-            self._memory = await create_memory_store(
-                self._raw_config.get("memory_config", {})
+            self._memory = InMemoryStore(
+                name="client_memory", config=self._raw_config.get("memory_config", {})
             )
+            await self._memory.initialize()
             self._prompt = await create_prompt_template(
                 self._raw_config.get("prompt_config", {})
             )
@@ -604,9 +612,10 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
             return None
 
         try:
-            entry = await self._memory.get(key)
-            if entry and hasattr(entry, "value"):
-                return entry.value
+            query = MemoryQuery(query=key)
+            async for result in self._memory.retrieve(query):
+                if result.entry.key == key:
+                    return result.entry.value
         except Exception as e:
             logger.warning(f"Failed to get cached result: {e}")
         return None
@@ -622,7 +631,10 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
             return
 
         try:
-            await self._memory.set(key, value)
+            entry = MemoryEntry(
+                key=key, value={"result": value}, type=MemoryType.SHORT_TERM
+            )
+            await self._memory.store(entry)
         except Exception as e:
             logger.warning(f"Failed to cache result: {e}")
 
@@ -786,4 +798,4 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
         """
         self._ensure_initialized()
         if self._memory:
-            await self._memory.clear()
+            await self._memory.cleanup()

@@ -1,0 +1,4 @@
+[Test Story]
+System: You are a creative writer specializing in fantasy stories. Write an engaging story in en based on the theme: magical forest. The story should be well-structured with a clear beginning, middle, and end. Use descriptive language and dialogue to bring the story to life.
+Prompt: A tale of a young druid discovering ancient magic
+This is a test story generated without using the OpenAI API.

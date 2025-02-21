@@ -1,118 +1,263 @@
 #!/usr/bin/env python3
-"""Validate project structure against specification."""
+"""Project structure validation script.
+
+This script validates the project structure against the specification, checking:
+- Required directories exist
+- Required files exist
+- File naming conventions
+- Directory organization
+"""
 
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Dict, List, Optional, Set
 
-import yaml
+# Configure paths
+PROJECT_ROOT = Path(__file__).parent.parent
+
+# Required project structure
+REQUIRED_STRUCTURE = {
+    "pepperpy": {
+        "core": {
+            "errors.py": None,
+            "extensions.py": None,
+            "layers.py": None,
+            "types.py": None,
+        },
+        "agents": {
+            "base.py": None,
+            "config.py": None,
+            "factory.py": None,
+        },
+        "workflows": {
+            "base.py": None,
+            "config.py": None,
+            "steps.py": None,
+        },
+        "providers": {
+            "base.py": None,
+            "llm": {
+                "base.py": None,
+                "openai.py": None,
+                "anthropic.py": None,
+            },
+            "storage": {
+                "base.py": None,
+                "local.py": None,
+                "cloud.py": None,
+            },
+            "memory": {
+                "base.py": None,
+                "redis.py": None,
+                "postgres.py": None,
+            },
+        },
+        "events": {
+            "base.py": None,
+            "handlers": {
+                "base.py": None,
+            },
+            "hooks": {
+                "base.py": None,
+            },
+        },
+        "content": {
+            "base.py": None,
+            "synthesis.py": None,
+        },
+        "hub": {
+            "base.py": None,
+            "marketplace.py": None,
+            "publishing.py": None,
+            "security.py": None,
+            "storage.py": None,
+        },
+        "monitoring": {
+            "base.py": None,
+            "metrics.py": None,
+            "tracing.py": None,
+        },
+        "cli": {
+            "base.py": None,
+            "commands": {
+                "agent.py": None,
+                "workflow.py": None,
+                "hub.py": None,
+                "config.py": None,
+            },
+        },
+    },
+    "tests": {
+        "unit": {
+            "core": {},
+            "agents": {},
+            "workflows": {},
+            "providers": {},
+            "events": {},
+            "content": {},
+            "hub": {},
+            "monitoring": {},
+            "cli": {},
+        },
+        "integration": {
+            "providers": {},
+            "workflows": {},
+            "hub": {},
+        },
+    },
+    "docs": {
+        "index.md": None,
+        "installation.md": None,
+        "quickstart.md": None,
+        "concepts.md": None,
+        "user-guide": {
+            "agents.md": None,
+            "workflows.md": None,
+            "providers.md": None,
+            "content.md": None,
+            "cli.md": None,
+        },
+        "api": {
+            "core.md": None,
+            "agents.md": None,
+            "workflows.md": None,
+            "providers.md": None,
+            "events.md": None,
+            "content.md": None,
+            "hub.md": None,
+            "monitoring.md": None,
+            "cli.md": None,
+        },
+    },
+    "scripts": {
+        "setup.py": None,
+        "check.sh": None,
+        "clean.sh": None,
+        "validate_structure.py": None,
+    },
+}
+
+# File naming conventions
+NAMING_CONVENTIONS = {
+    r"^[a-z][a-z0-9_]*\.py$": "Python files",
+    r"^[A-Z][a-zA-Z0-9]*\.md$": "Documentation files",
+    r"^[a-z][a-z0-9_]*\.sh$": "Shell scripts",
+}
 
 
-def load_structure(path: Path) -> dict[str, Any]:
-    """Load project structure from YAML file.
+def validate_path_exists(path: Path, required: Dict) -> List[str]:
+    """Validate that a path exists and contains required files/directories.
 
     Args:
-    ----
-        path: Path to structure YAML file
+        path: Path to validate
+        required: Dictionary of required files/directories
 
     Returns:
-    -------
-        Dictionary containing structure specification
-
+        List of validation errors
     """
-    with open(path) as f:
-        data = yaml.safe_load(f)
-        if not isinstance(data, dict):
-            raise ValueError("Structure file must contain a dictionary")
-        return data
+    errors = []
+
+    # Check path exists
+    if not path.exists():
+        return [f"Missing path: {path}"]
+
+    # Check required files/directories
+    for name, subrequired in required.items():
+        subpath = path / name
+
+        # If subrequired is None, it's a file
+        if subrequired is None:
+            if not subpath.is_file():
+                errors.append(f"Missing file: {subpath}")
+        # Otherwise it's a directory
+        else:
+            if not subpath.is_dir():
+                errors.append(f"Missing directory: {subpath}")
+            else:
+                errors.extend(validate_path_exists(subpath, subrequired))
+
+    return errors
 
 
-def validate_directory(
-    path: Path,
-    spec: dict[str, Any],
-    errors: list[str],
-    parent: str | None = None,
-) -> None:
-    """Validate a directory against specification.
+def validate_naming_conventions(
+    path: Path, seen_files: Optional[Set[Path]] = None
+) -> List[str]:
+    """Validate file naming conventions recursively.
 
     Args:
-    ----
-        path: Directory path to validate
-        spec: Directory specification
-        errors: List to collect validation errors
-        parent: Parent directory name
+        path: Path to validate
+        seen_files: Set of files already validated
 
+    Returns:
+        List of validation errors
     """
+    import re
+
+    errors = []
+    if seen_files is None:
+        seen_files = set()
+
+    # Skip if path doesn't exist
     if not path.exists():
-        errors.append(f"Missing directory: {path}")
-        return
+        return errors
 
-    # Check required files
-    required_files = spec.get("files", [])
-    for file_name in required_files:
-        file_path = path / file_name
-        if not file_path.exists():
-            errors.append(f"Missing required file: {file_path}")
-
-    # Check required subdirectories
-    required_dirs = spec.get("directories", {})
-    for dir_name, dir_spec in required_dirs.items():
-        dir_path = path / dir_name
-        validate_directory(dir_path, dir_spec, errors, str(path))
-
-    # Check for unexpected items
-    allowed_items = set(required_files)
-    allowed_items.update(required_dirs.keys())
-    allowed_items.update(spec.get("optional_files", []))
-    allowed_items.update(spec.get("optional_directories", []))
-
+    # Validate each file/directory
     for item in path.iterdir():
+        # Skip if already seen
+        if item in seen_files:
+            continue
+        seen_files.add(item)
+
+        # Skip special directories
         if item.name.startswith("."):
             continue
-        if item.name.startswith("__"):
-            continue
-        if item.name not in allowed_items:
-            errors.append(f"Unexpected item in {parent or path}: {item.name}")
+
+        # Validate file naming
+        if item.is_file():
+            valid = False
+            for pattern, description in NAMING_CONVENTIONS.items():
+                if re.match(pattern, item.name):
+                    valid = True
+                    break
+            if not valid:
+                errors.append(f"Invalid {description} name: {item}")
+
+        # Recurse into directories
+        elif item.is_dir():
+            errors.extend(validate_naming_conventions(item, seen_files))
+
+    return errors
 
 
 def main() -> int:
-    """Validate project structure.
+    """Main entry point.
 
-    Returns
-    -------
+    Returns:
         Exit code (0 for success, 1 for failure)
-
     """
-    # Find project root (contains .product directory)
-    root = Path.cwd()
-    while not (root / ".product").exists():
-        root = root.parent
-        if root == root.parent:
-            print("Error: Could not find project root")
-            return 1
+    print("Validating project structure...")
 
-    # Load structure specification
-    try:
-        spec = load_structure(root / ".product/project_structure.yml")
-    except Exception as e:
-        print(f"Error loading structure specification: {e}")
+    # Validate required structure
+    structure_errors = validate_path_exists(PROJECT_ROOT, REQUIRED_STRUCTURE)
+    if structure_errors:
+        print("\nStructure validation errors:")
+        for error in structure_errors:
+            print(f"  - {error}")
+
+    # Validate naming conventions
+    naming_errors = validate_naming_conventions(PROJECT_ROOT)
+    if naming_errors:
+        print("\nNaming convention errors:")
+        for error in naming_errors:
+            print(f"  - {error}")
+
+    # Return status
+    if structure_errors or naming_errors:
+        print("\nValidation failed!")
         return 1
-
-    # Validate structure
-    errors: list[str] = []
-    validate_directory(root, spec, errors)
-
-    # Report results
-    if errors:
-        print("\nValidation Errors:")
-        for error in errors:
-            print(f"  ❌ {error}")
-        print("\n❌ Project structure validation failed!")
-        print("Please fix the errors and try again.")
-        return 1
-
-    print("\n✓ Project structure validation passed!")
-    return 0
+    else:
+        print("\nValidation successful!")
+        return 0
 
 
 if __name__ == "__main__":

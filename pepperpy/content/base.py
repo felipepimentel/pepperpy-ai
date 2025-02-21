@@ -1,19 +1,45 @@
-"""Base types and interfaces for content management.
+"""Base content module.
 
-This module defines the core abstractions for managing content in Pepperpy:
-- Content: Base class for all content types
-- ContentType: Enum of supported content types
-- ContentMetadata: Class for storing content metadata
-- ContentManager: Interface for content management operations
+This module provides the base interfaces for content management and synthesis.
+It defines the core abstractions for handling different types of content and
+synthesizing new content from existing sources.
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
-from uuid import UUID, uuid4
+from typing import Any, Dict, List, Optional, TypeVar, Union
+from uuid import uuid4
+
+from pydantic import BaseModel, Field
+
+from pepperpy.core.errors import PepperpyError
+from pepperpy.core.extensions import Extension
+
+
+class ContentError(PepperpyError):
+    """Base class for content-related errors."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        recovery_hint: Optional[str] = None,
+    ) -> None:
+        """Initialize content error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+            recovery_hint: Optional recovery hint
+        """
+        super().__init__(
+            message=message,
+            details=details,
+            recovery_hint=recovery_hint,
+            error_code="ERR-107",
+        )
 
 
 class ContentType(Enum):
@@ -27,72 +53,74 @@ class ContentType(Enum):
     BINARY = auto()
 
 
-@dataclass
-class ContentMetadata:
-    """Metadata for content items."""
+class ContentMetadata(BaseModel):
+    """Metadata for content items.
 
-    id: UUID
-    type: ContentType
-    name: str
-    created_at: datetime
-    modified_at: datetime
-    size: int
-    mime_type: Optional[str] = None
-    encoding: Optional[str] = None
-    tags: Dict[str, str] = field(default_factory=dict)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    Attributes:
+        id: Content ID
+        type: Content type
+        source: Content source
+        created_at: Creation timestamp
+        updated_at: Last update timestamp
+        tags: Content tags
+        metadata: Additional metadata
+    """
 
-    def __post_init__(self):
-        """Initialize default values."""
-        if self.tags is None:
-            self.tags = {}
-        if self.extra is None:
-            self.extra = {}
+    id: str
+    type: str
+    source: str
+    created_at: str
+    updated_at: str
+    tags: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class Content(ABC):
-    """Base class for all content types."""
+    """Base class for content items."""
 
     def __init__(
         self,
         content_type: ContentType,
         name: str,
-        data: Any = None,
+        data: Any,
         metadata: Optional[ContentMetadata] = None,
-    ):
-        """Initialize content.
+    ) -> None:
+        """Initialize content item.
 
         Args:
-            content_type: Type of the content
+            content_type: Type of content
             name: Name of the content
             data: Content data
-            metadata: Content metadata
+            metadata: Optional content metadata
         """
         self.type = content_type
         self.name = name
         self.data = data
-
-        if metadata is None:
-            now = datetime.utcnow()
-            self.metadata = ContentMetadata(
-                id=uuid4(),
-                type=content_type,
-                name=name,
-                created_at=now,
-                modified_at=now,
-                size=self._calculate_size(),
-            )
-        else:
-            self.metadata = metadata
+        self.metadata = metadata or ContentMetadata(
+            id=str(uuid4()),
+            type=content_type.name,
+            source="local",
+            created_at=datetime.utcnow().isoformat(),
+            updated_at=datetime.utcnow().isoformat(),
+        )
+        self.size = self._calculate_size()
 
     @abstractmethod
     def _calculate_size(self) -> int:
-        """Calculate the size of the content in bytes."""
+        """Calculate the size of the content in bytes.
+
+        Returns:
+            Size in bytes
+        """
         pass
 
     @abstractmethod
     def load(self) -> Any:
-        """Load the content data."""
+        """Load the content data.
+
+        Returns:
+            Content data
+        """
         pass
 
     @abstractmethod
@@ -105,52 +133,257 @@ class Content(ABC):
         pass
 
 
-class ContentManager(ABC):
-    """Interface for content management operations."""
+class ContentConfig(BaseModel):
+    """Configuration for content providers.
 
-    @abstractmethod
-    def load(self, content_id: UUID) -> Content:
-        """Load content by ID.
+    Attributes:
+        name: Provider name
+        description: Provider description
+        parameters: Additional parameters
+        metadata: Additional metadata
+    """
+
+    name: str
+    description: str = ""
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+T = TypeVar("T", bound=ContentConfig)
+
+
+class BaseContent(Extension[T], ABC):
+    """Base class for content providers.
+
+    This class defines the interface that all content providers must implement.
+    It provides methods for storing, retrieving, and managing content items.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        config: Optional[T] = None,
+    ) -> None:
+        """Initialize content provider.
 
         Args:
-            content_id: ID of the content to load
+            name: Provider name
+            version: Provider version
+            config: Optional provider configuration
+        """
+        super().__init__(name, version, config)
+
+    @abstractmethod
+    async def store(
+        self,
+        content: Any,
+        metadata: Optional[ContentMetadata] = None,
+    ) -> str:
+        """Store content item.
+
+        Args:
+            content: Content to store
+            metadata: Optional content metadata
 
         Returns:
-            The loaded content
+            Content ID
+
+        Raises:
+            ContentError: If content cannot be stored
         """
         pass
 
     @abstractmethod
-    def save(self, content: Content) -> UUID:
-        """Save content.
+    async def retrieve(
+        self,
+        content_id: str,
+    ) -> Any:
+        """Retrieve content item.
 
         Args:
-            content: Content to save
+            content_id: Content ID
 
         Returns:
-            ID of the saved content
+            Content item
+
+        Raises:
+            ContentError: If content cannot be retrieved
         """
         pass
 
     @abstractmethod
-    def delete(self, content_id: UUID) -> None:
-        """Delete content by ID.
+    async def delete(
+        self,
+        content_id: str,
+    ) -> None:
+        """Delete content item.
 
         Args:
-            content_id: ID of the content to delete
+            content_id: Content ID
+
+        Raises:
+            ContentError: If content cannot be deleted
         """
         pass
 
     @abstractmethod
-    def list(
-        self, content_type: Optional[ContentType] = None
-    ) -> Dict[UUID, ContentMetadata]:
-        """List available content.
+    async def list(
+        self,
+        filter_criteria: Optional[Dict[str, Any]] = None,
+    ) -> List[ContentMetadata]:
+        """List content items.
 
         Args:
-            content_type: Optional filter by content type
+            filter_criteria: Optional filter criteria
 
         Returns:
-            Dictionary mapping content IDs to metadata
+            List of content metadata
+
+        Raises:
+            ContentError: If content cannot be listed
+        """
+        pass
+
+    @abstractmethod
+    async def update(
+        self,
+        content_id: str,
+        content: Any,
+        metadata: Optional[ContentMetadata] = None,
+    ) -> None:
+        """Update content item.
+
+        Args:
+            content_id: Content ID
+            content: New content
+            metadata: Optional new metadata
+
+        Raises:
+            ContentError: If content cannot be updated
+        """
+        pass
+
+    @abstractmethod
+    async def search(
+        self,
+        query: str,
+        filter_criteria: Optional[Dict[str, Any]] = None,
+    ) -> List[ContentMetadata]:
+        """Search content items.
+
+        Args:
+            query: Search query
+            filter_criteria: Optional filter criteria
+
+        Returns:
+            List of matching content metadata
+
+        Raises:
+            ContentError: If content cannot be searched
+        """
+        pass
+
+
+class SynthesisConfig(BaseModel):
+    """Configuration for content synthesis.
+
+    Attributes:
+        name: Synthesizer name
+        description: Synthesizer description
+        parameters: Additional parameters
+        metadata: Additional metadata
+    """
+
+    name: str
+    description: str = ""
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+S = TypeVar("S", bound=SynthesisConfig)
+
+
+class BaseSynthesis(Extension[S], ABC):
+    """Base class for content synthesis.
+
+    This class defines the interface that all content synthesizers must implement.
+    It provides methods for synthesizing new content from existing sources.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        config: Optional[S] = None,
+    ) -> None:
+        """Initialize content synthesizer.
+
+        Args:
+            name: Synthesizer name
+            version: Synthesizer version
+            config: Optional synthesizer configuration
+        """
+        super().__init__(name, version, config)
+
+    @abstractmethod
+    async def synthesize(
+        self,
+        sources: List[Any],
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Synthesize new content from sources.
+
+        Args:
+            sources: Source content items
+            parameters: Optional synthesis parameters
+
+        Returns:
+            Synthesized content
+
+        Raises:
+            ContentError: If content cannot be synthesized
+        """
+        pass
+
+    @abstractmethod
+    async def validate(
+        self,
+        content: Any,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> bool:
+        """Validate synthesized content.
+
+        Args:
+            content: Content to validate
+            parameters: Optional validation parameters
+
+        Returns:
+            True if valid, False otherwise
+
+        Raises:
+            ContentError: If content cannot be validated
+        """
+        pass
+
+    @abstractmethod
+    async def refine(
+        self,
+        content: Any,
+        feedback: Any,
+        parameters: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Refine synthesized content based on feedback.
+
+        Args:
+            content: Content to refine
+            feedback: Feedback for refinement
+            parameters: Optional refinement parameters
+
+        Returns:
+            Refined content
+
+        Raises:
+            ContentError: If content cannot be refined
         """
         pass

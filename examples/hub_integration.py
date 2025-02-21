@@ -10,7 +10,7 @@ Example:
     $ python examples/integrations/hub_integration.py
 
 Requirements:
-    - Python 3.9+
+    - Python 3.12+
     - No external dependencies
 
 """

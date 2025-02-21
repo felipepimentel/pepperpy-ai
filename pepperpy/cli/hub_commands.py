@@ -1,10 +1,10 @@
 """Hub commands for the Pepperpy CLI.
 
-This module provides commands for managing the Hub and marketplace:
-- Publishing and installing artifacts
-- Searching and browsing artifacts
-- Managing artifact metadata
-- Validating artifacts
+This module provides commands for:
+- Publishing artifacts to the Hub
+- Installing artifacts from the marketplace
+- Managing local artifacts
+- Searching the marketplace
 """
 
 import asyncio
@@ -17,16 +17,17 @@ from rich.console import Console
 from rich.table import Table
 
 from pepperpy.core.errors import PepperpyError
-from pepperpy.hub.marketplace import MarketplaceClient, MarketplaceConfig
+from pepperpy.hub.marketplace import MarketplaceConfig
 from pepperpy.hub.security import SecurityManager
-from pepperpy.hub.local import LocalHubStorage
 
+# Configure rich console
 console = Console()
 
 
 @click.group()
 def hub() -> None:
-    """Manage Pepperpy Hub artifacts."""
+    """Manage Pepperpy Hub artifacts and marketplace."""
+    pass
 
 
 @hub.command()

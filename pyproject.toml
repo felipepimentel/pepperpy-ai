@@ -5,39 +5,45 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "pepperpy"
 version = "0.1.0"
-description = "A framework for building AI-powered applications with capabilities for LLM, content processing, speech synthesis, and memory management"
+description = "A powerful AI agent framework"
 authors = ["Your Name <your.email@example.com>"]
+license = "MIT"
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-pyyaml = "^6.0.2"
 pydantic = "^2.10.6"
-typing-extensions = "^4.12.2"
-importlib-metadata = "^8.6.1"
 aiohttp = "^3.11.12"
 openai = "^1.63.2"
-langchain = "^0.3.19"
-transformers = "^4.49.0"
-torch = "^2.6.0"
-numpy = "^2.2.3"
-feedparser = "^6.0.11"
-beautifulsoup4 = "^4.13.3"
-gTTS = "^2.5.4"
-pydub = "^0.25.1"
-loguru = "^0.7.3"
-cryptography = "^44.0.1"
-jsonschema = "^4.23.0"
+anthropic = "^0.46.0"
+redis = { extras = ["hiredis"], version = "5.2.1" }
+psycopg = { extras = ["binary", "pool"], version = "3.2.4" }
+boto3 = "^1.36.25"
+rich = "^13.9.4"
+click = "^8.1.8"
+tenacity = "^9.0.0"
+prometheus-client = "^0.21.1"
+opentelemetry-api = "^1.30.0"
+opentelemetry-sdk = "^1.30.0"
+opentelemetry-instrumentation = "^0.41b0"
+jsonschema = "^4.21.1"
+asyncpg = "^0.29.0"
+numpy = "^1.26.4"
+google-generativeai = "^0.3.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"
 pytest-asyncio = "^0.25.3"
+pytest-cov = "^6.0.0"
 black = "^25.1.0"
 isort = "^6.0.0"
+flake8 = "^7.1.2"
 mypy = "^1.15.0"
-ruff = "^0.9.7"
-pytest-cov = "^6.0.0"
+bandit = "^1.8.3"
+pre-commit = "^4.1.0"
+sphinx = "^8.2.0"
+sphinx-rtd-theme = "^3.0.2"
 
 [tool.poetry.extras]
 openai = ["openai"]
@@ -59,7 +65,7 @@ all = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py312"
 select = ["E", "F", "B", "I"]
 
 [tool.mypy]
@@ -68,6 +74,13 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
 
 [tool.black]
 line-length = 88
@@ -77,6 +90,7 @@ include = '\.pyi?$'
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+line_length = 88
 
 [tool.coverage.run]
 branch = true
@@ -120,27 +134,10 @@ directory = "coverage_html"
 output = "coverage.xml"
 
 [tool.pytest.ini_options]
-minversion = "8.0"
-addopts = """
-    --strict-markers
-    --strict-config
-    --asyncio-mode=auto
-    --cov=pepperpy
-    --cov-report=term-missing
-    --cov-report=xml
-    --cov-branch
-    --no-cov-on-fail
-    -v
-"""
+asyncio_mode = "auto"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-]
-filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
+addopts = "-v --cov=pepperpy --cov-report=term-missing"
 
 [tool.pyright]
 exclude = [".venv", "**/node_modules", "**/__pycache__"]

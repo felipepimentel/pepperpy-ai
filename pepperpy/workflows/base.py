@@ -1,99 +1,76 @@
-"""Base components for workflow management."""
+"""Base workflow interface.
 
-from dataclasses import dataclass, field
-from enum import Enum
+This module defines the base interface for workflows.
+It includes:
+- Base workflow interface
+- Workflow configuration
+- Common workflow types
+"""
+
 from typing import Any, Dict, List, Optional
 
+from pydantic import BaseModel
 
-class WorkflowState(Enum):
-    """Possible states of a workflow."""
-
-    CREATED = "created"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    PAUSED = "paused"
-    CANCELLED = "cancelled"
+from pepperpy.core.extensions import Extension
 
 
-@dataclass
-class WorkflowStep:
-    """Represents a single step in a workflow.
+class WorkflowConfig(BaseModel):
+    """Workflow configuration.
 
     Attributes:
-        name: Unique name of the step
-        action: Action to execute
-        inputs: Input parameters for the action
-        outputs: Expected output keys from the action
-        condition: Optional condition for step execution
-        retry_config: Optional retry configuration
-        timeout: Optional timeout in seconds
-
+        name: Workflow name
+        description: Workflow description
+        parameters: Workflow parameters
+        metadata: Additional metadata
     """
 
     name: str
-    action: str
-    inputs: Dict[str, Any]
-    outputs: Optional[List[str]] = None
-    condition: Optional[str] = None
-    retry_config: Optional[Dict[str, Any]] = None
-    timeout: Optional[float] = None
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    description: str = ""
+    parameters: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = {}
 
 
-class WorkflowContext:
-    """Context for workflow execution.
+class BaseWorkflow(Extension[WorkflowConfig]):
+    """Base class for workflows.
 
-    Maintains state, variables, and execution history during workflow execution.
+    This class defines the interface that all workflows must implement.
     """
 
-    def __init__(self) -> None:
-        """Initialize a new workflow context."""
-        self.state = WorkflowState.CREATED
-        self.variables: Dict[str, Any] = {}
-        self._history: List[Dict[str, Any]] = []
-        self._current_step: Optional[str] = None
-        self._error: Optional[Exception] = None
-
-    @property
-    def current_step(self) -> Optional[str]:
-        """Get the name of the currently executing step."""
-        return self._current_step
-
-    @property
-    def error(self) -> Optional[Exception]:
-        """Get the last error encountered, if any."""
-        return self._error
-
-    @property
-    def history(self) -> List[Dict[str, Any]]:
-        """Get the execution history."""
-        return self._history.copy()
-
-    def add_history_entry(self, entry: Dict[str, Any]) -> None:
-        """Add an entry to the execution history.
+    def __init__(
+        self,
+        name: str,
+        version: str,
+        config: Optional[WorkflowConfig] = None,
+    ) -> None:
+        """Initialize workflow.
 
         Args:
-            entry: History entry to add
-
+            name: Workflow name
+            version: Workflow version
+            config: Optional workflow configuration
         """
-        self._history.append(entry)
+        super().__init__(name, version, config)
 
-    def set_error(self, error: Exception) -> None:
-        """Set the error state.
+    async def get_capabilities(self) -> List[str]:
+        """Get list of capabilities provided.
 
-        Args:
-            error: Exception that occurred
-
+        Returns:
+            List of capability identifiers
         """
-        self._error = error
-        self.state = WorkflowState.FAILED
+        return [self.metadata.name]
 
-    def set_current_step(self, step_name: str) -> None:
-        """Set the currently executing step.
+    async def get_dependencies(self) -> List[str]:
+        """Get list of required dependencies.
 
-        Args:
-            step_name: Name of the current step
-
+        Returns:
+            List of dependency identifiers
         """
-        self._current_step = step_name
+        return []
+
+    async def _initialize(self) -> None:
+        """Initialize workflow resources."""
+        pass
+
+    async def _cleanup(self) -> None:
+        """Clean up workflow resources."""
+        pass

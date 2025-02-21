@@ -141,8 +141,8 @@ class Metadata:
 # Base Classes
 
 
-class BaseComponent(ABC, Identifiable, Lifecycle, Validatable):
-    """Base class for all framework components."""
+class BaseComponent(ABC):
+    """Base class for all framework components that implements core protocols."""
 
     def __init__(self, id: UUID, metadata: Optional[Metadata] = None) -> None:
         self._id = id
@@ -168,6 +168,16 @@ class BaseComponent(ABC, Identifiable, Lifecycle, Validatable):
             raise ValueError("Component must have a valid ID")
         if not self._metadata:
             raise ValueError("Component must have valid metadata")
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the component."""
+        pass
+
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up the component."""
+        pass
 
 
 class BaseProvider(BaseComponent):

@@ -2,14 +2,24 @@
 
 ## 📋 To Do
 
-## 🏗️ In Progress
+## 🏃 In Progress
+
+
+
+## ✅ Done
+
 - TASK-003: Core Library Refactoring and Examples Organization
   **Priority**: high | **Points**: 13 | **Mode**: Act
   **Updated**: 2024-02-15
   [Details](tasks/TASK-003.md)
   **AI-Tags**: #refactoring #organization #examples
+  
+- TASK-005: Codebase Restructuring and Alignment with Specification
+  **Priority**: high | **Points**: 13 | **Mode**: Act
+  **Updated**: 2024-02-21
+  [Details](tasks/TASK-005.md)
+  **AI-Tags**: #refactoring #validation #examples
 
-## ✅ Done
 - TASK-004: News-to-Podcast Generator Example Implementation
   **Priority**: medium | **Points**: 8 | **Mode**: Act
   **Updated**: 2024-02-19

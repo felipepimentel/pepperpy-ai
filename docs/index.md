@@ -1,55 +1,66 @@
-# PepperPy AI Documentation
+"""Pepperpy Documentation
 
-Welcome to the PepperPy AI documentation. This documentation provides comprehensive information about the PepperPy AI package, its features, and how to use them effectively.
+Welcome to the Pepperpy documentation! This guide will help you understand and use
+the Pepperpy AI Agent Framework effectively.
 
-## Table of Contents
+## Overview
 
-1. [Getting Started](./getting_started.md)
-   - Installation
-   - Quick Start
-   - Basic Configuration
+Pepperpy is a powerful AI agent framework that enables you to build, deploy, and
+manage intelligent agents and workflows. It provides a robust foundation for
+creating AI-powered applications with features like:
 
-2. [Core Concepts](./core_concepts.md)
-   - Architecture Overview
-   - Key Components
-   - Design Principles
+- Agent-based architecture
+- Event-driven communication
+- Provider abstraction
+- Content synthesis
+- Workflow management
 
-3. [API Reference](./api_reference/index.md)
-   - Client API
-   - Agents
-   - Providers
-   - Types and Utilities
+## Getting Started
 
-4. [User Guides](./user_guides/index.md)
-   - Basic Usage
-   - Advanced Features
-   - Best Practices
+- [Installation](./installation.md)
+- [Quick Start](./quickstart.md)
+- [Basic Concepts](./concepts.md)
+- [Architecture](./architecture.md)
 
-5. [Development](./development/index.md)
-   - Contributing Guidelines
-   - Testing
-   - Code Style
-   - Release Process
+## User Guide
 
-6. [Examples](./examples/index.md)
-   - Basic Examples
-   - Advanced Use Cases
-   - Integration Examples
+- [Creating Agents](./user-guide/agents.md)
+- [Building Workflows](./user-guide/workflows.md)
+- [Managing Content](./user-guide/content.md)
+- [Using Providers](./user-guide/providers.md)
+- [CLI Usage](./user-guide/cli.md)
 
-## Project Overview
+## API Reference
 
-PepperPy AI is a Python package that provides AI capabilities through various providers and agents. It is designed with asyncio support and follows modern Python best practices, including type hints and comprehensive testing.
+- [Core API](./api/core.md)
+- [Agents API](./api/agents.md)
+- [Events API](./api/events.md)
+- [Providers API](./api/providers.md)
+- [Content API](./api/content.md)
+- [Workflows API](./api/workflows.md)
 
-### Key Features
+## Advanced Topics
 
-- Async-first design
-- Multiple AI provider support
-- Type-safe implementation
-- Extensive testing coverage
-- Modular architecture
-- Caching capabilities
-- Robust error handling
+- [Custom Providers](./advanced/custom-providers.md)
+- [Event System](./advanced/event-system.md)
+- [Content Synthesis](./advanced/content-synthesis.md)
+- [Monitoring](./advanced/monitoring.md)
+- [Security](./advanced/security.md)
 
-### License
+## Contributing
 
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details. 
+- [Development Guide](./contributing/development.md)
+- [Code Style](./contributing/code-style.md)
+- [Testing](./contributing/testing.md)
+- [Documentation](./contributing/documentation.md)
+
+## Support
+
+- [FAQ](./support/faq.md)
+- [Troubleshooting](./support/troubleshooting.md)
+- [Known Issues](./support/known-issues.md)
+- [Getting Help](./support/getting-help.md)
+
+## License
+
+Pepperpy is licensed under the MIT License. See the [LICENSE](../LICENSE) file for details.""" 

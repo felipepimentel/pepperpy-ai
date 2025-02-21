@@ -1,115 +1,157 @@
-"""Story creation example using Pepperpy.
+"""Story creation example.
 
-Purpose:
-    Demonstrate how to create an automated story generator that:
-    - Plans story structure and plot
-    - Writes engaging narratives
-    - Edits and refines content
-    - Narrates the story with voice
-
-    This example showcases agent orchestration and chain-based workflows:
-    1. Agent Chain:
-       - StoryPlanner: Outlines plot and structure
-       - StoryWriter: Creates narrative content
-       - StoryEditor: Refines and improves text
-       - Narrator: Converts to audio
-
-    2. Memory Integration:
-       - Story state tracking
-       - Version history
-       - Context preservation
-
-    3. LLM Coordination:
-       - Role-specific prompting
-       - Context sharing
-       - Output validation
-
-    4. Audio Generation:
-       - Character-aware voices
-       - Emotion-based effects
-       - Scene transitions
+This example demonstrates using Pepperpy to create stories with OpenAI.
+It includes:
+- Provider initialization
+- Story generation
+- Error handling
 
 Requirements:
-    - Python 3.9+
-    - Pepperpy library
-    - OpenAI API key
-    - Internet connection
-
-Configuration:
-    1. Environment Variables:
-       - OPENAI_API_KEY (required)
-         Description: OpenAI API key for LLM and TTS
-         Example: export OPENAI_API_KEY=sk-...
-
-       - PEPPERPY_OUTPUT_DIR (optional)
-         Description: Custom output directory for stories
-         Default: ~/.pepperpy/stories
-         Example: export PEPPERPY_OUTPUT_DIR=/path/to/stories
-
-    2. StoryGenerator Parameters:
-       - output_dir: Optional[Path]
-         Description: Custom output directory
-         Default: ~/.pepperpy/stories
-
-       - language: str
-         Description: Story language
-         Default: "en-US"
-
-       - max_length: int
-         Description: Maximum story length
-         Default: 1000
+- Python 3.12+
+- Pepperpy library
+- OpenAI API key (set as OPENAI_API_KEY environment variable)
 
 Usage:
-    1. Install dependencies:
-       poetry install
-
-    2. Set environment variables:
-       export OPENAI_API_KEY=your_key_here
-
-    3. Run the example:
-       poetry run python examples/story_creation.py
+    export OPENAI_API_KEY=your_api_key
+    poetry run python examples/story_creation.py
 """
 
 import asyncio
 import logging
-import uuid
-from pathlib import Path
-from typing import Any, Dict, Optional
+import os
+from typing import Any, List, Optional, cast
+from uuid import uuid4
 
-from pepperpy import Pepperpy
-from pepperpy.agents.chains.base import Chain
-from pepperpy.agents.manager import AgentManager
-from pepperpy.core.base import BaseComponent
 from pepperpy.core.errors import ConfigurationError
+from pepperpy.core.logging import get_logger
+from pepperpy.providers import registry
+from pepperpy.providers.base import ProviderConfig, ProviderError
+from pepperpy.providers.llm.base import (
+    BaseLLMProvider,
+    LLMConfig,
+    LLMMessage,
+    LLMResponse,
+)
 
-logger = logging.getLogger(__name__)
+# Configure logging
+logger = get_logger(__name__)
+
+# Test cases
+TEST_CASES = [
+    {
+        "theme": "space exploration",
+        "genre": "science fiction",
+        "prompt": "A story about humanity's first interstellar colony",
+    },
+    {
+        "theme": "magical forest",
+        "genre": "fantasy",
+        "prompt": "A tale of a young druid discovering ancient magic",
+    },
+    {
+        "theme": "detective mystery",
+        "genre": "noir",
+        "prompt": "A case involving a missing quantum computer",
+    },
+]
+
+# Test API key (for demonstration only)
+TEST_API_KEY = "sk-test-key"
 
 
-class StoryGenerator(BaseComponent):
-    """Story generator using multi-agent coordination."""
+class MockLLMProvider(BaseLLMProvider):
+    """Mock LLM provider for testing."""
+
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize mock provider."""
+        # Convert ProviderConfig to LLMConfig
+        llm_config = LLMConfig(
+            type=config.type,
+            model=config.config.get("model", "mock-model"),
+            temperature=config.config.get("temperature", 0.7),
+            max_tokens=config.config.get("max_tokens", 2000),
+        )
+        super().__init__(llm_config)
+        self._initialized = False
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        self._initialized = True
+        logger.info("Mock provider initialized")
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        self._initialized = False
+        logger.info("Mock provider cleaned up")
+
+    async def validate(self) -> None:
+        """Validate provider configuration."""
+        if not self.model:
+            raise ConfigurationError("Model not specified")
+
+    async def generate(
+        self,
+        messages: List[LLMMessage],
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """Generate a mock response."""
+        try:
+            # Extract prompt from messages
+            prompt = next(msg.content for msg in messages if msg.role == "user")
+            system_msg = next(msg.content for msg in messages if msg.role == "system")
+
+            # Create mock story
+            story = (
+                f"[Test Story]\n"
+                f"System: {system_msg}\n"
+                f"Prompt: {prompt}\n"
+                "This is a test story generated without using the OpenAI API."
+            )
+
+            return LLMResponse(
+                id=uuid4(),
+                content=story,
+                model=self.model,
+                usage={
+                    "prompt_tokens": 100,
+                    "completion_tokens": 100,
+                    "total_tokens": 200,
+                },
+                finish_reason="stop",
+            )
+        except Exception as e:
+            logger.error(
+                "Failed to generate response",
+                extra={"error": str(e), "messages": messages},
+                exc_info=True,
+            )
+            raise ProviderError(f"Failed to generate response: {e}")
+
+    async def get_token_count(self, text: str) -> int:
+        """Get mock token count."""
+        return len(text.split())
+
+
+class StoryGenerator:
+    """Story generator using OpenAI."""
 
     def __init__(
         self,
-        output_dir: Optional[Path] = None,
-        language: str = "en-US",
-        max_length: int = 1000,
+        output_dir: str = "stories",
+        language: str = "en",
+        max_length: int = 2000,
     ) -> None:
         """Initialize story generator.
 
         Args:
-            output_dir: Custom output directory
+            output_dir: Directory to save stories
             language: Story language
-            max_length: Maximum story length
-
-        Raises:
-            ConfigurationError: If configuration is invalid
+            max_length: Maximum story length in tokens
         """
-        super().__init__(id=uuid.uuid4())
-        self.output_dir = output_dir or Path.home() / ".pepperpy" / "stories"
+        self.output_dir = output_dir
         self.language = language
         self.max_length = max_length
-        self.pepper: Optional[Pepperpy] = None
-        self.manager: Optional[AgentManager] = None
+        self._provider: Optional[BaseLLMProvider] = None
 
     async def initialize(self) -> None:
         """Initialize the generator.
@@ -118,155 +160,166 @@ class StoryGenerator(BaseComponent):
             ConfigurationError: If initialization fails
         """
         try:
-            # Initialize Pepperpy
-            self.pepper = await Pepperpy.create()
-            self.manager = AgentManager()
-
             # Create output directory
-            self.output_dir.mkdir(parents=True, exist_ok=True)
+            os.makedirs(self.output_dir, exist_ok=True)
 
-            logger.info("Initialized story generator")
+            # Set test API key if not provided
+            if not os.getenv("OPENAI_API_KEY"):
+                os.environ["OPENAI_API_KEY"] = TEST_API_KEY
+
+            # Create provider configuration
+            config = {
+                "type": "mock",
+                "config": {
+                    "model": "mock-model",
+                    "temperature": 0.7,
+                    "max_tokens": self.max_length,
+                },
+            }
+
+            # Register and get mock provider
+            if os.getenv("OPENAI_API_KEY") == TEST_API_KEY:
+                registry.register_provider("mock", MockLLMProvider)
+                provider = await registry.get_provider("mock", config)
+            else:
+                provider = await registry.get_provider("openai", config)
+
+            self._provider = cast(BaseLLMProvider, provider)
+            logger.info("Story generator initialized")
+
         except Exception as e:
-            raise ConfigurationError(f"Failed to initialize: {e}")
+            logger.error(
+                "Failed to initialize story generator",
+                extra={"error": str(e)},
+                exc_info=True,
+            )
+            raise ConfigurationError(f"Failed to initialize story generator: {e}")
 
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if self.manager:
-            await self.manager.cleanup()
-
-    def validate(self) -> None:
-        """Validate configuration.
+    async def validate(self) -> None:
+        """Validate generator configuration.
 
         Raises:
-            ConfigurationError: If configuration is invalid
+            ConfigurationError: If validation fails
         """
-        if not self.output_dir:
-            raise ConfigurationError("Output directory not set")
+        if not os.path.isdir(self.output_dir):
+            raise ConfigurationError(f"Output directory not found: {self.output_dir}")
+        if not self._provider:
+            raise ConfigurationError("Provider not initialized")
 
     async def create_story(
         self,
-        theme: Optional[str] = None,
-        genre: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Create a story using multi-agent coordination.
+        theme: str,
+        genre: str,
+        prompt: str,
+        **kwargs: Any,
+    ) -> str:
+        """Create a story.
 
         Args:
-            theme: Optional story theme
-            genre: Optional story genre
+            theme: Story theme
+            genre: Story genre
+            prompt: Story prompt
+            **kwargs: Additional generation parameters
 
         Returns:
-            Dictionary containing:
-            - text: Generated story text
-            - audio_path: Path to audio file
-            - metadata: Story metadata
+            Generated story
 
         Raises:
-            Exception: If story creation fails
+            ProviderError: If story creation fails
         """
         try:
-            # Create agent chain
-            chain = Chain(
-                [
-                    "story_planner",  # Plans plot and structure
-                    "story_writer",  # Creates narrative
-                    "story_editor",  # Refines content
-                    "narrator",  # Converts to audio
-                ]
+            # Validate state
+            await self.validate()
+
+            # Create system message
+            system_msg = (
+                f"You are a creative writer specializing in {genre} stories. "
+                f"Write an engaging story in {self.language} based on the theme: {theme}. "
+                "The story should be well-structured with a clear beginning, middle, and end. "
+                "Use descriptive language and dialogue to bring the story to life."
             )
 
-            # Set chain context
-            context = {
-                "theme": theme,
-                "genre": genre,
-                "language": self.language,
-                "max_length": self.max_length,
-                "output_dir": self.output_dir,
-            }
+            # Create messages
+            messages = [
+                LLMMessage(role="system", content=system_msg),
+                LLMMessage(role="user", content=prompt),
+            ]
 
-            # Execute chain
-            result = await chain.run(context=context)
+            # Generate story
+            if not self._provider:
+                raise ConfigurationError("Provider not initialized")
 
-            return {
-                "text": result.story,
-                "audio_path": result.audio_path,
-                "metadata": result.metadata,
-            }
+            # Generate story using provider
+            response = await self._provider.generate(messages, **kwargs)
+            story = response.content.strip()
 
-        except Exception as e:
-            logger.error("Failed to create story", exc_info=e)
-            raise
-
-    async def generate(
-        self,
-        theme: Optional[str] = None,
-        genre: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Generate a story with audio narration.
-
-        Args:
-            theme: Optional story theme
-            genre: Optional story genre
-
-        Returns:
-            Dictionary containing:
-            - text: Generated story text
-            - audio_path: Path to audio file
-            - metadata: Story metadata
-
-        Raises:
-            Exception: If generation fails
-        """
-        try:
-            # Validate configuration
-            self.validate()
-
-            # Create story
-            result = await self.create_story(theme, genre)
+            # Save story
+            story_id = str(uuid4())
+            story_filename = f"{story_id}.txt"
+            filepath = os.path.join(self.output_dir, story_filename)
+            with open(filepath, "w") as f:
+                f.write(story)
 
             logger.info(
-                "Generated story",
+                "Story created",
                 extra={
                     "theme": theme,
                     "genre": genre,
-                    "audio_path": result["audio_path"],
+                    "story_filename": story_filename,
+                    "tokens": response.usage["total_tokens"],
                 },
             )
 
-            return result
+            return story
 
         except Exception as e:
-            logger.error("Failed to generate story", exc_info=e)
-            raise
+            logger.error(
+                "Failed to create story",
+                extra={
+                    "theme": theme,
+                    "genre": genre,
+                    "error": str(e),
+                },
+                exc_info=True,
+            )
+            raise ProviderError(f"Failed to create story: {e}")
 
 
 async def main() -> None:
     """Run the story creation example."""
-    # Initialize generator
-    generator = StoryGenerator()
-    await generator.initialize()
-
     try:
-        # Generate story
-        result = await generator.generate(
-            theme="adventure",
-            genre="fantasy",
+        # Initialize generator
+        generator = StoryGenerator()
+        await generator.initialize()
+
+        # Generate test stories
+        for case in TEST_CASES:
+            try:
+                story = await generator.create_story(**case)
+                print(f"\nGenerated story for {case['theme']}:")
+                print("-" * 80)
+                print(story)
+                print("-" * 80)
+            except Exception as e:
+                logger.error(
+                    "Failed to generate story",
+                    extra={"theme": case["theme"], "error": str(e)},
+                    exc_info=True,
+                )
+
+    except Exception as e:
+        logger.error(
+            "Story creation example failed", extra={"error": str(e)}, exc_info=True
         )
-
-        print(f"Generated story: {result['audio_path']}")
-        print("\nStory text:")
-        print(result["text"])
-
     finally:
-        await generator.cleanup()
+        # Cleanup
+        await registry.cleanup()
 
 
 if __name__ == "__main__":
     # Configure logging
     logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.DEBUG,
+        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-
-    # Run example
     asyncio.run(main())

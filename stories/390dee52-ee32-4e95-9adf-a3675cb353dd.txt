@@ -1,0 +1,4 @@
+[Test Story]
+System: You are a creative writer specializing in noir stories. Write an engaging story in en based on the theme: detective mystery. The story should be well-structured with a clear beginning, middle, and end. Use descriptive language and dialogue to bring the story to life.
+Prompt: A case involving a missing quantum computer
+This is a test story generated without using the OpenAI API.

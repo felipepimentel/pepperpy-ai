@@ -194,19 +194,18 @@ class CodeScanner(Lifecycle):
             visitor = CodeVisitor(self.config)
             visitor.visit(tree)
 
-            # Create validation result
-            result = ValidationResult(
+            # Create and return validation result
+            return ValidationResult(
                 is_valid=len(visitor.issues) == 0,
                 errors=visitor.issues,
                 warnings=visitor.warnings,
             )
 
-            return result
-
         except SyntaxError as e:
             return ValidationResult(
                 is_valid=False,
                 errors=[f"Syntax error: {str(e)}"],
+                warnings=[],
             )
         except Exception as e:
             raise SecurityError(f"Failed to scan code: {e}")
