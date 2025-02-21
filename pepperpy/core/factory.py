@@ -20,7 +20,7 @@ from pepperpy.core.base import (
     BaseAgent,
 )
 from pepperpy.core.errors import ConfigurationError, FactoryError, ValidationError
-from pepperpy.core.types import AgentConfig
+from pepperpy.core.types import AgentConfig, ComponentState
 from pepperpy.events import Event, EventBus, EventType
 
 logger = logging.getLogger(__name__)
@@ -78,11 +78,31 @@ class Factory(Generic[T]):
         self._event_bus = event_bus
         self._hooks: dict[str, set[Callable[[T], None]]] = {}
         self._metadata = FactoryMetadata()
+        self._state = ComponentState.UNREGISTERED
 
     @property
     def metadata(self) -> FactoryMetadata:
         """Get factory metadata."""
         return self._metadata
+
+    async def initialize(self) -> None:
+        """Initialize the factory.
+
+        This method is called during factory startup to perform any necessary
+        initialization.
+
+        Raises:
+            ConfigurationError: If initialization fails
+
+        """
+        try:
+            self._state = ComponentState.INITIALIZED
+            # Initialize factory
+            logger.info("Factory initialized")
+            self._state = ComponentState.RUNNING
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ConfigurationError(f"Failed to initialize factory: {e}") from e
 
     def add_hook(self, event: str, hook: Callable[[T], None]) -> None:
         """Add a hook for factory events.
@@ -150,10 +170,15 @@ class Factory(Generic[T]):
         """
         pass
 
-    @abstractmethod
     async def cleanup(self) -> None:
         """Clean up factory resources."""
-        pass
+        try:
+            logger.info("Factory cleaned up")
+            self._state = ComponentState.UNREGISTERED
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Error during factory cleanup: {e}")
+            raise
 
 
 class AgentFactory(Factory[BaseAgent]):

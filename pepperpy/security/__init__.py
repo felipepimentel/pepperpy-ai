@@ -1,13 +1,18 @@
-"""Security module.
+"""Security package for Pepperpy.
 
-This module provides security functionality:
-- Encryption and decryption
-- Rate limiting
-- Access control
-- Input validation
-- Audit logging
+This package provides security features including:
+- Validation utilities
+- Error types
+- Security policies
 """
 
-from pepperpy.security.rate_limiter import RateLimiter
+from .errors import SecurityError, ValidationError
+from .validation import ValidationResult, validate_artifact, validate_manifest
 
-__all__ = ["RateLimiter"]
+__all__ = [
+    "SecurityError",
+    "ValidationError",
+    "ValidationResult",
+    "validate_manifest",
+    "validate_artifact",
+]

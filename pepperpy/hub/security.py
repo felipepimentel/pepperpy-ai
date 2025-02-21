@@ -1,29 +1,27 @@
-"""Hub security and validation.
+"""Security management for the Pepperpy Hub.
 
-This module provides security features for the Hub, including:
+This module provides security features including:
 - Artifact validation
 - Access control
-- Signature verification
-- Security policy enforcement
+- Rate limiting
+- Audit logging
+- Code scanning
+- Sandbox execution
 """
 
 import asyncio
 import hashlib
-import json
-import uuid
+import hmac
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Set
-from uuid import UUID
 
-import jsonschema
-from cryptography.exceptions import InvalidSignature
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
-from pydantic import BaseModel, Field
+from jsonschema import validate as validate_schema
+from pydantic import BaseModel, Field, validator
 
-from pepperpy.core.logging import get_logger
+from pepperpy.core.base import Lifecycle
+from pepperpy.core.types import ComponentState
 from pepperpy.hub.artifacts import (
     agent_schema,
     capability_schema,
@@ -32,9 +30,12 @@ from pepperpy.hub.artifacts import (
 )
 from pepperpy.hub.errors import HubSecurityError, HubValidationError
 from pepperpy.monitoring import audit_logger
-from pepperpy.security import encryption
+from pepperpy.security.rate_limiter import RateLimiter
+from pepperpy.security.sandbox import Sandbox
+from pepperpy.security.scanner import CodeScanner
+from pepperpy.security.types import ValidationResult
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 class SecurityConfig(BaseModel):
@@ -61,238 +62,237 @@ class SecurityConfig(BaseModel):
         default=10 * 1024 * 1024,  # 10MB
         description="Maximum artifact size in bytes",
     )
+    secret_key: str = Field(
+        default="",
+        description="Secret key for cryptographic operations",
+    )
+    rate_limit_rpm: int = Field(
+        default=60,
+        description="Rate limit requests per minute",
+    )
+    rate_limit_burst: int = Field(
+        default=10,
+        description="Rate limit burst size",
+    )
+    require_signature: bool = Field(
+        default=False,
+        description="Whether signatures are required",
+    )
+    scan_code: bool = Field(
+        default=True,
+        description="Whether to perform code scanning",
+    )
+
+    @validator("secret_key")
+    def validate_secret_key(cls, v: str) -> str:
+        """Validate secret key."""
+        if not v and cls.verify_signatures:
+            raise ValueError(
+                "Secret key required when signature verification is enabled"
+            )
+        return v
 
 
-class SecurityPolicy:
-    """Security policy for Hub artifacts."""
+class SecurityManager(Lifecycle):
+    """Manages security features for the Hub."""
 
-    def __init__(
-        self,
-        name: str,
-        allowed_types: Set[str],
-        required_fields: Set[str],
-        max_size_bytes: int = 10 * 1024 * 1024,  # 10MB
-        require_signature: bool = True,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize security policy.
-
-        Args:
-            name: Policy name
-            allowed_types: Set of allowed artifact types
-            required_fields: Set of required metadata fields
-            max_size_bytes: Maximum artifact size in bytes
-            require_signature: Whether signatures are required
-            metadata: Optional policy metadata
-        """
-        self._id = uuid.uuid4()
-        self.name = name
-        self.allowed_types = allowed_types
-        self.required_fields = required_fields
-        self.max_size_bytes = max_size_bytes
-        self.require_signature = require_signature
-        self.metadata = metadata or {}
-        self.created_at = datetime.utcnow()
-        self.updated_at = self.created_at
-
-    @property
-    def id(self) -> UUID:
-        """Get policy ID.
-
-        Returns:
-            UUID: Policy ID
-        """
-        return self._id
-
-
-class SecurityManager:
-    """Security manager for Hub artifacts."""
-
-    def __init__(self, config: SecurityConfig) -> None:
+    def __init__(self, config: Optional[SecurityConfig] = None) -> None:
         """Initialize security manager.
 
         Args:
-            config: Security configuration
+            config: Optional security configuration
         """
-        self.config = config
-        self.encryption = encryption.AES256GCM()
-        self.default_policy = SecurityPolicy(
-            name="default",
-            allowed_types={"prompt", "agent", "workflow", "model", "tool", "knowledge"},
-            required_fields={"name", "version", "description"},
-            require_signature=True,
-        )
-        self._schema_cache: Dict[str, Dict[str, Any]] = {}
-        self._schemas = {
-            "agent": agent_schema,
-            "workflow": workflow_schema,
-            "tool": tool_schema,
-            "capability": capability_schema,
-        }
+        super().__init__()
+        self.config = config or SecurityConfig()
+        self._schemas: Dict[str, Dict[str, Any]] = {}
         self._locks: Dict[str, asyncio.Lock] = {}
+        self._rate_limiter = RateLimiter(
+            requests_per_minute=self.config.rate_limit_rpm,
+            burst_size=self.config.rate_limit_burst,
+        )
+        self._sandbox = Sandbox() if self.config.sandbox_enabled else None
+        self._scanner = CodeScanner() if self.config.scan_code else None
+        self._state = ComponentState.UNREGISTERED
 
-    def _load_schema(self, artifact_type: str) -> Dict[str, Any]:
-        """Load JSON schema for artifact type.
+    async def initialize(self) -> None:
+        """Initialize security manager.
 
-        Args:
-            artifact_type: Type of artifact
-
-        Returns:
-            Dict[str, Any]: JSON schema
+        This loads security schemas and sets up rate limiting.
 
         Raises:
-            HubValidationError: If schema cannot be loaded
+            HubSecurityError: If initialization fails
         """
-        if artifact_type in self._schema_cache:
-            return self._schema_cache[artifact_type]
-
         try:
-            schema_path = (
-                Path(__file__).parent / "schemas" / f"{artifact_type}_artifact.json"
-            )
-            if not schema_path.exists():
-                raise HubValidationError(
-                    f"Schema not found for artifact type: {artifact_type}",
-                    details={"schema_path": str(schema_path)},
-                )
+            self._state = ComponentState.INITIALIZED
 
-            with open(schema_path) as f:
-                schema = json.load(f)
-                self._schema_cache[artifact_type] = schema
-                return schema
+            # Load artifact schemas
+            await self._load_schemas()
+
+            # Initialize rate limiter
+            self._rate_limiter = RateLimiter(
+                requests_per_minute=self.config.rate_limit_rpm,
+                burst_size=self.config.rate_limit_burst,
+            )
+
+            # Initialize sandbox if enabled
+            if self.config.sandbox_enabled:
+                self._sandbox = Sandbox()
+                await self._sandbox.initialize()
+
+            # Initialize code scanner if enabled
+            if self.config.scan_code:
+                self._scanner = CodeScanner()
+                await self._scanner.initialize()
+
+            # Update state
+            self._state = ComponentState.RUNNING
+            logger.info("Security manager initialized")
 
         except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize security manager: {e}")
+            raise HubSecurityError(
+                "Failed to initialize security manager", details={"error": str(e)}
+            )
+
+    async def cleanup(self) -> None:
+        """Clean up security manager resources.
+
+        Raises:
+            HubSecurityError: If cleanup fails
+        """
+        try:
+            self._schemas.clear()
+            self._locks.clear()
+            if self._sandbox:
+                await self._sandbox.cleanup()
+            if self._scanner:
+                await self._scanner.cleanup()
+
+            # Update state
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Security manager cleaned up")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to cleanup security manager: {e}")
+            raise HubSecurityError(
+                "Failed to cleanup security manager", details={"error": str(e)}
+            )
+
+    async def _load_schemas(self) -> None:
+        """Load artifact validation schemas."""
+        try:
+            # Load built-in schemas
+            self._schemas = {
+                "agent": agent_schema,
+                "workflow": workflow_schema,
+                "tool": tool_schema,
+                "capability": capability_schema,
+            }
+
+            # Validate schemas
+            for name, schema in self._schemas.items():
+                try:
+                    validate_schema(instance=schema, schema=schema)
+        except Exception as e:
             raise HubValidationError(
-                f"Failed to load schema for {artifact_type}",
+                        f"Invalid schema for {name}",
                 details={"error": str(e)},
             )
+
+            logger.debug(f"Loaded {len(self._schemas)} validation schemas")
+
+        except Exception as e:
+            raise HubSecurityError(f"Failed to load schemas: {e}")
 
     async def validate_artifact(
         self,
         artifact_type: str,
         content: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
+        metadata: Dict[str, Any],
+    ) -> ValidationResult:
         """Validate an artifact.
 
         Args:
             artifact_type: Type of artifact
             content: Artifact content
-            metadata: Optional metadata
+            metadata: Artifact metadata
+
+        Returns:
+            ValidationResult: Result of validation
 
         Raises:
             HubValidationError: If validation fails
         """
+        result = ValidationResult()
         try:
             # Get schema
-            if artifact_type not in self._schemas:
-                raise HubValidationError(
-                    f"Unknown artifact type: {artifact_type}",
-                    details={"valid_types": list(self._schemas.keys())},
-                )
-            schema = self._schemas[artifact_type]
+            schema = self._schemas.get(artifact_type)
+            if not schema:
+                result.errors.append(f"Unknown artifact type: {artifact_type}")
+                return result
 
-            # Validate against schema
+            # Validate content
             try:
-                jsonschema.validate(content, schema)
-            except jsonschema.exceptions.ValidationError as e:
-                raise HubValidationError(
-                    "Artifact content validation failed",
-                    details={"error": str(e)},
-                )
+                validate_schema(instance=content, schema=schema)
+            except Exception as e:
+                result.errors.append(f"Content validation failed: {str(e)}")
 
-            # Check size
-            content_size = len(json.dumps(content).encode())
-            if content_size > self.config.max_artifact_size:
-                raise HubValidationError(
-                    "Artifact exceeds maximum size",
-                    details={
-                        "size": content_size,
-                        "max_size": self.config.max_artifact_size,
-                    },
-                )
+            # Validate metadata
+            required_fields = ["name", "version", "description", "author"]
+            for field in required_fields:
+                if not metadata.get(field):
+                    result.errors.append(f"Missing required field: {field}")
 
             # Validate permissions
             if "security" in content:
                 permissions = content["security"].get("permissions", [])
                 invalid_perms = set(permissions) - self.config.allowed_permissions
                 if invalid_perms:
-                    raise HubValidationError(
-                        "Invalid permissions requested",
-                        details={
-                            "invalid_permissions": list(invalid_perms),
-                            "allowed_permissions": list(
-                                self.config.allowed_permissions
-                            ),
-                        },
+                    result.errors.append(
+                        f"Invalid permissions requested: {list(invalid_perms)}"
                     )
 
-            # Log validation
+            # Validate signature if required
+            if self.config.require_signature:
+                if not metadata.get("signature"):
+                    result.errors.append("Missing required signature")
+                else:
+                    try:
+                        await self.validate_signature(
+                            path=Path(f"/tmp/{artifact_type}_content"),
+                            signature=metadata["signature"],
+                        )
+                    except Exception as e:
+                        result.errors.append(f"Signature validation failed: {str(e)}")
+
+            # Scan code if enabled
+            if self.config.scan_code and self._scanner:
+                scan_results = await self._scanner.scan(content)
+                result.warnings.extend(scan_results.warnings)
+                result.errors.extend(scan_results.errors)
+
+            # Set validation result
+            result.is_valid = len(result.errors) == 0
+
+            # Log validation result
             await audit_logger.log({
-                "event_type": "hub.validate_artifact",
+                "event_type": "security.artifact_validation",
                 "artifact_type": artifact_type,
-                "content_size": content_size,
-                "timestamp": datetime.utcnow(),
+                "is_valid": result.is_valid,
+                "errors": result.errors,
+                "warnings": result.warnings,
+                "timestamp": datetime.utcnow().isoformat(),
             })
 
-        except HubValidationError:
-            raise
+            return result
+
         except Exception as e:
-            raise HubValidationError(f"Artifact validation failed: {e}") from e
-
-    async def verify_signature(
-        self,
-        content: Dict[str, Any],
-        signature: str,
-        public_key: str,
-    ) -> None:
-        """Verify artifact signature.
-
-        Args:
-            content: Artifact content
-            signature: Cryptographic signature
-            public_key: Public key for verification
-
-        Raises:
-            HubSecurityError: If verification fails
-        """
-        if not self.config.verify_signatures:
-            return
-
-        try:
-            # Compute content hash
-            content_bytes = json.dumps(content, sort_keys=True).encode()
-            content_hash = hashlib.sha256(content_bytes).hexdigest()
-
-            # Verify signature
-            key = serialization.load_pem_public_key(
-                public_key.encode(),
-                backend=default_backend(),
+            raise HubValidationError(
+                "Artifact validation failed",
+                details={"error": str(e)},
             )
-            try:
-                key.verify(
-                    bytes.fromhex(signature),
-                    content_hash.encode(),
-                    padding.PSS(
-                        mgf=padding.MGF1(hashes.SHA256()),
-                        salt_length=padding.PSS.MAX_LENGTH,
-                    ),
-                    hashes.SHA256(),
-                )
-            except InvalidSignature:
-                raise HubSecurityError("Invalid artifact signature")
-
-            # Log verification
-            await audit_logger.log({
-                "event_type": "hub.verify_signature",
-                "content_hash": content_hash,
-                "timestamp": datetime.utcnow(),
-            })
-
-        except HubSecurityError:
-            raise
-        except Exception as e:
-            raise HubSecurityError(f"Signature verification failed: {e}") from e
 
     async def check_access(
         self,
@@ -300,15 +300,15 @@ class SecurityManager:
         artifact_id: str,
         operation: str,
     ) -> bool:
-        """Check if user has access to perform operation.
+        """Check if a user has access to perform an operation.
 
         Args:
-            user_id: User ID
-            artifact_id: Artifact ID
-            operation: Operation to check
+            user_id: ID of the user
+            artifact_id: ID of the artifact
+            operation: Operation to check (read, write, delete)
 
         Returns:
-            bool: Whether access is allowed
+            bool: True if access is allowed
 
         Raises:
             HubSecurityError: If access check fails
@@ -319,43 +319,228 @@ class SecurityManager:
                 self._locks[artifact_id] = asyncio.Lock()
 
             async with self._locks[artifact_id]:
+                # Check rate limits
+                if not await self._rate_limiter.check_rate(user_id):
+            await audit_logger.log({
+                        "event_type": "security.rate_limit",
+                "user_id": user_id,
+                "artifact_id": artifact_id,
+                "operation": operation,
+                        "timestamp": datetime.utcnow().isoformat(),
+            })
+                return False
+
                 # TODO: Implement proper access control
                 # For now, return True for all operations
+                await audit_logger.log({
+                    "event_type": "security.access_check",
+                    "user_id": user_id,
+                    "artifact_id": artifact_id,
+                    "operation": operation,
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "granted": True,
+                })
                 return True
 
         except Exception as e:
-            raise HubSecurityError(f"Access check failed: {e}") from e
+            raise HubSecurityError(
+                "Access check failed",
+                details={
+                    "user_id": user_id,
+                    "artifact_id": artifact_id,
+                    "operation": operation,
+                    "error": str(e),
+                },
+            )
+
+    async def validate_signature(
+        self,
+        path: Path,
+        signature: Optional[bytes] = None,
+    ) -> None:
+        """Validate file signature.
+
+        Args:
+            path: Path to file to validate
+            signature: Optional signature bytes. If not provided,
+                     looks for .sig file
+
+        Raises:
+            HubSecurityError: If signature validation fails
+        """
+        if not self.config.verify_signatures:
+            return
+
+        try:
+            # Read file content
+            with open(path, "rb") as f:
+                content = f.read()
+
+            # Get signature
+            if signature is None:
+                sig_path = path.with_suffix(path.suffix + ".sig")
+                if not sig_path.exists():
+                    raise HubSecurityError(f"Signature file not found: {sig_path}")
+                with open(sig_path, "r") as f:
+                    signature = bytes.fromhex(f.read().strip())
+
+            # Verify signature
+            if not self.config.secret_key:
+                raise HubSecurityError("No secret key configured")
+
+            key = self.config.secret_key.encode()
+            mac = hmac.new(key, content, hashlib.sha256)
+            computed_sig = mac.digest()
+
+            if not hmac.compare_digest(signature, computed_sig):
+                raise HubSecurityError("Invalid signature")
+
+            await audit_logger.log({
+                "event_type": "security.signature_verified",
+                "file": str(path),
+                "timestamp": datetime.utcnow().isoformat(),
+                "success": True,
+            })
+
+        except HubSecurityError:
+            raise
+        except Exception as e:
+            raise HubSecurityError(
+                "Failed to verify signature", details={"error": str(e)}
+            )
+
+    async def generate_signature(self, path: Path) -> bytes:
+        """Generate signature for a file.
+
+        Args:
+            path: Path to file to sign
+
+        Returns:
+            bytes: Generated signature
+
+        Raises:
+            HubSecurityError: If signature generation fails
+        """
+        try:
+            # Read file content
+            with open(path, "rb") as f:
+                content = f.read()
+
+            # Generate signature
+            if not self.config.secret_key:
+                raise HubSecurityError("No secret key configured")
+
+            key = self.config.secret_key.encode()
+            mac = hmac.new(key, content, hashlib.sha256)
+            signature = mac.digest()
+
+            # Save signature
+            sig_path = path.with_suffix(path.suffix + ".sig")
+            with open(sig_path, "w") as f:
+                f.write(signature.hex())
+
+            await audit_logger.log({
+                "event_type": "security.signature_generated",
+                "file": str(path),
+                "timestamp": datetime.utcnow().isoformat(),
+                "success": True,
+            })
+
+            return signature
+
+        except Exception as e:
+            raise HubSecurityError(
+                "Failed to generate signature", details={"error": str(e)}
+            )
 
     async def sandbox_execute(
         self,
-        artifact_type: str,
-        content: Dict[str, Any],
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Any:
-        """Execute artifact in sandbox.
+        artifact_id: str,
+        code: str,
+        timeout: int = 30,
+    ) -> Dict[str, Any]:
+        """Execute code in a sandbox environment.
 
         Args:
-            artifact_type: Type of artifact
-            content: Artifact content
-            context: Optional execution context
+            artifact_id: ID of the artifact
+            code: Code to execute
+            timeout: Execution timeout in seconds
 
         Returns:
-            Any: Execution result
+            Dict[str, Any]: Execution results
 
         Raises:
-            HubSecurityError: If execution fails
+            HubSecurityError: If sandbox execution fails
         """
-        if not self.config.sandbox_enabled:
-            raise HubSecurityError("Sandbox execution is disabled")
+        if not self.config.sandbox_enabled or not self._sandbox:
+            raise HubSecurityError("Sandbox execution not enabled")
 
         try:
-            # TODO: Implement proper sandboxing
-            # For now, just validate and return
-            await self.validate_artifact(
-                artifact_type=artifact_type,
-                content=content,
+            # Execute in sandbox
+            result = await self._sandbox.execute(
+                code=code,
+                timeout=timeout,
+                artifact_id=artifact_id,
             )
-            return None
+
+            await audit_logger.log({
+                "event_type": "security.sandbox_execution",
+                "artifact_id": artifact_id,
+                "success": True,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+
+            return result
 
         except Exception as e:
-            raise HubSecurityError(f"Sandbox execution failed: {e}") from e
+            raise HubSecurityError(
+                "Sandbox execution failed",
+                details={
+                    "artifact_id": artifact_id,
+                    "error": str(e),
+                },
+            )
+
+    async def scan_code(
+        self,
+        artifact_id: str,
+        code: str,
+    ) -> ValidationResult:
+        """Scan code for security issues.
+
+        Args:
+            artifact_id: ID of the artifact
+            code: Code to scan
+
+        Returns:
+            ValidationResult: Scan results
+
+        Raises:
+            HubSecurityError: If code scanning fails
+        """
+        if not self.config.scan_code or not self._scanner:
+            raise HubSecurityError("Code scanning not enabled")
+
+        try:
+            # Scan code
+            result = await self._scanner.scan(code)
+
+            await audit_logger.log({
+                "event_type": "security.code_scan",
+                "artifact_id": artifact_id,
+                "success": True,
+                "warnings": result.warnings,
+                "errors": result.errors,
+                "timestamp": datetime.utcnow().isoformat(),
+            })
+
+            return result
+
+        except Exception as e:
+            raise HubSecurityError(
+                "Code scanning failed",
+                details={
+                    "artifact_id": artifact_id,
+                    "error": str(e),
+                },
+            )

@@ -101,18 +101,18 @@ class Identifiable(Protocol):
         ...
 
 
-class Lifecycle(Protocol):
-    """Base protocol for objects with lifecycle management."""
+class Lifecycle(ABC):
+    """Base class for components with lifecycle management."""
 
     @abstractmethod
     async def initialize(self) -> None:
-        """Initialize the object."""
-        ...
+        """Initialize the component."""
+        pass
 
     @abstractmethod
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        ...
+        """Clean up the component."""
+        pass
 
 
 class Validatable(Protocol):

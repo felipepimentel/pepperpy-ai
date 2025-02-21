@@ -27,10 +27,9 @@ from pepperpy.core.errors import (
 )
 from pepperpy.events import (
     EventBus,
-    EventPriority,
     EventType,
-    RegistryEvent,
 )
+from pepperpy.events.handlers.registry import RegistryEvent
 from pepperpy.monitoring import logger
 
 # Configure logging
@@ -235,9 +234,7 @@ class Registry(Generic[T]):
 
                 if self._event_bus:
                     event = RegistryEvent(
-                        type=EventType.PROVIDER_REGISTERED,
-                        source_id=self.name,
-                        priority=EventPriority.NORMAL,
+                        event_type=EventType.PROVIDER_REGISTERED,
                         registry_id=uuid4(),
                         operation="register",
                         item_type=item_type.__name__,
@@ -283,9 +280,7 @@ class Registry(Generic[T]):
 
                     if self._event_bus:
                         event = RegistryEvent(
-                            type=EventType.PROVIDER_UNREGISTERED,
-                            source_id=self.name,
-                            priority=EventPriority.NORMAL,
+                            event_type=EventType.PROVIDER_UNREGISTERED,
                             registry_id=uuid4(),
                             operation="unregister",
                             item_type=item_metadata.type.__name__,
@@ -298,9 +293,7 @@ class Registry(Generic[T]):
                     for ver, item_metadata in self._items[key].items():
                         if self._event_bus:
                             event = RegistryEvent(
-                                type=EventType.PROVIDER_UNREGISTERED,
-                                source_id=self.name,
-                                priority=EventPriority.NORMAL,
+                                event_type=EventType.PROVIDER_UNREGISTERED,
                                 registry_id=uuid4(),
                                 operation="unregister",
                                 item_type=item_metadata.type.__name__,
@@ -413,9 +406,7 @@ class Registry(Generic[T]):
 
             if self._event_bus:
                 event = RegistryEvent(
-                    type=EventType.SYSTEM_STARTED,
-                    source_id=self.name,
-                    priority=EventPriority.NORMAL,
+                    event_type=EventType.SYSTEM_STARTED,
                     registry_id=uuid4(),
                     operation="update",
                     item_type=item.type.__name__,
@@ -471,9 +462,7 @@ class Registry(Generic[T]):
                 for _key, versions in self._items.items():
                     for version, item in versions.items():
                         event = RegistryEvent(
-                            type=EventType.PROVIDER_UNREGISTERED,
-                            source_id=self.name,
-                            priority=EventPriority.NORMAL,
+                            event_type=EventType.PROVIDER_UNREGISTERED,
                             registry_id=uuid4(),
                             operation="unregister",
                             item_type=item.type.__name__,

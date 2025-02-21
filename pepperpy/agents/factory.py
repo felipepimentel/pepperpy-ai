@@ -1,4 +1,4 @@
-"""Factory for creating agents in the Pepperpy framework.
+"""Factory for creating agents.
 
 This module provides the factory implementation for creating different types
 of agents based on configuration.
@@ -12,6 +12,7 @@ from pepperpy.agents.base import BaseAgent
 from pepperpy.core.base import BaseComponent, Metadata
 from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.logging import get_logger
+from pepperpy.core.types import ComponentState
 
 logger = get_logger(__name__)
 
@@ -44,6 +45,27 @@ class AgentFactory(BaseComponent):
         super().__init__(id, metadata)
         self._agent_types: Dict[str, Type[BaseAgent]] = {}
         self._logger = logger.getChild(self.__class__.__name__)
+        self._state = ComponentState.UNREGISTERED
+
+    async def initialize(self) -> None:
+        """Initialize the factory.
+
+        This method is called during factory startup to perform any necessary
+        initialization.
+
+        Raises:
+            ConfigurationError: If initialization fails
+
+        """
+        try:
+            self._state = ComponentState.INITIALIZED
+            # Initialize agent type registry
+            self._agent_types.clear()
+            self._logger.info("Agent factory initialized")
+            self._state = ComponentState.RUNNING
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ConfigurationError(f"Failed to initialize factory: {e}") from e
 
     def register_agent_type(self, name: str, agent_class: Type[BaseAgent]) -> None:
         """Register an agent type.
@@ -131,8 +153,14 @@ class AgentFactory(BaseComponent):
 
     async def cleanup(self) -> None:
         """Clean up factory resources."""
-        self._agent_types.clear()
-        self._logger.info("Agent factory cleaned up")
+        try:
+            self._agent_types.clear()
+            self._logger.info("Agent factory cleaned up")
+            self._state = ComponentState.UNREGISTERED
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            self._logger.error(f"Error during factory cleanup: {e}")
+            raise
 
     async def execute(self, **kwargs: Any) -> Any:
         """Execute factory functionality.

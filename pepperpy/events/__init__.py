@@ -19,8 +19,22 @@ from pepperpy.events.base import (
     EventType,
 )
 from pepperpy.events.handlers import (
-    RegistryEvent,
-    RegistryEventHandler,
+    AgentCreatedEvent,
+    AgentEventHandler,
+    AgentRemovedEvent,
+    AgentStateChangedEvent,
+    HubAssetCreatedEvent,
+    HubAssetDeletedEvent,
+    HubAssetUpdatedEvent,
+    HubEventHandler,
+    MemoryEventHandler,
+    MemoryRetrievedEvent,
+    MemoryStoredEvent,
+    MemoryUpdatedEvent,
+    WorkflowCompletedEvent,
+    WorkflowEventHandler,
+    WorkflowFailedEvent,
+    WorkflowStartedEvent,
 )
 from pepperpy.events.hooks import (
     HookCallback,
@@ -38,9 +52,26 @@ __all__ = [
     "EventMetrics",
     "EventPriority",
     "EventType",
-    # Registry event handlers
-    "RegistryEvent",
-    "RegistryEventHandler",
+    # Agent events
+    "AgentCreatedEvent",
+    "AgentRemovedEvent",
+    "AgentStateChangedEvent",
+    "AgentEventHandler",
+    # Hub events
+    "HubAssetCreatedEvent",
+    "HubAssetUpdatedEvent",
+    "HubAssetDeletedEvent",
+    "HubEventHandler",
+    # Memory events
+    "MemoryStoredEvent",
+    "MemoryRetrievedEvent",
+    "MemoryUpdatedEvent",
+    "MemoryEventHandler",
+    # Workflow events
+    "WorkflowStartedEvent",
+    "WorkflowCompletedEvent",
+    "WorkflowFailedEvent",
+    "WorkflowEventHandler",
     # Hook system
     "HookCallback",
     "HookManager",

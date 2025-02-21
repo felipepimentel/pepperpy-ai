@@ -49,11 +49,10 @@
     },
     "steps": {
       "type": "array",
-      "description": "Workflow steps",
-      "minItems": 1,
+      "description": "Ordered list of workflow steps",
       "items": {
         "type": "object",
-        "required": ["name", "type", "config"],
+        "required": ["name", "type", "configuration"],
         "properties": {
           "name": {
             "type": "string",
@@ -61,53 +60,21 @@
           },
           "type": {
             "type": "string",
-            "description": "Step type",
+            "description": "Step type (agent, tool, etc.)",
             "enum": ["agent", "tool", "condition", "loop", "parallel"]
           },
-          "config": {
+          "configuration": {
             "type": "object",
             "description": "Step configuration",
             "additionalProperties": true
           },
-          "inputs": {
-            "type": "object",
-            "description": "Step input mappings",
-            "additionalProperties": {
+          "dependencies": {
+            "type": "array",
+            "description": "Step dependencies",
+            "items": {
               "type": "string",
-              "description": "Input mapping expression"
+              "description": "Name of dependent step"
             }
-          },
-          "outputs": {
-            "type": "object",
-            "description": "Step output mappings",
-            "additionalProperties": {
-              "type": "string",
-              "description": "Output mapping expression"
-            }
-          },
-          "condition": {
-            "type": "string",
-            "description": "Conditional expression for step execution"
-          },
-          "retry": {
-            "type": "object",
-            "description": "Retry configuration",
-            "properties": {
-              "max_attempts": {
-                "type": "integer",
-                "minimum": 1
-              },
-              "delay": {
-                "type": "number",
-                "description": "Delay between retries in seconds",
-                "minimum": 0
-              }
-            }
-          },
-          "timeout": {
-            "type": "number",
-            "description": "Step timeout in seconds",
-            "minimum": 0
           }
         }
       }

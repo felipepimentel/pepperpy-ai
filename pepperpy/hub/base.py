@@ -1,91 +1,81 @@
-"""Base components for hub management."""
+"""Hub base module.
+
+This module provides base classes for Hub functionality.
+"""
 
 import logging
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
+from pydantic import BaseModel, Field
+
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.types import ComponentState
-from pepperpy.core.workflows import WorkflowEngine
+from pepperpy.core.workflows import WorkflowConfig, WorkflowEngine
 
 
-class HubType(Enum):
-    """Types of hubs supported by the system."""
+class HubType(str, Enum):
+    """Type of hub."""
 
     LOCAL = "local"
     REMOTE = "remote"
-    HYBRID = "hybrid"
 
 
-@dataclass
-class HubConfig:
-    """Configuration for a hub.
+class HubConfig(BaseModel):
+    """Configuration for a Hub instance."""
 
-    Attributes:
-        type: Type of hub
-        resources: List of resource identifiers
-        workflows: List of workflow identifiers
-        metadata: Optional metadata dictionary
-        root_dir: Optional root directory for local resources
+    name: str = Field(description="Hub name")
+    type: HubType = Field(default=HubType.LOCAL, description="Hub type")
+    description: Optional[str] = Field(default=None, description="Hub description")
+    version: str = Field(description="Hub version")
+    enabled: bool = Field(default=True, description="Whether the hub is enabled")
+    resources: List[str] = Field(
+        default_factory=list, description="List of resource identifiers"
+    )
+    workflows: List[str] = Field(
+        default_factory=list, description="List of workflow identifiers"
+    )
+    settings: Dict[str, Any] = Field(default_factory=dict, description="Hub settings")
+    enable_hot_reload: bool = Field(
+        default=False, description="Whether to enable hot-reload support"
+    )
+    manifest_path: Optional[Path] = Field(
+        default=None, description="Path to the hub manifest file"
+    )
 
-    """
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert config to dictionary.
 
-    type: HubType
-    resources: List[str]
-    workflows: List[str]
-    metadata: Dict[str, str] = field(default_factory=dict)
-    root_dir: Optional[Path] = None
+        Returns:
+            Dict[str, Any]: Dictionary representation of config
+        """
+        return self.model_dump()
 
 
 logger = logging.getLogger(__name__)
 
 
 class Hub(Lifecycle):
-    """Unified hub representation.
+    """Hub instance that manages resources and workflows."""
 
-    A hub is a central point for managing resources, workflows, and configurations.
-    It provides:
-    - Resource management and discovery
-    - Workflow registration and execution
-    - Configuration management
-    - State tracking and monitoring
-    """
-
-    def __init__(
-        self,
-        name: str,
-        config: HubConfig,
-    ) -> None:
-        """Initialize a new hub.
+    def __init__(self, name: str, config: HubConfig) -> None:
+        """Initialize hub.
 
         Args:
             name: Hub name
             config: Hub configuration
-
         """
-        super().__init__()
         self.name = name
         self.config = config
+        self.state = ComponentState.INITIALIZED
         self._workflow_engine = WorkflowEngine()
         self._resources: Dict[str, Any] = {}
         self._resource_deps: Dict[str, Set[str]] = {}
         self._metadata: Dict[str, Any] = {}
 
     async def initialize(self) -> None:
-        """Initialize the hub.
-
-        This method:
-        1. Initializes the workflow engine
-        2. Loads configured resources
-        3. Registers workflows
-
-        Raises:
-            Exception: If initialization fails
-
-        """
-        self._state = ComponentState.INITIALIZING
+        """Initialize hub resources."""
         try:
             # Initialize workflow engine
             await self._workflow_engine.initialize()
@@ -94,27 +84,23 @@ class Hub(Lifecycle):
             for resource_id in self.config.resources:
                 await self._load_resource(resource_id)
 
-            # Register workflows
+            # Load workflows
             for workflow_id in self.config.workflows:
-                await self._register_workflow(workflow_id)
+                workflow_config = WorkflowConfig(
+                    name=workflow_id, version=self.config.version, enabled=True
+                )
+                await self._workflow_engine.register_workflow(workflow_config)
 
-            self._state = ComponentState.INITIALIZED
+            self.state = ComponentState.RUNNING
+            logger.info(f"Hub initialized: {self.name}")
+
         except Exception as e:
-            self._state = ComponentState.ERROR
-            self._error = e
+            self.state = ComponentState.ERROR
+            logger.error(f"Failed to initialize hub: {e}")
             raise
 
     async def cleanup(self) -> None:
-        """Clean up hub resources.
-
-        This method:
-        1. Stops the workflow engine
-        2. Releases all resources
-
-        Raises:
-            Exception: If cleanup fails
-
-        """
+        """Clean up hub resources."""
         try:
             # Clean up workflow engine
             await self._workflow_engine.cleanup()
@@ -126,10 +112,12 @@ class Hub(Lifecycle):
             for resource_id in resources:
                 await self._release_resource(resource_id)
 
-            self._state = ComponentState.TERMINATED
+            self.state = ComponentState.STOPPED
+            logger.info(f"Hub cleaned up: {self.name}")
+
         except Exception as e:
-            self._state = ComponentState.ERROR
-            self._error = e
+            self.state = ComponentState.ERROR
+            logger.error(f"Failed to clean up hub: {e}")
             raise
 
     async def _load_resource(self, resource_id: str) -> None:
@@ -158,15 +146,21 @@ class Hub(Lifecycle):
         # TODO: Implement resource release
         pass
 
-    async def _register_workflow(self, workflow_id: str) -> None:
-        """Register a workflow.
+    async def get_workflow(self, name: str) -> Optional[WorkflowConfig]:
+        """Get a workflow by name.
 
         Args:
-            workflow_id: Workflow identifier
+            name: Workflow name
 
-        Raises:
-            Exception: If workflow registration fails
-
+        Returns:
+            Optional[WorkflowConfig]: Workflow configuration if found
         """
-        # TODO: Implement workflow registration
-        pass
+        return await self._workflow_engine.get_workflow(name)
+
+    async def list_workflows(self) -> List[WorkflowConfig]:
+        """List all workflows.
+
+        Returns:
+            List[WorkflowConfig]: List of workflow configurations
+        """
+        return await self._workflow_engine.list_workflows()

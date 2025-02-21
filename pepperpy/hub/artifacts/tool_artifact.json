@@ -62,7 +62,7 @@
               "type": {
                 "type": "string",
                 "description": "Parameter type",
-                "enum": ["string", "number", "boolean", "array", "object"]
+                "enum": ["string", "number", "boolean", "object", "array"]
               },
               "description": {
                 "type": "string",
@@ -79,18 +79,6 @@
               "enum": {
                 "type": "array",
                 "description": "Allowed values for the parameter"
-              },
-              "pattern": {
-                "type": "string",
-                "description": "Regex pattern for string validation"
-              },
-              "minimum": {
-                "type": "number",
-                "description": "Minimum value for numbers"
-              },
-              "maximum": {
-                "type": "number",
-                "description": "Maximum value for numbers"
               }
             }
           }
@@ -105,7 +93,7 @@
               "type": {
                 "type": "string",
                 "description": "Output type",
-                "enum": ["string", "number", "boolean", "array", "object"]
+                "enum": ["string", "number", "boolean", "object", "array"]
               },
               "description": {
                 "type": "string",
@@ -152,33 +140,6 @@
             "type": "string",
             "description": "Package version constraint"
           }
-        },
-        "system": {
-          "type": "array",
-          "description": "Required system packages",
-          "items": {
-            "type": "string",
-            "description": "System package name"
-          }
-        }
-      }
-    },
-    "security": {
-      "type": "object",
-      "description": "Security requirements and permissions",
-      "properties": {
-        "permissions": {
-          "type": "array",
-          "description": "Required permissions",
-          "items": {
-            "type": "string",
-            "enum": ["file_system", "network", "process", "env"]
-          }
-        },
-        "sandbox": {
-          "type": "boolean",
-          "description": "Whether the tool requires sandboxing",
-          "default": true
         }
       }
     },

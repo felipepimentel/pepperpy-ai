@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pepperpy Monitoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Pepperpy Monitoring</h1>
+            <nav>
+                <ul>
+                    <li><a href="#metrics">Metrics</a></li>
+                    <li><a href="#health">Health</a></li>
+                    <li><a href="#traces">Traces</a></li>
+                    <li><a href="#logs">Logs</a></li>
+                </ul>
+            </nav>
+        </header>
+
+        <main>
+            <section id="metrics" class="dashboard-section">
+                <h2>System Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <h3>CPU Usage</h3>
+                        <div id="cpu-chart"></div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Memory Usage</h3>
+                        <div id="memory-chart"></div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Disk Usage</h3>
+                        <div id="disk-chart"></div>
+                    </div>
+                    <div class="metric-card">
+                        <h3>Network I/O</h3>
+                        <div id="network-chart"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="health" class="dashboard-section">
+                <h2>Health Status</h2>
+                <div class="health-grid">
+                    <div class="health-card">
+                        <h3>Component Health</h3>
+                        <div id="component-health"></div>
+                    </div>
+                    <div class="health-card">
+                        <h3>System Health</h3>
+                        <div id="system-health"></div>
+                    </div>
+                    <div class="health-card">
+                        <h3>Network Health</h3>
+                        <div id="network-health"></div>
+                    </div>
+                    <div class="health-card">
+                        <h3>Storage Health</h3>
+                        <div id="storage-health"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="traces" class="dashboard-section">
+                <h2>Active Traces</h2>
+                <div class="trace-list" id="active-traces">
+                    <!-- Traces will be populated dynamically -->
+                </div>
+            </section>
+
+            <section id="logs" class="dashboard-section">
+                <h2>System Logs</h2>
+                <div class="log-controls">
+                    <select id="log-level">
+                        <option value="all">All Levels</option>
+                        <option value="error">Error</option>
+                        <option value="warning">Warning</option>
+                        <option value="info">Info</option>
+                        <option value="debug">Debug</option>
+                    </select>
+                    <input type="text" id="log-search" placeholder="Search logs...">
+                </div>
+                <div class="log-viewer" id="log-output">
+                    <!-- Logs will be populated dynamically -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', path='js/dashboard.js') }}"></script>
+</body>
+</html> 

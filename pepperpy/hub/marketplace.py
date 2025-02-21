@@ -4,12 +4,17 @@ This module provides functionality for interacting with the Pepperpy marketplace
 including artifact discovery, installation, and management.
 """
 
-from datetime import datetime
+import asyncio
 from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin
 
+import aiohttp
 from pydantic import BaseModel, Field
 
+from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import PepperpyError
+from pepperpy.core.types import ComponentState
+from pepperpy.hub.errors import HubError, HubMarketplaceError
 from pepperpy.hub.security import SecurityManager
 from pepperpy.hub.storage import StorageBackend, StorageMetadata
 from pepperpy.monitoring import logger
@@ -40,7 +45,7 @@ class MarketplaceConfig(BaseModel):
     )
 
 
-class MarketplaceManager:
+class MarketplaceManager(Lifecycle):
     """Manager for marketplace operations."""
 
     def __init__(
@@ -49,17 +54,127 @@ class MarketplaceManager:
         storage: StorageBackend,
         security: SecurityManager,
     ) -> None:
-        """Initialize the marketplace manager.
+        """Initialize marketplace manager.
 
         Args:
-            config: Marketplace configuration.
-            storage: Storage backend for artifacts.
-            security: Security manager for validation.
+            config: Marketplace configuration
+            storage: Storage backend
+            security: Security manager
         """
         self.config = config
         self.storage = storage
         self.security = security
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._state = ComponentState.INITIALIZED
         logger.debug("Initialized marketplace manager")
+
+    async def initialize(self) -> None:
+        """Initialize the marketplace manager.
+
+        This:
+        1. Validates configuration
+        2. Sets up HTTP session
+        3. Initializes caches
+
+        Raises:
+            HubError: If initialization fails
+        """
+        try:
+            # Validate config
+            if self.config.api_key and not self.config.api_url:
+                raise HubError("API URL required when API key is provided")
+
+            # Setup session
+            self._session = aiohttp.ClientSession(
+                base_url=self.config.api_url,
+                timeout=aiohttp.ClientTimeout(total=self.config.timeout),
+                headers={
+                    "Authorization": f"Bearer {self.config.api_key}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                }
+                if self.config.api_key
+                else None,
+            )
+
+            # Update state
+            self._state = ComponentState.RUNNING
+            logger.info("Marketplace manager initialized")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize marketplace manager: {e}")
+            raise HubError("Failed to initialize marketplace manager") from e
+
+    async def cleanup(self) -> None:
+        """Clean up marketplace manager resources.
+
+        This:
+        1. Closes HTTP session
+        2. Cleans up caches
+
+        Raises:
+            HubError: If cleanup fails
+        """
+        try:
+            if self._session:
+                await self._session.close()
+
+            # Update state
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Marketplace manager cleaned up")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to cleanup marketplace manager: {e}")
+            raise HubError("Failed to cleanup marketplace manager") from e
+
+    async def _make_request(
+        self,
+        method: str,
+        endpoint: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Make an API request with retries.
+
+        Args:
+            method: HTTP method
+            endpoint: API endpoint
+            **kwargs: Additional request arguments
+
+        Returns:
+            Dict[str, Any]: Response data
+
+        Raises:
+            HubMarketplaceError: If request fails
+        """
+        if not self._session:
+            raise HubMarketplaceError("API client not initialized")
+
+        url = urljoin(self.config.api_url, endpoint)
+        retries = 0
+
+        while retries <= self.config.max_retries:
+            try:
+                async with self._session.request(method, url, **kwargs) as response:
+                    if response.status == 429:  # Rate limited
+                        retry_after = int(
+                            response.headers.get("Retry-After", self.config.retry_delay)
+                        )
+                        await asyncio.sleep(retry_after)
+                        retries += 1
+                        continue
+
+                    response.raise_for_status()
+                    return await response.json()
+
+            except aiohttp.ClientError as e:
+                if retries == self.config.max_retries:
+                    raise HubMarketplaceError(f"API request failed: {e}")
+                retries += 1
+                await asyncio.sleep(self.config.retry_delay)
+
+        raise HubMarketplaceError("Max retries exceeded")
 
     async def publish_artifact(
         self,
@@ -100,8 +215,19 @@ class MarketplaceManager:
                 metadata=metadata,
             )
 
-            # TODO: Implement marketplace API integration
-            marketplace_id = f"mkt_{artifact_id}"
+            # Publish to marketplace
+            response = await self._make_request(
+                method="POST",
+                endpoint=f"/v1/artifacts/{artifact_type}",
+                json={
+                    "artifact_id": artifact_id,
+                    "content": content,
+                    "metadata": metadata.dict(),
+                    "visibility": visibility,
+                },
+            )
+
+            marketplace_id = response["marketplace_id"]
             logger.info(f"Published artifact {artifact_id} to marketplace")
             return marketplace_id
 
@@ -126,10 +252,31 @@ class MarketplaceManager:
             PepperpyError: If installation fails.
         """
         try:
-            # TODO: Implement marketplace API integration
-            # For now, just log the request
+            # Get artifact details
+            endpoint = f"/v1/artifacts/{artifact_id}"
+            if version:
+                endpoint += f"/versions/{version}"
+
+            response = await self._make_request("GET", endpoint)
+            artifact_data = response["artifact"]
+
+            # Validate artifact
+            await self.security.validate_artifact(
+                artifact_type=artifact_data["type"],
+                content=artifact_data["content"],
+                metadata=artifact_data["metadata"],
+            )
+
+            # Store locally
+            await self.storage.store(
+                artifact_id=artifact_id,
+                artifact_type=artifact_data["type"],
+                content=artifact_data["content"],
+                metadata=StorageMetadata(**artifact_data["metadata"]),
+            )
+
             logger.info(
-                f"Installing artifact {artifact_id}"
+                f"Installed artifact {artifact_id}"
                 + (f" version {version}" if version else "")
             )
 
@@ -163,26 +310,28 @@ class MarketplaceManager:
             PepperpyError: If search fails.
         """
         try:
-            # TODO: Implement marketplace API integration
-            # For now, return mock results
-            return {
-                "artifacts": [
-                    {
-                        "id": "mock_artifact_1",
-                        "name": "Example Artifact",
-                        "type": "agent",
-                        "version": "1.0.0",
-                        "author": "Pepperpy Team",
-                        "description": "An example artifact for testing",
-                        "tags": ["example", "test"],
-                        "created_at": datetime.utcnow().isoformat(),
-                        "updated_at": datetime.utcnow().isoformat(),
-                    }
-                ],
-                "total": 1,
-                "total_pages": 1,
+            params = {
+                "q": query,
                 "page": page,
                 "per_page": per_page,
+            }
+            if artifact_type:
+                params["type"] = artifact_type
+            if tags:
+                params["tags"] = ",".join(tags)
+
+            response = await self._make_request(
+                method="GET",
+                endpoint="/v1/search",
+                params=params,
+            )
+
+            return {
+                "artifacts": response["artifacts"],
+                "total": response["total"],
+                "total_pages": response["total_pages"],
+                "page": response["page"],
+                "per_page": response["per_page"],
             }
 
         except Exception as e:
@@ -204,20 +353,11 @@ class MarketplaceManager:
             PepperpyError: If retrieval fails.
         """
         try:
-            # TODO: Implement marketplace API integration
-            # For now, return mock data
-            return {
-                "id": artifact_id,
-                "name": "Example Artifact",
-                "type": "agent",
-                "version": "1.0.0",
-                "author": "Pepperpy Team",
-                "description": "An example artifact for testing",
-                "tags": ["example", "test"],
-                "visibility": "public",
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat(),
-            }
+            response = await self._make_request(
+                method="GET",
+                endpoint=f"/v1/artifacts/{artifact_id}",
+            )
+            return response["artifact"]
 
         except Exception as e:
             raise PepperpyError(
@@ -235,9 +375,11 @@ class MarketplaceManager:
             PepperpyError: If deletion fails.
         """
         try:
-            # TODO: Implement marketplace API integration
-            # For now, just log the request
-            logger.info(f"Deleting artifact {artifact_id}")
+            await self._make_request(
+                method="DELETE",
+                endpoint=f"/v1/artifacts/{artifact_id}",
+            )
+            logger.info(f"Deleted artifact {artifact_id} from marketplace")
 
         except Exception as e:
             raise PepperpyError(

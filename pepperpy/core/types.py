@@ -713,15 +713,13 @@ class Event:
 
 
 class ComponentState(str, Enum):
-    """Component lifecycle states."""
+    """Component state enum."""
 
-    CREATED = "created"
-    INITIALIZING = "initializing"
     INITIALIZED = "initialized"
-    READY = "ready"
+    UNREGISTERED = "unregistered"
+    RUNNING = "running"
+    STOPPED = "stopped"
     ERROR = "error"
-    SHUTTING_DOWN = "shutting_down"
-    TERMINATED = "terminated"
 
 
 class AgentError(Exception):

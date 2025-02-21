@@ -62,3 +62,9 @@ class HubMarketplaceError(HubError):
     """Error raised during marketplace operations."""
 
     pass
+
+
+class HubNotFoundError(HubError):
+    """Error raised when a hub cannot be found."""
+
+    pass

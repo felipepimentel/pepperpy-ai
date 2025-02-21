@@ -13,6 +13,7 @@ from uuid import uuid4
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ProviderError, ValidationError
 from pepperpy.core.logging import get_logger
+from pepperpy.core.types import ComponentState
 
 from .base import BaseProvider, ProviderConfig
 from .factory import ProviderFactory
@@ -36,6 +37,7 @@ class ProviderEngine(Lifecycle):
         self._factory = ProviderFactory(id=uuid4())
         self._providers: Dict[str, BaseProvider] = {}
         self._initialized = False
+        self._state = ComponentState.UNREGISTERED
 
     @property
     def is_initialized(self) -> bool:
@@ -43,33 +45,69 @@ class ProviderEngine(Lifecycle):
         return self._initialized
 
     async def initialize(self) -> None:
-        """Initialize the provider engine."""
-        if self._initialized:
-            raise ValidationError("Provider engine already initialized")
-        await self._factory.execute()  # Initialize factory
-        self._initialized = True
+        """Initialize the provider engine.
+
+        Raises:
+            ValidationError: If engine is already initialized
+            ProviderError: If initialization fails
+        """
+        try:
+            if self._initialized:
+                raise ValidationError("Provider engine already initialized")
+
+            # Set initializing state
+            self._state = ComponentState.INITIALIZED
+
+            # Initialize factory
+            await self._factory.execute()
+            self._initialized = True
+
+            # Update state
+            self._state = ComponentState.RUNNING
+            logger.info("Provider engine initialized")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize provider engine: {e}")
+            raise ProviderError("Failed to initialize provider engine") from e
 
     async def cleanup(self) -> None:
-        """Clean up provider engine resources."""
-        if not self._initialized:
-            raise ValidationError("Provider engine not initialized")
+        """Clean up provider engine resources.
 
-        # Clean up providers
-        for provider in self._providers.values():
-            try:
-                await provider.cleanup()
-            except Exception as e:
-                logger.error(
-                    "Provider cleanup failed",
-                    extra={
-                        "provider_type": provider.config.provider_type,
-                        "error": str(e),
-                    },
-                )
+        Raises:
+            ValidationError: If engine is not initialized
+            ProviderError: If cleanup fails
+        """
+        try:
+            if not self._initialized:
+                raise ValidationError("Provider engine not initialized")
 
-        await self._factory.cleanup()
-        self._providers.clear()
-        self._initialized = False
+            # Clean up providers
+            for provider in self._providers.values():
+                try:
+                    await provider.cleanup()
+                except Exception as e:
+                    logger.error(
+                        "Provider cleanup failed",
+                        extra={
+                            "provider_type": provider.config.provider_type,
+                            "error": str(e),
+                        },
+                    )
+
+            # Clean up factory and state
+            await self._factory.cleanup()
+            self._providers.clear()
+            self._initialized = False
+
+            # Update state
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Provider engine cleaned up")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to cleanup provider engine: {e}")
+            raise ProviderError("Failed to cleanup provider engine") from e
 
     def _ensure_initialized(self) -> None:
         """Ensure engine is initialized."""

@@ -10,7 +10,7 @@ from typing import Optional
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ConfigurationError, ProviderError
 from pepperpy.core.logging import get_logger
-from pepperpy.core.types import MessageType, Response
+from pepperpy.core.types import ComponentState, MessageType, Response
 
 from .base import ProviderConfig
 from .domain import ProviderAPIError
@@ -29,20 +29,58 @@ class ProviderManager(Lifecycle):
         self._engine = ProviderEngine()
         self._default_provider: Optional[str] = None
         self._initialized = False
+        self._state = ComponentState.UNREGISTERED
 
     async def initialize(self) -> None:
-        """Initialize the provider manager."""
-        if self._initialized:
-            raise ConfigurationError("Provider manager already initialized")
-        await self._engine.initialize()
-        self._initialized = True
+        """Initialize the provider manager.
+
+        Raises:
+            ConfigurationError: If manager is already initialized
+            ProviderError: If initialization fails
+        """
+        try:
+            if self._initialized:
+                raise ConfigurationError("Provider manager already initialized")
+
+            # Set initializing state
+            self._state = ComponentState.INITIALIZED
+
+            # Initialize engine
+            await self._engine.initialize()
+            self._initialized = True
+
+            # Update state
+            self._state = ComponentState.RUNNING
+            logger.info("Provider manager initialized")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize provider manager: {e}")
+            raise ProviderError("Failed to initialize provider manager") from e
 
     async def cleanup(self) -> None:
-        """Clean up all providers."""
-        if not self._initialized:
-            raise ConfigurationError("Provider manager not initialized")
-        await self._engine.cleanup()
-        self._initialized = False
+        """Clean up all providers.
+
+        Raises:
+            ConfigurationError: If manager is not initialized
+            ProviderError: If cleanup fails
+        """
+        try:
+            if not self._initialized:
+                raise ConfigurationError("Provider manager not initialized")
+
+            # Clean up engine
+            await self._engine.cleanup()
+            self._initialized = False
+
+            # Update state
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Provider manager cleaned up")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to cleanup provider manager: {e}")
+            raise ProviderError("Failed to cleanup provider manager") from e
 
     def _ensure_initialized(self) -> None:
         """Ensure manager is initialized."""

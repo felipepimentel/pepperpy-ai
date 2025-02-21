@@ -16,6 +16,7 @@ from pepperpy.agents.providers.domain import (
 from pepperpy.core.base import BaseComponent
 from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.logging import get_logger
+from pepperpy.core.types import ComponentState
 
 logger = get_logger(__name__)
 
@@ -48,6 +49,7 @@ class ProviderFactory(BaseComponent):
         super().__init__(id, metadata)
         self._provider_types: Dict[str, Type[BaseProvider]] = {}
         self._logger = logger.getChild(self.__class__.__name__)
+        self._state = ComponentState.UNREGISTERED
 
     async def initialize(self) -> None:
         """Initialize the factory.
@@ -60,16 +62,25 @@ class ProviderFactory(BaseComponent):
 
         """
         try:
+            self._state = ComponentState.INITIALIZED
             # Initialize provider type registry
             self._provider_types.clear()
             self._logger.info("Provider factory initialized")
+            self._state = ComponentState.RUNNING
         except Exception as e:
+            self._state = ComponentState.ERROR
             raise ConfigurationError(f"Failed to initialize factory: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up factory resources."""
-        self._provider_types.clear()
-        self._logger.info("Provider factory cleaned up")
+        try:
+            self._provider_types.clear()
+            self._logger.info("Provider factory cleaned up")
+            self._state = ComponentState.UNREGISTERED
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            self._logger.error(f"Error during factory cleanup: {e}")
+            raise
 
     def register_provider_type(
         self, name: str, provider_class: Type[BaseProvider]

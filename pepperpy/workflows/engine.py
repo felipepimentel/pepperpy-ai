@@ -97,16 +97,60 @@ class WorkflowEngine(Lifecycle):
         self._lock = asyncio.Lock()
         self._run_status: Dict[str, RunStatus] = {}
         self._run_logs: Dict[str, List[LogEntry]] = {}
+        self._state = ComponentState.UNREGISTERED
 
     async def initialize(self) -> None:
-        """Initialize the workflow engine."""
-        self._state = ComponentState.INITIALIZED
+        """Initialize the workflow engine.
+
+        Raises:
+            WorkflowError: If initialization fails
+        """
+        try:
+            # Set initializing state
+            self._state = ComponentState.INITIALIZED
+
+            # Initialize internal state
+            self._workflows.clear()
+            self._contexts.clear()
+            self._running.clear()
+            self._run_status.clear()
+            self._run_logs.clear()
+
+            # Update state
+            self._state = ComponentState.RUNNING
+            logger.info("Workflow engine initialized")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize workflow engine: {e}")
+            raise WorkflowError("Failed to initialize workflow engine") from e
 
     async def cleanup(self) -> None:
-        """Clean up workflow engine resources."""
-        # Cancel any running workflows
-        for workflow_name in list(self._running):
-            await self.cancel(workflow_name)
+        """Clean up workflow engine resources.
+
+        Raises:
+            WorkflowError: If cleanup fails
+        """
+        try:
+            # Cancel any running workflows
+            for workflow_name in list(self._running):
+                await self.cancel(workflow_name)
+
+            # Clear internal state
+            self._workflows.clear()
+            self._contexts.clear()
+            self._running.clear()
+            self._run_status.clear()
+            self._run_logs.clear()
+
+            # Update state
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Workflow engine cleaned up")
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to cleanup workflow engine: {e}")
+            raise WorkflowError("Failed to cleanup workflow engine") from e
 
     def _validate_workflow(self, name: str, steps: List[WorkflowStep]) -> None:
         """Validate workflow definition.

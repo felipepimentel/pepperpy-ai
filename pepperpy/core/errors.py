@@ -67,21 +67,26 @@ class PepperpyError(Exception):
     def __init__(
         self,
         message: str,
+        error_code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
-        recovery_hint: Optional[str] = None,
         user_message: Optional[str] = None,
+        recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the error.
 
         Args:
             message: Technical error message.
+            error_code: Optional error code.
             details: Optional dictionary of additional error details.
-            recovery_hint: Optional hint for recovering from the error.
             user_message: Optional user-friendly error message.
+            recovery_hint: Optional hint for recovering from the error.
         """
         super().__init__(message)
         self.message = message
+        self.error_code = error_code
         self.details = details or {}
+        if error_code:
+            self.details["error_code"] = error_code
         self.recovery_hint = recovery_hint
         self.user_message = user_message or message
 
@@ -110,12 +115,12 @@ class ConfigError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the configuration error."""
+        error_details = {"error_code": "ERR001", **(details or {})}
         super().__init__(
             message,
-            "ERR001",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -134,12 +139,12 @@ class ValidationError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the validation error."""
+        error_details = {"error_code": "ERR002", **(details or {})}
         super().__init__(
             message,
-            "ERR002",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -154,12 +159,12 @@ class StateError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the error."""
+        error_details = {"error_code": "ERR003", **(details or {})}
         super().__init__(
             message,
-            "ERR003",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -174,12 +179,12 @@ class LifecycleError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the error."""
+        error_details = {"error_code": "ERR007", **(details or {})}
         super().__init__(
             message,
-            "ERR007",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -197,12 +202,12 @@ class ProviderError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the error."""
+        error_details = {"error_code": "ERR004", **(details or {})}
         super().__init__(
             message,
-            "ERR004",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -217,12 +222,12 @@ class ResourceError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the error."""
+        error_details = {"error_code": "ERR005", **(details or {})}
         super().__init__(
             message,
-            "ERR005",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -244,12 +249,12 @@ class RegistryError(PepperpyError):
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
         """
+        error_details = {"error_code": "ERR008", **(details or {})}
         super().__init__(
             message,
-            "ERR008",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -268,12 +273,12 @@ class FactoryError(PepperpyError):
         recovery_hint: Optional[str] = None,
     ) -> None:
         """Initialize the factory error."""
+        error_details = {"error_code": "ERR008", **(details or {})}
         super().__init__(
             message,
-            "ERR008",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -286,6 +291,7 @@ class CapabilityError(PepperpyError):
     def __init__(
         self,
         message: str,
+        capability_type: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         user_message: Optional[str] = None,
         recovery_hint: Optional[str] = None,
@@ -294,16 +300,19 @@ class CapabilityError(PepperpyError):
 
         Args:
             message: Error message
+            capability_type: Optional capability type
             details: Optional error details
             user_message: Optional user-friendly message
             recovery_hint: Optional recovery hint
         """
+        error_details = {"error_code": "ERR100", **(details or {})}
+        if capability_type:
+            error_details["capability_type"] = capability_type
         super().__init__(
             message,
-            "ERR100",
-            details,
-            user_message,
-            recovery_hint,
+            details=error_details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -327,9 +336,10 @@ class LearningError(CapabilityError):
         """
         super().__init__(
             message,
-            details,
-            user_message,
-            recovery_hint,
+            capability_type="learning",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -346,9 +356,10 @@ class PlanningError(CapabilityError):
         """Initialize the error."""
         super().__init__(
             message,
-            details,
-            user_message,
-            recovery_hint,
+            capability_type="planning",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -365,9 +376,10 @@ class ReasoningError(CapabilityError):
         """Initialize the error."""
         super().__init__(
             message,
-            details,
-            user_message,
-            recovery_hint,
+            capability_type="reasoning",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -387,10 +399,10 @@ class WorkflowError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR007",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR007",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -410,10 +422,10 @@ class PepperpyMemoryError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR008",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR008",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -433,10 +445,10 @@ class PepperpyTimeoutError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR009",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR009",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -456,10 +468,10 @@ class AuthenticationError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR010",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR010",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -476,10 +488,10 @@ class AuthorizationError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR011",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR011",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -499,10 +511,10 @@ class NetworkError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR012",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR012",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -522,10 +534,10 @@ class NotFoundError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR013",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR013",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -542,10 +554,10 @@ class DuplicateError(PepperpyError):
         """Initialize the error."""
         super().__init__(
             message,
-            "ERR014",
-            details,
-            user_message,
-            recovery_hint,
+            error_code="ERR014",
+            details=details,
+            user_message=user_message,
+            recovery_hint=recovery_hint,
         )
 
 
@@ -637,7 +649,7 @@ class AgentError(PepperpyError):
     ) -> None:
         super().__init__(
             message,
-            code="ERR300",
+            error_code="ERR300",
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
@@ -656,7 +668,7 @@ class ContentError(PepperpyError):
     ) -> None:
         super().__init__(
             message,
-            code="ERR400",
+            error_code="ERR400",
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
@@ -675,7 +687,7 @@ class LLMError(PepperpyError):
     ) -> None:
         super().__init__(
             message,
-            code="ERR500",
+            error_code="ERR500",
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
@@ -694,7 +706,7 @@ class SynthesisError(PepperpyError):
     ) -> None:
         super().__init__(
             message,
-            code="ERR600",
+            error_code="ERR600",
             details=details,
             user_message=user_message,
             recovery_hint=recovery_hint,
