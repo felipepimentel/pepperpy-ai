@@ -2,6 +2,8 @@
 
 ## 📋 To Do
 
+## 🏃 In Progress
+
 - [TASK-007] Refatoração Estrutural e Limpeza de Código
   - Prioridade: Alta
   - Pontos: 13
@@ -12,8 +14,6 @@
     - Reestruturação de capabilities
     - Reorganização do core
     - Limpeza e padronização geral
-
-## 🏃 In Progress
 
 ## ✅ Done
 

@@ -1,78 +1,40 @@
-"""Monitoring module for Pepperpy.
+"""Monitoring module for metrics, health checks, tracing, and audit logging.
 
-This module provides monitoring functionality, including:
-- Logging configuration
-- Metrics collection
-- Tracing utilities
+This module provides comprehensive monitoring capabilities including:
+- Metrics collection and reporting
+- Health checks
+- Distributed tracing
 - Audit logging
 """
 
 import logging
-import os
 from pathlib import Path
 
-# Configure root logger
+# Configure base logger
 logger = logging.getLogger("pepperpy")
 logger.setLevel(logging.INFO)
 
-# Create formatters
-console_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-file_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s"
-)
-
-# Create console handler
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(console_formatter)
-logger.addHandler(console_handler)
-
-# Create file handler if log directory exists
+# Create logs directory
 log_dir = Path.home() / ".pepperpy/logs"
-if not log_dir.exists():
-    try:
-        log_dir.mkdir(parents=True)
-        file_handler = logging.FileHandler(log_dir / "pepperpy.log")
-        file_handler.setLevel(logging.DEBUG)
-        file_handler.setFormatter(file_formatter)
-        logger.addHandler(file_handler)
-    except Exception as e:
-        logger.warning(f"Failed to create log directory: {e}")
+log_dir.mkdir(parents=True, exist_ok=True)
 
-# Import audit logger
-from pepperpy.monitoring.audit import audit_logger
+# Create file handler
+log_file = log_dir / "pepperpy.log"
+file_handler = logging.FileHandler(log_file)
+file_handler.setFormatter(
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+)
+logger.addHandler(file_handler)
 
+# Import submodules
+from pepperpy.monitoring.audit import AuditLogger, audit_logger
+from pepperpy.monitoring.health import HealthManager
+from pepperpy.monitoring.metrics.simple import MetricsManager
 
-def configure_logging(
-    level: str = "INFO",
-    log_file: str | None = None,
-    format_string: str | None = None,
-) -> None:
-    """Configure logging for the Pepperpy framework.
-
-    Args:
-        level: Log level to set
-        log_file: Optional log file path
-        format_string: Optional format string for log messages
-    """
-    # Set root logger level
-    logger.setLevel(getattr(logging, level.upper()))
-
-    # Update console handler format if specified
-    if format_string:
-        console_handler.setFormatter(logging.Formatter(format_string))
-
-    # Add file handler if specified
-    if log_file:
-        try:
-            file_handler = logging.FileHandler(log_file)
-            file_handler.setLevel(logging.DEBUG)
-            file_handler.setFormatter(file_formatter)
-            logger.addHandler(file_handler)
-        except Exception as e:
-            logger.warning(f"Failed to create log file: {e}")
-
-
-__all__ = ["logger", "audit_logger", "configure_logging"]
+__all__ = [
+    "logger",
+    "AuditLogger",
+    "audit_logger",
+    "MetricsManager",
+    "HealthManager",
+]

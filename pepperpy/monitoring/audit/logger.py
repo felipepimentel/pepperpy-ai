@@ -1,13 +1,14 @@
 """Audit logging for security events.
 
-This module provides audit logging functionality for security-relevant events.
+This module provides secure audit logging capabilities for tracking security-relevant
+events in the system.
 """
 
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from pepperpy.monitoring import logger as base_logger
 
@@ -34,19 +35,28 @@ class AuditLogger:
         """Initialize the audit logger."""
         self.logger = logger
 
-    async def log(self, event: Dict[str, Any]) -> None:
+    async def log(
+        self,
+        event: Dict[str, Any],
+        level: int = logging.INFO,
+        user: Optional[str] = None,
+    ) -> None:
         """Log a security event.
 
         Args:
-            event: Event data to log. Must include:
-                - event_type: Type of event
-                - timestamp: Event timestamp
+            event: Event data to log. Must include event_type.
                 Additional fields are allowed.
+            level: Log level (default: INFO)
+            user: Optional user identifier
         """
-        if "timestamp" not in event:
-            event["timestamp"] = datetime.utcnow().isoformat()
+        # Add metadata
+        event["timestamp"] = event.get("timestamp", datetime.utcnow().isoformat())
+        if user:
+            event["user"] = user
 
-        self.logger.info(
+        # Log event
+        self.logger.log(
+            level,
             "Security event",
             extra={
                 "event": json.dumps(event),
@@ -57,4 +67,4 @@ class AuditLogger:
 # Global audit logger instance
 audit_logger = AuditLogger()
 
-__all__ = ["audit_logger"]
+__all__ = ["AuditLogger", "audit_logger"]

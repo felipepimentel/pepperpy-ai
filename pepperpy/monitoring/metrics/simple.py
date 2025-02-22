@@ -16,6 +16,41 @@ from pepperpy.monitoring.base import MetricsCollector
 logger = logging.getLogger(__name__)
 
 
+class MetricsManager:
+    """Manager class for metrics collection and reporting."""
+
+    def __init__(self) -> None:
+        """Initialize the metrics manager."""
+        self.collector = SimpleMetricsCollector()
+
+    async def initialize(self) -> None:
+        """Initialize the metrics collector."""
+        await self.collector._initialize()
+
+    async def cleanup(self) -> None:
+        """Clean up the metrics collector."""
+        await self.collector._cleanup()
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get current metrics.
+
+        Returns:
+            Dict containing current metrics data
+        """
+        metrics = []
+        for metric in self.collector._metrics:
+            metrics.append({
+                "name": metric.name,
+                "value": metric.value,
+                "timestamp": metric.timestamp,
+                "tags": metric.tags or {},
+            })
+        return {
+            "timestamp": datetime.now().isoformat(),
+            "metrics": metrics,
+        }
+
+
 class SimpleMetricsCollector(MetricsCollector):
     """Simple metrics collector that writes metrics to a log file.
 
@@ -111,3 +146,6 @@ class SimpleMetricsCollector(MetricsCollector):
 
         except Exception as e:
             raise MonitoringError(f"Failed to export metrics: {e}")
+
+
+__all__ = ["SimpleMetricsCollector", "MetricsManager"]

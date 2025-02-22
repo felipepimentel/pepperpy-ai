@@ -1,18 +1,19 @@
-"""Base LLM provider interface.
+"""Base LLM provider implementation.
 
-This module defines the base interface for language model providers.
-It includes:
-- Base LLM provider interface
-- LLM configuration
-- Common LLM types
+This module provides the base implementation for LLM (Language Model) providers.
+It combines functionality from both the core provider base and service provider.
 """
 
 from abc import abstractmethod
+from collections.abc import AsyncGenerator
 from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from pepperpy.core.messages import ProviderMessage, ProviderResponse
+from pepperpy.core.metrics import MetricsManager
+from pepperpy.core.monitoring import logger
 from pepperpy.providers.base import BaseProvider, ProviderConfig
 
 
@@ -31,23 +32,25 @@ class LLMMessage(BaseModel):
 
 
 class LLMConfig(ProviderConfig):
-    """Language model configuration.
+    """Base configuration for LLM providers.
 
     Attributes:
-        model: Model identifier
+        model: Model identifier to use
         temperature: Sampling temperature
         max_tokens: Maximum tokens to generate
-        stop: Optional stop sequences
-        presence_penalty: Presence penalty value
-        frequency_penalty: Frequency penalty value
+        stop_sequences: Optional stop sequences
+        timeout: Request timeout in seconds
+        max_retries: Maximum number of retries
     """
 
-    model: str
-    temperature: float = 0.7
-    max_tokens: Optional[int] = None
-    stop: Optional[Union[str, List[str]]] = None
-    presence_penalty: float = 0.0
-    frequency_penalty: float = 0.0
+    model: str = Field(description="Model identifier to use")
+    temperature: float = Field(default=0.7, description="Sampling temperature")
+    max_tokens: int = Field(default=2048, description="Maximum tokens to generate")
+    stop_sequences: list[str] | None = Field(
+        default=None, description="Optional stop sequences"
+    )
+    timeout: float = Field(default=30.0, description="Request timeout in seconds")
+    max_retries: int = Field(default=3, description="Maximum number of retries")
 
 
 class LLMResponse(BaseModel):
@@ -68,25 +71,115 @@ class LLMResponse(BaseModel):
     finish_reason: Optional[str] = None
 
 
-class BaseLLMProvider(BaseProvider[LLMResponse]):
-    """Base class for language model providers.
+class LLMProvider(BaseProvider):
+    """Base class for LLM providers.
 
-    This class defines the interface that all LLM providers must implement.
+    This class provides common functionality for providers that interact
+    with LLM services.
     """
 
     def __init__(self, config: LLMConfig) -> None:
         """Initialize LLM provider.
 
         Args:
-            config: LLM configuration
+            config: Provider configuration
         """
         super().__init__(config)
-        self.model = config.model
-        self.temperature = config.temperature
-        self.max_tokens = config.max_tokens
-        self.stop = config.stop
-        self.presence_penalty = config.presence_penalty
-        self.frequency_penalty = config.frequency_penalty
+        self._metrics = MetricsManager.get_instance()
+        logger.debug("Initialized LLM provider with config: %s", config)
+
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        This method should be called before using the provider.
+        """
+        try:
+            # Initialize service connection
+            await self._initialize_service()
+            self._metrics.increment("provider.llm.successful_initializations")
+            logger.info("LLM provider initialized successfully")
+            self._initialized = True
+        except Exception as e:
+            self._metrics.increment("provider.llm.initialization_errors")
+            logger.error("Failed to initialize LLM provider: %s", e)
+            raise
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method should be called when the provider is no longer needed.
+        """
+        try:
+            # Clean up service connection
+            await self._cleanup_service()
+            self._metrics.increment("provider.llm.successful_cleanups")
+            logger.info("LLM provider cleaned up successfully")
+            self._initialized = False
+        except Exception as e:
+            self._metrics.increment("provider.llm.cleanup_errors")
+            logger.error("Failed to clean up LLM provider: %s", e)
+            raise
+
+    @abstractmethod
+    async def _initialize_service(self) -> None:
+        """Initialize service connection.
+
+        This method should be implemented by subclasses to handle
+        service-specific initialization.
+        """
+        pass
+
+    @abstractmethod
+    async def _cleanup_service(self) -> None:
+        """Clean up service connection.
+
+        This method should be implemented by subclasses to handle
+        service-specific cleanup.
+        """
+        pass
+
+    @abstractmethod
+    async def process_message(
+        self,
+        message: ProviderMessage,
+    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+        """Process a provider message.
+
+        Args:
+            message: Provider message to process
+
+        Returns:
+            Provider response or async generator of responses
+
+        Raises:
+            ProviderError: If message processing fails
+        """
+        pass
+
+    @abstractmethod
+    async def embed(
+        self,
+        text: str,
+        *,
+        model: Optional[str] = None,
+        dimensions: Optional[int] = None,
+        **kwargs: Any,
+    ) -> list[float]:
+        """Generate embeddings for the given text.
+
+        Args:
+            text: Text to generate embeddings for
+            model: Optional model to use for embeddings
+            dimensions: Optional number of dimensions for embeddings
+            **kwargs: Additional model-specific parameters
+
+        Returns:
+            List of embedding values
+
+        Raises:
+            ProviderError: If embedding generation fails
+        """
+        pass
 
     @abstractmethod
     async def generate(
