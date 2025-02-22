@@ -1,0 +1,11 @@
+{
+  "name": "memory_resources",
+  "version": "v1.0.0",
+  "type": "resource_config",
+  "config": {
+    "auto_cleanup": true,
+    "cleanup_interval": 3600,
+    "max_entries": 10000,
+    "default_expiration": 86400
+  }
+}

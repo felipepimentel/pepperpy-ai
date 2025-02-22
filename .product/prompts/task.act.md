@@ -1,7 +1,7 @@
 ---
 title: Task Execution Template
 description: Template for executing planned tasks with strict format maintenance and clear status tracking.
-version: 5.1
+version: 6.0
 category: execution
 tags: [execution, implementation]
 yolo: true
@@ -9,35 +9,46 @@ strict_mode: true
 ---
 
 # Task File Access
-All task files are located at `./product/tasks/<TASK-ID>.md`. For example, TASK-004 would be located at `./product/tasks/TASK-004.md`. Always use this path when accessing task files.
+All task files are located at `.product/tasks/<TASK-ID>/`. For example:
+- Main task file: `.product/tasks/TASK-004/TASK-004.md`
+- Requirement files: `.product/tasks/TASK-004/TASK-004-R001.md`
 
 # Execution Rules
 ```yaml
 validation:
   pre_execution:
     task_status:
-      - if status is "✅ Done": respond "Task is already completed" and stop
-      - if status not in ["📋 To Do", "🏃 In Progress"]: stop
+      - if main task status is "✅ Done": respond "Task is already completed" and stop
+      - if main task status not in ["📋 To Do", "🏃 In Progress"]: stop
     task_format:
-      - verify frontmatter completeness
-      - verify required sections exist
-      - verify requirements format
+      - verify main task frontmatter completeness
+      - verify requirement files exist and are complete
+      - verify requirements format in each file
       - verify task structure matches original plan
-      - verify no unauthorized modifications to requirements
+      - verify no unauthorized modifications
     task_content:
-      - verify overview section preserved
+      - verify overview section preserved in main file
       - verify requirements list matches plan
-      - verify implementation steps preserved
-      - verify validation criteria preserved
+      - verify implementation steps preserved in requirement files
+      - verify validation criteria preserved in requirement files
 
   status_transitions:
-    - "📋 To Do" -> "🏃 In Progress":
-        - update mode to Act
-        - preserve all planning details
-        - maintain validation criteria
-    - "🏃 In Progress" -> "✅ Done":
-        - validate all requirements complete
-        - verify no planning details were lost
+    main_task:
+      - "📋 To Do" -> "🏃 In Progress":
+          - update mode to Act
+          - preserve all planning details
+          - maintain validation criteria
+      - "🏃 In Progress" -> "✅ Done":
+          - validate all requirements complete
+          - verify no planning details were lost
+    
+    requirement:
+      - "📋 To Do" -> "🏃 In Progress":
+          - update status in both main and requirement file
+          - add start date
+      - "🏃 In Progress" -> "✅ Done":
+          - update status in both main and requirement file
+          - add completion date
     
   kanban_sync:
     file: .product/kanban.md
@@ -45,7 +56,7 @@ validation:
     preserve_metadata: true
 ```
 
-# Task Template
+# Main Task File Template
 ```markdown
 ---
 title: {title}
@@ -57,95 +68,111 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 
-# Requirements
-
-- [-] Requirement: {exact description from plan}  # 🏃 Started: YYYY-MM-DD
-  ## Implementation Status
-  ```python
-  # Only show implemented code with status
-  def implemented_feature():  # ✅ Complete
-      return "working"
-
-  def in_progress_feature():  # 🏃 In Progress
-      pass
-
-  def pending_feature():  # ⏳ Pending
-      pass
-  ```
-
-  ## Validation Status
-  ```python
-  # Only show test results
-  test_implemented ✅
-  test_in_progress 🏃
-  test_pending ⏳
-  ```
+# Requirements Overview
+- [-] [R001] {title} - [Details](TASK-XXX-R001.md)  # 🏃 Started: YYYY-MM-DD
+- [ ] [R002] {title} - [Details](TASK-XXX-R002.md)
+- [x] [R003] {title} - [Details](TASK-XXX-R003.md)  # ✅ Done: YYYY-MM-DD
 
 # Progress Updates
 
 ## YYYY-MM-DD
 - Current Status: {specific implementation detail}
 - Completed:
-  - {specific implemented item} ✅
+  - [R003] {specific implemented item} ✅
 - In Progress:
-  - {specific item being worked on} 🏃
+  - [R001] {specific item being worked on} 🏃
 - Next:
-  - {specific next item} ⏳
+  - [R002] {specific next item} ⏳
+```
+
+# Requirement File Template
+```markdown
+---
+title: {requirement_title}
+task: TASK-XXX
+code: R001
+status: 🏃 In Progress
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+started: YYYY-MM-DD
+completed: null
+---
+
+# Implementation Status
+```python
+def implemented_feature():  # ✅ Complete
+    return "working"
+
+def in_progress_feature():  # 🏃 In Progress
+    pass
+
+def pending_feature():  # ⏳ Pending
+    pass
+```
+
+# Validation Status
+```python
+test_implemented ✅
+test_in_progress 🏃
+test_pending ⏳
+```
+
+# Progress Updates
+## YYYY-MM-DD
+- Status: {status}
+- Progress: {details}
 ```
 
 # Rules for Maintaining Format
 
-1. **Requirements Section:**
+1. **Main Task File:**
    - Never add new requirements
    - Never modify requirement descriptions
-   - Never remove planning details
-   - Never change validation criteria
-   - Only update status markers:
-     - [ ] -> [-] -> [x]
-     - Add start/completion dates with markers
-   - Preserve all subtasks and their structure
+   - Only update status markers and dates
+   - Keep overview and progress up to date
+   - Sync status with requirement files
 
-2. **Implementation Status:**
-   - Show only actual implemented code
-   - Mark each function/class with status emoji
-   - Remove code when complete and tested
-   - Never modify planned implementation steps
-   - Keep original validation criteria
+2. **Requirement Files:**
+   - Never modify original requirement
+   - Keep implementation status current
+   - Update validation status regularly
+   - Add progress updates as needed
+   - Sync status with main task file
 
-3. **Validation Status:**
-   - List only existing test results
-   - Update with clear status emojis
-   - Remove passed tests from list
-   - Never modify planned validation tests
-   - Keep original test structure
+3. **Status Updates Flow:**
+   - Update status in requirement file
+   - Reflect status in main task file
+   - Update kanban board
+   - Add progress updates in both files
+   - Keep all files in sync
 
-4. **Progress Updates:**
-   - **Every progress update must reflect in all relevant sections (Requirements, Implementation, Validation, and Progress).**
-   - Add new entries at top
-   - Keep entries focused and specific
-   - Use consistent emoji markers
-   - Reference original planning items
-   - Track against planned implementation
-
-5. **Status Updates:**
-   - Update frontmatter status field
-   - Update task status in kanban
-   - Add completion date when done
-   - Preserve all task metadata
-   - Maintain dependencies information
+4. **Completion Rules:**
+   - All requirement files marked complete
+   - All tests passing in each requirement
+   - Main task status updated
+   - Kanban updated
+   - All documentation current
 
 # Example Progress Flow
 
 ## Starting Implementation
 ```markdown
-- [ ] Feature: Add error handling  # Original
+# In main task file (TASK-007.md):
+- [ ] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)
 ->
-- [-] Feature: Add error handling  # 🏃 Started: 2024-02-14
+- [-] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)  # 🏃 Started: 2024-02-14
+
+# In requirement file (TASK-007-R001.md):
+status: 📋 To Do
+->
+status: 🏃 In Progress
+started: 2024-02-14
 ```
 
 ## Implementation Progress
 ```markdown
-## Implementation Status
+# In requirement file (TASK-007-R001.md):
+# Implementation Status
 ```python
 def handle_error(error: Exception):  # ✅ Complete
     return ErrorResult(str(error))
@@ -154,7 +181,7 @@ def process_error(error: Exception):  # 🏃 In Progress
     pass
 ```
 
-## Validation Status
+# Validation Status
 ```python
 test_handle_error_basic ✅
 test_handle_error_complex 🏃
@@ -164,38 +191,44 @@ test_process_error ⏳
 
 ## Completion
 ```markdown
-- [-] Feature: Add error handling  # 🏃 Started: 2024-02-14
+# In main task file (TASK-007.md):
+- [-] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)  # 🏃 Started: 2024-02-14
 ->
-- [x] Feature: Add error handling  # ✅ 2024-02-14
+- [x] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)  # ✅ Done: 2024-02-14
+
+# In requirement file (TASK-007-R001.md):
+status: 🏃 In Progress
+->
+status: ✅ Done
+completed: 2024-02-14
 ```
 
 # Important Constraints
 
-1. **Content Preservation:**
-   - All planning details must be preserved
-   - Implementation structure must match plan
-   - Validation criteria must remain unchanged
-   - Original requirements must be maintained
-   - Task structure must be respected
+1. **File Organization:**
+   - Keep all task files in their directory
+   - Maintain clear requirement references
+   - Use consistent file naming
+   - Keep status markers synchronized
+   - Preserve file structure
 
-2. **Format Maintenance:**
-   - Keep exact indentation
-   - Use specified emojis only
-   - Follow status marker format
-   - Maintain vertical structure
-   - Preserve section hierarchy
-
-3. **Updates Flow:**
-   - **Every modification in execution (code and tests) must be reflected immediately in the task status.**
-   - Add new progress entries at top
+2. **Content Management:**
+   - Never modify original requirements
    - Keep implementation current
-   - Remove completed code
    - Update validation status
-   - Reference original plan items
+   - Maintain progress updates
+   - Sync status across files
 
-4. **Completion Rules:**
-   - All code implemented
-   - All tests passing
-   - Status marked as done
-   - Kanban updated
-   - Original plan verified
+3. **Status Tracking:**
+   - Update both main and requirement files
+   - Keep dates accurate
+   - Use consistent status markers
+   - Maintain kanban board
+   - Document all changes
+
+4. **Completion Process:**
+   - Verify all requirements complete
+   - Check all validation criteria
+   - Update all status markers
+   - Sync all related files
+   - Maintain documentation

@@ -1,40 +1,26 @@
-"""Base agent interface.
+"""Base agent functionality.
 
-This module defines the base interface for agents.
-It includes:
-- Base agent interface
-- Agent configuration
-- Common agent types
+This module provides base classes and utilities for agent implementation,
+including configuration, memory management, and monitoring.
 """
 
+import logging
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Protocol
 
 from pydantic import BaseModel
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import (
+    ConfigError,
+)
+from pepperpy.core.resources import Resource
+from pepperpy.hub.resource_manager import get_resource_manager
+from pepperpy.memory.simple import SimpleMemory
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     pass
-
-
-class AgentError(PepperpyError):
-    """Raised when an agent operation fails."""
-
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None,
-        user_message: Optional[str] = None,
-        recovery_hint: Optional[str] = None,
-    ) -> None:
-        """Initialize the error."""
-        error_details = {"error_code": "ERR006", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-            user_message=user_message,
-            recovery_hint=recovery_hint,
-        )
 
 
 class AgentConfig(BaseModel):
@@ -207,3 +193,159 @@ class BaseAgent:
     async def _cleanup(self) -> None:
         """Clean up agent resources."""
         pass
+
+
+class Agent(Resource, ABC):
+    """Base class for all agents.
+
+    This class provides common functionality for agents including:
+    - Configuration management
+    - Memory management
+    - Resource lifecycle
+    - Error handling
+    """
+
+    def __init__(
+        self,
+        config_name: Optional[str] = None,
+        config_version: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize agent with configuration.
+
+        Args:
+            config_name: Name of the configuration to load from Hub
+            config_version: Version of the configuration to load
+            **kwargs: Additional configuration options
+
+        Raises:
+            ConfigError: If configuration loading fails
+        """
+        # Define default configuration
+        self.default_config = {
+            "model": "gpt-4",
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "memory": {
+                "enabled": True,
+                "type": "simple",
+                "config": {
+                    "auto_cleanup": True,
+                    "cleanup_interval": 3600,
+                    "max_entries": 1000,
+                    "default_expiration": 86400,
+                },
+            },
+            "error_handling": {
+                "max_retries": 3,
+                "retry_delay": 1,
+                "backoff_factor": 2,
+            },
+            "monitoring": {
+                "enable_metrics": True,
+                "metrics_interval": 60,
+                "log_level": "INFO",
+                "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            },
+        }
+
+        # Load configuration from Hub if name provided
+        if config_name:
+            try:
+                resource_manager = get_resource_manager()
+                hub_config = resource_manager.load_config(
+                    config_name,
+                    version=config_version or "v1.0.0",
+                )
+                self.config = {**self.default_config, **hub_config}
+            except Exception as e:
+                raise ConfigError(f"Failed to load configuration: {e}")
+        else:
+            self.config = self.default_config.copy()
+
+        # Update config with kwargs
+        self.config.update(kwargs)
+
+        # Get memory configuration
+        memory_config = self.config.get("memory", {}).get("config", {})
+        auto_cleanup = memory_config.get("auto_cleanup", True)
+        cleanup_interval = memory_config.get("cleanup_interval", 3600)
+
+        # Initialize base resource
+        super().__init__(
+            auto_cleanup=auto_cleanup,
+            cleanup_interval=cleanup_interval,
+        )
+
+    async def _initialize(self) -> None:
+        """Initialize agent resources."""
+        # Initialize memory if enabled
+        if self.config.get("memory", {}).get("enabled", True):
+            memory_config = self.config.get("memory", {}).get("config", {})
+            self.memory = SimpleMemory(**memory_config)
+            await self.memory.initialize()
+
+        # Initialize metrics collector if enabled
+        if self.config.get("monitoring", {}).get("enable_metrics", True):
+            # TODO: Initialize metrics collector
+            pass
+
+    async def _cleanup(self) -> None:
+        """Clean up agent resources."""
+        if hasattr(self, "memory"):
+            await self.memory.cleanup()
+
+    async def remember(self, key: str, value: Any) -> None:
+        """Store a value in memory.
+
+        Args:
+            key: Key to store the value under
+            value: Value to store
+        """
+        if hasattr(self, "memory"):
+            await self.memory.store(key, value)
+
+    async def recall(self, key: str) -> Any:
+        """Retrieve a value from memory.
+
+        Args:
+            key: Key to retrieve the value for
+
+        Returns:
+            The stored value
+        """
+        if hasattr(self, "memory"):
+            return await self.memory.retrieve(key)
+        return None
+
+    @abstractmethod
+    async def process(self, input: str) -> str:
+        """Process user input.
+
+        Args:
+            input: User input to process
+
+        Returns:
+            Processing result
+        """
+        pass
+
+    @classmethod
+    def from_hub(
+        cls, config_name: str, config_version: str = "v1.0.0", **kwargs: Any
+    ) -> "Agent":
+        """Create agent instance from Hub configuration.
+
+        Args:
+            config_name: Name of the configuration to load
+            config_version: Version of the configuration
+            **kwargs: Additional configuration options
+
+        Returns:
+            Agent instance
+        """
+        return cls(
+            config_name=config_name,
+            config_version=config_version,
+            **kwargs,
+        )

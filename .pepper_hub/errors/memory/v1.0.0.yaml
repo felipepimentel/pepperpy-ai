@@ -1,0 +1,28 @@
+name: memory_errors
+version: 1.0.0
+type: error_definitions
+description: Standardized error definitions for memory operations
+errors:
+  store_failed:
+    code: MEM001
+    message: "Failed to store memory entry: {error}"
+    level: ERROR
+    retry: true
+    max_retries: 3
+  retrieve_failed:
+    code: MEM002
+    message: "Failed to retrieve memory entry: {error}"
+    level: ERROR
+    retry: true
+    max_retries: 3
+  initialization_failed:
+    code: MEM003
+    message: "Failed to initialize memory component: {error}"
+    level: CRITICAL
+    retry: false
+  cleanup_failed:
+    code: MEM004
+    message: "Failed to cleanup memory resources: {error}"
+    level: WARNING
+    retry: true
+    max_retries: 2 

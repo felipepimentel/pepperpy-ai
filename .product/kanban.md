@@ -2,9 +2,18 @@
 
 ## 📋 To Do
 
+- [TASK-007] Refatoração Estrutural e Limpeza de Código
+  - Prioridade: Alta
+  - Pontos: 13
+  - Breaking changes para v2.0.0
+  - Inclui:
+    - Remoção do dashboard web
+    - Consolidação de providers/services
+    - Reestruturação de capabilities
+    - Reorganização do core
+    - Limpeza e padronização geral
+
 ## 🏃 In Progress
-
-
 
 ## ✅ Done
 

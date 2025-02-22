@@ -112,7 +112,6 @@ class Message(BaseModel):
 2. `CONTRIBUTING.md`: Development guidelines
 3. `CHANGELOG.md`: Version history
 4. `.env.example`: Environment variable template
-5. `.product/tasks/roadmap.md`: Product roadmap and milestones
 
 ### Architecture Documentation
 - Component diagrams (in `.product/architecture.mermaid`)

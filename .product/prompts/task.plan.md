@@ -1,7 +1,7 @@
 ---
 title: Task Planning Template
 description: Template for task planning with clear specifications and implementation details.
-version: 3.0
+version: 4.0
 category: planning
 tags: [planning, task-management]
 yolo: true
@@ -9,10 +9,12 @@ strict_mode: true
 ---
 
 # Task File Location
-Tasks should be created in the `.product/tasks/` directory following the naming convention:
-- File path: `.product/tasks/TASK-{ID}.md`
-- Example: `.product/tasks/TASK-005.md`
+Tasks should be created in the `.product/tasks/<TASK-ID>/` directory following the naming convention:
+- Main task file: `.product/tasks/<TASK-ID>/<TASK-ID>.md`
+- Requirement files: `.product/tasks/<TASK-ID>/<TASK-ID>-R{XXX}.md`
+- Example: `.product/tasks/TASK-005/TASK-005.md` and `.product/tasks/TASK-005/TASK-005-R001.md`
 
+# Main Task File Template
 ```markdown
 ---
 title: {task_title}
@@ -24,25 +26,18 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 
-# Requirements
-Note: Requirements follow sequential order. Each builds upon previous changes.
+# Objetivo
+{Clear task objective and expected outcomes}
 
-- [ ] Requirement 1: {Clear objective}
-  ## Current State
-  \```python
-  # Existing code or structure to be modified
-  \```
+# Métricas de Sucesso
+- {Metric 1}
+- {Metric 2}
+- {Metric N}
 
-  ## Implementation
-  \```python
-  # Exact code changes and implementation
-  \```
-
-  ## Validation
-  \```python
-  def test_requirement():
-      # Specific tests for this change
-  \```
+# Requirements Overview
+- [ ] [R001] {Requirement title} - [Details](TASK-XXX-R001.md)
+- [ ] [R002] {Requirement title} - [Details](TASK-XXX-R002.md)
+- [ ] [R003] {Requirement title} - [Details](TASK-XXX-R003.md)
 
 # Progress Updates
 
@@ -50,65 +45,111 @@ Note: Requirements follow sequential order. Each builds upon previous changes.
 - Current Status: {status}
 - Completed: {items}
 - Next Steps: {next actions}
+
+# Validation Checklist
+- [ ] {Validation item 1}
+- [ ] {Validation item 2}
+
+# Breaking Changes
+{List of breaking changes}
+
+# Migration Guide
+{Migration steps}
+
+# Dependencies
+{List of dependencies}
 ```
 
-Example Usage:
+# Requirement File Template
 ```markdown
 ---
-title: Code Organization and Structure Improvements
-priority: high
-points: 8
+title: {requirement_title}
+task: TASK-XXX
+code: R001
 status: 📋 To Do
-mode: Plan
-created: 2024-02-14
-updated: 2024-02-14
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+started: null
+completed: null
 ---
 
-# Requirements
+# Requirement
+{Clear requirement description}
 
-- [ ] Flatten capabilities structure
-  ## Current State
-  \```python
-  # capabilities/learning/errors.py
-  class LearningError(Exception):
-      pass
+# Dependencies
+- {Dependency 1}
+- {Dependency 2}
 
-  # capabilities/planning/errors.py
-  class PlanningError(Exception):
-      pass
-  \```
+## Current State
+```python
+# Existing code or structure to be modified
+```
 
-  ## Implementation
-  \```python
-  # capabilities/errors.py
-  from enum import Enum
+## Implementation
+```python
+# Exact code changes and implementation
+```
 
-  class ErrorType(Enum):
-      LEARNING = "learning"
-      PLANNING = "planning"
+## Validation
+```python
+def test_requirement():
+    # Specific tests for this change
+```
 
-  class CapabilityError(Exception):
-      def __init__(self, type: ErrorType, message: str):
-          self.type = type
-          self.message = message
-  \```
+## Rollback Plan
+1. {Step 1}
+2. {Step 2}
 
-  ## Validation
-  \```python
-  def test_capability_errors():
-      error = CapabilityError(ErrorType.LEARNING, "test")
-      assert error.type == ErrorType.LEARNING
-      assert str(error) == "learning: test"
-  \```
+## Success Metrics
+- [ ] {Metric 1}
+- [ ] {Metric 2}
 
 # Progress Updates
 
-## 2024-02-14
-- Current Status: Planning phase
-- Completed: Initial requirements definition
-- Next Steps: Begin implementation
+## YYYY-MM-DD
+- Status: {status}
+- Progress: {details}
 ```
+
+# Task Creation Process
+
+1. **Create Task Directory**
+   ```bash
+   mkdir -p .product/tasks/TASK-XXX
+   ```
+
+2. **Create Main Task File**
+   ```bash
+   touch .product/tasks/TASK-XXX/TASK-XXX.md
+   ```
+
+3. **Create Initial Requirements**
+   ```bash
+   touch .product/tasks/TASK-XXX/TASK-XXX-R001.md
+   touch .product/tasks/TASK-XXX/TASK-XXX-R002.md
+   ```
+
+4. **Fill Templates**
+   - Use the templates above
+   - Keep requirements atomic
+   - Include all necessary sections
+   - Maintain clear links
+
+# Example Task Structure
+
+```
+.product/tasks/TASK-007/
+├── TASK-007.md                # Main task file
+├── TASK-007-R001.md          # Remove dashboard web
+├── TASK-007-R002.md          # Consolidate providers
+└── TASK-007-R003.md          # Restructure capabilities
+```
+
 Remember: 
-1. All tasks must be saved in `.product/tasks/TASK-{ID}.md`
-2. Reference task_management_workflow for task creation
-3. Reference ai_knowledge_base_management for pattern tracking
+1. Each task has its own directory
+2. Main task file contains overview and status tracking
+3. Each requirement has its own file with complete details
+4. Use requirement codes (R001, R002, etc.) for clear referencing
+5. Keep all files in sync regarding status updates
+6. Include rollback plans for each requirement
+7. Maintain clear dependencies between requirements

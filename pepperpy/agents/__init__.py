@@ -9,13 +9,14 @@ The agents are organized by their primary function:
   - ResearcherAgent: Specialized research and analysis agent
 """
 
-from pepperpy.agents.base import BaseAgent
+from pepperpy.agents.base import Agent, BaseAgent
 from pepperpy.agents.factory import AgentFactory
 from pepperpy.agents.research import (
     ResearchAgent,
     ResearchAssistant,
     ResearcherAgent,
 )
+from pepperpy.agents.task_assistant import TaskAssistant
 
 __version__ = "0.1.0"
 
@@ -25,4 +26,6 @@ __all__ = [
     "ResearchAgent",
     "ResearchAssistant",
     "ResearcherAgent",
+    "Agent",
+    "TaskAssistant",
 ]

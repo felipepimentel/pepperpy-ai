@@ -4,13 +4,13 @@
     "type": "prompt",
     "version": "1.0.0",
     "tags": [
-      "test",
-      "example"
+      "example",
+      "test"
     ],
     "properties": {
       "description": "Generate test cases for code"
     },
-    "created_at": "2025-02-21T17:50:33.667405"
+    "created_at": "2025-02-21T22:41:14.977328"
   },
   "content": {
     "model": "gpt-4",

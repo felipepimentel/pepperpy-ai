@@ -1,0 +1,53 @@
+name: task_assistant
+version: 1.0.0
+type: agent_config
+
+config:
+  # Agent behavior configuration
+  model: gpt-4
+  temperature: 0.7
+  max_tokens: 2048
+  
+  # Memory configuration
+  memory:
+    enabled: true
+    type: simple
+    config:
+      auto_cleanup: true
+      cleanup_interval: 3600  # 1 hour in seconds
+      max_entries: 10000
+      default_expiration: 86400  # 24 hours in seconds
+  
+  # Error handling configuration
+  error_handling:
+    max_retries: 3
+    retry_delay: 1.0  # seconds
+    backoff_factor: 2.0
+  
+  # Monitoring configuration
+  monitoring:
+    enable_metrics: true
+    metrics_interval: 60  # 1 minute in seconds
+    log_level: INFO
+    log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  
+  # Agent capabilities
+  capabilities:
+    - task_planning
+    - task_execution
+    - error_handling
+    - resource_management
+  
+  # Agent workflow
+  workflow:
+    - step: plan
+      description: "Plan task execution steps"
+      timeout: 30  # seconds
+    
+    - step: execute
+      description: "Execute planned steps"
+      timeout: 300  # seconds
+    
+    - step: validate
+      description: "Validate execution results"
+      timeout: 30  # seconds 

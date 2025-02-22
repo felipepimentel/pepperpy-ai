@@ -1,0 +1,24 @@
+name: memory_resources
+version: 1.0.0
+type: resource_config
+
+config:
+  # Resource lifecycle configuration
+  auto_cleanup: true
+  cleanup_interval: 3600  # 1 hour in seconds
+  
+  # Memory-specific configuration
+  max_entries: 10000
+  default_expiration: 86400  # 24 hours in seconds
+  
+  # Error handling configuration
+  max_retries: 3
+  retry_delay: 1.0  # seconds
+  
+  # Monitoring configuration
+  enable_metrics: true
+  metrics_interval: 60  # 1 minute in seconds
+  
+  # Logging configuration
+  log_level: INFO
+  log_format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s" 

@@ -8,10 +8,10 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar, Union
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pepperpy.core.types import (
     AgentID,
@@ -127,57 +127,68 @@ class Validatable(Protocol):
 # Base Data Classes
 
 
-@dataclass
 class Metadata:
-    """Base metadata for all framework objects."""
+    """Component metadata."""
 
-    created_at: datetime
-    updated_at: datetime
-    version: str
-    tags: List[str]
-    properties: Dict[str, Any]
+    def __init__(
+        self,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None,
+        version: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        properties: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize metadata.
+
+        Args:
+            created_at: Creation timestamp
+            updated_at: Last update timestamp
+            version: Component version
+            tags: Component tags
+            properties: Additional properties
+        """
+        self.created_at = created_at or datetime.now(UTC)
+        self.updated_at = updated_at or datetime.now(UTC)
+        self.version = version or "0.1.0"
+        self.tags = tags or []
+        self.properties = properties or {}
 
 
 # Base Classes
 
 
-class BaseComponent(ABC):
-    """Base class for all framework components that implements core protocols."""
+class BaseComponent:
+    """Base component with metadata and lifecycle management."""
 
-    def __init__(self, id: UUID, metadata: Optional[Metadata] = None) -> None:
-        self._id = id
-        self._metadata = metadata or Metadata(
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-            version="1.0.0",
-            tags=[],
-            properties={},
-        )
+    def __init__(
+        self,
+        id: Optional[UUID] = None,
+        metadata: Optional[Metadata] = None,
+    ) -> None:
+        """Initialize component.
 
-    @property
-    def id(self) -> UUID:
-        return self._id
+        Args:
+            id: Component ID
+            metadata: Component metadata
+        """
+        self.id = id or uuid4()
+        self.metadata = metadata or Metadata()
 
-    @property
-    def metadata(self) -> Metadata:
-        return self._metadata
-
-    def validate(self) -> None:
-        """Default validation implementation."""
-        if not self._id:
-            raise ValueError("Component must have a valid ID")
-        if not self._metadata:
-            raise ValueError("Component must have valid metadata")
-
-    @abstractmethod
     async def initialize(self) -> None:
-        """Initialize the component."""
-        pass
+        """Initialize component.
 
-    @abstractmethod
+        Raises:
+            NotImplementedError: Must be implemented by subclasses
+        """
+        raise NotImplementedError("Subclasses must implement initialize()")
+
     async def cleanup(self) -> None:
-        """Clean up the component."""
-        pass
+        """Clean up component.
+
+        Raises:
+            NotImplementedError: Must be implemented by subclasses
+        """
+        raise NotImplementedError("Subclasses must implement cleanup()")
 
 
 class BaseProvider(BaseComponent):

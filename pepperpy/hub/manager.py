@@ -7,16 +7,20 @@ and their lifecycle.
 import asyncio
 import hashlib
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Optional, Set
 from uuid import UUID
 
+import yaml
+
+from pepperpy.core.errors import HubError, NotFoundError, PepperpyError
 from pepperpy.core.types import ComponentState
 from pepperpy.core.workflows import WorkflowEngine
 from pepperpy.events.base import EventBus
 from pepperpy.hub.base import Hub, HubConfig, HubType
-from pepperpy.hub.errors import HubError, HubNotFoundError
+from pepperpy.hub.errors import HubNotFoundError
 from pepperpy.hub.events import HubArtifactEvent, HubEventHandler, HubLifecycleEvent
 from pepperpy.hub.marketplace import MarketplaceManager
 from pepperpy.hub.security import SecurityManager
@@ -30,28 +34,22 @@ logger = logger.getChild(__name__)
 class HubManager:
     """Manages Hub instances and their lifecycle."""
 
-    def __init__(
-        self,
-        root_dir: Optional[Path] = None,
-        storage: Optional[StorageBackend] = None,
-        security: Optional[SecurityManager] = None,
-        marketplace: Optional[MarketplaceManager] = None,
-        event_bus: Optional[EventBus] = None,
-    ) -> None:
-        """Initialize Hub manager.
+    _instance: Optional["HubManager"] = None
+    _hub_path: Path = Path(os.getenv("PEPPER_HUB_PATH", ".pepper_hub"))
+
+    def __init__(self, hub_path: Optional[str] = None) -> None:
+        """Initialize hub manager.
 
         Args:
-            root_dir: Root directory for Hub data
-            storage: Storage backend
-            security: Security manager
-            marketplace: Marketplace manager
-            event_bus: Event bus for Hub events
+            hub_path: Optional path to Hub directory
         """
-        self._root_dir = root_dir or Path.home() / ".pepperpy/hub"
-        self._storage_backend = storage
-        self._security_manager = security
-        self._marketplace_manager = marketplace
-        self._event_bus = event_bus or EventBus()
+        if hub_path:
+            self._hub_path = Path(hub_path)
+        self._root_dir = self._hub_path
+        self._storage_backend = None
+        self._security_manager = None
+        self._marketplace_manager = None
+        self._event_bus = EventBus()
         self._event_handler = HubEventHandler()
         self._hubs: Dict[str, Hub] = {}
         self._active = False
@@ -59,6 +57,17 @@ class HubManager:
         self._workflow_engine = WorkflowEngine()
         self._component_states: Dict[str, ComponentState] = {}
         self._lock = asyncio.Lock()
+
+    @classmethod
+    def get_instance(cls) -> "HubManager":
+        """Get singleton instance.
+
+        Returns:
+            HubManager instance
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     @property
     def storage_backend(self) -> Optional[StorageBackend]:
@@ -671,3 +680,275 @@ class HubManager:
             logger.error(f"Failed to unregister hub {hub_name}: {e}")
             await self.set_component_state(hub_name, ComponentState.ERROR)
             raise HubError(f"Failed to unregister hub {hub_name}") from e
+
+    @classmethod
+    def load(cls, name: str, version: Optional[str] = None) -> Dict[str, Any]:
+        """Load Hub artifact configuration.
+
+        Args:
+            name: Name of the artifact
+            version: Optional version (defaults to latest)
+
+        Returns:
+            Artifact configuration
+
+        Raises:
+            PepperpyError: If loading fails
+        """
+        try:
+            manager = cls.get_instance()
+
+            # Find artifact directory
+            artifact_dir = manager._find_artifact_dir(name)
+            if not artifact_dir.exists():
+                raise PepperpyError(f"Artifact not found: {name}")
+
+            # Get version
+            if version is None:
+                version = manager._get_latest_version(artifact_dir)
+
+            # Load configuration
+            config_path = artifact_dir / f"v{version}.yaml"
+            if not config_path.exists():
+                raise PepperpyError(f"Version not found: {version}")
+
+            with open(config_path) as f:
+                return yaml.safe_load(f)
+
+        except Exception as e:
+            raise PepperpyError(f"Failed to load Hub artifact: {e}")
+
+    def _find_artifact_dir(self, name: str) -> Path:
+        """Find artifact directory.
+
+        Args:
+            name: Artifact name
+
+        Returns:
+            Path to artifact directory
+        """
+        # Check each subdirectory for artifact
+        for subdir in self._hub_path.iterdir():
+            if subdir.is_dir():
+                artifact_dir = subdir / name
+                if artifact_dir.exists():
+                    return artifact_dir
+
+        # Default to agents directory
+        return self._hub_path / "agents" / name
+
+    def _get_latest_version(self, artifact_dir: Path) -> str:
+        """Get latest version from artifact directory.
+
+        Args:
+            artifact_dir: Path to artifact directory
+
+        Returns:
+            Latest version string
+
+        Raises:
+            PepperpyError: If no versions found
+        """
+        versions = []
+        for path in artifact_dir.glob("v*.yaml"):
+            version = path.stem[1:]  # Remove 'v' prefix
+            versions.append(version)
+
+        if not versions:
+            raise PepperpyError("No versions found")
+
+        return sorted(versions)[-1]  # Return highest version
+
+
+class ResourceManager:
+    """Manager for loading resource configurations."""
+
+    @classmethod
+    def load(cls, name: str, version: Optional[str] = None) -> Dict[str, Any]:
+        """Load resource configuration from Hub.
+
+        Args:
+            name: Resource name
+            version: Optional version
+
+        Returns:
+            Resource configuration
+        """
+        return HubManager.load(f"resources/{name}", version=version)
+
+
+class ErrorManager:
+    """Manager for loading error definitions."""
+
+    @classmethod
+    def load(cls, name: str, version: Optional[str] = None) -> Dict[str, Any]:
+        """Load error definitions from Hub.
+
+        Args:
+            name: Error definition name
+            version: Optional version
+
+        Returns:
+            Error definitions
+        """
+        return HubManager.load(f"errors/{name}", version=version)
+
+
+class HubManager:
+    """Manager for Hub-based resource configurations."""
+
+    def __init__(self, hub_path: Optional[str] = None) -> None:
+        """Initialize Hub manager.
+
+        Args:
+            hub_path: Optional path to Hub directory. Defaults to .pepper_hub
+                     in the current directory.
+        """
+        self.hub_path = Path(hub_path or ".pepper_hub").resolve()
+        if not self.hub_path.exists():
+            raise HubError(f"Hub directory not found: {self.hub_path}")
+
+    def load_config(
+        self,
+        resource_type: str,
+        name: str,
+        version: str = "v1.0.0",
+    ) -> Dict[str, Any]:
+        """Load resource configuration from Hub.
+
+        Args:
+            resource_type: Type of resource (e.g., 'memory', 'agent')
+            name: Name of the resource
+            version: Version of the configuration
+
+        Returns:
+            Resource configuration
+
+        Raises:
+            NotFoundError: If configuration not found
+            HubError: If configuration loading fails
+        """
+        config_path = (
+            self.hub_path / "resources" / resource_type / name / f"{version}.yaml"
+        )
+
+        if not config_path.exists():
+            raise NotFoundError(
+                f"Configuration not found: {config_path.relative_to(self.hub_path)}"
+            )
+
+        try:
+            with config_path.open("r") as f:
+                config = yaml.safe_load(f)
+
+            if not isinstance(config, dict):
+                raise HubError(f"Invalid configuration format: {config_path}")
+
+            return config
+        except Exception as e:
+            raise HubError(f"Failed to load configuration: {e}")
+
+    def save_config(
+        self,
+        resource_type: str,
+        name: str,
+        config: Dict[str, Any],
+        version: str = "v1.0.0",
+    ) -> None:
+        """Save resource configuration to Hub.
+
+        Args:
+            resource_type: Type of resource
+            name: Name of the resource
+            config: Resource configuration
+            version: Version of the configuration
+
+        Raises:
+            HubError: If configuration saving fails
+        """
+        config_dir = self.hub_path / "resources" / resource_type / name
+
+        try:
+            # Create directory if it doesn't exist
+            config_dir.mkdir(parents=True, exist_ok=True)
+
+            # Save configuration
+            config_path = config_dir / f"{version}.yaml"
+            with config_path.open("w") as f:
+                yaml.safe_dump(config, f, default_flow_style=False)
+        except Exception as e:
+            raise HubError(f"Failed to save configuration: {e}")
+
+    def list_resources(
+        self,
+        resource_type: Optional[str] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """List available resources in the Hub.
+
+        Args:
+            resource_type: Optional resource type to filter by
+
+        Returns:
+            Dictionary of resource names to their latest configurations
+
+        Raises:
+            HubError: If listing resources fails
+        """
+        resources: Dict[str, Dict[str, Any]] = {}
+
+        try:
+            resources_dir = self.hub_path / "resources"
+            if not resources_dir.exists():
+                return resources
+
+            # List all resource types or specific type
+            types = [resource_type] if resource_type else os.listdir(resources_dir)
+
+            for type_name in types:
+                type_dir = resources_dir / type_name
+                if not type_dir.is_dir():
+                    continue
+
+                # List resources of this type
+                for resource_dir in type_dir.iterdir():
+                    if not resource_dir.is_dir():
+                        continue
+
+                    # Find latest version
+                    versions = sorted(
+                        [f.stem for f in resource_dir.glob("*.yaml")],
+                        reverse=True,
+                    )
+                    if not versions:
+                        continue
+
+                    # Load latest configuration
+                    config = self.load_config(
+                        type_name,
+                        resource_dir.name,
+                        versions[0],
+                    )
+                    resources[f"{type_name}/{resource_dir.name}"] = config
+
+            return resources
+        except Exception as e:
+            raise HubError(f"Failed to list resources: {e}")
+
+
+# Global Hub manager instance
+_hub_manager: Optional[HubManager] = None
+
+
+def get_hub_manager(hub_path: Optional[str] = None) -> HubManager:
+    """Get or create global Hub manager instance.
+
+    Args:
+        hub_path: Optional path to Hub directory
+
+    Returns:
+        Hub manager instance
+    """
+    global _hub_manager
+    if _hub_manager is None:
+        _hub_manager = HubManager(hub_path)
+    return _hub_manager
