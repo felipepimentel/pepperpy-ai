@@ -1,55 +1,52 @@
-"""Local storage backend for the Pepperpy Hub.
+"""Local storage backend for Hub artifacts.
 
-This module provides a local file system implementation of the storage backend.
-It stores artifacts in a structured directory hierarchy under the user's home directory.
+This module provides a local filesystem storage backend for Hub artifacts.
 """
 
 import json
-import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import StorageError
 from pepperpy.hub.storage.base import StorageBackend, StorageMetadata
 from pepperpy.monitoring import logger
 
+# Configure logging
+logger = logger.getChild(__name__)
+
 
 class LocalStorageBackend(StorageBackend):
-    """Local file system implementation of the storage backend."""
+    """Local filesystem storage backend.
 
-    def __init__(self, root_dir: Optional[str] = None) -> None:
-        """Initialize the local storage backend.
+    This backend stores artifacts and metadata in the local filesystem:
+    - Artifacts are stored as JSON files in the artifacts directory
+    - Metadata is stored as JSON files in the metadata directory
+    """
+
+    def __init__(self, root_dir: Path) -> None:
+        """Initialize local storage.
 
         Args:
-            root_dir: Optional root directory for storage. If not provided,
-                defaults to ~/.pepperpy/hub/storage.
+            root_dir: Root directory for storage
         """
-        self.root_dir = (
-            Path(root_dir) if root_dir else Path.home() / ".pepperpy/hub/storage"
-        )
-        self.root_dir.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Initialized local storage at {self.root_dir}")
+        self.root_dir = root_dir
+        self.artifacts_dir = root_dir / "artifacts"
+        self.metadata_dir = root_dir / "metadata"
 
     async def initialize(self) -> None:
-        """Initialize the storage backend.
+        """Initialize local storage.
 
-        Creates necessary directories if they don't exist.
+        Creates the required directories if they don't exist.
         """
         try:
-            # Create type-specific directories
-            for artifact_type in ["agent", "workflow", "tool", "capability"]:
-                type_dir = self.root_dir / artifact_type
-                type_dir.mkdir(parents=True, exist_ok=True)
-            logger.debug("Initialized local storage directories")
-
+            self.artifacts_dir.mkdir(parents=True, exist_ok=True)
+            self.metadata_dir.mkdir(parents=True, exist_ok=True)
+            logger.info("Local storage initialized", extra={"path": str(self.root_dir)})
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to initialize local storage: {str(e)}",
-                recovery_hint="Check if you have write permissions in the storage directory",
-            )
+            raise StorageError(f"Failed to initialize local storage: {e}")
 
     async def close(self) -> None:
-        """Close the storage backend.
+        """Close local storage.
 
         No cleanup needed for local storage.
         """
@@ -57,171 +54,152 @@ class LocalStorageBackend(StorageBackend):
 
     async def store(
         self,
-        artifact_id: str,
+        key: str,
         artifact_type: str,
         content: Dict[str, Any],
         metadata: StorageMetadata,
     ) -> None:
-        """Store an artifact in the local file system.
+        """Store an artifact locally.
 
         Args:
-            artifact_id: Unique identifier for the artifact.
-            artifact_type: Type of the artifact (agent, workflow, tool, capability).
-            content: Artifact content to store.
-            metadata: Metadata about the artifact.
+            key: Storage key
+            artifact_type: Type of artifact
+            content: Artifact content
+            metadata: Artifact metadata
 
         Raises:
-            PepperpyError: If storage fails.
+            StorageError: If storage fails
         """
         try:
-            # Validate artifact type
-            if artifact_type not in ["agent", "workflow", "tool", "capability"]:
-                raise ValueError(f"Invalid artifact type: {artifact_type}")
-
-            # Create artifact directory
-            artifact_dir = self.root_dir / artifact_type / artifact_id
-            artifact_dir.mkdir(parents=True, exist_ok=True)
-
-            # Store content
-            content_file = artifact_dir / "content.json"
-            with open(content_file, "w") as f:
-                json.dump(content, f, indent=2)
+            # Store artifact content
+            artifact_path = self.artifacts_dir / f"{key}.json"
+            artifact_path.write_text(json.dumps(content, indent=2))
 
             # Store metadata
-            metadata_file = artifact_dir / "metadata.json"
-            with open(metadata_file, "w") as f:
-                json.dump(metadata.dict(), f, indent=2)
+            metadata_path = self.metadata_dir / f"{key}.json"
+            metadata_path.write_text(metadata.model_dump_json(indent=2))
 
-            logger.debug(f"Stored artifact {artifact_id} in {artifact_dir}")
-
-        except Exception as e:
-            raise PepperpyError(
-                f"Failed to store artifact {artifact_id}: {str(e)}",
-                recovery_hint="Check if you have write permissions and sufficient disk space",
+            logger.info(
+                "Stored artifact",
+                extra={
+                    "key": key,
+                    "type": artifact_type,
+                    "size": len(json.dumps(content)),
+                },
             )
+        except Exception as e:
+            raise StorageError(f"Failed to store artifact {key}: {e}")
 
     async def retrieve(
         self,
-        artifact_id: str,
+        key: str,
         artifact_type: str,
-    ) -> tuple[Dict[str, Any], StorageMetadata]:
-        """Retrieve an artifact from the local file system.
+    ) -> Dict[str, Any]:
+        """Retrieve an artifact from local storage.
 
         Args:
-            artifact_id: Unique identifier for the artifact.
-            artifact_type: Type of the artifact (agent, workflow, tool, capability).
+            key: Storage key
+            artifact_type: Type of artifact
 
         Returns:
-            Tuple of (content, metadata).
+            Dict[str, Any]: Artifact content
 
         Raises:
-            PepperpyError: If retrieval fails or artifact doesn't exist.
+            KeyError: If artifact not found
+            StorageError: If retrieval fails
         """
         try:
-            # Validate artifact type
-            if artifact_type not in ["agent", "workflow", "tool", "capability"]:
-                raise ValueError(f"Invalid artifact type: {artifact_type}")
+            artifact_path = self.artifacts_dir / f"{key}.json"
+            if not artifact_path.exists():
+                raise KeyError(f"Artifact not found: {key}")
 
-            # Get artifact directory
-            artifact_dir = self.root_dir / artifact_type / artifact_id
-            if not artifact_dir.exists():
-                raise FileNotFoundError(f"Artifact {artifact_id} not found")
-
-            # Load content
-            content_file = artifact_dir / "content.json"
-            with open(content_file) as f:
-                content = json.load(f)
-
-            # Load metadata
-            metadata_file = artifact_dir / "metadata.json"
-            with open(metadata_file) as f:
-                metadata_dict = json.load(f)
-                metadata = StorageMetadata(**metadata_dict)
-
-            logger.debug(f"Retrieved artifact {artifact_id} from {artifact_dir}")
-            return content, metadata
-
-        except FileNotFoundError:
-            raise PepperpyError(
-                f"Artifact {artifact_id} not found",
-                recovery_hint="Check if the artifact ID and type are correct",
+            content = json.loads(artifact_path.read_text())
+            logger.info(
+                "Retrieved artifact",
+                extra={
+                    "key": key,
+                    "type": artifact_type,
+                    "size": len(json.dumps(content)),
+                },
             )
+            return content
+
+        except KeyError:
+            raise
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to retrieve artifact {artifact_id}: {str(e)}",
-                recovery_hint="Check if you have read permissions and the storage is not corrupted",
-            )
+            raise StorageError(f"Failed to retrieve artifact {key}: {e}")
 
-    async def delete(self, artifact_id: str, artifact_type: str) -> None:
-        """Delete an artifact from the local file system.
+    async def delete(
+        self,
+        key: str,
+        artifact_type: str,
+    ) -> None:
+        """Delete an artifact from local storage.
 
         Args:
-            artifact_id: Unique identifier for the artifact.
-            artifact_type: Type of the artifact (agent, workflow, tool, capability).
+            key: Storage key
+            artifact_type: Type of artifact
 
         Raises:
-            PepperpyError: If deletion fails or artifact doesn't exist.
+            KeyError: If artifact not found
+            StorageError: If deletion fails
         """
         try:
-            # Validate artifact type
-            if artifact_type not in ["agent", "workflow", "tool", "capability"]:
-                raise ValueError(f"Invalid artifact type: {artifact_type}")
+            # Delete artifact content
+            artifact_path = self.artifacts_dir / f"{key}.json"
+            if not artifact_path.exists():
+                raise KeyError(f"Artifact not found: {key}")
 
-            # Get artifact directory
-            artifact_dir = self.root_dir / artifact_type / artifact_id
-            if not artifact_dir.exists():
-                raise FileNotFoundError(f"Artifact {artifact_id} not found")
+            artifact_path.unlink()
 
-            # Delete directory
-            shutil.rmtree(artifact_dir)
-            logger.debug(f"Deleted artifact {artifact_id} from {artifact_dir}")
+            # Delete metadata
+            metadata_path = self.metadata_dir / f"{key}.json"
+            if metadata_path.exists():
+                metadata_path.unlink()
 
-        except FileNotFoundError:
-            raise PepperpyError(
-                f"Artifact {artifact_id} not found",
-                recovery_hint="Check if the artifact ID and type are correct",
-            )
+            logger.info("Deleted artifact", extra={"key": key, "type": artifact_type})
+
+        except KeyError:
+            raise
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to delete artifact {artifact_id}: {str(e)}",
-                recovery_hint="Check if you have write permissions",
-            )
+            raise StorageError(f"Failed to delete artifact {key}: {e}")
 
-    async def list(self) -> List[StorageMetadata]:
-        """List all artifacts in the local storage.
+    async def list(
+        self,
+        artifact_type: Optional[str] = None,
+    ) -> Dict[str, StorageMetadata]:
+        """List artifacts in local storage.
+
+        Args:
+            artifact_type: Optional type filter
 
         Returns:
-            List of metadata for all stored artifacts.
+            Dict[str, StorageMetadata]: Map of storage keys to metadata
 
         Raises:
-            PepperpyError: If listing fails.
+            StorageError: If listing fails
         """
         try:
-            artifacts = []
-            # List artifacts in each type directory
-            for artifact_type in ["agent", "workflow", "tool", "capability"]:
-                type_dir = self.root_dir / artifact_type
-                if not type_dir.exists():
-                    continue
+            results = {}
+            for metadata_path in self.metadata_dir.glob("*.json"):
+                try:
+                    metadata = StorageMetadata.model_validate_json(
+                        metadata_path.read_text()
+                    )
+                    if not artifact_type or metadata.type == artifact_type:
+                        key = metadata_path.stem
+                        results[key] = metadata
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to load metadata from {metadata_path}: {e}",
+                        exc_info=True,
+                    )
 
-                # Get metadata for each artifact
-                for artifact_dir in type_dir.iterdir():
-                    if not artifact_dir.is_dir():
-                        continue
-
-                    metadata_file = artifact_dir / "metadata.json"
-                    if not metadata_file.exists():
-                        continue
-
-                    with open(metadata_file) as f:
-                        metadata_dict = json.load(f)
-                        artifacts.append(StorageMetadata(**metadata_dict))
-
-            logger.debug(f"Listed {len(artifacts)} artifacts from local storage")
-            return artifacts
+            logger.info(
+                "Listed artifacts",
+                extra={"count": len(results), "type_filter": artifact_type},
+            )
+            return results
 
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to list artifacts: {str(e)}",
-                recovery_hint="Check if you have read permissions",
-            )
+            raise StorageError(f"Failed to list artifacts: {e}")

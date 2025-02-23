@@ -1,51 +1,49 @@
-"""Core metrics interfaces and base classes."""
+"""Base metrics implementation.
 
-import logging
-import time
+This module provides the core metrics functionality:
+- Metric types (Counter, Gauge, Histogram, Summary)
+- Metric registration and management
+- Metric collection and export
+"""
+
+import asyncio
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from datetime import datetime
+from typing import Any, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
-from pepperpy.monitoring.metrics.types import MetricLabels, MetricValue
+from pepperpy.core.lifecycle import Lifecycle
+from pepperpy.core.types import ComponentState
+from pepperpy.monitoring.logging import logger
 
-logger = logging.getLogger(__name__)
+# Type variables
+T = TypeVar("T")
+MetricType = TypeVar("MetricType", bound="Metric")
 
 
 class MetricConfig(BaseModel):
-    """Configuration for a metric.
+    """Base configuration for metrics.
 
     Attributes:
         name: Metric name
         description: Metric description
-        unit: Metric unit
-        labels: Metric labels
+        labels: Optional metric labels
+        enabled: Whether metric is enabled
     """
 
-    name: str
-    description: str
-    unit: str = "count"
-    labels: MetricLabels = Field(default_factory=dict)
+    name: str = Field(description="Metric name")
+    description: str = Field(description="Metric description")
+    labels: dict[str, str] = Field(default_factory=dict, description="Metric labels")
+    enabled: bool = Field(default=True, description="Whether metric is enabled")
 
 
-class MetricPoint(BaseModel):
-    """A single metric data point.
+class Metric(Lifecycle, ABC):
+    """Base class for all metrics.
 
-    Attributes:
-        name: Metric name
-        value: Metric value
-        timestamp: Unix timestamp
-        labels: Metric labels
+    All metrics must implement this interface to ensure consistent
+    behavior across the framework.
     """
-
-    name: str
-    value: MetricValue
-    timestamp: float
-    labels: MetricLabels = Field(default_factory=dict)
-
-
-class BaseMetric(ABC):
-    """Base class for all metrics."""
 
     def __init__(self, config: MetricConfig) -> None:
         """Initialize metric.
@@ -53,216 +51,435 @@ class BaseMetric(ABC):
         Args:
             config: Metric configuration
         """
-        self.name = config.name
-        self.description = config.description
-        self.unit = config.unit
-        self.labels = config.labels
+        super().__init__()
+        self.config = config
+        self._state = ComponentState.UNREGISTERED
+        self._value: int | float = 0
+        self._lock = asyncio.Lock()
+
+    @property
+    def name(self) -> str:
+        """Get metric name."""
+        return self.config.name
+
+    @property
+    def description(self) -> str:
+        """Get metric description."""
+        return self.config.description
+
+    @property
+    def labels(self) -> dict[str, str]:
+        """Get metric labels."""
+        return self.config.labels
+
+    @property
+    def value(self) -> int | float:
+        """Get current metric value."""
+        return self._value
+
+    async def initialize(self) -> None:
+        """Initialize metric."""
+        try:
+            self._state = ComponentState.RUNNING
+            logger.info(f"Metric initialized: {self.name}")
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize metric: {e}")
+            raise
+
+    async def cleanup(self) -> None:
+        """Clean up metric."""
+        try:
+            self._state = ComponentState.UNREGISTERED
+            logger.info(f"Metric cleaned up: {self.name}")
+        except Exception as e:
+            logger.error(f"Failed to cleanup metric: {e}")
+            raise
 
     @abstractmethod
-    def record(self, value: MetricValue) -> None:
-        """Record a metric value.
-
-        Args:
-            value: Value to record
-        """
-        pass
-
-    @abstractmethod
-    def get_points(self) -> List[MetricPoint]:
-        """Get all recorded points.
+    async def collect(self) -> dict[str, Any]:
+        """Collect metric data.
 
         Returns:
-            List of metric points
+            Dictionary containing metric data
         """
         pass
 
 
-class Counter(BaseMetric):
-    """Counter metric that only increases."""
+class Counter(Metric):
+    """Counter metric type.
 
-    def __init__(self, config: MetricConfig) -> None:
-        """Initialize counter.
+    Counters can only increase or be reset to zero.
+    """
 
-        Args:
-            config: Counter configuration
-        """
-        super().__init__(config)
-        self._value: int = 0
-        self._points: List[MetricPoint] = []
-
-    def record(self, value: MetricValue = 1) -> None:
-        """Record a counter value.
+    async def inc(self, value: float = 1.0) -> None:
+        """Increment counter.
 
         Args:
-            value: Value to add (must be non-negative)
-
-        Raises:
-            ValueError: If value is not numeric or negative
+            value: Value to increment by (must be positive)
         """
-        if not isinstance(value, (int, float)):
-            raise ValueError("Counter value must be numeric")
         if value < 0:
-            raise ValueError("Counter value must be non-negative")
+            raise ValueError("Counter value cannot decrease")
 
-        self._value += int(value)
-        self._points.append(
-            MetricPoint(
-                name=self.name,
-                value=self._value,
-                timestamp=time.time(),
-                labels=self.labels,
-            )
-        )
+        async with self._lock:
+            self._value += value
 
-    def get_points(self) -> List[MetricPoint]:
-        """Get all recorded points.
+    async def collect(self) -> dict[str, Any]:
+        """Collect counter data.
 
         Returns:
-            List of metric points
+            Dictionary containing counter data
         """
-        return self._points.copy()
+        return {
+            "name": self.name,
+            "description": self.description,
+            "type": "counter",
+            "value": self.value,
+            "labels": self.labels,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
 
 
-class Gauge(BaseMetric):
-    """Gauge metric that can go up and down."""
+class Gauge(Metric):
+    """Gauge metric type.
 
-    def __init__(self, config: MetricConfig) -> None:
-        """Initialize gauge.
+    Gauges can increase and decrease.
+    """
+
+    async def inc(self, value: float = 1.0) -> None:
+        """Increment gauge.
 
         Args:
-            config: Gauge configuration
+            value: Value to increment by
         """
-        super().__init__(config)
-        self._value: Optional[float] = None
-        self._points: List[MetricPoint] = []
+        async with self._lock:
+            self._value += value
 
-    def record(self, value: MetricValue) -> None:
-        """Record a gauge value.
+    async def dec(self, value: float = 1.0) -> None:
+        """Decrement gauge.
+
+        Args:
+            value: Value to decrement by
+        """
+        async with self._lock:
+            self._value -= value
+
+    async def set(self, value: float) -> None:
+        """Set gauge value.
 
         Args:
             value: Value to set
-
-        Raises:
-            ValueError: If value is not numeric
         """
-        if not isinstance(value, (int, float)):
-            raise ValueError("Gauge value must be numeric")
+        async with self._lock:
+            self._value = value
 
-        self._value = float(value)
-        self._points.append(
-            MetricPoint(
-                name=self.name,
-                value=self._value,
-                timestamp=time.time(),
-                labels=self.labels,
-            )
-        )
-
-    def get_points(self) -> List[MetricPoint]:
-        """Get all recorded points.
+    async def collect(self) -> dict[str, Any]:
+        """Collect gauge data.
 
         Returns:
-            List of metric points
+            Dictionary containing gauge data
         """
-        return self._points.copy()
+        return {
+            "name": self.name,
+            "description": self.description,
+            "type": "gauge",
+            "value": self.value,
+            "labels": self.labels,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
 
 
-class Histogram(BaseMetric):
-    """Histogram metric for measuring distributions."""
+class Histogram(Metric):
+    """Histogram metric type.
 
-    def __init__(self, config: MetricConfig, buckets: List[float]) -> None:
+    Histograms track distributions of values.
+    """
+
+    def __init__(
+        self, config: MetricConfig, buckets: list[float] | None = None
+    ) -> None:
         """Initialize histogram.
 
         Args:
-            config: Histogram configuration
-            buckets: Bucket boundaries in ascending order
-
-        Raises:
-            ValueError: If buckets are not in ascending order
+            config: Metric configuration
+            buckets: Optional bucket boundaries
         """
         super().__init__(config)
-        if not all(buckets[i] < buckets[i + 1] for i in range(len(buckets) - 1)):
-            raise ValueError("Histogram buckets must be in ascending order")
-        self._buckets = buckets
-        self._counts = [0] * (len(buckets) + 1)  # +1 for overflow bucket
+        self._buckets = sorted(buckets or [0.1, 0.5, 1.0, 2.0, 5.0])
+        self._bucket_values: dict[float, int] = {b: 0 for b in self._buckets}
         self._sum = 0.0
         self._count = 0
-        self._points: List[MetricPoint] = []
 
-    def record(self, value: MetricValue) -> None:
-        """Record a histogram value.
+    async def observe(self, value: float) -> None:
+        """Record observation.
 
         Args:
-            value: Value to record
-
-        Raises:
-            ValueError: If value is not numeric
+            value: Value to observe
         """
-        if not isinstance(value, (int, float)):
-            raise ValueError("Histogram value must be numeric")
+        async with self._lock:
+            self._sum += value
+            self._count += 1
+            for bucket in self._buckets:
+                if value <= bucket:
+                    self._bucket_values[bucket] += 1
 
-        value = float(value)
-        self._sum += value
-        self._count += 1
+    async def collect(self) -> dict[str, Any]:
+        """Collect histogram data.
 
-        # Find the appropriate bucket
-        for i, bucket in enumerate(self._buckets):
-            if value <= bucket:
-                self._counts[i] += 1
-                break
-        else:
-            # Value is larger than all buckets
-            self._counts[-1] += 1
+        Returns:
+            Dictionary containing histogram data
+        """
+        return {
+            "name": self.name,
+            "description": self.description,
+            "type": "histogram",
+            "buckets": self._bucket_values,
+            "sum": self._sum,
+            "count": self._count,
+            "labels": self.labels,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
 
-        self._points.append(
-            MetricPoint(
-                name=self.name,
-                value=value,
-                timestamp=time.time(),
-                labels=self.labels,
-            )
+
+class Summary(Metric):
+    """Summary metric type.
+
+    Summaries track size and count of events.
+    """
+
+    def __init__(
+        self,
+        config: MetricConfig,
+        max_age: float = 60.0,
+        age_buckets: int = 5,
+    ) -> None:
+        """Initialize summary.
+
+        Args:
+            config: Metric configuration
+            max_age: Maximum age of observations in seconds
+            age_buckets: Number of age buckets
+        """
+        super().__init__(config)
+        self._max_age = max_age
+        self._age_buckets = age_buckets
+        self._values: list[tuple[datetime, float]] = []
+
+    async def observe(self, value: float) -> None:
+        """Record observation.
+
+        Args:
+            value: Value to observe
+        """
+        async with self._lock:
+            now = datetime.utcnow()
+            self._values.append((now, value))
+            cutoff = now.timestamp() - self._max_age
+            self._values = [
+                (ts, val) for ts, val in self._values if ts.timestamp() > cutoff
+            ]
+
+    async def collect(self) -> dict[str, Any]:
+        """Collect summary data.
+
+        Returns:
+            Dictionary containing summary data
+        """
+        async with self._lock:
+            values = [v for _, v in self._values]
+            count = len(values)
+            sum_values = sum(values) if values else 0.0
+
+        return {
+            "name": self.name,
+            "description": self.description,
+            "type": "summary",
+            "count": count,
+            "sum": sum_values,
+            "labels": self.labels,
+            "timestamp": datetime.utcnow().isoformat(),
+        }
+
+
+class MetricsManager(Lifecycle):
+    """Metrics manager implementation.
+
+    This class handles metric registration, collection, and export.
+    """
+
+    _instance: Optional["MetricsManager"] = None
+
+    def __init__(self) -> None:
+        """Initialize metrics manager."""
+        super().__init__()
+        self._metrics: dict[str, Metric] = {}
+        self._state = ComponentState.UNREGISTERED
+
+    @classmethod
+    def get_instance(cls) -> "MetricsManager":
+        """Get metrics manager instance.
+
+        Returns:
+            MetricsManager instance
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    async def initialize(self) -> None:
+        """Initialize metrics manager."""
+        try:
+            self._state = ComponentState.RUNNING
+            logger.info("Metrics manager initialized")
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize metrics manager: {e}")
+            raise
+
+    async def cleanup(self) -> None:
+        """Clean up metrics manager."""
+        try:
+            self._metrics.clear()
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Metrics manager cleaned up")
+        except Exception as e:
+            logger.error(f"Failed to cleanup metrics manager: {e}")
+            raise
+
+    def register_metric(self, metric: Metric) -> None:
+        """Register metric.
+
+        Args:
+            metric: Metric to register
+        """
+        if metric.name in self._metrics:
+            raise ValueError(f"Metric already registered: {metric.name}")
+        self._metrics[metric.name] = metric
+
+    def unregister_metric(self, name: str) -> None:
+        """Unregister metric.
+
+        Args:
+            name: Name of metric to unregister
+        """
+        if name in self._metrics:
+            del self._metrics[name]
+
+    async def create_counter(
+        self, name: str, description: str, labels: dict[str, str] | None = None
+    ) -> Counter:
+        """Create and register counter.
+
+        Args:
+            name: Counter name
+            description: Counter description
+            labels: Optional counter labels
+
+        Returns:
+            Counter instance
+        """
+        config = MetricConfig(
+            name=name,
+            description=description,
+            labels=labels or {},
         )
+        counter = Counter(config)
+        self.register_metric(counter)
+        await counter.initialize()
+        return counter
 
-    def get_points(self) -> List[MetricPoint]:
-        """Get all recorded points.
+    async def create_gauge(
+        self, name: str, description: str, labels: dict[str, str] | None = None
+    ) -> Gauge:
+        """Create and register gauge.
 
-        Returns:
-            List of metric points
-        """
-        return self._points.copy()
-
-    @property
-    def count(self) -> int:
-        """Get total count of observations.
-
-        Returns:
-            Total count
-        """
-        return self._count
-
-    @property
-    def sum(self) -> float:
-        """Get sum of all observations.
+        Args:
+            name: Gauge name
+            description: Gauge description
+            labels: Optional gauge labels
 
         Returns:
-            Sum of values
+            Gauge instance
         """
-        return self._sum
+        config = MetricConfig(
+            name=name,
+            description=description,
+            labels=labels or {},
+        )
+        gauge = Gauge(config)
+        self.register_metric(gauge)
+        await gauge.initialize()
+        return gauge
 
-    @property
-    def buckets(self) -> List[float]:
-        """Get bucket boundaries.
+    async def create_histogram(
+        self,
+        name: str,
+        description: str,
+        buckets: list[float] | None = None,
+        labels: dict[str, str] | None = None,
+    ) -> Histogram:
+        """Create and register histogram.
+
+        Args:
+            name: Histogram name
+            description: Histogram description
+            buckets: Optional bucket boundaries
+            labels: Optional histogram labels
 
         Returns:
-            List of bucket boundaries
+            Histogram instance
         """
-        return self._buckets.copy()
+        config = MetricConfig(
+            name=name,
+            description=description,
+            labels=labels or {},
+        )
+        histogram = Histogram(config, buckets)
+        self.register_metric(histogram)
+        await histogram.initialize()
+        return histogram
 
-    @property
-    def counts(self) -> List[int]:
-        """Get bucket counts.
+    async def create_summary(
+        self,
+        name: str,
+        description: str,
+        max_age: float = 60.0,
+        age_buckets: int = 5,
+        labels: dict[str, str] | None = None,
+    ) -> Summary:
+        """Create and register summary.
+
+        Args:
+            name: Summary name
+            description: Summary description
+            max_age: Maximum age of observations in seconds
+            age_buckets: Number of age buckets
+            labels: Optional summary labels
 
         Returns:
-            List of counts for each bucket
+            Summary instance
         """
-        return self._counts.copy()
+        config = MetricConfig(
+            name=name,
+            description=description,
+            labels=labels or {},
+        )
+        summary = Summary(config, max_age, age_buckets)
+        self.register_metric(summary)
+        await summary.initialize()
+        return summary
+
+    async def collect_all(self) -> list[dict[str, Any]]:
+        """Collect all metrics.
+
+        Returns:
+            List of metric data dictionaries
+        """
+        metrics = []
+        for metric in self._metrics.values():
+            try:
+                data = await metric.collect()
+                metrics.append(data)
+            except Exception as e:
+                logger.error(f"Failed to collect metric {metric.name}: {e}")
+        return metrics

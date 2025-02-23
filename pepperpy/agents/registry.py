@@ -1,14 +1,16 @@
-"""Agent registry module.
+"""Agent registry module for the Pepperpy framework.
 
-This module provides the registry for managing agents in the system.
-It handles agent registration, retrieval, and lifecycle management.
+This module provides the agent registry functionality for managing different agent types.
+It defines the registry class, agent type registration, and agent creation.
 """
 
-from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Any, Dict, Optional, Type
 
-from pepperpy.agents.base import BaseAgent
-from pepperpy.core.errors import PepperpyError
+from pepperpy.agents.autonomous import AutonomousAgent, AutonomousAgentConfig
+from pepperpy.agents.base import AgentConfig, BaseAgent
+from pepperpy.agents.interactive import InteractiveAgent, InteractiveAgentConfig
+from pepperpy.agents.workflow import WorkflowAgent, WorkflowAgentConfig
+from pepperpy.core.errors import AgentError
 from pepperpy.core.logging import get_logger
 
 # Configure logging
@@ -16,186 +18,121 @@ logger = get_logger(__name__)
 
 
 class AgentRegistry:
-    """Registry for managing agents."""
+    """Registry for managing agent types.
 
-    def __init__(self):
+    This class provides functionality for registering agent types,
+    creating agent instances, and managing agent configurations.
+    """
+
+    def __init__(self) -> None:
         """Initialize agent registry."""
-        self._agents: Dict[str, BaseAgent] = {}
+        self._agent_types: Dict[str, Type[BaseAgent]] = {}
+        self._config_types: Dict[str, Type[AgentConfig]] = {}
 
-    async def register(self, agent: BaseAgent) -> str:
-        """Register an agent.
+        # Register built-in agent types
+        self.register_agent_type(
+            "autonomous",
+            AutonomousAgent,
+            AutonomousAgentConfig,
+        )
+        self.register_agent_type(
+            "interactive",
+            InteractiveAgent,
+            InteractiveAgentConfig,
+        )
+        self.register_agent_type(
+            "workflow",
+            WorkflowAgent,
+            WorkflowAgentConfig,
+        )
 
-        Args:
-            agent: Agent to register
-
-        Returns:
-            str: Agent ID
-
-        Raises:
-            PepperpyError: If registration fails
-        """
-        try:
-            # Generate agent ID
-            agent_id = f"{agent.name}-{datetime.utcnow().isoformat()}"
-
-            # Store agent
-            self._agents[agent_id] = agent
-
-            logger.info(
-                "Registered agent",
-                extra={
-                    "agent_id": agent_id,
-                    "agent_name": agent.name,
-                    "agent_type": agent.type,
-                },
-            )
-
-            return agent_id
-
-        except Exception as e:
-            raise PepperpyError(
-                message=f"Failed to register agent: {e}",
-                details={
-                    "agent_name": agent.name,
-                    "agent_type": agent.type,
-                },
-                recovery_hint="Check agent configuration and try again",
-            )
-
-    async def get(self, agent_id: str) -> Optional[BaseAgent]:
-        """Get an agent by ID.
-
-        Args:
-            agent_id: Agent ID
-
-        Returns:
-            Optional[BaseAgent]: Agent if found, None otherwise
-
-        Raises:
-            PepperpyError: If retrieval fails
-        """
-        try:
-            return self._agents.get(agent_id)
-
-        except Exception as e:
-            raise PepperpyError(
-                message=f"Failed to get agent: {e}",
-                details={"agent_id": agent_id},
-                recovery_hint="Check agent ID and try again",
-            )
-
-    async def list(
+    def register_agent_type(
         self,
-        filters: Optional[Dict[str, str]] = None,
-    ) -> List[BaseAgent]:
-        """List registered agents.
+        agent_type: str,
+        agent_class: Type[BaseAgent],
+        config_class: Type[AgentConfig],
+    ) -> None:
+        """Register a new agent type.
 
         Args:
-            filters: Optional filters to apply
+            agent_type: Type identifier
+            agent_class: Agent implementation class
+            config_class: Agent configuration class
+
+        Raises:
+            AgentError: If agent type is already registered
+        """
+        if agent_type in self._agent_types:
+            raise AgentError(f"Agent type already registered: {agent_type}")
+
+        self._agent_types[agent_type] = agent_class
+        self._config_types[agent_type] = config_class
+
+    def create_agent(
+        self,
+        agent_type: str,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> BaseAgent:
+        """Create an agent instance.
+
+        Args:
+            agent_type: Type of agent to create
+            config: Optional agent configuration
 
         Returns:
-            List[BaseAgent]: List of matching agents
+            Agent instance
 
         Raises:
-            PepperpyError: If listing fails
+            AgentError: If agent type is not registered
         """
+        agent_class = self._agent_types.get(agent_type)
+        if not agent_class:
+            raise AgentError(f"Agent type not registered: {agent_type}")
+
+        config_class = self._config_types[agent_type]
+        agent_config = None
+
+        if config:
+            # Create configuration instance
+            try:
+                agent_config = config_class(**config)
+            except Exception as e:
+                raise AgentError(f"Invalid configuration for {agent_type}: {e}") from e
+
+        # Create agent instance
         try:
-            result = []
-            for agent in self._agents.values():
-                if filters:
-                    matches = True
-                    for key, value in filters.items():
-                        if getattr(agent, key, None) != value:
-                            matches = False
-                            break
-                    if not matches:
-                        continue
-                result.append(agent)
-
-            return result
-
+            return agent_class(config=agent_config)
         except Exception as e:
-            raise PepperpyError(
-                message=f"Failed to list agents: {e}",
-                details={"filters": filters},
-                recovery_hint="Check filter criteria and try again",
-            )
+            raise AgentError(f"Failed to create {agent_type} agent: {e}") from e
 
-    async def update(self, agent_id: str, agent: BaseAgent) -> None:
-        """Update an agent.
+    def get_agent_types(self) -> Dict[str, Type[BaseAgent]]:
+        """Get registered agent types.
 
-        Args:
-            agent_id: Agent ID
-            agent: Updated agent
-
-        Raises:
-            PepperpyError: If update fails
+        Returns:
+            Dictionary of agent types
         """
-        try:
-            if agent_id not in self._agents:
-                raise PepperpyError(
-                    message=f"Agent not found: {agent_id}",
-                    details={"agent_id": agent_id},
-                    recovery_hint="Check agent ID and try again",
-                )
+        return self._agent_types.copy()
 
-            self._agents[agent_id] = agent
+    def get_config_types(self) -> Dict[str, Type[AgentConfig]]:
+        """Get registered configuration types.
 
-            logger.info(
-                "Updated agent",
-                extra={
-                    "agent_id": agent_id,
-                    "agent_name": agent.name,
-                    "agent_type": agent.type,
-                },
-            )
-
-        except PepperpyError:
-            raise
-        except Exception as e:
-            raise PepperpyError(
-                message=f"Failed to update agent: {e}",
-                details={
-                    "agent_id": agent_id,
-                    "agent_name": agent.name,
-                    "agent_type": agent.type,
-                },
-                recovery_hint="Check agent configuration and try again",
-            )
-
-    async def delete(self, agent_id: str) -> None:
-        """Delete an agent.
-
-        Args:
-            agent_id: Agent ID
-
-        Raises:
-            PepperpyError: If deletion fails
+        Returns:
+            Dictionary of configuration types
         """
-        try:
-            if agent_id not in self._agents:
-                raise PepperpyError(
-                    message=f"Agent not found: {agent_id}",
-                    details={"agent_id": agent_id},
-                    recovery_hint="Check agent ID and try again",
-                )
+        return self._config_types.copy()
 
-            agent = self._agents.pop(agent_id)
 
-            logger.info(
-                "Deleted agent",
-                extra={
-                    "agent_id": agent_id,
-                    "agent_name": agent.name,
-                    "agent_type": agent.type,
-                },
-            )
+# Global registry instance
+_registry: Optional[AgentRegistry] = None
 
-        except PepperpyError:
-            raise
-        except Exception as e:
-            raise PepperpyError(
-                message=f"Failed to delete agent: {e}",
-                details={"agent_id": agent_id},
-                recovery_hint="Check agent ID and try again",
-            )
+
+def get_agent_registry() -> AgentRegistry:
+    """Get the global agent registry instance.
+
+    Returns:
+        Agent registry instance
+    """
+    global _registry
+    if _registry is None:
+        _registry = AgentRegistry()
+    return _registry

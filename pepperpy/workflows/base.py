@@ -1,76 +1,389 @@
-"""Base workflow interface.
+"""Base workflow module for the Pepperpy framework.
 
-This module defines the base interface for workflows.
-It includes:
-- Base workflow interface
-- Workflow configuration
-- Common workflow types
+This module provides the core workflow functionality and interfaces that all workflows must implement.
+It defines the base workflow class, workflow states, configuration, and common utilities.
 """
 
-from typing import Any, Dict, List, Optional
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional, Protocol, Union
+from uuid import uuid4
 
-from pydantic import BaseModel
+from pepperpy.core.base import (
+    ComponentBase,
+    ComponentCallback,
+    ComponentConfig,
+    ComponentState,
+)
+from pepperpy.core.errors import StateError, WorkflowError
+from pepperpy.core.types import WorkflowID
+from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
-from pepperpy.core.extensions import Extension
+
+class WorkflowState(str, Enum):
+    """Workflow execution states."""
+
+    INITIALIZING = "initializing"
+    READY = "ready"
+    EXECUTING = "executing"
+    PAUSED = "paused"
+    ERROR = "error"
+    TERMINATED = "terminated"
 
 
-class WorkflowConfig(BaseModel):
-    """Workflow configuration.
-
-    Attributes:
-        name: Workflow name
-        description: Workflow description
-        parameters: Workflow parameters
-        metadata: Additional metadata
-    """
+@dataclass
+class WorkflowStep:
+    """Workflow step definition."""
 
     name: str
-    description: str = ""
-    parameters: Dict[str, Any] = {}
-    metadata: Dict[str, Any] = {}
+    description: str
+    action: str
+    agent: Optional[str] = None
+    timeout: float = 60.0
+    retry: Dict[str, Any] = field(default_factory=dict)
+    config: Dict[str, Any] = field(default_factory=dict)
 
 
-class BaseWorkflow(Extension[WorkflowConfig]):
-    """Base class for workflows.
+@dataclass
+class WorkflowConfig(ComponentConfig):
+    """Workflow configuration."""
 
-    This class defines the interface that all workflows must implement.
+    steps: List[WorkflowStep] = field(default_factory=list)
+    parallel: bool = False
+    timeout: float = 3600.0
+    retry: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class WorkflowContext:
+    """Workflow execution context."""
+
+    workflow_id: WorkflowID
+    state: WorkflowState = WorkflowState.INITIALIZING
+    start_time: datetime = field(default_factory=datetime.utcnow)
+    end_time: Optional[datetime] = None
+    current_step: Optional[str] = None
+    error: Optional[Exception] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class WorkflowCallback(ComponentCallback, Protocol):
+    """Protocol for workflow callbacks."""
+
+    async def on_state_change(self, workflow_id: str, state: ComponentState) -> None:
+        """Called when workflow state changes."""
+        ...
+
+    async def on_step_start(self, workflow_id: str, step: str) -> None:
+        """Called when workflow step starts."""
+        ...
+
+    async def on_step_complete(self, workflow_id: str, step: str, result: Any) -> None:
+        """Called when workflow step completes."""
+        ...
+
+    async def on_error(self, workflow_id: str, error: Exception) -> None:
+        """Called when workflow encounters an error."""
+        ...
+
+    async def on_progress(self, workflow_id: str, progress: float) -> None:
+        """Called when workflow makes progress."""
+        ...
+
+
+class BaseWorkflow(ComponentBase, ABC):
+    """Base class for all workflows.
+
+    This class extends ComponentBase with workflow-specific functionality:
+    - Step management
+    - Parallel execution
+    - Timeout handling
+    - Retry policies
     """
 
     def __init__(
         self,
-        name: str,
-        version: str,
         config: Optional[WorkflowConfig] = None,
+        callback: Optional[WorkflowCallback] = None,
     ) -> None:
         """Initialize workflow.
 
         Args:
-            name: Workflow name
-            version: Workflow version
             config: Optional workflow configuration
+            callback: Optional callback for workflow events
         """
-        super().__init__(name, version, config)
+        super().__init__(
+            config or WorkflowConfig(name=self.__class__.__name__), callback
+        )
+        self.id = WorkflowID(uuid4())
+        self._context = WorkflowContext(workflow_id=self.id)
+        self._step_metrics: Dict[str, Union[Counter, Histogram]] = {}
+        self._metrics_manager = MetricsManager.get_instance()
 
-    async def get_capabilities(self) -> List[str]:
-        """Get list of capabilities provided.
+    @property
+    def state(self) -> WorkflowState:
+        """Get current workflow state."""
+        return self._context.state
 
-        Returns:
-            List of capability identifiers
-        """
-        return [self.metadata.name]
+    @property
+    def current_step(self) -> Optional[str]:
+        """Get current workflow step."""
+        return self._context.current_step
 
-    async def get_dependencies(self) -> List[str]:
-        """Get list of required dependencies.
-
-        Returns:
-            List of dependency identifiers
-        """
+    @property
+    def steps(self) -> List[WorkflowStep]:
+        """Get workflow steps."""
+        if isinstance(self.config, WorkflowConfig):
+            return self.config.steps
         return []
 
-    async def _initialize(self) -> None:
+    async def set_state(self, value: WorkflowState) -> None:
+        """Set workflow state and notify callback."""
+        if value != self._context.state:
+            self._context.state = value
+            if self._callback:
+                await self._callback.on_state_change(str(self.id), value)
+
+    async def initialize(self) -> None:
         """Initialize workflow resources."""
+        try:
+            # Initialize metrics
+            self._metrics[
+                "execution_count"
+            ] = await self._metrics_manager.create_counter(
+                name=f"workflow_{self.config.name}_executions_total",
+                description=f"Total number of executions for workflow {self.config.name}",
+                labels={"status": "success"},
+            )
+            self._metrics[
+                "execution_time"
+            ] = await self._metrics_manager.create_histogram(
+                name=f"workflow_{self.config.name}_execution_seconds",
+                description=f"Execution time in seconds for workflow {self.config.name}",
+                labels={"status": "success"},
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+            )
+            self._metrics["step_count"] = await self._metrics_manager.create_counter(
+                name=f"workflow_{self.config.name}_steps_total",
+                description=f"Total number of steps executed for workflow {self.config.name}",
+                labels={"status": "success"},
+            )
+            self._metrics["step_time"] = await self._metrics_manager.create_histogram(
+                name=f"workflow_{self.config.name}_step_seconds",
+                description=f"Step execution time in seconds for workflow {self.config.name}",
+                labels={"status": "success"},
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+            )
+
+            # Initialize step metrics
+            for step in self.steps:
+                self._step_metrics[
+                    f"{step.name}_count"
+                ] = await self._metrics_manager.create_counter(
+                    name=f"{self.config.name}_step_{step.name}_total",
+                    description=f"Total number of executions for step {step.name}",
+                    labels={"status": "success"},
+                )
+                self._step_metrics[
+                    f"{step.name}_time"
+                ] = await self._metrics_manager.create_histogram(
+                    name=f"{self.config.name}_step_{step.name}_seconds",
+                    description=f"Execution time in seconds for step {step.name}",
+                    labels={"status": "success"},
+                    buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+                )
+
+            # Initialize workflow
+            await self._initialize()
+            await self.set_state(WorkflowState.READY)
+
+        except Exception as e:
+            await self.set_state(WorkflowState.ERROR)
+            self._context.error = e
+            if self._callback:
+                await self._callback.on_error(str(self.id), e)
+            raise WorkflowError(f"Failed to initialize workflow: {e}")
+
+    async def execute(self, **kwargs: Any) -> Any:
+        """Execute workflow's main functionality.
+
+        Args:
+            **kwargs: Execution parameters
+
+        Returns:
+            Execution result
+
+        Raises:
+            WorkflowError: If execution fails
+            StateError: If workflow is not in valid state
+        """
+        if self.state != WorkflowState.READY:
+            raise StateError(f"Workflow not ready (state: {self.state})")
+
+        start_time = datetime.utcnow()
+        await self.set_state(WorkflowState.EXECUTING)
+
+        try:
+            # Execute workflow
+            result = await self._execute(**kwargs)
+
+            # Update metrics
+            if isinstance(self._metrics["execution_count"], Counter):
+                await self._metrics["execution_count"].inc()
+            if isinstance(self._metrics["execution_time"], Histogram):
+                await self._metrics["execution_time"].observe(
+                    (datetime.utcnow() - start_time).total_seconds()
+                )
+
+            await self.set_state(WorkflowState.READY)
+            return result
+
+        except Exception as e:
+            # Update metrics with error labels
+            error_counter = await self._metrics_manager.create_counter(
+                name=f"workflow_{self.config.name}_executions_total",
+                description=f"Total number of executions for workflow {self.config.name}",
+                labels={"status": "error"},
+            )
+            error_histogram = await self._metrics_manager.create_histogram(
+                name=f"workflow_{self.config.name}_execution_seconds",
+                description=f"Execution time in seconds for workflow {self.config.name}",
+                labels={"status": "error"},
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+            )
+            await error_counter.inc(1.0)
+            await error_histogram.observe(
+                (datetime.utcnow() - start_time).total_seconds()
+            )
+
+            await self.set_state(WorkflowState.ERROR)
+            self._context.error = e
+            if self._callback:
+                await self._callback.on_error(str(self.id), e)
+            raise WorkflowError(f"Failed to execute workflow: {e}")
+
+    async def execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
+        """Execute a single workflow step.
+
+        Args:
+            step: Step to execute
+            **kwargs: Step parameters
+
+        Returns:
+            Step result
+
+        Raises:
+            WorkflowError: If step execution fails
+        """
+        if self.state != ComponentState.EXECUTING:
+            raise StateError(f"Workflow not executing (state: {self.state})")
+
+        start_time = datetime.utcnow()
+        self._context.current_step = step.name
+
+        try:
+            # Notify step start
+            if isinstance(self._callback, WorkflowCallback):
+                await self._callback.on_step_start(str(self.id), step.name)
+
+            # Execute step
+            result = await self._execute_step(step, **kwargs)
+
+            # Update metrics
+            await self._step_metrics[f"{step.name}_count"].inc()
+            await self._step_metrics[f"{step.name}_time"].observe(
+                (datetime.utcnow() - start_time).total_seconds()
+            )
+
+            # Notify step complete
+            if isinstance(self._callback, WorkflowCallback):
+                await self._callback.on_step_complete(str(self.id), step.name, result)
+
+            return result
+
+        except Exception as e:
+            # Update metrics with error labels
+            error_counter = await self._metrics_manager.create_counter(
+                name=f"{self.config.name}_step_{step.name}_total",
+                description=f"Total number of executions for step {step.name}",
+                labels={"status": "error"},
+            )
+            error_histogram = await self._metrics_manager.create_histogram(
+                name=f"{self.config.name}_step_{step.name}_seconds",
+                description=f"Execution time in seconds for step {step.name}",
+                labels={"status": "error"},
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+            )
+            await error_counter.inc()
+            await error_histogram.observe(
+                (datetime.utcnow() - start_time).total_seconds()
+            )
+
+            raise WorkflowError(f"Failed to execute step {step.name}: {e}") from e
+
+        finally:
+            self._context.current_step = None
+
+    async def cleanup(self) -> None:
+        """Clean up workflow resources."""
+        try:
+            await self._cleanup()
+            await self.set_state(WorkflowState.TERMINATED)
+
+        except Exception as e:
+            await self.set_state(WorkflowState.ERROR)
+            self._context.error = e
+            if self._callback:
+                await self._callback.on_error(str(self.id), e)
+            raise WorkflowError(f"Failed to clean up workflow: {e}")
+
+    @abstractmethod
+    async def _initialize(self) -> None:
+        """Initialize workflow implementation.
+
+        This method should be implemented by subclasses to perform
+        workflow-specific initialization.
+        """
         pass
 
+    @abstractmethod
+    async def _execute(self, **kwargs: Any) -> Any:
+        """Execute workflow implementation.
+
+        This method should be implemented by subclasses to perform
+        workflow-specific execution.
+
+        Args:
+            **kwargs: Execution parameters
+
+        Returns:
+            Execution result
+        """
+        pass
+
+    @abstractmethod
+    async def _execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
+        """Execute step implementation.
+
+        This method should be implemented by subclasses to perform
+        step-specific execution.
+
+        Args:
+            step: Step to execute
+            **kwargs: Step parameters
+
+        Returns:
+            Step result
+        """
+        pass
+
+    @abstractmethod
     async def _cleanup(self) -> None:
-        """Clean up workflow resources."""
+        """Clean up workflow implementation.
+
+        This method should be implemented by subclasses to perform
+        workflow-specific cleanup.
+        """
         pass

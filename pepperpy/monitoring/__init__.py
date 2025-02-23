@@ -1,40 +1,50 @@
-"""Monitoring module for metrics, health checks, tracing, and audit logging.
+"""Monitoring system for the Pepperpy framework.
 
-This module provides comprehensive monitoring capabilities including:
-- Metrics collection and reporting
-- Health checks
-- Distributed tracing
-- Audit logging
+This module provides monitoring functionality:
+- Metrics collection and export
+- Logging configuration
+- Telemetry integration
 """
 
-import logging
-from pathlib import Path
+from typing import Optional
 
-# Configure base logger
-logger = logging.getLogger("pepperpy")
-logger.setLevel(logging.INFO)
-
-# Create logs directory
-log_dir = Path.home() / ".pepperpy/logs"
-log_dir.mkdir(parents=True, exist_ok=True)
-
-# Create file handler
-log_file = log_dir / "pepperpy.log"
-file_handler = logging.FileHandler(log_file)
-file_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+from pepperpy.core.metrics import metrics_manager
+from pepperpy.core.metrics.base import (
+    Counter,
+    Gauge,
+    Histogram,
+    MetricsManager,
+    Summary,
 )
-logger.addHandler(file_handler)
-
-# Import submodules
-from pepperpy.monitoring.audit import AuditLogger, audit_logger
-from pepperpy.monitoring.health import HealthManager
-from pepperpy.monitoring.metrics.simple import MetricsManager
+from pepperpy.monitoring.logging import configure_logging, logger
+from pepperpy.monitoring.metrics.collectors import (
+    LoggingCollector,
+    OpenTelemetryCollector,
+    PrometheusCollector,
+)
+from pepperpy.monitoring.metrics.exporters import (
+    ConsoleExporter,
+    FileExporter,
+    HTTPExporter,
+)
 
 __all__ = [
+    # Logging
+    "configure_logging",
     "logger",
-    "AuditLogger",
-    "audit_logger",
+    # Metrics
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "Summary",
     "MetricsManager",
-    "HealthManager",
+    "metrics_manager",
+    # Collectors
+    "LoggingCollector",
+    "OpenTelemetryCollector",
+    "PrometheusCollector",
+    # Exporters
+    "ConsoleExporter",
+    "FileExporter",
+    "HTTPExporter",
 ]

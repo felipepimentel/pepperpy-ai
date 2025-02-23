@@ -8,16 +8,14 @@ import asyncio
 import time
 from collections.abc import AsyncGenerator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional, Protocol, Set, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.base import (
-    BaseAgent,
-    Lifecycle,
-)
+from pepperpy.core.base import BaseAgent
 from pepperpy.core.errors import ConfigurationError, StateError
+from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.logging import get_logger
 from pepperpy.core.messages import (
     Message,
@@ -80,9 +78,9 @@ class ClientConfig(BaseModel):
     max_retries: int = Field(default=3, ge=0)
     retry_delay: float = Field(default=1.0, ge=0)
     provider_type: str = Field(default="openrouter")
-    provider_config: Dict[str, Any] = Field(default_factory=dict)
-    memory_config: Dict[str, Any] = Field(default_factory=dict)
-    prompt_config: Dict[str, Any] = Field(default_factory=dict)
+    provider_config: dict[str, Any] = Field(default_factory=dict)
+    memory_config: dict[str, Any] = Field(default_factory=dict)
+    prompt_config: dict[str, Any] = Field(default_factory=dict)
 
 
 class PepperpyClient(PepperpyClientProtocol, Lifecycle):
@@ -95,22 +93,22 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
     - Plugin/hook system for customization
     """
 
-    def __init__(self, config: Dict[str, Any]) -> None:
+    def __init__(self, config: dict[str, Any]) -> None:
         """Initialize the client."""
         self._raw_config = config
-        self._provider: Optional[BaseProvider] = None
+        self._provider: BaseProvider | None = None
         self._initialized = False
-        self._lifecycle_hooks: Dict[str, Set[HookCallback]] = {
+        self._lifecycle_hooks: dict[str, set[HookCallback]] = {
             "before_request": set(),
             "after_request": set(),
             "on_error": set(),
         }
-        self._agent_factory: Optional["AgentFactory"] = None
+        self._agent_factory: AgentFactory | None = None
         self._cache_enabled = True
         self._cache_store = "memory"
-        self._agents: Dict[UUID, BaseAgent] = {}
-        self._memory: Optional[BaseMemoryStore[Dict[str, Any]]] = None
-        self._prompt: Optional[PromptTemplate] = None
+        self._agents: dict[UUID, BaseAgent] = {}
+        self._memory: BaseMemoryStore[dict[str, Any]] | None = None
+        self._prompt: PromptTemplate | None = None
         self._updated_at = time.time()
         self._manager = ProviderManager()
 
@@ -468,13 +466,12 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
                             content=str(chunk.content),
                             metadata={"original_id": str(chunk.id)},
                         )
-            else:
-                if isinstance(response, ProviderResponse):
-                    yield Response(
-                        id=uuid4(),
-                        content=str(response.content),
-                        metadata={"original_id": str(response.id)},
-                    )
+            elif isinstance(response, ProviderResponse):
+                yield Response(
+                    id=uuid4(),
+                    content=str(response.content),
+                    metadata={"original_id": str(response.id)},
+                )
         except Exception as e:
             if isinstance(e, (StateError, ProviderNotFoundError, TimeoutError)):
                 raise
@@ -514,7 +511,7 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
             )
             raise
 
-    async def get_agent(self, agent_id: Union[str, UUID]) -> BaseAgent:
+    async def get_agent(self, agent_id: str | UUID) -> BaseAgent:
         """Get an existing agent instance by ID.
 
         Args:
@@ -726,9 +723,8 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
                 async for chunk in response:
                     if isinstance(chunk, ProviderResponse):
                         yield chunk
-            else:
-                if isinstance(response, ProviderResponse):
-                    yield response
+            elif isinstance(response, ProviderResponse):
+                yield response
 
         except Exception as e:
             if isinstance(e, (StateError, ProviderNotFoundError, TimeoutError)):
@@ -777,15 +773,14 @@ class PepperpyClient(PepperpyClientProtocol, Lifecycle):
                             content=str(chunk.content),
                             metadata={"original_id": str(chunk.id)},
                         )
-            else:
-                if isinstance(response, ProviderResponse):
-                    yield Response(
-                        id=uuid4(),
-                        content=str(response.content),
-                        metadata={"original_id": str(response.id)},
-                    )
+            elif isinstance(response, ProviderResponse):
+                yield Response(
+                    id=uuid4(),
+                    content=str(response.content),
+                    metadata={"original_id": str(response.id)},
+                )
         except Exception as e:
-            raise ProviderError(f"Failed to stream response: {str(e)}") from e
+            raise ProviderError(f"Failed to stream response: {e!s}") from e
 
     async def clear_history(self) -> None:
         """Clear the conversation history.

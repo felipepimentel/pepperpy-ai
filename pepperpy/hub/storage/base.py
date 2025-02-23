@@ -1,46 +1,54 @@
-"""Base storage module for the Pepperpy Hub.
+"""Storage module for Hub artifacts.
 
-This module defines the base storage interfaces and metadata types.
+This module provides storage backends for Hub artifacts.
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from pepperpy.monitoring import logger
+
+# Configure logging
+logger = logger.getChild(__name__)
+
 
 class StorageMetadata(BaseModel):
-    """Metadata for stored artifacts."""
+    """Metadata for stored artifacts.
 
-    id: str = Field(..., description="Unique identifier for the artifact")
-    name: str = Field(..., description="Name of the artifact")
-    version: str = Field(..., description="Version of the artifact")
-    artifact_type: str = Field(..., description="Type of the artifact")
-    size: int = Field(..., description="Size of the artifact in bytes")
-    hash: str = Field(..., description="Hash of the artifact content")
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="UTC timestamp when the artifact was created",
-    )
-    updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="UTC timestamp when the artifact was last updated",
-    )
+    Attributes:
+        version: Version of the artifact
+        type: Type of artifact (e.g. "agent", "workflow")
+        visibility: Visibility level ("public", "private", "shared")
+        extra: Additional metadata fields
+    """
+
+    version: str
+    type: str
+    visibility: str = "public"
+    extra: Dict[str, Any] = Field(default_factory=dict)
 
 
 class StorageBackend(ABC):
-    """Abstract base class for storage backends."""
+    """Base class for storage backends.
+
+    This class defines the interface that all storage backends must implement.
+    Storage backends are responsible for:
+    - Storing and retrieving artifacts
+    - Managing artifact metadata
+    - Listing available artifacts
+    - Cleaning up resources
+    """
 
     @abstractmethod
     async def initialize(self) -> None:
         """Initialize the storage backend.
 
-        This method should be called before using the storage backend.
-        It should set up any necessary resources or connections.
-
-        Raises:
-            PepperpyError: If initialization fails.
+        This method should:
+        - Set up any required resources
+        - Create necessary directories/tables
+        - Establish connections if needed
         """
         pass
 
@@ -48,18 +56,17 @@ class StorageBackend(ABC):
     async def close(self) -> None:
         """Close the storage backend.
 
-        This method should be called when the storage backend is no longer needed.
-        It should clean up any resources or connections.
-
-        Raises:
-            PepperpyError: If cleanup fails.
+        This method should:
+        - Clean up any resources
+        - Close connections
+        - Ensure data is persisted
         """
         pass
 
     @abstractmethod
     async def store(
         self,
-        artifact_id: str,
+        key: str,
         artifact_type: str,
         content: Dict[str, Any],
         metadata: StorageMetadata,
@@ -67,57 +74,69 @@ class StorageBackend(ABC):
         """Store an artifact.
 
         Args:
-            artifact_id: Unique identifier for the artifact.
-            artifact_type: Type of the artifact (agent, workflow, tool, capability).
-            content: Artifact content to store.
-            metadata: Metadata about the artifact.
+            key: Storage key
+            artifact_type: Type of artifact
+            content: Artifact content
+            metadata: Artifact metadata
 
         Raises:
-            PepperpyError: If storage fails.
+            StorageError: If storage fails
         """
         pass
 
     @abstractmethod
     async def retrieve(
         self,
-        artifact_id: str,
+        key: str,
         artifact_type: str,
-    ) -> Tuple[Dict[str, Any], StorageMetadata]:
+    ) -> Dict[str, Any]:
         """Retrieve an artifact.
 
         Args:
-            artifact_id: Unique identifier for the artifact.
-            artifact_type: Type of the artifact (agent, workflow, tool, capability).
+            key: Storage key
+            artifact_type: Type of artifact
 
         Returns:
-            Tuple of (content, metadata).
+            Dict[str, Any]: Artifact content
 
         Raises:
-            PepperpyError: If retrieval fails or artifact doesn't exist.
+            KeyError: If artifact not found
+            StorageError: If retrieval fails
         """
         pass
 
     @abstractmethod
-    async def delete(self, artifact_id: str, artifact_type: str) -> None:
+    async def delete(
+        self,
+        key: str,
+        artifact_type: str,
+    ) -> None:
         """Delete an artifact.
 
         Args:
-            artifact_id: Unique identifier for the artifact.
-            artifact_type: Type of the artifact (agent, workflow, tool, capability).
+            key: Storage key
+            artifact_type: Type of artifact
 
         Raises:
-            PepperpyError: If deletion fails or artifact doesn't exist.
+            KeyError: If artifact not found
+            StorageError: If deletion fails
         """
         pass
 
     @abstractmethod
-    async def list(self) -> List[StorageMetadata]:
-        """List all artifacts.
+    async def list(
+        self,
+        artifact_type: Optional[str] = None,
+    ) -> Dict[str, StorageMetadata]:
+        """List stored artifacts.
+
+        Args:
+            artifact_type: Optional type filter
 
         Returns:
-            List of metadata for all stored artifacts.
+            Dict[str, StorageMetadata]: Map of storage keys to metadata
 
         Raises:
-            PepperpyError: If listing fails.
+            StorageError: If listing fails
         """
         pass

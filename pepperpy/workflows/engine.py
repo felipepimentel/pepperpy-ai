@@ -1,665 +1,381 @@
-"""Workflow execution engine."""
+"""Workflow engine module for the Pepperpy framework.
+
+This module provides the workflow engine that manages workflow execution.
+It handles workflow lifecycle, scheduling, and monitoring.
+"""
 
 import asyncio
 import logging
-import uuid
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Type, Union
+from uuid import UUID
 
-from pepperpy.core.base import Lifecycle
-from pepperpy.core.types import ComponentState
-
-from .base import WorkflowContext, WorkflowState, WorkflowStep
-from .errors import (
-    StepExecutionError,
-    StepTimeoutError,
-    WorkflowError,
-    WorkflowNotFoundError,
-    WorkflowValidationError,
-)
+from pepperpy.core.base import ComponentBase, ComponentConfig
+from pepperpy.core.errors import StateError, WorkflowError
+from pepperpy.core.types import WorkflowID
+from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
+from pepperpy.workflows.base import BaseWorkflow, WorkflowConfig, WorkflowState
 
 logger = logging.getLogger(__name__)
 
 
-class RunStatus:
-    """Status of a workflow run."""
+@dataclass
+class WorkflowEngineConfig(ComponentConfig):
+    """Workflow engine configuration."""
 
-    def __init__(self, run_id: str) -> None:
-        """Initialize run status.
-
-        Args:
-            run_id: Run identifier
-        """
-        self.run_id = run_id
-        self.state = WorkflowState.CREATED
-        self.started_at = datetime.utcnow()
-        self.completed_at: Optional[datetime] = None
-        self.error: Optional[str] = None
-        self.steps: Dict[str, "StepStatus"] = {}
+    max_concurrent_workflows: int = 10
+    workflow_timeout: float = 3600.0
+    scheduler_interval: float = 1.0
+    retry_policy: Dict[str, Any] = field(default_factory=dict)
 
 
-class StepStatus:
-    """Status of a workflow step."""
+class WorkflowEngine(ComponentBase):
+    """Workflow engine for managing workflow execution.
 
-    def __init__(self, step_id: str) -> None:
-        """Initialize step status.
-
-        Args:
-            step_id: Step identifier
-        """
-        self.step_id = step_id
-        self.state = WorkflowState.CREATED
-        self.started_at: Optional[datetime] = None
-        self.completed_at: Optional[datetime] = None
-        self.error: Optional[str] = None
-
-
-class LogEntry:
-    """Log entry for a workflow run."""
+    This class provides functionality for:
+    - Workflow registration and discovery
+    - Workflow lifecycle management
+    - Workflow scheduling and execution
+    - Workflow monitoring and metrics
+    """
 
     def __init__(
         self,
-        message: str,
-        level: str = "INFO",
-        timestamp: Optional[datetime] = None,
+        config: Optional[WorkflowEngineConfig] = None,
     ) -> None:
-        """Initialize log entry.
+        """Initialize workflow engine.
 
         Args:
-            message: Log message
-            level: Log level
-            timestamp: Optional timestamp
+            config: Optional engine configuration
         """
-        self.message = message
-        self.level = level
-        self.timestamp = timestamp or datetime.utcnow()
+        super().__init__(config or WorkflowEngineConfig(name=self.__class__.__name__))
+        self._workflows: Dict[WorkflowID, BaseWorkflow] = {}
+        self._workflow_types: Dict[str, Type[BaseWorkflow]] = {}
+        self._active_workflows: Set[WorkflowID] = set()
+        self._scheduled_workflows: Dict[WorkflowID, datetime] = {}
+        self._scheduler_task: Optional[asyncio.Task[None]] = None
+        self._metrics_manager = MetricsManager.get_instance()
+        self._metrics: Dict[str, Union[Counter, Histogram]] = {}
 
-
-class WorkflowEngine(Lifecycle):
-    """Unified workflow execution engine.
-
-    Features:
-    - Workflow registration and validation
-    - State management and error handling
-    - Variable passing between steps
-    - Execution history tracking
-    - Conditional step execution
-    - Retry handling
-    - Timeout management
-    """
-
-    def __init__(self) -> None:
+    async def _initialize(self) -> None:
         """Initialize workflow engine."""
-        super().__init__()
-        self._workflows: Dict[str, List[WorkflowStep]] = {}
-        self._contexts: Dict[str, WorkflowContext] = {}
-        self._running: Set[str] = set()
-        self._lock = asyncio.Lock()
-        self._run_status: Dict[str, RunStatus] = {}
-        self._run_logs: Dict[str, List[LogEntry]] = {}
-        self._state = ComponentState.UNREGISTERED
-
-    async def initialize(self) -> None:
-        """Initialize the workflow engine.
-
-        Raises:
-            WorkflowError: If initialization fails
-        """
         try:
-            # Set initializing state
-            self._state = ComponentState.INITIALIZED
+            # Initialize metrics
+            workflow_count = await self._metrics_manager.create_counter(
+                name=f"{self.config.name}_workflows_total",
+                description="Total number of workflows registered",
+                labels={"status": "active"},
+            )
+            workflow_execution_time = await self._metrics_manager.create_histogram(
+                name=f"{self.config.name}_execution_seconds",
+                description="Workflow execution time in seconds",
+                labels={"status": "success"},
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0],
+            )
+            workflow_queue_time = await self._metrics_manager.create_histogram(
+                name=f"{self.config.name}_queue_seconds",
+                description="Workflow queue time in seconds",
+                labels={"status": "success"},
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0],
+            )
+            workflow_retry_count = await self._metrics_manager.create_counter(
+                name=f"{self.config.name}_retries_total",
+                description="Total number of workflow retries",
+                labels={"status": "retry"},
+            )
 
-            # Initialize internal state
-            self._workflows.clear()
-            self._contexts.clear()
-            self._running.clear()
-            self._run_status.clear()
-            self._run_logs.clear()
+            self._metrics.update({
+                "workflow_count": workflow_count,
+                "workflow_execution_time": workflow_execution_time,
+                "workflow_queue_time": workflow_queue_time,
+                "workflow_retry_count": workflow_retry_count,
+            })
 
-            # Update state
-            self._state = ComponentState.RUNNING
+            # Start scheduler
+            if isinstance(self.config, WorkflowEngineConfig):
+                self._scheduler_task = asyncio.create_task(self._run_scheduler())
+
             logger.info("Workflow engine initialized")
 
         except Exception as e:
-            self._state = ComponentState.ERROR
-            logger.error(f"Failed to initialize workflow engine: {e}")
-            raise WorkflowError("Failed to initialize workflow engine") from e
+            logger.error("Failed to initialize workflow engine: %s", str(e))
+            raise WorkflowError(f"Failed to initialize workflow engine: {e}")
 
-    async def cleanup(self) -> None:
-        """Clean up workflow engine resources.
-
-        Raises:
-            WorkflowError: If cleanup fails
-        """
+    async def _cleanup(self) -> None:
+        """Clean up workflow engine resources."""
         try:
-            # Cancel any running workflows
-            for workflow_name in list(self._running):
-                await self.cancel(workflow_name)
+            # Stop scheduler
+            if self._scheduler_task:
+                self._scheduler_task.cancel()
+                try:
+                    await self._scheduler_task
+                except asyncio.CancelledError:
+                    pass
 
-            # Clear internal state
+            # Clean up active workflows
+            for workflow_id in list(self._active_workflows):
+                await self.stop_workflow(workflow_id)
+
+            # Clear registries
             self._workflows.clear()
-            self._contexts.clear()
-            self._running.clear()
-            self._run_status.clear()
-            self._run_logs.clear()
+            self._workflow_types.clear()
+            self._active_workflows.clear()
+            self._scheduled_workflows.clear()
 
-            # Update state
-            self._state = ComponentState.UNREGISTERED
             logger.info("Workflow engine cleaned up")
 
         except Exception as e:
-            self._state = ComponentState.ERROR
-            logger.error(f"Failed to cleanup workflow engine: {e}")
-            raise WorkflowError("Failed to cleanup workflow engine") from e
+            logger.error("Failed to clean up workflow engine: %s", str(e))
+            raise WorkflowError(f"Failed to clean up workflow engine: {e}")
 
-    def _validate_workflow(self, name: str, steps: List[WorkflowStep]) -> None:
-        """Validate workflow definition.
+    async def _execute(self, **kwargs: Any) -> Any:
+        """Execute workflow engine functionality.
+
+        This method is not used directly but is required by ComponentBase.
+        """
+        pass
+
+    def register_workflow(self, workflow_type: Type[BaseWorkflow]) -> None:
+        """Register a workflow type.
 
         Args:
-            name: Workflow name
-            steps: Workflow steps
+            workflow_type: Workflow class to register
 
         Raises:
-            WorkflowValidationError: If validation fails
+            ValueError: If workflow type is already registered
         """
-        if not steps:
-            raise WorkflowValidationError(
-                "Workflow must have at least one step",
-                workflow=name,
-            )
+        name = workflow_type.__name__
+        if name in self._workflow_types:
+            raise ValueError(f"Workflow type already registered: {name}")
 
-        # Validate step names are unique
-        step_names = set()
-        for step in steps:
-            if step.name in step_names:
-                raise WorkflowValidationError(
-                    f"Duplicate step name: {step.name}",
-                    workflow=name,
-                    details={"step": step.name},
-                )
-            step_names.add(step.name)
+        self._workflow_types[name] = workflow_type
+        logger.info("Registered workflow type: %s", name)
 
-    async def deploy_workflow(self, definition: Dict[str, Any]) -> str:
-        """Deploy a new workflow.
+    async def create_workflow(
+        self,
+        workflow_type: str,
+        config: Optional[WorkflowConfig] = None,
+        schedule_time: Optional[datetime] = None,
+        **kwargs: Any,
+    ) -> WorkflowID:
+        """Create a new workflow instance.
 
         Args:
-            definition: Workflow definition
+            workflow_type: Type of workflow to create
+            config: Optional workflow configuration
+            schedule_time: Optional time to schedule workflow execution
+            **kwargs: Additional workflow parameters
 
         Returns:
-            str: Workflow ID
+            ID of created workflow
 
         Raises:
-            WorkflowValidationError: If deployment fails
+            ValueError: If workflow type is not registered
+            WorkflowError: If workflow creation fails
         """
+        if workflow_type not in self._workflow_types:
+            raise ValueError(f"Workflow type not registered: {workflow_type}")
+
+        if isinstance(self.config, WorkflowEngineConfig):
+            if len(self._workflows) >= self.config.max_concurrent_workflows:
+                raise WorkflowError("Maximum concurrent workflows reached")
+
         try:
-            # Generate workflow ID
-            workflow_id = str(uuid.uuid4())
+            # Create workflow instance
+            workflow_cls = self._workflow_types[workflow_type]
+            workflow = workflow_cls(config=config, **kwargs)
+            workflow_id = workflow.id
 
-            # Parse steps
-            steps = []
-            for step_def in definition.get("steps", []):
-                step = WorkflowStep(
-                    name=step_def["name"],
-                    action=step_def["action"],
-                    inputs=step_def.get("inputs", {}),
-                    outputs=step_def.get("outputs"),
-                    condition=step_def.get("condition"),
-                    retry_config=step_def.get("retry"),
-                    timeout=step_def.get("timeout"),
-                    metadata=step_def.get("metadata", {}),
-                )
-                steps.append(step)
+            # Initialize workflow
+            await workflow.initialize()
+            self._workflows[workflow_id] = workflow
 
-            # Register workflow
-            await self.register(workflow_id, steps)
+            # Update metrics
+            if isinstance(self._metrics["workflow_count"], Counter):
+                await self._metrics["workflow_count"].inc()
 
+            # Schedule workflow if requested
+            if schedule_time:
+                self._scheduled_workflows[workflow_id] = schedule_time
+
+            logger.info(
+                "Created workflow: %s (type: %s)",
+                str(workflow_id),
+                workflow_type,
+            )
             return workflow_id
 
         except Exception as e:
-            raise WorkflowValidationError(
-                f"Failed to deploy workflow: {e}", workflow=workflow_id
+            logger.error(
+                "Failed to create workflow: %s (type: %s, error: %s)",
+                str(workflow_id),
+                workflow_type,
+                str(e),
             )
+            raise WorkflowError(f"Failed to create workflow: {e}") from e
 
-    async def start_workflow(self, workflow_id: str, inputs: Dict[str, Any]) -> str:
-        """Start a workflow asynchronously.
-
-        Args:
-            workflow_id: Workflow ID
-            inputs: Workflow inputs
-
-        Returns:
-            str: Run ID
-
-        Raises:
-            WorkflowNotFoundError: If workflow doesn't exist
-            WorkflowError: If start fails
-        """
-        if workflow_id not in self._workflows:
-            raise WorkflowNotFoundError(workflow_id)
-
-        # Generate run ID
-        run_id = str(uuid.uuid4())
-
-        # Initialize run status
-        status = RunStatus(run_id)
-        self._run_status[run_id] = status
-
-        # Initialize logs
-        self._run_logs[run_id] = []
-
-        # Start workflow in background
-        asyncio.create_task(self._run_workflow(workflow_id, run_id, inputs))
-
-        return run_id
-
-    async def run_workflow(
-        self, workflow_id: str, inputs: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Run a workflow synchronously.
-
-        Args:
-            workflow_id: Workflow ID
-            inputs: Workflow inputs
-
-        Returns:
-            Dict[str, Any]: Workflow results
-
-        Raises:
-            WorkflowNotFoundError: If workflow doesn't exist
-            WorkflowError: If execution fails
-        """
-        run_id = await self.start_workflow(workflow_id, inputs)
-        status = await self.get_run_status(run_id)
-
-        while status.state in [WorkflowState.CREATED, WorkflowState.RUNNING]:
-            await asyncio.sleep(0.1)
-            status = await self.get_run_status(run_id)
-
-        if status.state == WorkflowState.FAILED:
-            raise WorkflowError(
-                f"Workflow failed: {status.error}", workflow=workflow_id
-            )
-
-        return self._contexts[workflow_id].variables
-
-    async def _run_workflow(
+    async def start_workflow(
         self,
-        workflow_id: str,
-        run_id: str,
-        inputs: Dict[str, Any],
+        workflow_id: Union[UUID, str],
+        **kwargs: Any,
     ) -> None:
-        """Run a workflow in the background.
+        """Start workflow execution.
 
         Args:
-            workflow_id: Workflow ID
-            run_id: Run ID
-            inputs: Workflow inputs
+            workflow_id: ID of workflow to start
+            **kwargs: Workflow execution parameters
+
+        Raises:
+            ValueError: If workflow not found
+            StateError: If workflow is not in valid state
+            WorkflowError: If workflow execution fails
         """
-        status = self._run_status[run_id]
+        workflow_id = WorkflowID(UUID(str(workflow_id)))
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+
+        workflow = self._workflows[workflow_id]
+        if workflow.state != WorkflowState.READY:
+            raise StateError(
+                f"Workflow not ready: {workflow_id} (state: {workflow.state})"
+            )
+
         try:
-            # Update status
-            status.state = WorkflowState.RUNNING
-            status.started_at = datetime.utcnow()
+            # Start workflow execution
+            self._active_workflows.add(workflow_id)
+            start_time = datetime.utcnow()
 
             # Execute workflow
-            await self.execute(workflow_id, inputs)
+            await workflow.execute(**kwargs)
 
-            # Update status
-            status.state = WorkflowState.COMPLETED
-            status.completed_at = datetime.utcnow()
+            # Update metrics
+            duration = (datetime.utcnow() - start_time).total_seconds()
+            if isinstance(self._metrics["workflow_execution_time"], Histogram):
+                await self._metrics["workflow_execution_time"].observe(duration)
 
-        except Exception as e:
-            # Update status
-            status.state = WorkflowState.FAILED
-            status.error = str(e)
-            status.completed_at = datetime.utcnow()
+            # Remove from scheduled workflows if present
+            self._scheduled_workflows.pop(workflow_id, None)
 
-    async def get_run_status(self, run_id: str) -> RunStatus:
-        """Get status of a workflow run.
+            logger.info("Started workflow: %s", str(workflow_id))
 
-        Args:
-            run_id: Run ID
-
-        Returns:
-            RunStatus: Run status
-
-        Raises:
-            WorkflowError: If run not found
-        """
-        status = self._run_status.get(run_id)
-        if not status:
-            raise WorkflowError(f"Run not found: {run_id}", workflow="unknown")
-        return status
-
-    async def get_run_logs(self, run_id: str) -> List[LogEntry]:
-        """Get logs for a workflow run.
-
-        Args:
-            run_id: Run ID
-
-        Returns:
-            List[LogEntry]: Run logs
-
-        Raises:
-            WorkflowError: If run not found
-        """
-        logs = self._run_logs.get(run_id)
-        if logs is None:
-            raise WorkflowError(f"Run not found: {run_id}", workflow="unknown")
-        return logs
-
-    async def stop_workflow(self, run_id: str) -> None:
-        """Stop a running workflow.
-
-        Args:
-            run_id: Run ID
-
-        Raises:
-            WorkflowError: If stop fails
-        """
-        status = self._run_status.get(run_id)
-        if not status:
-            raise WorkflowError(f"Run not found: {run_id}", workflow="unknown")
-
-        if status.state != WorkflowState.RUNNING:
-            return
-
-        status.state = WorkflowState.CANCELLED
-        status.completed_at = datetime.utcnow()
-
-    async def delete_workflow(self, workflow_id: str) -> None:
-        """Delete a workflow.
-
-        Args:
-            workflow_id: Workflow ID
-
-        Raises:
-            WorkflowNotFoundError: If workflow doesn't exist
-        """
-        if workflow_id not in self._workflows:
-            raise WorkflowNotFoundError(workflow_id)
-
-        # Cancel if running
-        if workflow_id in self._running:
-            await self.cancel(workflow_id)
-
-        # Remove workflow
-        del self._workflows[workflow_id]
-        del self._contexts[workflow_id]
-
-    async def list_workflows(
-        self,
-        state: Optional[WorkflowState] = None,
-    ) -> List[Dict[str, Any]]:
-        """List workflows.
-
-        Args:
-            state: Optional state filter
-
-        Returns:
-            List[Dict[str, Any]]: List of workflows
-        """
-        workflows = []
-        for workflow_id, steps in self._workflows.items():
-            context = self._contexts[workflow_id]
-            if state and context.state != state:
-                continue
-
-            workflow = {
-                "id": workflow_id,
-                "name": steps[0].name if steps else "unnamed",
-                "state": context.state,
-                "created_at": context.history[0]["timestamp"]
-                if context.history
-                else None,
-                "last_run_at": context.history[-1]["timestamp"]
-                if context.history
-                else None,
-            }
-            workflows.append(workflow)
-
-        return workflows
-
-    async def register(self, name: str, steps: List[WorkflowStep]) -> None:
-        """Register a new workflow.
-
-        Args:
-            name: Workflow name
-            steps: Workflow steps
-
-        Raises:
-            WorkflowValidationError: If registration fails
-
-        """
-        try:
-            self._validate_workflow(name, steps)
-            self._workflows[name] = steps
-            self._contexts[name] = WorkflowContext()
-            logger.info(
-                f"Registered workflow {name}",
-                extra={
-                    "workflow": name,
-                    "steps": len(steps),
-                },
-            )
-        except Exception as e:
-            raise WorkflowValidationError(
-                f"Failed to register workflow: {e}",
-                workflow=name,
-            )
-
-    async def execute(self, name: str, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute a workflow.
-
-        Args:
-            name: Workflow name
-            inputs: Initial workflow inputs
-
-        Returns:
-            Workflow execution results
-
-        Raises:
-            WorkflowNotFoundError: If workflow doesn't exist
-            WorkflowError: If execution fails
-
-        """
-        if name not in self._workflows:
-            raise WorkflowNotFoundError(name)
-
-        async with self._lock:
-            if name in self._running:
-                raise WorkflowError(
-                    f"Workflow {name} is already running",
-                    workflow=name,
-                )
-            self._running.add(name)
-
-        try:
-            context = self._contexts[name]
-            context.variables.update(inputs)
-            context.state = WorkflowState.RUNNING
-
-            for step in self._workflows[name]:
-                # Check step condition
-                if step.condition and not self._evaluate_condition(
-                    step.condition, context
-                ):
-                    logger.info(
-                        f"Skipping step {step.name} (condition not met)",
-                        extra={
-                            "workflow": name,
-                            "step": step.name,
-                        },
-                    )
-                    continue
-
-                context.set_current_step(step.name)
-                try:
-                    result = await self._execute_step(step, context, name)
-                    if step.outputs:
-                        for output in step.outputs:
-                            context.variables[output] = result[output]
-
-                    context.add_history_entry({
-                        "step": step.name,
-                        "status": "completed",
-                        "result": result,
-                    })
-                except Exception as e:
-                    context.set_error(e)
-                    raise StepExecutionError(
-                        f"Step {step.name} failed: {e}",
-                        workflow=name,
-                        step=step.name,
-                    )
-
-            context.state = WorkflowState.COMPLETED
-            return context.variables
-
-        except Exception:
-            context.state = WorkflowState.FAILED
-            raise
-        finally:
-            self._running.remove(name)
-
-    async def cancel(self, name: str) -> None:
-        """Cancel a running workflow.
-
-        Args:
-            name: Workflow name
-
-        Raises:
-            WorkflowNotFoundError: If workflow doesn't exist
-
-        """
-        if name not in self._workflows:
-            raise WorkflowNotFoundError(name)
-
-        context = self._contexts[name]
-        if context.state != WorkflowState.RUNNING:
-            return
-
-        context.state = WorkflowState.CANCELLED
-        self._running.discard(name)
-
-    def _evaluate_condition(self, condition: str, context: WorkflowContext) -> bool:
-        """Evaluate step condition.
-
-        Args:
-            condition: Condition expression
-            context: Workflow context
-
-        Returns:
-            True if condition is met
-
-        """
-        try:
-            # Simple condition evaluation for now
-            # TODO: Implement proper condition parser
-            return eval(condition, {"context": context})
         except Exception as e:
             logger.error(
-                f"Failed to evaluate condition: {e}",
-                extra={"condition": condition},
+                "Failed to start workflow: %s (error: %s)",
+                str(workflow_id),
+                str(e),
             )
-            return False
+            self._active_workflows.discard(workflow_id)
+            raise WorkflowError(f"Failed to start workflow: {e}") from e
 
-    async def _execute_step(
-        self,
-        step: WorkflowStep,
-        context: WorkflowContext,
-        workflow_name: str,
-    ) -> Dict[str, Any]:
-        """Execute a workflow step.
+    async def stop_workflow(self, workflow_id: Union[UUID, str]) -> None:
+        """Stop workflow execution.
 
         Args:
-            step: Step to execute
-            context: Workflow context
-            workflow_name: Name of the workflow
-
-        Returns:
-            Step execution results
+            workflow_id: ID of workflow to stop
 
         Raises:
-            StepExecutionError: If step execution fails
-            StepTimeoutError: If step execution times out
-
+            ValueError: If workflow not found
+            WorkflowError: If workflow cleanup fails
         """
-        logger.info(
-            f"Executing step {step.name}",
-            extra={
-                "step": step.name,
-                "action": step.action,
-            },
-        )
+        workflow_id = WorkflowID(UUID(str(workflow_id)))
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow not found: {workflow_id}")
 
-        # Set up timeout if specified
-        if step.timeout:
-            try:
-                return await asyncio.wait_for(
-                    self._execute_action(step, context, workflow_name),
-                    timeout=step.timeout,
-                )
-            except asyncio.TimeoutError:
-                raise StepTimeoutError(
-                    workflow_name,
-                    step.name,
-                    step.timeout,
-                )
-        else:
-            return await self._execute_action(step, context, workflow_name)
+        try:
+            # Clean up workflow
+            workflow = self._workflows[workflow_id]
+            await workflow.cleanup()
 
-    async def _execute_action(
-        self,
-        step: WorkflowStep,
-        context: WorkflowContext,
-        workflow_name: str,
-    ) -> Dict[str, Any]:
-        """Execute step action with retry support.
+            # Remove workflow
+            self._workflows.pop(workflow_id)
+            self._active_workflows.discard(workflow_id)
+            self._scheduled_workflows.pop(workflow_id, None)
+
+            # Update metrics
+            if isinstance(self._metrics["workflow_count"], Counter):
+                await self._metrics["workflow_count"].inc(-1)
+
+            logger.info("Stopped workflow: %s", str(workflow_id))
+
+        except Exception as e:
+            logger.error(
+                "Failed to stop workflow: %s (error: %s)",
+                str(workflow_id),
+                str(e),
+            )
+            raise WorkflowError(f"Failed to stop workflow: {e}") from e
+
+    def get_workflow(self, workflow_id: Union[UUID, str]) -> BaseWorkflow:
+        """Get workflow instance.
 
         Args:
-            step: Step to execute
-            context: Workflow context
-            workflow_name: Name of the workflow
+            workflow_id: ID of workflow to get
 
         Returns:
-            Action execution results
+            Workflow instance
 
         Raises:
-            StepExecutionError: If action execution fails
-
+            ValueError: If workflow not found
         """
-        retry_count = 0
-        max_retries = (
-            step.retry_config.get("max_retries", 0) if step.retry_config else 0
-        )
-        retry_delay = step.retry_config.get("delay", 1.0) if step.retry_config else 1.0
+        workflow_id = WorkflowID(UUID(str(workflow_id)))
+        if workflow_id not in self._workflows:
+            raise ValueError(f"Workflow not found: {workflow_id}")
+        return self._workflows[workflow_id]
+
+    def list_workflows(self) -> List[Dict[str, Any]]:
+        """List all workflows.
+
+        Returns:
+            List of workflow information
+        """
+        result = []
+        for workflow_id, workflow in self._workflows.items():
+            result.append({
+                "id": str(workflow_id),
+                "type": workflow.__class__.__name__,
+                "state": workflow.state,
+                "active": workflow_id in self._active_workflows,
+                "scheduled": workflow_id in self._scheduled_workflows,
+            })
+        return result
+
+    def list_workflow_types(self) -> List[str]:
+        """List registered workflow types.
+
+        Returns:
+            List of workflow type names
+        """
+        return list(self._workflow_types.keys())
+
+    async def _run_scheduler(self) -> None:
+        """Run workflow scheduler loop."""
+        if not isinstance(self.config, WorkflowEngineConfig):
+            return
 
         while True:
             try:
-                # TODO: Implement action registry and execution
-                # For now, just return a dummy result
-                return {"result": f"Executed {step.action}"}
+                # Check for workflows to execute
+                now = datetime.utcnow()
+                for workflow_id, schedule_time in list(
+                    self._scheduled_workflows.items()
+                ):
+                    if schedule_time <= now:
+                        # Start workflow
+                        await self.start_workflow(workflow_id)
 
+                # Wait for next interval
+                await asyncio.sleep(self.config.scheduler_interval)
+
+            except asyncio.CancelledError:
+                break
             except Exception as e:
-                if retry_count < max_retries:
-                    retry_count += 1
-                    logger.warning(
-                        f"Step {step.name} failed, retrying ({retry_count}/{max_retries})",
-                        extra={
-                            "step": step.name,
-                            "error": str(e),
-                            "retry": retry_count,
-                        },
-                    )
-                    await asyncio.sleep(retry_delay)
-                    continue
-                raise StepExecutionError(
-                    f"Step {step.name} failed after {retry_count} retries: {e}",
-                    workflow=workflow_name,
-                    step=step.name,
-                    details={
-                        "retries": retry_count,
-                        "error": str(e),
-                    },
+                # Log error but continue running
+                error_counter = await self._metrics_manager.create_counter(
+                    name=f"{self.config.name}_scheduler_errors_total",
+                    description="Total number of scheduler errors",
+                    labels={"error": str(e)},
                 )
+                if isinstance(error_counter, Counter):
+                    await error_counter.inc()
+                await asyncio.sleep(1.0)  # Back off on error

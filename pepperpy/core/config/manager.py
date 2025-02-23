@@ -4,134 +4,100 @@ This module provides a configuration manager that handles loading, validation,
 and access to configuration settings.
 """
 
+import asyncio
+import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Generic, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from pydantic import BaseModel, ValidationError
+from pepperpy.core.base import ComponentBase, ComponentConfig
+from pepperpy.core.models import BaseModel
+from pepperpy.core.types import ComponentState
+from pepperpy.utils.imports import lazy_import
 
-from pepperpy.core.errors import ConfigError as ConfigurationError
-from pepperpy.monitoring.metrics import Counter, MetricsManager
+if TYPE_CHECKING:
+    from pepperpy.core.errors import ConfigError as ConfigurationError
+    from pepperpy.core.errors import ValidationError
+    from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
+else:
+    ConfigurationError = lazy_import("pepperpy.core.errors", "ConfigError")
+    ValidationError = lazy_import("pepperpy.core.errors", "ValidationError")
+    Counter = lazy_import("pepperpy.monitoring.metrics", "Counter")
+    Histogram = lazy_import("pepperpy.monitoring.metrics", "Histogram")
+    MetricsManager = lazy_import("pepperpy.monitoring.metrics", "MetricsManager")
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound=BaseModel)
 
 
-class ConfigurationManager(Generic[T]):
-    """Manages configuration for Pepperpy components.
+class ConfigurationManager(ComponentBase, Generic[T]):
+    """Manager for configuration."""
 
-    This class provides a unified interface for loading and accessing
-    configuration settings. It supports:
-    - Loading from multiple sources (files, environment variables)
-    - Type validation using Pydantic models
-    - Dynamic configuration updates
-    - Configuration versioning
-    """
-
-    def __init__(self, config_class: Type[T]) -> None:
-        """Initialize the configuration manager.
+    def __init__(self, config_class: type[T]) -> None:
+        """Initialize configuration manager.
 
         Args:
             config_class: Pydantic model class for configuration
         """
+        config = ComponentConfig(name=self.__class__.__name__)
+        super().__init__(config=config)
         self._config_class = config_class
-        self._config: Optional[T] = None
-        self._config_path: Optional[Path] = None
+        self._config: T | None = None
         self._metrics = MetricsManager.get_instance()
-        self._file_reads: Optional[Counter] = None
-        self._file_read_errors: Optional[Counter] = None
-        self._validation_errors: Optional[Counter] = None
-        self._unexpected_errors: Optional[Counter] = None
-        self._successful_loads: Optional[Counter] = None
-        self._successful_saves: Optional[Counter] = None
-        self._save_errors: Optional[Counter] = None
-        self._successful_updates: Optional[Counter] = None
-        self._update_errors: Optional[Counter] = None
-        self._successful_validations: Optional[Counter] = None
-        self._validation_errors: Optional[Counter] = None
+        self._file_reads: Counter | None = None
+        self._file_read_errors: Counter | None = None
+        self._validation_errors: Counter | None = None
+        self._load_duration: Histogram | None = None
+        self._save_duration: Histogram | None = None
+        self._lock = asyncio.Lock()
+        self._config_path: Path | None = None
+        self._unexpected_errors: Counter | None = None
+        self._successful_loads: Counter | None = None
+        self._successful_saves: Counter | None = None
+        self._save_errors: Counter | None = None
+        self._successful_updates: Counter | None = None
+        self._update_errors: Counter | None = None
+        self._successful_validations: Counter | None = None
 
         logger.debug(
-            "Initialized configuration manager with class %s", config_class.__name__
+            "Initialized configuration manager with class %s",
+            self._config_class.__name__ if self._config_class else "None",
         )
 
-    async def _init_metrics(self) -> None:
-        """Initialize metrics counters."""
-        if self._file_reads is None:
-            self._file_reads = await self._metrics.create_counter(
-                "config.file_reads",
-                "Number of configuration file reads",
-            )
-        if self._file_read_errors is None:
-            self._file_read_errors = await self._metrics.create_counter(
-                "config.file_read_errors",
-                "Number of configuration file read errors",
-            )
-        if self._validation_errors is None:
-            self._validation_errors = await self._metrics.create_counter(
-                "config.validation_errors",
-                "Number of configuration validation errors",
-            )
-        if self._unexpected_errors is None:
-            self._unexpected_errors = await self._metrics.create_counter(
-                "config.unexpected_errors",
-                "Number of unexpected configuration errors",
-            )
-        if self._successful_loads is None:
-            self._successful_loads = await self._metrics.create_counter(
-                "config.successful_loads",
-                "Number of successful configuration loads",
-            )
-        if self._successful_saves is None:
-            self._successful_saves = await self._metrics.create_counter(
-                "config.successful_saves",
-                "Number of successful configuration saves",
-            )
-        if self._save_errors is None:
-            self._save_errors = await self._metrics.create_counter(
-                "config.save_errors",
-                "Number of configuration save errors",
-            )
-        if self._successful_updates is None:
-            self._successful_updates = await self._metrics.create_counter(
-                "config.successful_updates",
-                "Number of successful configuration updates",
-            )
-        if self._update_errors is None:
-            self._update_errors = await self._metrics.create_counter(
-                "config.update_errors",
-                "Number of configuration update errors",
-            )
-        if self._successful_validations is None:
-            self._successful_validations = await self._metrics.create_counter(
-                "config.successful_validations",
-                "Number of successful configuration validations",
-            )
-        if self._validation_errors is None:
-            self._validation_errors = await self._metrics.create_counter(
-                "config.validation_errors",
-                "Number of configuration validation errors",
-            )
-
     @property
-    def config(self) -> Optional[T]:
+    def config(self) -> T:
         """Get the current configuration.
 
         Returns:
-            Current configuration instance or None if not initialized
+            Current configuration
+
+        Raises:
+            ConfigurationError: If configuration is not loaded
         """
+        if self._config is None:
+            raise ConfigurationError("Configuration not loaded")
         return self._config
 
     @property
-    def config_path(self) -> Optional[Path]:
+    def config_path(self) -> Path | None:
         """Get the current configuration file path.
 
         Returns:
-            Path to configuration file or None if not set
+            Current configuration file path or None if not set
         """
         return self._config_path
 
-    def _load_from_file(self, config_path: Path) -> Dict[str, Any]:
+    async def _increment_metric(self, metric: Counter | None) -> None:
+        """Increment a metric counter if it exists.
+
+        Args:
+            metric: The metric to increment
+        """
+        if metric is not None:
+            await metric.inc(1)
+
+    async def _load_from_file(self, config_path: Path) -> dict[str, Any]:
         """Load configuration data from file.
 
         Args:
@@ -141,153 +107,244 @@ class ConfigurationManager(Generic[T]):
             Configuration data as dictionary
 
         Raises:
-            ConfigurationError: If file reading or parsing fails
+            ConfigurationError: If loading fails
         """
         try:
-            config_data = config_path.read_text()
-            if self._file_reads is not None:
-                self._file_reads.record(1)
-            return self._config_class.parse_raw(config_data).dict()
-        except (OSError, IOError) as e:
-            if self._file_read_errors is not None:
-                self._file_read_errors.record(1)
+            if self.state != ComponentState.READY:
+                raise ConfigurationError("Configuration manager not ready")
+
+            async with self._lock:
+                config_data = await asyncio.to_thread(config_path.read_text)
+                await self._increment_metric(self._file_reads)
+                data = json.loads(config_data)
+                config = self._config_class.model_validate(data)
+                return config.__dict__
+        except OSError as e:
+            await self._increment_metric(self._file_read_errors)
             raise ConfigurationError(
-                f"Failed to read config file: {e}",
+                f"Failed to read configuration file: {e}",
                 details={"path": str(config_path)},
-                recovery_hint="Check file permissions and path",
             ) from e
         except ValidationError as e:
-            if self._validation_errors is not None:
-                self._validation_errors.record(1)
+            await self._increment_metric(self._validation_errors)
             raise ConfigurationError(
-                f"Invalid configuration format: {e}",
-                details={"path": str(config_path), "errors": e.errors()},
-                recovery_hint="Check configuration file format and required fields",
+                f"Invalid configuration data: {e}",
+                details={"path": str(config_path), "errors": str(e)},
             ) from e
         except Exception as e:
-            if self._unexpected_errors is not None:
-                self._unexpected_errors.record(1)
+            await self._increment_metric(self._unexpected_errors)
             raise ConfigurationError(
-                f"Unexpected error loading config: {e}",
-                details={"path": str(config_path)},
+                f"Unexpected error loading configuration: {e}"
             ) from e
 
-    async def load(self, config_path: Optional[Path] = None) -> T:
+    async def load(self, config_path: Path) -> T:
         """Load configuration from file.
 
         Args:
-            config_path: Optional path to configuration file
+            config_path: Path to configuration file
 
         Returns:
-            Loaded configuration instance
+            Loaded configuration
 
         Raises:
             ConfigurationError: If loading fails
         """
         try:
-            await self._init_metrics()
+            if self.state != ComponentState.READY:
+                raise ConfigurationError("Configuration manager not ready")
 
-            if config_path:
+            async with self._lock:
+                config_data = await asyncio.to_thread(config_path.read_text)
+                await self._increment_metric(self._file_reads)
+                data = json.loads(config_data)
+                self._config = self._config_class.model_validate(data)
                 self._config_path = config_path
-                if not config_path.exists():
-                    if self._file_read_errors is not None:
-                        self._file_read_errors.record(1)
-                    raise ConfigurationError(
-                        f"Config file not found: {config_path}",
-                        details={"path": str(config_path)},
-                        recovery_hint="Create the configuration file or check the path",
-                    )
-                config_data = self._load_from_file(config_path)
-                logger.info("Loaded configuration from %s", config_path)
-            else:
-                config_data = {}
-                logger.info("Using default configuration")
 
-            # Create config instance
-            config = self._config_class(**config_data)
-            self._config = config
-            if self._successful_loads is not None:
-                self._successful_loads.record(1)
-            logger.debug("Configuration loaded successfully: %s", config.dict())
-            return config
-        except ConfigurationError:
-            raise
-        except Exception as e:
-            if self._unexpected_errors is not None:
-                self._unexpected_errors.record(1)
+                await self._increment_metric(self._successful_loads)
+
+                if self._config is None:
+                    raise ConfigurationError("Failed to load configuration")
+                return self._config
+
+        except OSError as e:
+            await self._increment_metric(self._file_read_errors)
             raise ConfigurationError(
-                f"Failed to load configuration: {e}",
-                details={"path": str(config_path) if config_path else None},
-                recovery_hint="Check configuration format and try again",
+                f"Failed to read configuration file: {e}",
+                details={"path": str(config_path)},
+            ) from e
+        except ValidationError as e:
+            await self._increment_metric(self._validation_errors)
+            raise ConfigurationError(
+                f"Invalid configuration data: {e}",
+                details={"path": str(config_path), "errors": str(e)},
+            ) from e
+        except Exception as e:
+            await self._increment_metric(self._unexpected_errors)
+            raise ConfigurationError(
+                f"Unexpected error loading configuration: {e}"
             ) from e
 
-    async def save(self, path: Optional[Path] = None) -> None:
+    async def _initialize(self) -> None:
+        """Initialize configuration manager.
+
+        This method initializes the metrics used to track configuration operations.
+
+        Raises:
+            ConfigurationError: If initialization fails
+        """
+        try:
+            await self.set_state(ComponentState.INITIALIZING)
+            # Initialize metrics
+            self._file_reads = await self._metrics.create_counter(
+                "config_file_reads_total",
+                "Total number of configuration file reads",
+                labels={
+                    "component_id": str(self._context.component_id),
+                    "state": "ready",
+                },
+            )
+            self._file_read_errors = await self._metrics.create_counter(
+                "config_file_read_errors_total",
+                "Total number of configuration file read errors",
+                labels={
+                    "component_id": str(self._context.component_id),
+                    "state": "error",
+                },
+            )
+            self._validation_errors = await self._metrics.create_counter(
+                "config_validation_errors_total",
+                "Total number of configuration validation errors",
+                labels={
+                    "component_id": str(self._context.component_id),
+                    "state": "error",
+                },
+            )
+            self._load_duration = await self._metrics.create_histogram(
+                "config_load_duration_seconds",
+                "Time taken to load configuration files",
+                labels={
+                    "component_id": str(self._context.component_id),
+                    "state": "ready",
+                },
+            )
+            self._save_duration = await self._metrics.create_histogram(
+                "config_save_duration_seconds",
+                "Time taken to save configuration files",
+                labels={
+                    "component_id": str(self._context.component_id),
+                    "state": "ready",
+                },
+            )
+            self._unexpected_errors = await self._metrics.create_counter(
+                name="config_unexpected_errors_total",
+                description="Total number of unexpected configuration errors",
+            )
+            self._successful_loads = await self._metrics.create_counter(
+                name="config_successful_loads_total",
+                description="Total number of successful configuration loads",
+            )
+            self._successful_saves = await self._metrics.create_counter(
+                name="config_successful_saves_total",
+                description="Total number of successful configuration saves",
+            )
+            self._save_errors = await self._metrics.create_counter(
+                name="config_save_errors_total",
+                description="Total number of configuration save errors",
+            )
+            self._successful_updates = await self._metrics.create_counter(
+                name="config_successful_updates_total",
+                description="Total number of successful configuration updates",
+            )
+            self._update_errors = await self._metrics.create_counter(
+                name="config_update_errors_total",
+                description="Total number of configuration update errors",
+            )
+            self._successful_validations = await self._metrics.create_counter(
+                name="config_successful_validations_total",
+                description="Total number of successful configuration validations",
+            )
+            await self.set_state(ComponentState.READY)
+        except Exception as e:
+            await self.set_state(ComponentState.ERROR)
+            logger.error("Failed to initialize configuration manager: %s", str(e))
+            raise ConfigurationError(f"Failed to initialize configuration manager: {e}")
+
+    async def _execute(self, **kwargs: Any) -> Any:
+        """Execute configuration manager functionality.
+
+        This method is not used directly but is required by ComponentBase.
+        """
+        pass
+
+    async def _cleanup(self) -> None:
+        """Clean up configuration manager resources."""
+        self._config = None
+        self._file_reads = None
+        self._file_read_errors = None
+        self._validation_errors = None
+        self._load_duration = None
+        self._save_duration = None
+
+    async def save(self, path: Path | None = None) -> None:
         """Save current configuration to file.
 
         Args:
-            path: Optional path to save to (defaults to current config path)
+            path: Optional path to save configuration to
 
         Raises:
             ConfigurationError: If saving fails
         """
         if self._config is None:
-            if self._save_errors is not None:
-                self._save_errors.record(1)
             raise ConfigurationError("No configuration to save")
 
-        save_path = path or self._config_path
-        if save_path is None:
-            if self._save_errors is not None:
-                self._save_errors.record(1)
-            raise ConfigurationError("No configuration path specified")
-
         try:
-            import yaml
+            save_path = path or self._config_path
+            if save_path is None:
+                raise ConfigurationError("No path specified for saving configuration")
 
-            config_data = self._config.model_dump()
-            with save_path.open("w") as f:
-                yaml.safe_dump(config_data, f)
+            config_data = json.dumps(self._config.__dict__, indent=2)
+            save_path.write_text(config_data)
+
             if self._successful_saves is not None:
-                self._successful_saves.record(1)
-            logger.info("Configuration saved to %s", save_path)
+                await self._successful_saves.inc(1)
+
         except Exception as e:
             if self._save_errors is not None:
-                self._save_errors.record(1)
+                await self._save_errors.inc(1)
             raise ConfigurationError(f"Failed to save configuration: {e}") from e
 
-    async def update(self, updates: Dict[str, Any]) -> T:
+    async def update(self, updates: dict[str, Any]) -> T:
         """Update current configuration.
 
         Args:
-            updates: Configuration updates to apply
+            updates: Dictionary of configuration updates
 
         Returns:
-            Updated configuration instance
+            Updated configuration
 
         Raises:
             ConfigurationError: If update fails
         """
         if self._config is None:
-            if self._update_errors is not None:
-                self._update_errors.record(1)
-            raise ConfigurationError("Configuration not initialized")
+            raise ConfigurationError("No configuration to update")
 
         try:
-            # Create new config with updates
-            current_data = self._config.model_dump()
-            current_data.update(updates)
-            config = self._config_class(**current_data)
+            config_data = self._config.__dict__.copy()
+            config_data.update(updates)
+            config = self._config_class.model_validate(config_data)
             self._config = config
+
             if self._successful_updates is not None:
-                self._successful_updates.record(1)
-            logger.info("Configuration updated successfully")
+                await self._successful_updates.inc(1)
+
             return config
+
         except Exception as e:
             if self._update_errors is not None:
-                self._update_errors.record(1)
+                await self._update_errors.inc(1)
             raise ConfigurationError(f"Failed to update configuration: {e}") from e
 
-    def validate(self) -> None:
+    async def validate(self) -> None:
         """Validate current configuration.
 
         Raises:
@@ -295,16 +352,16 @@ class ConfigurationManager(Generic[T]):
         """
         if self._config is None:
             if self._validation_errors is not None:
-                self._validation_errors.record(1)
+                await self._validation_errors.inc(1)
             raise ConfigurationError("Configuration not initialized")
 
         try:
             # Pydantic model validation is automatic
             # Add any additional validation here
             if self._successful_validations is not None:
-                self._successful_validations.record(1)
+                await self._successful_validations.inc(1)
             pass
         except Exception as e:
             if self._validation_errors is not None:
-                self._validation_errors.record(1)
+                await self._validation_errors.inc(1)
             raise ConfigurationError(f"Configuration validation failed: {e}") from e

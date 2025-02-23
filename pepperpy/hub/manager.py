@@ -32,7 +32,17 @@ logger = logger.getChild(__name__)
 
 
 class HubManager:
-    """Manages Hub instances and their lifecycle."""
+    """Manages Hub instances and their lifecycle.
+
+    This class handles:
+    - Hub instance lifecycle (creation, initialization, cleanup)
+    - Resource management (loading, storing, listing)
+    - Storage management (artifacts, metadata)
+    - Security (authentication, authorization)
+    - Marketplace integration
+    - Event handling
+    - Component state tracking
+    """
 
     _instance: Optional["HubManager"] = None
     _hub_path: Path = Path(os.getenv("PEPPER_HUB_PATH", ".pepper_hub"))
@@ -758,6 +768,125 @@ class HubManager:
             raise PepperpyError("No versions found")
 
         return sorted(versions)[-1]  # Return highest version
+
+    async def load_config(
+        self,
+        resource_type: str,
+        name: str,
+        version: str = "v1.0.0",
+    ) -> Dict[str, Any]:
+        """Load resource configuration from Hub.
+
+        Args:
+            resource_type: Type of resource (e.g. "agents", "memory")
+            name: Name of the resource
+            version: Version of the configuration
+
+        Returns:
+            Configuration dictionary
+
+        Raises:
+            NotFoundError: If configuration not found
+        """
+        # Try JSON first
+        config_path = (
+            self.root_dir / "resources" / resource_type / name / version / "config.json"
+        )
+
+        if config_path.exists():
+            with config_path.open() as f:
+                return json.load(f)
+
+        # Try YAML next
+        config_path = config_path.with_suffix(".yaml")
+        if config_path.exists():
+            with config_path.open() as f:
+                return yaml.safe_load(f)
+
+        raise NotFoundError(
+            f"Configuration not found: {config_path.relative_to(self.root_dir)}"
+        )
+
+    async def save_config(
+        self,
+        resource_type: str,
+        name: str,
+        config: Dict[str, Any],
+        version: str = "v1.0.0",
+    ) -> None:
+        """Save resource configuration to Hub.
+
+        Args:
+            resource_type: Type of resource (e.g. "agents", "memory")
+            name: Name of the resource
+            config: Configuration dictionary
+            version: Version of the configuration
+        """
+        # Create directory structure
+        config_dir = self.root_dir / "resources" / resource_type / name / version
+        config_dir.mkdir(parents=True, exist_ok=True)
+
+        # Save as JSON
+        config_path = config_dir / "config.json"
+        with config_path.open("w") as f:
+            json.dump(config, f, indent=2)
+
+    async def list_resources(
+        self,
+        resource_type: Optional[str] = None,
+    ) -> Dict[str, Dict[str, Any]]:
+        """List available resources.
+
+        Args:
+            resource_type: Optional type filter
+
+        Returns:
+            Dict mapping resource names to their latest configurations
+        """
+        resources = {}
+        resources_dir = self.root_dir / "resources"
+
+        if not resources_dir.exists():
+            return resources
+
+        # List all resource types if no filter
+        if resource_type is None:
+            resource_types = [d.name for d in resources_dir.iterdir() if d.is_dir()]
+        else:
+            resource_types = [resource_type]
+
+        # Collect resources for each type
+        for rt in resource_types:
+            type_dir = resources_dir / rt
+            if not type_dir.exists():
+                continue
+
+            for resource_dir in type_dir.iterdir():
+                if not resource_dir.is_dir():
+                    continue
+
+                # Get latest version
+                versions = sorted(
+                    [d.name for d in resource_dir.iterdir() if d.is_dir()], reverse=True
+                )
+                if not versions:
+                    continue
+
+                latest = versions[0]
+                try:
+                    config = await self.load_config(rt, resource_dir.name, latest)
+                    resources[f"{rt}/{resource_dir.name}"] = {
+                        "type": rt,
+                        "name": resource_dir.name,
+                        "version": latest,
+                        "config": config,
+                    }
+                except Exception as e:
+                    logger.error(
+                        f"Failed to load resource {rt}/{resource_dir.name}: {e}"
+                    )
+
+        return resources
 
 
 class ResourceManager:

@@ -5,14 +5,14 @@ including artifact discovery, installation, and management.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urljoin
 
 import aiohttp
 from pydantic import BaseModel, Field
 
-from pepperpy.core.base import Lifecycle
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import PepperError
+from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.types import ComponentState
 from pepperpy.hub.errors import HubError, HubMarketplaceError
 from pepperpy.hub.security import SecurityManager
@@ -27,7 +27,7 @@ class MarketplaceConfig(BaseModel):
         default="https://marketplace.pepperpy.ai",
         description="URL of the marketplace API",
     )
-    api_key: Optional[str] = Field(
+    api_key: str | None = Field(
         default=None,
         description="API key for marketplace authentication",
     )
@@ -64,7 +64,7 @@ class MarketplaceManager(Lifecycle):
         self.config = config
         self.storage = storage
         self.security = security
-        self._session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
         self._state = ComponentState.INITIALIZED
         logger.debug("Initialized marketplace manager")
 
@@ -134,7 +134,7 @@ class MarketplaceManager(Lifecycle):
         method: str,
         endpoint: str,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Make an API request with retries.
 
         Args:
@@ -180,7 +180,7 @@ class MarketplaceManager(Lifecycle):
         self,
         artifact_id: str,
         artifact_type: str,
-        content: Dict[str, Any],
+        content: dict[str, Any],
         metadata: StorageMetadata,
         visibility: str = "public",
     ) -> str:
@@ -197,7 +197,7 @@ class MarketplaceManager(Lifecycle):
             str: Marketplace ID for the published artifact.
 
         Raises:
-            PepperpyError: If publishing fails.
+            PepperError: If publishing fails.
         """
         try:
             # Validate artifact
@@ -232,15 +232,15 @@ class MarketplaceManager(Lifecycle):
             return marketplace_id
 
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to publish artifact {artifact_id}: {str(e)}",
+            raise PepperError(
+                f"Failed to publish artifact {artifact_id}: {e!s}",
                 recovery_hint="Check your marketplace configuration and credentials",
             )
 
     async def install_artifact(
         self,
         artifact_id: str,
-        version: Optional[str] = None,
+        version: str | None = None,
     ) -> None:
         """Install an artifact from the marketplace.
 
@@ -249,7 +249,7 @@ class MarketplaceManager(Lifecycle):
             version: Specific version to install.
 
         Raises:
-            PepperpyError: If installation fails.
+            PepperError: If installation fails.
         """
         try:
             # Get artifact details
@@ -281,19 +281,19 @@ class MarketplaceManager(Lifecycle):
             )
 
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to install artifact {artifact_id}: {str(e)}",
+            raise PepperError(
+                f"Failed to install artifact {artifact_id}: {e!s}",
                 recovery_hint="Check if the artifact exists and you have access",
             )
 
     async def search(
         self,
         query: str,
-        artifact_type: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        artifact_type: str | None = None,
+        tags: list[str] | None = None,
         page: int = 1,
         per_page: int = 20,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Search for artifacts in the marketplace.
 
         Args:
@@ -307,7 +307,7 @@ class MarketplaceManager(Lifecycle):
             Dict containing search results and pagination info.
 
         Raises:
-            PepperpyError: If search fails.
+            PepperError: If search fails.
         """
         try:
             params = {
@@ -335,12 +335,12 @@ class MarketplaceManager(Lifecycle):
             }
 
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to search marketplace: {str(e)}",
+            raise PepperError(
+                f"Failed to search marketplace: {e!s}",
                 recovery_hint="Check your marketplace configuration and network connection",
             )
 
-    async def get_artifact(self, artifact_id: str) -> Dict[str, Any]:
+    async def get_artifact(self, artifact_id: str) -> dict[str, Any]:
         """Get detailed information about an artifact.
 
         Args:
@@ -350,7 +350,7 @@ class MarketplaceManager(Lifecycle):
             Dict containing artifact details.
 
         Raises:
-            PepperpyError: If retrieval fails.
+            PepperError: If retrieval fails.
         """
         try:
             response = await self._make_request(
@@ -360,8 +360,8 @@ class MarketplaceManager(Lifecycle):
             return response["artifact"]
 
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to get artifact {artifact_id}: {str(e)}",
+            raise PepperError(
+                f"Failed to get artifact {artifact_id}: {e!s}",
                 recovery_hint="Check if the artifact exists and you have access",
             )
 
@@ -372,7 +372,7 @@ class MarketplaceManager(Lifecycle):
             artifact_id: ID of the artifact to delete.
 
         Raises:
-            PepperpyError: If deletion fails.
+            PepperError: If deletion fails.
         """
         try:
             await self._make_request(
@@ -382,7 +382,28 @@ class MarketplaceManager(Lifecycle):
             logger.info(f"Deleted artifact {artifact_id} from marketplace")
 
         except Exception as e:
-            raise PepperpyError(
-                f"Failed to delete artifact {artifact_id}: {str(e)}",
+            raise PepperError(
+                f"Failed to delete artifact {artifact_id}: {e!s}",
                 recovery_hint="Check if you have permission to delete this artifact",
             )
+
+
+class HubMarketplaceError(PepperError):
+    """Error raised by marketplace operations."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize marketplace error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+        """
+        error_details = {"error_code": "HUB001", **(details or {})}
+        super().__init__(
+            message,
+            details=error_details,
+        )

@@ -118,3 +118,6 @@ bandit-baseline.json
 
 story_output/
 storyboard_output/
+
+stories
+test_output

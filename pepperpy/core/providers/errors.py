@@ -8,12 +8,12 @@ provider operations. It includes:
 - Resource errors
 """
 
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pepperpy.core.errors import ConfigurationError
+from pepperpy.core.errors import PepperError
 
 
-class ProviderError(Exception):
+class ProviderError(PepperError):
     """Base class for provider-related errors.
 
     Attributes:
@@ -25,8 +25,8 @@ class ProviderError(Exception):
     def __init__(
         self,
         message: str,
-        provider_type: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        provider_type: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize provider error.
 
@@ -35,9 +35,11 @@ class ProviderError(Exception):
             provider_type: Optional provider type identifier
             details: Optional error details
         """
-        super().__init__(message)
-        self.provider_type = provider_type
-        self.details = details or {}
+        error_details = details or {}
+        error_details["error_code"] = "PRV000"
+        if provider_type:
+            error_details["provider_type"] = provider_type
+        super().__init__(message, details=error_details)
 
 
 class ProviderNotFoundError(ProviderError):
@@ -48,7 +50,7 @@ class ProviderNotFoundError(ProviderError):
     """
 
     def __init__(
-        self, provider_type: str, details: Optional[Dict[str, Any]] = None
+        self, provider_type: str, details: dict[str, Any] | None = None
     ) -> None:
         """Initialize provider not found error.
 
@@ -56,14 +58,16 @@ class ProviderNotFoundError(ProviderError):
             provider_type: Provider type identifier
             details: Optional error details
         """
+        error_details = details or {}
+        error_details["error_code"] = "PRV001"
         super().__init__(
             f"Provider not found: {provider_type}",
             provider_type=provider_type,
-            details=details,
+            details=error_details,
         )
 
 
-class ProviderConfigurationError(ConfigurationError):
+class ProviderConfigurationError(ProviderError):
     """Error raised when provider configuration is invalid.
 
     This error is raised when provider configuration is missing
@@ -73,8 +77,8 @@ class ProviderConfigurationError(ConfigurationError):
     def __init__(
         self,
         message: str,
-        provider_type: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        provider_type: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize provider configuration error.
 
@@ -83,9 +87,9 @@ class ProviderConfigurationError(ConfigurationError):
             provider_type: Optional provider type identifier
             details: Optional error details
         """
-        super().__init__(message)
-        self.provider_type = provider_type
-        self.details = details or {}
+        error_details = details or {}
+        error_details["error_code"] = "PRV002"
+        super().__init__(message, provider_type=provider_type, details=error_details)
 
 
 class ProviderRuntimeError(ProviderError):
@@ -98,8 +102,8 @@ class ProviderRuntimeError(ProviderError):
     def __init__(
         self,
         message: str,
-        provider_type: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        provider_type: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize provider runtime error.
 
@@ -108,7 +112,9 @@ class ProviderRuntimeError(ProviderError):
             provider_type: Optional provider type identifier
             details: Optional error details
         """
-        super().__init__(message, provider_type=provider_type, details=details)
+        error_details = details or {}
+        error_details["error_code"] = "PRV003"
+        super().__init__(message, provider_type=provider_type, details=error_details)
 
 
 class ProviderResourceError(ProviderError):
@@ -121,8 +127,8 @@ class ProviderResourceError(ProviderError):
     def __init__(
         self,
         message: str,
-        provider_type: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        provider_type: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize provider resource error.
 
@@ -131,4 +137,6 @@ class ProviderResourceError(ProviderError):
             provider_type: Optional provider type identifier
             details: Optional error details
         """
-        super().__init__(message, provider_type=provider_type, details=details)
+        error_details = details or {}
+        error_details["error_code"] = "PRV004"
+        super().__init__(message, provider_type=provider_type, details=error_details)

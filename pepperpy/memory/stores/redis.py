@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 import redis.asyncio as redis
 from redis.asyncio.client import Redis
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import PepperError
 from pepperpy.core.logging import get_logger
 from pepperpy.memory.base import (
     BaseMemoryStore,
@@ -24,7 +24,7 @@ logger = get_logger(__name__)
 T = TypeVar("T", bound=dict[str, Any])
 
 
-class RedisMemoryError(PepperpyError):
+class RedisMemoryError(PepperError):
     """Error raised by RedisMemoryStore."""
 
     def __init__(
@@ -40,10 +40,9 @@ class RedisMemoryError(PepperpyError):
             store_type: Type of store that raised the error
             details: Additional error details
         """
-        super().__init__(
-            message=message,
-            details={"store_type": store_type, **(details or {})},
-        )
+        error_details = details or {}
+        error_details.update({"store_type": store_type, "error_code": "RDS000"})
+        super().__init__(message, details=error_details)
 
 
 class RedisMemoryStore(BaseMemoryStore[T]):

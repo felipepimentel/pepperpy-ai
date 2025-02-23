@@ -1,36 +1,28 @@
-"""Hub-specific error classes.
+"""Hub-specific error types."""
 
-This module provides error classes specific to Hub operations.
-"""
+from typing import Any
 
-from typing import Any, Dict, Optional
-
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import PepperError
 
 
-class HubError(PepperpyError):
-    """Base class for Hub-related errors."""
+class HubError(PepperError):
+    """Base error class for hub operations."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
-        user_message: Optional[str] = None,
-        recovery_hint: Optional[str] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        """Initialize the error.
+        """Initialize hub error.
 
         Args:
-            message: Technical error message.
-            details: Optional dictionary of additional error details.
-            user_message: Optional user-friendly error message.
-            recovery_hint: Optional hint for recovering from the error.
+            message: Error message
+            details: Optional error details
         """
+        error_details = {"error_code": "HUB001", **(details or {})}
         super().__init__(
             message,
-            details=details,
-            user_message=user_message,
-            recovery_hint=recovery_hint,
+            details=error_details,
         )
 
 
@@ -59,9 +51,24 @@ class HubStorageError(HubError):
 
 
 class HubMarketplaceError(HubError):
-    """Error raised during marketplace operations."""
+    """Error raised by marketplace operations."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize marketplace error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+        """
+        error_details = {"error_code": "HUB002", **(details or {})}
+        super().__init__(
+            message,
+            details=error_details,
+        )
 
 
 class HubNotFoundError(HubError):

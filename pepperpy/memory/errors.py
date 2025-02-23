@@ -1,62 +1,53 @@
-"""Memory-specific error types."""
+"""Memory-related error definitions."""
 
-from typing import Any, Dict, Optional
+from typing import Any
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.errors import PepperError
 
 
-class MemoryError(PepperpyError):
-    """Base error class for memory operations."""
+class MemoryError(PepperError):
+    """Base class for memory-related errors."""
 
-    def __init__(
-        self,
-        message: str,
-        code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Initialize memory error.
 
         Args:
             message: Error message
-            code: Optional error code
             details: Optional error details
         """
-        error_details = {"error_code": code or "MEM001", **(details or {})}
-        super().__init__(message, code=code, details=error_details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM000"
+        super().__init__(message, details=error_details)
 
 
 class MemoryKeyError(MemoryError):
-    """Error raised when a memory key is invalid or not found."""
+    """Raised when a memory key operation fails."""
 
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Initialize memory key error.
 
         Args:
             message: Error message
             details: Optional error details
         """
-        super().__init__(message, code="MEM002", details=details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM001"
+        super().__init__(message, details=error_details)
 
 
 class MemoryTypeError(MemoryError):
-    """Error raised when a memory type is invalid or not supported."""
+    """Raised when a memory type operation fails."""
 
-    def __init__(
-        self,
-        message: str,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Initialize memory type error.
 
         Args:
             message: Error message
             details: Optional error details
         """
-        super().__init__(message, code="MEM003", details=details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM002"
+        super().__init__(message, details=error_details)
 
 
 class MemoryStorageError(MemoryError):
@@ -65,7 +56,7 @@ class MemoryStorageError(MemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory storage error.
 
@@ -73,7 +64,9 @@ class MemoryStorageError(MemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(message, code="MEM004", details=details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM003"
+        super().__init__(message, details=error_details)
 
 
 class MemoryQueryError(MemoryError):
@@ -82,7 +75,7 @@ class MemoryQueryError(MemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory query error.
 
@@ -90,7 +83,9 @@ class MemoryQueryError(MemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(message, code="MEM005", details=details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM004"
+        super().__init__(message, details=error_details)
 
 
 class MemoryInitError(MemoryError):
@@ -99,7 +94,7 @@ class MemoryInitError(MemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory initialization error.
 
@@ -107,7 +102,9 @@ class MemoryInitError(MemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(message, code="MEM006", details=details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM005"
+        super().__init__(message, details=error_details)
 
 
 class MemoryCleanupError(MemoryError):
@@ -116,7 +113,7 @@ class MemoryCleanupError(MemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory cleanup error.
 
@@ -124,4 +121,6 @@ class MemoryCleanupError(MemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(message, code="MEM007", details=details)
+        error_details = details or {}
+        error_details["error_code"] = "MEM006"
+        super().__init__(message, details=error_details)

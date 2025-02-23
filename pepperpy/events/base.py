@@ -5,17 +5,16 @@ This module provides the event system functionality for:
 - Event handlers and callbacks
 - Event prioritization
 - Event filtering
+- Event middleware
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum, IntEnum
 from typing import (
     Any,
-    Dict,
     Generic,
-    List,
-    Optional,
     Protocol,
     TypeVar,
 )
@@ -23,7 +22,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.base import Lifecycle
+from pepperpy.core.lifecycle import Lifecycle
+from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
@@ -92,53 +92,23 @@ class EventMetadata(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     event_id: UUID = Field(default_factory=uuid4)
     priority: EventPriority = Field(default=EventPriority.NORMAL)
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
 
-class Event:
+class Event(BaseModel):
     """Base class for all events."""
 
-    def __init__(
-        self,
-        event_type: str,
-        priority: EventPriority = EventPriority.NORMAL,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize event.
-
-        Args:
-            event_type: Type of event
-            priority: Event priority level
-            metadata: Optional event metadata
-        """
-        self._event_metadata = EventMetadata(
-            event_type=event_type, priority=priority, metadata=metadata or {}
-        )
-
-    @property
-    def event_type(self) -> str:
-        """Get event type."""
-        return self._event_metadata.event_type
-
-    @property
-    def event_id(self) -> UUID:
-        """Get event ID."""
-        return self._event_metadata.event_id
-
-    @property
-    def timestamp(self) -> datetime:
-        """Get event timestamp."""
-        return self._event_metadata.timestamp
-
-    @property
-    def priority(self) -> EventPriority:
-        """Get event priority."""
-        return self._event_metadata.priority
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """Get event metadata."""
-        return self._event_metadata.metadata
+    event_type: str = Field(description="Type of event")
+    timestamp: datetime = Field(
+        default_factory=datetime.utcnow, description="Event timestamp"
+    )
+    source: str = Field(description="Event source")
+    data: dict[str, Any] = Field(default_factory=dict, description="Event data")
+    metadata: dict[str, Any] = Field(default_factory=dict, description="Event metadata")
+    priority: EventPriority = Field(
+        default=EventPriority.NORMAL, description="Event priority"
+    )
+    event_id: UUID = Field(default_factory=uuid4, description="Event ID")
 
 
 class EventHandler(ABC, Generic[T_Event]):
@@ -156,7 +126,7 @@ class EventHandler(ABC, Generic[T_Event]):
             priority: Handler priority level
         """
         self._priority = priority
-        self._event_types: List[str] = []
+        self._event_types: list[str] = []
 
     @property
     def priority(self) -> EventPriority:
@@ -173,7 +143,7 @@ class EventHandler(ABC, Generic[T_Event]):
         pass
 
     @property
-    def supported_event_types(self) -> List[str]:
+    def supported_event_types(self) -> list[str]:
         """Get list of supported event types.
 
         Returns:
@@ -191,6 +161,25 @@ class EventHandler(ABC, Generic[T_Event]):
             bool: True if event type is supported
         """
         return event_type in self._event_types or not self._event_types
+
+
+class EventMiddleware(ABC):
+    """Base class for event middleware."""
+
+    @abstractmethod
+    async def process(
+        self, event: Event, next_middleware: Callable[[Event], Any]
+    ) -> Any:
+        """Process event through middleware.
+
+        Args:
+            event: Event to process
+            next_middleware: Next middleware in chain
+
+        Returns:
+            Any: Processing result
+        """
+        pass
 
 
 class EventFilter(Protocol):
@@ -211,7 +200,7 @@ class EventFilter(Protocol):
 class EventTypeFilter:
     """Filter events by type."""
 
-    def __init__(self, allowed_types: List[str]) -> None:
+    def __init__(self, allowed_types: list[str]) -> None:
         """Initialize filter.
 
         Args:
@@ -249,199 +238,174 @@ class PriorityFilter:
             event: Event to check
 
         Returns:
-            bool: True if event priority is sufficient
+            bool: True if event priority meets minimum
         """
         return event.priority >= self._min_priority
 
 
 class EventMetrics:
-    """Metrics tracking for the event system."""
+    """Event metrics collection."""
 
     def __init__(self) -> None:
         """Initialize event metrics."""
         self._metrics = MetricsManager.get_instance()
-        self._event_counters: Dict[str, Counter] = {}
-        self._error_counters: Dict[str, Counter] = {}
-        self._latency_histograms: Dict[str, Histogram] = {}
-        self._initialized = False
-
-    async def initialize(self) -> None:
-        """Initialize metrics collection.
-
-        This method must be called before using any metrics.
-        """
-        if self._initialized:
-            return
-
-        self._initialized = True
-        logger.debug("Event metrics initialized")
-
-    async def _ensure_event_counter(self, event_type: str) -> Counter:
-        """Ensure counter exists for event type.
-
-        Args:
-            event_type: Type of event
-
-        Returns:
-            Counter for event type
-        """
-        if event_type not in self._event_counters:
-            self._event_counters[event_type] = await self._metrics.create_counter(
-                f"events_total_{event_type}",
-                f"Total number of {event_type} events processed",
-                labels={"event_type": event_type},
-            )
-        return self._event_counters[event_type]
-
-    async def _ensure_error_counter(self, event_type: str) -> Counter:
-        """Ensure error counter exists for event type.
-
-        Args:
-            event_type: Type of event
-
-        Returns:
-            Error counter for event type
-        """
-        if event_type not in self._error_counters:
-            self._error_counters[event_type] = await self._metrics.create_counter(
-                f"errors_total_{event_type}",
-                f"Total number of {event_type} event errors",
-                labels={"event_type": event_type},
-            )
-        return self._error_counters[event_type]
-
-    async def _ensure_latency_histogram(self, event_type: str) -> Histogram:
-        """Ensure latency histogram exists for event type.
-
-        Args:
-            event_type: Type of event
-
-        Returns:
-            Latency histogram for event type
-        """
-        if event_type not in self._latency_histograms:
-            self._latency_histograms[event_type] = await self._metrics.create_histogram(
-                f"event_processing_duration_seconds_{event_type}",
-                f"Event processing duration in seconds for {event_type} events",
-                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
-                labels={"event_type": event_type},
-            )
-        return self._latency_histograms[event_type]
+        self._event_counters: dict[str, Counter] = {}
+        self._error_counters: dict[str, Counter] = {}
+        self._latency_histograms: dict[str, Histogram] = {}
 
     async def record_event(self, event_type: str) -> None:
-        """Record an event occurrence.
+        """Record event occurrence.
 
         Args:
             event_type: Type of event
         """
-        if not self._initialized:
-            logger.warning("Metrics not initialized")
-            return
-
         counter = await self._ensure_event_counter(event_type)
-        counter.record(1)
+        counter.increment()
 
     async def record_error(self, event_type: str) -> None:
-        """Record an event processing error.
+        """Record event error.
 
         Args:
-            event_type: Type of event that failed
+            event_type: Type of event
         """
-        if not self._initialized:
-            logger.warning("Metrics not initialized")
-            return
-
         counter = await self._ensure_error_counter(event_type)
-        counter.record(1)
+        counter.increment()
 
     async def record_latency(self, event_type: str, duration: float) -> None:
-        """Record event processing duration.
+        """Record event processing latency.
 
         Args:
             event_type: Type of event
             duration: Processing duration in seconds
         """
-        if not self._initialized:
-            logger.warning("Metrics not initialized")
-            return
-
         histogram = await self._ensure_latency_histogram(event_type)
-        histogram.record(duration)
+        histogram.observe(duration)
 
+    async def _ensure_event_counter(self, event_type: str) -> Counter:
+        """Get or create event counter.
 
-# Initialize metrics manager
-metrics = EventMetrics()
+        Args:
+            event_type: Type of event
+
+        Returns:
+            Event counter
+        """
+        if event_type not in self._event_counters:
+            self._event_counters[event_type] = self._metrics.create_counter(
+                f"events_{event_type}_total",
+                f"Total number of {event_type} events",
+            )
+        return self._event_counters[event_type]
+
+    async def _ensure_error_counter(self, event_type: str) -> Counter:
+        """Get or create error counter.
+
+        Args:
+            event_type: Type of event
+
+        Returns:
+            Error counter
+        """
+        if event_type not in self._error_counters:
+            self._error_counters[event_type] = self._metrics.create_counter(
+                f"events_{event_type}_errors_total",
+                f"Total number of {event_type} event errors",
+            )
+        return self._error_counters[event_type]
+
+    async def _ensure_latency_histogram(self, event_type: str) -> Histogram:
+        """Get or create latency histogram.
+
+        Args:
+            event_type: Type of event
+
+        Returns:
+            Latency histogram
+        """
+        if event_type not in self._latency_histograms:
+            self._latency_histograms[event_type] = self._metrics.create_histogram(
+                f"events_{event_type}_latency_seconds",
+                f"Latency of {event_type} event processing",
+                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+            )
+        return self._latency_histograms[event_type]
 
 
 class EventBus(Lifecycle):
-    """Event bus for publishing and subscribing to events."""
+    """Event bus implementation.
+
+    This class handles event dispatching, filtering, and metrics collection.
+    """
 
     def __init__(self) -> None:
         """Initialize event bus."""
-        self._handlers: Dict[str, List[EventHandler]] = {}
-        self._filters: List[EventFilter] = []
+        super().__init__()
+        self._handlers: dict[str, set[EventHandler]] = {}
+        self._middleware: list[EventMiddleware] = []
+        self._filters: list[EventFilter] = []
+        self._metrics = EventMetrics()
+        self._state = ComponentState.UNREGISTERED
 
     async def initialize(self) -> None:
         """Initialize event bus."""
-        await metrics.initialize()
-        logger.info("EventBus initialized")
+        try:
+            self._state = ComponentState.RUNNING
+            logger.info("Event bus initialized")
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize event bus: {e}")
+            raise
 
     async def cleanup(self) -> None:
         """Clean up event bus."""
-        self._handlers.clear()
-        self._filters.clear()
-        logger.info("EventBus cleaned up")
+        try:
+            self._handlers.clear()
+            self._middleware.clear()
+            self._filters.clear()
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Event bus cleaned up")
+        except Exception as e:
+            logger.error(f"Failed to cleanup event bus: {e}")
+            raise
 
     def add_handler(self, handler: EventHandler) -> None:
-        """Add an event handler.
+        """Add event handler.
 
         Args:
-            handler: Handler to add
+            handler: Event handler to add
         """
         for event_type in handler.supported_event_types:
             if event_type not in self._handlers:
-                self._handlers[event_type] = []
-            if handler not in self._handlers[event_type]:
-                self._handlers[event_type].append(handler)
-                logger.debug(
-                    "Added event handler",
-                    extra={
-                        "handler": handler.__class__.__name__,
-                        "event_type": event_type,
-                    },
-                )
+                self._handlers[event_type] = set()
+            self._handlers[event_type].add(handler)
 
     def remove_handler(self, handler: EventHandler) -> None:
-        """Remove an event handler.
+        """Remove event handler.
 
         Args:
-            handler: Handler to remove
+            handler: Event handler to remove
         """
-        for handlers in self._handlers.values():
-            if handler in handlers:
-                handlers.remove(handler)
-                logger.debug(
-                    "Removed event handler",
-                    extra={"handler": handler.__class__.__name__},
-                )
+        for event_type in handler.supported_event_types:
+            if event_type in self._handlers:
+                self._handlers[event_type].discard(handler)
+                if not self._handlers[event_type]:
+                    del self._handlers[event_type]
 
     def add_filter(self, event_filter: EventFilter) -> None:
-        """Add an event filter.
+        """Add event filter.
 
         Args:
             event_filter: Filter to add
         """
-        if event_filter not in self._filters:
-            self._filters.append(event_filter)
+        self._filters.append(event_filter)
 
     def remove_filter(self, event_filter: EventFilter) -> None:
-        """Remove an event filter.
+        """Remove event filter.
 
         Args:
             event_filter: Filter to remove
         """
-        if event_filter in self._filters:
-            self._filters.remove(event_filter)
+        self._filters.remove(event_filter)
 
     async def publish(self, event: Event) -> None:
         """Publish an event.
@@ -449,94 +413,69 @@ class EventBus(Lifecycle):
         Args:
             event: Event to publish
         """
+        if self._state != ComponentState.RUNNING:
+            raise RuntimeError("Event bus not running")
+
+        # Apply filters
+        for event_filter in self._filters:
+            if not event_filter.matches(event):
+                return
+
+        # Record metrics
+        await self._metrics.record_event(event.event_type)
         start_time = datetime.utcnow()
 
         try:
-            # Apply filters
-            for event_filter in self._filters:
-                if not event_filter.matches(event):
-                    logger.debug(
-                        "Event filtered",
-                        extra={
-                            "event_type": event.event_type,
-                            "filter": event_filter.__class__.__name__,
-                        },
+            # Process through middleware chain
+            async def process_middleware(index: int, event: Event) -> None:
+                if index < len(self._middleware):
+                    await self._middleware[index].process(
+                        event, lambda e: process_middleware(index + 1, e)
                     )
-                    return
+                else:
+                    await self._dispatch_to_handlers(event)
 
-            # Get handlers for event type
-            handlers = self._handlers.get(event.event_type, [])
-            if not handlers:
-                logger.warning(
-                    "No handlers for event type",
-                    extra={"event_type": event.event_type},
-                )
-                return
+            await process_middleware(0, event)
 
-            # Process event with each handler
-            for handler in handlers:
-                try:
-                    await handler.handle_event(event)
-                    await metrics.record_event(event.event_type)
-                except Exception as e:
-                    await metrics.record_error(event.event_type)
-                    logger.error(
-                        "Error handling event",
-                        extra={
-                            "event_type": event.event_type,
-                            "handler": handler.__class__.__name__,
-                            "error": str(e),
-                        },
-                    )
+            # Record latency
+            duration = (datetime.utcnow() - start_time).total_seconds()
+            await self._metrics.record_latency(event.event_type, duration)
 
-            # Record processing latency
-            latency = (datetime.utcnow() - start_time).total_seconds()
-            await metrics.record_latency(event.event_type, latency)
-
-            logger.debug(
-                "Event published",
-                extra={
-                    "event_type": event.event_type,
-                    "handler_count": len(handlers),
-                    "latency": latency,
-                },
-            )
         except Exception as e:
-            await metrics.record_error(event.event_type)
-            logger.error(
-                "Error publishing event",
-                extra={
-                    "event_type": event.event_type,
-                    "error": str(e),
-                },
-            )
+            await self._metrics.record_error(event.event_type)
+            logger.error(f"Error publishing event: {e}")
+            raise
+
+    async def _dispatch_to_handlers(self, event: Event) -> None:
+        """Dispatch event to registered handlers.
+
+        Args:
+            event: Event to dispatch
+        """
+        handlers = self._handlers.get(event.event_type, set())
+        if not handlers:
+            logger.debug(f"No handlers for event type: {event.event_type}")
+            return
+
+        # Sort handlers by priority
+        sorted_handlers = sorted(handlers, key=lambda h: h.priority, reverse=True)
+
+        # Execute handlers
+        for handler in sorted_handlers:
+            try:
+                await handler.handle_event(event)
+            except Exception as e:
+                logger.error(f"Error in event handler: {e}")
+                await self._metrics.record_error(event.event_type)
 
 
-class EventEmitter:
-    """Base class for event emitters."""
+class EventEmitter(Protocol):
+    """Protocol for objects that can emit events."""
 
-    def __init__(self) -> None:
-        """Initialize event emitter."""
-        self._event_count = 0
-        self._error_count = 0
-
-    async def emit(self, event_type: str, **kwargs) -> None:
+    async def emit(self, event: Event) -> None:
         """Emit an event.
 
         Args:
-            event_type: Type of event to emit
-            **kwargs: Event data
+            event: Event to emit
         """
-        self._event_count += 1
-        await metrics.record_event(event_type)
-
-    async def emit_error(self, error_type: str, error: Exception, **kwargs) -> None:
-        """Emit an error event.
-
-        Args:
-            error_type: Type of error event
-            error: Exception that occurred
-            **kwargs: Additional error data
-        """
-        self._error_count += 1
-        await metrics.record_error(error_type)
+        ...

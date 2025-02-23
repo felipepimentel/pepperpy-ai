@@ -25,6 +25,7 @@ from pepperpy.core.errors import (
     StateError,
     ValidationError,
 )
+from pepperpy.core.provider import Provider
 from pepperpy.events import (
     EventBus,
     EventType,
@@ -35,7 +36,121 @@ from pepperpy.monitoring import logger
 # Configure logging
 logger = logger.getChild(__name__)
 
-T = TypeVar("T")
+T = TypeVar("T", bound=Provider)
+
+_providers: Dict[str, Provider] = {}
+_provider_types: Dict[str, Type[Provider]] = {}
+
+
+def register_provider_type(name: str, provider_type: Type[T]) -> None:
+    """Register provider type.
+
+    Args:
+        name: Provider name
+        provider_type: Provider type
+
+    Raises:
+        ValidationError: If provider type is invalid
+    """
+    if not issubclass(provider_type, Provider):
+        raise ValidationError(f"Invalid provider type: {provider_type}")
+    _provider_types[name] = provider_type
+
+
+def get_provider_type(name: str) -> Type[Provider]:
+    """Get provider type.
+
+    Args:
+        name: Provider name
+
+    Returns:
+        Provider type
+
+    Raises:
+        NotFoundError: If provider type is not found
+    """
+    if name not in _provider_types:
+        raise NotFoundError(f"Provider type not found: {name}")
+    return _provider_types[name]
+
+
+def register_provider(name: str, provider: Provider) -> None:
+    """Register provider instance.
+
+    Args:
+        name: Provider name
+        provider: Provider instance
+
+    Raises:
+        ValidationError: If provider is invalid
+    """
+    if not isinstance(provider, Provider):
+        raise ValidationError(f"Invalid provider: {provider}")
+    _providers[name] = provider
+
+
+def get_provider(name: str) -> Optional[Provider]:
+    """Get provider instance.
+
+    Args:
+        name: Provider name
+
+    Returns:
+        Provider instance or None if not found
+    """
+    return _providers.get(name)
+
+
+def create_provider(name: str, config: Optional[Dict[str, Any]] = None) -> Provider:
+    """Create provider instance.
+
+    Args:
+        name: Provider name
+        config: Optional provider configuration
+
+    Returns:
+        Provider instance
+
+    Raises:
+        NotFoundError: If provider type is not found
+        ValidationError: If provider creation fails
+    """
+    provider_type = get_provider_type(name)
+    try:
+        provider = provider_type()
+        provider.initialize(config)
+        register_provider(name, provider)
+        return provider
+    except Exception as e:
+        raise ValidationError(f"Failed to create provider: {e}")
+
+
+def get_or_create_provider(
+    name: str, config: Optional[Dict[str, Any]] = None
+) -> Provider:
+    """Get or create provider instance.
+
+    Args:
+        name: Provider name
+        config: Optional provider configuration
+
+    Returns:
+        Provider instance
+
+    Raises:
+        NotFoundError: If provider type is not found
+        ValidationError: If provider creation fails
+    """
+    provider = get_provider(name)
+    if not provider:
+        provider = create_provider(name, config)
+    return provider
+
+
+def clear_registry() -> None:
+    """Clear provider registry."""
+    _providers.clear()
+    _provider_types.clear()
 
 
 @dataclass

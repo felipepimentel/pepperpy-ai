@@ -8,13 +8,17 @@ specific error types for different failure scenarios. The error system includes:
 - Recovery hints
 - Error chaining
 - User-friendly messages
+
+Status: Stable
 """
+
+from __future__ import annotations
 
 import time
 import traceback
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Optional, Type, TypedDict
+from typing import Any, TypedDict
 
 
 class ErrorCategory(str, Enum):
@@ -54,142 +58,155 @@ class ErrorMetadata:
     traceback: str = field(default_factory=lambda: traceback.format_exc())
 
 
-class PepperpyError(Exception):
-    """Base error class for all framework errors."""
+class PepperError(Exception):
+    """Base class for all Pepperpy errors."""
 
     def __init__(
         self,
         message: str,
-        code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
+        error_code: str | None = None,
     ) -> None:
         """Initialize error.
 
         Args:
             message: Error message
-            code: Optional error code
             details: Optional error details
+            error_code: Optional error code
         """
         super().__init__(message)
-        self.code = code
         self.details = details or {}
+        if error_code:
+            self.details["error_code"] = error_code
+        self.metadata = ErrorMetadata()
 
-    def with_context(self, **kwargs: Any) -> "PepperpyError":
-        """Add context to error.
-
-        Args:
-            **kwargs: Context key-value pairs
+    def __str__(self) -> str:
+        """Get string representation of error.
 
         Returns:
-            Error with added context
+            Error message with details if available
         """
-        self.details.update(kwargs)
-        return self
+        if self.details:
+            return f"{super().__str__()} - {self.details}"
+        return super().__str__()
 
 
 # System Errors
 
 
-class ConfigError(PepperpyError):
+class ConfigError(PepperError):
     """Raised when there is a configuration error."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the configuration error."""
-        error_details = {"error_code": "ERR001", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR001")
 
 
 # Alias for backward compatibility
 ConfigurationError = ConfigError
 
 
-class ValidationError(PepperpyError):
+class ValidationError(PepperError):
     """Raised when validation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the validation error."""
-        error_details = {"error_code": "ERR002", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR002")
 
 
-class StateError(PepperpyError):
+class StateError(PepperError):
     """Raised when an operation is invalid for the current state."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
-        error_details = {"error_code": "ERR003", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR003")
 
 
-class LifecycleError(PepperpyError):
+class ComponentError(PepperError):
+    """Raised when a component operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        component_id: str | None = None,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            message: Error message
+            component_id: Optional component identifier
+            details: Optional error details
+        """
+        error_details = {"component_id": component_id} if component_id else {}
+        if details:
+            error_details.update(details)
+        super().__init__(message, details=error_details, error_code="ERR004")
+
+
+class LifecycleError(PepperError):
     """Raised when a lifecycle operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
-        error_details = {"error_code": "ERR007", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR007")
 
 
 # Provider Errors
 
 
-class ProviderError(PepperpyError):
+class ProviderError(PepperError):
     """Raised when a provider operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
-        error_details = {"error_code": "ERR004", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR004")
 
 
-class ResourceError(PepperpyError):
+class ResourceError(PepperError):
     """Error raised by resource operations."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize resource error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(message, details=details, error_code="ERR005")
 
 
-class RegistryError(PepperpyError):
+class RegistryError(PepperError):
     """Raised when a registry operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the registry error.
 
@@ -197,14 +214,10 @@ class RegistryError(PepperpyError):
             message: Error message
             details: Optional error details
         """
-        error_details = {"error_code": "ERR008", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR008")
 
 
-class FactoryError(PepperpyError):
+class FactoryError(PepperError):
     """Raised when a factory operation fails.
 
     This error is raised when there is a problem creating or configuring
@@ -214,27 +227,23 @@ class FactoryError(PepperpyError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the factory error."""
-        error_details = {"error_code": "ERR008", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=details, error_code="ERR009")
 
 
 # Capability Errors
 
 
-class CapabilityError(PepperpyError):
+class CapabilityError(PepperError):
     """Base class for capability-related errors."""
 
     def __init__(
         self,
         message: str,
-        capability_type: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        capability_type: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the capability error.
 
@@ -243,33 +252,31 @@ class CapabilityError(PepperpyError):
             capability_type: Optional capability type
             details: Optional error details
         """
-        error_details = {"error_code": "ERR100", **(details or {})}
-        if capability_type:
-            error_details["capability_type"] = capability_type
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        error_details = {"capability_type": capability_type} if capability_type else {}
+        if details:
+            error_details.update(details)
+        super().__init__(message, details=error_details, error_code="ERR100")
 
 
 class LearningError(CapabilityError):
-    """Error raised by learning capabilities."""
+    """Raised when an AI learning operation fails.
+
+    This error is raised when there is a problem with AI learning operations
+    such as knowledge acquisition, model updates, or training processes.
+    """
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        """Initialize the learning error.
-
-        Args:
-            message: Error message
-            details: Optional error details
-        """
+        """Initialize the learning error."""
+        error_details = details or {}
+        error_details["error_code"] = "ERR101"
         super().__init__(
             message,
             capability_type="learning",
-            details=details,
+            details=error_details,
         )
 
 
@@ -279,7 +286,7 @@ class PlanningError(CapabilityError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -295,7 +302,7 @@ class ReasoningError(CapabilityError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         super().__init__(
@@ -308,161 +315,129 @@ class ReasoningError(CapabilityError):
 # Workflow Errors
 
 
-class WorkflowError(PepperpyError):
+class WorkflowError(PepperError):
     """Raised when a workflow operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR007", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR007",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 # Memory Errors
 
 
-class PepperpyMemoryError(PepperpyError):
+class PepperpyMemoryError(PepperError):
     """Raised when a memory operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR008", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR008",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 # System Errors
 
 
-class PepperpyTimeoutError(PepperpyError):
+class PepperpyTimeoutError(PepperError):
     """Raised when an operation times out."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR009", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR009",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 # Security Errors
 
 
-class AuthenticationError(PepperpyError):
+class AuthenticationError(PepperError):
     """Raised when authentication fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR010", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR010",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class AuthorizationError(PepperpyError):
+class AuthorizationError(PepperError):
     """Raised when authorization fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR011", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR011",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 # Network Errors
 
 
-class NetworkError(PepperpyError):
+class NetworkError(PepperError):
     """Raised when a network operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR012", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR012",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 # Resource Errors
 
 
-class NotFoundError(PepperpyError):
+class NotFoundError(PepperError):
     """Raised when a resource is not found."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR013", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR013",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class DuplicateError(PepperpyError):
+class DuplicateError(PepperError):
     """Raised when a duplicate resource is found."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR014", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR014",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 # Error Utilities
 
 
-def get_error_class(code: str) -> Type[PepperpyError]:
+def get_error_class(code: str) -> type[PepperError]:
     """Get error class by error code.
 
     Args:
@@ -479,7 +454,7 @@ def get_error_class(code: str) -> Type[PepperpyError]:
 
     """
     error_classes = {
-        "ERR000": PepperpyError,
+        "ERR000": PepperError,
         "ERR001": ConfigError,
         "ERR002": ValidationError,
         "ERR003": StateError,
@@ -493,6 +468,11 @@ def get_error_class(code: str) -> Type[PepperpyError]:
         "ERR012": AuthorizationError,
         "ERR013": NotFoundError,
         "ERR014": DuplicateError,
+        "ERR015": ProcessingError,
+        "ERR016": MonitoringError,
+        "ERR017": MetricsError,
+        "ERR018": PluginError,
+        "ERR019": SecurityError,
         "ERR100": CapabilityError,
         "ERR300": AgentError,
         "ERR400": ContentError,
@@ -507,8 +487,8 @@ def get_error_class(code: str) -> Type[PepperpyError]:
 def create_error(
     code: str,
     message: str,
-    details: Optional[Dict[str, Any]] = None,
-) -> PepperpyError:
+    details: dict[str, Any] | None = None,
+) -> PepperError:
     """Create error instance by error code.
 
     Args:
@@ -529,68 +509,52 @@ def create_error(
     )
 
 
-class AgentError(PepperpyError):
+class AgentError(PepperError):
     """Raised when an agent operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         error_details = {"error_code": "ERR300", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR300",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class ContentError(PepperpyError):
+class ContentError(PepperError):
     """Raised when content processing fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         error_details = {"error_code": "ERR400", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR400",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class LLMError(PepperpyError):
+class LLMError(PepperError):
     """Raised when LLM operations fail."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         error_details = {"error_code": "ERR500", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR500",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class SynthesisError(PepperpyError):
+class SynthesisError(PepperError):
     """Raised when synthesis operations fail."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         error_details = {"error_code": "ERR600", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR600",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
 class MemoryBackendError(PepperpyMemoryError):
@@ -599,7 +563,7 @@ class MemoryBackendError(PepperpyMemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory backend error.
 
@@ -607,10 +571,7 @@ class MemoryBackendError(PepperpyMemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryStorageError(MemoryBackendError):
@@ -619,12 +580,9 @@ class MemoryStorageError(MemoryBackendError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryRetrievalError(MemoryBackendError):
@@ -633,12 +591,9 @@ class MemoryRetrievalError(MemoryBackendError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryDeletionError(MemoryBackendError):
@@ -647,12 +602,9 @@ class MemoryDeletionError(MemoryBackendError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryExistsError(MemoryBackendError):
@@ -661,12 +613,9 @@ class MemoryExistsError(MemoryBackendError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryCleanupError(MemoryBackendError):
@@ -675,12 +624,9 @@ class MemoryCleanupError(MemoryBackendError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryBackendNotFoundError(PepperpyMemoryError):
@@ -689,7 +635,7 @@ class MemoryBackendNotFoundError(PepperpyMemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory backend not found error.
 
@@ -697,10 +643,7 @@ class MemoryBackendNotFoundError(PepperpyMemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
@@ -709,7 +652,7 @@ class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory backend already exists error.
 
@@ -717,10 +660,7 @@ class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
 class MemoryBackendInvalidError(PepperpyMemoryError):
@@ -729,7 +669,7 @@ class MemoryBackendInvalidError(PepperpyMemoryError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize memory backend invalid error.
 
@@ -737,25 +677,22 @@ class MemoryBackendInvalidError(PepperpyMemoryError):
             message: Error message
             details: Optional error details
         """
-        super().__init__(
-            message,
-            details=details,
-        )
+        super().__init__(message, details=details)
 
 
-class StorageError(PepperpyError):
+class StorageError(PepperError):
     """Error raised by storage operations."""
 
     pass
 
 
-class ExtensionError(PepperpyError):
+class ExtensionError(PepperError):
     """Error raised when extension operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize extension error.
 
@@ -764,47 +701,134 @@ class ExtensionError(PepperpyError):
             details: Optional error details
         """
         error_details = {"error_code": "ERR-106", **(details or {})}
-        super().__init__(
-            message=message,
-            code="ERR-106",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class HubError(PepperpyError):
+class HubError(PepperError):
     """Error raised by Hub operations."""
 
     pass
 
 
-class ProcessingError(PepperpyError):
+class ProcessingError(PepperError):
     """Raised when processing operations fail."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR015", **(details or {})}
-        super().__init__(
-            message,
-            code="ERR015",
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
 
 
-class MonitoringError(PepperpyError):
+class MonitoringError(PepperError):
     """Raised when a monitoring operation fails."""
 
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR016", **(details or {})}
-        super().__init__(
-            message,
-            details=error_details,
-        )
+        super().__init__(message, details=error_details)
+
+
+class CLIError(PepperError):
+    """Error raised by CLI commands.
+
+    This error is raised when a CLI command fails to execute.
+    It includes details about the failure to help with debugging.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize CLI error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(message)
+        self.details = details or {}
+
+
+class AdapterError(PepperError):
+    """Error raised by adapter operations.
+
+    This error is raised when an adapter operation fails.
+    It includes details about the failure to help with debugging.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize adapter error.
+
+        Args:
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(message)
+        self.details = details or {}
+
+
+class AssetError(Exception):
+    """Asset error.
+
+    This error is raised when an asset operation fails.
+    """
+
+    def __init__(self, message: str) -> None:
+        """Initialize error.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(message)
+
+
+class MetricsError(PepperError):
+    """Raised when a metrics operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the error."""
+        error_details = {"error_code": "ERR017", **(details or {})}
+        super().__init__(message, details=error_details)
+
+
+class PluginError(PepperError):
+    """Raised when a plugin operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the error."""
+        error_details = {"error_code": "ERR018", **(details or {})}
+        super().__init__(message, details=error_details)
+
+
+class SecurityError(PepperError):
+    """Raised when a security operation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize the error."""
+        error_details = {"error_code": "ERR019", **(details or {})}
+        super().__init__(message, details=error_details)
