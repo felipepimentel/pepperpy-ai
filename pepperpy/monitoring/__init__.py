@@ -1,50 +1,36 @@
-"""Monitoring system for the Pepperpy framework.
+"""Monitoring package for the Pepperpy framework.
 
-This module provides monitoring functionality:
-- Metrics collection and export
-- Logging configuration
-- Telemetry integration
+This package provides monitoring functionality including:
+- Structured logging with JSON formatting
+- Metrics collection and aggregation
+- Tracing and profiling
+- Health checks and diagnostics
 """
 
-from typing import Optional
+import logging
 
-from pepperpy.core.metrics import metrics_manager
-from pepperpy.core.metrics.base import (
-    Counter,
-    Gauge,
-    Histogram,
-    MetricsManager,
-    Summary,
-)
-from pepperpy.monitoring.logging import configure_logging, logger
-from pepperpy.monitoring.metrics.collectors import (
-    LoggingCollector,
-    OpenTelemetryCollector,
-    PrometheusCollector,
-)
-from pepperpy.monitoring.metrics.exporters import (
-    ConsoleExporter,
-    FileExporter,
-    HTTPExporter,
+from pepperpy.monitoring.logging import (
+    ContextFilter,
+    FileHandler,
+    JsonFormatter,
+    LevelFilter,
+    LogLevel,
+    LogManager,
+    LogRecord,
 )
 
+# Configure base logging
+logger = logging.getLogger("pepperpy")
+
+# Export public API
 __all__ = [
     # Logging
-    "configure_logging",
+    "ContextFilter",
+    "FileHandler",
+    "JsonFormatter",
+    "LevelFilter",
+    "LogLevel",
+    "LogManager",
+    "LogRecord",
     "logger",
-    # Metrics
-    "Counter",
-    "Gauge",
-    "Histogram",
-    "Summary",
-    "MetricsManager",
-    "metrics_manager",
-    # Collectors
-    "LoggingCollector",
-    "OpenTelemetryCollector",
-    "PrometheusCollector",
-    # Exporters
-    "ConsoleExporter",
-    "FileExporter",
-    "HTTPExporter",
 ]

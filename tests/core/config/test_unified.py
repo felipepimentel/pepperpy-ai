@@ -1,7 +1,7 @@
 """Tests for the unified configuration system."""
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 import pytest
 from pydantic import BaseModel, Field
@@ -21,7 +21,7 @@ class TestConfig(BaseModel):
     debug: bool = Field(default=False)
     timeout: float = Field(default=30.0)
     retries: int = Field(default=3)
-    nested: Dict[str, Any] = Field(default_factory=dict)
+    nested: dict[str, Any] = Field(default_factory=dict)
 
 
 @pytest.fixture
@@ -39,7 +39,7 @@ def config_file(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def env_vars() -> Dict[str, str]:
+def env_vars() -> dict[str, str]:
     """Environment variables for testing."""
     return {
         "PEPPERPY_NAME": "from_env",
@@ -60,7 +60,7 @@ def config_manager() -> UnifiedConfig[TestConfig]:
 async def test_config_initialization(
     config_manager: UnifiedConfig[TestConfig],
     config_file: Path,
-    env_vars: Dict[str, str],
+    env_vars: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Test configuration initialization from multiple sources."""
@@ -174,7 +174,7 @@ async def test_config_cleanup(config_manager: UnifiedConfig[TestConfig]):
 @pytest.mark.asyncio
 async def test_hook_source_filtering(
     config_manager: UnifiedConfig[TestConfig],
-    env_vars: Dict[str, str],
+    env_vars: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ):
     """Test hook filtering by source."""

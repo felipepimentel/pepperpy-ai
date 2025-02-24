@@ -9,9 +9,10 @@ This module provides a centralized configuration system with support for:
 """
 
 import os
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Generic, List, Optional, Set, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel
 
@@ -58,7 +59,7 @@ class ConfigHook(Generic[ConfigT]):
     def __init__(
         self,
         callback: Callable[[ConfigT], None],
-        source: Optional[ConfigSource] = None,
+        source: ConfigSource | None = None,
     ) -> None:
         """Initialize the hook.
 
@@ -102,17 +103,17 @@ class UnifiedConfig(Lifecycle, Generic[ConfigT]):
         super().__init__()
         self.config_class = config_class
         self.env_prefix = env_prefix
-        self._config: Optional[ConfigT] = None
+        self._config: ConfigT | None = None
         self._state = ConfigState.UNINITIALIZED
-        self._sources: Set[ConfigSource] = set()
-        self._hooks: Dict[str, List[ConfigHook[ConfigT]]] = {
+        self._sources: set[ConfigSource] = set()
+        self._hooks: dict[str, list[ConfigHook[ConfigT]]] = {
             "on_load": [],
             "on_update": [],
             "on_error": [],
         }
 
     @property
-    def config(self) -> Optional[ConfigT]:
+    def config(self) -> ConfigT | None:
         """Get the current configuration."""
         return self._config
 
@@ -122,7 +123,7 @@ class UnifiedConfig(Lifecycle, Generic[ConfigT]):
         return self._state
 
     @property
-    def sources(self) -> Set[ConfigSource]:
+    def sources(self) -> set[ConfigSource]:
         """Get the active configuration sources."""
         return self._sources.copy()
 
@@ -171,7 +172,7 @@ class UnifiedConfig(Lifecycle, Generic[ConfigT]):
             self._state = ConfigState.ERROR
             raise ConfigurationError(f"Failed to initialize configuration: {e}") from e
 
-    async def update(self, updates: Dict[str, Any]) -> None:
+    async def update(self, updates: dict[str, Any]) -> None:
         """Update the current configuration.
 
         Args:
@@ -210,7 +211,7 @@ class UnifiedConfig(Lifecycle, Generic[ConfigT]):
         self,
         event: str,
         callback: Callable[[ConfigT], None],
-        source: Optional[ConfigSource] = None,
+        source: ConfigSource | None = None,
     ) -> None:
         """Add a configuration lifecycle hook.
 
@@ -256,7 +257,7 @@ class UnifiedConfig(Lifecycle, Generic[ConfigT]):
         self._sources.clear()
         self._hooks.clear()
 
-    def _load_from_file(self, path: Path) -> Dict[str, Any]:
+    def _load_from_file(self, path: Path) -> dict[str, Any]:
         """Load configuration from a file.
 
         Args:
@@ -277,14 +278,14 @@ class UnifiedConfig(Lifecycle, Generic[ConfigT]):
         except Exception as e:
             raise ConfigurationError(f"Failed to load config from {path}: {e}") from e
 
-    def _load_from_env(self) -> Dict[str, Any]:
+    def _load_from_env(self) -> dict[str, Any]:
         """Load configuration from environment variables.
 
         Returns:
             Configuration dictionary
 
         """
-        config: Dict[str, Any] = {}
+        config: dict[str, Any] = {}
         prefix_len = len(self.env_prefix)
 
         for key, value in os.environ.items():

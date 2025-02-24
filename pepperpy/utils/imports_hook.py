@@ -8,8 +8,6 @@ import importlib.machinery
 import importlib.util
 import logging
 import sys
-import time
-from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -73,6 +71,7 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         max_cache_size: int | None = None,
         max_cache_entries: int | None = None,
         cache_ttl: float | None = None,
+        max_retries: int = 3,
     ) -> None:
         """Initialize optimizer.
 
@@ -81,6 +80,7 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
             max_cache_size: Optional maximum cache size in bytes
             max_cache_entries: Optional maximum number of cache entries
             cache_ttl: Optional cache time-to-live in seconds
+            max_retries: Maximum number of import retry attempts
         """
         self._manager = module_manager
         self._cache = ImportCache(
@@ -93,7 +93,7 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         self._import_stack: list[str] = []
         self._dependency_graph: dict[str, set[str]] = {}
         self._error_count: dict[str, int] = {}
-        self._max_retries = 3
+        self._max_retries = max_retries
 
     def _check_circular_dependency(self, module: str) -> None:
         """Check for circular dependencies.
@@ -236,298 +236,196 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
             Module specification or None if not found
         """
         # Check if module is already cached
-        if self._cache.get(fullname):
+        cached_module = self._cache.get(fullname)
+        if cached_module:
             return None
 
-        # Check if module is being loaded (circular import)
-        if self._cache.is_loading(fullname):
-            raise ImportHookError(
-                "Circular import detected",
+        # Check for circular imports
+        self._check_circular_dependency(fullname)
+
+        # Add to import stack
+        self._import_stack.append(fullname)
+
+        try:
+            # Start profiling
+            self._profiler.start_import(fullname)
+
+            # Try to find spec using registered hooks
+            for hook in self._hooks:
+                if hasattr(hook, "find_spec"):
+                    spec = hook.find_spec(fullname, path, target)
+                    if spec is not None:
+                        return spec
+
+            # Try to find spec using standard import machinery
+            spec = importlib.util.find_spec(fullname)
+            if spec is not None:
+                # Set loader to self for custom loading
+                spec.loader = self
+                return spec
+
+            return None
+
+        except Exception as e:
+            self._handle_import_error(
                 fullname,
-                {"loading": list(self._cache._loading)},
+                e,
+                {"path": path, "target": target},
             )
+            return None
 
-        # Try to find spec using registered hooks
-        for hook in self._hooks:
-            if spec := hook.find_spec(fullname, path, target):
-                return spec
-
-        # Try to find spec using default import machinery
-        if path is None:
-            path = sys.path
-
-        for entry in path:
-            if not entry:
-                continue
-
-            # Try source file
-            source_path = Path(entry) / f"{fullname.replace('.', '/')}.py"
-            if source_path.is_file():
-                return importlib.machinery.ModuleSpec(
-                    name=fullname,
-                    loader=self,
-                    origin=str(source_path),
-                )
-
-            # Try package directory
-            package_path = Path(entry) / fullname.replace(".", "/")
-            init_path = package_path / "__init__.py"
-            if init_path.is_file():
-                spec = importlib.machinery.ModuleSpec(
-                    name=fullname,
-                    loader=self,
-                    origin=str(init_path),
-                )
-                spec._set_fileattr = True  # type: ignore
-                spec.has_location = True
-                spec.submodule_search_locations = [str(package_path)]
-                return spec
-
-        return None
-
-    def create_module(self, spec: importlib.machinery.ModuleSpec) -> ModuleType | None:
-        """Create module instance.
-
-        Args:
-            spec: Module specification
-
-        Returns:
-            Module instance or None to use default
-        """
-        return None
+        finally:
+            # Remove from import stack
+            if self._import_stack and self._import_stack[-1] == fullname:
+                self._import_stack.pop()
 
     def exec_module(self, module: ModuleType) -> None:
         """Execute module.
 
         Args:
-            module: Module instance
+            module: Module to execute
 
         Raises:
-            ImportHookError: If module execution fails
-            CircularDependencyError: If circular dependency is detected
+            ImportError: If module cannot be imported
         """
-        start_time = time.perf_counter()
-        context: dict[str, Any] = {}
+        name = module.__name__
+        spec = module.__spec__
 
         try:
-            # Start profiling
-            self._profiler.start_import(module.__name__)
-
-            # Check for circular dependencies
-            self._check_circular_dependency(module.__name__)
-
-            # Push module onto import stack
-            self._import_stack.append(module.__name__)
-
-            try:
-                # Load module source
-                spec = module.__spec__
-                if not spec or not spec.origin:
-                    error = "Invalid module specification"
-                    context = {"spec": spec}
-                    self._profiler.finish_import(
-                        module.__name__,
-                        error=error,
-                    )
-                    raise ImportHookError(
-                        error,
-                        module.__name__,
-                        context,
-                    )
-
+            # Get original loader
+            if spec and spec.loader and spec.loader is not self:
+                # Execute with original loader
+                spec.loader.exec_module(module)
+            else:
                 # Execute module code
-                source = Path(spec.origin).read_text()
-                code = compile(source, spec.origin, "exec")
+                if not spec or not spec.origin:
+                    raise ImportError(f"No module spec origin for {name}")
+
+                origin = str(spec.origin)
+                with open(origin) as f:
+                    code = compile(f.read(), origin, "exec")
                 exec(code, module.__dict__)
 
-                # Register module with manager
-                self._manager.register_module(module)
+            # Get module dependencies
+            dependencies = self._manager.get_dependencies(name)
 
-                # Get dependencies
-                dependencies = self._manager.get_dependencies(module.__name__)
+            # Update dependency graph
+            self._update_dependency_graph(name, dependencies)
 
-                # Update dependency graph
-                self._update_dependency_graph(module.__name__, dependencies)
+            # Finish profiling
+            profile = self._profiler.finish_import(name, dependencies)
 
-                # Cache module
-                self._cache.set(
-                    module.__name__,
-                    module,
-                    dependencies,
-                )
+            # Cache module
+            self._cache.set(name, module, dependencies)
 
-                # Finish profiling
-                duration = time.perf_counter() - start_time
-                self._profiler.finish_import(
-                    module.__name__,
-                    dependencies=dependencies,
-                )
-
-                # Log success
-                logger.info(
-                    f"Module imported successfully: {module.__name__}",
-                    extra={
-                        "module": module.__name__,
-                        "duration": duration,
-                        "dependencies": len(dependencies),
-                    },
-                )
-
-            finally:
-                # Pop module from import stack
-                self._import_stack.pop()
-
-        except CircularDependencyError:
-            # Re-raise circular dependency errors
-            raise
+            # Log successful import
+            logger.info(
+                f"Module imported successfully: {name}",
+                extra={
+                    "module": name,
+                    "duration": profile.duration,
+                    "memory_delta": profile.memory_delta,
+                    "dependencies": list(dependencies),
+                },
+            )
 
         except Exception as e:
-            # Handle import error
-            context["duration"] = time.perf_counter() - start_time
-            self._handle_import_error(module.__name__, e, context)
-
             # Finish profiling with error
-            self._profiler.finish_import(
-                module.__name__,
-                error=str(e),
+            self._profiler.finish_import(name, error=str(e))
+
+            # Handle import error
+            self._handle_import_error(
+                name,
+                e,
+                {"spec": spec},
             )
-            raise
-
-        finally:
-            # Mark module as finished loading
-            self._cache.finish_loading(module.__name__)
-
-    def get_code(self, fullname: str) -> Any:
-        """Get module code object.
-
-        Args:
-            fullname: Full module name
-
-        Returns:
-            Module code object
-        """
-        # This is required by the Loader ABC but we don't use it
-        return None
+            raise ImportError(f"Failed to import {name}: {e}") from e
 
     def get_import_profiles(self) -> dict[str, Any]:
         """Get import profiles.
 
         Returns:
-            Dictionary containing import profiles and analysis
+            Dictionary containing import profiles, analysis, dependency graph,
+            and error counts
         """
-        profiles = self._profiler.get_all_profiles()
-        analysis = self._profiler.analyze_imports()
-
         return {
-            "profiles": profiles,
-            "analysis": analysis,
+            "profiles": self._profiler.get_all_profiles(),
+            "analysis": self._profiler.analyze_imports(),
             "dependency_graph": self._dependency_graph,
             "error_counts": self._error_count,
         }
 
-    def clear_profiles(self) -> None:
-        """Clear all import profiles."""
-        self._profiler.clear()
-        self._error_count.clear()
-
-    def reload_module(self, name: str) -> ModuleType | None:
-        """Reload module.
-
-        Args:
-            name: Module name
-
-        Returns:
-            Reloaded module or None if reload fails
-        """
-        try:
-            # Clear error count
-            self._error_count.pop(name, None)
-
-            # Reload module
-            module = self._cache.get(name)
-            if not module:
-                return None
-
-            # Clear profiles
-            self._profiler.clear()
-
-            # Re-execute module
-            self.exec_module(module)
-            return module
-
-        except Exception as e:
-            logger.error(
-                f"Module reload failed: {e}",
-                extra={"module": name},
-                exc_info=True,
-            )
-            return None
-
-    def reload_dependencies(self, name: str) -> set[str]:
+    def reload_module(self, module: str) -> ModuleType:
         """Reload module and its dependencies.
 
         Args:
-            name: Module name
+            module: Module name to reload
 
         Returns:
-            Set of reloaded module names
+            Reloaded module
+
+        Raises:
+            ImportError: If module cannot be reloaded
         """
-        reloaded = set()
-        visited = set()
+        # Invalidate module and dependencies
+        self._cache.invalidate(module)
 
-        def reload_recursive(module_name: str) -> None:
-            """Recursively reload module and its dependencies.
+        # Clear profiling data
+        self._profiler.clear()
 
-            Args:
-                module_name: Module name
-            """
-            if module_name in visited:
-                return
+        # Reload module
+        return importlib.reload(sys.modules[module])
 
-            visited.add(module_name)
-
-            # Reload dependencies first
-            for dep in self._dependency_graph.get(module_name, set()):
-                reload_recursive(dep)
-
-            # Reload module
-            if self.reload_module(module_name):
-                reloaded.add(module_name)
-
-        reload_recursive(name)
-        return reloaded
-
-    def get_dependent_modules(self, path: str) -> set[str]:
-        """Get modules that depend on a file.
+    def invalidate_module(self, module: str) -> None:
+        """Invalidate module in cache.
 
         Args:
-            path: Module file path
-
-        Returns:
-            Set of dependent module names
+            module: Module name to invalidate
         """
-        return self._cache.get_dependent_modules(path)
-
-    def invalidate_cache(self, name: str) -> None:
-        """Invalidate cached module.
-
-        Args:
-            name: Module name
-        """
-        self._cache.invalidate(name)
-        self._dependency_graph.pop(name, None)
-        self._error_count.pop(name, None)
+        self._cache.invalidate(module)
 
     def invalidate_path(self, path: str) -> None:
         """Invalidate module by path.
 
         Args:
-            path: Module file path
+            path: Module file path to invalidate
         """
         self._cache.invalidate_path(path)
 
     def clear_cache(self) -> None:
-        """Clear all cache entries."""
-        self._cache.clear()
+        """Clear import cache and profiles."""
+        self._cache = ImportCache()
+        self._profiler.clear()
         self._dependency_graph.clear()
         self._error_count.clear()
+
+    def get_cache_stats(self) -> dict[str, Any]:
+        """Get cache statistics.
+
+        Returns:
+            Dictionary containing cache statistics
+        """
+        return self._cache.get_cache_stats()
+
+    def get(self, name: str) -> ModuleType | None:
+        """Get cached module.
+
+        Args:
+            name: Module name
+
+        Returns:
+            Cached module or None if not found
+        """
+        return self._cache.get(name)
+
+    def set(
+        self, name: str, module: ModuleType, dependencies: set[str] | None = None
+    ) -> None:
+        """Set cached module.
+
+        Args:
+            name: Module name
+            module: Module instance
+            dependencies: Optional module dependencies
+        """
+        self._cache.set(name, module, dependencies)

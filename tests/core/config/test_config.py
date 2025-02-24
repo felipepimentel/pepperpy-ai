@@ -1,7 +1,6 @@
 """Tests for configuration management."""
 
 import os
-from typing import Dict
 
 import pytest
 
@@ -105,7 +104,7 @@ async def test_config_manager_validation(
     """Test configuration validation."""
 
     class InvalidSource(ConfigSource):
-        async def load(self) -> Dict[str, str]:
+        async def load(self) -> dict[str, str]:
             return {"value": "invalid"}  # Should be int
 
     config_manager.add_source(InvalidSource())
@@ -146,7 +145,7 @@ async def test_config_manager_source_error(
     """Test configuration source error handling."""
 
     class ErrorSource(ConfigSource):
-        async def load(self) -> Dict[str, str]:
+        async def load(self) -> dict[str, str]:
             raise RuntimeError("Test error")
 
     config_manager.add_source(ErrorSource())

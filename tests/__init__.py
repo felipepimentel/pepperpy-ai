@@ -21,3 +21,5 @@ Status: active
 """
 
 """Test package for pepper-hub."""
+
+"""Test package for Pepperpy."""

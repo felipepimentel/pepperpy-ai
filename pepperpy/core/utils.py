@@ -13,9 +13,10 @@ import logging
 import os
 import sys
 import time
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Dict, Generator, Optional, Type, TypeVar, Union
+from typing import Any, TypeVar
 
 from pepperpy.core.errors import ConfigurationError, PepperpyError
 from pepperpy.monitoring import configure_logging
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
-def import_optional(module_name: str) -> Optional[Any]:
+def import_optional(module_name: str) -> Any | None:
     """Import an optional module.
 
     Args:
@@ -45,7 +46,7 @@ def retry(
     max_attempts: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator for retrying operations that may fail.
 
@@ -63,7 +64,7 @@ def retry(
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> T:
-            last_exception: Optional[Exception] = None
+            last_exception: Exception | None = None
             current_delay = delay
 
             for attempt in range(max_attempts):
@@ -101,7 +102,7 @@ async def retry_async(
     max_attempts: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: tuple[Type[Exception], ...] = (Exception,),
+    exceptions: tuple[type[Exception], ...] = (Exception,),
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Async version of retry decorator.
 
@@ -119,7 +120,7 @@ async def retry_async(
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            last_exception: Optional[Exception] = None
+            last_exception: Exception | None = None
             current_delay = delay
 
             for attempt in range(max_attempts):
@@ -180,7 +181,7 @@ def get_package_root() -> Path:
     return Path(__file__).parent.parent
 
 
-def load_config_from_env(prefix: str = "PEPPERPY_") -> Dict[str, str]:
+def load_config_from_env(prefix: str = "PEPPERPY_") -> dict[str, str]:
     """Load configuration from environment variables.
 
     Args:
@@ -197,7 +198,7 @@ def load_config_from_env(prefix: str = "PEPPERPY_") -> Dict[str, str]:
     }
 
 
-def validate_path(path: Union[str, Path], must_exist: bool = True) -> Path:
+def validate_path(path: str | Path, must_exist: bool = True) -> Path:
     """Validate a file system path.
 
     Args:
@@ -221,9 +222,9 @@ def validate_path(path: Union[str, Path], must_exist: bool = True) -> Path:
 
 
 def setup_logging(
-    level: Optional[str] = None,
-    log_file: Optional[str] = None,
-    format_string: Optional[str] = None,
+    level: str | None = None,
+    log_file: str | None = None,
+    format_string: str | None = None,
 ) -> None:
     """Set up logging configuration.
 
@@ -263,7 +264,7 @@ def is_running_in_notebook() -> bool:
 
 
 def safe_issubclass(
-    obj: Any, class_or_tuple: Union[Type[Any], tuple[Type[Any], ...]]
+    obj: Any, class_or_tuple: type[Any] | tuple[type[Any], ...]
 ) -> bool:
     """Safely check if an object is a subclass of another.
 
@@ -282,7 +283,7 @@ def safe_issubclass(
 
 
 def safe_isinstance(
-    obj: Any, class_or_tuple: Union[Type[Any], tuple[Type[Any], ...]]
+    obj: Any, class_or_tuple: type[Any] | tuple[type[Any], ...]
 ) -> bool:
     """Safely check if an object is an instance of a class.
 
@@ -329,4 +330,4 @@ def format_exception(e: Exception) -> str:
     """
     if isinstance(e, PepperpyError):
         return str(e)
-    return f"{type(e).__name__}: {str(e)}"
+    return f"{type(e).__name__}: {e!s}"

@@ -4,7 +4,7 @@ import asyncio
 import importlib
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Generic, List, Optional, Set, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import yaml
 from pydantic import ValidationError
@@ -24,14 +24,14 @@ T = TypeVar("T")
 class Configuration:
     """Central configuration management for Pepperpy framework."""
 
-    def __init__(self, config_path: Optional[Path] = None):
+    def __init__(self, config_path: Path | None = None):
         """Initialize configuration manager.
 
         Args:
             config_path: Optional path to configuration file. Defaults to ~/.pepperpy/config.yml
         """
         self.config_path = config_path or Path.home() / ".pepperpy" / "config.yml"
-        self.providers: Dict[str, Dict[str, Any]] = {}
+        self.providers: dict[str, dict[str, Any]] = {}
         self.load_config()
 
     def load_config(self) -> None:
@@ -42,7 +42,7 @@ class Configuration:
         else:
             self.providers = self._get_default_config()
 
-    def get_provider(self, capability: str, name: str = "default") -> Dict[str, Any]:
+    def get_provider(self, capability: str, name: str = "default") -> dict[str, Any]:
         """Get provider configuration.
 
         Args:
@@ -65,7 +65,7 @@ class Configuration:
 
         return provider_config
 
-    def load_provider(self, capability: str, name: str, base_class: Type[T]) -> T:
+    def load_provider(self, capability: str, name: str, base_class: type[T]) -> T:
         """Dynamically load and instantiate a provider.
 
         Args:
@@ -102,10 +102,10 @@ class Configuration:
 
         except (ImportError, AttributeError) as e:
             raise ConfigurationError(
-                f"Failed to load provider {capability}.{name}: {str(e)}"
+                f"Failed to load provider {capability}.{name}: {e!s}"
             )
 
-    def _get_default_config(self) -> Dict[str, Dict[str, Any]]:
+    def _get_default_config(self) -> dict[str, dict[str, Any]]:
         """Get default configuration when no config file exists."""
         return {
             "llm": {
@@ -142,8 +142,8 @@ class ConfigurationError(Exception):
         self,
         message: str,
         *,
-        config_key: Optional[str] = None,
-        details: Optional[Dict[str, str]] = None,
+        config_key: str | None = None,
+        details: dict[str, str] | None = None,
     ) -> None:
         """Initialize the error.
 
@@ -183,13 +183,13 @@ class ConfigurationManager(Lifecycle, Generic[ConfigT]):
         """
         super().__init__()
         self.config_class = config_class
-        self._config: Optional[ConfigT] = None
-        self._sources: List["ConfigSource"] = []
-        self._watchers: Set[ConfigWatcher] = set()
+        self._config: ConfigT | None = None
+        self._sources: list[ConfigSource] = []
+        self._watchers: set[ConfigWatcher] = set()
         self._lock = asyncio.Lock()
 
     @property
-    def config(self) -> Optional[ConfigT]:
+    def config(self) -> ConfigT | None:
         """Get the current configuration."""
         return self._config
 

@@ -5,7 +5,7 @@ import os
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 
@@ -16,7 +16,7 @@ class ConfigSource(ABC):
     """Base class for configuration sources."""
 
     @abstractmethod
-    async def load(self) -> Dict[str, Any]:
+    async def load(self) -> dict[str, Any]:
         """Load configuration data.
 
         Returns:
@@ -43,7 +43,7 @@ class EnvSource(ConfigSource):
         self.prefix = prefix
         self.case_sensitive = case_sensitive
 
-    async def load(self) -> Dict[str, Any]:
+    async def load(self) -> dict[str, Any]:
         """Load configuration from environment variables.
 
         Returns:
@@ -76,7 +76,7 @@ class FileSource(ConfigSource):
         self.path = Path(path)
 
     @abstractmethod
-    async def _parse_file(self, content: str) -> Dict[str, Any]:
+    async def _parse_file(self, content: str) -> dict[str, Any]:
         """Parse file content into configuration dictionary.
 
         Args:
@@ -91,7 +91,7 @@ class FileSource(ConfigSource):
         """
         pass
 
-    async def load(self) -> Dict[str, Any]:
+    async def load(self) -> dict[str, Any]:
         """Load configuration from file.
 
         Returns:
@@ -128,7 +128,7 @@ class FileSource(ConfigSource):
 class YAMLSource(FileSource):
     """YAML file configuration source."""
 
-    async def _parse_file(self, content: str) -> Dict[str, Any]:
+    async def _parse_file(self, content: str) -> dict[str, Any]:
         """Parse YAML content.
 
         Args:
@@ -150,7 +150,7 @@ class YAMLSource(FileSource):
 class JSONSource(FileSource):
     """JSON file configuration source."""
 
-    async def _parse_file(self, content: str) -> Dict[str, Any]:
+    async def _parse_file(self, content: str) -> dict[str, Any]:
         """Parse JSON content.
 
         Args:
@@ -174,7 +174,7 @@ class CLISource(ConfigSource):
 
     def __init__(
         self,
-        parser: Optional[ArgumentParser] = None,
+        parser: ArgumentParser | None = None,
         prefix: str = "config_",
     ) -> None:
         """Initialize the source.
@@ -198,7 +198,7 @@ class CLISource(ConfigSource):
         """
         self.parser.add_argument(f"--{self.prefix}{name}", **kwargs)
 
-    async def load(self) -> Dict[str, Any]:
+    async def load(self) -> dict[str, Any]:
         """Load configuration from command line arguments.
 
         Returns:

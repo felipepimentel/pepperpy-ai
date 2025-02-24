@@ -8,7 +8,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 import click
 from rich.console import Console
@@ -62,7 +61,7 @@ def setup_environment() -> None:
     type=click.Path(exists=True),
     help="Path to config file",
 )
-def cli(debug: bool, config: Optional[str] = None) -> None:
+def cli(debug: bool, config: str | None = None) -> None:
     """Pepperpy CLI - AI Agent Framework.
 
     Run 'pepperpy COMMAND --help' for command-specific help.
@@ -95,12 +94,12 @@ def main() -> None:
     try:
         cli()
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         sys.exit(1)
     except Exception as e:
-        console.print(f"[red]Unexpected error:[/red] {str(e)}")
+        console.print(f"[red]Unexpected error:[/red] {e!s}")
         if "--debug" in sys.argv:
             console.print_exception()
         sys.exit(1)

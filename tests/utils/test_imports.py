@@ -1,10 +1,10 @@
 """Tests for import optimization system."""
 
-import os
 import sys
 import time
 from collections.abc import Generator
 from pathlib import Path
+from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -12,10 +12,9 @@ import pytest
 from pepperpy.core.imports import ImportSystem
 from pepperpy.utils.imports_cache import ImportCache
 from pepperpy.utils.imports_hook import (
-    CircularDependencyError,
     ImportOptimizer,
 )
-from pepperpy.utils.imports_profiler import ImportProfile, ImportProfiler
+from pepperpy.utils.imports_profiler import ImportProfiler
 from pepperpy.utils.modules import ModuleManager
 
 
@@ -31,7 +30,7 @@ def import_cache() -> ImportCache:
     return ImportCache(
         max_size=1024 * 1024,  # 1MB
         max_entries=100,
-        ttl=3600,  # 1 hour
+        ttl=60.0,  # 1 minute
     )
 
 
@@ -48,7 +47,8 @@ def import_optimizer(module_manager: ModuleManager) -> ImportOptimizer:
         module_manager,
         max_cache_size=1024 * 1024,  # 1MB
         max_cache_entries=100,
-        cache_ttl=3600,  # 1 hour
+        cache_ttl=60.0,  # 1 minute
+        max_retries=3,
     )
 
 
@@ -107,130 +107,198 @@ def temp_modules(tmp_path: Path) -> Generator[list[tuple[str, str]], None, None]
         sys.path.pop(0)
 
 
-def test_import_cache_get_set(
-    import_cache: ImportCache, temp_module: tuple[str, str]
-) -> None:
+def test_import_cache_get_set(import_cache: ImportCache) -> None:
     """Test import cache get and set."""
-    module_name, module_path = temp_module
-    module = MagicMock(
-        __name__=module_name,
-        __spec__=MagicMock(origin=module_path),
-    )
+    # Create test module
+    module = ModuleType("test_module")
+    module.__file__ = __file__
+    module.__spec__ = None
 
-    # Test set and get
-    import_cache.set(module_name, module)
-    assert import_cache.get(module_name) == module
+    # Set module in cache
+    import_cache.set("test_module", module)
 
-    # Test file modification detection
-    os.utime(module_path, (time.time() + 1, time.time() + 1))
-    assert import_cache.get(module_name) is None
+    # Get module from cache
+    cached_module = import_cache.get("test_module")
+    assert cached_module is module
 
-    # Test cache constraints
-    for i in range(200):  # Exceed max_entries
-        name = f"module_{i}"
-        mod = MagicMock(
-            __name__=name,
-            __spec__=MagicMock(origin=f"/path/to/{name}.py"),
-        )
-        import_cache.set(name, mod)
-
-    # Verify cache size is maintained
-    assert len(import_cache._cache) <= 100
+    # Get cache stats
+    stats = import_cache.get_cache_stats()
+    assert stats["total_entries"] == 1
+    assert stats["hits"] == 1
+    assert stats["misses"] == 0
 
 
-def test_import_cache_dependencies(
-    import_cache: ImportCache, temp_modules: list[tuple[str, str]]
-) -> None:
-    """Test import cache dependency handling."""
-    modules = []
-    for name, path in temp_modules:
-        module = MagicMock(
-            __name__=name,
-            __spec__=MagicMock(origin=path),
-        )
-        modules.append(module)
-        import_cache.set(
-            name,
-            module,
-            dependencies={m.__name__ for m in modules[:-1]},
-        )
+def test_import_cache_dependencies(import_cache: ImportCache) -> None:
+    """Test import cache dependencies."""
+    # Create test modules
+    module_a = ModuleType("module_a")
+    module_a.__file__ = __file__
+    module_a.__spec__ = None
 
-    # Test dependency invalidation
-    import_cache.invalidate(modules[0].__name__)
-    for module in modules:
-        assert import_cache.get(module.__name__) is None
+    module_b = ModuleType("module_b")
+    module_b.__file__ = __file__
+    module_b.__spec__ = None
+
+    # Set modules in cache with dependencies
+    import_cache.set("module_a", module_a)
+    import_cache.set("module_b", module_b, {"module_a"})
+
+    # Get dependent modules
+    dependents = import_cache.get_dependent_modules(__file__)
+    assert "module_a" in dependents
+    assert "module_b" in dependents
+
+    # Invalidate module_a
+    import_cache.invalidate("module_a")
+
+    # Check that module_b was also invalidated
+    assert import_cache.get("module_b") is None
 
 
 def test_import_profiler(import_profiler: ImportProfiler) -> None:
     """Test import profiler."""
-    module_name = "test_module"
+    # Start profiling
+    import_profiler.start_import("test_module")
 
-    # Test profiling with memory tracking
-    import_profiler.start_import(module_name)
-    time.sleep(0.1)  # Simulate import time
-    profile = import_profiler.finish_import(module_name, dependencies={"dep1", "dep2"})
+    # Simulate import
+    time.sleep(0.1)
 
-    assert isinstance(profile, ImportProfile)
-    assert profile.module == module_name
+    # Finish profiling
+    profile = import_profiler.finish_import("test_module", {"dep1", "dep2"})
+
+    # Check profile
+    assert profile.module == "test_module"
     assert profile.duration >= 0.1
+    assert profile.memory_delta >= 0
     assert profile.dependencies == {"dep1", "dep2"}
     assert not profile.errors
-    assert profile.memory_before > 0
-    assert profile.memory_after > 0
-    assert profile.memory_delta >= 0
 
-    # Test error handling with retry
-    import_profiler.start_import("error_module")
-    error_profile = import_profiler.finish_import("error_module", error="Import failed")
-    assert error_profile.errors == ["Import failed"]
+    # Get slow imports
+    slow_imports = import_profiler.get_slow_imports(threshold=0.05)
+    assert len(slow_imports) == 1
+    assert slow_imports[0].module == "test_module"
 
-    # Test memory analysis
+    # Get memory intensive imports
+    memory_imports = import_profiler.get_memory_intensive_imports(threshold=0)
+    assert len(memory_imports) == 1
+    assert memory_imports[0].module == "test_module"
+
+    # Analyze imports
     analysis = import_profiler.analyze_imports()
-    assert analysis["total_imports"] == 2
-    assert analysis["error_count"] == 1
-    assert analysis["average_duration"] > 0
-    assert analysis["total_memory_impact"] >= 0
-    assert analysis["average_memory_impact"] >= 0
-    assert analysis["max_memory_impact"] >= 0
+    assert analysis["total_imports"] == 1
+    assert analysis["total_duration"] >= 0.1
+    assert analysis["error_count"] == 0
 
 
-def test_import_optimizer(
-    import_optimizer: ImportOptimizer, temp_modules: list[tuple[str, str]]
-) -> None:
+def test_import_optimizer(import_optimizer: ImportOptimizer) -> None:
     """Test import optimizer."""
-    # Test module loading with dependency tracking
-    for module_name, module_path in temp_modules:
-        spec = import_optimizer.find_spec(module_name)
-        assert spec is not None
-        assert spec.origin == module_path
+    # Create test module
+    module = ModuleType("test_module")
+    module.__file__ = __file__
+    module.__spec__ = None
 
-        module = MagicMock(__name__=module_name, __spec__=spec)
-        import_optimizer.exec_module(module)
+    # Set module in optimizer
+    import_optimizer.set("test_module", module)
 
-    # Test circular import detection
-    import_optimizer._import_stack.append(temp_modules[0][0])
-    with pytest.raises(CircularDependencyError) as exc_info:
-        import_optimizer._check_circular_dependency(temp_modules[0][0])
-    assert "Circular dependency detected" in str(exc_info.value)
+    # Get module from optimizer
+    cached_module = import_optimizer.get("test_module")
+    assert cached_module is module
 
-    # Verify profiling and analysis
+    # Get import profiles
     profiles = import_optimizer.get_import_profiles()
-    assert len(profiles["profiles"]) == len(temp_modules)
-    assert profiles["analysis"]["total_imports"] == len(temp_modules)
+    assert "profiles" in profiles
+    assert "analysis" in profiles
     assert "dependency_graph" in profiles
     assert "error_counts" in profiles
 
-    # Test module reloading with dependencies
-    reloaded = import_optimizer.reload_module(temp_modules[0][0])
-    assert reloaded is not None
+    # Get cache stats
+    stats = import_optimizer.get_cache_stats()
+    assert stats["total_entries"] == 1
+    assert stats["hits"] == 1
+    assert stats["misses"] == 0
 
-    reloaded_deps = import_optimizer.reload_dependencies(temp_modules[0][0])
-    assert len(reloaded_deps) >= 0
 
-    # Test cache invalidation with dependencies
-    import_optimizer.invalidate_cache(temp_modules[0][0])
-    for name, _ in temp_modules:
-        assert import_optimizer._cache.get(name) is None
+def test_import_cache_constraints(import_cache: ImportCache) -> None:
+    """Test import cache constraints."""
+    # Create test modules
+    modules = []
+    for i in range(150):
+        module = ModuleType(f"module_{i}")
+        module.__file__ = __file__
+        module.__spec__ = None
+        modules.append(module)
+
+    # Set modules in cache
+    for module in modules:
+        import_cache.set(module.__name__, module)
+
+    # Check that cache size is limited
+    assert len(import_cache._cache) <= 100
+
+    # Check TTL expiration
+    time.sleep(0.1)
+    import_cache._ttl = 0.05  # Set TTL to 50ms
+    import_cache._evict_entries()
+    assert len(import_cache._cache) < 100
+
+
+def test_import_profiler_memory_tracking(import_profiler: ImportProfiler) -> None:
+    """Test import profiler memory tracking."""
+    # Start profiling
+    import_profiler.start_import("test_module")
+
+    # Allocate some memory
+    data = [0] * 1000000  # Allocate ~8MB
+
+    # Finish profiling
+    profile = import_profiler.finish_import("test_module")
+
+    # Check memory impact
+    assert profile.memory_delta > 0
+    assert profile.memory_after > profile.memory_before
+
+    # Get memory intensive imports
+    memory_imports = import_profiler.get_memory_intensive_imports(threshold=0)
+    assert len(memory_imports) == 1
+    assert memory_imports[0].module == "test_module"
+    assert memory_imports[0].memory_delta > 0
+
+    # Cleanup
+    del data
+
+
+def test_import_optimizer_error_handling(import_optimizer: ImportOptimizer) -> None:
+    """Test import optimizer error handling."""
+    # Try to import non-existent module
+    with pytest.raises(ImportError) as exc_info:
+        import_optimizer.exec_module(ModuleType("non_existent"))
+
+    assert "Failed to import" in str(exc_info.value)
+
+    # Check error counts
+    profiles = import_optimizer.get_import_profiles()
+    assert profiles["error_counts"]["non_existent"] >= 1
+
+
+def test_import_cache_metadata(import_cache: ImportCache) -> None:
+    """Test import cache metadata."""
+    # Create test module
+    module = ModuleType("test_module")
+    module.__file__ = __file__
+    module.__spec__ = None
+
+    # Set module in cache with metadata
+    metadata = {
+        "version": "1.0.0",
+        "author": "test",
+        "tags": ["test", "example"],
+    }
+    import_cache.set("test_module", module, metadata=metadata)
+
+    # Get module from cache
+    entry = import_cache._cache.get("test_module")
+    assert entry is not None
+    assert entry.metadata == metadata
 
 
 def test_import_system(

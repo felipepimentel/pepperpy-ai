@@ -85,7 +85,8 @@ class MessageContent(BaseModel):
 
     text: str = Field(description="Text content of the message")
     metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
+        default_factory=dict,
+        description="Additional metadata",
     )
 
 
@@ -133,7 +134,8 @@ class Response(BaseModel):
 
     message: Message = Field(description="Response message")
     metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
+        default_factory=dict,
+        description="Additional metadata",
     )
 
 

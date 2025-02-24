@@ -1,18 +1,16 @@
-"""Resource types module.
+"""Resource type definitions.
 
-This module provides type definitions for resources and assets.
+This module provides type definitions for the resource management system.
 """
 
-import enum
-from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Optional, Protocol, Set, Type, TypeVar
+from enum import Enum
+from typing import Any, Protocol
 
-from pepperpy.core.base import ComponentBase
-from pepperpy.core.errors import ResourceError
+from pepperpy.core.models import BaseModel, Field
 
 
-class ResourceType(enum.Enum):
+class ResourceType(str, Enum):
     """Resource type enumeration."""
 
     FILE = "file"
@@ -24,7 +22,7 @@ class ResourceType(enum.Enum):
     CUSTOM = "custom"
 
 
-class ResourceState(enum.Enum):
+class ResourceState(str, Enum):
     """Resource state enumeration."""
 
     CREATED = "created"
@@ -34,18 +32,22 @@ class ResourceState(enum.Enum):
     DELETED = "deleted"
 
 
-@dataclass
-class ResourceMetadata:
-    """Resource metadata class."""
+class ResourceMetadata(BaseModel):
+    """Resource metadata."""
 
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
-    expires_at: Optional[datetime] = None
-    size: int = 0
-    checksum: Optional[str] = None
-    content_type: Optional[str] = None
-    tags: Set[str] = field(default_factory=set)
-    custom: Dict[str, Any] = field(default_factory=dict)
+    name: str = Field(description="Resource name")
+    type: ResourceType = Field(description="Resource type")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime | None = Field(default=None)
+    size: int = Field(default=0)
+    checksum: str | None = Field(default=None)
+    content_type: str | None = Field(default=None)
+    description: str | None = Field(default=None)
+    version: str | None = Field(default=None)
+    tags: set[str] = Field(default_factory=set)
+    dependencies: set[str] = Field(default_factory=set)
+    custom: dict[str, Any] = Field(default_factory=dict)
 
 
 class Resource(Protocol):
@@ -103,21 +105,18 @@ class Resource(Protocol):
         ...
 
 
-class AssetType(enum.Enum):
+class AssetType(str, Enum):
     """Asset type enumeration."""
 
     MODEL = "model"
-    PROMPT = "prompt"
+    DATASET = "dataset"
     CONFIG = "config"
-    DATA = "data"
-    IMAGE = "image"
-    AUDIO = "audio"
-    VIDEO = "video"
-    DOCUMENT = "document"
+    PLUGIN = "plugin"
+    TEMPLATE = "template"
     CUSTOM = "custom"
 
 
-class AssetState(enum.Enum):
+class AssetState(str, Enum):
     """Asset state enumeration."""
 
     CREATED = "created"
@@ -127,18 +126,22 @@ class AssetState(enum.Enum):
     DELETED = "deleted"
 
 
-@dataclass
-class AssetMetadata:
-    """Asset metadata class."""
+class AssetMetadata(BaseModel):
+    """Asset metadata."""
 
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
-    version: str = "1.0.0"
-    description: Optional[str] = None
-    author: Optional[str] = None
-    license: Optional[str] = None
-    tags: Set[str] = field(default_factory=set)
-    custom: Dict[str, Any] = field(default_factory=dict)
+    name: str = Field(description="Asset name")
+    type: AssetType = Field(description="Asset type")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    expires_at: datetime | None = Field(default=None)
+    size: int = Field(default=0)
+    checksum: str | None = Field(default=None)
+    content_type: str | None = Field(default=None)
+    description: str | None = Field(default=None)
+    version: str | None = Field(default=None)
+    tags: set[str] = Field(default_factory=set)
+    dependencies: set[str] = Field(default_factory=set)
+    custom: dict[str, Any] = Field(default_factory=dict)
 
 
 class Asset(Protocol):
@@ -193,4 +196,17 @@ class Asset(Protocol):
 
     async def delete(self) -> None:
         """Delete asset data."""
-        ... 
+        ...
+
+
+# Export public API
+__all__ = [
+    "Asset",
+    "AssetMetadata",
+    "AssetState",
+    "AssetType",
+    "Resource",
+    "ResourceMetadata",
+    "ResourceState",
+    "ResourceType",
+]

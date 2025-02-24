@@ -46,7 +46,7 @@ class PepperpyConfig(BaseModel):
 
     # Provider settings
     provider: str = Field(default="openai", description="AI provider to use")
-    api_key: Optional[str] = Field(default=None, description="Provider API key")
+    api_key: str | None = Field(default=None, description="Provider API key")
     model: str = Field(default="gpt-4", description="Model to use")
 
     # Client settings
@@ -59,7 +59,7 @@ class PepperpyConfig(BaseModel):
     cache_ttl: int = Field(default=3600, description="Cache TTL in seconds")
 
     # Advanced settings
-    provider_configs: Dict[str, Dict[str, Any]] = Field(
+    provider_configs: dict[str, dict[str, Any]] = Field(
         default_factory=dict,
         description="Provider-specific configurations",
     )
@@ -73,7 +73,7 @@ class PepperpyConfig(BaseModel):
 config_manager = UnifiedConfig[Config](Config)
 
 
-async def initialize_config(config_path: Optional[Path] = None) -> Config:
+async def initialize_config(config_path: Path | None = None) -> Config:
     """Initialize the configuration system.
 
     This function initializes the global configuration manager with settings from:
@@ -100,7 +100,7 @@ async def initialize_config(config_path: Optional[Path] = None) -> Config:
         raise ConfigurationError(f"Failed to initialize configuration: {e}") from e
 
 
-async def update_config(updates: Dict[str, Any]) -> None:
+async def update_config(updates: dict[str, Any]) -> None:
     """Update the current configuration.
 
     Args:
@@ -116,7 +116,7 @@ async def update_config(updates: Dict[str, Any]) -> None:
 def add_config_hook(
     event: str,
     callback: Any,
-    source: Optional[ConfigSource] = None,
+    source: ConfigSource | None = None,
 ) -> None:
     """Add a configuration lifecycle hook.
 

@@ -1,79 +1,48 @@
-"""Event system for the Pepperpy framework.
+"""Events package for the Pepperpy framework.
 
-This module provides a comprehensive event system with:
-- Event bus implementation
-- Event handlers and callbacks
-- Event prioritization
-- Event filtering
-- Lifecycle hooks
+This package provides a unified event system with support for:
+- Event registration and dispatch
+- Event handlers and listeners
+- Event filtering and routing
+- Event metrics and monitoring
 """
 
-from pepperpy.events.base import (
-    Event,
-    EventBus,
-    EventEmitter,
-    EventFilter,
-    EventHandler,
-    EventMetrics,
-    EventPriority,
-    EventType,
-)
-from pepperpy.events.handlers import (
-    AgentCreatedEvent,
-    AgentEventHandler,
-    AgentRemovedEvent,
-    AgentStateChangedEvent,
-    HubAssetCreatedEvent,
-    HubAssetDeletedEvent,
-    HubAssetUpdatedEvent,
-    HubEventHandler,
-    MemoryEventHandler,
-    MemoryRetrievedEvent,
-    MemoryStoredEvent,
-    MemoryUpdatedEvent,
-    WorkflowCompletedEvent,
-    WorkflowEventHandler,
-    WorkflowFailedEvent,
-    WorkflowStartedEvent,
-)
-from pepperpy.events.hooks import (
-    HookCallback,
-    HookManager,
-    hook_manager,
+from pepperpy.events.base import Event, EventHandler, EventListener, EventManager
+from pepperpy.events.handlers.agent import AgentEventHandler
+from pepperpy.events.handlers.workflow import WorkflowEventHandler
+from pepperpy.events.listeners.metrics import MetricsListener
+from pepperpy.events.messages.types import (
+    AgentMessage,
+    ComponentMessage,
+    Message,
+    MessagePriority,
+    MessageType,
+    ResourceMessage,
+    SecurityMessage,
+    SystemMessage,
+    WorkflowMessage,
 )
 
+# Export public API
 __all__ = [
-    # Base event system
+    # Base
     "Event",
-    "EventBus",
-    "EventEmitter",
-    "EventFilter",
     "EventHandler",
-    "EventMetrics",
-    "EventPriority",
-    "EventType",
-    # Agent events
-    "AgentCreatedEvent",
-    "AgentRemovedEvent",
-    "AgentStateChangedEvent",
+    "EventListener",
+    "EventManager",
+    # Handlers
     "AgentEventHandler",
-    # Hub events
-    "HubAssetCreatedEvent",
-    "HubAssetUpdatedEvent",
-    "HubAssetDeletedEvent",
-    "HubEventHandler",
-    # Memory events
-    "MemoryStoredEvent",
-    "MemoryRetrievedEvent",
-    "MemoryUpdatedEvent",
-    "MemoryEventHandler",
-    # Workflow events
-    "WorkflowStartedEvent",
-    "WorkflowCompletedEvent",
-    "WorkflowFailedEvent",
     "WorkflowEventHandler",
-    # Hook system
-    "HookCallback",
-    "HookManager",
-    "hook_manager",
+    # Listeners
+    "MetricsListener",
+    # Messages
+    "Message",
+    "MessageType",
+    "MessagePriority",
+    "SystemMessage",
+    "ComponentMessage",
+    "AgentMessage",
+    "WorkflowMessage",
+    "ResourceMessage",
+    "SecurityMessage",
 ]

@@ -28,11 +28,11 @@ class SecurityError(PepperError):
 
 
 class AuthenticationError(SecurityError):
-    """Authentication error."""
+    """Raised when authentication fails."""
 
     def __init__(
         self,
-        message: str = "Authentication failed",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize authentication error.
@@ -47,11 +47,11 @@ class AuthenticationError(SecurityError):
 
 
 class AuthorizationError(SecurityError):
-    """Authorization error."""
+    """Raised when authorization fails."""
 
     def __init__(
         self,
-        message: str = "Authorization failed",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize authorization error.
@@ -66,11 +66,11 @@ class AuthorizationError(SecurityError):
 
 
 class TokenError(SecurityError):
-    """Token error."""
+    """Raised when token validation or manipulation fails."""
 
     def __init__(
         self,
-        message: str = "Invalid token",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize token error.
@@ -85,11 +85,11 @@ class TokenError(SecurityError):
 
 
 class EncryptionError(SecurityError):
-    """Encryption error."""
+    """Raised when encryption fails."""
 
     def __init__(
         self,
-        message: str = "Encryption failed",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize encryption error.
@@ -104,11 +104,11 @@ class EncryptionError(SecurityError):
 
 
 class DecryptionError(SecurityError):
-    """Decryption error."""
+    """Raised when decryption fails."""
 
     def __init__(
         self,
-        message: str = "Decryption failed",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize decryption error.
@@ -123,11 +123,11 @@ class DecryptionError(SecurityError):
 
 
 class ValidationError(SecurityError):
-    """Security validation error."""
+    """Raised when security validation fails."""
 
     def __init__(
         self,
-        message: str = "Validation failed",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize validation error.
@@ -142,11 +142,11 @@ class ValidationError(SecurityError):
 
 
 class ConfigurationError(SecurityError):
-    """Security configuration error."""
+    """Raised when security configuration is invalid."""
 
     def __init__(
         self,
-        message: str = "Invalid configuration",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize configuration error.
@@ -161,11 +161,11 @@ class ConfigurationError(SecurityError):
 
 
 class RateLimitError(SecurityError):
-    """Rate limit error."""
+    """Raised when rate limit is exceeded."""
 
     def __init__(
         self,
-        message: str = "Rate limit exceeded",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize rate limit error.
@@ -180,11 +180,11 @@ class RateLimitError(SecurityError):
 
 
 class DuplicateError(SecurityError):
-    """Duplicate error."""
+    """Raised when a duplicate security entity is detected."""
 
     def __init__(
         self,
-        message: str = "Resource already exists",
+        message: str,
         details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize duplicate error.
@@ -196,3 +196,78 @@ class DuplicateError(SecurityError):
         error_details = details or {}
         error_details["error_code"] = "SEC009"
         super().__init__(message=message, details=error_details)
+
+
+class CircularDependencyError(SecurityError):
+    """Raised when a circular dependency is detected."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize circular dependency error.
+
+        Args:
+            message: Error message
+            details: Additional error details
+        """
+        error_details = details or {}
+        error_details["error_code"] = "SEC010"
+        super().__init__(message=message, details=error_details)
+
+
+class SecurityScanError(SecurityError):
+    """Raised when security scanning fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize security scan error.
+
+        Args:
+            message: Error message
+            details: Additional error details
+        """
+        error_details = details or {}
+        error_details["error_code"] = "SEC011"
+        super().__init__(message=message, details=error_details)
+
+
+class AuditError(SecurityError):
+    """Raised when security audit fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Initialize audit error.
+
+        Args:
+            message: Error message
+            details: Additional error details
+        """
+        error_details = details or {}
+        error_details["error_code"] = "SEC012"
+        super().__init__(message=message, details=error_details)
+
+
+# Export public API
+__all__ = [
+    "SecurityError",
+    "AuthenticationError",
+    "AuthorizationError",
+    "TokenError",
+    "EncryptionError",
+    "DecryptionError",
+    "ValidationError",
+    "ConfigurationError",
+    "RateLimitError",
+    "DuplicateError",
+    "CircularDependencyError",
+    "SecurityScanError",
+    "AuditError",
+]

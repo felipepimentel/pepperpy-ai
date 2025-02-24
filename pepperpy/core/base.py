@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, Union, cast
 from uuid import UUID, uuid4
 
+from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.metrics.base import MetricsManager
 from pepperpy.core.metrics.types import (
     MetricCounter,
@@ -28,7 +29,6 @@ from pepperpy.core.types import (
     AgentState,
     CapabilityID,
     ComponentState,
-    Lifecycle,
     ProviderID,
     ResourceID,
     WorkflowID,
@@ -38,8 +38,9 @@ from pepperpy.utils.imports import lazy_import
 if TYPE_CHECKING:
     from pepperpy.core.errors import ComponentError, StateError
 else:
-    ComponentError = lazy_import("pepperpy.core.errors", "ComponentError")
-    StateError = lazy_import("pepperpy.core.errors", "StateError")
+    errors = lazy_import("pepperpy.core.errors")
+    ComponentError = errors.ComponentError if errors else None
+    StateError = errors.StateError if errors else None
 
 # Import prometheus_client safely
 prometheus_client = lazy_import("prometheus_client")
@@ -216,9 +217,8 @@ class BaseComponent(Lifecycle, MetricsComponent):
         self.metrics = MetricsManager()
 
         # Initialize metrics
-        self._init_duration = None  # type: Any
-        self._cleanup_duration = None  # type: Any
-        self._error_count = None  # type: Any
+        self._execution_counter = None
+        self._execution_duration = None
 
     async def _setup_metrics(self) -> None:
         """Set up metrics for the component."""
@@ -226,23 +226,15 @@ class BaseComponent(Lifecycle, MetricsComponent):
         labels: MetricLabels = {"component_id": str(self.id), "state": str(self.state)}
 
         # Create histogram for initialization duration
-        self._init_duration = await self.metrics.create_histogram(
-            name="init_duration_seconds",
-            description="Time taken to initialize the component",
-            buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
-            labels=labels,
-        )
-
-        # Create histogram for cleanup duration
-        self._cleanup_duration = await self.metrics.create_histogram(
-            name="cleanup_duration_seconds",
-            description="Time taken to cleanup the component",
+        self._execution_duration = await self.metrics.create_histogram(
+            name="execution_duration_seconds",
+            description="Time taken to execute the component",
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             labels=labels,
         )
 
         # Create counter for errors
-        self._error_count = await self.metrics.create_counter(
+        self._execution_counter = await self.metrics.create_counter(
             name="errors_total",
             description="Total number of errors encountered",
             labels=labels,
@@ -311,13 +303,11 @@ class BaseComponent(Lifecycle, MetricsComponent):
         self.state = ComponentState.INITIALIZING
         try:
             await self._setup_metrics()
-            self._observe_metric(self._init_duration, 0.0)  # Start timing
             await self._initialize()
-            self._observe_metric(self._init_duration, 1.0)  # End timing
             self.state = ComponentState.READY
         except Exception as e:
             self.state = ComponentState.ERROR
-            self._increment_counter(self._error_count)
+            self._increment_counter(self._execution_counter)
             raise ComponentError(f"Failed to initialize {self.name}") from e
 
     async def cleanup(self) -> None:
@@ -335,13 +325,11 @@ class BaseComponent(Lifecycle, MetricsComponent):
 
         self.state = ComponentState.CLEANING
         try:
-            self._observe_metric(self._cleanup_duration, 0.0)  # Start timing
             await self._cleanup()
-            self._observe_metric(self._cleanup_duration, 1.0)  # End timing
             self.state = ComponentState.CLEANED
         except Exception as e:
             self.state = ComponentState.ERROR
-            self._increment_counter(self._error_count)
+            self._increment_counter(self._execution_counter)
             raise ComponentError(f"Failed to cleanup {self.name}") from e
 
     @abstractmethod
@@ -569,9 +557,9 @@ class ComponentBase(ABC):
         )
         self._metrics = MetricsManager()
 
-        # Initialize metrics as None
-        self._execution_counter: MetricCounter | None = None
-        self._execution_duration: MetricHistogram | None = None
+        # Initialize metrics
+        self._execution_counter = None
+        self._execution_duration = None
 
     async def _setup_metrics(self) -> None:
         """Set up metrics for the component."""
@@ -588,7 +576,7 @@ class ComponentBase(ABC):
             labels={"component_id": str(id(self))},
         )
 
-    def _update_metrics(self, start_time: datetime, error: bool = False) -> None:
+    async def _update_metrics(self, start_time: datetime, error: bool = False) -> None:
         """Update metrics after execution.
 
         Args:

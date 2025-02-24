@@ -8,12 +8,13 @@ from abc import abstractmethod
 from collections.abc import AsyncIterator, Callable
 from datetime import datetime
 from enum import Enum
-from typing import Any, TypeVar, Union
+from typing import Any, Protocol, TypeVar
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
-from typing_extensions import Protocol, runtime_checkable
+from typing_extensions import runtime_checkable
 
+from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.events import EventBus, EventType
 from pepperpy.monitoring.metrics.types import MetricType
 
@@ -23,7 +24,7 @@ T_co = TypeVar("T_co", covariant=True)
 
 # Type aliases for better readability
 MetricLabels = dict[str, str]
-MetricCallback = Callable[[], Union[int, float]]
+MetricCallback = Callable[[], int | float]
 
 # Define type variables with proper variance
 K_contra = TypeVar("K_contra", contravariant=True)  # For input keys
@@ -329,7 +330,7 @@ class MetricValue(BaseModel):
 
     name: str = Field(description="Name of the metric")
     type: MetricType = Field(description="Type of metric")
-    value: Union[int, float] = Field(description="Current value")
+    value: int | float = Field(description="Current value")
     timestamp: datetime = Field(
         default_factory=datetime.utcnow, description="Time of recording"
     )
@@ -694,5 +695,33 @@ class KeyValueStore(Protocol[K_contra, V_co]):
 
         Returns:
             True if key exists, False otherwise
+        """
+        ...
+
+
+@runtime_checkable
+class Lifecycle(Protocol):
+    """Protocol for components with lifecycle management."""
+
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method should be called before using the component.
+        It should set up any necessary resources and put the component
+        in a ready state.
+
+        Raises:
+            LifecycleError: If initialization fails
+        """
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up the component.
+
+        This method should be called when the component is no longer needed.
+        It should release any resources and put the component in a cleaned state.
+
+        Raises:
+            LifecycleError: If cleanup fails
         """
         ...

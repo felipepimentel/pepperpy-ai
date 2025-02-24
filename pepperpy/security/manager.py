@@ -4,7 +4,7 @@ This module provides the security manager that handles security component
 registration, lifecycle management, and security operations.
 """
 
-from typing import Dict, List, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.types import ComponentState
@@ -16,7 +16,24 @@ from pepperpy.security.base import (
     AuthorizationComponent,
     DataProtectionComponent,
     SecurityComponent,
+)
+from pepperpy.security.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    ConfigurationError,
+    SecurityError,
+)
+from pepperpy.security.types import (
+    ComponentConfig,
+    Credentials,
+    Permission,
+    Policy,
+    ProtectionPolicy,
+    Role,
     SecurityConfig,
+    SecurityContext,
+    SecurityScope,
+    Token,
 )
 
 # Configure logging
@@ -33,280 +50,468 @@ class SecurityManager(Lifecycle):
     and operations for the framework.
     """
 
-    def __init__(self) -> None:
-        """Initialize security manager."""
-        super().__init__()
-        self._components: Dict[str, SecurityComponent] = {}
-        self._metrics = MetricsManager.get_instance()
-        self._audit = AuditLogger()
-        self._state = ComponentState.UNREGISTERED
-
-    async def initialize(self) -> None:
+    def __init__(self, config: SecurityConfig | None = None) -> None:
         """Initialize security manager.
 
-        This method initializes the security manager and all registered
-        components.
-
-        Raises:
-            RuntimeError: If initialization fails
+        Args:
+            config: Optional security configuration
         """
-        try:
-            # Initialize metrics
-            self._operation_counter = await self._metrics.create_counter(
-                name="security_manager_operations_total",
-                description="Total security manager operations",
-            )
-            self._error_counter = await self._metrics.create_counter(
-                name="security_manager_errors_total",
-                description="Total security manager errors",
-            )
+        super().__init__()
+        self._config = config or SecurityConfig()
+        self._components: dict[str, SecurityComponent] = {}
+        self._metrics = MetricsManager.get_instance()
+        self._audit = AuditLogger()
+        self._state = ComponentState.CREATED
 
-            # Initialize components
+        # Initialize core components with component configs
+        self._auth = AuthenticationComponent(
+            ComponentConfig(
+                name="authentication",
+                type="auth",
+                config={"token_expiration": self._config.token_expiration},
+            )
+        )
+        self._authz = AuthorizationComponent(
+            ComponentConfig(
+                name="authorization",
+                type="authz",
+                config={},
+            )
+        )
+        self._protection = DataProtectionComponent(
+            ComponentConfig(
+                name="protection",
+                type="protection",
+                config={"encryption_algorithm": self._config.encryption_algorithm},
+            )
+        )
+
+        # Register core components
+        self.register_component(self._auth)
+        self.register_component(self._authz)
+        self.register_component(self._protection)
+
+    async def _initialize(self) -> None:
+        """Initialize security manager."""
+        try:
+            self._state = ComponentState.INITIALIZING
+
+            # Initialize all components
             for component in self._components.values():
                 await component.initialize()
 
-            self._state = ComponentState.RUNNING
-            await self._audit.log({
-                "event_type": "security.manager.initialized",
-            })
+            self._state = ComponentState.READY
+            logger.info("Security manager initialized")
 
         except Exception as e:
             self._state = ComponentState.ERROR
-            await self._audit.log({
-                "event_type": "security.manager.error",
-                "error": str(e),
-            })
-            raise RuntimeError(f"Failed to initialize security manager: {e}")
+            logger.error("Failed to initialize security manager", exc_info=True)
+            raise SecurityError(f"Failed to initialize security manager: {e}")
 
-    async def cleanup(self) -> None:
-        """Clean up security manager.
-
-        This method cleans up the security manager and all registered
-        components.
-
-        Raises:
-            RuntimeError: If cleanup fails
-        """
+    async def _cleanup(self) -> None:
+        """Clean up security manager."""
         try:
-            # Clean up components
+            self._state = ComponentState.CLEANING
+
+            # Clean up all components
             for component in self._components.values():
                 await component.cleanup()
 
-            self._components.clear()
-            self._state = ComponentState.UNREGISTERED
-            await self._audit.log({
-                "event_type": "security.manager.cleaned_up",
-            })
+            self._state = ComponentState.CLEANED
+            logger.info("Security manager cleaned up")
 
         except Exception as e:
-            await self._audit.log({
-                "event_type": "security.manager.error",
-                "error": str(e),
-            })
-            raise RuntimeError(f"Failed to clean up security manager: {e}")
+            self._state = ComponentState.ERROR
+            logger.error("Failed to clean up security manager", exc_info=True)
+            raise SecurityError(f"Failed to clean up security manager: {e}")
 
-    def register_component(
-        self,
-        component: SecurityComponent,
-    ) -> None:
-        """Register a security component.
+    def register_component(self, component: SecurityComponent) -> None:
+        """Register security component.
 
         Args:
-            component: Component to register
+            component: Security component to register
 
         Raises:
-            ValueError: If component is invalid
-            RuntimeError: If registration fails
+            ConfigurationError: If component is already registered
         """
-        try:
-            if not isinstance(component, SecurityComponent):
-                raise ValueError("Invalid component type")
+        if component.name in self._components:
+            raise ConfigurationError(f"Component already registered: {component.name}")
 
-            component_id = str(component.id)
-            if component_id in self._components:
-                raise ValueError(f"Component {component_id} already registered")
+        self._components[component.name] = component
+        logger.info(f"Registered security component: {component.name}")
 
-            self._components[component_id] = component
-            logger.info(f"Registered security component {component_id}")
-
-        except Exception as e:
-            logger.error(f"Failed to register component: {e}")
-            raise
-
-    def unregister_component(
-        self,
-        component_id: str,
-    ) -> None:
-        """Unregister a security component.
-
-        Args:
-            component_id: ID of component to unregister
-
-        Raises:
-            ValueError: If component not found
-            RuntimeError: If unregistration fails
-        """
-        try:
-            if component_id not in self._components:
-                raise ValueError(f"Component {component_id} not found")
-
-            del self._components[component_id]
-            logger.info(f"Unregistered security component {component_id}")
-
-        except Exception as e:
-            logger.error(f"Failed to unregister component: {e}")
-            raise
-
-    def get_component(
-        self,
-        component_id: str,
-        component_type: Optional[Type[T]] = None,
-    ) -> T:
-        """Get a registered component.
-
-        Args:
-            component_id: Component ID
-            component_type: Optional component type to validate
-
-        Returns:
-            Component instance
-
-        Raises:
-            ValueError: If component not found or type mismatch
-        """
-        try:
-            if component_id not in self._components:
-                raise ValueError(f"Component {component_id} not found")
-
-            component = self._components[component_id]
-            if component_type and not isinstance(component, component_type):
-                raise ValueError(
-                    f"Component {component_id} is not of type {component_type}"
-                )
-
-            return component  # type: ignore
-
-        except Exception as e:
-            logger.error(f"Failed to get component: {e}")
-            raise
-
-    def list_components(
-        self,
-        component_type: Optional[Type[SecurityComponent]] = None,
-    ) -> List[SecurityComponent]:
-        """List registered components.
-
-        Args:
-            component_type: Optional type to filter by
-
-        Returns:
-            List of registered components
-        """
-        try:
-            if component_type:
-                return [
-                    c
-                    for c in self._components.values()
-                    if isinstance(c, component_type)
-                ]
-            return list(self._components.values())
-
-        except Exception as e:
-            logger.error(f"Failed to list components: {e}")
-            raise
-
-    def create_auth_component(
-        self,
-        name: str,
-        config: Optional[Dict[str, str]] = None,
-    ) -> AuthenticationComponent:
-        """Create an authentication component.
+    def unregister_component(self, name: str) -> None:
+        """Unregister security component.
 
         Args:
             name: Component name
-            config: Optional configuration
-
-        Returns:
-            AuthenticationComponent instance
 
         Raises:
-            ValueError: If creation fails
+            ConfigurationError: If component is not registered
         """
-        try:
-            component_config = SecurityConfig(
-                name=name,
-                type="authentication",
-                config=config or {},
-            )
-            component = AuthenticationComponent(config=component_config)
-            self.register_component(component)
-            return component
+        if name not in self._components:
+            raise ConfigurationError(f"Component not registered: {name}")
 
-        except Exception as e:
-            logger.error(f"Failed to create auth component: {e}")
-            raise
+        del self._components[name]
+        logger.info(f"Unregistered security component: {name}")
 
-    def create_authz_component(
-        self,
-        name: str,
-        config: Optional[Dict[str, str]] = None,
-    ) -> AuthorizationComponent:
-        """Create an authorization component.
+    def get_component(self, name: str) -> SecurityComponent | None:
+        """Get security component.
 
         Args:
             name: Component name
-            config: Optional configuration
 
         Returns:
-            AuthorizationComponent instance
-
-        Raises:
-            ValueError: If creation fails
+            Security component or None if not found
         """
-        try:
-            component_config = SecurityConfig(
-                name=name,
-                type="authorization",
-                config=config or {},
-            )
-            component = AuthorizationComponent(config=component_config)
-            self.register_component(component)
-            return component
+        return self._components.get(name)
 
-        except Exception as e:
-            logger.error(f"Failed to create authz component: {e}")
-            raise
+    def get_components(self) -> list[SecurityComponent]:
+        """Get all security components.
 
-    def create_data_protection_component(
-        self,
-        name: str,
-        config: Optional[Dict[str, str]] = None,
-    ) -> DataProtectionComponent:
-        """Create a data protection component.
+        Returns:
+            List of security components
+        """
+        return list(self._components.values())
+
+    def get_component_by_type(self, component_type: type[T]) -> T | None:
+        """Get component by type.
 
         Args:
-            name: Component name
-            config: Optional configuration
+            component_type: Component type
 
         Returns:
-            DataProtectionComponent instance
+            Component instance or None if not found
+        """
+        for component in self._components.values():
+            if isinstance(component, component_type):
+                return component
+        return None
+
+    async def authenticate(
+        self,
+        credentials: Credentials,
+        scopes: set[SecurityScope] | None = None,
+    ) -> Token:
+        """Authenticate user.
+
+        Args:
+            credentials: User credentials
+            scopes: Optional security scopes
+
+        Returns:
+            Authentication token
 
         Raises:
-            ValueError: If creation fails
+            AuthenticationError: If authentication fails
         """
         try:
-            component_config = SecurityConfig(
-                name=name,
-                type="data_protection",
-                config=config or {},
-            )
-            component = DataProtectionComponent(config=component_config)
-            self.register_component(component)
-            return component
-
+            return await self._auth.authenticate(credentials, scopes)
         except Exception as e:
-            logger.error(f"Failed to create data protection component: {e}")
-            raise
+            raise AuthenticationError(f"Authentication failed: {e}")
+
+    async def authorize(
+        self,
+        context: SecurityContext,
+        permission: Permission,
+        resource: str | None = None,
+    ) -> bool:
+        """Authorize operation.
+
+        Args:
+            context: Security context
+            permission: Required permission
+            resource: Optional resource identifier
+
+        Returns:
+            True if authorized
+
+        Raises:
+            AuthorizationError: If authorization fails
+        """
+        try:
+            return await self._authz.authorize(context, permission, resource)
+        except Exception as e:
+            raise AuthorizationError(f"Authorization failed: {e}")
+
+    async def validate_token(self, token: Token) -> bool:
+        """Validate token.
+
+        Args:
+            token: Token to validate
+
+        Returns:
+            True if token is valid
+        """
+        return await self._auth.validate_token(token)
+
+    async def refresh_token(self, token: Token) -> Token:
+        """Refresh token.
+
+        Args:
+            token: Token to refresh
+
+        Returns:
+            New token
+
+        Raises:
+            AuthenticationError: If token refresh fails
+        """
+        return await self._auth.refresh_token(token)
+
+    async def revoke_token(self, token: Token) -> None:
+        """Revoke token.
+
+        Args:
+            token: Token to revoke
+
+        Raises:
+            AuthenticationError: If token revocation fails
+        """
+        await self._auth.revoke_token(token)
+
+    async def get_security_context(self, token: Token) -> SecurityContext:
+        """Get security context.
+
+        Args:
+            token: Authentication token
+
+        Returns:
+            Security context
+
+        Raises:
+            AuthenticationError: If token is invalid
+        """
+        return await self._auth.get_security_context(token)
+
+    async def encrypt(self, data: Any, policy_name: str) -> bytes:
+        """Encrypt data.
+
+        Args:
+            data: Data to encrypt
+            policy_name: Protection policy name
+
+        Returns:
+            Encrypted data
+
+        Raises:
+            SecurityError: If encryption fails
+        """
+        return await self._protection.encrypt(data, policy_name)
+
+    async def decrypt(self, data: bytes, policy_name: str) -> Any:
+        """Decrypt data.
+
+        Args:
+            data: Data to decrypt
+            policy_name: Protection policy name
+
+        Returns:
+            Decrypted data
+
+        Raises:
+            SecurityError: If decryption fails
+        """
+        return await self._protection.decrypt(data, policy_name)
+
+    async def get_roles(self) -> list[Role]:
+        """Get available roles.
+
+        Returns:
+            List of roles
+        """
+        return await self._authz.get_roles()
+
+    async def create_role(self, role: Role) -> Role:
+        """Create role.
+
+        Args:
+            role: Role to create
+
+        Returns:
+            Created role
+
+        Raises:
+            SecurityError: If role creation fails
+        """
+        return await self._authz.create_role(role)
+
+    async def update_role(self, role: Role) -> Role:
+        """Update role.
+
+        Args:
+            role: Role to update
+
+        Returns:
+            Updated role
+
+        Raises:
+            SecurityError: If role update fails
+        """
+        return await self._authz.update_role(role)
+
+    async def delete_role(self, role_name: str) -> None:
+        """Delete role.
+
+        Args:
+            role_name: Role name
+
+        Raises:
+            SecurityError: If role deletion fails
+        """
+        await self._authz.delete_role(role_name)
+
+    async def get_policies(self) -> list[Policy]:
+        """Get security policies.
+
+        Returns:
+            List of policies
+        """
+        return await self._authz.get_policies()
+
+    async def create_policy(self, policy: Policy) -> Policy:
+        """Create policy.
+
+        Args:
+            policy: Policy to create
+
+        Returns:
+            Created policy
+
+        Raises:
+            SecurityError: If policy creation fails
+        """
+        return await self._authz.create_policy(policy)
+
+    async def update_policy(self, policy: Policy) -> Policy:
+        """Update policy.
+
+        Args:
+            policy: Policy to update
+
+        Returns:
+            Updated policy
+
+        Raises:
+            SecurityError: If policy update fails
+        """
+        return await self._authz.update_policy(policy)
+
+    async def delete_policy(self, policy_name: str) -> None:
+        """Delete policy.
+
+        Args:
+            policy_name: Policy name
+
+        Raises:
+            SecurityError: If policy deletion fails
+        """
+        await self._authz.delete_policy(policy_name)
+
+    async def get_protection_policies(self) -> list[ProtectionPolicy]:
+        """Get protection policies.
+
+        Returns:
+            List of protection policies
+        """
+        return await self._protection.get_protection_policies()
+
+    async def create_protection_policy(
+        self, policy: ProtectionPolicy
+    ) -> ProtectionPolicy:
+        """Create protection policy.
+
+        Args:
+            policy: Policy to create
+
+        Returns:
+            Created policy
+
+        Raises:
+            SecurityError: If policy creation fails
+        """
+        return await self._protection.create_protection_policy(policy)
+
+    async def update_protection_policy(
+        self, policy: ProtectionPolicy
+    ) -> ProtectionPolicy:
+        """Update protection policy.
+
+        Args:
+            policy: Policy to update
+
+        Returns:
+            Updated policy
+
+        Raises:
+            SecurityError: If policy update fails
+        """
+        return await self._protection.update_protection_policy(policy)
+
+    async def delete_protection_policy(self, policy_name: str) -> None:
+        """Delete protection policy.
+
+        Args:
+            policy_name: Policy name
+
+        Raises:
+            SecurityError: If policy deletion fails
+        """
+        await self._protection.delete_protection_policy(policy_name)
+
+    def get_config(self) -> SecurityConfig:
+        """Get security configuration.
+
+        Returns:
+            Security configuration
+        """
+        return self._config
+
+    def update_config(self, config: SecurityConfig) -> SecurityConfig:
+        """Update security configuration.
+
+        Args:
+            config: New configuration
+
+        Returns:
+            Updated configuration
+
+        Raises:
+            ConfigurationError: If configuration is invalid
+        """
+        try:
+            self._config = config
+            for component in self._components.values():
+                component.config = config
+            return self._config
+        except Exception as e:
+            raise ConfigurationError(f"Failed to update configuration: {e}")
+
+    def get_metrics(self) -> dict[str, Any]:
+        """Get security metrics.
+
+        Returns:
+            Dictionary containing metrics from all components
+        """
+        metrics = {}
+        for component in self._components.values():
+            metrics[component.name] = component.get_metrics()
+        return metrics
+
+    def get_status(self) -> dict[str, Any]:
+        """Get security status.
+
+        Returns:
+            Dictionary containing status from all components
+        """
+        return {
+            "state": self._state.value,
+            "components": {
+                name: component._state.value
+                for name, component in self._components.items()
+            },
+            "metrics": self.get_metrics(),
+        }
 
 
 # Export public API

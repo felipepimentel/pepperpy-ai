@@ -1,6 +1,10 @@
-"""Base resource management system.
+"""Base resource module for the Pepperpy framework.
 
-This module provides a unified system for managing resources and assets.
+This module provides core resource functionality including:
+- Resource registration and management
+- Resource pooling and lifecycle
+- Resource cleanup and monitoring
+- Resource metrics and validation
 """
 
 import asyncio
@@ -8,11 +12,13 @@ import enum
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Protocol, Set
+from typing import Any, Generic, Optional, Protocol, TypeVar
 
-from pepperpy.core.base import ComponentBase
-from pepperpy.core.errors import ResourceError
+from pepperpy.core.base import ComponentBase, Lifecycle
+from pepperpy.core.errors import ResourceError, ValidationError
 from pepperpy.core.metrics import Counter, Histogram
+from pepperpy.core.types import ComponentState
+from pepperpy.monitoring import logger
 from pepperpy.resources.types import (
     Asset,
     AssetMetadata,
@@ -26,6 +32,11 @@ from pepperpy.resources.types import (
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Type variables
+T = TypeVar("T", bound="Resource")
+P = TypeVar("P", bound="ResourcePool")
+M = TypeVar("M", bound="ResourceManager")
 
 
 class ResourceType(enum.Enum):
@@ -58,15 +69,15 @@ class ResourceMetadata:
     type: ResourceType
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
-    expires_at: Optional[datetime] = None
+    expires_at: datetime | None = None
     size: int = 0
-    checksum: Optional[str] = None
-    content_type: Optional[str] = None
-    description: Optional[str] = None
-    version: Optional[str] = None
-    tags: Set[str] = field(default_factory=set)
-    dependencies: Set[str] = field(default_factory=set)
-    custom: Dict[str, Any] = field(default_factory=dict)
+    checksum: str | None = None
+    content_type: str | None = None
+    description: str | None = None
+    version: str | None = None
+    tags: set[str] = field(default_factory=set)
+    dependencies: set[str] = field(default_factory=set)
+    custom: dict[str, Any] = field(default_factory=dict)
 
 
 class Resource(Protocol):
@@ -134,12 +145,12 @@ class BaseResource(ComponentBase, Resource):
         self,
         id: str,
         type: ResourceType,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        version: Optional[str] = None,
-        tags: Optional[Set[str]] = None,
-        dependencies: Optional[Set[str]] = None,
-        custom: Optional[Dict[str, Any]] = None,
+        name: str | None = None,
+        description: str | None = None,
+        version: str | None = None,
+        tags: set[str] | None = None,
+        dependencies: set[str] | None = None,
+        custom: dict[str, Any] | None = None,
     ) -> None:
         """Initialize resource.
 
@@ -251,95 +262,228 @@ class BaseResource(ComponentBase, Resource):
         raise NotImplementedError("_delete() must be implemented by subclass")
 
 
-class ResourceManager(ComponentBase):
-    """Resource manager implementation.
+class ResourceManager(Lifecycle):
+    """Resource manager."""
 
-    This class provides methods for managing resources.
-    """
+    _instance: Optional["ResourceManager"] = None
 
     def __init__(self) -> None:
-        """Initialize manager."""
+        """Initialize resource manager."""
         super().__init__()
-        self._resources: Dict[str, Resource] = {}
-        self._lock = asyncio.Lock()
+        self._pools: dict[str, ResourcePool] = {}
+        self._state = ComponentState.CREATED
 
-        # Initialize metrics
-        self._resources_loaded = Counter(
-            "resources_loaded_total", "Total number of resources loaded"
-        )
-        self._resources_saved = Counter(
-            "resources_saved_total", "Total number of resources saved"
-        )
-        self._resource_errors = Counter(
-            "resource_errors_total", "Total number of resource errors"
-        )
-        self._resource_size = Histogram("resource_size_bytes", "Resource size in bytes")
+    @classmethod
+    def get_instance(cls) -> "ResourceManager":
+        """Get resource manager instance.
 
-    async def register_resource(self, resource: Resource) -> None:
-        """Register resource.
+        Returns:
+            Resource manager instance
+        """
+        if not cls._instance:
+            cls._instance = cls()
+        return cls._instance
+
+    async def initialize(self) -> None:
+        """Initialize resource manager."""
+        try:
+            self._state = ComponentState.INITIALIZING
+            for pool in self._pools.values():
+                await pool.initialize()
+            self._state = ComponentState.READY
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ValidationError(f"Failed to initialize resource manager: {e}")
+
+    async def cleanup(self) -> None:
+        """Clean up resource manager."""
+        try:
+            self._state = ComponentState.CLEANING
+            for pool in self._pools.values():
+                await pool.cleanup()
+            self._state = ComponentState.CLEANED
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ValidationError(f"Failed to clean up resource manager: {e}")
+
+    def add_pool(self, pool: ResourcePool) -> None:
+        """Add resource pool.
 
         Args:
-            resource: Resource to register
+            pool: Resource pool to add
 
         Raises:
-            ResourceError: If resource already exists
+            ValidationError: If pool already exists
+        """
+        if pool.name in self._pools:
+            raise ValidationError(f"Pool already exists: {pool.name}")
+        self._pools[pool.name] = pool
+
+    def remove_pool(self, name: str) -> None:
+        """Remove resource pool.
+
+        Args:
+            name: Pool name
+
+        Raises:
+            ValidationError: If pool not found
+        """
+        if name not in self._pools:
+            raise ValidationError(f"Pool not found: {name}")
+        del self._pools[name]
+
+    async def acquire_resource(self, pool_name: str, resource_id: str) -> Resource:
+        """Acquire resource from pool.
+
+        Args:
+            pool_name: Pool name
+            resource_id: Resource ID
+
+        Returns:
+            Resource instance
+
+        Raises:
+            ValidationError: If pool not found
+        """
+        if pool_name not in self._pools:
+            raise ValidationError(f"Pool not found: {pool_name}")
+        return await self._pools[pool_name].acquire(resource_id)
+
+    async def release_resource(self, pool_name: str, resource_id: str) -> None:
+        """Release resource to pool.
+
+        Args:
+            pool_name: Pool name
+            resource_id: Resource ID
+
+        Raises:
+            ValidationError: If pool not found
+        """
+        if pool_name not in self._pools:
+            raise ValidationError(f"Pool not found: {pool_name}")
+        await self._pools[pool_name].release(resource_id)
+
+
+class ResourcePool(Lifecycle, Generic[T]):
+    """Base resource pool."""
+
+    def __init__(self, name: str, resource_type: type[T]) -> None:
+        """Initialize resource pool.
+
+        Args:
+            name: Pool name
+            resource_type: Resource type
+        """
+        super().__init__()
+        self.name = name
+        self.resource_type = resource_type
+        self._state = ComponentState.CREATED
+        self._resources: dict[str, T] = {}
+        self._available: set[str] = set()
+        self._in_use: set[str] = set()
+        self._lock = asyncio.Lock()
+
+    async def initialize(self) -> None:
+        """Initialize pool."""
+        try:
+            self._state = ComponentState.INITIALIZING
+            await self._initialize_pool()
+            self._state = ComponentState.READY
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ValidationError(f"Failed to initialize pool: {e}")
+
+    async def cleanup(self) -> None:
+        """Clean up pool."""
+        try:
+            self._state = ComponentState.CLEANING
+            await self._cleanup_pool()
+            self._state = ComponentState.CLEANED
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ValidationError(f"Failed to clean up pool: {e}")
+
+    async def _initialize_pool(self) -> None:
+        """Initialize pool implementation."""
+        pass
+
+    async def _cleanup_pool(self) -> None:
+        """Clean up pool implementation."""
+        pass
+
+    async def acquire(self, resource_id: str) -> T:
+        """Acquire resource.
+
+        Args:
+            resource_id: Resource ID
+
+        Returns:
+            Resource instance
+
+        Raises:
+            ValidationError: If resource not found or not available
+        """
+        async with self._lock:
+            if resource_id not in self._resources:
+                raise ValidationError(f"Resource not found: {resource_id}")
+            if resource_id not in self._available:
+                raise ValidationError(f"Resource not available: {resource_id}")
+
+            self._available.remove(resource_id)
+            self._in_use.add(resource_id)
+            return self._resources[resource_id]
+
+    async def release(self, resource_id: str) -> None:
+        """Release resource.
+
+        Args:
+            resource_id: Resource ID
+
+        Raises:
+            ValidationError: If resource not found or not in use
+        """
+        async with self._lock:
+            if resource_id not in self._resources:
+                raise ValidationError(f"Resource not found: {resource_id}")
+            if resource_id not in self._in_use:
+                raise ValidationError(f"Resource not in use: {resource_id}")
+
+            self._in_use.remove(resource_id)
+            self._available.add(resource_id)
+
+    async def add_resource(self, resource: T) -> None:
+        """Add resource to pool.
+
+        Args:
+            resource: Resource to add
+
+        Raises:
+            ValidationError: If resource already exists
         """
         async with self._lock:
             if resource.id in self._resources:
-                raise ResourceError(f"Resource already exists: {resource.id}")
+                raise ValidationError(f"Resource already exists: {resource.id}")
+
             self._resources[resource.id] = resource
+            self._available.add(resource.id)
 
-    async def get_resource(self, resource_id: str) -> Optional[Resource]:
-        """Get resource by ID.
-
-        Args:
-            resource_id: Resource ID
-
-        Returns:
-            Optional[Resource]: Resource if found
-        """
-        return self._resources.get(resource_id)
-
-    async def list_resources(
-        self,
-        resource_type: Optional[ResourceType] = None,
-        tags: Optional[Set[str]] = None,
-    ) -> List[Resource]:
-        """List resources.
-
-        Args:
-            resource_type: Filter by resource type
-            tags: Filter by tags
-
-        Returns:
-            List[Resource]: List of resources
-        """
-        resources = list(self._resources.values())
-
-        if resource_type:
-            resources = [r for r in resources if r.type == resource_type]
-
-        if tags:
-            resources = [r for r in resources if tags.issubset(r.metadata.tags)]
-
-        return resources
-
-    async def delete_resource(self, resource_id: str) -> None:
-        """Delete resource.
+    async def remove_resource(self, resource_id: str) -> None:
+        """Remove resource from pool.
 
         Args:
             resource_id: Resource ID
 
         Raises:
-            ResourceError: If resource not found
+            ValidationError: If resource not found or in use
         """
         async with self._lock:
-            resource = self._resources.get(resource_id)
-            if not resource:
-                raise ResourceError(f"Resource not found: {resource_id}")
+            if resource_id not in self._resources:
+                raise ValidationError(f"Resource not found: {resource_id}")
+            if resource_id in self._in_use:
+                raise ValidationError(f"Resource in use: {resource_id}")
 
-            await resource.delete()
             del self._resources[resource_id]
+            self._available.remove(resource_id)
 
 
 class BaseAsset(ComponentBase, Asset):
@@ -352,7 +496,7 @@ class BaseAsset(ComponentBase, Asset):
         self,
         asset_id: str,
         asset_type: AssetType,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Initialize asset.
 
@@ -365,31 +509,22 @@ class BaseAsset(ComponentBase, Asset):
         self._id = asset_id
         self._type = asset_type
         self._state = AssetState.CREATED
-        self._metadata = AssetMetadata()
-
-        # Update metadata if provided
-        if metadata:
-            for key, value in metadata.items():
-                if hasattr(self._metadata, key):
-                    setattr(self._metadata, key, value)
-                else:
-                    self._metadata.custom[key] = value
+        self._metadata = AssetMetadata(
+            name=asset_id, type=asset_type, **(metadata or {})
+        )
 
         # Initialize metrics
         self._load_duration = Histogram(
             "asset_load_duration_seconds",
             "Asset load duration in seconds",
-            labels={"asset_type": self._type.value},
         )
         self._save_duration = Histogram(
             "asset_save_duration_seconds",
             "Asset save duration in seconds",
-            labels={"asset_type": self._type.value},
         )
         self._errors = Counter(
             "asset_errors_total",
             "Total number of asset errors",
-            labels={"asset_type": self._type.value},
         )
 
     @property
@@ -432,39 +567,45 @@ class BaseAsset(ComponentBase, Asset):
         """Load asset data."""
         try:
             self._state = AssetState.LOADING
-            with self._load_duration.time():
-                await self._load()
+            start = datetime.utcnow()
+            await self._load()
+            duration = (datetime.utcnow() - start).total_seconds()
+            self._load_duration.observe(duration)
             self._state = AssetState.LOADED
         except Exception as e:
             self._state = AssetState.FAILED
             self._errors.inc()
             logger.error(
-                f"Failed to load asset: {e}",
+                "Failed to load asset",
                 extra={
                     "asset_id": self.id,
-                    "asset_type": self.type.value,
+                    "asset_type": self.type,
+                    "error": str(e),
                 },
                 exc_info=True,
             )
-            raise ResourceError(f"Failed to load asset: {e}")
+            raise
 
     async def save(self) -> None:
         """Save asset data."""
         try:
-            with self._save_duration.time():
-                await self._save()
-            self._metadata.updated_at = datetime.now()
+            start = datetime.utcnow()
+            await self._save()
+            duration = (datetime.utcnow() - start).total_seconds()
+            self._save_duration.observe(duration)
+            self._metadata.updated_at = datetime.utcnow()
         except Exception as e:
             self._errors.inc()
             logger.error(
-                f"Failed to save asset: {e}",
+                "Failed to save asset",
                 extra={
                     "asset_id": self.id,
-                    "asset_type": self.type.value,
+                    "asset_type": self.type,
+                    "error": str(e),
                 },
                 exc_info=True,
             )
-            raise ResourceError(f"Failed to save asset: {e}")
+            raise
 
     async def delete(self) -> None:
         """Delete asset data."""
@@ -474,14 +615,15 @@ class BaseAsset(ComponentBase, Asset):
         except Exception as e:
             self._errors.inc()
             logger.error(
-                f"Failed to delete asset: {e}",
+                "Failed to delete asset",
                 extra={
                     "asset_id": self.id,
-                    "asset_type": self.type.value,
+                    "asset_type": self.type,
+                    "error": str(e),
                 },
                 exc_info=True,
             )
-            raise ResourceError(f"Failed to delete asset: {e}")
+            raise
 
     async def _load(self) -> None:
         """Load asset data implementation.
@@ -503,3 +645,11 @@ class BaseAsset(ComponentBase, Asset):
         This method must be implemented by subclasses.
         """
         raise NotImplementedError("Asset deletion not implemented")
+
+
+# Export public API
+__all__ = [
+    "Resource",
+    "ResourceManager",
+    "ResourcePool",
+]

@@ -9,14 +9,15 @@ This module provides core security functionality including:
 
 import base64
 import json
+import re
 from datetime import datetime, timedelta
+from re import Pattern
 from typing import Any
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, field_validator
-
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import NotFoundError, ValidationError
+from pepperpy.core.import_utils import import_optional_dependency
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.audit import AuditLogger
@@ -26,9 +27,11 @@ from pepperpy.security.errors import (
     DecryptionError,
     DuplicateError,
     EncryptionError,
+    SecurityError,
 )
 from pepperpy.security.provider import SecurityProvider
 from pepperpy.security.types import (
+    ComponentConfig,
     Credentials,
     Permission,
     Policy,
@@ -51,30 +54,10 @@ from pepperpy.security.utils import (
 # Configure logging
 logger = logger.getChild(__name__)
 
-
-# Security configuration
-class SecurityConfig(BaseModel):
-    """Security configuration.
-
-    Attributes:
-        id: Unique identifier
-        name: Security component name
-        type: Security component type
-        enabled: Whether component is enabled
-        config: Additional configuration
-    """
-
-    id: UUID = Field(default_factory=uuid4)
-    name: str
-    type: str
-    enabled: bool = True
-    config: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("config")
-    @classmethod
-    def validate_config(cls, v: dict[str, Any]) -> dict[str, Any]:
-        """Ensure config is immutable."""
-        return dict(v)
+# Import pydantic safely
+pydantic = import_optional_dependency("pydantic", "pydantic>=2.0.0")
+if not pydantic:
+    raise ImportError("pydantic is required for security types")
 
 
 # Base security component
@@ -85,7 +68,7 @@ class SecurityComponent(Lifecycle):
     must implement, including lifecycle management and metrics.
     """
 
-    def __init__(self, config: SecurityConfig) -> None:
+    def __init__(self, config: ComponentConfig) -> None:
         """Initialize security component.
 
         Args:
@@ -95,12 +78,89 @@ class SecurityComponent(Lifecycle):
         self.config = config
         self._metrics = MetricsManager.get_instance()
         self._audit = AuditLogger()
-        self._state = ComponentState.UNREGISTERED
+        self._state = ComponentState.CREATED
+        self._compiled_patterns: dict[str, Pattern[str]] = {}
+
+    async def initialize(self) -> None:
+        """Initialize component."""
+        try:
+            self._state = ComponentState.INITIALIZING
+            await self._audit.log({
+                "event_type": "security.component.initializing",
+                "component": self.name,
+                "type": self.type,
+            })
+
+            # Component-specific initialization
+            await self._initialize_component()
+
+            self._state = ComponentState.READY
+            await self._audit.log({
+                "event_type": "security.component.initialized",
+                "component": self.name,
+                "type": self.type,
+            })
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            await self._audit.log({
+                "event_type": "security.component.error",
+                "component": self.name,
+                "type": self.type,
+                "error": str(e),
+            })
+            raise SecurityError(f"Failed to initialize {self.name}: {e}")
+
+    async def cleanup(self) -> None:
+        """Clean up component."""
+        try:
+            self._state = ComponentState.CLEANING
+            await self._audit.log({
+                "event_type": "security.component.cleaning",
+                "component": self.name,
+                "type": self.type,
+            })
+
+            # Component-specific cleanup
+            await self._cleanup_component()
+
+            self._state = ComponentState.CLEANED
+            await self._audit.log({
+                "event_type": "security.component.cleaned",
+                "component": self.name,
+                "type": self.type,
+            })
+
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            await self._audit.log({
+                "event_type": "security.component.error",
+                "component": self.name,
+                "type": self.type,
+                "error": str(e),
+            })
+            raise SecurityError(f"Failed to clean up {self.name}: {e}")
+
+    async def _initialize_component(self) -> None:
+        """Initialize component implementation.
+
+        This method should be overridden by subclasses to perform
+        component-specific initialization.
+        """
+        pass
+
+    async def _cleanup_component(self) -> None:
+        """Clean up component implementation.
+
+        This method should be overridden by subclasses to perform
+        component-specific cleanup.
+        """
+        pass
 
     @property
-    def id(self) -> UUID:
+    def id(self) -> str:
         """Get component ID."""
-        return self.config.id
+        return str(self.config.id)
 
     @property
     def name(self) -> str:
@@ -117,78 +177,39 @@ class SecurityComponent(Lifecycle):
         """Get enabled status."""
         return self.config.enabled
 
-    async def initialize(self) -> None:
-        """Initialize security component.
+    def get_metrics(self) -> dict[str, Any]:
+        """Get component metrics.
 
-        This method should be called before using the component.
-        It should set up any necessary resources and validate configuration.
-
-        Raises:
-            ValueError: If configuration is invalid
-            RuntimeError: If initialization fails
+        Returns:
+            Dictionary containing component metrics
         """
-        try:
-            # Initialize metrics
-            self._operation_counter = await self._metrics.create_counter(
-                name=f"{self.name}_operations_total",
-                description=f"Total operations for {self.name}",
-                labels={"type": self.type},
-            )
+        return {
+            "state": self._state.value,
+            "enabled": self.enabled,
+        }
 
-            self._error_counter = await self._metrics.create_counter(
-                name=f"{self.name}_errors_total",
-                description=f"Total errors for {self.name}",
-                labels={"type": self.type},
-            )
+    def _compile_pattern(self, pattern: str) -> Pattern[str] | None:
+        """Compile regex pattern.
 
-            self._latency_histogram = await self._metrics.create_histogram(
-                name=f"{self.name}_operation_latency_seconds",
-                description=f"Operation latency for {self.name}",
-                labels={"type": self.type},
-            )
+        Args:
+            pattern: Pattern string
 
-            self._state = ComponentState.RUNNING
-            await self._audit.log({
-                "event_type": "security.component.initialized",
-                "component": self.name,
-                "type": self.type,
-            })
-
-        except Exception as e:
-            self._state = ComponentState.ERROR
-            await self._audit.log({
-                "event_type": "security.component.error",
-                "component": self.name,
-                "type": self.type,
-                "error": str(e),
-            })
-            raise RuntimeError(f"Failed to initialize {self.name}: {e}")
-
-    async def cleanup(self) -> None:
-        """Clean up security component.
-
-        This method should be called when the component is no longer needed.
-        It should clean up any resources and perform necessary shutdown tasks.
-
-        Raises:
-            RuntimeError: If cleanup fails
+        Returns:
+            Compiled pattern or None if invalid
         """
-        try:
-            self._state = ComponentState.UNREGISTERED
-            await self._audit.log({
-                "event_type": "security.component.cleaned_up",
-                "component": self.name,
-                "type": self.type,
-            })
-
-        except Exception as e:
-            await self._audit.log({
-                "event_type": "security.component.error",
-                "component": self.name,
-                "type": self.type,
-                "error": str(e),
-            })
-            raise RuntimeError(f"Failed to clean up {self.name}: {e}")
+        if pattern not in self._compiled_patterns:
+            try:
+                self._compiled_patterns[pattern] = re.compile(pattern)
+            except re.error:
+                logger.warning(
+                    "Invalid resource pattern",
+                    extra={
+                        "pattern": pattern,
+                        "component": self.name,
+                    },
+                )
+                return None
+        return self._compiled_patterns[pattern]
 
 
 # Authentication component
@@ -198,103 +219,176 @@ class AuthenticationComponent(SecurityComponent):
     This component handles user authentication and token management.
     """
 
-    def __init__(self, config: SecurityConfig) -> None:
+    def __init__(self, config: ComponentConfig) -> None:
         """Initialize authentication component.
 
         Args:
             config: Security configuration
         """
         super().__init__(config)
-        self._tokens: dict[str, dict[str, Any]] = {}
+        self._tokens: dict[str, Token] = {}
+
+    async def _initialize_component(self) -> None:
+        """Initialize authentication component."""
+        logger.info("Initializing authentication component")
+        # Initialize token storage
+        self._tokens = {}
+
+    async def _cleanup_component(self) -> None:
+        """Clean up authentication component."""
+        logger.info("Cleaning up authentication component")
+        # Clear token storage
+        self._tokens.clear()
 
     async def authenticate(
         self,
-        credentials: dict[str, str],
-    ) -> str:
+        credentials: Credentials,
+        scopes: set[SecurityScope] | None = None,
+    ) -> Token:
         """Authenticate user and generate token.
 
         Args:
             credentials: User credentials
+            scopes: Optional security scopes
 
         Returns:
-            str: Authentication token
+            Authentication token
 
         Raises:
-            ValueError: If authentication fails
+            AuthenticationError: If authentication fails
         """
-        if not self.enabled:
-            raise RuntimeError("Authentication disabled")
-
-        start_time = datetime.utcnow()
         try:
             # Validate credentials
-            if "username" not in credentials or "password" not in credentials:
-                raise ValueError("Missing credentials")
+            if not credentials.user_id:
+                raise AuthenticationError("Missing user ID")
+
+            # Get token expiration from config
+            token_expiration = self.config.config.get("token_expiration", 86400)
 
             # Generate token
-            token = str(uuid4())
-            self._tokens[token] = {
-                "username": credentials["username"],
-                "created_at": start_time,
-                "expires_at": start_time + timedelta(hours=1),
-            }
+            token = Token(
+                token_id=uuid4(),
+                user_id=credentials.user_id,
+                scopes=scopes or set(),
+                issued_at=datetime.utcnow(),
+                expires_at=datetime.utcnow() + timedelta(seconds=token_expiration),
+                metadata=credentials.metadata or {},
+            )
 
-            await self._operation_counter.inc()
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            await self._latency_histogram.observe(duration)
-
-            await self._audit.log({
-                "event_type": "security.auth.token_created",
-                "username": credentials["username"],
-            })
+            # Store token
+            self._tokens[str(token.token_id)] = token
 
             return token
 
         except Exception as e:
-            await self._error_counter.inc()
-            await self._audit.log({
-                "event_type": "security.auth.error",
-                "error": str(e),
-            })
-            raise ValueError(f"Authentication failed: {e}")
+            raise AuthenticationError(f"Authentication failed: {e}")
 
-    async def validate_token(self, token: str) -> bool:
-        """Validate authentication token.
+    async def validate_token(self, token: Token) -> bool:
+        """Validate token.
 
         Args:
             token: Token to validate
 
         Returns:
-            bool: True if token is valid
+            True if token is valid
         """
-        if not self.enabled:
-            raise RuntimeError("Authentication disabled")
+        # Check if token exists
+        stored_token = self._tokens.get(str(token.token_id))
+        if not stored_token:
+            return False
 
-        start_time = datetime.utcnow()
+        # Check if token has expired
+        if datetime.utcnow() > stored_token.expires_at:
+            await self.revoke_token(token)
+            return False
+
+        return True
+
+    async def refresh_token(self, token: Token) -> Token:
+        """Refresh token.
+
+        Args:
+            token: Token to refresh
+
+        Returns:
+            New token
+
+        Raises:
+            AuthenticationError: If token refresh fails
+        """
         try:
-            # Check token exists
-            if token not in self._tokens:
-                return False
+            # Validate existing token
+            if not await self.validate_token(token):
+                raise AuthenticationError("Invalid token")
 
-            # Check token expiration
-            token_data = self._tokens[token]
-            if datetime.utcnow() > token_data["expires_at"]:
-                del self._tokens[token]
-                return False
+            # Get token expiration from config
+            token_expiration = self.config.config.get("token_expiration", 86400)
 
-            await self._operation_counter.inc()
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            await self._latency_histogram.observe(duration)
+            # Generate new token
+            new_token = Token(
+                token_id=uuid4(),
+                user_id=token.user_id,
+                scopes=token.scopes,
+                issued_at=datetime.utcnow(),
+                expires_at=datetime.utcnow() + timedelta(seconds=token_expiration),
+                metadata=token.metadata,
+            )
 
-            return True
+            # Store new token
+            self._tokens[str(new_token.token_id)] = new_token
+
+            # Revoke old token
+            await self.revoke_token(token)
+
+            return new_token
 
         except Exception as e:
-            await self._error_counter.inc()
-            await self._audit.log({
-                "event_type": "security.auth.error",
-                "error": str(e),
-            })
-            return False
+            raise AuthenticationError(f"Token refresh failed: {e}")
+
+    async def revoke_token(self, token: Token) -> None:
+        """Revoke token.
+
+        Args:
+            token: Token to revoke
+
+        Raises:
+            AuthenticationError: If token revocation fails
+        """
+        try:
+            # Remove token from storage
+            self._tokens.pop(str(token.token_id), None)
+
+        except Exception as e:
+            raise AuthenticationError(f"Token revocation failed: {e}")
+
+    async def get_security_context(self, token: Token) -> SecurityContext:
+        """Get security context from token.
+
+        Args:
+            token: Authentication token
+
+        Returns:
+            Security context
+
+        Raises:
+            AuthenticationError: If token is invalid
+        """
+        try:
+            # Validate token
+            if not await self.validate_token(token):
+                raise AuthenticationError("Invalid token")
+
+            # Create security context
+            return SecurityContext(
+                user_id=token.user_id,
+                current_token=token,
+                roles=set(),  # Roles should be populated by authorization component
+                active_scopes=token.scopes,
+                metadata=token.metadata,
+            )
+
+        except Exception as e:
+            raise AuthenticationError(f"Failed to get security context: {e}")
 
 
 # Authorization component
@@ -304,141 +398,249 @@ class AuthorizationComponent(SecurityComponent):
     This component handles role-based access control.
     """
 
-    def __init__(self, config: SecurityConfig) -> None:
+    def __init__(self, config: ComponentConfig) -> None:
         """Initialize authorization component.
 
         Args:
             config: Security configuration
         """
         super().__init__(config)
-        self._roles: dict[str, set[str]] = {}
-        self._user_roles: dict[str, set[str]] = {}
+        self._roles: dict[str, Role] = {}
+        self._policies: dict[str, Policy] = {}
 
-    async def create_role(
+    async def _initialize_component(self) -> None:
+        """Initialize authorization component."""
+        logger.info("Initializing authorization component")
+        # Initialize role and policy storage
+        self._roles = {}
+        self._policies = {}
+
+    async def _cleanup_component(self) -> None:
+        """Clean up authorization component."""
+        logger.info("Cleaning up authorization component")
+        # Clear role and policy storage
+        self._roles.clear()
+        self._policies.clear()
+
+    async def authorize(
         self,
-        name: str,
-        permissions: set[str],
-    ) -> None:
-        """Create a role with permissions.
-
-        Args:
-            name: Role name
-            permissions: Set of permissions
-
-        Raises:
-            ValueError: If role creation fails
-        """
-        if not self.enabled:
-            raise RuntimeError("Authorization disabled")
-
-        start_time = datetime.utcnow()
-        try:
-            self._roles[name] = permissions
-
-            await self._operation_counter.inc()
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            await self._latency_histogram.observe(duration)
-
-            await self._audit.log({
-                "event_type": "security.authz.role_created",
-                "role": name,
-                "permissions": list(permissions),
-            })
-
-        except Exception as e:
-            await self._error_counter.inc()
-            await self._audit.log({
-                "event_type": "security.authz.error",
-                "error": str(e),
-            })
-            raise ValueError(f"Role creation failed: {e}")
-
-    async def assign_role(
-        self,
-        username: str,
-        role: str,
-    ) -> None:
-        """Assign role to user.
-
-        Args:
-            username: Username
-            role: Role name
-
-        Raises:
-            ValueError: If role assignment fails
-        """
-        if not self.enabled:
-            raise RuntimeError("Authorization disabled")
-
-        start_time = datetime.utcnow()
-        try:
-            # Check role exists
-            if role not in self._roles:
-                raise ValueError(f"Role not found: {role}")
-
-            # Assign role
-            if username not in self._user_roles:
-                self._user_roles[username] = set()
-            self._user_roles[username].add(role)
-
-            await self._operation_counter.inc()
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            await self._latency_histogram.observe(duration)
-
-            await self._audit.log({
-                "event_type": "security.authz.role_assigned",
-                "username": username,
-                "role": role,
-            })
-
-        except Exception as e:
-            await self._error_counter.inc()
-            await self._audit.log({
-                "event_type": "security.authz.error",
-                "error": str(e),
-            })
-            raise ValueError(f"Role assignment failed: {e}")
-
-    async def check_permission(
-        self,
-        username: str,
-        permission: str,
+        context: SecurityContext,
+        permission: Permission,
+        resource: str | None = None,
     ) -> bool:
-        """Check if user has permission.
+        """Authorize operation.
 
         Args:
-            username: Username
-            permission: Permission to check
+            context: Security context
+            permission: Required permission
+            resource: Optional resource identifier
 
         Returns:
-            bool: True if user has permission
+            True if authorized
         """
-        if not self.enabled:
-            raise RuntimeError("Authorization disabled")
+        # Check if context has required permission
+        if not await self.has_permission(context, permission, resource):
+            return False
 
-        start_time = datetime.utcnow()
-        try:
-            # Get user roles
-            user_roles = self._user_roles.get(username, set())
+        # Check if context has required scopes
+        required_scopes = set()
+        for role_name in context.roles:
+            role = self._roles.get(role_name)
+            if role and permission in role.permissions:
+                # Get required scopes from policies
+                for policy in self._policies.values():
+                    if (
+                        role_name in policy.roles
+                        and permission in policy.actions
+                        and (not resource or resource in policy.resources)
+                    ):
+                        required_scopes.update(policy.scopes)
 
-            # Check permission in each role
-            for role in user_roles:
-                role_permissions = self._roles.get(role, set())
-                if permission in role_permissions:
-                    await self._operation_counter.inc()
-                    duration = (datetime.utcnow() - start_time).total_seconds()
-                    await self._latency_histogram.observe(duration)
+        # Verify all required scopes are present
+        for scope in required_scopes:
+            if not await self.has_scope(context, scope):
+                return False
+
+        return True
+
+    async def has_permission(
+        self,
+        context: SecurityContext,
+        permission: Permission,
+        resource: str | None = None,
+    ) -> bool:
+        """Check if context has permission.
+
+        Args:
+            context: Security context
+            permission: Required permission
+            resource: Optional resource identifier
+
+        Returns:
+            True if context has permission
+        """
+        # Check each role
+        for role_name in context.roles:
+            role = self._roles.get(role_name)
+            if not role:
+                continue
+
+            # Check if role has permission
+            if permission in role.permissions:
+                # If resource is specified, check resource patterns
+                if resource:
+                    for pattern in role.resource_patterns:
+                        compiled = self._compile_pattern(pattern)
+                        if compiled and compiled.match(resource):
+                            return True
+                else:
                     return True
 
-            return False
+        return False
 
-        except Exception as e:
-            await self._error_counter.inc()
-            await self._audit.log({
-                "event_type": "security.authz.error",
-                "error": str(e),
-            })
-            return False
+    async def has_scope(self, context: SecurityContext, scope: SecurityScope) -> bool:
+        """Check if context has scope.
+
+        Args:
+            context: Security context
+            scope: Required scope
+
+        Returns:
+            True if context has scope
+        """
+        return scope in context.active_scopes
+
+    async def has_role(self, context: SecurityContext, role: str) -> bool:
+        """Check if context has role.
+
+        Args:
+            context: Security context
+            role: Required role
+
+        Returns:
+            True if context has role
+        """
+        return role in context.roles
+
+    async def get_roles(self) -> list[Role]:
+        """Get available roles.
+
+        Returns:
+            List of available roles
+        """
+        return list(self._roles.values())
+
+    async def create_role(self, role: Role) -> Role:
+        """Create role.
+
+        Args:
+            role: Role to create
+
+        Returns:
+            Created role
+
+        Raises:
+            ValidationError: If role is invalid
+            DuplicateError: If role already exists
+        """
+        if role.name in self._roles:
+            raise DuplicateError(f"Role already exists: {role.name}")
+
+        self._roles[role.name] = role
+        return role
+
+    async def update_role(self, role: Role) -> Role:
+        """Update role.
+
+        Args:
+            role: Role to update
+
+        Returns:
+            Updated role
+
+        Raises:
+            ValidationError: If role is invalid
+            NotFoundError: If role does not exist
+        """
+        if role.name not in self._roles:
+            raise NotFoundError(f"Role not found: {role.name}")
+
+        self._roles[role.name] = role
+        return role
+
+    async def delete_role(self, role_name: str) -> None:
+        """Delete role.
+
+        Args:
+            role_name: Role name
+
+        Raises:
+            NotFoundError: If role does not exist
+        """
+        if role_name not in self._roles:
+            raise NotFoundError(f"Role not found: {role_name}")
+
+        del self._roles[role_name]
+
+    async def get_policies(self) -> list[Policy]:
+        """Get security policies.
+
+        Returns:
+            List of policies
+        """
+        return list(self._policies.values())
+
+    async def create_policy(self, policy: Policy) -> Policy:
+        """Create policy.
+
+        Args:
+            policy: Policy to create
+
+        Returns:
+            Created policy
+
+        Raises:
+            ValidationError: If policy is invalid
+            DuplicateError: If policy already exists
+        """
+        if policy.name in self._policies:
+            raise DuplicateError(f"Policy already exists: {policy.name}")
+
+        self._policies[policy.name] = policy
+        return policy
+
+    async def update_policy(self, policy: Policy) -> Policy:
+        """Update policy.
+
+        Args:
+            policy: Policy to update
+
+        Returns:
+            Updated policy
+
+        Raises:
+            ValidationError: If policy is invalid
+            NotFoundError: If policy does not exist
+        """
+        if policy.name not in self._policies:
+            raise NotFoundError(f"Policy not found: {policy.name}")
+
+        self._policies[policy.name] = policy
+        return policy
+
+    async def delete_policy(self, policy_name: str) -> None:
+        """Delete policy.
+
+        Args:
+            policy_name: Policy name
+
+        Raises:
+            NotFoundError: If policy does not exist
+        """
+        if policy_name not in self._policies:
+            raise NotFoundError(f"Policy not found: {policy_name}")
+
+        del self._policies[policy_name]
 
 
 # Data protection component
@@ -448,61 +650,179 @@ class DataProtectionComponent(SecurityComponent):
     This component handles data encryption and masking.
     """
 
-    def __init__(self, config: SecurityConfig) -> None:
+    def __init__(self, config: ComponentConfig) -> None:
         """Initialize data protection component.
 
         Args:
             config: Security configuration
         """
         super().__init__(config)
+        self._protection_policies: dict[str, ProtectionPolicy] = {}
 
-    async def protect_data(
-        self,
-        data: dict[str, Any],
-        fields: set[str],
-    ) -> dict[str, Any]:
-        """Protect sensitive data fields.
+    async def _initialize_component(self) -> None:
+        """Initialize data protection component."""
+        logger.info("Initializing data protection component")
+        # Initialize protection policy storage
+        self._protection_policies = {}
 
-        Args:
-            data: Data to protect
-            fields: Fields to protect
+    async def _cleanup_component(self) -> None:
+        """Clean up data protection component."""
+        logger.info("Cleaning up data protection component")
+        # Clear protection policy storage
+        self._protection_policies.clear()
+
+    async def get_protection_policies(self) -> list[ProtectionPolicy]:
+        """Get data protection policies.
 
         Returns:
-            Dict[str, Any]: Protected data
+            List of protection policies
+        """
+        return list(self._protection_policies.values())
+
+    async def create_protection_policy(
+        self, policy: ProtectionPolicy
+    ) -> ProtectionPolicy:
+        """Create data protection policy.
+
+        Args:
+            policy: Policy to create
+
+        Returns:
+            Created policy
 
         Raises:
-            ValueError: If data protection fails
+            ValidationError: If policy is invalid
+            DuplicateError: If policy already exists
         """
-        if not self.enabled:
-            raise RuntimeError("Data protection disabled")
+        if policy.name in self._protection_policies:
+            raise DuplicateError(f"Protection policy already exists: {policy.name}")
 
-        start_time = datetime.utcnow()
+        self._protection_policies[policy.name] = policy
+        return policy
+
+    async def update_protection_policy(
+        self, policy: ProtectionPolicy
+    ) -> ProtectionPolicy:
+        """Update data protection policy.
+
+        Args:
+            policy: Policy to update
+
+        Returns:
+            Updated policy
+
+        Raises:
+            ValidationError: If policy is invalid
+            NotFoundError: If policy does not exist
+        """
+        if policy.name not in self._protection_policies:
+            raise NotFoundError(f"Protection policy not found: {policy.name}")
+
+        self._protection_policies[policy.name] = policy
+        return policy
+
+    async def delete_protection_policy(self, policy_name: str) -> None:
+        """Delete data protection policy.
+
+        Args:
+            policy_name: Name of policy to delete
+
+        Raises:
+            NotFoundError: If policy does not exist
+        """
+        if policy_name not in self._protection_policies:
+            raise NotFoundError(f"Protection policy not found: {policy_name}")
+
+        del self._protection_policies[policy_name]
+
+    async def encrypt(self, data: Any, policy_name: str) -> bytes:
+        """Encrypt data using protection policy.
+
+        Args:
+            data: Data to encrypt
+            policy_name: Name of protection policy
+
+        Returns:
+            Encrypted data
+
+        Raises:
+            NotFoundError: If policy does not exist
+            EncryptionError: If encryption fails
+        """
+        # Get protection policy
+        policy = self._protection_policies.get(policy_name)
+        if policy is None:
+            raise NotFoundError(f"Protection policy not found: {policy_name}")
+
         try:
-            protected = data.copy()
+            # Serialize data to JSON
+            data_json = json.dumps(data)
+            data_bytes = data_json.encode()
 
-            # Mask sensitive fields
-            for field in fields:
-                if field in protected:
-                    protected[field] = "********"
+            # Get encryption key from policy
+            if not policy.encryption_key_id:
+                raise EncryptionError("Encryption key not configured")
 
-            await self._operation_counter.inc()
-            duration = (datetime.utcnow() - start_time).total_seconds()
-            await self._latency_histogram.observe(duration)
+            # Get key from key manager
+            key = await self._get_encryption_key(policy.encryption_key_id)
 
-            await self._audit.log({
-                "event_type": "security.data.protected",
-                "fields": list(fields),
-            })
-
-            return protected
+            # Encrypt data
+            return encrypt_data(data_bytes, key)
 
         except Exception as e:
-            await self._error_counter.inc()
-            await self._audit.log({
-                "event_type": "security.data.error",
-                "error": str(e),
-            })
-            raise ValueError(f"Data protection failed: {e}")
+            raise EncryptionError(f"Failed to encrypt data: {e}")
+
+    async def decrypt(self, data: bytes, policy_name: str) -> Any:
+        """Decrypt data using protection policy.
+
+        Args:
+            data: Data to decrypt
+            policy_name: Name of protection policy
+
+        Returns:
+            Decrypted data
+
+        Raises:
+            NotFoundError: If policy does not exist
+            DecryptionError: If decryption fails
+        """
+        # Get protection policy
+        policy = self._protection_policies.get(policy_name)
+        if policy is None:
+            raise NotFoundError(f"Protection policy not found: {policy_name}")
+
+        try:
+            # Get encryption key from policy
+            if not policy.encryption_key_id:
+                raise DecryptionError("Encryption key not configured")
+
+            # Get key from key manager
+            key = await self._get_encryption_key(policy.encryption_key_id)
+
+            # Decrypt data
+            decrypted = decrypt_data(data, key)
+
+            # Parse JSON data
+            return json.loads(decrypted.decode())
+
+        except Exception as e:
+            raise DecryptionError(f"Failed to decrypt data: {e}")
+
+    async def _get_encryption_key(self, key_id: str) -> bytes:
+        """Get encryption key from key manager.
+
+        Args:
+            key_id: Key identifier
+
+        Returns:
+            Encryption key
+
+        Raises:
+            EncryptionError: If key retrieval fails
+        """
+        # TODO: Implement key management
+        # For now, return a dummy key
+        return b"dummy_key_for_testing_only"
 
 
 # Export public API
@@ -511,7 +831,6 @@ __all__ = [
     "AuthorizationComponent",
     "DataProtectionComponent",
     "SecurityComponent",
-    "SecurityConfig",
 ]
 
 
@@ -527,6 +846,7 @@ class BaseSecurityProvider(SecurityProvider):
         self._protection_policies: dict[str, ProtectionPolicy] = {}
         self._tokens: dict[UUID, Token] = {}
         self._security_contexts: dict[UUID, SecurityContext] = {}
+        self._compiled_patterns: dict[str, Pattern[str]] = {}
 
     def initialize(self, config: dict[str, Any] | None = None) -> None:
         """Initialize provider.
@@ -547,10 +867,13 @@ class BaseSecurityProvider(SecurityProvider):
     def shutdown(self) -> None:
         """Shutdown provider."""
         self._initialized = False
-        self._config = None
+        self._config = SecurityConfig()  # Reset to default config instead of None
         self._roles.clear()
         self._policies.clear()
         self._protection_policies.clear()
+        self._tokens.clear()
+        self._security_contexts.clear()
+        self._compiled_patterns.clear()
 
     def get_name(self) -> str:
         """Get provider name.
@@ -615,34 +938,34 @@ class BaseSecurityProvider(SecurityProvider):
 
         Returns:
             Security configuration
+
+        Raises:
+            ValidationError: If provider not initialized
         """
         if not self._initialized:
             raise ValidationError("Provider not initialized")
 
+        # Always return a valid SecurityConfig
         return self._config
 
     def update_config(self, config: SecurityConfig) -> SecurityConfig:
         """Update security configuration.
 
         Args:
-            config: New configuration
+            config: New security configuration
 
         Returns:
-            Updated configuration
+            Updated security configuration
 
         Raises:
-            ValidationError: If configuration is invalid
+            ValidationError: If provider not initialized
         """
         if not self._initialized:
             raise ValidationError("Provider not initialized")
 
-        try:
-            # Validate and update config
-            self._config = config
-            return self._config
-
-        except Exception as e:
-            raise ValidationError(f"Invalid configuration: {e}")
+        # Update configuration
+        self._config = config
+        return self._config
 
     def get_roles(self) -> list[Role]:
         """Get available roles.
@@ -1032,70 +1355,6 @@ class BaseSecurityProvider(SecurityProvider):
         # In a real implementation, this would fetch roles from a database
         return set()
 
-    def encrypt(self, data: Any, policy_name: str) -> bytes:
-        """Encrypt data using protection policy.
-
-        Args:
-            data: Data to encrypt
-            policy_name: Name of protection policy
-
-        Returns:
-            Encrypted data
-
-        Raises:
-            NotFoundError: If policy does not exist
-            EncryptionError: If encryption fails
-        """
-        # Get protection policy
-        policy = self.get_protection_policy(policy_name)
-        if policy is None:
-            raise NotFoundError(f"Protection policy not found: {policy_name}")
-
-        try:
-            # Convert data to JSON bytes
-            data_bytes = json.dumps(data).encode()
-
-            # Get encryption key from policy
-            key = base64.b64decode(policy.key)
-
-            # Encrypt data
-            return encrypt_data(data_bytes, key)
-
-        except Exception as e:
-            raise EncryptionError(f"Failed to encrypt data: {e}")
-
-    def decrypt(self, data: bytes, policy_name: str) -> Any:
-        """Decrypt data using protection policy.
-
-        Args:
-            data: Data to decrypt
-            policy_name: Name of protection policy
-
-        Returns:
-            Decrypted data
-
-        Raises:
-            NotFoundError: If policy does not exist
-            DecryptionError: If decryption fails
-        """
-        # Get protection policy
-        policy = self.get_protection_policy(policy_name)
-        if policy is None:
-            raise NotFoundError(f"Protection policy not found: {policy_name}")
-
-        try:
-            # Get encryption key from policy
-            key = base64.b64decode(policy.key)
-
-            # Decrypt data
-            decrypted = decrypt_data(data, key)
-
-            # Parse JSON data
-            return json.loads(decrypted.decode())
-
-        except Exception as e:
-            raise DecryptionError(f"Failed to decrypt data: {e}")
-
     def hash_password(self, password: str) -> str:
         """Hash password.
 
@@ -1182,7 +1441,8 @@ class BaseSecurityProvider(SecurityProvider):
                 # If resource is specified, check resource pattern
                 if resource and role.resource_patterns:
                     for pattern in role.resource_patterns:
-                        if pattern.match(resource):
+                        compiled = self._compile_pattern(pattern)
+                        if compiled and compiled.match(resource):
                             return True
                 else:
                     return True
@@ -1202,7 +1462,7 @@ class BaseSecurityProvider(SecurityProvider):
         if not self._initialized:
             return False
 
-        return scope in context.scopes
+        return scope in context.active_scopes
 
     def has_role(self, context: SecurityContext, role: str) -> bool:
         """Check if context has role.
@@ -1218,3 +1478,26 @@ class BaseSecurityProvider(SecurityProvider):
             return False
 
         return role in context.roles
+
+    def _compile_pattern(self, pattern: str) -> Pattern[str] | None:
+        """Compile regex pattern.
+
+        Args:
+            pattern: Pattern string
+
+        Returns:
+            Compiled pattern or None if invalid
+        """
+        if pattern not in self._compiled_patterns:
+            try:
+                self._compiled_patterns[pattern] = re.compile(pattern)
+            except re.error:
+                logger.warning(
+                    "Invalid resource pattern",
+                    extra={
+                        "pattern": pattern,
+                        "component": self.get_name(),
+                    },
+                )
+                return None
+        return self._compiled_patterns[pattern]

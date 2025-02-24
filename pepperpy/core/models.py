@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from pepperpy.utils.imports import safe_import
+from pepperpy.core.import_utils import import_optional_dependency
 
 # Import pydantic safely
-pydantic = safe_import("pydantic")
+pydantic = import_optional_dependency("pydantic", "pydantic>=2.0.0")
 if pydantic:
     BaseModel = pydantic.BaseModel
     ConfigDict = pydantic.ConfigDict
