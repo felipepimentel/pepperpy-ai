@@ -7,7 +7,7 @@ and code quality problems in Python code.
 import ast
 import json
 import logging
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any
 
 from pepperpy.core.base import Lifecycle
 from pepperpy.security.errors import SecurityError
@@ -21,8 +21,8 @@ class ScannerConfig:
 
     def __init__(
         self,
-        banned_functions: Optional[Set[str]] = None,
-        banned_modules: Optional[Set[str]] = None,
+        banned_functions: set[str] | None = None,
+        banned_modules: set[str] | None = None,
         max_complexity: int = 10,
     ):
         """Initialize scanner configuration.
@@ -63,8 +63,8 @@ class CodeVisitor(ast.NodeVisitor):
             config: Scanner configuration
         """
         self.config = config
-        self.issues: List[str] = []
-        self.warnings: List[str] = []
+        self.issues: list[str] = []
+        self.warnings: list[str] = []
         self.complexity = 0
 
     def visit_Call(self, node: ast.Call) -> None:
@@ -153,7 +153,7 @@ class CodeVisitor(ast.NodeVisitor):
 class CodeScanner(Lifecycle):
     """Static code analyzer."""
 
-    def __init__(self, config: Optional[ScannerConfig] = None) -> None:
+    def __init__(self, config: ScannerConfig | None = None) -> None:
         """Initialize scanner.
 
         Args:
@@ -170,7 +170,7 @@ class CodeScanner(Lifecycle):
         """Clean up scanner resources."""
         logger.info("Code scanner cleaned up")
 
-    async def scan(self, code: Union[str, Dict[str, Any]]) -> ValidationResult:
+    async def scan(self, code: str | dict[str, Any]) -> ValidationResult:
         """Scan code for security issues.
 
         Args:
@@ -204,7 +204,7 @@ class CodeScanner(Lifecycle):
         except SyntaxError as e:
             return ValidationResult(
                 is_valid=False,
-                errors=[f"Syntax error: {str(e)}"],
+                errors=[f"Syntax error: {e!s}"],
                 warnings=[],
             )
         except Exception as e:

@@ -1,30 +1,39 @@
-"""Security error definitions.
+"""Security error classes.
 
-This module provides error classes for the security system.
+This module provides error classes for security-related operations.
 """
 
 from typing import Any
 
-from pepperpy.core.errors import PepperError
 
+class SecurityError(Exception):
+    """Base class for security-related errors.
 
-class SecurityError(PepperError):
-    """Base class for security errors."""
+    Attributes:
+        message: Error message
+        details: Additional error details
+    """
 
-    def __init__(
-        self,
-        message: str,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        """Initialize security error.
+    def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
+        """Initialize error.
 
         Args:
             message: Error message
             details: Additional error details
         """
-        error_details = details or {}
-        error_details["error_code"] = "SEC000"
-        super().__init__(message=message, details=error_details)
+        super().__init__(message)
+        self.message = message
+        self.details = details or {}
+
+    def __str__(self) -> str:
+        """Get string representation.
+
+        Returns:
+            Formatted error message
+        """
+        if self.details:
+            return f"{self.message} (details: {self.details})"
+        return self.message
 
 
 class AuthenticationError(SecurityError):
@@ -257,17 +266,17 @@ class AuditError(SecurityError):
 
 # Export public API
 __all__ = [
-    "SecurityError",
+    "AuditError",
     "AuthenticationError",
     "AuthorizationError",
-    "TokenError",
-    "EncryptionError",
-    "DecryptionError",
-    "ValidationError",
-    "ConfigurationError",
-    "RateLimitError",
-    "DuplicateError",
     "CircularDependencyError",
+    "ConfigurationError",
+    "DecryptionError",
+    "DuplicateError",
+    "EncryptionError",
+    "RateLimitError",
+    "SecurityError",
     "SecurityScanError",
-    "AuditError",
+    "TokenError",
+    "ValidationError",
 ]

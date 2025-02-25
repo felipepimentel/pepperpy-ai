@@ -30,7 +30,7 @@ class TransformerConfig(BaseModel):
 
     name: str = Field(description="Transformer name")
     enabled: bool = Field(default=True, description="Whether transformer is enabled")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
 
@@ -42,7 +42,7 @@ class BaseTransformer(Lifecycle, Generic[T]):
     behavior across the framework.
     """
 
-    def __init__(self, config: Optional[TransformerConfig] = None) -> None:
+    def __init__(self, config: TransformerConfig | None = None) -> None:
         """Initialize transformer.
 
         Args:
@@ -109,7 +109,7 @@ class DataTransformer(BaseTransformer[T]):
 
 
 __all__ = [
-    "TransformerConfig",
     "BaseTransformer",
     "DataTransformer",
+    "TransformerConfig",
 ]

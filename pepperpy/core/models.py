@@ -4,6 +4,7 @@ This module provides base model functionality with validation.
 """
 
 from datetime import datetime
+from typing import TypeVar
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field as PydanticField
@@ -24,5 +25,8 @@ class BaseModel(PydanticBaseModel):
 # Re-export Field for consistency
 Field = PydanticField
 
+# Type variable for models
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
-__all__ = ["BaseModel", "Field"]
+
+__all__ = ["BaseModel", "Field", "ModelT"]

@@ -704,3 +704,34 @@ class ComponentBase(ABC):
         component-specific cleanup.
         """
         pass
+
+
+class Lifecycle(ABC):
+    """Base class for components with lifecycle management.
+    
+    Provides standard initialize/cleanup lifecycle methods that all
+    components should implement.
+    
+    Example:
+        >>> class MyComponent(Lifecycle):
+        ...     async def initialize(self) -> None:
+        ...         print("Initializing")
+        ...     async def cleanup(self) -> None:
+        ...         print("Cleaning up")
+    """
+    
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the component.
+        
+        This method should be called before using the component
+        and should set up any required resources.
+        """
+    @abstractmethod
+    async def cleanup(self) -> None:
+        """Clean up the component.
+
+        This method should be called when the component is no longer needed
+        and should release any held resources.
+        """
+        pass

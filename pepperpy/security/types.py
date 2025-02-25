@@ -3,6 +3,7 @@
 This module provides type definitions for the security system.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -161,3 +162,25 @@ class ComponentConfig(BaseModel):
         """Pydantic configuration."""
 
         validate_assignment = True
+
+
+@dataclass
+class ValidationResult:
+    """Result of a validation operation.
+
+    Attributes:
+        is_valid: Whether validation passed
+        errors: List of validation errors
+        warnings: List of validation warnings
+
+    Example:
+        >>> result = ValidationResult(
+        ...     is_valid=False,
+        ...     errors=["Invalid syntax"],
+        ...     warnings=["High complexity"]
+        ... )
+    """
+
+    is_valid: bool
+    errors: list[str] | None = None
+    warnings: list[str] | None = None

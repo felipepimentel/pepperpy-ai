@@ -7,7 +7,7 @@ and best practices for secure data storage.
 import base64
 import json
 import os
-from typing import Any, Dict, Optional, Union
+from typing import Any
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 class AES256GCM:
     """AES-256-GCM encryption with key derivation."""
 
-    def __init__(self, key: Optional[bytes] = None) -> None:
+    def __init__(self, key: bytes | None = None) -> None:
         """Initialize AES-256-GCM cipher.
 
         Args:
@@ -33,7 +33,7 @@ class AES256GCM:
         self.aesgcm = AESGCM(key)
 
     @classmethod
-    def from_password(cls, password: str, salt: Optional[bytes] = None) -> "AES256GCM":
+    def from_password(cls, password: str, salt: bytes | None = None) -> "AES256GCM":
         """Create instance from password using PBKDF2.
 
         Args:
@@ -57,8 +57,8 @@ class AES256GCM:
         return cls(key)
 
     async def encrypt(
-        self, data: Dict[str, Any], associated_data: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Union[str, None]]:
+        self, data: dict[str, Any], associated_data: dict[str, Any] | None = None
+    ) -> dict[str, str | None]:
         """Encrypt data with authenticated encryption.
 
         Args:
@@ -88,7 +88,7 @@ class AES256GCM:
             "aad": base64.b64encode(aad_bytes).decode() if aad_bytes else None,
         }
 
-    async def decrypt(self, encrypted_data: Dict[str, str]) -> Dict[str, Any]:
+    async def decrypt(self, encrypted_data: dict[str, str]) -> dict[str, Any]:
         """Decrypt data with authentication.
 
         Args:
