@@ -1,61 +1,204 @@
-"""Core metrics module.
+"""Metrics collection and monitoring system."""
 
-This module provides core metrics initialization for monitoring and observability.
-"""
+from typing import Dict, Any, Optional, List, Union
+from dataclasses import dataclass
+from datetime import datetime
+import threading
+import logging
+from collections import defaultdict
 
-import asyncio
-from typing import TYPE_CHECKING
+@dataclass
+class Metric:
+    """Base class for metric types."""
+    name: str
+    labels: Dict[str, str]
+    timestamp: datetime
 
-if TYPE_CHECKING:
-    from pepperpy.core.metrics.base import Counter, Histogram
+@dataclass
+class Counter(Metric):
+    """Counter metric type for counting events."""
+    value: int = 0
 
-from pepperpy.core.metrics import metrics_manager
+    def inc(self, amount: int = 1) -> None:
+        """Increment the counter.
+        
+        Args:
+            amount: Amount to increment by (default: 1)
+        """
+        self.value += amount
 
-# Initialize metrics
-component_init_counter: Counter | None = None
-component_cleanup_counter: Counter | None = None
-component_error_counter: Counter | None = None
-operation_duration: Histogram | None = None
+@dataclass
+class Gauge(Metric):
+    """Gauge metric type for variable measurements."""
+    value: float = 0.0
 
+    def set(self, value: float) -> None:
+        """Set the gauge value.
+        
+        Args:
+            value: New value to set
+        """
+        self.value = value
 
-# Initialize metrics in the background
-async def _init_metrics() -> None:
-    """Initialize core metrics."""
-    global \
-        component_init_counter, \
-        component_cleanup_counter, \
-        component_error_counter, \
-        operation_duration
+    def inc(self, amount: float = 1.0) -> None:
+        """Increment the gauge.
+        
+        Args:
+            amount: Amount to increment by (default: 1.0)
+        """
+        self.value += amount
 
-    # Component metrics
-    component_init_counter = await metrics_manager.create_counter(
-        name="component_init_total",
-        description="Total number of component initializations",
-    )
-    component_cleanup_counter = await metrics_manager.create_counter(
-        name="component_cleanup_total",
-        description="Total number of component cleanups",
-    )
-    component_error_counter = await metrics_manager.create_counter(
-        name="component_error_total",
-        description="Total number of component errors",
-    )
+    def dec(self, amount: float = 1.0) -> None:
+        """Decrement the gauge.
+        
+        Args:
+            amount: Amount to decrement by (default: 1.0)
+        """
+        self.value -= amount
 
-    # Operation metrics
-    operation_duration = await metrics_manager.create_histogram(
-        name="operation_duration_seconds",
-        description="Duration of operations in seconds",
-        buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
-    )
+@dataclass
+class Histogram(Metric):
+    """Histogram metric type for measuring distributions."""
+    buckets: List[float]
+    values: List[float]
+    sum: float = 0.0
+    count: int = 0
 
+    def observe(self, value: float) -> None:
+        """Record an observation.
+        
+        Args:
+            value: Value to record
+        """
+        self.values.append(value)
+        self.sum += value
+        self.count += 1
 
-# Start initialization
-asyncio.create_task(_init_metrics())
+class MetricsCollector:
+    """Collector for system metrics.
+    
+    This class provides a centralized way to collect and manage various
+    types of metrics throughout the system.
+    """
 
-__all__ = [
-    "component_cleanup_counter",
-    "component_error_counter",
-    "component_init_counter",
-    "metrics_manager",
-    "operation_duration",
-]
+    def __init__(self) -> None:
+        """Initialize the metrics collector."""
+        self._metrics: Dict[str, Dict[str, Metric]] = defaultdict(dict)
+        self._lock = threading.Lock()
+        self._logger = logging.getLogger(__name__)
+
+    def counter(
+        self,
+        name: str,
+        labels: Optional[Dict[str, str]] = None
+    ) -> Counter:
+        """Get or create a counter metric.
+        
+        Args:
+            name: Metric name
+            labels: Optional metric labels
+            
+        Returns:
+            Counter metric instance
+        """
+        return self._get_or_create_metric(Counter, name, labels or {})
+
+    def gauge(
+        self,
+        name: str,
+        labels: Optional[Dict[str, str]] = None
+    ) -> Gauge:
+        """Get or create a gauge metric.
+        
+        Args:
+            name: Metric name
+            labels: Optional metric labels
+            
+        Returns:
+            Gauge metric instance
+        """
+        return self._get_or_create_metric(Gauge, name, labels or {})
+
+    def histogram(
+        self,
+        name: str,
+        buckets: List[float],
+        labels: Optional[Dict[str, str]] = None
+    ) -> Histogram:
+        """Get or create a histogram metric.
+        
+        Args:
+            name: Metric name
+            buckets: Histogram buckets
+            labels: Optional metric labels
+            
+        Returns:
+            Histogram metric instance
+        """
+        return self._get_or_create_metric(
+            Histogram,
+            name,
+            labels or {},
+            buckets=buckets,
+            values=[]
+        )
+
+    def _get_or_create_metric(
+        self,
+        metric_type: type,
+        name: str,
+        labels: Dict[str, str],
+        **kwargs: Any
+    ) -> Union[Counter, Gauge, Histogram]:
+        """Get an existing metric or create a new one.
+        
+        Args:
+            metric_type: Type of metric to create
+            name: Metric name
+            labels: Metric labels
+            **kwargs: Additional arguments for metric creation
+            
+        Returns:
+            Metric instance
+        """
+        key = self._get_metric_key(name, labels)
+        
+        with self._lock:
+            if key not in self._metrics[name]:
+                self._metrics[name][key] = metric_type(
+                    name=name,
+                    labels=labels,
+                    timestamp=datetime.now(),
+                    **kwargs
+                )
+            
+            return self._metrics[name][key]
+
+    def _get_metric_key(self, name: str, labels: Dict[str, str]) -> str:
+        """Generate a unique key for a metric.
+        
+        Args:
+            name: Metric name
+            labels: Metric labels
+            
+        Returns:
+            Unique metric key
+        """
+        sorted_labels = sorted(labels.items())
+        labels_str = ",".join(f"{k}={v}" for k, v in sorted_labels)
+        return f"{name}:{labels_str}"
+
+    def get_metrics(self) -> Dict[str, Dict[str, Metric]]:
+        """Get all collected metrics.
+        
+        Returns:
+            Dictionary of all metrics
+        """
+        with self._lock:
+            return dict(self._metrics)
+
+    def clear(self) -> None:
+        """Clear all collected metrics."""
+        with self._lock:
+            self._metrics.clear()
+            self._logger.info("Cleared all metrics")

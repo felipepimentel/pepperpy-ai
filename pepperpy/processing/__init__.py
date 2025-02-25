@@ -1,52 +1,26 @@
-"""Processing system for the Pepperpy framework.
+"""Processing module for handling different types of content.
 
-This module provides a unified processing system with:
-- Processing pipeline
-- Data transformers
-- Validators
-- Metrics collection
-
-The processing system is designed to be:
-- Modular: Easy to add new processors
-- Composable: Chain processors together
-- Observable: Track metrics and errors
-- Extensible: Support custom processors
+This module provides a unified interface for processing various types of content,
+including text, code, markdown, JSON, YAML, and more. It includes a plugin system
+for extending functionality and comprehensive monitoring capabilities.
 """
 
-from pepperpy.processing.pipeline import (
-    ProcessingError,
-    ProcessingPipeline,
-    ProcessingResult,
-)
-from pepperpy.processing.processors import (
-    AudioProcessor,
+from pepperpy.processing.base import (
     BaseProcessor,
-    ContentProcessor,
+    ProcessingContext,
+    ProcessingResult,
+    ProcessorError,
 )
-from pepperpy.processing.transformers import (
-    BaseTransformer,
-    DataTransformer,
-)
-from pepperpy.processing.validators import (
-    BaseValidator,
-    DataValidator,
-    DataValidatorConfig,
-)
+from pepperpy.processing.factory import ProcessorFactory
+from pepperpy.processing.registry import ProcessorRegistry
+from pepperpy.processing.utils import ProcessingUtils
 
 __all__ = [
-    # Pipeline
-    "ProcessingPipeline",
-    "ProcessingResult",
-    "ProcessingError",
-    # Processors
     "BaseProcessor",
-    "ContentProcessor",
-    "AudioProcessor",
-    # Transformers
-    "BaseTransformer",
-    "DataTransformer",
-    # Validators
-    "BaseValidator",
-    "DataValidator",
-    "DataValidatorConfig",
+    "ProcessingContext",
+    "ProcessingResult",
+    "ProcessingUtils",
+    "ProcessorError",
+    "ProcessorFactory",
+    "ProcessorRegistry",
 ]

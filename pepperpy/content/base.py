@@ -5,11 +5,12 @@ It defines the core abstractions for handling different types of content and
 synthesizing new content from existing sources.
 """
 
+import builtins
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum, auto
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -24,8 +25,8 @@ class ContentError(PepperpyError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
-        recovery_hint: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        recovery_hint: str | None = None,
     ) -> None:
         """Initialize content error.
 
@@ -71,8 +72,8 @@ class ContentMetadata(BaseModel):
     source: str
     created_at: str
     updated_at: str
-    tags: List[str] = Field(default_factory=list)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class Content(ABC):
@@ -83,7 +84,7 @@ class Content(ABC):
         content_type: ContentType,
         name: str,
         data: Any,
-        metadata: Optional[ContentMetadata] = None,
+        metadata: ContentMetadata | None = None,
     ) -> None:
         """Initialize content item.
 
@@ -124,7 +125,7 @@ class Content(ABC):
         pass
 
     @abstractmethod
-    def save(self, path: Union[str, Path]) -> None:
+    def save(self, path: str | Path) -> None:
         """Save the content to a file.
 
         Args:
@@ -145,8 +146,8 @@ class ContentConfig(BaseModel):
 
     name: str
     description: str = ""
-    parameters: Dict[str, Any] = Field(default_factory=dict)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 T = TypeVar("T", bound=ContentConfig)
@@ -163,7 +164,7 @@ class BaseContent(Extension[T], ABC):
         self,
         name: str,
         version: str,
-        config: Optional[T] = None,
+        config: T | None = None,
     ) -> None:
         """Initialize content provider.
 
@@ -178,7 +179,7 @@ class BaseContent(Extension[T], ABC):
     async def store(
         self,
         content: Any,
-        metadata: Optional[ContentMetadata] = None,
+        metadata: ContentMetadata | None = None,
     ) -> str:
         """Store content item.
 
@@ -230,8 +231,8 @@ class BaseContent(Extension[T], ABC):
     @abstractmethod
     async def list(
         self,
-        filter_criteria: Optional[Dict[str, Any]] = None,
-    ) -> List[ContentMetadata]:
+        filter_criteria: dict[str, Any] | None = None,
+    ) -> list[ContentMetadata]:
         """List content items.
 
         Args:
@@ -250,7 +251,7 @@ class BaseContent(Extension[T], ABC):
         self,
         content_id: str,
         content: Any,
-        metadata: Optional[ContentMetadata] = None,
+        metadata: ContentMetadata | None = None,
     ) -> None:
         """Update content item.
 
@@ -268,8 +269,8 @@ class BaseContent(Extension[T], ABC):
     async def search(
         self,
         query: str,
-        filter_criteria: Optional[Dict[str, Any]] = None,
-    ) -> List[ContentMetadata]:
+        filter_criteria: dict[str, Any] | None = None,
+    ) -> builtins.list[ContentMetadata]:
         """Search content items.
 
         Args:
@@ -297,8 +298,8 @@ class SynthesisConfig(BaseModel):
 
     name: str
     description: str = ""
-    parameters: Dict[str, Any] = Field(default_factory=dict)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    parameters: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 S = TypeVar("S", bound=SynthesisConfig)
@@ -315,7 +316,7 @@ class BaseSynthesis(Extension[S], ABC):
         self,
         name: str,
         version: str,
-        config: Optional[S] = None,
+        config: S | None = None,
     ) -> None:
         """Initialize content synthesizer.
 
@@ -329,8 +330,8 @@ class BaseSynthesis(Extension[S], ABC):
     @abstractmethod
     async def synthesize(
         self,
-        sources: List[Any],
-        parameters: Optional[Dict[str, Any]] = None,
+        sources: list[Any],
+        parameters: dict[str, Any] | None = None,
     ) -> Any:
         """Synthesize new content from sources.
 
@@ -350,7 +351,7 @@ class BaseSynthesis(Extension[S], ABC):
     async def validate(
         self,
         content: Any,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
     ) -> bool:
         """Validate synthesized content.
 
@@ -371,7 +372,7 @@ class BaseSynthesis(Extension[S], ABC):
         self,
         content: Any,
         feedback: Any,
-        parameters: Optional[Dict[str, Any]] = None,
+        parameters: dict[str, Any] | None = None,
     ) -> Any:
         """Refine synthesized content based on feedback.
 

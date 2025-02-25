@@ -1,9 +1,9 @@
 ---
 title: Task Execution Template
-description: Template for executing planned tasks with strict format maintenance and clear status tracking.
-version: 6.0
+description: Structured execution framework ensuring format integrity, automated conflict resolution, and duplication prevention.
+version: 7.1
 category: execution
-tags: [execution, implementation]
+tags: [execution, implementation, refactoring, conflict-resolution, automation, structure]
 yolo: true
 strict_mode: true
 ---
@@ -13,7 +13,17 @@ All task files are located at `.product/tasks/<TASK-ID>/`. For example:
 - Main task file: `.product/tasks/TASK-004/TASK-004.md`
 - Requirement files: `.product/tasks/TASK-004/TASK-004-R001.md`
 
-# Execution Rules
+# **Execution Environment**
+Before running any `poetry` command, always execute the following setup to ensure the correct environment is loaded:
+
+```sh
+export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+export PYTHONHOME=""
+export PYTHONPATH=""
+poetry <desired_command>
+```
+
+# **Execution Rules**
 ```yaml
 validation:
   pre_execution:
@@ -26,37 +36,67 @@ validation:
       - verify requirements format in each file
       - verify task structure matches original plan
       - verify no unauthorized modifications
-    task_content:
-      - verify overview section preserved in main file
-      - verify requirements list matches plan
-      - verify implementation steps preserved in requirement files
-      - verify validation criteria preserved in requirement files
-
-  status_transitions:
-    main_task:
-      - "📋 To Do" -> "🏃 In Progress":
-          - update mode to Act
-          - preserve all planning details
-          - maintain validation criteria
-      - "🏃 In Progress" -> "✅ Done":
-          - validate all requirements complete
-          - verify no planning details were lost
-    
-    requirement:
-      - "📋 To Do" -> "🏃 In Progress":
-          - update status in both main and requirement file
-          - add start date
-      - "🏃 In Progress" -> "✅ Done":
-          - update status in both main and requirement file
-          - add completion date
-    
-  kanban_sync:
-    file: .product/kanban.md
-    required: true
-    preserve_metadata: true
+    structure_analysis:
+      - before creating any file or folder:
+        - list all existing directories and files under `pepperpy/`
+        - analyze potential **structural conflicts**
+        - if a conflict is detected:
+          - refactor existing structure instead of creating a duplicate
+          - update **all module imports and references** accordingly
+          - execute:
+            ```sh
+            export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+            export PYTHONHOME=""
+            export PYTHONPATH=""
+            poetry run python ./scripts/export_structure.py
+            ```
 ```
 
-# Main Task File Template
+# **Structural Conflict Resolution**
+```yaml
+conflict_resolution:
+  - before creating a new folder or file:
+      ```sh
+      tree pepperpy/ > .product/current_structure.txt
+      ```
+  - analyze `.product/current_structure.txt` to:
+      - check if a similar folder or file already exists
+      - determine if the existing module/folder should be reused instead of duplicating
+      - refactor and integrate new logic into the existing structure when needed
+      - update all references to ensure consistency
+      - delete redundant folders/files only after successful refactoring
+  - after any structural modification, **ensure the project structure is updated** by running:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      poetry run python ./scripts/export_structure.py
+      ```
+```
+
+# **Code Duplication Prevention**
+```yaml
+code_maintenance:
+  pre_execution:
+    - before implementing a feature, scan all modules for similar logic:
+      ```sh
+      rg '<feature_keyword>' pepperpy/
+      ```
+    - if a similar implementation exists:
+      - **extend or refactor** the existing module instead of creating a new one
+      - ensure **feature flags or modular architecture** if different behaviors are needed
+  post_execution:
+    - detect function redefinitions:
+      ```sh
+      ruff check --select=F811
+      ```
+    - detect and remove unused imports:
+      ```sh
+      ruff check --select=F401
+      ```
+```
+
+# **Main Task File Template**
 ```markdown
 ---
 title: {title}
@@ -85,150 +125,61 @@ updated: YYYY-MM-DD
   - [R002] {specific next item} ⏳
 ```
 
-# Requirement File Template
-```markdown
+# **Refactoring Strategy**
+```yaml
+refactoring:
+  structure:
+    - consolidate duplicated modules before implementing new features
+    - extract shared logic into reusable components
+    - modularize features to avoid code repetition
+  automation:
+    - automatically remove dead code:
+      ```sh
+      ruff check --select=F401,F841
+      ```
+    - format code for consistency:
+      ```sh
+      black pepperpy/
+      ```
+```
+
+# **Example Conflict Resolution Flow**
+### **Before Creating a New Folder**
+**Scenario:** A new folder `pepperpy/core/new_feature/` is about to be created, but `pepperpy/new_feature/` already exists.
+
+### **Correct Approach**
+1. **List the current project structure**
+    ```sh
+    tree pepperpy/ > .product/current_structure.txt
+    ```
+2. **Check if a similar module already exists**
+    ```sh
+    rg 'new_feature' pepperpy/
+    ```
+3. **Refactor and integrate the new logic within the existing structure**
+4. **Update all import references**
+5. **Ensure the project structure is updated**
+    ```sh
+    export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+    export PYTHONHOME=""
+    export PYTHONPATH=""
+    poetry run python ./scripts/export_structure.py
+    ```
+6. **Remove the redundant directory (if applicable)**
+    ```sh
+    rm -rf pepperpy/core/new_feature/
+    ```
+
 ---
-title: {requirement_title}
-task: TASK-XXX
-code: R001
-status: 🏃 In Progress
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
-started: YYYY-MM-DD
-completed: null
----
 
-# Implementation Status
-```python
-def implemented_feature():  # ✅ Complete
-    return "working"
-
-def in_progress_feature():  # 🏃 In Progress
-    pass
-
-def pending_feature():  # ⏳ Pending
-    pass
+# **Automated Structure Update**
+```yaml
+structure_update:
+  - after any structural change, **immediately update the project structure**:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      poetry run python ./scripts/export_structure.py
+      ```
 ```
-
-# Validation Status
-```python
-test_implemented ✅
-test_in_progress 🏃
-test_pending ⏳
-```
-
-# Progress Updates
-## YYYY-MM-DD
-- Status: {status}
-- Progress: {details}
-```
-
-# Rules for Maintaining Format
-
-1. **Main Task File:**
-   - Never add new requirements
-   - Never modify requirement descriptions
-   - Only update status markers and dates
-   - Keep overview and progress up to date
-   - Sync status with requirement files
-
-2. **Requirement Files:**
-   - Never modify original requirement
-   - Keep implementation status current
-   - Update validation status regularly
-   - Add progress updates as needed
-   - Sync status with main task file
-
-3. **Status Updates Flow:**
-   - Update status in requirement file
-   - Reflect status in main task file
-   - Update kanban board
-   - Add progress updates in both files
-   - Keep all files in sync
-
-4. **Completion Rules:**
-   - All requirement files marked complete
-   - All tests passing in each requirement
-   - Main task status updated
-   - Kanban updated
-   - All documentation current
-
-# Example Progress Flow
-
-## Starting Implementation
-```markdown
-# In main task file (TASK-007.md):
-- [ ] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)
-->
-- [-] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)  # 🏃 Started: 2024-02-14
-
-# In requirement file (TASK-007-R001.md):
-status: 📋 To Do
-->
-status: 🏃 In Progress
-started: 2024-02-14
-```
-
-## Implementation Progress
-```markdown
-# In requirement file (TASK-007-R001.md):
-# Implementation Status
-```python
-def handle_error(error: Exception):  # ✅ Complete
-    return ErrorResult(str(error))
-
-def process_error(error: Exception):  # 🏃 In Progress
-    pass
-```
-
-# Validation Status
-```python
-test_handle_error_basic ✅
-test_handle_error_complex 🏃
-test_process_error ⏳
-```
-```
-
-## Completion
-```markdown
-# In main task file (TASK-007.md):
-- [-] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)  # 🏃 Started: 2024-02-14
-->
-- [x] [R001] Feature: Add error handling - [Details](TASK-007-R001.md)  # ✅ Done: 2024-02-14
-
-# In requirement file (TASK-007-R001.md):
-status: 🏃 In Progress
-->
-status: ✅ Done
-completed: 2024-02-14
-```
-
-# Important Constraints
-
-1. **File Organization:**
-   - Keep all task files in their directory
-   - Maintain clear requirement references
-   - Use consistent file naming
-   - Keep status markers synchronized
-   - Preserve file structure
-
-2. **Content Management:**
-   - Never modify original requirements
-   - Keep implementation current
-   - Update validation status
-   - Maintain progress updates
-   - Sync status across files
-
-3. **Status Tracking:**
-   - Update both main and requirement files
-   - Keep dates accurate
-   - Use consistent status markers
-   - Maintain kanban board
-   - Document all changes
-
-4. **Completion Process:**
-   - Verify all requirements complete
-   - Check all validation criteria
-   - Update all status markers
-   - Sync all related files
-   - Maintain documentation

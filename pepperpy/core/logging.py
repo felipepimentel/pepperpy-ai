@@ -7,32 +7,23 @@
 """
 
 import logging
-from typing import Union
 
-from pepperpy.monitoring import configure_logging
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger with the given name.
-
-    Args:
-        name: Logger name
-
-    Returns:
-        Logger instance
-    """
-    return logging.getLogger(name)
+from pepperpy.monitoring.logging import (
+    LogLevel,
+    get_logger,
+)
+from pepperpy.monitoring.logging.base import configure_logging
 
 
-def set_log_level(level: Union[str, int]) -> None:
+def set_log_level(level: str | int) -> None:
     """Set the global log level.
 
     Args:
-        level: Log level to set
+        level: Log level to set (string or integer)
     """
     if isinstance(level, str):
-        level = getattr(logging, level.upper())
+        level = LogLevel.from_str(level)
     logging.getLogger().setLevel(level)
 
 
-__all__ = ["get_logger", "set_log_level", "configure_logging"]
+__all__ = ["configure_logging", "get_logger", "set_log_level"]

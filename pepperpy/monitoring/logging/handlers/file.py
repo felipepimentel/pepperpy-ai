@@ -1,3 +1,11 @@
+"""@file: file.py
+@purpose: File log handler implementation
+@component: Core/Logging
+@created: 2024-02-25
+@task: TASK-007-R020
+@status: completed
+"""
+
 """File handler for logging.
 
 This module provides a file handler that writes log records to files

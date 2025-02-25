@@ -5,10 +5,9 @@ This module provides core type definitions used throughout the framework.
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Protocol, TypeVar
+from typing import Any
 from uuid import UUID, uuid4
 
 from pepperpy.core.models import BaseModel, ConfigDict, Field
@@ -110,8 +109,21 @@ class AgentState(str, Enum):
     FAILED = "failed"
 
 
+class ComponentState(Enum):
+    """Component lifecycle states."""
+
+    CREATED = auto()
+    INITIALIZING = auto()
+    READY = auto()
+    EXECUTING = auto()
+    CLEANING = auto()
+    CLEANED = auto()
+    ERROR = auto()
+
+
 __all__ = [
     "AgentState",
+    "ComponentState",
     "Message",
     "MessageContent",
     "MessageType",

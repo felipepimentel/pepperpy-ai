@@ -4,7 +4,7 @@ This module defines the contract for security implementations.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Set
+from typing import Any
 
 from pepperpy.core.provider import Provider
 from pepperpy.security.types import (
@@ -27,7 +27,7 @@ class SecurityProvider(Provider, ABC):
     def authenticate(
         self,
         credentials: Credentials,
-        scopes: Optional[Set[SecurityScope]] = None,
+        scopes: set[SecurityScope] | None = None,
     ) -> Token:
         """Authenticate user and generate token.
 
@@ -102,7 +102,7 @@ class SecurityProvider(Provider, ABC):
         self,
         context: SecurityContext,
         permission: Permission,
-        resource: Optional[str] = None,
+        resource: str | None = None,
     ) -> bool:
         """Check if context has permission.
 
@@ -143,7 +143,7 @@ class SecurityProvider(Provider, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_roles(self) -> List[Role]:
+    def get_roles(self) -> list[Role]:
         """Get available roles.
 
         Returns:
@@ -196,7 +196,7 @@ class SecurityProvider(Provider, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_policies(self) -> List[Policy]:
+    def get_policies(self) -> list[Policy]:
         """Get security policies.
 
         Returns:
@@ -249,7 +249,7 @@ class SecurityProvider(Provider, ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_protection_policies(self) -> List[ProtectionPolicy]:
+    def get_protection_policies(self) -> list[ProtectionPolicy]:
         """Get data protection policies.
 
         Returns:

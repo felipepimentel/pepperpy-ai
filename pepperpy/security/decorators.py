@@ -3,8 +3,9 @@
 This module provides decorators for security-related functionality.
 """
 
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable, Optional, Set, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from pepperpy.security.errors import AuthenticationError, AuthorizationError
 from pepperpy.security.provider import SecurityProvider
@@ -130,7 +131,7 @@ def requires_scope(scope: SecurityScope) -> Callable[[F], F]:
     return decorator
 
 
-def requires_scopes(scopes: Set[SecurityScope]) -> Callable[[F], F]:
+def requires_scopes(scopes: set[SecurityScope]) -> Callable[[F], F]:
     """Require multiple security scopes.
 
     Args:
@@ -176,7 +177,7 @@ def requires_scopes(scopes: Set[SecurityScope]) -> Callable[[F], F]:
 
 
 def requires_permission(
-    permission: Permission, resource: Optional[str] = None
+    permission: Permission, resource: str | None = None
 ) -> Callable[[F], F]:
     """Require permission.
 

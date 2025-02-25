@@ -781,7 +781,7 @@ version = "7.6.12"
 description = "Code coverage measurement for Python"
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dev"]
 files = [
     {file = "coverage-7.6.12-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:704c8c8c6ce6569286ae9622e534b4f5b9759b6f2cd643f1c1a61f666d534fe8"},
     {file = "coverage-7.6.12-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:ad7525bf0241e5502168ae9c643a2f6c219fa0a283001cee4cf23a9b7da75879"},
@@ -916,6 +916,24 @@ files = [
     {file = "decli-0.6.2-py3-none-any.whl", hash = "sha256:2fc84106ce9a8f523ed501ca543bdb7e416c064917c12a59ebdc7f311a97b7ed"},
     {file = "decli-0.6.2.tar.gz", hash = "sha256:36f71eb55fd0093895efb4f416ec32b7f6e00147dda448e3365cf73ceab42d6f"},
 ]
+
+[[package]]
+name = "deprecated"
+version = "1.2.18"
+description = "Python @deprecated decorator to deprecate old python classes, functions or methods."
+optional = false
+python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,>=2.7"
+groups = ["main"]
+files = [
+    {file = "Deprecated-1.2.18-py2.py3-none-any.whl", hash = "sha256:bd5011788200372a32418f888e326a09ff80d0214bd961147cfed01b5c018eec"},
+    {file = "deprecated-1.2.18.tar.gz", hash = "sha256:422b6f6d859da6f2ef57857761bfb392480502a64c3028ca9bbe86085d72115d"},
+]
+
+[package.dependencies]
+wrapt = ">=1.10,<2"
+
+[package.extras]
+dev = ["PyTest", "PyTest-Cov", "bump2version (<1)", "setuptools ; python_version >= \"3.12\"", "tox"]
 
 [[package]]
 name = "dill"
@@ -1796,6 +1814,30 @@ files = [
 all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
 
 [[package]]
+name = "importlib-metadata"
+version = "8.5.0"
+description = "Read metadata from Python packages"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "importlib_metadata-8.5.0-py3-none-any.whl", hash = "sha256:45e54197d28b7a7f1559e60b95e7c567032b602131fbd588f1497f47880aa68b"},
+    {file = "importlib_metadata-8.5.0.tar.gz", hash = "sha256:71522656f0abace1d072b9e5481a48f07c138e00f079c38c8f883823f9c26bd7"},
+]
+
+[package.dependencies]
+zipp = ">=3.20"
+
+[package.extras]
+check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\""]
+cover = ["pytest-cov"]
+doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+enabler = ["pytest-enabler (>=2.2)"]
+perf = ["ipython"]
+test = ["flufl.flake8", "importlib-resources (>=1.3) ; python_version < \"3.9\"", "jaraco.test (>=5.4)", "packaging", "pyfakefs", "pytest (>=6,!=8.1.*)", "pytest-perf (>=0.9.2)"]
+type = ["pytest-mypy"]
+
+[[package]]
 name = "iniconfig"
 version = "2.0.0"
 description = "brain-dead simple config-ini parsing"
@@ -2446,6 +2488,55 @@ files = [
 ]
 
 [[package]]
+name = "opentelemetry-api"
+version = "1.30.0"
+description = "OpenTelemetry Python API"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "opentelemetry_api-1.30.0-py3-none-any.whl", hash = "sha256:d5f5284890d73fdf47f843dda3210edf37a38d66f44f2b5aedc1e89ed455dc09"},
+    {file = "opentelemetry_api-1.30.0.tar.gz", hash = "sha256:375893400c1435bf623f7dfb3bcd44825fe6b56c34d0667c542ea8257b1a1240"},
+]
+
+[package.dependencies]
+deprecated = ">=1.2.6"
+importlib-metadata = ">=6.0,<=8.5.0"
+
+[[package]]
+name = "opentelemetry-sdk"
+version = "1.30.0"
+description = "OpenTelemetry Python SDK"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "opentelemetry_sdk-1.30.0-py3-none-any.whl", hash = "sha256:14fe7afc090caad881addb6926cec967129bd9260c4d33ae6a217359f6b61091"},
+    {file = "opentelemetry_sdk-1.30.0.tar.gz", hash = "sha256:c9287a9e4a7614b9946e933a67168450b9ab35f08797eb9bc77d998fa480fa18"},
+]
+
+[package.dependencies]
+opentelemetry-api = "1.30.0"
+opentelemetry-semantic-conventions = "0.51b0"
+typing-extensions = ">=3.7.4"
+
+[[package]]
+name = "opentelemetry-semantic-conventions"
+version = "0.51b0"
+description = "OpenTelemetry Semantic Conventions"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "opentelemetry_semantic_conventions-0.51b0-py3-none-any.whl", hash = "sha256:fdc777359418e8d06c86012c3dc92c88a6453ba662e941593adb062e48c2eeae"},
+    {file = "opentelemetry_semantic_conventions-0.51b0.tar.gz", hash = "sha256:3fabf47f35d1fd9aebcdca7e6802d86bd5ebc3bc3408b7e3248dde6e87a18c47"},
+]
+
+[package.dependencies]
+deprecated = ">=1.2.6"
+opentelemetry-api = "1.30.0"
+
+[[package]]
 name = "packaging"
 version = "24.2"
 description = "Core utilities for Python packages"
@@ -3088,7 +3179,7 @@ version = "6.0.0"
 description = "Pytest plugin for measuring coverage."
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dev"]
 files = [
     {file = "pytest-cov-6.0.0.tar.gz", hash = "sha256:fde0b595ca248bb8e2d76f020b465f3b107c9632e6a1d1705f17834c89dcadc0"},
     {file = "pytest_cov-6.0.0-py3-none-any.whl", hash = "sha256:eee6f1b9e61008bd34975a4d5bab25801eb31898b032dd55addc93e96fcaaa35"},
@@ -3718,6 +3809,34 @@ files = [
 ]
 
 [[package]]
+name = "ruff"
+version = "0.9.7"
+description = "An extremely fast Python linter and code formatter, written in Rust."
+optional = false
+python-versions = ">=3.7"
+groups = ["dev"]
+files = [
+    {file = "ruff-0.9.7-py3-none-linux_armv6l.whl", hash = "sha256:99d50def47305fe6f233eb8dabfd60047578ca87c9dcb235c9723ab1175180f4"},
+    {file = "ruff-0.9.7-py3-none-macosx_10_12_x86_64.whl", hash = "sha256:d59105ae9c44152c3d40a9c40d6331a7acd1cdf5ef404fbe31178a77b174ea66"},
+    {file = "ruff-0.9.7-py3-none-macosx_11_0_arm64.whl", hash = "sha256:f313b5800483770bd540cddac7c90fc46f895f427b7820f18fe1822697f1fec9"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:042ae32b41343888f59c0a4148f103208bf6b21c90118d51dc93a68366f4e903"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:87862589373b33cc484b10831004e5e5ec47dc10d2b41ba770e837d4f429d721"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_i686.manylinux2014_i686.whl", hash = "sha256:a17e1e01bee0926d351a1ee9bc15c445beae888f90069a6192a07a84af544b6b"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_ppc64.manylinux2014_ppc64.whl", hash = "sha256:7c1f880ac5b2cbebd58b8ebde57069a374865c73f3bf41f05fe7a179c1c8ef22"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:e63fc20143c291cab2841dbb8260e96bafbe1ba13fd3d60d28be2c71e312da49"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_s390x.manylinux2014_s390x.whl", hash = "sha256:91ff963baed3e9a6a4eba2a02f4ca8eaa6eba1cc0521aec0987da8d62f53cbef"},
+    {file = "ruff-0.9.7-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:88362e3227c82f63eaebf0b2eff5b88990280fb1ecf7105523883ba8c3aaf6fb"},
+    {file = "ruff-0.9.7-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:0372c5a90349f00212270421fe91874b866fd3626eb3b397ede06cd385f6f7e0"},
+    {file = "ruff-0.9.7-py3-none-musllinux_1_2_armv7l.whl", hash = "sha256:d76b8ab60e99e6424cd9d3d923274a1324aefce04f8ea537136b8398bbae0a62"},
+    {file = "ruff-0.9.7-py3-none-musllinux_1_2_i686.whl", hash = "sha256:0c439bdfc8983e1336577f00e09a4e7a78944fe01e4ea7fe616d00c3ec69a3d0"},
+    {file = "ruff-0.9.7-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:115d1f15e8fdd445a7b4dc9a30abae22de3f6bcabeb503964904471691ef7606"},
+    {file = "ruff-0.9.7-py3-none-win32.whl", hash = "sha256:e9ece95b7de5923cbf38893f066ed2872be2f2f477ba94f826c8defdd6ec6b7d"},
+    {file = "ruff-0.9.7-py3-none-win_amd64.whl", hash = "sha256:3770fe52b9d691a15f0b87ada29c45324b2ace8f01200fb0c14845e499eb0c2c"},
+    {file = "ruff-0.9.7-py3-none-win_arm64.whl", hash = "sha256:b075a700b2533feb7a01130ff656a4ec0d5f340bb540ad98759b8401c32c2037"},
+    {file = "ruff-0.9.7.tar.gz", hash = "sha256:643757633417907510157b206e490c3aa11cab0c087c912f60e07fbafa87a4c6"},
+]
+
+[[package]]
 name = "s3transfer"
 version = "0.11.2"
 description = "An Amazon S3 Transfer Manager"
@@ -3974,6 +4093,24 @@ files = [
 
 [package.dependencies]
 pbr = ">=2.0.0"
+
+[[package]]
+name = "structlog"
+version = "25.1.0"
+description = "Structured Logging for Python"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "structlog-25.1.0-py3-none-any.whl", hash = "sha256:843fe4f254540329f380812cbe612e1af5ec5b8172205ae634679cd35a6d6321"},
+    {file = "structlog-25.1.0.tar.gz", hash = "sha256:2ef2a572e0e27f09664965d31a576afe64e46ac6084ef5cec3c2b8cd6e4e3ad3"},
+]
+
+[package.extras]
+dev = ["freezegun (>=0.2.8)", "mypy (>=1.4)", "pretend", "pytest (>=6.0)", "pytest-asyncio (>=0.17)", "rich", "simplejson", "twisted"]
+docs = ["cogapp", "furo", "myst-parser", "sphinx", "sphinx-notfound-page", "sphinxcontrib-mermaid", "sphinxext-opengraph", "twisted"]
+tests = ["freezegun (>=0.2.8)", "pretend", "pytest (>=6.0)", "pytest-asyncio (>=0.17)", "simplejson"]
+typing = ["mypy (>=1.4)", "rich", "twisted"]
 
 [[package]]
 name = "termcolor"
@@ -4588,7 +4725,27 @@ idna = ">=2.0"
 multidict = ">=4.0"
 propcache = ">=0.2.0"
 
+[[package]]
+name = "zipp"
+version = "3.21.0"
+description = "Backport of pathlib-compatible object wrapper for zip files"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "zipp-3.21.0-py3-none-any.whl", hash = "sha256:ac1bbe05fd2991f160ebce24ffbac5f6d11d83dc90891255885223d42b3cd931"},
+    {file = "zipp-3.21.0.tar.gz", hash = "sha256:2c9958f6430a2040341a52eb608ed6dd93ef4392e02ffe219417c1b28b5dd1f4"},
+]
+
+[package.extras]
+check = ["pytest-checkdocs (>=2.4)", "pytest-ruff (>=0.2.1) ; sys_platform != \"cygwin\""]
+cover = ["pytest-cov"]
+doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+enabler = ["pytest-enabler (>=2.2)"]
+test = ["big-O", "importlib-resources ; python_version < \"3.9\"", "jaraco.functools", "jaraco.itertools", "jaraco.test", "more-itertools", "pytest (>=6,!=8.1.*)", "pytest-ignore-flaky"]
+type = ["pytest-mypy"]
+
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "fb0d84c6f9a5393a9d9a821ba7a9acc742753c2896b9ad59569fde8c16812b78"
+content-hash = "7d1767b075ca83c6a21419b046d9c3c4bdc91d9e3cf2c0cfb68818ebdfe3f109"

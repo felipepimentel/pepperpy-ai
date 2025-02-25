@@ -1,256 +1,169 @@
 ---
-title: Project Structure Validation
-description: ALWAYS use when validating or modifying project structure to ensure compliance with standards. This prompt guides structural validation and maintenance.
-version: 1.3
-category: validation
-tags: [structure, validation, architecture]
+title: Adaptive Task Execution Template
+description: Intelligent execution framework ensuring structural integrity, contextual conflict resolution, and automated validation before modifying the project.
+version: 9.0
+category: execution
+tags: [execution, validation, structure, refactoring, automation, contextual-analysis]
+yolo: true
+strict_mode: true
 ---
 
-# Context
-Guides the validation and maintenance of project structure according to established standards and patterns.
+# Task File Access
+All task files are located at `.product/tasks/<TASK-ID>/`. For example:
+- Main task file: `.product/tasks/TASK-004/TASK-004.md`
+- Requirement files: `.product/tasks/TASK-004/TASK-004-R001.md`
 
-# Pre-validation Setup
-```yaml
-validate:
-  required_files:
-    structure: ".product/project_structure.yml"
-    architecture: ".product/architecture.mermaid"
-    knowledge_base: ".product/ai/knowledge.json"
-  
-  knowledge_base:
-    query:
-      - structure_patterns
-      - common_violations
-      - approved_changes
+# **Execution Environment**
+Before running any command, **always ensure the correct environment is loaded**:
+
+```sh
+export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+export PYTHONHOME=""
+export PYTHONPATH=""
+poetry <desired_command>
 ```
 
-# Structure Definition
+---
 
-## 1. Core Package
-```yaml
-pepperpy:
-  required:
-    files:
-      - __init__.py
-      - py.typed
-    
-    modules:
-      adapters:
-        purpose: "External system adapters"
-        requires: ["__init__.py", "README.md"]
-      
-      agents:
-        purpose: "Agent implementations"
-        requires: ["__init__.py", "README.md"]
-      
-      capabilities:
-        purpose: "Agent capabilities"
-        requires: ["__init__.py", "README.md"]
-      
-      core:
-        purpose: "Core functionality"
-        requires: ["__init__.py", "README.md"]
-      
-      providers:
-        purpose: "AI provider integrations"
-        requires: ["__init__.py", "README.md"]
-```
-
-## 2. Support Directories
-```yaml
-support:
-  .product:
-    required:
-      - tasks/
-      - kanban.md
-      - architecture.mermaid
-      - project_structure.yml
-  
-  docs:
-    required:
-      - api_reference/
-      - development/
-      - user_guides/
-      - README.md
-  
-  tests:
-    required:
-      - unit/
-      - integration/
-      - e2e/
-      - conftest.py
-  
-  config:
-    required:
-      - pyproject.toml
-      - .env.example
-    optional:
-      - .env
-```
-
-# Validation Process
-
-## 1. Structure Check
+# **Execution Rules**
 ```yaml
 validation:
-  command: "./scripts/validate_structure.py"
-  checks:
-    directories:
-      - existence
-      - permissions
-      - naming
-    
-    files:
-      - required_presence
-      - proper_location
-      - naming_convention
-    
-    modules:
-      - init_files
-      - type_hints
-      - documentation
+  pre_execution:
+    task_status:
+      - if main task status is "✅ Done": respond "Task is already completed" and stop
+      - if main task status not in ["📋 To Do", "🏃 In Progress"]: stop
+    task_format:
+      - verify main task frontmatter completeness
+      - verify requirement files exist and are complete
+      - verify requirements format in each file
+      - verify task structure matches original plan
+      - verify no unauthorized modifications
+    structure_analysis:
+      - **Instead of just checking names, approximate intent and functionality:**
+        - List all **existing** directories and files under `pepperpy/`
+        - Classify each directory based on **role (e.g., core logic, integrations, utilities, tests)**
+        - Identify **structural patterns** (e.g., multiple `handlers/` directories in different places)
+      - **If a new file or directory is about to be created:**
+        - Approximate its **intended role** and compare with existing elements
+        - **If an equivalent structure already exists:**
+          - Stop new creation
+          - Suggest refactoring into the existing structure
+          - Update all module references
+        - **If structure evolution is required:**
+          - Allow creation but ensure proper linking
+      - Always execute:
+        ```sh
+        export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+        export PYTHONHOME=""
+        export PYTHONPATH=""
+        poetry run python ./scripts/export_structure.py
+        ```
 ```
 
-## 2. Issue Analysis
+---
+
+# **Context-Aware Structural Conflict Resolution**
 ```yaml
-analyze:
-  violations:
-    categorize:
-      critical:
-        - missing_required
-        - wrong_location
-      warning:
-        - missing_optional
-        - documentation
-      info:
-        - style_suggestions
-        - optimizations
-  
-  patterns:
-    check:
-      - common_issues
-      - recurring_problems
-      - known_solutions
+conflict_resolution:
+  - before creating a new folder or file:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      tree pepperpy/ > .product/current_structure.txt
+      ```
+  - Analyze `.product/current_structure.txt` to:
+      - **Classify each directory and file based on purpose**
+      - **Detect similar names and similar roles**
+      - **If two directories/files serve the same functional purpose, merge them**
+      - **If duplication is found, automatically refactor and update references**
+  - After **any** modification, validate again:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      poetry run python ./scripts/export_structure.py
+      ```
 ```
 
-## 3. Resolution Process
+---
+
+# **Duplication Prevention with Semantic Matching**
 ```yaml
-resolve:
-  steps:
-    - document_issue
-    - analyze_impact
-    - propose_solution
-    - get_approval
-    - implement_fix
-    - verify_change
-  
-  tracking:
-    - log_changes
-    - update_docs
-    - record_pattern
+code_maintenance:
+  pre_execution:
+    - Before implementing a feature, **search for conceptually similar logic, not just identical names:**
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      rg '<feature_concept>' pepperpy/
+      ```
+    - If a similar implementation exists:
+      - **Extend or refactor the existing module instead of creating a new one**
+      - Ensure **feature flags or modular architecture** if different behaviors are needed
+  post_execution:
+    - Detect function redefinitions:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      poetry run ruff check --select=F811
+      ```
+    - Detect and remove unused imports:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      poetry run ruff check --select=F401
+      ```
 ```
 
-# Validation Rules
+---
 
-## File Organization
+# **Main Task File Template**
+```markdown
+---
+title: {title}
+priority: high|medium|low
+points: 1|2|3|5|8|13
+status: 🏃 In Progress
+mode: Act
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+
+# Requirements Overview
+- [-] [R001] {title} - [Details](TASK-XXX-R001.md)  # 🏃 Started: YYYY-MM-DD
+- [ ] [R002] {title} - [Details](TASK-XXX-R002.md)
+- [x] [R003] {title} - [Details](TASK-XXX-R003.md)  # ✅ Done: YYYY-MM-DD
+
+# Progress Updates
+
+## YYYY-MM-DD
+- Current Status: {specific implementation detail}
+- Completed:
+  - [R003] {specific implemented item} ✅
+- In Progress:
+  - [R001] {specific item being worked on} 🏃
+- Next:
+  - [R002] {specific next item} ⏳
+```
+
+---
+
+# **Automated Structure Update**
 ```yaml
-rules:
-  naming:
-    modules: snake_case
-    directories: snake_case
-    test_files: test_*.py
-  
-  location:
-    source: pepperpy/
-    tests: tests/
-    docs: docs/
-    config: ./
-  
-  content:
-    python:
-      - proper_imports
-      - type_hints
-      - docstrings
-    
-    documentation:
-      - clear_purpose
-      - usage_examples
-      - api_reference
+structure_update:
+  - After any structural change, **immediately validate the project structure**:
+      ```sh
+      export PATH="/home/pimentel/.pyenv/versions/3.12.4/bin:$PATH"
+      export PYTHONHOME=""
+      export PYTHONPATH=""
+      poetry run python ./scripts/export_structure.py
+      ```
+  - If validation fails:
+      - Halt further execution
+      - Print **detailed errors** to diagnose the issue
+      - Suggest a refactor plan before retrying
 ```
-
-## Prohibited Actions
-```yaml
-prohibited:
-  structure:
-    - redundant_directories
-    - mixed_test_source
-    - invalid_locations
-  
-  content:
-    - sensitive_data
-    - compiled_files
-    - temporary_files
-  
-  process:
-    - unauthorized_changes
-    - bypass_validation
-    - undocumented_changes
-```
-
-# Example Usage
-```yaml
-# Validation Run
-validation:
-  command: "./scripts/validate_structure.py"
-  output:
-    issues:
-      - type: "critical"
-        issue: "Missing __init__.py in pepperpy/providers/new_module"
-        fix: "Create missing file"
-      
-      - type: "warning"
-        issue: "Incomplete documentation in providers/README.md"
-        fix: "Update documentation with required sections"
-    
-    actions:
-      - create_file:
-          path: "pepperpy/providers/new_module/__init__.py"
-          content: |
-            """New module initialization."""
-            from typing import Any
-      
-      - update_docs:
-          path: "providers/README.md"
-          sections:
-            - Purpose
-            - Usage
-            - API Reference
-```
-
-# Guidelines
-
-## Validation Strategy
-- Run validation regularly
-- Address issues promptly
-- Document all changes
-- Maintain consistency
-
-## Documentation Updates
-- Keep README files current
-- Update architecture diagrams
-- Maintain API documentation
-- Track changes in kanban
-
-## Change Management
-- Get approval for changes
-- Update knowledge base
-- Follow naming conventions
-- Maintain hierarchy
-
-## Quality Assurance
-- Verify all changes
-- Run test suite
-- Check documentation
-- Update diagrams
-
-Remember: Reference project_structure rule for details and ai_knowledge_base_management for pattern learning.

@@ -5,6 +5,13 @@ This module provides core logging functionality including:
 - Structured logging with context
 - Asynchronous logging support
 - Customizable formatters and handlers
+
+@file: base.py
+@purpose: Core logging functionality
+@component: Core/Logging
+@created: 2024-02-25
+@task: TASK-007-R020
+@status: completed
 """
 
 import asyncio

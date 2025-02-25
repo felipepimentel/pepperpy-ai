@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ValidationError
@@ -17,8 +17,8 @@ class ValidationResult(BaseModel):
     """Result of a validation operation."""
 
     is_valid: bool
-    errors: Optional[Dict[str, str]] = None
-    warnings: Optional[Dict[str, str]] = None
+    errors: dict[str, str] | None = None
+    warnings: dict[str, str] | None = None
 
 
 async def validate_manifest(config: HubConfig) -> None:
@@ -76,7 +76,7 @@ async def validate_manifest(config: HubConfig) -> None:
 async def validate_artifact(
     artifact_path: Path,
     artifact_type: str,
-    schema: Dict[str, Any],
+    schema: dict[str, Any],
 ) -> ValidationResult:
     """Validate an artifact against its schema.
 
@@ -93,7 +93,7 @@ async def validate_artifact(
     """
     try:
         # Load artifact
-        with open(artifact_path, "r") as f:
+        with open(artifact_path) as f:
             artifact = yaml.safe_load(f)
 
         # Basic validation

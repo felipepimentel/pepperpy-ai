@@ -4,7 +4,6 @@ This module provides core functionality including:
 - Security
 - Configuration
 - Error handling
-- Metrics
 - Context management
 """
 
@@ -25,17 +24,19 @@ from pepperpy.core.errors.unified import (
     StateError,
     ValidationError,
 )
-from pepperpy.core.metrics.unified import MetricsManager
-from pepperpy.core.models import BaseModel, Field, ModelT
-from pepperpy.core.security import (
-    EncryptedSecurityProvider,
+from pepperpy.core.models import BaseModel, ModelT
+from pepperpy.security import (
     SecurityContext,
     SecurityLevel,
-    SecurityManager,
-    SimpleSecurityProvider,
+)
+from pepperpy.security.decorators import (
     require_permission,
     require_role,
     require_security_level,
+)
+from pepperpy.security.providers import (
+    EncryptedSecurityProvider,
+    SimpleSecurityProvider,
 )
 
 __all__ = [
@@ -51,24 +52,20 @@ __all__ = [
     "ConfigError",
     "ProviderError",
     "ResourceError",
+    "SecurityError",
     "StateError",
     "LifecycleError",
-    "SecurityError",
-    # Metrics
-    "MetricsManager",
     # Models
     "BaseModel",
-    "Field",
     "ModelT",
     # Security
     "SecurityContext",
     "SecurityLevel",
-    "SecurityManager",
-    "SimpleSecurityProvider",
     "EncryptedSecurityProvider",
-    "require_security_level",
+    "SimpleSecurityProvider",
     "require_permission",
     "require_role",
+    "require_security_level",
 ]
 
 __version__ = "0.1.0"

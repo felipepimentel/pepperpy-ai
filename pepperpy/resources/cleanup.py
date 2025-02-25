@@ -1,60 +1,59 @@
 """Resource cleanup module.
 
-This module provides functionality for cleaning up resources.
+This module provides automatic cleanup functionality for resources.
 """
 
 import asyncio
-from collections.abc import Callable, Coroutine
+import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Callable, Dict, Optional
 
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ValidationError
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
-from pepperpy.resources.types import Resource, ResourceState
+from pepperpy.resources.types import Resource
+
+logger = logging.getLogger(__name__)
 
 
-class ResourceCleaner(Lifecycle):
-    """Resource cleaner."""
+class CleanupScheduler(Lifecycle):
+    """Resource cleanup scheduler."""
 
     def __init__(
         self,
+        default_ttl: int = 3600,  # 1 hour
         cleanup_interval: int = 300,  # 5 minutes
-        max_age: int = 3600,  # 1 hour
-        max_retries: int = 3,
     ) -> None:
-        """Initialize resource cleaner.
+        """Initialize cleanup scheduler.
 
         Args:
-            cleanup_interval: Cleanup interval in seconds
-            max_age: Maximum resource age in seconds
-            max_retries: Maximum cleanup retry attempts
+            default_ttl: Default time-to-live in seconds
+            cleanup_interval: Cleanup check interval in seconds
         """
         super().__init__()
+        self._default_ttl = default_ttl
         self._cleanup_interval = cleanup_interval
-        self._max_age = max_age
-        self._max_retries = max_retries
         self._state = ComponentState.CREATED
-        self._resources: dict[str, Resource] = {}
-        self._cleanup_hooks: dict[
-            str, Callable[[Resource], Coroutine[Any, Any, None]]
-        ] = {}
-        self._task: asyncio.Task[None] | None = None
+        self._resources: Dict[str, Resource] = {}
+        self._expiry_times: Dict[str, datetime] = {}
+        self._cleanup_hooks: Dict[str, Callable[[Resource], Any]] = {}
+        self._task: Optional[asyncio.Task] = None
+        self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
-        """Initialize cleaner."""
+        """Initialize scheduler."""
         try:
             self._state = ComponentState.INITIALIZING
             self._task = asyncio.create_task(self._cleanup_loop())
             self._state = ComponentState.READY
-            logger.info("Resource cleaner initialized")
+            logger.info("Cleanup scheduler initialized")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize cleaner: {e}")
+            raise ValidationError(f"Failed to initialize scheduler: {e}")
 
     async def cleanup(self) -> None:
-        """Clean up cleaner."""
+        """Clean up scheduler."""
         try:
             self._state = ComponentState.CLEANING
             if self._task:
@@ -63,137 +62,105 @@ class ResourceCleaner(Lifecycle):
                     await self._task
                 except asyncio.CancelledError:
                     pass
-            await self._cleanup_all()
             self._state = ComponentState.CLEANED
-            logger.info("Resource cleaner cleaned up")
+            logger.info("Cleanup scheduler cleaned up")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up cleaner: {e}")
+            raise ValidationError(f"Failed to clean up scheduler: {e}")
 
-    def register_resource(self, resource: Resource) -> None:
-        """Register resource for cleanup.
+    async def schedule(
+        self,
+        resource: Resource,
+        ttl: Optional[int] = None,
+        cleanup_hook: Optional[Callable[[Resource], Any]] = None,
+    ) -> None:
+        """Schedule resource for cleanup.
 
         Args:
-            resource: Resource to register
+            resource: Resource to schedule
+            ttl: Time-to-live in seconds (uses default if None)
+            cleanup_hook: Optional cleanup hook function
         """
-        self._resources[resource.id] = resource
-        logger.debug(f"Registered resource for cleanup: {resource.id}")
+        async with self._lock:
+            ttl = ttl or self._default_ttl
+            expiry_time = datetime.utcnow() + timedelta(seconds=ttl)
+            
+            self._resources[resource.id] = resource
+            self._expiry_times[resource.id] = expiry_time
+            if cleanup_hook:
+                self._cleanup_hooks[resource.id] = cleanup_hook
 
-    def unregister_resource(self, resource_id: str) -> None:
-        """Unregister resource from cleanup.
+            logger.debug(
+                f"Scheduled resource for cleanup: {resource.id}",
+                extra={
+                    "resource_id": resource.id,
+                    "ttl": ttl,
+                    "expiry_time": expiry_time.isoformat(),
+                },
+            )
+
+    async def unschedule(self, resource_id: str) -> None:
+        """Unschedule resource from cleanup.
 
         Args:
             resource_id: Resource ID
         """
-        if resource_id in self._resources:
-            del self._resources[resource_id]
-            logger.debug(f"Unregistered resource from cleanup: {resource_id}")
-
-    def register_cleanup_hook(
-        self,
-        resource_type: str,
-        hook: Callable[[Resource], Coroutine[Any, Any, None]],
-    ) -> None:
-        """Register cleanup hook.
-
-        Args:
-            resource_type: Resource type
-            hook: Cleanup hook function
-        """
-        self._cleanup_hooks[resource_type] = hook
-        logger.debug(f"Registered cleanup hook for type: {resource_type}")
-
-    def unregister_cleanup_hook(self, resource_type: str) -> None:
-        """Unregister cleanup hook.
-
-        Args:
-            resource_type: Resource type
-        """
-        if resource_type in self._cleanup_hooks:
-            del self._cleanup_hooks[resource_type]
-            logger.debug(f"Unregistered cleanup hook for type: {resource_type}")
+        async with self._lock:
+            if resource_id in self._resources:
+                del self._resources[resource_id]
+                del self._expiry_times[resource_id]
+                self._cleanup_hooks.pop(resource_id, None)
+                logger.debug(f"Unscheduled resource from cleanup: {resource_id}")
 
     async def _cleanup_loop(self) -> None:
         """Run cleanup loop."""
         while True:
             try:
                 await asyncio.sleep(self._cleanup_interval)
-                await self._cleanup_expired()
+                await self._check_expired()
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in cleanup loop: {e}", exc_info=True)
 
-    async def _cleanup_expired(self) -> None:
-        """Clean up expired resources."""
+    async def _check_expired(self) -> None:
+        """Check and clean up expired resources."""
         now = datetime.utcnow()
-        expired = [
-            resource
-            for resource in self._resources.values()
-            if (
-                resource.state != ResourceState.DELETED
-                and resource.metadata.expires_at
-                and resource.metadata.expires_at <= now
-            )
-            or (resource.metadata.created_at + timedelta(seconds=self._max_age) <= now)
-        ]
+        expired_ids = []
 
-        for resource in expired:
-            try:
-                await self._cleanup_resource(resource)
-            except Exception as e:
-                logger.error(
-                    f"Failed to clean up resource {resource.id}: {e}",
-                    exc_info=True,
-                )
+        async with self._lock:
+            # Find expired resources
+            for resource_id, expiry_time in self._expiry_times.items():
+                if now >= expiry_time:
+                    expired_ids.append(resource_id)
 
-    async def _cleanup_all(self) -> None:
-        """Clean up all resources."""
-        for resource in self._resources.values():
-            try:
-                await self._cleanup_resource(resource)
-            except Exception as e:
-                logger.error(
-                    f"Failed to clean up resource {resource.id}: {e}",
-                    exc_info=True,
-                )
-
-    async def _cleanup_resource(self, resource: Resource) -> None:
-        """Clean up resource.
-
-        Args:
-            resource: Resource to clean up
-        """
-        hook = self._cleanup_hooks.get(str(resource.type))
-        if hook:
-            try:
-                await hook(resource)
-            except Exception as e:
-                logger.error(
-                    f"Cleanup hook failed for resource {resource.id}: {e}",
-                    exc_info=True,
-                )
-
-        retries = 0
-        while retries < self._max_retries:
-            try:
-                await resource.delete()
-                self.unregister_resource(resource.id)
-                logger.info(f"Cleaned up resource: {resource.id}")
-                break
-            except Exception as e:
-                retries += 1
-                if retries >= self._max_retries:
+            # Clean up expired resources
+            for resource_id in expired_ids:
+                resource = self._resources[resource_id]
+                try:
+                    # Call cleanup hook if exists
+                    if resource_id in self._cleanup_hooks:
+                        await self._cleanup_hooks[resource_id](resource)
+                    
+                    # Delete resource
+                    await resource.delete()
+                    
+                    # Remove from tracking
+                    del self._resources[resource_id]
+                    del self._expiry_times[resource_id]
+                    self._cleanup_hooks.pop(resource_id, None)
+                    
+                    logger.info(
+                        f"Cleaned up expired resource: {resource_id}",
+                        extra={"resource_id": resource_id},
+                    )
+                except Exception as e:
                     logger.error(
-                        f"Failed to clean up resource {resource.id} after {retries} retries: {e}",
+                        f"Failed to clean up resource {resource_id}: {e}",
+                        extra={"resource_id": resource_id},
                         exc_info=True,
                     )
-                else:
-                    logger.warning(
-                        f"Retry {retries} cleaning up resource {resource.id}: {e}"
-                    )
-                    await asyncio.sleep(1)
 
 
 # Export public API
-__all__ = ["ResourceCleaner"]
+__all__ = ["CleanupScheduler"]
