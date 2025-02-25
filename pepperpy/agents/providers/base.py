@@ -3,21 +3,17 @@
 import asyncio
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
-    Dict,
-    List,
-    Optional,
+    NotRequired,
     Protocol,
     TypedDict,
     TypeVar,
-    Union,
 )
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel
-from typing_extensions import NotRequired
 
 from pepperpy.core.base import BaseComponent
 from pepperpy.core.errors import ConfigurationError, StateError
@@ -44,19 +40,17 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", covariant=True)
 
 # Type alias for provider callback
-ProviderCallback = Callable[[Dict[str, Any]], None]
+ProviderCallback = Callable[[dict[str, Any]], None]
 
 # Valid provider types
-VALID_PROVIDER_TYPES = frozenset(
-    {
-        "services.openai",
-        "services.openrouter",
-        "services.anthropic",
-        "services.gemini",
-        "services.perplexity",
-        "services.stackspot",
-    }
-)
+VALID_PROVIDER_TYPES = frozenset({
+    "services.openai",
+    "services.openrouter",
+    "services.anthropic",
+    "services.gemini",
+    "services.perplexity",
+    "services.stackspot",
+})
 
 # Configure logger
 logger = get_logger(__name__)
@@ -72,7 +66,7 @@ class LogContext(TypedDict, total=True):
     duration: NotRequired[float]
     tokens: NotRequired[int]
     request_id: NotRequired[str]
-    extra: NotRequired[Dict[str, Union[str, int, float, bool]]]
+    extra: NotRequired[dict[str, str | int | float | bool]]
 
 
 class Message(BaseModel):
@@ -80,7 +74,7 @@ class Message(BaseModel):
 
     id: str
     content: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class Response(BaseModel):
@@ -88,7 +82,7 @@ class Response(BaseModel):
 
     id: UUID
     content: str
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 
 class LoggerProtocol(Protocol):
@@ -154,15 +148,15 @@ class ExtraConfig(TypedDict, total=False):
 class GenerateKwargs(BaseModel):
     """Keyword arguments for generate method."""
 
-    model: Optional[str] = None
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    stop: Optional[List[str]] = None
-    stop_sequences: Optional[List[str]] = None
-    presence_penalty: Optional[float] = None
-    frequency_penalty: Optional[float] = None
-    top_p: Optional[float] = None
-    top_k: Optional[int] = None
+    model: str | None = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    stop: list[str] | None = None
+    stop_sequences: list[str] | None = None
+    presence_penalty: float | None = None
+    frequency_penalty: float | None = None
+    top_p: float | None = None
+    top_k: int | None = None
 
 
 class ProviderKwargs(TypedDict, total=False):
@@ -187,11 +181,11 @@ class EmbeddingKwargs(TypedDict, total=False):
 class StreamKwargs(BaseModel):
     """Keyword arguments for stream method."""
 
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
-    stop: Optional[List[str]] = None
-    chunk_size: Optional[int] = None
-    buffer_size: Optional[int] = None
+    temperature: float | None = None
+    max_tokens: int | None = None
+    stop: list[str] | None = None
+    chunk_size: int | None = None
+    buffer_size: int | None = None
 
 
 class BaseProvider(BaseComponent):
@@ -213,8 +207,8 @@ class BaseProvider(BaseComponent):
     def __init__(
         self,
         id: UUID,
-        metadata: Optional[ProviderMetadata] = None,
-        config: Optional[ProviderConfig] = None,
+        metadata: ProviderMetadata | None = None,
+        config: ProviderConfig | None = None,
     ) -> None:
         """Initialize the base provider.
 
@@ -237,7 +231,7 @@ class BaseProvider(BaseComponent):
         self._logger = logger.getChild(self.__class__.__name__)
 
     @property
-    def capabilities(self) -> List[ProviderCapability]:
+    def capabilities(self) -> list[ProviderCapability]:
         """Get provider capabilities.
 
         Returns:
@@ -355,7 +349,7 @@ class BaseProvider(BaseComponent):
 class Provider(ABC):
     """Base class for AI providers."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
         """Initialize the provider.
 
         Args:
@@ -367,7 +361,7 @@ class Provider(ABC):
 
     @abstractmethod
     async def generate(
-        self, prompt: str, parameters: Optional[Dict[str, Any]] = None
+        self, prompt: str, parameters: dict[str, Any] | None = None
     ) -> str:
         """Generate a response for the given prompt.
 
@@ -398,9 +392,9 @@ class BaseAgentProvider(AgentProvider):
         """
         super().__init__()
         self.config = config
-        self._agents: Dict[str, AgentConfig] = {}
-        self._states: Dict[str, AgentState] = {}
-        self._locks: Dict[str, asyncio.Lock] = {}
+        self._agents: dict[str, AgentConfig] = {}
+        self._states: dict[str, AgentState] = {}
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def create(
         self,
@@ -457,7 +451,7 @@ class BaseAgentProvider(AgentProvider):
     async def execute(
         self,
         agent_id: str,
-        messages: List[AgentMessage],
+        messages: list[AgentMessage],
         **kwargs: Any,
     ) -> AgentResponse:
         """Execute agent with messages.
@@ -614,7 +608,7 @@ class BaseAgentProvider(AgentProvider):
         self,
         agent_id: str,
         config: AgentConfig,
-        messages: List[AgentMessage],
+        messages: list[AgentMessage],
         **kwargs: Any,
     ) -> AgentResponse:
         """Execute agent implementation.

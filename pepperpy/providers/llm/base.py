@@ -1,23 +1,16 @@
-"""Base LLM provider implementation.
+"""Base LLM provider module.
 
-This module provides the base implementation for LLM (Language Model) providers.
-It combines functionality from both the core provider base and service provider.
+This module defines the base classes and interfaces for LLM providers.
 """
 
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
-from typing import Any, Dict, List, Optional, Union
-from uuid import UUID
+from typing import Any
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.messages import ProviderMessage, ProviderResponse
+from pepperpy.core.providers.unified import BaseProvider, ProviderConfig
 from pepperpy.core.metrics import MetricsManager
-from pepperpy.core.monitoring import logger
-from pepperpy.providers.base import BaseProvider, ProviderConfig
-
-
-class LLMMessage(BaseModel):
     """Language model message.
 
     Attributes:
@@ -25,86 +18,88 @@ class LLMMessage(BaseModel):
         content: Message content
         name: Optional name for the message sender
     """
+class LLMMessage(BaseModel):
+    """LLM message."""
 
     role: str
     content: str
-    name: Optional[str] = None
-
-
-class LLMConfig(ProviderConfig):
-    """Base configuration for LLM providers.
-
-    Attributes:
-        model: Model identifier to use
-        temperature: Sampling temperature
-        max_tokens: Maximum tokens to generate
-        stop_sequences: Optional stop sequences
-        timeout: Request timeout in seconds
-        max_retries: Maximum number of retries
-    """
-
-    model: str = Field(description="Model identifier to use")
-    temperature: float = Field(default=0.7, description="Sampling temperature")
-    max_tokens: int = Field(default=2048, description="Maximum tokens to generate")
-    stop_sequences: list[str] | None = Field(
-        default=None, description="Optional stop sequences"
-    )
-    timeout: float = Field(default=30.0, description="Request timeout in seconds")
-    max_retries: int = Field(default=3, description="Maximum number of retries")
+    name: str | None = None
 
 
 class LLMResponse(BaseModel):
-    """Language model response.
+    """LLM response."""
 
-    Attributes:
-        id: Response identifier
-        content: Generated content
-        model: Model used for generation
-        usage: Token usage statistics
-        finish_reason: Reason for completion
-    """
-
-    id: UUID
     content: str
     model: str
-    usage: Dict[str, int]
-    finish_reason: Optional[str] = None
+    usage: dict[str, int]
+    finish_reason: str | None = None
 
 
 class LLMProvider(BaseProvider):
-    """Base class for LLM providers.
+    """Base class for LLM providers."""
 
-    This class provides common functionality for providers that interact
-    with LLM services.
-    """
-
-    def __init__(self, config: LLMConfig) -> None:
-        """Initialize LLM provider.
+    def __init__(self, config: ProviderConfig) -> None:
+        """Initialize provider.
 
         Args:
             config: Provider configuration
         """
         super().__init__(config)
-        self._metrics = MetricsManager.get_instance()
-        logger.debug("Initialized LLM provider with config: %s", config)
+        self.metrics = MetricsManager()
 
-    async def initialize(self) -> None:
-        """Initialize the provider.
+    @abstractmethod
+    async def process_message(
+        self,
+        message: LLMMessage,
+    ) -> LLMResponse | AsyncGenerator[LLMResponse, None]:
+        """Process a provider message.
 
-        This method should be called before using the provider.
+        Args:
+            message: Provider message
+
+        Returns:
+            Provider response or async generator of responses
         """
-        try:
-            # Initialize service connection
-            await self._initialize_service()
-            self._metrics.increment("provider.llm.successful_initializations")
-            logger.info("LLM provider initialized successfully")
-            self._initialized = True
-        except Exception as e:
-            self._metrics.increment("provider.llm.initialization_errors")
-            logger.error("Failed to initialize LLM provider: %s", e)
-            raise
+        pass
 
-    async def cleanup(self) -> None:
+    @abstractmethod
+    async def embed(
+        self,
+        text: str,
+        *,
+        model: str | None = None,
+        dimensions: int | None = None,
+        **kwargs: Any,
+    ) -> list[float]:
+        """Generate embeddings for text.
+
+        Args:
+            text: Input text
+            model: Model to use for embeddings
+            dimensions: Number of dimensions for embeddings
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Text embeddings
+        """
+        pass
+
+    @abstractmethod
+    async def generate(
+        self,
+        messages: list[LLMMessage],
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """Generate response from messages.
+
+        Args:
+            messages: Input messages
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Generated response
+        """
+        pass
         """Clean up provider resources.
 
         This method should be called when the provider is no longer needed.
@@ -142,7 +137,7 @@ class LLMProvider(BaseProvider):
     async def process_message(
         self,
         message: ProviderMessage,
-    ) -> Union[ProviderResponse, AsyncGenerator[ProviderResponse, None]]:
+    ) -> ProviderResponse | AsyncGenerator[ProviderResponse, None]:
         """Process a provider message.
 
         Args:
@@ -161,8 +156,8 @@ class LLMProvider(BaseProvider):
         self,
         text: str,
         *,
-        model: Optional[str] = None,
-        dimensions: Optional[int] = None,
+        model: str | None = None,
+        dimensions: int | None = None,
         **kwargs: Any,
     ) -> list[float]:
         """Generate embeddings for the given text.
@@ -184,7 +179,7 @@ class LLMProvider(BaseProvider):
     @abstractmethod
     async def generate(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         **kwargs: Any,
     ) -> LLMResponse:
         """Generate a response from the language model.

@@ -1,3 +1,28 @@
+"""Provider management module.
+
+This module provides the provider management functionality for the Pepperpy framework.
+It is a thin wrapper around the unified provider system.
+"""
+
+from pepperpy.core.providers.unified import (
+    BaseProvider,
+    ProviderConfig,
+    ProviderError,
+    ProviderNotFoundError,
+    UnifiedProviderRegistry,
+    get_registry,
+)
+
+# Re-export the unified provider registry as ProviderManager for backward compatibility
+ProviderManager = UnifiedProviderRegistry
+
+__all__ = [
+    "BaseProvider",
+    "ProviderConfig",
+    "ProviderError",
+    "ProviderNotFoundError",
+    "ProviderManager",
+]
 """Provider registration and lifecycle management.
 
 This module handles provider registration, creation, and lifecycle
@@ -9,7 +34,7 @@ management. It includes:
 """
 
 import asyncio
-from typing import Any, Dict, Optional, Type
+from typing import Any
 
 from pepperpy.core.logging import get_logger
 from pepperpy.core.providers.base import BaseProvider, ProviderConfig
@@ -33,11 +58,11 @@ class ProviderManager:
 
     def __init__(self) -> None:
         """Initialize provider manager."""
-        self._providers: Dict[str, BaseProvider] = {}
-        self._provider_types: Dict[str, Type[BaseProvider]] = {}
+        self._providers: dict[str, BaseProvider] = {}
+        self._provider_types: dict[str, type[BaseProvider]] = {}
         self._lock = asyncio.Lock()
 
-    def register_provider(self, type: str, provider_class: Type[BaseProvider]) -> None:
+    def register_provider(self, type: str, provider_class: type[BaseProvider]) -> None:
         """Register a provider type.
 
         Args:
@@ -59,7 +84,7 @@ class ProviderManager:
         )
 
     async def get_provider(
-        self, type: str, config: Optional[Dict[str, Any]] = None
+        self, type: str, config: dict[str, Any] | None = None
     ) -> BaseProvider:
         """Get or create a provider instance.
 

@@ -12,7 +12,7 @@ from uuid import uuid4
 import pytest
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.events import Event, EventBus, EventHandler, EventType
+from pepperpy.core.events import Event, EventBus, EventHandler, EventType
 
 
 class MockEventHandler(EventHandler):

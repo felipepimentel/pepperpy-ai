@@ -7,6 +7,8 @@ This package provides a unified logging system with support for:
 - Customizable handlers and formatters
 """
 
+import logging
+
 from pepperpy.monitoring.logging.base import (
     LogHandler,
     LogLevel,
@@ -18,6 +20,24 @@ from pepperpy.monitoring.logging.filters.level import LevelFilter
 from pepperpy.monitoring.logging.formatters.json import JsonFormatter
 from pepperpy.monitoring.logging.handlers.file import FileHandler
 
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger instance.
+
+    Args:
+        name: Logger name
+
+    Returns:
+        Logger instance
+    """
+    logger = logging.getLogger(name)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(JsonFormatter())
+        logger.addHandler(handler)
+    return logger
+
+
 # Export public API
 __all__ = [
     "ContextFilter",
@@ -28,4 +48,5 @@ __all__ = [
     "LogLevel",
     "LogManager",
     "LogRecord",
+    "get_logger",
 ]

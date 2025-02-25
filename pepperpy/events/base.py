@@ -1,7 +1,6 @@
 """Base event module for the Pepperpy framework.
 
 This module provides core event functionality including:
-- Event types and definitions
 - Event bus implementation
 - Event handlers and listeners
 """
@@ -11,58 +10,14 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
 from pepperpy.core.errors import ValidationError
+from pepperpy.core.events import Event, EventHandler, EventListener, EventType
 from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.core.models import BaseModel, ConfigDict, Field
 from pepperpy.core.types import ComponentState
-from pepperpy.events.protocols import EventHandler, EventListener
-
-
-class EventType(str, Enum):
-    """Event types."""
-
-    SYSTEM = "SYSTEM"
-    COMPONENT = "COMPONENT"
-    AGENT = "AGENT"
-    WORKFLOW = "WORKFLOW"
-    RESOURCE = "RESOURCE"
-    CAPABILITY = "CAPABILITY"
-    PROVIDER = "PROVIDER"
-    CUSTOM = "CUSTOM"
-
-
-class Event(BaseModel):
-    """Event model.
-
-    Attributes:
-        id: Event ID
-        type: Event type
-        name: Event name
-        data: Event data
-        timestamp: Event timestamp
-    """
-
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True,
-        populate_by_name=True,
-        str_strip_whitespace=True,
-        validate_default=True,
-    )
-
-    id: UUID = Field(default_factory=uuid4, description="Event ID")
-    type: EventType = Field(description="Event type")
-    name: str = Field(description="Event name")
-    data: dict[str, Any] = Field(default_factory=dict, description="Event data")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Event timestamp",
-    )
 
 
 class EventManager(Lifecycle):

@@ -15,8 +15,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, Union, cast
 from uuid import UUID, uuid4
 
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.core.metrics.base import MetricsManager
 from pepperpy.core.metrics.types import (
     MetricCounter,
     MetricHistogram,
@@ -24,6 +22,7 @@ from pepperpy.core.metrics.types import (
     MetricType,
     MetricValue,
 )
+from pepperpy.core.protocols.lifecycle import Lifecycle
 from pepperpy.core.types import (
     AgentID,
     AgentState,

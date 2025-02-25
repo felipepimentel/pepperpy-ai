@@ -1,6 +1,6 @@
 """Type definitions for the configuration system."""
 
-from typing import Any, Dict, Optional, Protocol, TypeVar
+from typing import Any, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -27,9 +27,9 @@ class ConfigValidationError(Exception):
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        details: Optional[Dict[str, Any]] = None,
+        field: str | None = None,
+        value: Any | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error.
 

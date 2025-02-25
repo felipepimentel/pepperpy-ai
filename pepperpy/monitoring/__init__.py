@@ -7,8 +7,6 @@ This package provides monitoring functionality including:
 - Health checks and diagnostics
 """
 
-import logging
-
 from pepperpy.monitoring.logging import (
     ContextFilter,
     FileHandler,
@@ -17,10 +15,11 @@ from pepperpy.monitoring.logging import (
     LogLevel,
     LogManager,
     LogRecord,
+    get_logger,
 )
 
 # Configure base logging
-logger = logging.getLogger("pepperpy")
+logger = get_logger("pepperpy")
 
 # Export public API
 __all__ = [

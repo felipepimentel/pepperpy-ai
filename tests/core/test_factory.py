@@ -14,7 +14,7 @@ import pytest
 from pepperpy.core.errors import FactoryError, ValidationError
 from pepperpy.core.factory import ComponentFactory, Factory
 from pepperpy.core.types import ComponentConfig
-from pepperpy.events import Event, EventBus, EventType
+from pepperpy.core.events import Event, EventBus, EventType
 
 
 class MockComponent:

@@ -43,7 +43,14 @@ from pepperpy.core.errors import (
     PepperpyMemoryError as MemoryError,
 )
 from pepperpy.core.lifecycle import Lifecycle, LifecycleManager
-from pepperpy.core.metrics import MetricsManager
+from pepperpy.core.metrics import (
+    MetricCounter,
+    MetricHistogram,
+    MetricLabels,
+    MetricsManager,
+    MetricType,
+    MetricValue,
+)
 from pepperpy.core.types import (
     AgentID,
     BaseModel,
@@ -72,6 +79,12 @@ __all__ = [
     "ComponentState",
     "Lifecycle",
     "LifecycleManager",
+    # Metrics
+    "MetricCounter",
+    "MetricHistogram",
+    "MetricLabels",
+    "MetricType",
+    "MetricValue",
     "MetricsManager",
     # Models
     "BaseModel",

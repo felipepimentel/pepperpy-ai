@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 
 from pepperpy.core.extensions import Extension
 from pepperpy.core.extensions import ExtensionMetadata as ExtensionMetadata
-from pepperpy.events import EventBus
+from pepperpy.core.events import EventBus
 
 
 class ResourceType(Enum):

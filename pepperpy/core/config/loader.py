@@ -1,7 +1,7 @@
 """Dynamic loading system for providers and processors."""
 
 import importlib
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, TypeVar
 
 from .base import ConfigurationError
 
@@ -12,7 +12,7 @@ class ProviderLoader:
     """Dynamic loader for providers."""
 
     @staticmethod
-    def load_provider(capability: str, name: str, config: Dict[str, Any]) -> Any:
+    def load_provider(capability: str, name: str, config: dict[str, Any]) -> Any:
         """Load and instantiate a provider.
 
         Args:
@@ -39,7 +39,7 @@ class ProviderLoader:
 
         except (ImportError, AttributeError) as e:
             raise ConfigurationError(
-                f"Failed to load provider {capability}.{name}: {str(e)}"
+                f"Failed to load provider {capability}.{name}: {e!s}"
             )
 
 
@@ -47,7 +47,7 @@ class ProcessorLoader:
     """Dynamic loader for processors."""
 
     @staticmethod
-    def load_processor(capability: str, name: str, config: Dict[str, Any]) -> Any:
+    def load_processor(capability: str, name: str, config: dict[str, Any]) -> Any:
         """Load and instantiate a processor.
 
         Args:
@@ -74,11 +74,11 @@ class ProcessorLoader:
 
         except (ImportError, AttributeError) as e:
             raise ConfigurationError(
-                f"Failed to load processor {capability}.{name}: {str(e)}"
+                f"Failed to load processor {capability}.{name}: {e!s}"
             )
 
 
-def load_class(module_path: str, class_name: str, base_class: Type[T]) -> Type[T]:
+def load_class(module_path: str, class_name: str, base_class: type[T]) -> type[T]:
     """Load a class from a module and validate its type.
 
     Args:
@@ -109,12 +109,12 @@ def load_class(module_path: str, class_name: str, base_class: Type[T]) -> Type[T
 
     except (ImportError, AttributeError) as e:
         raise ConfigurationError(
-            f"Failed to load class {class_name} from {module_path}: {str(e)}"
+            f"Failed to load class {class_name} from {module_path}: {e!s}"
         )
 
 
 __all__ = [
-    "ProviderLoader",
     "ProcessorLoader",
+    "ProviderLoader",
     "load_class",
 ]

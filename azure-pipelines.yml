@@ -1,0 +1,111 @@
+trigger:
+  - main
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  POETRY_CACHE_DIR: $(Pipeline.Workspace)/.poetry
+
+stages:
+  - stage: Test
+    jobs:
+      - job: test
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.12"
+          - task: Cache@2
+            inputs:
+              key: poetry | $(Agent.OS)
+              path: $(POETRY_CACHE_DIR)
+          - script: |
+              curl -sSL https://install.python-poetry.org | python3 -
+              poetry install
+            displayName: Install dependencies
+          - script: poetry run pytest
+            displayName: Run tests
+          - task: PublishCodeCoverageResults@1
+            inputs:
+              codeCoverageTool: Cobertura
+              summaryFileLocation: coverage.xml
+
+      - job: type_check
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.12"
+          - task: Cache@2
+            inputs:
+              key: poetry | $(Agent.OS)
+              path: $(POETRY_CACHE_DIR)
+          - script: |
+              curl -sSL https://install.python-poetry.org | python3 -
+              poetry install
+            displayName: Install dependencies
+          - script: poetry run mypy pepperpy
+            displayName: Run type checking
+
+      - job: lint
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.12"
+          - task: Cache@2
+            inputs:
+              key: poetry | $(Agent.OS)
+              path: $(POETRY_CACHE_DIR)
+          - script: |
+              curl -sSL https://install.python-poetry.org | python3 -
+              poetry install
+            displayName: Install dependencies
+          - script: poetry run flake8 pepperpy
+            displayName: Run linting
+
+  - stage: Build
+    condition: and(succeeded(), eq(variables[Build.SourceBranch], refs/heads/main))
+    jobs:
+      - job: build
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.12"
+          - task: Cache@2
+            inputs:
+              key: poetry | $(Agent.OS)
+              path: $(POETRY_CACHE_DIR)
+          - script: |
+              curl -sSL https://install.python-poetry.org | python3 -
+              poetry install
+            displayName: Install dependencies
+          - script: poetry build
+            displayName: Build package
+          - task: PublishBuildArtifacts@1
+            inputs:
+              pathToPublish: dist
+              artifactName: dist
+
+  - stage: Deploy
+    condition: and(succeeded(), startsWith(variables[Build.SourceBranch], refs/tags/))
+    jobs:
+      - deployment: deploy
+        environment: production
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: UsePythonVersion@0
+                  inputs:
+                    versionSpec: "3.12"
+                - task: Cache@2
+                  inputs:
+                    key: poetry | $(Agent.OS)
+                    path: $(POETRY_CACHE_DIR)
+                - script: |
+                    curl -sSL https://install.python-poetry.org | python3 -
+                    poetry install
+                  displayName: Install dependencies
+                - script: poetry publish
+                  displayName: Publish package
+                  env:
+                    POETRY_PYPI_TOKEN_PYPI: $(PYPI_TOKEN)

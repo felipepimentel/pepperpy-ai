@@ -25,7 +25,7 @@ from pepperpy.core.types import (
     Response,
     ResponseStatus,
 )
-from pepperpy.events import Event, EventBus, EventType
+from pepperpy.core.events import Event, EventBus, EventType
 
 
 class TestAgent(BaseAgent):

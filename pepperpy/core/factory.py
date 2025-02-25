@@ -12,7 +12,7 @@ import logging
 from abc import abstractmethod
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Dict, Generic, Type, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -20,8 +20,8 @@ from pepperpy.core.base import (
     BaseAgent,
 )
 from pepperpy.core.errors import ConfigurationError, FactoryError, ValidationError
+from pepperpy.core.events import Event, EventBus, EventType
 from pepperpy.core.types import AgentConfig, ComponentState
-from pepperpy.events import Event, EventBus, EventType
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 T_Input = TypeVar("T_Input")
 T_Output = TypeVar("T_Output")
-T_Config = TypeVar("T_Config", bound=Dict[str, Any])
+T_Config = TypeVar("T_Config", bound=dict[str, Any])
 T_Context = TypeVar("T_Context")
 
 
@@ -197,9 +197,9 @@ class AgentFactory(Factory[BaseAgent]):
 
         """
         self.client = client
-        self._agent_types: Dict[str, Type[BaseAgent]] = {}
+        self._agent_types: dict[str, type[BaseAgent]] = {}
 
-    def register_agent_type(self, name: str, agent_class: Type[BaseAgent]) -> None:
+    def register_agent_type(self, name: str, agent_class: type[BaseAgent]) -> None:
         """Register an agent type.
 
         Args:
@@ -211,7 +211,7 @@ class AgentFactory(Factory[BaseAgent]):
         self._agent_types[name] = agent_class
         logger.info(f"Registered agent type: {name}")
 
-    async def create(self, config: Dict[str, Any]) -> BaseAgent:
+    async def create(self, config: dict[str, Any]) -> BaseAgent:
         """Create an agent instance.
 
         Args:

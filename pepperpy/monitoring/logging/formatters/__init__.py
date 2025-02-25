@@ -1,9 +1,9 @@
-"""Logging formatters package.
+"""Logging formatters for the Pepperpy framework.
 
-This package provides formatters for formatting log records into various formats.
+This package provides various logging formatters for structured logging output
+in different formats like JSON.
 """
 
 from pepperpy.monitoring.logging.formatters.json import JsonFormatter
 
-# Export public API
 __all__ = ["JsonFormatter"]

@@ -1,12 +1,12 @@
 """Metric-specific types and enums."""
 
 from enum import Enum
-from typing import Dict, Union
+from typing import Union
 
 # Type aliases
 MetricValue = Union[int, float, str, bool]
-MetricLabels = Dict[str, str]
-MetricTags = Dict[str, str]
+MetricLabels = dict[str, str]
+MetricTags = dict[str, str]
 
 
 class MetricType(str, Enum):
@@ -47,4 +47,4 @@ class MetricUnit(str, Enum):
     CUSTOM = "custom"
 
 
-__all__ = ["MetricType", "MetricUnit", "MetricValue", "MetricLabels", "MetricTags"]
+__all__ = ["MetricLabels", "MetricTags", "MetricType", "MetricUnit", "MetricValue"]

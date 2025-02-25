@@ -11,7 +11,7 @@ from uuid import uuid4
 
 import pytest
 
-from pepperpy.events import (
+from pepperpy.core.events import (
     AgentCreatedEvent,
     AgentEventHandler,
     AgentRemovedEvent,

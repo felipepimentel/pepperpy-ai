@@ -14,8 +14,8 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 from typing_extensions import runtime_checkable
 
+from pepperpy.core.events import EventBus, EventType
 from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.events import EventBus, EventType
 from pepperpy.monitoring.metrics.types import MetricType
 
 # Type variables for generic implementations

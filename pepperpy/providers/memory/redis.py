@@ -1,49 +1,25 @@
-"""Redis memory provider implementation.
+"""Redis memory provider module.
 
-This module provides a Redis implementation of the memory provider interface.
-It handles:
-- Redis connection management
-- Key-value operations
-- TTL management
-- Error handling
+This module implements the Redis provider for memory functionality.
 """
 
 import json
-import os
 import time
-from typing import Any, Dict, List, Optional, TypeVar, cast
+from typing import Any, Optional, TypeVar
 
 import redis.asyncio as redis
-from redis.asyncio.client import Redis
+from pydantic import Field
 
-from pepperpy.core.errors import ConfigurationError
-from pepperpy.core.logging import get_logger
-from pepperpy.providers.base import ProviderError
-from pepperpy.providers.memory.base import (
-    BaseMemoryProvider,
-    MemoryConfig,
-    MemoryItem,
-)
+from pepperpy.core.providers.unified import ProviderConfig
+from pepperpy.providers.memory.base import MemoryItem, MemoryProvider
 
-# Configure logging
-logger = get_logger(__name__)
-
-# Type variable for memory values
 T = TypeVar("T")
-
-
-class RedisConfig(MemoryConfig):
-    """Redis provider configuration.
-
-    Attributes:
-        url: Redis URL (redis://host:port/db)
-        password: Redis password
         db: Redis database number
         encoding: Character encoding
     """
 
-    url: Optional[str] = None
-    password: Optional[str] = None
+    url: str | None = None
+    password: str | None = None
     db: int = 0
     encoding: str = "utf-8"
 
@@ -65,7 +41,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         self.password = config.password
         self.db = config.db
         self.encoding = config.encoding
-        self._client: Optional[Redis] = None
+        self._client: Redis | None = None
 
     async def initialize(self) -> None:
         """Initialize the provider.
@@ -109,7 +85,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         self._initialized = False
         logger.info("Redis provider cleaned up")
 
-    async def get(self, key: str) -> Optional[T]:
+    async def get(self, key: str) -> T | None:
         """Get value by key.
 
         Args:
@@ -136,7 +112,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         except Exception as e:
             raise ProviderError(f"Failed to get value: {e}")
 
-    async def get_many(self, keys: List[str]) -> Dict[str, T]:
+    async def get_many(self, keys: list[str]) -> dict[str, T]:
         """Get multiple values by keys.
 
         Args:
@@ -154,10 +130,10 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         try:
             # Get values from Redis
             values = await self._client.mget(keys)
-            result: Dict[str, T] = {}
+            result: dict[str, T] = {}
 
             # Parse JSON values
-            for key, value in zip(keys, values):
+            for key, value in zip(keys, values, strict=False):
                 if value is not None:
                     result[key] = cast(T, json.loads(value))
 
@@ -170,8 +146,8 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         self,
         key: str,
         value: T,
-        ttl: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        ttl: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MemoryItem[T]:
         """Set value by key.
 
@@ -217,10 +193,10 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
 
     async def set_many(
         self,
-        items: Dict[str, T],
-        ttl: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem[T]]:
+        items: dict[str, T],
+        ttl: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> list[MemoryItem[T]]:
         """Set multiple values.
 
         Args:
@@ -294,7 +270,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         except Exception as e:
             raise ProviderError(f"Failed to delete key: {e}")
 
-    async def delete_many(self, keys: List[str]) -> int:
+    async def delete_many(self, keys: list[str]) -> int:
         """Delete multiple values.
 
         Args:
@@ -355,7 +331,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         except Exception as e:
             raise ProviderError(f"Failed to clear items: {e}")
 
-    async def get_metadata(self, key: str) -> Optional[MemoryItem[T]]:
+    async def get_metadata(self, key: str) -> MemoryItem[T] | None:
         """Get item metadata.
 
         Args:
@@ -393,8 +369,8 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
             raise ProviderError(f"Failed to get metadata: {e}")
 
     async def update_metadata(
-        self, key: str, metadata: Dict[str, Any]
-    ) -> Optional[MemoryItem[T]]:
+        self, key: str, metadata: dict[str, Any]
+    ) -> MemoryItem[T] | None:
         """Update item metadata.
 
         Args:
@@ -424,7 +400,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         except Exception as e:
             raise ProviderError(f"Failed to update metadata: {e}")
 
-    async def get_keys(self, pattern: Optional[str] = None) -> List[str]:
+    async def get_keys(self, pattern: str | None = None) -> list[str]:
         """Get all keys matching pattern.
 
         Args:
@@ -446,7 +422,7 @@ class RedisMemoryProvider(BaseMemoryProvider[T]):
         except Exception as e:
             raise ProviderError(f"Failed to get keys: {e}")
 
-    async def get_ttl(self, key: str) -> Optional[int]:
+    async def get_ttl(self, key: str) -> int | None:
         """Get remaining TTL for key.
 
         Args:

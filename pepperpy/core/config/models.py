@@ -5,7 +5,6 @@ type-safe configuration with validation.
 """
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -18,7 +17,7 @@ class LoggingConfig(BaseModel):
 
     level: str = Field(default="INFO")
     format: str = Field(default="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    file: Optional[Path] = Field(default=None)
+    file: Path | None = Field(default=None)
 
     @validator("level")
     def validate_level(cls, v: str) -> str:
@@ -28,7 +27,7 @@ class LoggingConfig(BaseModel):
         return v
 
     @validator("file")
-    def validate_file(cls, v: Optional[Path]) -> Optional[Path]:
+    def validate_file(cls, v: Path | None) -> Path | None:
         """Validate log file path."""
         if v:
             validate_path(v.parent, must_exist=True)
@@ -48,14 +47,14 @@ class MonitoringConfig(BaseModel):
 class SecurityConfig(BaseModel):
     """Security configuration."""
 
-    api_key: Optional[str] = Field(default=None)
+    api_key: str | None = Field(default=None)
     api_key_header: str = Field(default="X-API-Key")
     ssl_verify: bool = Field(default=True)
-    ssl_cert: Optional[Path] = Field(default=None)
-    ssl_key: Optional[Path] = Field(default=None)
+    ssl_cert: Path | None = Field(default=None)
+    ssl_key: Path | None = Field(default=None)
 
     @validator("ssl_cert", "ssl_key")
-    def validate_ssl_files(cls, v: Optional[Path], values: dict) -> Optional[Path]:
+    def validate_ssl_files(cls, v: Path | None, values: dict) -> Path | None:
         """Validate SSL files."""
         if v:
             validate_path(v, must_exist=True)

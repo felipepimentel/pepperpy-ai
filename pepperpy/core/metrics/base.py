@@ -1,384 +1,251 @@
-"""Base metrics implementation for the Pepperpy framework.
+"""Base metrics module for the Pepperpy framework.
 
-This module provides the core metric implementations used throughout the framework.
+This module provides core metrics functionality including:
+- Metrics collection
+- Metrics aggregation
+- Metrics export
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from dataclasses import dataclass, field
+from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Any
 
-from pepperpy.core.metrics.types import Metric
-
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class MetricConfig:
-    """Configuration for metrics."""
-
-    name: str
-    description: str
-    labels: dict[str, str] = field(default_factory=dict)
-    buckets: list[float] | None = None
+from pepperpy.core.errors import ValidationError
+from pepperpy.core.metrics.types import (
+    MetricCounter,
+    MetricHistogram,
+    MetricLabels,
+    MetricType,
+    MetricValue,
+)
+from pepperpy.core.protocols.lifecycle import Lifecycle
+from pepperpy.core.types import ComponentState
 
 
-class Counter(Metric):
-    """Counter metric.
+class MetricsManager(Lifecycle):
+    """Metrics manager."""
 
-    This class implements a counter metric that can only increase.
-    """
-
-    def __init__(self, name: str, description: str) -> None:
-        """Initialize counter.
+    def __init__(self, name: str = "metrics") -> None:
+        """Initialize metrics manager.
 
         Args:
-            name: Counter name
-            description: Counter description
+            name: Manager name
         """
-        self._name = name
-        self._description = description
-        self._value = 0.0
+        self.name = name
+        self._state = ComponentState.CREATED
+        self._metrics: dict[str, Any] = {}
+        self._queue: asyncio.Queue[MetricValue] = asyncio.Queue()
+        self._task: asyncio.Task[None] | None = None
+        self.logger = logging.getLogger(__name__)
 
-    def inc(self, value: float = 1.0) -> None:
-        """Increment counter.
-
-        Args:
-            value: Value to increment by
-        """
-        if value < 0:
-            raise ValueError("Counter can only be incremented by non-negative values")
-        self._value += value
-
-    def observe(self, value: float) -> None:
-        """Not implemented for counters."""
-        raise NotImplementedError("Counter does not support observe()")
-
-    def get_value(self) -> float:
-        """Get counter value.
-
-        Returns:
-            Current counter value
-        """
-        return self._value
-
-
-class Histogram(Metric):
-    """Histogram metric.
-
-    This class implements a histogram metric that tracks value distributions.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        buckets: list[float] | None = None,
-    ) -> None:
-        """Initialize histogram.
-
-        Args:
-            name: Histogram name
-            description: Histogram description
-            buckets: Optional bucket boundaries
-        """
-        self._name = name
-        self._description = description
-        self._buckets = sorted(buckets or [0.1, 0.5, 1.0, 2.0, 5.0])
-        self._values: list[float] = []
-
-    def inc(self, value: float = 1.0) -> None:
-        """Not implemented for histograms."""
-        raise NotImplementedError("Histogram does not support inc()")
-
-    def observe(self, value: float) -> None:
-        """Record observation.
-
-        Args:
-            value: Value to record
-        """
-        self._values.append(value)
-
-    def get_value(self) -> dict[str, Any]:
-        """Get histogram value.
-
-        Returns:
-            Dict containing count, sum, and buckets
-        """
-        if not self._values:
-            return {
-                "count": 0,
-                "sum": 0.0,
-                "buckets": {str(b): 0 for b in self._buckets},
-            }
-
-        count = len(self._values)
-        total = sum(self._values)
-        buckets = {
-            str(b): sum(1 for v in self._values if v <= b) for b in self._buckets
-        }
-
-        return {
-            "count": count,
-            "sum": total,
-            "buckets": buckets,
-        }
-
-
-class Gauge(Metric):
-    """Gauge metric.
-
-    This class implements a gauge metric that can go up and down.
-    """
-
-    def __init__(self, name: str, description: str) -> None:
-        """Initialize gauge.
-
-        Args:
-            name: Gauge name
-            description: Gauge description
-        """
-        self._name = name
-        self._description = description
-        self._value = 0.0
-
-    def inc(self, value: float = 1.0) -> None:
-        """Increment gauge.
-
-        Args:
-            value: Value to increment by
-        """
-        self._value += value
-
-    def dec(self, value: float = 1.0) -> None:
-        """Decrement gauge.
-
-        Args:
-            value: Value to decrement by
-        """
-        self._value -= value
-
-    def set(self, value: float) -> None:
-        """Set gauge value.
-
-        Args:
-            value: Value to set
-        """
-        self._value = value
-
-    def observe(self, value: float) -> None:
-        """Set gauge value.
-
-        Args:
-            value: Value to set
-        """
-        self.set(value)
-
-    def get_value(self) -> float:
-        """Get gauge value.
-
-        Returns:
-            Current gauge value
-        """
-        return self._value
-
-
-class Summary(Metric):
-    """Summary metric.
-
-    This class implements a summary metric that tracks value distributions
-    with quantiles.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        quantiles: list[float] | None = None,
-    ) -> None:
-        """Initialize summary.
-
-        Args:
-            name: Summary name
-            description: Summary description
-            quantiles: Optional quantile values
-        """
-        self._name = name
-        self._description = description
-        self._quantiles = sorted(quantiles or [0.5, 0.9, 0.99])
-        self._values: list[float] = []
-
-    def inc(self, value: float = 1.0) -> None:
-        """Not implemented for summaries."""
-        raise NotImplementedError("Summary does not support inc()")
-
-    def observe(self, value: float) -> None:
-        """Record observation.
-
-        Args:
-            value: Value to record
-        """
-        self._values.append(value)
-
-    def get_value(self) -> dict[str, Any]:
-        """Get summary value.
-
-        Returns:
-            Dict containing count, sum, and quantiles
-        """
-        if not self._values:
-            return {
-                "count": 0,
-                "sum": 0.0,
-                "quantiles": {str(q): 0.0 for q in self._quantiles},
-            }
-
-        count = len(self._values)
-        total = sum(self._values)
-        sorted_values = sorted(self._values)
-
-        quantiles = {}
-        for q in self._quantiles:
-            idx = int(q * count)
-            if idx >= count:
-                idx = count - 1
-            quantiles[str(q)] = sorted_values[idx]
-
-        return {
-            "count": count,
-            "sum": total,
-            "quantiles": quantiles,
-        }
-
-
-class MetricsManager:
-    """Manager for metrics.
-
-    This class provides a central registry for metrics and handles metric
-    collection and export.
-    """
-
-    def __init__(self) -> None:
+    async def initialize(self) -> None:
         """Initialize manager."""
-        self._metrics: dict[str, dict[str, Metric]] = {}
-        self._logger = logging.getLogger(__name__)
+        try:
+            self._state = ComponentState.INITIALIZING
+            self._task = asyncio.create_task(self._process_metrics())
+            self._state = ComponentState.READY
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ValidationError(f"Failed to initialize manager: {e}")
 
-    def register_metric(
-        self,
-        metric: Metric,
-        metric_type: str,
-        labels: dict[str, str] | None = None,
-    ) -> None:
-        """Register a metric.
-
-        Args:
-            metric: Metric to register
-            metric_type: Type of metric
-            labels: Optional metric labels
-        """
-        name = getattr(metric, "_name", str(id(metric)))
-        labels_str = ",".join(f"{k}={v}" for k, v in (labels or {}).items())
-        key = f"{name}:{labels_str}"
-
-        if metric_type not in self._metrics:
-            self._metrics[metric_type] = {}
-
-        self._metrics[metric_type][key] = metric
+    async def cleanup(self) -> None:
+        """Clean up manager."""
+        try:
+            self._state = ComponentState.CLEANING
+            if self._task:
+                self._task.cancel()
+                await self._task
+            self._state = ComponentState.CLEANED
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            raise ValidationError(f"Failed to clean up manager: {e}")
 
     async def create_counter(
         self,
         name: str,
-        description: str,
-        labels: dict[str, str] | None = None,
-    ) -> Counter:
-        """Create and register a counter.
+        description: str = "",
+        labels: MetricLabels | None = None,
+    ) -> MetricCounter:
+        """Create a counter metric.
 
         Args:
-            name: Counter name
-            description: Counter description
-            labels: Optional counter labels
+            name: Metric name
+            description: Metric description
+            labels: Optional metric labels
 
         Returns:
-            Created counter
+            MetricCounter: Created counter
+
+        Raises:
+            ValidationError: If metric already exists
         """
-        counter = Counter(name, description)
-        self.register_metric(counter, "counter", labels)
+        if name in self._metrics:
+            raise ValidationError(f"Metric already exists: {name}")
+
+        counter = MetricCounter(
+            name=name,
+            description=description,
+            labels=labels or {},
+        )
+        self._metrics[name] = counter
         return counter
 
     async def create_histogram(
         self,
         name: str,
-        description: str,
+        description: str = "",
         buckets: list[float] | None = None,
-        labels: dict[str, str] | None = None,
-    ) -> Histogram:
-        """Create and register a histogram.
+        labels: MetricLabels | None = None,
+    ) -> MetricHistogram:
+        """Create a histogram metric.
 
         Args:
-            name: Histogram name
-            description: Histogram description
-            buckets: Optional bucket boundaries
-            labels: Optional histogram labels
+            name: Metric name
+            description: Metric description
+            buckets: Optional histogram buckets
+            labels: Optional metric labels
 
         Returns:
-            Created histogram
+            MetricHistogram: Created histogram
+
+        Raises:
+            ValidationError: If metric already exists
         """
-        histogram = Histogram(name, description, buckets)
-        self.register_metric(histogram, "histogram", labels)
+        if name in self._metrics:
+            raise ValidationError(f"Metric already exists: {name}")
+
+        histogram = MetricHistogram(
+            name=name,
+            description=description,
+            buckets=buckets or [0.1, 0.5, 1.0, 2.0, 5.0],
+            labels=labels or {},
+        )
+        self._metrics[name] = histogram
         return histogram
 
-    async def create_gauge(
+    async def record_metric(
         self,
         name: str,
-        description: str,
-        labels: dict[str, str] | None = None,
-    ) -> Gauge:
-        """Create and register a gauge.
+        value: float,
+        metric_type: MetricType,
+        labels: MetricLabels | None = None,
+        timestamp: datetime | None = None,
+    ) -> None:
+        """Record a metric value.
 
         Args:
-            name: Gauge name
-            description: Gauge description
-            labels: Optional gauge labels
+            name: Metric name
+            value: Metric value
+            metric_type: Metric type
+            labels: Optional metric labels
+            timestamp: Optional timestamp
 
-        Returns:
-            Created gauge
+        Raises:
+            ValidationError: If metric not found
         """
-        gauge = Gauge(name, description)
-        self.register_metric(gauge, "gauge", labels)
-        return gauge
+        if name not in self._metrics:
+            raise ValidationError(f"Metric not found: {name}")
 
-    async def create_summary(
+        metric = self._metrics[name]
+        metric_value = MetricValue(
+            name=name,
+            type=metric_type,
+            value=value,
+            labels=labels or {},
+            timestamp=timestamp or datetime.utcnow(),
+        )
+        await self._queue.put(metric_value)
+
+    async def get_metric(
         self,
         name: str,
-        description: str,
-        quantiles: list[float] | None = None,
-        labels: dict[str, str] | None = None,
-    ) -> Summary:
-        """Create and register a summary.
+        labels: MetricLabels | None = None,
+    ) -> MetricValue | None:
+        """Get metric value.
 
         Args:
-            name: Summary name
-            description: Summary description
-            quantiles: Optional quantile values
-            labels: Optional summary labels
+            name: Metric name
+            labels: Optional metric labels
 
         Returns:
-            Created summary
+            MetricValue: Metric value if found
         """
-        summary = Summary(name, description, quantiles)
-        self.register_metric(summary, "summary", labels)
-        return summary
+        if name not in self._metrics:
+            return None
 
-    def get_metrics(self) -> dict[str, dict[str, Any]]:
-        """Get all metrics.
+        metric = self._metrics[name]
+        if not isinstance(metric, (MetricCounter, MetricHistogram)):
+            return None
 
-        Returns:
-            Dict of metric types to metric values
+        return MetricValue(
+            name=name,
+            type=metric.type,
+            value=metric.value,
+            labels=labels or {},
+            timestamp=datetime.utcnow(),
+        )
+
+    async def list_metrics(
+        self,
+        pattern: str | None = None,
+        metric_type: MetricType | None = None,
+        labels: MetricLabels | None = None,
+    ) -> AsyncIterator[MetricValue]:
+        """List metrics.
+
+        Args:
+            pattern: Optional name pattern
+            metric_type: Optional metric type
+            labels: Optional metric labels
+
+        Yields:
+            MetricValue: Matching metrics
         """
-        result = {}
-        for metric_type, metrics in self._metrics.items():
-            result[metric_type] = {
-                key: metric.get_value() for key, metric in metrics.items()
-            }
-        return result
+        for name, metric in self._metrics.items():
+            if pattern and pattern not in name:
+                continue
+            if metric_type and metric.type != metric_type:
+                continue
+            if labels and not all(metric.labels.get(k) == v for k, v in labels.items()):
+                continue
+
+            value = await self.get_metric(name, labels)
+            if value:
+                yield value
+
+    async def _process_metrics(self) -> None:
+        """Process metrics from queue."""
+        while True:
+            try:
+                metric = await self._queue.get()
+                await self._handle_metric(metric)
+                self._queue.task_done()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logging.error(f"Failed to process metric: {e}", exc_info=True)
+
+    async def _handle_metric(self, metric: MetricValue) -> None:
+        """Handle metric value.
+
+        Args:
+            metric: Metric value to handle
+        """
+        if metric.name not in self._metrics:
+            return
+
+        target = self._metrics[metric.name]
+        if isinstance(target, MetricCounter):
+            target.inc(metric.value)
+        elif isinstance(target, MetricHistogram):
+            target.observe(metric.value)
+
+
+# Export public API
+__all__ = [
+    "MetricsManager",
+]

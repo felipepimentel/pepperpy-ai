@@ -13,7 +13,7 @@ import importlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Generic, Optional, Type, TypeVar
+from typing import Any, ClassVar, Generic, TypeVar
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field, field_validator
@@ -21,16 +21,16 @@ from pydantic import BaseModel, Field, field_validator
 from pepperpy.core.errors import (
     ConfigError,
     NotFoundError,
-    RegistryError,
     StateError,
     ValidationError,
 )
-from pepperpy.core.provider import Provider
-from pepperpy.events import (
+from pepperpy.core.errors.unified import RegistryError
+from pepperpy.core.events import (
     EventBus,
     EventType,
 )
-from pepperpy.events.handlers.registry import RegistryEvent
+from pepperpy.core.events.handlers.registry import RegistryEvent
+from pepperpy.core.provider import Provider
 from pepperpy.monitoring import logger
 
 # Configure logging
@@ -38,11 +38,11 @@ logger = logger.getChild(__name__)
 
 T = TypeVar("T", bound=Provider)
 
-_providers: Dict[str, Provider] = {}
-_provider_types: Dict[str, Type[Provider]] = {}
+_providers: dict[str, Provider] = {}
+_provider_types: dict[str, type[Provider]] = {}
 
 
-def register_provider_type(name: str, provider_type: Type[T]) -> None:
+def register_provider_type(name: str, provider_type: type[T]) -> None:
     """Register provider type.
 
     Args:
@@ -57,7 +57,7 @@ def register_provider_type(name: str, provider_type: Type[T]) -> None:
     _provider_types[name] = provider_type
 
 
-def get_provider_type(name: str) -> Type[Provider]:
+def get_provider_type(name: str) -> type[Provider]:
     """Get provider type.
 
     Args:
@@ -89,7 +89,7 @@ def register_provider(name: str, provider: Provider) -> None:
     _providers[name] = provider
 
 
-def get_provider(name: str) -> Optional[Provider]:
+def get_provider(name: str) -> Provider | None:
     """Get provider instance.
 
     Args:
@@ -101,7 +101,7 @@ def get_provider(name: str) -> Optional[Provider]:
     return _providers.get(name)
 
 
-def create_provider(name: str, config: Optional[Dict[str, Any]] = None) -> Provider:
+def create_provider(name: str, config: dict[str, Any] | None = None) -> Provider:
     """Create provider instance.
 
     Args:
@@ -125,9 +125,7 @@ def create_provider(name: str, config: Optional[Dict[str, Any]] = None) -> Provi
         raise ValidationError(f"Failed to create provider: {e}")
 
 
-def get_or_create_provider(
-    name: str, config: Optional[Dict[str, Any]] = None
-) -> Provider:
+def get_or_create_provider(name: str, config: dict[str, Any] | None = None) -> Provider:
     """Get or create provider instance.
 
     Args:
@@ -814,10 +812,10 @@ class ProviderRegistry:
 
     def __init__(self):
         """Initialize provider registry."""
-        self._providers: Dict[str, Dict[str, Type[Any]]] = {}
+        self._providers: dict[str, dict[str, type[Any]]] = {}
 
     def register(
-        self, capability: str, provider_type: str, provider_class: Type[T]
+        self, capability: str, provider_type: str, provider_class: type[T]
     ) -> None:
         """Register a provider class.
 
@@ -831,7 +829,7 @@ class ProviderRegistry:
 
         self._providers[capability][provider_type] = provider_class
 
-    def get_provider(self, capability: str, provider_type: str) -> Optional[Type[Any]]:
+    def get_provider(self, capability: str, provider_type: str) -> type[Any] | None:
         """Get a registered provider class.
 
         Args:
@@ -844,8 +842,8 @@ class ProviderRegistry:
         return self._providers.get(capability, {}).get(provider_type)
 
     def load_provider(
-        self, capability: str, provider_type: str, base_class: Type[T]
-    ) -> Type[T]:
+        self, capability: str, provider_type: str, base_class: type[T]
+    ) -> type[T]:
         """Load a provider class dynamically.
 
         Args:
@@ -889,10 +887,10 @@ class ProviderRegistry:
 
         except (ImportError, AttributeError) as e:
             raise ConfigError(
-                f"Failed to load provider {capability}.{provider_type}: {str(e)}"
+                f"Failed to load provider {capability}.{provider_type}: {e!s}"
             )
 
-    def discover_providers(self, package_path: Optional[Path] = None) -> None:
+    def discover_providers(self, package_path: Path | None = None) -> None:
         """Discover and register providers from package.
 
         Args:

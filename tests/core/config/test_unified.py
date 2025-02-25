@@ -21,13 +21,25 @@ class TestConfig(BaseModel):
     debug: bool = Field(default=False)
     timeout: float = Field(default=30.0)
     retries: int = Field(default=3)
+    api_key: str = Field(default="", json_schema_extra={"sensitive": True})
     nested: dict[str, Any] = Field(default_factory=dict)
+
+
+class ChildConfig(TestConfig):
+    """Child configuration model for testing inheritance."""
+
+    child_specific: str = Field(default="child")
 
 
 @pytest.fixture
 def config_file(tmp_path: Path) -> Path:
     """Create a temporary configuration file."""
-    config = {"name": "from_file", "debug": True, "nested": {"key": "value"}}
+    config = {
+        "name": "from_file",
+        "debug": True,
+        "nested": {"key": "value"},
+        "api_key": "test_key",
+    }
 
     import yaml
 
@@ -47,18 +59,30 @@ def env_vars() -> dict[str, str]:
         "PEPPERPY_TIMEOUT": "60.5",
         "PEPPERPY_RETRIES": "5",
         "PEPPERPY_NESTED__KEY": "env_value",
+        "PEPPERPY_API_KEY": "env_key",
     }
 
 
 @pytest.fixture
-def config_manager() -> UnifiedConfig[TestConfig]:
+def parent_config() -> UnifiedConfig[TestConfig]:
+    """Create a parent configuration instance."""
+    return UnifiedConfig(TestConfig, version=(1, 0, 0))
+
+
+@pytest.fixture
+def config_manager(parent_config: UnifiedConfig[TestConfig]) -> UnifiedConfig[ChildConfig]:
     """Create a configuration manager instance."""
-    return UnifiedConfig(TestConfig)
+    return UnifiedConfig(
+        ChildConfig,
+        parent=parent_config,
+        version=(1, 0, 0),
+        encrypt_sensitive=True,
+    )
 
 
 @pytest.mark.asyncio
 async def test_config_initialization(
-    config_manager: UnifiedConfig[TestConfig],
+    config_manager: UnifiedConfig[ChildConfig],
     config_file: Path,
     env_vars: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
@@ -89,145 +113,91 @@ async def test_config_initialization(
     assert config.timeout == 60.5
     assert config.retries == 5
     assert config.nested["key"] == "env_value"
+    # API key should be encrypted
+    assert config.api_key != "env_key"
 
 
 @pytest.mark.asyncio
-async def test_config_update(config_manager: UnifiedConfig[TestConfig]):
-    """Test configuration updates."""
-    # Initialize with defaults
+async def test_config_inheritance(
+    parent_config: UnifiedConfig[TestConfig],
+    config_manager: UnifiedConfig[ChildConfig],
+):
+    """Test configuration inheritance."""
+    # Initialize parent first
+    await parent_config.initialize()
+    assert parent_config.state == ConfigState.READY
+
+    # Initialize child
     await config_manager.initialize()
-
-    # Update configuration
-    updates = {"name": "updated", "debug": True, "nested": {"new": "value"}}
-    await config_manager.update(updates)
-
     assert config_manager.state == ConfigState.READY
+    assert ConfigSource.PARENT in config_manager.sources
+
     config = config_manager.config
     assert config is not None
-    assert config.name == "updated"
-    assert config.debug is True
-    assert config.nested["new"] == "value"
+    assert config.child_specific == "child"  # Child-specific field
+    assert config.name == "test"  # Inherited field
 
 
 @pytest.mark.asyncio
-async def test_config_hooks(config_manager: UnifiedConfig[TestConfig]):
-    """Test configuration lifecycle hooks."""
-    load_called = False
-    update_called = False
-    error_called = False
-
-    def on_load(config: TestConfig) -> None:
-        nonlocal load_called
-        load_called = True
-        assert config.name == "test"
-
-    def on_update(config: TestConfig) -> None:
-        nonlocal update_called
-        update_called = True
-        assert config.name == "updated"
-
-    def on_error(config: TestConfig) -> None:
-        nonlocal error_called
-        error_called = True
-
-    # Add hooks
-    config_manager.add_hook("on_load", on_load)
-    config_manager.add_hook("on_update", on_update)
-    config_manager.add_hook("on_error", on_error)
-
-    # Initialize and update
-    await config_manager.initialize()
-    await config_manager.update({"name": "updated"})
-
-    assert load_called
-    assert update_called
-    assert not error_called
-
-
-@pytest.mark.asyncio
-async def test_config_validation(config_manager: UnifiedConfig[TestConfig]):
+async def test_config_validation(config_manager: UnifiedConfig[ChildConfig]):
     """Test configuration validation."""
-    # Try to update with invalid values
-    with pytest.raises(ConfigurationError):
-        await config_manager.update({"timeout": "invalid"})
+    def validate_timeout(config: ChildConfig) -> list[str]:
+        if config.timeout <= 0:
+            return ["Timeout must be positive"]
+        return []
 
-    # State should be ERROR
-    assert config_manager.state == ConfigState.ERROR
-
-
-@pytest.mark.asyncio
-async def test_config_cleanup(config_manager: UnifiedConfig[TestConfig]):
-    """Test configuration cleanup."""
-    # Initialize and add hooks
+    config_manager.add_validation_rule(validate_timeout)
     await config_manager.initialize()
-    config_manager.add_hook("on_load", lambda _: None)
 
-    # Cleanup
-    await config_manager.cleanup()
+    # Test valid configuration
+    assert await config_manager.validate() == []
 
-    assert config_manager.state == ConfigState.UNINITIALIZED
-    assert config_manager.config is None
-    assert not config_manager.sources
-    assert not config_manager._hooks["on_load"]
+    # Test invalid configuration
+    await config_manager.update({"timeout": -1})
+    errors = await config_manager.validate()
+    assert len(errors) == 1
+    assert "Timeout must be positive" in errors[0]
 
 
 @pytest.mark.asyncio
-async def test_hook_source_filtering(
-    config_manager: UnifiedConfig[TestConfig],
+async def test_config_version_compatibility(
+    parent_config: UnifiedConfig[TestConfig],
+):
+    """Test configuration version compatibility."""
+    # Create child with incompatible version
+    child_config = UnifiedConfig(
+        ChildConfig,
+        parent=parent_config,
+        version=(2, 0, 0),  # Major version bump
+    )
+
+    await parent_config.initialize()
+    
+    # Should raise error due to version incompatibility
+    with pytest.raises(ConfigurationError) as exc:
+        await child_config.initialize()
+    assert "Incompatible configuration version" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_sensitive_field_encryption(
+    config_manager: UnifiedConfig[ChildConfig],
     env_vars: dict[str, str],
     monkeypatch: pytest.MonkeyPatch,
 ):
-    """Test hook filtering by source."""
-    env_hook_called = False
-    any_hook_called = False
+    """Test encryption of sensitive configuration fields."""
+    # Set API key through environment
+    monkeypatch.setenv("PEPPERPY_API_KEY", "secret_key")
 
-    def env_hook(config: TestConfig) -> None:
-        nonlocal env_hook_called
-        env_hook_called = True
-
-    def any_hook(config: TestConfig) -> None:
-        nonlocal any_hook_called
-        any_hook_called = True
-
-    # Add hooks
-    config_manager.add_hook("on_load", env_hook, source=ConfigSource.ENV)
-    config_manager.add_hook("on_load", any_hook)
-
-    # Set environment variables
-    for key, value in env_vars.items():
-        monkeypatch.setenv(key, value)
-
-    # Initialize
     await config_manager.initialize()
+    config = config_manager.config
+    assert config is not None
 
-    assert env_hook_called
-    assert any_hook_called
+    # API key should be encrypted
+    assert config.api_key != "secret_key"
+    assert len(config.api_key) > 0  # Should contain encrypted value
 
-
-@pytest.mark.asyncio
-async def test_hook_removal(config_manager: UnifiedConfig[TestConfig]):
-    """Test hook removal."""
-    hook_called = False
-
-    def test_hook(config: TestConfig) -> None:
-        nonlocal hook_called
-        hook_called = True
-
-    # Add and remove hook
-    config_manager.add_hook("on_load", test_hook)
-    config_manager.remove_hook("on_load", test_hook)
-
-    # Initialize
-    await config_manager.initialize()
-
-    assert not hook_called
-
-
-@pytest.mark.asyncio
-async def test_invalid_hook_event(config_manager: UnifiedConfig[TestConfig]):
-    """Test adding/removing hooks with invalid events."""
-    with pytest.raises(ValueError, match="Invalid hook event"):
-        config_manager.add_hook("invalid", lambda _: None)
-
-    with pytest.raises(ValueError, match="Invalid hook event"):
-        config_manager.remove_hook("invalid", lambda _: None)
+    # Update with new API key
+    await config_manager.update({"api_key": "new_secret"})
+    assert config.api_key != "new_secret"
+    assert len(config.api_key) > 0

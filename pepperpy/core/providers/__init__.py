@@ -1,3 +1,26 @@
+"""Core provider system.
+
+This module provides the core provider system for the Pepperpy framework.
+It includes interfaces and base classes for implementing providers.
+"""
+
+from pepperpy.core.providers.unified import (
+    BaseProvider,
+    ProviderConfig,
+    ProviderError,
+    ProviderNotFoundError,
+    UnifiedProviderRegistry,
+    get_registry,
+)
+
+__all__ = [
+    "BaseProvider",
+    "ProviderConfig",
+    "ProviderError",
+    "ProviderNotFoundError",
+    "UnifiedProviderRegistry",
+    "get_registry",
+]
 """Provider management and interfaces.
 
 This package provides provider management and interfaces for the

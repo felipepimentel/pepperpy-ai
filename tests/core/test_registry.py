@@ -13,7 +13,7 @@ import pytest
 from pepperpy.core.errors import NotFoundError, ValidationError
 from pepperpy.core.registry import Registry
 from pepperpy.core.types import ComponentConfig
-from pepperpy.events import EventBus, EventType
+from pepperpy.core.events import EventBus, EventType
 
 
 class MockComponent:

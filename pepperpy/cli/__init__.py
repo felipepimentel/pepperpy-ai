@@ -5,14 +5,25 @@ This module provides the CLI interface for interacting with the framework.
 
 import click
 
-from pepperpy.cli.agent_commands import agent
-from pepperpy.cli.config_commands import config
-from pepperpy.cli.hub_commands import hub
-from pepperpy.cli.registry_commands import registry
-from pepperpy.cli.tool_commands import tool
-from pepperpy.cli.workflow_commands import workflow
+from .commands import (
+    agent,
+    config,
+    hub,
+    registry,
+    run,
+    tool,
+    workflow,
+)
 
-__all__ = ["cli"]
+__all__ = [
+    "agent",
+    "config",
+    "hub",
+    "registry",
+    "run",
+    "tool",
+    "workflow",
+]
 
 
 @click.group()

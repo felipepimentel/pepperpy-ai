@@ -20,8 +20,8 @@ __all__ = [
     "Counter",
     "Gauge",
     "Histogram",
-    "Summary",
     "Metric",
     "MetricConfig",
     "MetricsManager",
+    "Summary",
 ]

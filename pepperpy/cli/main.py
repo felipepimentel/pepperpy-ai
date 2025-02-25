@@ -55,14 +55,16 @@ def setup_environment() -> None:
     "--debug",
     is_flag=True,
     help="Enable debug logging",
+    default=False,
 )
 @click.option(
     "--config",
     type=click.Path(exists=True),
     help="Path to config file",
+    default=None,
 )
-def cli(debug: bool, config: str | None = None) -> None:
-    """Pepperpy CLI - AI Agent Framework.
+def cli(debug: bool = False, config: str | None = None) -> None:
+    """Pepperpy CLI - A powerful framework for building AI applications.
 
     Run 'pepperpy COMMAND --help' for command-specific help.
     """
@@ -79,20 +81,19 @@ def cli(debug: bool, config: str | None = None) -> None:
         click.echo(f"Using config file: {config}")
 
 
-# Add command groups
-cli.add_command(agent.agent)
-cli.add_command(config.config)
-cli.add_command(hub.hub)
-cli.add_command(registry.registry)
-cli.add_command(run.run)
-cli.add_command(tool.tool)
-cli.add_command(workflow.workflow)
+cli.add_command(agent)
+cli.add_command(config)
+cli.add_command(hub)
+cli.add_command(registry)
+cli.add_command(run)
+cli.add_command(tool)
+cli.add_command(workflow)
 
 
 def main() -> None:
     """Main CLI entry point."""
     try:
-        cli()
+        cli()  # type: ignore
     except PepperpyError as e:
         console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:

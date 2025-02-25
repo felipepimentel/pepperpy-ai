@@ -5,7 +5,7 @@ of providers based on configuration.
 """
 
 from datetime import datetime
-from typing import Any, Dict, Optional, Type
+from typing import Any
 from uuid import UUID, uuid4
 
 from pepperpy.agents.providers.base import BaseProvider
@@ -37,7 +37,7 @@ class ProviderFactory(BaseComponent):
     def __init__(
         self,
         id: UUID,
-        metadata: Optional[ProviderMetadata] = None,
+        metadata: ProviderMetadata | None = None,
     ) -> None:
         """Initialize the provider factory.
 
@@ -47,7 +47,7 @@ class ProviderFactory(BaseComponent):
 
         """
         super().__init__(id, metadata)
-        self._provider_types: Dict[str, Type[BaseProvider]] = {}
+        self._provider_types: dict[str, type[BaseProvider]] = {}
         self._logger = logger.getChild(self.__class__.__name__)
         self._state = ComponentState.UNREGISTERED
 
@@ -83,7 +83,7 @@ class ProviderFactory(BaseComponent):
             raise
 
     def register_provider_type(
-        self, name: str, provider_class: Type[BaseProvider]
+        self, name: str, provider_class: type[BaseProvider]
     ) -> None:
         """Register a provider type.
 
@@ -108,7 +108,7 @@ class ProviderFactory(BaseComponent):
     async def create_provider(
         self,
         provider_type: str,
-        config: Optional[ProviderConfig] = None,
+        config: ProviderConfig | None = None,
     ) -> BaseProvider:
         """Create a provider instance.
 

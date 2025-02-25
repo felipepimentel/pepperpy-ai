@@ -1,81 +1,126 @@
-"""Metric type definitions for the Pepperpy framework.
+"""Type definitions for the metrics module.
 
-This module provides type definitions for metrics to avoid circular imports
-and provide a centralized location for metric-related types.
+This module provides type definitions used throughout the metrics system.
+It is designed to be self-contained to avoid circular dependencies.
 """
 
 from __future__ import annotations
 
-from abc import abstractmethod
-from typing import Any, Protocol, TypeVar, Union, runtime_checkable
+from enum import Enum, auto
+from typing import Any
 
-from pepperpy.utils.imports import safe_import
 
-# Import prometheus_client safely
-prometheus_client = safe_import("prometheus_client")
+class MetricType(Enum):
+    """Metric types."""
 
-# Type variables
-T_Metric = TypeVar("T_Metric", bound="Metric")
+    COUNTER = auto()
+    HISTOGRAM = auto()
+
 
 # Type aliases
-MetricValue = Union[int, float]
 MetricLabels = dict[str, str]
-MetricType = Union["MetricCounter", "MetricHistogram"]
+MetricValue = dict[str, Any]
 
 
-@runtime_checkable
-class Metric(Protocol):
-    """Protocol for metrics."""
+class BaseMetric:
+    """Base class for all metrics."""
 
-    @abstractmethod
+    def __init__(
+        self,
+        name: str,
+        description: str = "",
+        labels: MetricLabels | None = None,
+    ) -> None:
+        """Initialize metric.
+
+        Args:
+            name: Metric name
+            description: Metric description
+            labels: Optional metric labels
+        """
+        self.name = name
+        self.description = description
+        self.labels = labels or {}
+        self.type: MetricType
+        self.value: float = 0.0
+
+
+class MetricCounter(BaseMetric):
+    """Counter metric type."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str = "",
+        labels: MetricLabels | None = None,
+    ) -> None:
+        """Initialize counter.
+
+        Args:
+            name: Counter name
+            description: Counter description
+            labels: Optional counter labels
+        """
+        super().__init__(name, description, labels)
+        self.type = MetricType.COUNTER
+
     def inc(self, value: float = 1.0) -> None:
         """Increment counter.
 
         Args:
             value: Value to increment by
         """
-        ...
+        self.value += value
 
-    @abstractmethod
-    def observe(self, value: float) -> None:
-        """Record observation.
+
+class MetricHistogram(BaseMetric):
+    """Histogram metric type."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str = "",
+        buckets: list[float] | None = None,
+        labels: MetricLabels | None = None,
+    ) -> None:
+        """Initialize histogram.
 
         Args:
-            value: Value to record
+            name: Histogram name
+            description: Histogram description
+            buckets: Optional histogram buckets
+            labels: Optional histogram labels
         """
-        ...
+        super().__init__(name, description, labels)
+        self.type = MetricType.HISTOGRAM
+        self.buckets = buckets or [0.1, 0.5, 1.0, 2.0, 5.0]
+        self._bucket_values = {b: 0 for b in self.buckets}
 
-    @abstractmethod
-    def get_value(self) -> Any:
-        """Get metric value.
+    def observe(self, value: float) -> None:
+        """Observe value.
+
+        Args:
+            value: Value to observe
+        """
+        self.value = value
+        for bucket in self.buckets:
+            if value <= bucket:
+                self._bucket_values[bucket] += 1
+
+    def get_bucket_values(self) -> dict[float, int]:
+        """Get bucket values.
 
         Returns:
-            Current metric value
+            dict[float, int]: Bucket values
         """
-        ...
-
-
-# Type aliases for metrics
-if prometheus_client:
-    PrometheusCounter = prometheus_client.Counter
-    PrometheusHistogram = prometheus_client.Histogram
-    MetricCounter = PrometheusCounter
-    MetricHistogram = PrometheusHistogram
-else:
-    # Use string literals for forward references
-    MetricCounter = "CoreCounter"
-    MetricHistogram = "CoreHistogram"
+        return self._bucket_values.copy()
 
 
 __all__ = [
-    # Type variables
-    "T_Metric",
-    # Protocols
-    "Metric",
-    # Type aliases
+    "BaseMetric",
     "MetricCounter",
     "MetricHistogram",
-    "MetricValue",
     "MetricLabels",
     "MetricType",
+    "MetricValue",
 ]

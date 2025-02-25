@@ -1,36 +1,37 @@
-"""Layered architecture implementation for the Pepperpy framework.
+"""Core layer management module.
 
-This module defines the core architectural layers and their extension points:
-- Core Layer: Base functionality and utilities
-- Provider Layer: External service integrations
-- Capability Layer: AI capabilities and features
-- Agent Layer: Agent implementations and behaviors
-- Workflow Layer: Process and task orchestration
+This module provides layer management functionality for the Pepperpy framework.
 """
 
+import asyncio
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, Set, Type, TypeVar, Protocol, Union
 
 from pydantic import BaseModel
 
-from pepperpy.agents.base import BaseAgent
-from pepperpy.capabilities.base import BaseCapability
-from pepperpy.core.extensions import Extension, ExtensionPoint
+from pepperpy.core.errors import LayerError
 from pepperpy.core.logging import get_logger
-from pepperpy.providers.base import BaseProvider
-from pepperpy.workflows.base import BaseWorkflow
+from pepperpy.core.providers.unified import BaseProvider
+from pepperpy.core.extensions import Extension, ExtensionProtocol
+from pepperpy.core.capabilities import BaseCapability
+from pepperpy.core.agents import BaseAgent
+from pepperpy.core.workflows import BaseWorkflow
 
 # Configure logging
-logger = get_logger(__name__)
-
 # Type variables
 T = TypeVar("T", bound=BaseModel)
+
 ExtensionType = Union[
     Type[Extension[T]],
     Type[BaseProvider],
     Type[BaseCapability],
     Type[BaseAgent],
-    Type[BaseWorkflow],
+    Type[BaseWorkflow]
+]
+    type[BaseProvider],
+    type[BaseCapability],
+    type[BaseAgent],
+    type[BaseWorkflow],
 ]
 
 
@@ -38,12 +39,12 @@ class LayerExtension(Extension[T]):
     """Base class for layer-specific extensions."""
 
     @abstractmethod
-    async def get_capabilities(self) -> List[str]:
+    async def get_capabilities(self) -> list[str]:
         """Get list of capabilities provided by this extension."""
         pass
 
     @abstractmethod
-    async def get_dependencies(self) -> List[str]:
+    async def get_dependencies(self) -> list[str]:
         """Get list of required dependencies."""
         pass
 
@@ -58,7 +59,7 @@ class Layer(ABC):
             name: Layer name
         """
         self.name = name
-        self._extension_points: Dict[str, ExtensionPoint] = {}
+        self._extension_points: dict[str, ExtensionPoint] = {}
         self._initialized = False
 
     async def initialize(self) -> None:
@@ -95,7 +96,7 @@ class Layer(ABC):
             logger.error(f"Failed to clean up layer {self.name}: {e}")
             raise
 
-    def get_extension_point(self, name: str) -> Optional[ExtensionPoint]:
+    def get_extension_point(self, name: str) -> ExtensionPoint | None:
         """Get extension point by name.
 
         Args:
@@ -107,7 +108,7 @@ class Layer(ABC):
         return self._extension_points.get(name)
 
     @abstractmethod
-    async def _get_extension_points(self) -> Dict[str, ExtensionType]:
+    async def _get_extension_points(self) -> dict[str, ExtensionType]:
         """Get layer's extension points.
 
         Returns:
@@ -123,7 +124,7 @@ class CoreLayer(Layer):
         """Initialize core layer."""
         super().__init__("core")
 
-    async def _get_extension_points(self) -> Dict[str, ExtensionType]:
+    async def _get_extension_points(self) -> dict[str, ExtensionType]:
         """Get core layer extension points."""
         from pepperpy.core.extensions import Extension
 
@@ -142,7 +143,7 @@ class ProviderLayer(Layer):
         """Initialize provider layer."""
         super().__init__("provider")
 
-    async def _get_extension_points(self) -> Dict[str, ExtensionType]:
+    async def _get_extension_points(self) -> dict[str, ExtensionType]:
         """Get provider layer extension points."""
         return {
             "llm": BaseProvider,  # LLM providers
@@ -159,7 +160,7 @@ class CapabilityLayer(Layer):
         """Initialize capability layer."""
         super().__init__("capability")
 
-    async def _get_extension_points(self) -> Dict[str, ExtensionType]:
+    async def _get_extension_points(self) -> dict[str, ExtensionType]:
         """Get capability layer extension points."""
         return {
             "reasoning": BaseCapability,  # Reasoning capabilities
@@ -176,7 +177,7 @@ class AgentLayer(Layer):
         """Initialize agent layer."""
         super().__init__("agent")
 
-    async def _get_extension_points(self) -> Dict[str, ExtensionType]:
+    async def _get_extension_points(self) -> dict[str, ExtensionType]:
         """Get agent layer extension points."""
         return {
             "behavior": BaseAgent,  # Agent behaviors
@@ -193,7 +194,7 @@ class WorkflowLayer(Layer):
         """Initialize workflow layer."""
         super().__init__("workflow")
 
-    async def _get_extension_points(self) -> Dict[str, ExtensionType]:
+    async def _get_extension_points(self) -> dict[str, ExtensionType]:
         """Get workflow layer extension points."""
         return {
             "steps": BaseWorkflow,  # Workflow steps
@@ -208,7 +209,7 @@ class LayerManager:
 
     def __init__(self) -> None:
         """Initialize layer manager."""
-        self._layers: Dict[str, Layer] = {
+        self._layers: dict[str, Layer] = {
             "core": CoreLayer(),
             "provider": ProviderLayer(),
             "capability": CapabilityLayer(),
@@ -248,7 +249,7 @@ class LayerManager:
             logger.error(f"Failed to clean up layer manager: {e}")
             raise
 
-    def get_layer(self, name: str) -> Optional[Layer]:
+    def get_layer(self, name: str) -> Layer | None:
         """Get layer by name.
 
         Args:
@@ -259,7 +260,7 @@ class LayerManager:
         """
         return self._layers.get(name)
 
-    def get_extension_point(self, layer: str, point: str) -> Optional[ExtensionPoint]:
+    def get_extension_point(self, layer: str, point: str) -> ExtensionPoint | None:
         """Get extension point from layer.
 
         Args:

@@ -1,23 +1,14 @@
-"""Base memory provider interface.
+"""Base memory provider module.
 
-This module defines the base interface for memory providers.
-It includes:
-- Base memory provider interface
-- Memory configuration
-- Common memory types
+This module defines the base classes and interfaces for memory providers.
 """
 
 from abc import abstractmethod
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from pepperpy.providers.base import BaseProvider, ProviderConfig
-
-# Type variable for memory values
-T = TypeVar("T")
-
-
+from pepperpy.core.providers.unified import BaseProvider, ProviderConfig
 class MemoryConfig(ProviderConfig):
     """Memory provider configuration.
 
@@ -27,73 +18,48 @@ class MemoryConfig(ProviderConfig):
         eviction_policy: Cache eviction policy
     """
 
-    ttl: int = 0
-    max_size: int = 0
-    eviction_policy: str = "lru"
-
+T = TypeVar("T")
 
 class MemoryItem(BaseModel, Generic[T]):
-    """Memory item model.
+    """Memory item."""
 
-    Attributes:
-        key: Item key
-        value: Item value
-        created_at: Creation timestamp
-        expires_at: Expiration timestamp
-        metadata: Additional metadata
-    """
-
-    key: str
     value: T
     created_at: float
-    expires_at: Optional[float] = None
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    expires_at: float | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
+class MemoryConfig(ProviderConfig):
+    """Configuration for memory providers."""
 
-class BaseMemoryProvider(BaseProvider[MemoryItem[T]]):
-    """Base class for memory providers.
+    ttl: int | None = Field(default=None, description="Time to live in seconds")
+    max_size: int | None = Field(default=None, description="Maximum size in bytes")
 
-    This class defines the interface that all memory providers must implement.
-    """
+class MemoryProvider(BaseProvider, Generic[T]):
+    """Base class for memory providers."""
 
-    def __init__(self, config: MemoryConfig) -> None:
-        """Initialize memory provider.
-
-        Args:
-            config: Memory configuration
-        """
-        super().__init__(config)
-        self.ttl = config.ttl
-        self.max_size = config.max_size
-        self.eviction_policy = config.eviction_policy
+    config_class = MemoryConfig
 
     @abstractmethod
-    async def get(self, key: str) -> Optional[T]:
+    async def get(self, key: str) -> T | None:
         """Get value by key.
 
         Args:
-            key: Item key
+            key: Key to get
 
         Returns:
-            Item value or None if not found
-
-        Raises:
-            ProviderError: If retrieval fails
+            Value associated with key
         """
         pass
 
     @abstractmethod
-    async def get_many(self, keys: List[str]) -> Dict[str, T]:
+    async def get_many(self, keys: list[str]) -> dict[str, T]:
         """Get multiple values by keys.
 
         Args:
-            keys: Item keys
+            keys: Keys to get
 
         Returns:
-            Dictionary of found items
-
-        Raises:
-            ProviderError: If retrieval fails
+            Dictionary mapping keys to values
         """
         pass
 
@@ -102,44 +68,38 @@ class BaseMemoryProvider(BaseProvider[MemoryItem[T]]):
         self,
         key: str,
         value: T,
-        ttl: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        ttl: int | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> MemoryItem[T]:
         """Set value by key.
 
         Args:
-            key: Item key
-            value: Item value
-            ttl: Optional TTL override
+            key: Key to set
+            value: Value to set
+            ttl: Time to live in seconds
             metadata: Optional metadata
 
         Returns:
-            Created memory item
-
-        Raises:
-            ProviderError: If storage fails
+            Memory item
         """
         pass
 
     @abstractmethod
     async def set_many(
         self,
-        items: Dict[str, T],
-        ttl: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> List[MemoryItem[T]]:
+        items: dict[str, T],
+        ttl: int | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> list[MemoryItem[T]]:
         """Set multiple values.
 
         Args:
-            items: Dictionary of items to store
-            ttl: Optional TTL override
+            items: Dictionary mapping keys to values
+            ttl: Time to live in seconds
             metadata: Optional metadata
 
         Returns:
-            List of created items
-
-        Raises:
-            ProviderError: If storage fails
+            List of memory items
         """
         pass
 
@@ -148,28 +108,22 @@ class BaseMemoryProvider(BaseProvider[MemoryItem[T]]):
         """Delete value by key.
 
         Args:
-            key: Item key
+            key: Key to delete
 
         Returns:
-            True if item was deleted
-
-        Raises:
-            ProviderError: If deletion fails
+            True if key was deleted, False otherwise
         """
         pass
 
     @abstractmethod
-    async def delete_many(self, keys: List[str]) -> int:
+    async def delete_many(self, keys: list[str]) -> int:
         """Delete multiple values.
 
         Args:
-            keys: Item keys
+            keys: Keys to delete
 
         Returns:
-            Number of deleted items
-
-        Raises:
-            ProviderError: If deletion fails
+            Number of keys deleted
         """
         pass
 
@@ -178,113 +132,65 @@ class BaseMemoryProvider(BaseProvider[MemoryItem[T]]):
         """Check if key exists.
 
         Args:
-            key: Item key
+            key: Key to check
 
         Returns:
-            True if key exists
-
-        Raises:
-            ProviderError: If check fails
+            True if key exists, False otherwise
         """
         pass
 
     @abstractmethod
-    async def clear(self) -> None:
-        """Clear all items.
-
-        Raises:
-            ProviderError: If clearing fails
-        """
-        pass
-
-    @abstractmethod
-    async def get_metadata(self, key: str) -> Optional[MemoryItem[T]]:
+    async def get_metadata(self, key: str) -> MemoryItem[T] | None:
         """Get item metadata.
 
         Args:
-            key: Item key
+            key: Key to get metadata for
 
         Returns:
-            Memory item or None if not found
-
-        Raises:
-            ProviderError: If metadata retrieval fails
+            Memory item or None if key does not exist
         """
         pass
 
     @abstractmethod
     async def update_metadata(
-        self, key: str, metadata: Dict[str, Any]
-    ) -> Optional[MemoryItem[T]]:
+        self, key: str, metadata: dict[str, Any]
+    ) -> MemoryItem[T] | None:
         """Update item metadata.
 
         Args:
-            key: Item key
+            key: Key to update metadata for
             metadata: New metadata
 
         Returns:
-            Updated item or None if not found
-
-        Raises:
-            ProviderError: If update fails
+            Updated memory item or None if key does not exist
         """
         pass
 
     @abstractmethod
-    async def get_keys(self, pattern: Optional[str] = None) -> List[str]:
+    async def get_keys(self, pattern: str | None = None) -> list[str]:
         """Get all keys matching pattern.
 
         Args:
-            pattern: Optional glob pattern
+            pattern: Pattern to match keys against
 
         Returns:
             List of matching keys
-
-        Raises:
-            ProviderError: If retrieval fails
         """
         pass
 
     @abstractmethod
-    async def get_ttl(self, key: str) -> Optional[int]:
+    async def get_ttl(self, key: str) -> int | None:
         """Get remaining TTL for key.
 
         Args:
-            key: Item key
+            key: Key to get TTL for
 
         Returns:
-            Remaining TTL in seconds or None if no TTL
-
-        Raises:
-            ProviderError: If TTL retrieval fails
+            Remaining TTL in seconds or None if key does not exist or has no TTL
         """
         pass
 
     @abstractmethod
-    async def set_ttl(self, key: str, ttl: int) -> bool:
-        """Set TTL for key.
-
-        Args:
-            key: Item key
-            ttl: New TTL in seconds
-
-        Returns:
-            True if TTL was set
-
-        Raises:
-            ProviderError: If TTL update fails
-        """
+    async def clear(self) -> None:
+        """Clear all values."""
         pass
-
-    async def validate(self) -> None:
-        """Validate provider configuration and state.
-
-        Raises:
-            ConfigurationError: If validation fails
-        """
-        if self.ttl < 0:
-            raise ValueError("TTL must be non-negative")
-        if self.max_size < 0:
-            raise ValueError("Max size must be non-negative")
-        if self.eviction_policy not in {"lru", "lfu", "fifo"}:
-            raise ValueError("Invalid eviction policy")

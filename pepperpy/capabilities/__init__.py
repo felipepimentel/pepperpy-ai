@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from pepperpy.core.extensions import Extension, ExtensionMetadata
-from pepperpy.events import EventBus
+from pepperpy.core.events import EventBus
 
 
 class CapabilityType(Enum):

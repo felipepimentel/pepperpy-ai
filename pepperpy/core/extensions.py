@@ -30,7 +30,7 @@ from pydantic import BaseModel, Field
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ExtensionError
 from pepperpy.core.types import ComponentState
-from pepperpy.events import EventBus
+from pepperpy.core.events import EventBus
 from pepperpy.monitoring import logger
 
 # Configure logging

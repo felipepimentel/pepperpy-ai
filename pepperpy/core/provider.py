@@ -4,14 +4,14 @@ This module defines the base provider interface.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 class Provider(ABC):
     """Base provider interface."""
 
     @abstractmethod
-    def initialize(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def initialize(self, config: dict[str, Any] | None = None) -> None:
         """Initialize provider.
 
         Args:
@@ -52,7 +52,7 @@ class Provider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_capabilities(self) -> Dict[str, Any]:
+    def get_capabilities(self) -> dict[str, Any]:
         """Get provider capabilities.
 
         Returns:
@@ -61,7 +61,7 @@ class Provider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get provider status.
 
         Returns:
@@ -70,7 +70,7 @@ class Provider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get provider metrics.
 
         Returns:
@@ -79,7 +79,7 @@ class Provider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_config(self) -> Dict[str, Any]:
+    def get_config(self) -> dict[str, Any]:
         """Get provider configuration.
 
         Returns:
@@ -88,7 +88,7 @@ class Provider(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def update_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+    def update_config(self, config: dict[str, Any]) -> dict[str, Any]:
         """Update provider configuration.
 
         Args:
