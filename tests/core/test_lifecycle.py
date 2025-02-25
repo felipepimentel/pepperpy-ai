@@ -1,206 +1,239 @@
+"""Tests for the lifecycle module."""
+
+import asyncio
+from datetime import datetime
+
 import pytest
 
-from pepperpy.core.errors import LifecycleError, StateError
+from pepperpy.core.errors import ComponentError, StateError
 from pepperpy.core.lifecycle import (
-    ComponentState,
-    Lifecycle,
-    LifecycleManager,
+    LifecycleComponent,
+    LifecycleHook,
+    LifecycleState,
+    LifecycleTransition,
 )
 
 
-class TestComponent(Lifecycle):
-    """Test implementation of a lifecycle-managed component."""
+class TestHook(LifecycleHook):
+    """Test hook implementation."""
 
     def __init__(self) -> None:
-        super().__init__()
+        """Initialize test hook."""
+        self.pre_initialize_called = False
+        self.post_initialize_called = False
+        self.pre_cleanup_called = False
+        self.post_cleanup_called = False
+        self.error_called = False
+        self.last_error: Exception | None = None
+
+    async def pre_initialize(self, component: LifecycleComponent) -> None:
+        """Called before initialization."""
+        self.pre_initialize_called = True
+
+    async def post_initialize(self, component: LifecycleComponent) -> None:
+        """Called after initialization."""
+        self.post_initialize_called = True
+
+    async def pre_cleanup(self, component: LifecycleComponent) -> None:
+        """Called before cleanup."""
+        self.pre_cleanup_called = True
+
+    async def post_cleanup(self, component: LifecycleComponent) -> None:
+        """Called after cleanup."""
+        self.post_cleanup_called = True
+
+    async def on_error(self, component: LifecycleComponent, error: Exception) -> None:
+        """Called when an error occurs."""
+        self.error_called = True
+        self.last_error = error
+
+
+class TestComponent(LifecycleComponent):
+    """Test component implementation."""
+
+    def __init__(
+        self, name: str, fail_initialize: bool = False, fail_cleanup: bool = False
+    ) -> None:
+        """Initialize test component.
+
+        Args:
+            name: Component name
+            fail_initialize: Whether to fail initialization
+            fail_cleanup: Whether to fail cleanup
+        """
+        super().__init__(name)
+        self.fail_initialize = fail_initialize
+        self.fail_cleanup = fail_cleanup
         self.initialize_called = False
         self.cleanup_called = False
-        self.start_called = False
-        self.stop_called = False
 
-    async def initialize(self) -> None:
-        """Test initialization implementation."""
+    async def _initialize(self) -> None:
+        """Initialize the component."""
         self.initialize_called = True
+        if self.fail_initialize:
+            raise ValueError("Initialization failed")
 
-    async def cleanup(self) -> None:
-        """Test cleanup implementation."""
+    async def _cleanup(self) -> None:
+        """Clean up the component."""
         self.cleanup_called = True
-
-    async def start(self) -> None:
-        """Test start implementation."""
-        self.start_called = True
-
-    async def stop(self) -> None:
-        """Test stop implementation."""
-        self.stop_called = True
-
-
-class ErrorComponent(Lifecycle):
-    """Test component that raises errors."""
-
-    def __init__(self, raise_on_init: bool = True) -> None:
-        super().__init__()
-        self.raise_on_init = raise_on_init
-
-    async def initialize(self) -> None:
-        """Test initialization that raises an error."""
-        if self.raise_on_init:
-            raise ValueError("Test initialization error")
-
-    async def cleanup(self) -> None:
-        """Test cleanup that raises an error."""
-        if not self.raise_on_init:
-            raise ValueError("Test cleanup error")
-
-    async def start(self) -> None:
-        """Test start that raises an error."""
-        if not self.raise_on_init:
-            raise ValueError("Test start error")
-
-    async def stop(self) -> None:
-        """Test stop that raises an error."""
-        if not self.raise_on_init:
-            raise ValueError("Test stop error")
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_basic():
-    """Test basic lifecycle state transitions."""
-    component = TestComponent()
-
-    # Test initial state
-    assert component.state == ComponentState.UNREGISTERED
-    assert component.error is None
-    assert isinstance(component._metadata, dict)
-
-    # Test initialization
-    await component.initialize()
-    assert component.initialize_called
-
-    # Test cleanup
-    await component.cleanup()
-    assert component.cleanup_called
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_manager_registration():
-    """Test component registration in lifecycle manager."""
-    manager = LifecycleManager()
-    component = TestComponent()
-
-    # Test registration
-    manager.register(component)
-    assert component.id in manager._components
-    assert component.state == ComponentState.REGISTERED
-
-    # Test duplicate registration
-    with pytest.raises(
-        ValueError, match=f"Component {component.id} already registered"
-    ):
-        manager.register(component)
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_manager_initialization():
-    """Test component initialization through manager."""
-    manager = LifecycleManager()
-    component = TestComponent()
-
-    # Register and initialize
-    manager.register(component)
-    await manager.initialize(component.id)
-    assert component.state == ComponentState.INITIALIZED
-    assert component.initialize_called
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_manager_startup():
-    """Test component startup through manager."""
-    manager = LifecycleManager()
-    component = TestComponent()
-
-    # Setup and start component
-    manager.register(component)
-    await manager.initialize(component.id)
-    await manager.start(component.id)
-    assert component.state == ComponentState.RUNNING
-    assert component.start_called
-    assert manager.is_running(component.id)
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_manager_shutdown():
-    """Test lifecycle manager shutdown process."""
-    manager = LifecycleManager()
-    components = [TestComponent(), TestComponent()]
-
-    # Register and start components
-    for component in components:
-        manager.register(component)
-        await manager.initialize(component.id)
-        await manager.start(component.id)
-
-    # Test shutdown
-    await manager.shutdown()
-
-    # Verify all components are cleaned up
-    for component in components:
-        assert component.cleanup_called
-        assert component.state == ComponentState.TERMINATED
-
-
-@pytest.mark.asyncio
-async def test_lifecycle_error_handling():
-    """Test error handling in lifecycle components."""
-    manager = LifecycleManager()
-
-    # Test initialization error
-    error_component = ErrorComponent(raise_on_init=True)
-    manager.register(error_component)
-    with pytest.raises(LifecycleError):
-        await manager.initialize(error_component.id)
-    assert error_component.state == ComponentState.ERROR
-
-    # Test start error
-    start_error_component = ErrorComponent(raise_on_init=False)
-    manager.register(start_error_component)
-    await manager.initialize(start_error_component.id)
-    with pytest.raises(LifecycleError):
-        await manager.start(start_error_component.id)
-    assert start_error_component.state == ComponentState.ERROR
-
-    # Test stop error
-    stop_error_component = ErrorComponent(raise_on_init=False)
-    manager.register(stop_error_component)
-    await manager.initialize(stop_error_component.id)
-    with pytest.raises(LifecycleError):
-        await manager.stop(stop_error_component.id)
-    assert stop_error_component.state == ComponentState.ERROR
+        if self.fail_cleanup:
+            raise ValueError("Cleanup failed")
 
 
 @pytest.mark.asyncio
 async def test_lifecycle_state_transitions():
-    """Test lifecycle state transition validations."""
-    manager = LifecycleManager()
-    component = TestComponent()
+    """Test lifecycle state transitions."""
+    component = TestComponent("test")
 
-    # Register component
-    manager.register(component)
-    assert component.state == ComponentState.REGISTERED
+    # Initial state
+    assert component.state == LifecycleState.UNINITIALIZED
+    assert len(component.transitions) == 0
 
-    # Test invalid transition: REGISTERED -> RUNNING
+    # Initialize
+    await component.initialize()
+    assert component.state == LifecycleState.INITIALIZED
+    assert len(component.transitions) == 2
+    assert component.transitions[0].from_state == LifecycleState.UNINITIALIZED
+    assert component.transitions[0].to_state == LifecycleState.INITIALIZING
+    assert component.transitions[1].from_state == LifecycleState.INITIALIZING
+    assert component.transitions[1].to_state == LifecycleState.INITIALIZED
+
+    # Cleanup
+    await component.cleanup()
+    assert component.state == LifecycleState.FINALIZED
+    assert len(component.transitions) == 4
+    assert component.transitions[2].from_state == LifecycleState.INITIALIZED
+    assert component.transitions[2].to_state == LifecycleState.FINALIZING
+    assert component.transitions[3].from_state == LifecycleState.FINALIZING
+    assert component.transitions[3].to_state == LifecycleState.FINALIZED
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_hooks():
+    """Test lifecycle hooks."""
+    component = TestComponent("test")
+    hook = TestHook()
+    component.add_hook(hook)
+
+    # Initialize
+    await component.initialize()
+    assert hook.pre_initialize_called
+    assert hook.post_initialize_called
+    assert not hook.error_called
+
+    # Cleanup
+    await component.cleanup()
+    assert hook.pre_cleanup_called
+    assert hook.post_cleanup_called
+    assert not hook.error_called
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_error_handling():
+    """Test lifecycle error handling."""
+    component = TestComponent("test", fail_initialize=True)
+    hook = TestHook()
+    component.add_hook(hook)
+
+    # Initialize (should fail)
+    with pytest.raises(ComponentError) as exc_info:
+        await component.initialize()
+
+    assert component.state == LifecycleState.ERROR
+    assert hook.error_called
+    assert isinstance(hook.last_error, ValueError)
+    assert "Initialization failed" in str(exc_info.value)
+
+    # Metadata should be updated
+    assert "error" in component.metadata
+    assert "Initialization failed" in component.metadata["error"]
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_invalid_transitions():
+    """Test invalid lifecycle transitions."""
+    component = TestComponent("test")
+
+    # Cannot cleanup uninitialized component
     with pytest.raises(StateError):
-        await manager._update_state(component.id, ComponentState.RUNNING)
+        await component.cleanup()
 
-    # Test valid transitions
-    await manager.initialize(component.id)
-    assert component.state == ComponentState.INITIALIZED
+    # Cannot initialize twice
+    await component.initialize()
+    with pytest.raises(StateError):
+        await component.initialize()
 
-    await manager.start(component.id)
-    assert component.state == ComponentState.RUNNING
+    # Cannot cleanup twice
+    await component.cleanup()
+    with pytest.raises(StateError):
+        await component.cleanup()
 
-    await manager.stop(component.id)
-    assert component.state == ComponentState.STOPPED
 
-    await manager.terminate(component.id)
-    assert component.state == ComponentState.TERMINATED
+@pytest.mark.asyncio
+async def test_lifecycle_metadata():
+    """Test lifecycle metadata."""
+    component = TestComponent("test")
+
+    # Initial metadata
+    assert component.metadata["name"] == "test"
+    assert isinstance(component.metadata["created_at"], datetime)
+    assert isinstance(component.metadata["updated_at"], datetime)
+
+    # After initialization
+    created_at = component.metadata["created_at"]
+    await asyncio.sleep(0.1)  # Ensure time difference
+    await component.initialize()
+    assert component.metadata["created_at"] == created_at
+    assert component.metadata["updated_at"] > created_at
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_hook_management():
+    """Test lifecycle hook management."""
+    component = TestComponent("test")
+    hook1 = TestHook()
+    hook2 = TestHook()
+
+    # Add hooks
+    component.add_hook(hook1)
+    component.add_hook(hook2)
+    assert len(component.hooks) == 2
+
+    # Remove hook
+    component.remove_hook(hook1)
+    assert len(component.hooks) == 1
+    assert hook2 in component.hooks
+
+    # Initialize should only call remaining hook
+    await component.initialize()
+    assert not hook1.pre_initialize_called
+    assert hook2.pre_initialize_called
+
+
+@pytest.mark.asyncio
+async def test_lifecycle_wait_ready():
+    """Test wait_ready functionality."""
+    component = TestComponent("test")
+
+    # Cannot wait on uninitialized component
+    with pytest.raises(NotImplementedError):
+        await component.wait_ready()
+
+    # Initialize and wait
+    await component.initialize()
+    await component.wait_ready()  # Should return immediately
+
+    # Error state
+    component = TestComponent("test", fail_initialize=True)
+    with pytest.raises(ComponentError):
+        await component.initialize()
+    with pytest.raises(StateError):
+        await component.wait_ready()
+
+
+def test_lifecycle_transition_str():
+    """Test LifecycleTransition string representation."""
+    transition = LifecycleTransition(
+        LifecycleState.UNINITIALIZED, LifecycleState.INITIALIZING
+    )
+    assert str(transition) == "uninitialized -> initializing"

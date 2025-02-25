@@ -1,134 +1,74 @@
-"""Core module for the Pepperpy framework.
+"""Core module for Pepperpy.
 
-This module provides the core functionality and types used throughout the framework.
+This module provides core functionality including:
+- Security
+- Configuration
+- Error handling
+- Metrics
+- Context management
 """
 
-from pepperpy.core.base import (
-    BaseAgent,
-    BaseCapability,
-    BaseComponent,
-    BaseProvider,
-    BaseResource,
-    BaseWorkflow,
-    ComponentState,
+from pepperpy.core.context import (
+    clear_context,
+    get_context,
+    get_context_value,
+    set_context,
+    update_context,
 )
-from pepperpy.core.errors import (
-    AdapterError,
-    AgentError,
-    CapabilityError,
-    CLIError,
-    ComponentError,
+from pepperpy.core.errors.unified import (
     ConfigError,
-    ContentError,
-    DuplicateError,
-    ExtensionError,
-    FactoryError,
-    HubError,
     LifecycleError,
-    LLMError,
-    MetricsError,
-    MonitoringError,
-    NetworkError,
-    NotFoundError,
-    PluginError,
+    PepperpyError,
     ProviderError,
     ResourceError,
     SecurityError,
     StateError,
-    StorageError,
     ValidationError,
-    WorkflowError,
 )
-from pepperpy.core.errors import (
-    PepperpyMemoryError as MemoryError,
-)
-from pepperpy.core.lifecycle import Lifecycle, LifecycleManager
-from pepperpy.core.metrics import (
-    MetricCounter,
-    MetricHistogram,
-    MetricLabels,
-    MetricsManager,
-    MetricType,
-    MetricValue,
-)
-from pepperpy.core.types import (
-    AgentID,
-    BaseModel,
-    CapabilityID,
-    Field,
-    Message,
-    MessageContent,
-    MessageID,
-    MessageType,
-    MetadataDict,
-    MetadataValue,
-    ProviderID,
-    ResourceID,
-    Response,
-    WorkflowID,
+from pepperpy.core.metrics.unified import MetricsManager
+from pepperpy.core.models import BaseModel, Field, ModelT
+from pepperpy.core.security import (
+    EncryptedSecurityProvider,
+    SecurityContext,
+    SecurityLevel,
+    SecurityManager,
+    SimpleSecurityProvider,
+    require_permission,
+    require_role,
+    require_security_level,
 )
 
 __all__ = [
-    # Base classes
-    "BaseAgent",
-    "BaseCapability",
-    "BaseComponent",
-    "BaseProvider",
-    "BaseResource",
-    "BaseWorkflow",
-    "ComponentState",
-    "Lifecycle",
-    "LifecycleManager",
+    # Context
+    "get_context",
+    "set_context",
+    "update_context",
+    "get_context_value",
+    "clear_context",
+    # Errors
+    "PepperpyError",
+    "ValidationError",
+    "ConfigError",
+    "ProviderError",
+    "ResourceError",
+    "StateError",
+    "LifecycleError",
+    "SecurityError",
     # Metrics
-    "MetricCounter",
-    "MetricHistogram",
-    "MetricLabels",
-    "MetricType",
-    "MetricValue",
     "MetricsManager",
     # Models
     "BaseModel",
     "Field",
-    # Types
-    "AgentID",
-    "CapabilityID",
-    "Message",
-    "MessageContent",
-    "MessageID",
-    "MessageType",
-    "MetadataDict",
-    "MetadataValue",
-    "ProviderID",
-    "ResourceID",
-    "Response",
-    "WorkflowID",
-    # Errors
-    "AdapterError",
-    "AgentError",
-    "CapabilityError",
-    "CLIError",
-    "ComponentError",
-    "ConfigError",
-    "ContentError",
-    "DuplicateError",
-    "ExtensionError",
-    "FactoryError",
-    "HubError",
-    "LifecycleError",
-    "LLMError",
-    "MemoryError",
-    "MetricsError",
-    "MonitoringError",
-    "NetworkError",
-    "NotFoundError",
-    "PluginError",
-    "ProviderError",
-    "ResourceError",
-    "SecurityError",
-    "StateError",
-    "StorageError",
-    "ValidationError",
-    "WorkflowError",
+    "ModelT",
+    # Security
+    "SecurityContext",
+    "SecurityLevel",
+    "SecurityManager",
+    "SimpleSecurityProvider",
+    "EncryptedSecurityProvider",
+    "require_security_level",
+    "require_permission",
+    "require_role",
 ]
 
 __version__ = "0.1.0"
