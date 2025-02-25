@@ -3,14 +3,19 @@
 This module provides utilities for managing Python import hooks and optimizations.
 """
 
+import asyncio
 import importlib.abc
 import importlib.machinery
 import importlib.util
 import logging
 import sys
 from types import ModuleType
-from typing import Any
+from typing import Any, cast
 
+from pepperpy.core.base import BaseComponent
+from pepperpy.core.lifecycle import LifecycleComponent
+from pepperpy.core.monitoring import MonitoringManager
+from pepperpy.core.monitoring.types import MonitoringLevel
 from pepperpy.utils.imports_cache import ImportCache
 from pepperpy.utils.imports_profiler import ImportProfiler
 from pepperpy.utils.modules import ModuleManager
@@ -54,7 +59,12 @@ class CircularDependencyError(ImportHookError):
         self.chain = chain
 
 
-class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+class ImportOptimizer(
+    BaseComponent,
+    LifecycleComponent,
+    importlib.abc.MetaPathFinder,
+    importlib.abc.Loader,
+):
     """Import optimizer for managing module imports.
 
     This class provides functionality for optimizing module imports by:
@@ -63,11 +73,13 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
     - Managing module dependencies
     - Providing lazy loading capabilities
     - Profiling import performance
+    - Monitoring import activity
     """
 
     def __init__(
         self,
         module_manager: ModuleManager,
+        name: str = "import_optimizer",
         max_cache_size: int | None = None,
         max_cache_entries: int | None = None,
         cache_ttl: float | None = None,
@@ -77,12 +89,17 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
 
         Args:
             module_manager: Module manager instance
+            name: Component name
             max_cache_size: Optional maximum cache size in bytes
             max_cache_entries: Optional maximum number of cache entries
             cache_ttl: Optional cache time-to-live in seconds
             max_retries: Maximum number of import retry attempts
         """
+        super().__init__(name)
         self._manager = module_manager
+        self._monitoring = MonitoringManager(
+            name=f"{name}_monitoring", export_interval=60.0
+        )
         self._cache = ImportCache(
             max_size=max_cache_size,
             max_entries=max_cache_entries,
@@ -94,6 +111,18 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         self._dependency_graph: dict[str, set[str]] = {}
         self._error_count: dict[str, int] = {}
         self._max_retries = max_retries
+
+    async def initialize(self) -> None:
+        """Initialize import optimizer."""
+        await self._monitoring.initialize()
+        sys.meta_path.insert(0, cast(importlib.abc.MetaPathFinder, self))
+        self.logger.debug("Import optimizer initialized")
+
+    async def cleanup(self) -> None:
+        """Clean up import optimizer."""
+        sys.meta_path.remove(cast(importlib.abc.MetaPathFinder, self))
+        await self._monitoring.cleanup()
+        self.logger.debug("Import optimizer cleaned up")
 
     def _check_circular_dependency(self, module: str) -> None:
         """Check for circular dependencies.
@@ -235,13 +264,34 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         Returns:
             Module specification or None if not found
         """
+        # Track import attempt
+        asyncio.create_task(
+            self._monitoring.record_event(
+                level=MonitoringLevel.INFO,
+                source="import_optimizer",
+                message=f"Import attempt: {fullname}",
+                data={"path": path, "target": target and target.__name__},
+            )
+        )
+
         # Check if module is already cached
         cached_module = self._cache.get(fullname)
         if cached_module:
             return None
 
         # Check for circular imports
-        self._check_circular_dependency(fullname)
+        try:
+            self._check_circular_dependency(fullname)
+        except CircularDependencyError as e:
+            asyncio.create_task(
+                self._monitoring.record_event(
+                    level=MonitoringLevel.WARNING,
+                    source="import_optimizer",
+                    message=f"Circular import detected: {fullname}",
+                    data={"chain": e.chain},
+                )
+            )
+            raise
 
         # Add to import stack
         self._import_stack.append(fullname)
@@ -249,35 +299,14 @@ class ImportOptimizer(importlib.abc.MetaPathFinder, importlib.abc.Loader):
         try:
             # Start profiling
             self._profiler.start_import(fullname)
-
-            # Try to find spec using registered hooks
-            for hook in self._hooks:
-                if hasattr(hook, "find_spec"):
-                    spec = hook.find_spec(fullname, path, target)
-                    if spec is not None:
-                        return spec
-
-            # Try to find spec using standard import machinery
-            spec = importlib.util.find_spec(fullname)
-            if spec is not None:
-                # Set loader to self for custom loading
-                spec.loader = self
-                return spec
-
-            return None
-
-        except Exception as e:
-            self._handle_import_error(
-                fullname,
-                e,
-                {"path": path, "target": target},
-            )
-            return None
-
+            try:
+                # Let other finders handle the actual import
+                return None
+            finally:
+                self._profiler.finish_import(fullname)
         finally:
             # Remove from import stack
-            if self._import_stack and self._import_stack[-1] == fullname:
-                self._import_stack.pop()
+            self._import_stack.pop()
 
     def exec_module(self, module: ModuleType) -> None:
         """Execute module.

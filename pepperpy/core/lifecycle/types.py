@@ -5,23 +5,39 @@ This module defines core lifecycle types used throughout the framework.
 
 from abc import abstractmethod
 from enum import Enum
-from typing import Protocol, TypeAlias
+from typing import Protocol, TypeVar
+from typing_extensions import TypeAlias
 
 
 class LifecycleState(str, Enum):
     """Component lifecycle states."""
 
+    UNREGISTERED = "unregistered"
     CREATED = "created"
     INITIALIZING = "initializing"
     READY = "ready"
-    EXECUTING = "executing"
+    RUNNING = "running"
+    STOPPED = "stopped"
+    ERROR = "error"
     CLEANING = "cleaning"
     CLEANED = "cleaned"
-    ERROR = "error"
+    EXECUTING = "executing"
 
 
-# Type alias for state transitions
-StateTransition: TypeAlias = tuple[LifecycleState, LifecycleState]
+class StateTransition:
+    """State transition definition."""
+
+    def __init__(self, from_state: LifecycleState, to_state: LifecycleState, description: str = "") -> None:
+        """Initialize state transition.
+
+        Args:
+            from_state: Source state
+            to_state: Target state
+            description: Optional transition description
+        """
+        self.from_state = from_state
+        self.to_state = to_state
+        self.description = description
 
 
 class Lifecycle(Protocol):

@@ -1,259 +1,308 @@
-"""Base configuration module for PepperPy.
+"""Base components for configuration management."""
 
-This module provides the core configuration functionality for PepperPy,
-including configuration providers, validation, and management.
-"""
+import asyncio
+import importlib
+import logging
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Type, TypeVar
+import yaml
+from pydantic import ValidationError
 
-from pydantic import BaseModel, ValidationError
+from pepperpy.core.base import Lifecycle
 
-T = TypeVar("T", bound=BaseModel)
+from .types import ConfigT, ConfigValidationError, ConfigWatcher
 
+if TYPE_CHECKING:
+    from .sources import ConfigSource
 
-@dataclass
-class ConfigValidationError:
-    """Configuration validation error."""
+logger = logging.getLogger(__name__)
 
-    field: str
-    message: str
-    value: Any
+T = TypeVar("T")
 
 
-class ConfigProvider(ABC):
-    """Abstract base class for configuration providers."""
+class Configuration:
+    """Central configuration management for Pepperpy framework."""
 
-    @abstractmethod
-    def get(self, key: str) -> Optional[Any]:
-        """Get configuration value by key.
+    def __init__(self, config_path: Path | None = None):
+        """Initialize configuration manager.
 
         Args:
-            key: Configuration key.
+            config_path: Optional path to configuration file. Defaults to ~/.pepperpy/config.yml
+        """
+        self.config_path = config_path or Path.home() / ".pepperpy" / "config.yml"
+        self.providers: dict[str, dict[str, Any]] = {}
+        self.load_config()
+
+    def load_config(self) -> None:
+        """Load configuration from file or use defaults."""
+        if self.config_path.exists():
+            with open(self.config_path) as f:
+                self.providers = yaml.safe_load(f) or {}
+        else:
+            self.providers = self._get_default_config()
+
+    def get_provider(self, capability: str, name: str = "default") -> dict[str, Any]:
+        """Get provider configuration.
+
+        Args:
+            capability: Capability name (e.g. 'llm', 'content')
+            name: Provider name within capability. Defaults to 'default'
 
         Returns:
-            Configuration value or None if not found.
-        """
+            Provider configuration dictionary
 
-    @abstractmethod
-    def set(self, key: str, value: Any) -> None:
-        """Set configuration value.
+        Raises:
+            ConfigError: If provider configuration is not found
+        """
+        capability_config = self.providers.get(capability, {})
+        provider_config = capability_config.get(name)
+
+        if not provider_config:
+            raise ConfigurationError(
+                f"Provider {capability}.{name} not found in configuration"
+            )
+
+        return provider_config
+
+    def load_provider(self, capability: str, name: str, base_class: type[T]) -> T:
+        """Dynamically load and instantiate a provider.
 
         Args:
-            key: Configuration key.
-            value: Configuration value.
-        """
-
-    @abstractmethod
-    def delete(self, key: str) -> None:
-        """Delete configuration value.
-
-        Args:
-            key: Configuration key.
-        """
-
-    @abstractmethod
-    def exists(self, key: str) -> bool:
-        """Check if configuration key exists.
-
-        Args:
-            key: Configuration key.
+            capability: Capability name (e.g. 'llm', 'content')
+            name: Provider name within capability
+            base_class: Base class that provider must implement
 
         Returns:
-            True if key exists, False otherwise.
+            Instantiated provider
+
+        Raises:
+            ConfigError: If provider cannot be loaded or instantiated
         """
+        config = self.get_provider(capability, name)
+        provider_type = config["type"]
+        provider_config = config.get("config", {})
 
-    @abstractmethod
-    def clear(self) -> None:
-        """Clear all configuration values."""
+        try:
+            # Load provider module
+            module_path = f"pepperpy.{capability}.providers.{provider_type}"
+            module = importlib.import_module(module_path)
+
+            # Get provider class
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+
+            # Validate provider class
+            if not issubclass(provider_class, base_class):
+                raise ConfigurationError(
+                    f"Provider class {provider_class.__name__} does not implement {base_class.__name__}"
+                )
+
+            # Instantiate provider
+            return provider_class(**provider_config)
+
+        except (ImportError, AttributeError) as e:
+            raise ConfigurationError(
+                f"Failed to load provider {capability}.{name}: {e!s}"
+            )
+
+    def _get_default_config(self) -> dict[str, dict[str, Any]]:
+        """Get default configuration when no config file exists."""
+        return {
+            "llm": {
+                "default": {
+                    "type": "openai",
+                    "config": {"model": "gpt-3.5-turbo", "temperature": 0.7},
+                }
+            },
+            "content": {
+                "default": {
+                    "type": "rss",
+                    "config": {
+                        "sources": ["https://news.google.com/rss"],
+                        "language": "pt-BR",
+                    },
+                }
+            },
+            "synthesis": {
+                "default": {
+                    "type": "openai",
+                    "config": {"voice": "alloy", "model": "tts-1"},
+                }
+            },
+            "memory": {
+                "default": {"type": "local", "config": {"path": "~/.pepperpy/memory"}}
+            },
+        }
 
 
-class DictConfigProvider(ConfigProvider):
-    """Dictionary-based configuration provider."""
+class ConfigurationError(Exception):
+    """Base class for configuration-related errors."""
 
-    def __init__(self) -> None:
-        """Initialize provider."""
-        self._config: Dict[str, Any] = {}
-
-    def get(self, key: str) -> Optional[Any]:
-        """Get configuration value by key.
+    def __init__(
+        self,
+        message: str,
+        *,
+        config_key: str | None = None,
+        details: dict[str, str] | None = None,
+    ) -> None:
+        """Initialize the error.
 
         Args:
-            key: Configuration key.
+            message: Error message
+            config_key: Optional configuration key that caused the error
+            details: Optional additional details
 
-        Returns:
-            Configuration value or None if not found.
         """
-        return self._config.get(key)
+        super().__init__(message)
+        self.config_key = config_key
+        self.details = details or {}
 
-    def set(self, key: str, value: Any) -> None:
-        """Set configuration value.
+
+class ConfigurationManager(Lifecycle, Generic[ConfigT]):
+    """Central manager for configuration handling.
+
+    This class manages configuration loading, validation, and updates.
+    It supports multiple configuration sources and dynamic updates.
+
+    Type Args:
+        ConfigT: Configuration model type (must be a Pydantic BaseModel)
+
+    Attributes:
+        config: Current configuration
+        sources: Registered configuration sources
+        watchers: Configuration change watchers
+
+    """
+
+    def __init__(self, config_class: type[ConfigT]) -> None:
+        """Initialize the configuration manager.
 
         Args:
-            key: Configuration key.
-            value: Configuration value.
+            config_class: Configuration model class
+
         """
-        self._config[key] = value
+        super().__init__()
+        self.config_class = config_class
+        self._config: ConfigT | None = None
+        self._sources: list[ConfigSource] = []
+        self._watchers: set[ConfigWatcher] = set()
+        self._lock = asyncio.Lock()
 
-    def delete(self, key: str) -> None:
-        """Delete configuration value.
+    @property
+    def config(self) -> ConfigT | None:
+        """Get the current configuration."""
+        return self._config
 
-        Args:
-            key: Configuration key.
-        """
-        self._config.pop(key, None)
+    async def initialize(self) -> None:
+        """Initialize the configuration manager.
 
-    def exists(self, key: str) -> bool:
-        """Check if configuration key exists.
+        This loads the initial configuration from all sources.
 
-        Args:
-            key: Configuration key.
+        Raises:
+            ConfigurationError: If initialization fails
 
-        Returns:
-            True if key exists, False otherwise.
-        """
-        return key in self._config
-
-    def clear(self) -> None:
-        """Clear all configuration values."""
-        self._config.clear()
-
-
-class ConfigValidator:
-    """Configuration validator."""
-
-    def __init__(self, model_type: Type[T]) -> None:
-        """Initialize validator.
-
-        Args:
-            model_type: Pydantic model type for validation.
-        """
-        self._model_type = model_type
-
-    def validate(self, config: Dict[str, Any]) -> List[ConfigValidationError]:
-        """Validate configuration.
-
-        Args:
-            config: Configuration dictionary.
-
-        Returns:
-            List of validation errors.
         """
         try:
-            self._model_type(**config)
-            return []
-        except ValidationError as e:
-            errors = []
-            for error in e.errors():
-                field = ".".join(str(loc) for loc in error["loc"])
-                errors.append(
-                    ConfigValidationError(
-                        field=field,
-                        message=error["msg"],
-                        value=error.get("input"),
+            await self.reload()
+        except Exception as e:
+            raise ConfigurationError(f"Failed to initialize configuration: {e}")
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        self._sources.clear()
+        self._watchers.clear()
+        self._config = None
+
+    async def reload(self) -> None:
+        """Reload configuration from all sources.
+
+        This method merges configuration from all sources in order
+        and notifies watchers of changes.
+
+        Raises:
+            ConfigurationError: If reload fails
+            ConfigValidationError: If configuration is invalid
+
+        """
+        async with self._lock:
+            try:
+                # Collect configuration from all sources
+                config_data = {}
+                for source in self._sources:
+                    data = await source.load()
+                    config_data.update(data)
+
+                # Create new configuration
+                old_config = self._config
+                try:
+                    self._config = self.config_class(**config_data)
+                except ValidationError as e:
+                    raise ConfigValidationError(
+                        "Configuration validation failed",
+                        details={"validation_errors": e.errors()},
                     )
+
+                # Notify watchers if configuration changed
+                if old_config is not None and old_config != self._config:
+                    await self._notify_watchers(old_config, self._config)
+
+            except Exception as e:
+                raise ConfigurationError(f"Failed to reload configuration: {e}")
+
+    def add_source(self, source: "ConfigSource") -> None:
+        """Add a configuration source.
+
+        Sources are processed in order of addition.
+
+        Args:
+            source: Configuration source to add
+
+        """
+        self._sources.append(source)
+
+    def remove_source(self, source: "ConfigSource") -> None:
+        """Remove a configuration source.
+
+        Args:
+            source: Configuration source to remove
+
+        """
+        self._sources.remove(source)
+
+    def add_watcher(self, watcher: ConfigWatcher) -> None:
+        """Add a configuration change watcher.
+
+        Args:
+            watcher: Watcher to add
+
+        """
+        self._watchers.add(watcher)
+
+    def remove_watcher(self, watcher: ConfigWatcher) -> None:
+        """Remove a configuration change watcher.
+
+        Args:
+            watcher: Watcher to remove
+
+        """
+        self._watchers.discard(watcher)
+
+    async def _notify_watchers(self, old_config: ConfigT, new_config: ConfigT) -> None:
+        """Notify watchers of configuration changes.
+
+        Args:
+            old_config: Previous configuration
+            new_config: New configuration
+
+        """
+        for watcher in self._watchers:
+            try:
+                await watcher.on_config_change(old_config, new_config)
+            except Exception as e:
+                logger.error(
+                    f"Error in configuration watcher: {e}",
+                    extra={
+                        "watcher": watcher.__class__.__name__,
+                        "error": str(e),
+                    },
                 )
-            return errors
-
-
-class ConfigManager:
-    """Configuration manager."""
-
-    def __init__(self, provider: ConfigProvider) -> None:
-        """Initialize manager.
-
-        Args:
-            provider: Configuration provider.
-        """
-        self._provider = provider
-        self._validators: Dict[str, ConfigValidator] = {}
-
-    def register_validator(self, prefix: str, validator: ConfigValidator) -> None:
-        """Register configuration validator.
-
-        Args:
-            prefix: Configuration prefix.
-            validator: Configuration validator.
-        """
-        self._validators[prefix] = validator
-
-    def unregister_validator(self, prefix: str) -> None:
-        """Unregister configuration validator.
-
-        Args:
-            prefix: Configuration prefix.
-        """
-        self._validators.pop(prefix, None)
-
-    def validate(self) -> List[ConfigValidationError]:
-        """Validate all configuration.
-
-        Returns:
-            List of validation errors.
-        """
-        errors = []
-        for prefix, validator in self._validators.items():
-            config = {}
-            for key, value in self._get_config_by_prefix(prefix).items():
-                config[key[len(prefix) + 1 :]] = value
-            errors.extend(validator.validate(config))
-        return errors
-
-    def get(self, key: str) -> Optional[Any]:
-        """Get configuration value by key.
-
-        Args:
-            key: Configuration key.
-
-        Returns:
-            Configuration value or None if not found.
-        """
-        return self._provider.get(key)
-
-    def set(self, key: str, value: Any) -> None:
-        """Set configuration value.
-
-        Args:
-            key: Configuration key.
-            value: Configuration value.
-        """
-        self._provider.set(key, value)
-
-    def delete(self, key: str) -> None:
-        """Delete configuration value.
-
-        Args:
-            key: Configuration key.
-        """
-        self._provider.delete(key)
-
-    def exists(self, key: str) -> bool:
-        """Check if configuration key exists.
-
-        Args:
-            key: Configuration key.
-
-        Returns:
-            True if key exists, False otherwise.
-        """
-        return self._provider.exists(key)
-
-    def clear(self) -> None:
-        """Clear all configuration values."""
-        self._provider.clear()
-
-    def _get_config_by_prefix(self, prefix: str) -> Dict[str, Any]:
-        """Get configuration values by prefix.
-
-        Args:
-            prefix: Configuration prefix.
-
-        Returns:
-            Dictionary of configuration values.
-        """
-        result = {}
-        for key, value in self._provider._config.items():  # type: ignore
-            if key.startswith(f"{prefix}."):
-                result[key] = value
-        return result

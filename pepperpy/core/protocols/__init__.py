@@ -3,7 +3,7 @@
 This module provides core protocols (interfaces) used throughout the framework.
 """
 
-from pepperpy.core.protocols.lifecycle import Lifecycle
+from pepperpy.core.lifecycle.types import Lifecycle
 
 __all__ = [
     "Lifecycle",

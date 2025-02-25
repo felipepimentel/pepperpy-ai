@@ -10,9 +10,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
-from datetime import datetime
+from abc import ABC, abstractmethod
+from typing import Any, Optional, TypeVar
 
+from pydantic import BaseModel, Field
+
+from pepperpy.core.lifecycle.types import Lifecycle
+from pepperpy.core.types import ComponentState
+from pepperpy.monitoring.logging import logger
 from pepperpy.core.errors import MetricsError
 from pepperpy.core.metrics.types import (
     BaseMetric,
@@ -22,9 +27,9 @@ from pepperpy.core.metrics.types import (
     MetricType,
     MetricValue,
 )
-from pepperpy.core.protocols.lifecycle import Lifecycle
-from pepperpy.core.types import ComponentState
 
+# Type variables
+T = TypeVar("T")
 
 class MetricsManager(Lifecycle):
     """Metrics manager."""

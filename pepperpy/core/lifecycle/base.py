@@ -1,122 +1,61 @@
-"""Base lifecycle module for the Pepperpy framework.
+"""Base lifecycle functionality for the Pepperpy framework.
 
-This module provides core lifecycle functionality including:
-- Component lifecycle management
-- State transitions
-- Error handling
+This module provides base classes and protocols for lifecycle management.
 """
 
-from __future__ import annotations
+from abc import ABC, abstractmethod
 
-import logging
-from typing import ClassVar
-
-from pepperpy.core.errors import LifecycleError, StateError
-from pepperpy.core.lifecycle.types import Lifecycle, LifecycleState, StateTransition
+from pepperpy.core.types.states import ComponentState
+from pepperpy.monitoring.logging import get_logger
 
 
-class LifecycleComponent(Lifecycle):
+class LifecycleComponent(ABC):
     """Base class for components with lifecycle management."""
 
-    # Define allowed state transitions
-    _transitions: ClassVar[list[StateTransition]] = [
-        StateTransition(LifecycleState.CREATED, LifecycleState.INITIALIZING),
-        StateTransition(LifecycleState.INITIALIZING, LifecycleState.READY),
-        StateTransition(LifecycleState.INITIALIZING, LifecycleState.ERROR),
-        StateTransition(LifecycleState.READY, LifecycleState.CLEANING),
-        StateTransition(LifecycleState.READY, LifecycleState.ERROR),
-        StateTransition(LifecycleState.CLEANING, LifecycleState.CLEANED),
-        StateTransition(LifecycleState.CLEANING, LifecycleState.ERROR),
-    ]
-
     def __init__(self, name: str) -> None:
-        """Initialize component.
+        """Initialize the component.
 
         Args:
             name: Component name
         """
-        self.name = name
-        self._state = LifecycleState.CREATED
-        self.logger = logging.getLogger(f"{__name__}.{name}")
+        self._name = name
+        self._state = ComponentState.UNREGISTERED
+        self._logger = get_logger(__name__)
 
-    def _validate_transition(self, to_state: LifecycleState) -> None:
-        """Validate state transition.
+    @property
+    def name(self) -> str:
+        """Get component name."""
+        return self._name
 
-        Args:
-            to_state: Target state
+    @property
+    def state(self) -> ComponentState:
+        """Get component state."""
+        return self._state
 
-        Raises:
-            StateError: If transition is not allowed
-        """
-        transition = StateTransition(self._state, to_state)
-        if not any(t == transition for t in self._transitions):
-            raise StateError(
-                f"Invalid state transition for {self.name}: {self._state} -> {to_state}",
-                recovery_hint="Check component lifecycle documentation for valid transitions.",
-            )
-
+    @abstractmethod
     async def initialize(self) -> None:
-        """Initialize component.
+        """Initialize the component.
+
+        This method should be called before using the component.
+        It should set up any necessary resources and put the component
+        in a ready state.
 
         Raises:
             LifecycleError: If initialization fails
-            StateError: If state transition is invalid
         """
-        try:
-            self._validate_transition(LifecycleState.INITIALIZING)
-            self._state = LifecycleState.INITIALIZING
-            self.logger.debug(f"Initializing {self.name}")
-            await self._initialize()
-            self._validate_transition(LifecycleState.READY)
-            self._state = LifecycleState.READY
-            self.logger.debug(f"Initialized {self.name}")
-        except Exception as e:
-            self._state = LifecycleState.ERROR
-            raise LifecycleError(
-                f"Failed to initialize {self.name}: {e}",
-                recovery_hint="Check component initialization requirements and try again.",
-            ) from e
+        ...
 
+    @abstractmethod
     async def cleanup(self) -> None:
-        """Clean up component.
+        """Clean up the component.
+
+        This method should be called when the component is no longer needed.
+        It should release any resources and put the component in a cleaned state.
 
         Raises:
             LifecycleError: If cleanup fails
-            StateError: If state transition is invalid
         """
-        try:
-            self._validate_transition(LifecycleState.CLEANING)
-            self._state = LifecycleState.CLEANING
-            self.logger.debug(f"Cleaning up {self.name}")
-            await self._cleanup()
-            self._validate_transition(LifecycleState.CLEANED)
-            self._state = LifecycleState.CLEANED
-            self.logger.debug(f"Cleaned up {self.name}")
-        except Exception as e:
-            self._state = LifecycleState.ERROR
-            raise LifecycleError(
-                f"Failed to clean up {self.name}: {e}",
-                recovery_hint="Check component cleanup requirements and try again.",
-            ) from e
-
-    async def _initialize(self) -> None:
-        """Initialize component implementation.
-
-        This method should be overridden by subclasses to perform
-        component-specific initialization.
-        """
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up component implementation.
-
-        This method should be overridden by subclasses to perform
-        component-specific cleanup.
-        """
-        pass
+        ...
 
 
-# Export public API
-__all__ = [
-    "LifecycleComponent",
-]
+__all__ = ["LifecycleComponent"]

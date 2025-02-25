@@ -1,17 +1,59 @@
-"""Core type definitions for the Pepperpy framework.
+"""Type definitions for the Pepperpy framework.
 
 This module provides core type definitions used throughout the framework.
+It includes type aliases and common types.
+
+Status: Stable
 """
 
 from __future__ import annotations
 
-from abc import abstractmethod
 from datetime import datetime
 from enum import Enum, auto
-from typing import Any, Protocol, TypeVar
-from uuid import UUID, uuid4
+from typing import Any, Protocol, Union, runtime_checkable
+from uuid import UUID
 
 from pepperpy.core.models import BaseModel, ConfigDict, Field
+
+# Type aliases
+AgentID = UUID
+MessageID = UUID
+WorkflowID = UUID
+ResourceID = UUID
+CapabilityID = UUID
+ProviderID = UUID
+
+# Common types
+MetadataValue = Union[str, int, float, bool, None]
+MetadataDict = dict[str, MetadataValue]
+
+
+@runtime_checkable
+class Lifecycle(Protocol):
+    """Protocol for components with lifecycle management."""
+
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method should be called before using the component.
+        It should set up any necessary resources and put the component
+        in a ready state.
+
+        Raises:
+            LifecycleError: If initialization fails
+        """
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up the component.
+
+        This method should be called when the component is no longer needed.
+        It should release any resources and put the component in a cleaned state.
+
+        Raises:
+            LifecycleError: If cleanup fails
+        """
+        ...
 
 
 class MessageType(Enum):
@@ -53,8 +95,8 @@ class Message(BaseModel):
 
     Attributes:
         id: Message ID
-        type: MessageType
-        content: MessageContent
+        type: Message type
+        content: Message content
         timestamp: Message timestamp
     """
 
@@ -67,13 +109,10 @@ class Message(BaseModel):
         validate_default=True,
     )
 
-    id: UUID = Field(default_factory=uuid4, description="Message ID")
+    id: MessageID = Field(description="Message ID")
     type: MessageType = Field(description="Message type")
     content: MessageContent = Field(description="Message content")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Message timestamp",
-    )
+    timestamp: datetime = Field(description="Message timestamp")
 
 
 class Response(BaseModel):
@@ -100,6 +139,18 @@ class Response(BaseModel):
     )
 
 
+class ComponentState(Enum):
+    """States a component can be in."""
+
+    CREATED = auto()
+    INITIALIZING = auto()
+    READY = auto()
+    ERROR = auto()
+    CLEANING = auto()
+    CLEANED = auto()
+    EXECUTING = auto()
+
+
 class AgentState(str, Enum):
     """Agent execution states."""
 
@@ -111,9 +162,24 @@ class AgentState(str, Enum):
 
 
 __all__ = [
-    "AgentState",
-    "Message",
-    "MessageContent",
+    # Type aliases
+    "AgentID",
+    "MessageID",
+    "WorkflowID",
+    "ResourceID",
+    "CapabilityID",
+    "ProviderID",
+    # Common types
+    "MetadataValue",
+    "MetadataDict",
+    # Enums
     "MessageType",
+    # Models
+    "MessageContent",
+    "Message",
     "Response",
+    "ComponentState",
+    "AgentState",
+    # Protocols
+    "Lifecycle",
 ]

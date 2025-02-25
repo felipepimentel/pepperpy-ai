@@ -1,4 +1,4 @@
-"""Unified imports for the Pepperpy framework.
+"""Core imports for the Pepperpy framework.
 
 This module provides safe imports for commonly used external dependencies.
 """
@@ -25,4 +25,9 @@ except ImportError:
         """Field function when pydantic is not available."""
         return lambda x: x
 
+# Re-export for type checking
 __all__ = ["BaseModel", "Field"]
+
+# Make BaseModel and Field available at module level
+BaseModel = BaseModel  # type: ignore
+Field = Field  # type: ignore
