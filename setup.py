@@ -1,4 +1,4 @@
-"""Setup configuration for the pepperpy package."""
+"""Setup script for pepperpy package."""
 
 from setuptools import find_packages, setup
 
@@ -36,7 +36,7 @@ def read_long_description() -> str:
 # Project metadata
 NAME = "pepperpy"
 VERSION = "0.1.0"
-DESCRIPTION = "A modern Python framework for building AI-powered applications"
+DESCRIPTION = "A Python framework for building AI-powered applications"
 AUTHOR = "Your Name"
 AUTHOR_EMAIL = "your.email@example.com"
 URL = "https://github.com/yourusername/pepperpy"
@@ -54,39 +54,25 @@ setup(
     url=URL,
     license=LICENSE,
     packages=find_packages(exclude=["tests*"]),
-    install_requires=read_requirements("requirements.txt"),
-    extras_require={
-        "dev": [
-            "black>=23.3.0",
-            "isort>=5.12.0",
-            "mypy>=1.3.0",
-            "pylint>=2.17.3",
-            "flake8>=6.0.0",
-            "pytest>=7.3.1",
-            "pytest-asyncio>=0.21.0",
-            "pytest-cov>=4.1.0",
-            "pytest-mock>=3.10.0",
-        ],
-        "docs": [
-            "sphinx>=6.2.1",
-            "sphinx-rtd-theme>=1.2.0",
-            "sphinx-autodoc-typehints>=1.23.0",
-        ],
-    },
-    python_requires=">=3.8",
+    install_requires=[
+        "pytest>=8.0.2",
+        "pytest-asyncio>=0.23.5",
+        "pytest-cov>=4.1.0",
+        "pytest-mock>=3.12.0",
+        "pytest-timeout>=2.2.0",
+        "pytest-xdist>=3.5.0",
+    ],
+    python_requires=">=3.10",
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Topic :: Software Development :: Libraries :: Python Modules",
-        "Topic :: Software Development :: Libraries :: Application Frameworks",
-        "Typing :: Typed",
     ],
     project_urls={
         "Documentation": "https://pepperpy.readthedocs.io/",

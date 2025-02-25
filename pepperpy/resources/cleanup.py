@@ -5,8 +5,9 @@ This module provides automatic cleanup functionality for resources.
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
-from typing import Any, Callable, Dict, Optional
+from typing import Any
 
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ValidationError
@@ -35,10 +36,10 @@ class CleanupScheduler(Lifecycle):
         self._default_ttl = default_ttl
         self._cleanup_interval = cleanup_interval
         self._state = ComponentState.CREATED
-        self._resources: Dict[str, Resource] = {}
-        self._expiry_times: Dict[str, datetime] = {}
-        self._cleanup_hooks: Dict[str, Callable[[Resource], Any]] = {}
-        self._task: Optional[asyncio.Task] = None
+        self._resources: dict[str, Resource] = {}
+        self._expiry_times: dict[str, datetime] = {}
+        self._cleanup_hooks: dict[str, Callable[[Resource], Any]] = {}
+        self._task: asyncio.Task | None = None
         self._lock = asyncio.Lock()
 
     async def initialize(self) -> None:
@@ -71,8 +72,8 @@ class CleanupScheduler(Lifecycle):
     async def schedule(
         self,
         resource: Resource,
-        ttl: Optional[int] = None,
-        cleanup_hook: Optional[Callable[[Resource], Any]] = None,
+        ttl: int | None = None,
+        cleanup_hook: Callable[[Resource], Any] | None = None,
     ) -> None:
         """Schedule resource for cleanup.
 
@@ -84,7 +85,7 @@ class CleanupScheduler(Lifecycle):
         async with self._lock:
             ttl = ttl or self._default_ttl
             expiry_time = datetime.utcnow() + timedelta(seconds=ttl)
-            
+
             self._resources[resource.id] = resource
             self._expiry_times[resource.id] = expiry_time
             if cleanup_hook:
@@ -141,15 +142,15 @@ class CleanupScheduler(Lifecycle):
                     # Call cleanup hook if exists
                     if resource_id in self._cleanup_hooks:
                         await self._cleanup_hooks[resource_id](resource)
-                    
+
                     # Delete resource
                     await resource.delete()
-                    
+
                     # Remove from tracking
                     del self._resources[resource_id]
                     del self._expiry_times[resource_id]
                     self._cleanup_hooks.pop(resource_id, None)
-                    
+
                     logger.info(
                         f"Cleaned up expired resource: {resource_id}",
                         extra={"resource_id": resource_id},

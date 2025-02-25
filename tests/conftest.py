@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
+from pepperpy.core.metrics import MetricsManager
 from pepperpy.security import SecurityContext, SecurityLevel
 
 
@@ -58,3 +59,9 @@ async def test_security_context() -> AsyncGenerator[SecurityContext, None]:
         metadata={"test": True},
     )
     yield context
+
+
+@pytest.fixture
+def metrics_manager():
+    """Create a new metrics manager for each test."""
+    return MetricsManager()

@@ -1,27 +1,29 @@
-"""Metrics system for the Pepperpy framework.
+"""Metrics system for monitoring.
 
 This module provides metrics functionality:
-- Metric types (Counter, Gauge, Histogram, Summary)
-- Metric registration and management
-- Metric collection and export
+- Core metric types (Counter, Gauge, Histogram, Summary)
+- Metrics manager for centralized management
+- Type-safe metric creation and access
 """
 
-from pepperpy.monitoring.metrics.base import (
+from pepperpy.core.metrics.types import (
     Counter,
     Gauge,
     Histogram,
-    Metric,
-    MetricConfig,
-    MetricsManager,
     Summary,
+    MetricType,
+    MetricValue,
+    MetricLabels,
 )
+from pepperpy.core.metrics.manager import MetricsManager
 
 __all__ = [
     "Counter",
     "Gauge",
     "Histogram",
-    "Metric",
-    "MetricConfig",
-    "MetricsManager",
     "Summary",
+    "MetricType",
+    "MetricValue",
+    "MetricLabels",
+    "MetricsManager",
 ]

@@ -1,5 +1,27 @@
-"""Metrics collection module."""
+"""Observability metrics module.
 
-from .collector import PrometheusMetricsCollector
+This module provides metrics functionality for observability purposes.
+It uses the core metrics system to track and record various observability metrics.
+"""
 
-__all__ = ["PrometheusMetricsCollector"]
+from pepperpy.core.metrics import (
+    Counter,
+    Gauge,
+    Histogram,
+    Summary,
+    MetricType,
+    MetricValue,
+    MetricLabels,
+)
+from pepperpy.observability.metrics.collector import ObservabilityMetricsCollector
+
+__all__ = [
+    "Counter",
+    "Gauge",
+    "Histogram",
+    "Summary",
+    "MetricType",
+    "MetricValue",
+    "MetricLabels",
+    "ObservabilityMetricsCollector",
+]

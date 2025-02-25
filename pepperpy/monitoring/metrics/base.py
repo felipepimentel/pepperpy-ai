@@ -1,175 +1,148 @@
-"""Base metrics module for the Pepperpy framework.
+"""Base metrics module.
 
-This module provides base classes for metrics functionality.
+This module provides base metrics functionality for monitoring.
 """
 
-from abc import abstractmethod
+from typing import Dict, List, Optional, Union
 
-from pepperpy.core.lifecycle import LifecycleComponent
-from pepperpy.core.models import BaseModel, Field
-from pepperpy.core.types.states import ComponentState
-from pepperpy.monitoring.logging import get_logger
-
-# Initialize logger
-logger = get_logger(__name__)
-
-
-class MetricConfig(BaseModel):
-    """Configuration for a metric."""
-
-    name: str = Field(description="Metric name")
-    description: str = Field(default="", description="Metric description")
-    labels: dict[str, str] = Field(default_factory=dict, description="Metric labels")
+from pepperpy.core.metrics.types import (
+    Counter,
+    Gauge,
+    Histogram,
+    Summary,
+    MetricType,
+    MetricValue,
+    MetricLabels,
+)
 
 
-class Metric(LifecycleComponent):
-    """Base class for metrics."""
+class MetricsManager:
+    """Manager for collecting and exposing metrics."""
 
-    def __init__(self, config: MetricConfig) -> None:
-        """Initialize the metric.
+    def __init__(self):
+        """Initialize the metrics manager."""
+        self._metrics: Dict[str, Union[Counter, Gauge, Histogram, Summary]] = {}
 
-        Args:
-            config: Metric configuration
-        """
-        super().__init__(config.name)
-        self.config = config
-        self._value: float = 0.0
-        self._state = ComponentState.UNREGISTERED
-
-    @property
-    def value(self) -> float:
-        """Get the current value."""
-        return self._value
-
-    async def _initialize(self) -> None:
-        """Initialize the metric.
-
-        This method should be called before using the metric.
-        It should set up any necessary resources and put the metric
-        in a ready state.
-        """
-        self._state = ComponentState.READY
-        logger.debug(f"Initialized metric {self.name} with config: {self.config}")
-
-    async def _cleanup(self) -> None:
-        """Clean up the metric.
-
-        This method should be called when the metric is no longer needed.
-        It should release any resources and put the metric in a cleaned state.
-        """
-        self._state = ComponentState.CLEANED
-        logger.debug(f"Cleaned up metric {self.name}")
-
-    @abstractmethod
-    def update(self, value: float) -> None:
-        """Update the metric value.
+    def counter(
+        self, name: str, description: str, labels: Optional[List[str]] = None
+    ) -> Counter:
+        """Create or get a counter metric.
 
         Args:
-            value: New value
-        """
-        pass
-
-
-class Counter(Metric):
-    """Counter metric type."""
-
-    def update(self, value: float) -> None:
-        """Update the counter value.
-
-        Args:
-            value: Value to add to the counter
-        """
-        self._value += value
-
-
-class Gauge(Metric):
-    """Gauge metric type."""
-
-    def update(self, value: float) -> None:
-        """Update the gauge value.
-
-        Args:
-            value: New gauge value
-        """
-        self._value = value
-
-
-class Histogram(Metric):
-    """Histogram metric type."""
-
-    def __init__(
-        self, config: MetricConfig, buckets: list[float] | None = None
-    ) -> None:
-        """Initialize the histogram.
-
-        Args:
-            config: Metric configuration
-            buckets: Optional bucket boundaries
-        """
-        super().__init__(config)
-        self.buckets = buckets or [0.1, 0.5, 1.0, 2.0, 5.0]
-        self._bucket_values = {b: 0 for b in self.buckets}
-
-    def update(self, value: float) -> None:
-        """Update the histogram.
-
-        Args:
-            value: Value to observe
-        """
-        self._value = value
-        for bucket in self.buckets:
-            if value <= bucket:
-                self._bucket_values[bucket] += 1
-
-    def get_bucket_values(self) -> dict[float, int]:
-        """Get bucket values.
+            name: Name of the metric
+            description: Description of the metric
+            labels: Optional list of label names
 
         Returns:
-            dict[float, int]: Bucket values
+            Counter metric instance
         """
-        return self._bucket_values.copy()
+        key = f"counter_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = Counter(name, description, labels)
+        metric = self._metrics[key]
+        if not isinstance(metric, Counter):
+            raise TypeError(f"Metric {name} is not a counter")
+        return metric
 
-
-class Summary(Metric):
-    """Summary metric type."""
-
-    def __init__(self, config: MetricConfig, max_age: float = 60.0) -> None:
-        """Initialize the summary.
+    def gauge(
+        self, name: str, description: str, labels: Optional[List[str]] = None
+    ) -> Gauge:
+        """Create or get a gauge metric.
 
         Args:
-            config: Metric configuration
-            max_age: Maximum age of values in seconds
-        """
-        super().__init__(config)
-        self.max_age = max_age
-        self._values: list[tuple[float, float]] = []  # (timestamp, value)
+            name: Name of the metric
+            description: Description of the metric
+            labels: Optional list of label names
 
-    def update(self, value: float) -> None:
-        """Update the summary.
+        Returns:
+            Gauge metric instance
+        """
+        key = f"gauge_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = Gauge(name, description, labels)
+        metric = self._metrics[key]
+        if not isinstance(metric, Gauge):
+            raise TypeError(f"Metric {name} is not a gauge")
+        return metric
+
+    def histogram(
+        self,
+        name: str,
+        description: str,
+        labels: Optional[List[str]] = None,
+        buckets: Optional[List[float]] = None,
+    ) -> Histogram:
+        """Create or get a histogram metric.
 
         Args:
-            value: Value to observe
+            name: Name of the metric
+            description: Description of the metric
+            labels: Optional list of label names
+            buckets: Optional bucket boundaries
+
+        Returns:
+            Histogram metric instance
         """
-        import time
+        key = f"histogram_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = Histogram(name, description, labels, buckets)
+        metric = self._metrics[key]
+        if not isinstance(metric, Histogram):
+            raise TypeError(f"Metric {name} is not a histogram")
+        return metric
 
-        now = time.time()
-        self._values.append((now, value))
-        self._cleanup()
-        self._value = sum(v for _, v in self._values) / len(self._values)
+    def summary(
+        self,
+        name: str,
+        description: str,
+        labels: Optional[List[str]] = None,
+        quantiles: Optional[List[float]] = None,
+    ) -> Summary:
+        """Create or get a summary metric.
 
-    def _cleanup(self) -> None:
-        """Clean up old values."""
-        import time
+        Args:
+            name: Name of the metric
+            description: Description of the metric
+            labels: Optional list of label names
+            quantiles: Optional quantiles to track
 
-        now = time.time()
-        self._values = [(t, v) for t, v in self._values if now - t <= self.max_age]
+        Returns:
+            Summary metric instance
+        """
+        key = f"summary_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = Summary(name, description, labels, quantiles)
+        metric = self._metrics[key]
+        if not isinstance(metric, Summary):
+            raise TypeError(f"Metric {name} is not a summary")
+        return metric
+
+    def get_metric(
+        self, name: str
+    ) -> Union[Counter, Gauge, Histogram, Summary]:
+        """Get a metric by name.
+
+        Args:
+            name: Name of the metric
+
+        Returns:
+            Metric instance
+
+        Raises:
+            KeyError: If metric not found
+        """
+        for key, metric in self._metrics.items():
+            if key.endswith(name):
+                return metric
+        raise KeyError(f"Metric {name} not found")
+
+    def get_all_metrics(self) -> Dict[str, Union[Counter, Gauge, Histogram, Summary]]:
+        """Get all registered metrics.
+
+        Returns:
+            Dictionary mapping metric names to instances
+        """
+        return self._metrics.copy()
 
 
-__all__ = [
-    "Counter",
-    "Gauge",
-    "Histogram",
-    "Metric",
-    "MetricConfig",
-    "Summary",
-]
+__all__ = ["MetricsManager"]

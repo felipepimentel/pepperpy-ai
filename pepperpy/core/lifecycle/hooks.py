@@ -4,13 +4,10 @@ This module provides standard hooks for lifecycle management.
 """
 
 import logging
+from typing import Any
 
-from pepperpy.core.lifecycle.types import (
-    LifecycleContext,
-    LifecycleEvent,
-    LifecycleHook,
-)
-from pepperpy.core.metrics import metrics_manager
+from pepperpy.core.metrics import Counter, Histogram
+from pepperpy.core.protocols.lifecycle import LifecycleHook
 
 logger = logging.getLogger(__name__)
 
@@ -18,55 +15,38 @@ logger = logging.getLogger(__name__)
 class LoggingHook(LifecycleHook):
     """Hook that logs lifecycle events."""
 
-    async def pre_event(self, context: LifecycleContext) -> None:
-        """Log before event.
+    def on_start(self, component_id: str, event: str, **kwargs: Any) -> None:
+        """Log start of lifecycle event.
 
         Args:
-            context: Event context
+            component_id: Component identifier
+            event: Event name
+            **kwargs: Additional event data
         """
-        logger.info(
-            "Starting lifecycle event",
-            extra={
-                "component_id": context.component_id,
-                "event": context.event.value,
-                "state": context.state.name,
-                "metadata": context.metadata,
-            },
-        )
+        logger.info(f"{component_id}: Starting {event}")
 
-    async def post_event(self, context: LifecycleContext) -> None:
-        """Log after event.
+    def on_complete(self, component_id: str, event: str, **kwargs: Any) -> None:
+        """Log completion of lifecycle event.
 
         Args:
-            context: Event context
+            component_id: Component identifier
+            event: Event name
+            **kwargs: Additional event data
         """
-        logger.info(
-            "Completed lifecycle event",
-            extra={
-                "component_id": context.component_id,
-                "event": context.event.value,
-                "state": context.state.name,
-                "metadata": context.metadata,
-            },
-        )
+        logger.info(f"{component_id}: Completed {event}")
 
-    async def on_error(self, context: LifecycleContext) -> None:
-        """Log error.
+    def on_error(
+        self, component_id: str, event: str, error: Exception, **kwargs: Any
+    ) -> None:
+        """Log error in lifecycle event.
 
         Args:
-            context: Error context
+            component_id: Component identifier
+            event: Event name
+            error: Error that occurred
+            **kwargs: Additional event data
         """
-        logger.error(
-            "Lifecycle event failed",
-            extra={
-                "component_id": context.component_id,
-                "event": context.event.value,
-                "state": context.state.name,
-                "error": str(context.error),
-                "metadata": context.metadata,
-            },
-            exc_info=context.error,
-        )
+        logger.error(f"{component_id}: Error in {event}: {error}")
 
 
 class MetricsHook(LifecycleHook):
@@ -74,69 +54,92 @@ class MetricsHook(LifecycleHook):
 
     def __init__(self) -> None:
         """Initialize metrics hook."""
-        self._counters = {}
-        self._histograms = {}
+        self._counters: dict[str, Counter] = {}
+        self._histograms: dict[str, Histogram] = {}
 
-    async def _ensure_metrics(self, component_id: str) -> None:
-        """Ensure metrics exist.
-
-        Args:
-            component_id: Component ID
-        """
-        if component_id not in self._counters:
-            self._counters[component_id] = {
-                event: await metrics_manager.create_counter(
-                    name=f"lifecycle_{event.value}_total",
-                    description=f"Total number of {event.value} events",
-                )
-                for event in LifecycleEvent
-            }
-
-        if component_id not in self._histograms:
-            self._histograms[component_id] = {
-                event: await metrics_manager.create_histogram(
-                    name=f"lifecycle_{event.value}_duration_seconds",
-                    description=f"Duration of {event.value} events in seconds",
-                    buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
-                )
-                for event in LifecycleEvent
-            }
-
-    async def pre_event(self, context: LifecycleContext) -> None:
-        """Record event start.
+    def _ensure_metrics(self, component_id: str, event: str) -> None:
+        """Ensure metrics exist for component and event.
 
         Args:
-            context: Event context
+            component_id: Component identifier
+            event: Event name
         """
-        await self._ensure_metrics(context.component_id)
-        context.metadata["start_time"] = context.timestamp.timestamp()
+        counter_key = f"{component_id}_{event}"
+        if counter_key not in self._counters:
+            self._counters[counter_key] = Counter(
+                name="lifecycle_events_total",
+                description="Total number of lifecycle events",
+                labels=["component_id", "event", "state"],
+            )
 
-    async def post_event(self, context: LifecycleContext) -> None:
-        """Record event completion.
+        histogram_key = f"{component_id}_{event}"
+        if histogram_key not in self._histograms:
+            self._histograms[histogram_key] = Histogram(
+                name="lifecycle_event_duration_seconds",
+                description="Duration of lifecycle events",
+                labels=["component_id", "event"],
+            )
+
+    def on_start(self, component_id: str, event: str, **kwargs: Any) -> None:
+        """Record start of lifecycle event.
 
         Args:
-            context: Event context
+            component_id: Component identifier
+            event: Event name
+            **kwargs: Additional event data
         """
-        await self._ensure_metrics(context.component_id)
-        counter = self._counters[context.component_id][context.event]
-        histogram = self._histograms[context.component_id][context.event]
-
-        counter.inc()
-
-        start_time = context.metadata.get("start_time")
-        if start_time is not None:
-            duration = context.timestamp.timestamp() - start_time
-            histogram.observe(duration)
-
-    async def on_error(self, context: LifecycleContext) -> None:
-        """Record event error.
-
-        Args:
-            context: Error context
-        """
-        await self._ensure_metrics(context.component_id)
-        error_counter = await metrics_manager.create_counter(
-            name=f"lifecycle_{context.event.value}_errors_total",
-            description=f"Total number of {context.event.value} errors",
+        self._ensure_metrics(component_id, event)
+        counter_key = f"{component_id}_{event}"
+        self._counters[counter_key].inc(
+            labels={"component_id": component_id, "event": event, "state": "start"}
         )
-        error_counter.inc()
+
+    def on_complete(
+        self,
+        component_id: str,
+        event: str,
+        duration: float | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Record completion of lifecycle event.
+
+        Args:
+            component_id: Component identifier
+            event: Event name
+            duration: Optional duration of event
+            **kwargs: Additional event data
+        """
+        self._ensure_metrics(component_id, event)
+        counter_key = f"{component_id}_{event}"
+        histogram_key = f"{component_id}_{event}"
+
+        self._counters[counter_key].inc(
+            labels={"component_id": component_id, "event": event, "state": "complete"}
+        )
+
+        if duration is not None:
+            self._histograms[histogram_key].observe(
+                duration, labels={"component_id": component_id, "event": event}
+            )
+
+    def on_error(
+        self, component_id: str, event: str, error: Exception, **kwargs: Any
+    ) -> None:
+        """Record error in lifecycle event.
+
+        Args:
+            component_id: Component identifier
+            event: Event name
+            error: Error that occurred
+            **kwargs: Additional event data
+        """
+        self._ensure_metrics(component_id, event)
+        counter_key = f"{component_id}_{event}"
+        self._counters[counter_key].inc(
+            labels={
+                "component_id": component_id,
+                "event": event,
+                "state": "error",
+                "error": str(error),
+            }
+        )

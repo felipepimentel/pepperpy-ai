@@ -71,3 +71,26 @@ class DependencyError(PepperError):
     """Raised when there is an error with dependencies."""
 
     pass
+
+
+class ComponentError(PepperError):
+    """Raised when there is an error with a component."""
+
+    pass
+
+
+__all__ = [
+    "AuthenticationError",
+    "AuthorizationError",
+    "CommunicationError",
+    "ComponentError",
+    "ConfigurationError",
+    "DependencyError",
+    "NotFoundError",
+    "PepperError",
+    "ResourceError",
+    "ServiceError",
+    "StateError",
+    "TimeoutError",
+    "ValidationError",
+]

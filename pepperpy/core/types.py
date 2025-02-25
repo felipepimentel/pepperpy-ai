@@ -1,131 +1,73 @@
-"""Core type definitions for the Pepperpy framework.
+"""Core type definitions.
 
 This module provides core type definitions used throughout the framework.
 """
 
-from __future__ import annotations
-
-from datetime import datetime
-from enum import Enum, auto
-from typing import Any
-from uuid import UUID, uuid4
-
-from pepperpy.core.models import BaseModel, ConfigDict, Field
+from enum import Enum
+from typing import NewType
 
 
-class MessageType(Enum):
-    """Types of messages that can be exchanged."""
-
-    SYSTEM = auto()
-    USER = auto()
-    ASSISTANT = auto()
-    FUNCTION = auto()
-    ERROR = auto()
-
-
-class MessageContent(BaseModel):
-    """Content of a message.
+class ComponentState(str, Enum):
+    """Component lifecycle states.
 
     Attributes:
-        text: Text content of the message
-        metadata: Additional metadata
+        CREATED: Component has been created but not initialized
+        INITIALIZING: Component is being initialized
+        READY: Component is ready for use
+        EXECUTING: Component is executing an operation
+        ERROR: Component is in error state
+        CLEANING: Component is cleaning up resources
+        CLEANED: Component has been cleaned up
     """
 
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True,
-        populate_by_name=True,
-        str_strip_whitespace=True,
-        validate_default=True,
-    )
-
-    text: str = Field(description="Text content of the message")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata",
-    )
-
-
-class Message(BaseModel):
-    """Message exchanged between components.
-
-    Attributes:
-        id: Message ID
-        type: MessageType
-        content: MessageContent
-        timestamp: Message timestamp
-    """
-
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True,
-        populate_by_name=True,
-        str_strip_whitespace=True,
-        validate_default=True,
-    )
-
-    id: UUID = Field(default_factory=uuid4, description="Message ID")
-    type: MessageType = Field(description="Message type")
-    content: MessageContent = Field(description="Message content")
-    timestamp: datetime = Field(
-        default_factory=datetime.utcnow,
-        description="Message timestamp",
-    )
-
-
-class Response(BaseModel):
-    """Response from a component.
-
-    Attributes:
-        message: Response message
-        metadata: Additional metadata
-    """
-
-    model_config = ConfigDict(
-        frozen=True,
-        arbitrary_types_allowed=True,
-        validate_assignment=True,
-        populate_by_name=True,
-        str_strip_whitespace=True,
-        validate_default=True,
-    )
-
-    message: Message = Field(description="Response message")
-    metadata: dict[str, Any] = Field(
-        default_factory=dict,
-        description="Additional metadata",
-    )
+    CREATED = "created"
+    INITIALIZING = "initializing"
+    READY = "ready"
+    EXECUTING = "executing"
+    ERROR = "error"
+    CLEANING = "cleaning"
+    CLEANED = "cleaned"
 
 
 class AgentState(str, Enum):
-    """Agent execution states."""
+    """Agent lifecycle states.
 
-    IDLE = "idle"
+    Attributes:
+        CREATED: Agent has been created
+        INITIALIZING: Agent is initializing
+        READY: Agent is ready
+        RUNNING: Agent is running
+        PAUSED: Agent is paused
+        ERROR: Agent is in error state
+        STOPPED: Agent has been stopped
+    """
+
+    CREATED = "created"
+    INITIALIZING = "initializing"
+    READY = "ready"
     RUNNING = "running"
     PAUSED = "paused"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    ERROR = "error"
+    STOPPED = "stopped"
 
 
-class ComponentState(Enum):
-    """Component lifecycle states."""
-
-    CREATED = auto()
-    INITIALIZING = auto()
-    READY = auto()
-    EXECUTING = auto()
-    CLEANING = auto()
-    CLEANED = auto()
-    ERROR = auto()
+# Type aliases for IDs
+AgentID = NewType("AgentID", str)
+ProviderID = NewType("ProviderID", str)
+ResourceID = NewType("ResourceID", str)
+CapabilityID = NewType("CapabilityID", str)
+WorkflowID = NewType("WorkflowID", str)
+ComponentID = NewType("ComponentID", str)
 
 
+# Export public API
 __all__ = [
+    "AgentID",
     "AgentState",
+    "CapabilityID",
+    "ComponentID",
     "ComponentState",
-    "Message",
-    "MessageContent",
-    "MessageType",
-    "Response",
+    "ProviderID",
+    "ResourceID",
+    "WorkflowID",
 ]

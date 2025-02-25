@@ -4,7 +4,7 @@ This module provides base model functionality with validation.
 """
 
 from datetime import datetime
-from typing import TypeVar
+from typing import Any, Dict, TypeVar
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import Field as PydanticField
@@ -28,5 +28,8 @@ Field = PydanticField
 # Type variable for models
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
+# Type alias for configuration dictionaries
+ConfigDict = Dict[str, Any]
 
-__all__ = ["BaseModel", "Field", "ModelT"]
+
+__all__ = ["BaseModel", "ConfigDict", "Field", "ModelT"]

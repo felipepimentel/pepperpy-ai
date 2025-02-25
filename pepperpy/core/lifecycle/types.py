@@ -150,3 +150,46 @@ class Lifecycle(Protocol):
             LifecycleError: If cleanup fails
         """
         ...
+
+
+# Define allowed state transitions
+ALLOWED_TRANSITIONS = {
+    LifecycleState.UNINITIALIZED: {
+        LifecycleState.INITIALIZING,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.INITIALIZING: {
+        LifecycleState.READY,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.READY: {
+        LifecycleState.RUNNING,
+        LifecycleState.STOPPING,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.RUNNING: {
+        LifecycleState.STOPPING,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.STOPPING: {
+        LifecycleState.STOPPED,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.STOPPED: {
+        LifecycleState.FINALIZING,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.FINALIZING: {
+        LifecycleState.FINALIZED,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.ERROR: {
+        LifecycleState.INITIALIZING,
+        LifecycleState.READY,
+        LifecycleState.RUNNING,
+        LifecycleState.STOPPING,
+        LifecycleState.STOPPED,
+        LifecycleState.FINALIZING,
+        LifecycleState.FINALIZED,
+    },
+}

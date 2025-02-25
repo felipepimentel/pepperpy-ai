@@ -53,6 +53,38 @@ structure:
         - research.py: Research agents for the Pepperpy framework
         - task_assistant.py: Task Assistant Agent implementation
         - workflow.py: Workflow agent module for the Pepperpy framework
+      caching:
+        description: Unified caching system for Pepperpy
+        modules:
+          invalidation:
+            description: Cache invalidation strategies
+            files:
+            - __init__.py: Cache invalidation strategies
+            - strategy.py: Strategy module
+          metrics:
+            description: Cache metrics collection and reporting
+            files:
+            - __init__.py: Cache metrics collection and reporting
+            - collector.py: Collector module
+          policies:
+            description: Cache policy implementations
+            files:
+            - __init__.py: Cache policy implementations
+            - base.py: Base module
+            - lru.py: LRU (Least Recently Used) cache policy implementation
+            - ttl.py: Ttl module
+          stores:
+            description: Cache store implementations
+            files:
+            - __init__.py: Cache store implementations
+            - base.py: Base cache store interface
+            - memory.py: In-memory cache store implementation
+            - redis.py: Redis cache store implementation
+        files:
+        - __init__.py: Unified caching system for Pepperpy
+        - base.py: Base module
+        - errors.py: Errors module
+        - types.py: Type definitions for the caching system
       capabilities:
         description: Capabilities module for the Pepperpy framework
         modules:
@@ -116,11 +148,32 @@ structure:
       core:
         description: Core module for Pepperpy
         modules:
-          config:
+          analysis:
+            description: ''
+            files:
+            - analyzers.py: Specific code analyzers implementation
+            - manager.py: Code analysis manager module
+            - types.py: Core types for the code analysis system
+          compat:
             description: Module initialization
             files:
             - __init__.py: Module initialization and exports
-            - base.py: Base module
+            - exceptions.py: Custom exceptions for the compatibility system
+            - manager.py: Manager module
+            - memory.py: Memory system migrations
+            - migrations.py: Base classes and types for data migrations
+            - models.py: Data models for the compatibility system
+          config:
+            description: Configuration system for the Pepperpy framework
+            modules:
+              providers:
+                description: ''
+                files:
+                - env.py: Environment variable configuration provider
+                - filesystem.py: Filesystem configuration provider
+            files:
+            - __init__.py: Configuration system for the Pepperpy framework
+            - base.py: Base configuration system
             - providers.py: Providers module
             - types.py: Types module
             - utils.py: Utils module
@@ -129,24 +182,74 @@ structure:
             files:
             - __init__.py: Core errors package
             - unified.py: Core error definitions for the Pepperpy framework
+          integration:
+            description: ''
+            files:
+            - example.py: Example service implementation demonstrating core integration
+                features
+            - protocols.py: Communication protocols for service-to-service interaction
+            - registry.py: Service registry for component discovery and management
           lifecycle:
             description: Core lifecycle management module
             files:
             - __init__.py: Core lifecycle management module
-            - base.py: Base lifecycle module
+            - base.py: Base lifecycle component implementation
             - errors.py: Lifecycle errors module
             - hooks.py: Lifecycle hooks module
-            - manager.py: Manager module
+            - manager.py: Lifecycle manager module
             - types.py: Core lifecycle types module
           metrics:
+            description: Core metrics module
+            files:
+            - __init__.py: Core metrics module
+            - base.py: Base module
+            - endpoint.py: Endpoint module
+            - exporter.py: Exporter module
+            - exporters.py: Exporters module
+            - manager.py: Metrics manager module
+            - middleware.py: Middleware module
+            - types.py: '@file: types.py'
+          observability:
+            description: Observability system for the Pepperpy framework
+            files:
+            - __init__.py: Observability system for the Pepperpy framework
+          pipeline:
+            description: ''
+            files:
+            - base.py: Base data pipeline components for stream and batch processing
+            - batch.py: Batch processing implementation for data pipelines
+            - stream.py: Stream processing implementation for data pipelines
+          plugins:
             description: Module initialization
             files:
             - __init__.py: Module initialization and exports
-            - base.py: Base module
+            - base.py: Base plugin functionality for the Pepperpy framework
             - manager.py: Manager module
-            - types.py: Core metrics types
+            - registry.py: Registry module
+          processors:
+            description: '@file: __init__.py @purpose: Content processors package
+              initialization @component: Core > Processors @created: 2024-03-21 @task:
+              TASK-007-R060 @status: active'
+            files:
+            - __init__.py: '@file: __init__.py'
+            - base.py: '@file: base.py'
+            - code.py: '@file: code.py'
+            - text.py: '@file: text.py'
+          protocols:
+            description: Core protocols
+            files:
+            - __init__.py: Core protocols
+            - lifecycle.py: Lifecycle protocol
           security:
             description: ''
+          utils:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - core.py: Core module
+            - environment.py: Environment module
+            - time.py: Time module
+            - validation.py: Validation module
         files:
         - __init__.py: Core module for Pepperpy
         - agents.py: Core agent functionality for PepperPy
@@ -155,6 +258,7 @@ structure:
         - client.py: Core client implementation for the Pepperpy framework
         - context.py: Core context module
         - enums.py: Core enums for the Pepperpy project
+        - errors.py: Core exception classes for the pepperpy framework
         - events.py: Core events module
         - extensions.py: Core extension system for the Pepperpy framework
         - factory.py: Factory module for creating and managing Pepperpy components
@@ -163,6 +267,7 @@ structure:
         - import_utils.py: Utility functions for handling imports
         - imports.py: Core imports for the Pepperpy framework
         - layers.py: Core layer management module
+        - lifecycle.py: Lifecycle management for system components
         - logging.py: '@file: logging.py'
         - messages.py: Message and response types for the Pepperpy framework
         - metrics.py: Core metrics module
@@ -173,9 +278,42 @@ structure:
         - provider.py: Provider interface
         - registry.py: Registry system for managing Pepperpy components
         - resources.py: Resource and asset management module
-        - types.py: Core type definitions for the Pepperpy framework
+        - service.py: Base service implementation
+        - types.py: Core type definitions
         - utils.py: '@file: utils.py'
         - workflows.py: Core workflows module
+      errors:
+        description: Pepperpy Error Handling System
+        modules:
+          handling:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base classes for error handling in Pepperpy
+            - handlers.py: Handlers module
+          hierarchy:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base module
+            - tree.py: Tree module
+          recovery:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base classes for error recovery strategies
+            - strategies.py: Strategies module
+          reporting:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base classes for error reporting
+            - formatters.py: Error report formatters for Pepperpy
+        files:
+        - __init__.py: Pepperpy Error Handling System
+        - base.py: Base error classes for the Pepperpy error handling system
+        - codes.py: Error code definitions for the Pepperpy error handling system
+        - types.py: Types module
       events:
         description: Events package for the Pepperpy framework
         modules:
@@ -214,6 +352,8 @@ structure:
         files:
         - __init__.py: Events package for the Pepperpy framework
         - base.py: Base event module for the Pepperpy framework
+        - constants.py: Standard event types for the Pepperpy framework
+        - core.py: Core event system for the Pepperpy framework
         - dispatcher.py: Event dispatcher for asynchronous event handling
         - factories.py: Event and message factories module
         - middleware.py: Event middleware implementations
@@ -333,26 +473,26 @@ structure:
                 files:
                 - __init__.py: Logging formatters for the Pepperpy framework
                 - json.py: JSON formatter for structured logging
-                - text.py: Text module
+                - text.py: '@file: text.py'
               handlers:
                 description: Logging handlers package
                 files:
                 - __init__.py: Logging handlers package
-                - file.py: File handler for logging
-                - stream.py: Stream module
+                - file.py: '@file: file.py'
+                - stream.py: '@file: stream.py'
             files:
             - __init__.py: Logging package for the Pepperpy framework
             - base.py: Base logging module for the Pepperpy framework
           metrics:
-            description: Metrics system for the Pepperpy framework
+            description: Metrics system for monitoring
             files:
-            - __init__.py: Metrics system for the Pepperpy framework
-            - base.py: Base metrics module for the Pepperpy framework
+            - __init__.py: Metrics system for monitoring
+            - base.py: Base metrics module
             - collectors.py: Metric collectors for the Pepperpy framework
             - exporters.py: Metric exporters for the Pepperpy framework
             - manager.py: Manager module
             - simple.py: Simple metrics collector implementation
-            - types.py: Metric-specific types and enums
+            - types.py: Metric types
           tracing:
             description: Distributed tracing module for Pepperpy
             files:
@@ -361,11 +501,124 @@ structure:
             - providers.py: Trace providers for distributed tracing
         files:
         - __init__.py: Monitoring package for the Pepperpy framework
+        - alerts.py: Alerts module
         - base.py: Base monitoring functionality
         - logging.py: Logging configuration for the Pepperpy framework
-      processing:
-        description: Processing system for the Pepperpy framework
+        - metrics.py: Metrics module
+        - types.py: Types module
+      observability:
+        description: Unified observability system for PepperPy
         modules:
+          correlation:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+          examples:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - basic_usage.py: Basic example of using the unified observability system
+          health:
+            description: Health check module
+            files:
+            - __init__.py: Health check module
+            - checker.py: Health check implementation
+          logging:
+            description: Logging module
+            files:
+            - __init__.py: Logging module
+            - handler.py: Logging handler implementation
+          metrics:
+            description: Observability metrics module
+            files:
+            - __init__.py: Observability metrics module
+            - collector.py: Metrics collection implementation
+          tests:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - conftest.py: Conftest module
+          tracing:
+            description: Tracing module
+            files:
+            - __init__.py: Tracing module
+            - tracer.py: Tracer module
+        files:
+        - __init__.py: Unified observability system for PepperPy
+        - base.py: Base functionality for the unified observability system
+        - errors.py: Exception classes for the observability system
+        - provider.py: Provider module
+        - types.py: Common types used across the observability system
+      plugins:
+        description: Module initialization
+        modules:
+          discovery:
+            description: ''
+            files:
+            - scanner.py: Scanner module
+          examples:
+            description: ''
+            files:
+            - hello_world.py: Hello World module
+          hooks:
+            description: ''
+            files:
+            - base.py: Base module
+            - lifecycle.py: Lifecycle module
+          registry:
+            description: ''
+            files:
+            - base.py: Base module
+            - manager.py: Manager module
+          versioning:
+            description: ''
+            files:
+            - base.py: Base module
+            - manager.py: Manager module
+        files:
+        - __init__.py: Module initialization and exports
+        - base.py: Base module
+        - manager.py: Manager module
+        - monitoring.py: Monitoring module
+      processing:
+        description: Processing module for handling different types of content
+        modules:
+          cache:
+            description: ''
+            files:
+            - base.py: Base module
+            - factory.py: Factory module
+            - memory.py: Memory module
+            - redis.py: Redis module
+          config:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base module
+            - loader.py: Loader module
+            - manager.py: Manager module
+            - validators.py: Validators module
+          core:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - code.py: Code module
+            - data.py: Data module
+            - text.py: Text module
+          monitoring:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - events.py: Events module
+            - metrics.py: Metrics module
+            - performance.py: Performance module
+          plugins:
+            description: ''
+            files:
+            - json.py: Json module
+            - markdown.py: Markdown module
+            - xml.py: Xml module
+            - yaml.py: Yaml module
           processors:
             description: Base processor implementations
             files:
@@ -374,13 +627,32 @@ structure:
             description: Base transformer implementations
             files:
             - __init__.py: Base transformer implementations
+            - base.py: Base module
+            - code.py: Code module
+            - csv.py: Csv module
+            - html.py: Html module
+            - sql.py: Sql module
+            - text.py: Text module
+          validation:
+            description: ''
+            files:
+            - base.py: Base module
+            - content.py: Content module
+            - data.py: Data module
+            - factory.py: Factory module
+            - format.py: Format module
+            - schema.py: Schema module
           validators:
             description: Validators module for the processing system
             files:
             - __init__.py: Validators module for the processing system
         files:
-        - __init__.py: Processing system for the Pepperpy framework
+        - __init__.py: Processing module for handling different types of content
+        - base.py: Base classes for the processing system
+        - factory.py: Factory module
         - pipeline.py: Processing pipeline implementation
+        - registry.py: Registry module
+        - utils.py: Utils module
       protocols:
         description: Protocol system for the Pepperpy framework
         files:
@@ -445,8 +717,10 @@ structure:
         - cleanup.py: Resource cleanup module
         - lifecycle.py: Resource lifecycle module
         - manager.py: Resource manager implementation
+        - metrics.py: Advanced resource metrics system
         - monitoring.py: Resource monitoring module
         - pool.py: Resource pool module
+        - recovery.py: Recovery module
         - storage.py: Resource storage system
         - types.py: Resource type definitions
       security:
@@ -457,10 +731,13 @@ structure:
         - decorators.py: Security decorators
         - encryption.py: Encryption utilities for secure data storage
         - enums.py: Enums module
-        - errors.py: Security error definitions
+        - errors.py: Security error classes
         - headers.py: Security headers implementation
         - hub.py: Hub security module
+        - key_management.py: Key management system with rotation policy
         - manager.py: Security manager for the Pepperpy framework
+        - mfa.py: Multi-factor authentication implementation
+        - protection.py: Data protection system
         - provider.py: Security provider interface
         - rate_limiter.py: Rate limiting functionality
         - sandbox.py: Sandbox module for secure code execution
@@ -468,6 +745,33 @@ structure:
         - types.py: Security type definitions
         - utils.py: Security utilities
         - validation.py: Security validation utilities
+      state:
+        description: Module initialization
+        modules:
+          machine:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base state machine implementation
+            - transitions.py: Transitions module
+          monitoring:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base monitoring system for state transitions
+            - metrics.py: Metrics module
+          validation:
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
+            - base.py: Base module
+            - validators.py: Validators module
+        files:
+        - __init__.py: Module initialization and exports
+        - api.py: Api module
+        - base.py: Base module
+        - errors.py: Custom exceptions for the state management system
+        - types.py: Core types for the state management system
       synthesis:
         description: ''
         modules:
@@ -482,12 +786,48 @@ structure:
             - openai.py: OpenAI provider for speech synthesis capability
         files:
         - base.py: Base interfaces for synthesis capability
+      utils:
+        description: ''
+        files:
+        - imports.py: Import utilities
       validation:
         description: Validation package
         files:
         - __init__.py: Validation package
         - base.py: Base validation module
         - manager.py: Schema manager module
+      version:
+        description: Version management system
+        modules:
+          compatibility:
+            description: Version compatibility checking support
+            files:
+            - __init__.py: ''
+            - checker.py: ''
+            - matrix.py: ''
+          migration:
+            description: Version migration management support
+            files:
+            - __init__.py: ''
+            - manager.py: ''
+            - steps.py: ''
+          semver:
+            description: Semantic versioning support
+            files:
+            - __init__.py: ''
+            - parser.py: ''
+            - validator.py: ''
+          tracking:
+            description: Version tracking support
+            files:
+            - __init__.py: ''
+            - dependencies.py: ''
+            - history.py: ''
+        files:
+        - __init__.py: ''
+        - base.py: ''
+        - errors.py: ''
+        - types.py: ''
       workflows:
         description: Core workflow management module
         files:
@@ -504,3 +844,4 @@ structure:
         - types.py: Core workflow types and data structures
     files:
     - __init__.py: Pepperpy framework
+    - observability.py: Observability module

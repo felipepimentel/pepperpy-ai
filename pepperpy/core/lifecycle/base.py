@@ -14,6 +14,7 @@ from pepperpy.core.lifecycle.errors import (
     InitializationError,
     RetryError,
     StartError,
+    StateError,
     StopError,
 )
 from pepperpy.core.lifecycle.types import (
@@ -110,22 +111,37 @@ class LifecycleComponent(ABC):
         """Transition to a new state.
 
         Args:
-            target: Target state
-            event: Event causing the transition
+            target: Target state to transition to
+            event: Event triggering the transition
 
         Raises:
-            StateError: If the transition is invalid
+            StateError: If transition is invalid
         """
-        transition = LifecycleTransition(
-            from_state=self.state,
-            to_state=target,
-            event=event,
-            timestamp=datetime.utcnow(),
-        )
-        await self._execute_hooks(event)
-        self.state = target
+        # Validate transition
+        if target not in ALLOWED_TRANSITIONS.get(self.state, set()):
+            raise StateError(
+                f"Invalid transition from {self.state} to {target} during {event} event"
+            )
+
+        # Log transition
         self.context.state = target
-        self.metrics.transitions.append(transition)
+        self.context.event = event
+        self.context.timestamp = datetime.utcnow()
+
+        # Execute hooks
+        await self._execute_hooks(event)
+
+        # Update state and record transition
+        self.state = target
+        self.metrics.transitions.append(
+            LifecycleTransition(
+                from_state=self.state,
+                to_state=target,
+                event=event,
+                timestamp=self.context.timestamp,
+                metadata=self.context.metadata,
+            )
+        )
 
     @abstractmethod
     async def initialize(self) -> None:

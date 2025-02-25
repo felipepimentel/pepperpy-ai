@@ -1,191 +1,318 @@
-"""Metrics collection and monitoring system."""
+"""Core metrics module.
 
-import logging
-import threading
-from collections import defaultdict
+This module provides metrics and monitoring functionality.
+"""
+
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
+from enum import Enum
+from typing import TypeVar, Union, cast
+
+# Type aliases
+MetricValue = Union[int, float, str]
+MetricLabels = dict[str, str]
+
+# Generic type for metrics
+T = TypeVar("T", bound="MetricBase")
+
+
+class MetricType(str, Enum):
+    """Metric types."""
+
+    COUNTER = "counter"
+    GAUGE = "gauge"
+    HISTOGRAM = "histogram"
+    SUMMARY = "summary"
 
 
 @dataclass
-class Metric:
-    """Base class for metric types."""
+class MetricBase:
+    """Base class for metrics."""
 
     name: str
-    labels: dict[str, str]
-    timestamp: datetime
+    description: str
+    type: MetricType
+    labels: MetricLabels
+
+    def __post_init__(self):
+        if self.labels is None:
+            self.labels = {}
 
 
 @dataclass
-class Counter(Metric):
-    """Counter metric type for counting events."""
+class MetricCounter(MetricBase):
+    """Counter metric."""
 
-    value: int = 0
+    value: int
 
-    def inc(self, amount: int = 1) -> None:
-        """Increment the counter.
-
-        Args:
-            amount: Amount to increment by (default: 1)
-        """
-        self.value += amount
+    def __post_init__(self):
+        super().__post_init__()
+        self.type = MetricType.COUNTER
 
 
 @dataclass
-class Gauge(Metric):
-    """Gauge metric type for variable measurements."""
+class MetricGauge(MetricBase):
+    """Gauge metric."""
 
-    value: float = 0.0
+    value: float
 
-    def set(self, value: float) -> None:
-        """Set the gauge value.
-
-        Args:
-            value: New value to set
-        """
-        self.value = value
-
-    def inc(self, amount: float = 1.0) -> None:
-        """Increment the gauge.
-
-        Args:
-            amount: Amount to increment by (default: 1.0)
-        """
-        self.value += amount
-
-    def dec(self, amount: float = 1.0) -> None:
-        """Decrement the gauge.
-
-        Args:
-            amount: Amount to decrement by (default: 1.0)
-        """
-        self.value -= amount
+    def __post_init__(self):
+        super().__post_init__()
+        self.type = MetricType.GAUGE
 
 
 @dataclass
-class Histogram(Metric):
-    """Histogram metric type for measuring distributions."""
+class MetricHistogram(MetricBase):
+    """Histogram metric."""
 
     buckets: list[float]
     values: list[float]
-    sum: float = 0.0
-    count: int = 0
 
-    def observe(self, value: float) -> None:
-        """Record an observation.
-
-        Args:
-            value: Value to record
-        """
-        self.values.append(value)
-        self.sum += value
-        self.count += 1
+    def __post_init__(self):
+        super().__post_init__()
+        self.type = MetricType.HISTOGRAM
+        if self.values is None:
+            self.values = []
 
 
-class MetricsCollector:
-    """Collector for system metrics.
+@dataclass
+class MetricSummary(MetricBase):
+    """Summary metric."""
 
-    This class provides a centralized way to collect and manage various
-    types of metrics throughout the system.
-    """
+    quantiles: list[float]
+    values: list[float]
 
-    def __init__(self) -> None:
-        """Initialize the metrics collector."""
-        self._metrics: dict[str, dict[str, Metric]] = defaultdict(dict)
-        self._lock = threading.Lock()
-        self._logger = logging.getLogger(__name__)
+    def __post_init__(self):
+        super().__post_init__()
+        self.type = MetricType.SUMMARY
+        if self.values is None:
+            self.values = []
 
-    def counter(self, name: str, labels: dict[str, str] | None = None) -> Counter:
-        """Get or create a counter metric.
 
-        Args:
-            name: Metric name
-            labels: Optional metric labels
+class MetricsManager:
+    """Manages metrics collection and reporting."""
 
-        Returns:
-            Counter metric instance
-        """
-        return self._get_or_create_metric(Counter, name, labels or {})
+    def __init__(self):
+        """Initialize metrics manager."""
+        self._metrics: dict[str, MetricBase] = {}
 
-    def gauge(self, name: str, labels: dict[str, str] | None = None) -> Gauge:
-        """Get or create a gauge metric.
+    def counter(
+        self,
+        name: str,
+        description: str,
+        labels: MetricLabels | None = None,
+    ) -> MetricCounter:
+        """Create or get a counter metric.
 
         Args:
             name: Metric name
+            description: Metric description
             labels: Optional metric labels
 
         Returns:
-            Gauge metric instance
+            Counter metric
         """
-        return self._get_or_create_metric(Gauge, name, labels or {})
+        key = f"counter_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = MetricCounter(
+                name, description, MetricType.COUNTER, labels or {}, 0
+            )
+        return cast(MetricCounter, self._metrics[key])
+
+    def gauge(
+        self,
+        name: str,
+        description: str,
+        labels: MetricLabels | None = None,
+    ) -> MetricGauge:
+        """Create or get a gauge metric.
+
+        Args:
+            name: Metric name
+            description: Metric description
+            labels: Optional metric labels
+
+        Returns:
+            Gauge metric
+        """
+        key = f"gauge_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = MetricGauge(
+                name, description, MetricType.GAUGE, labels or {}, 0.0
+            )
+        return cast(MetricGauge, self._metrics[key])
 
     def histogram(
-        self, name: str, buckets: list[float], labels: dict[str, str] | None = None
-    ) -> Histogram:
-        """Get or create a histogram metric.
+        self,
+        name: str,
+        description: str,
+        buckets: list[float],
+        labels: MetricLabels | None = None,
+    ) -> MetricHistogram:
+        """Create or get a histogram metric.
 
         Args:
             name: Metric name
+            description: Metric description
             buckets: Histogram buckets
             labels: Optional metric labels
 
         Returns:
-            Histogram metric instance
+            Histogram metric
         """
-        return self._get_or_create_metric(
-            Histogram, name, labels or {}, buckets=buckets, values=[]
-        )
+        key = f"histogram_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = MetricHistogram(
+                name,
+                description,
+                MetricType.HISTOGRAM,
+                labels or {},
+                buckets,
+                [],
+            )
+        return cast(MetricHistogram, self._metrics[key])
 
-    def _get_or_create_metric(
-        self, metric_type: type, name: str, labels: dict[str, str], **kwargs: Any
-    ) -> Counter | Gauge | Histogram:
-        """Get an existing metric or create a new one.
+    def summary(
+        self,
+        name: str,
+        description: str,
+        quantiles: list[float],
+        labels: MetricLabels | None = None,
+    ) -> MetricSummary:
+        """Create or get a summary metric.
 
         Args:
-            metric_type: Type of metric to create
             name: Metric name
-            labels: Metric labels
-            **kwargs: Additional arguments for metric creation
+            description: Metric description
+            quantiles: Summary quantiles
+            labels: Optional metric labels
+
+        Returns:
+            Summary metric
+        """
+        key = f"summary_{name}"
+        if key not in self._metrics:
+            self._metrics[key] = MetricSummary(
+                name,
+                description,
+                MetricType.SUMMARY,
+                labels or {},
+                quantiles,
+                [],
+            )
+        return cast(MetricSummary, self._metrics[key])
+
+    def get_metric(self, name: str) -> MetricBase:
+        """Get a metric by name.
+
+        Args:
+            name: Metric name
 
         Returns:
             Metric instance
+
+        Raises:
+            KeyError: If metric not found
         """
-        key = self._get_metric_key(name, labels)
+        for key, metric in self._metrics.items():
+            if key.endswith(name):
+                return metric
+        raise KeyError(f"Metric {name} not found")
 
-        with self._lock:
-            if key not in self._metrics[name]:
-                self._metrics[name][key] = metric_type(
-                    name=name, labels=labels, timestamp=datetime.now(), **kwargs
-                )
-
-            return self._metrics[name][key]
-
-    def _get_metric_key(self, name: str, labels: dict[str, str]) -> str:
-        """Generate a unique key for a metric.
+    def get_counter(self, name: str) -> MetricCounter:
+        """Get a counter metric by name.
 
         Args:
             name: Metric name
-            labels: Metric labels
 
         Returns:
-            Unique metric key
-        """
-        sorted_labels = sorted(labels.items())
-        labels_str = ",".join(f"{k}={v}" for k, v in sorted_labels)
-        return f"{name}:{labels_str}"
+            Counter metric
 
-    def get_metrics(self) -> dict[str, dict[str, Metric]]:
-        """Get all collected metrics.
+        Raises:
+            KeyError: If metric not found
+            TypeError: If metric is not a counter
+        """
+        metric = self.get_metric(name)
+        if not isinstance(metric, MetricCounter):
+            raise TypeError(f"Metric {name} is not a counter")
+        return metric
+
+    def get_gauge(self, name: str) -> MetricGauge:
+        """Get a gauge metric by name.
+
+        Args:
+            name: Metric name
 
         Returns:
-            Dictionary of all metrics
-        """
-        with self._lock:
-            return dict(self._metrics)
+            Gauge metric
 
-    def clear(self) -> None:
-        """Clear all collected metrics."""
-        with self._lock:
-            self._metrics.clear()
-            self._logger.info("Cleared all metrics")
+        Raises:
+            KeyError: If metric not found
+            TypeError: If metric is not a gauge
+        """
+        metric = self.get_metric(name)
+        if not isinstance(metric, MetricGauge):
+            raise TypeError(f"Metric {name} is not a gauge")
+        return metric
+
+    def get_histogram(self, name: str) -> MetricHistogram:
+        """Get a histogram metric by name.
+
+        Args:
+            name: Metric name
+
+        Returns:
+            Histogram metric
+
+        Raises:
+            KeyError: If metric not found
+            TypeError: If metric is not a histogram
+        """
+        metric = self.get_metric(name)
+        if not isinstance(metric, MetricHistogram):
+            raise TypeError(f"Metric {name} is not a histogram")
+        return metric
+
+    def get_summary(self, name: str) -> MetricSummary:
+        """Get a summary metric by name.
+
+        Args:
+            name: Metric name
+
+        Returns:
+            Summary metric
+
+        Raises:
+            KeyError: If metric not found
+            TypeError: If metric is not a summary
+        """
+        metric = self.get_metric(name)
+        if not isinstance(metric, MetricSummary):
+            raise TypeError(f"Metric {name} is not a summary")
+        return metric
+
+    def get_all_metrics(self) -> dict[str, MetricBase]:
+        """Get all metrics.
+
+        Returns:
+            Dictionary mapping metric names to metrics
+        """
+        return self._metrics.copy()
+
+
+# Global metrics manager instance
+metrics_manager = MetricsManager()
+
+
+# Export public API
+__all__ = [
+    "MetricBase",
+    "MetricCounter",
+    "MetricGauge",
+    "MetricHistogram",
+    "MetricLabels",
+    "MetricSummary",
+    "MetricType",
+    "MetricValue",
+    "MetricsManager",
+    "metrics_manager",
+]

@@ -1,15 +1,12 @@
 """Tests for the compatibility system."""
 
 import pytest
-from datetime import datetime
 
 from pepperpy.core.compat import (
-    VersionInfo,
-    Migration,
-    MigrationManager,
-    MigrationError,
-    NoMigrationPathError,
     InvalidVersionError,
+    MigrationManager,
+    NoMigrationPathError,
+    VersionInfo,
 )
 from pepperpy.core.compat.memory import (
     MemoryEntryMigration_1_0_0_to_2_0_0,
@@ -54,7 +51,7 @@ class TestVersionInfo:
         v1 = VersionInfo.from_string("1.0.0")
         v2 = VersionInfo.from_string("2.0.0")
         v3 = VersionInfo.from_string("2.1.0")
-        
+
         assert v1 < v2
         assert v2 < v3
         assert not v2 < v1
@@ -119,7 +116,10 @@ class TestMigrationManager:
         assert migrated["value"] == original_data["value"]
         assert migrated["metadata"]["type"] == original_data["metadata"]["type"]
         assert migrated["metadata"]["scope"] == original_data["metadata"]["scope"]
-        assert migrated["metadata"]["created_at"] == original_data["metadata"]["created_at"]
+        assert (
+            migrated["metadata"]["created_at"]
+            == original_data["metadata"]["created_at"]
+        )
         assert migrated["metadata"]["version"] == "3.0.0"
         assert "updated_at" in migrated["metadata"]
         assert "tags" in migrated["metadata"]
@@ -184,9 +184,8 @@ class TestMigrationManager:
             "3.0.0",
             "1.0.0",
         )
-
         assert migrated["key"] == original_data["key"]
         assert migrated["value"] == original_data["value"]
         assert migrated["type"] == original_data["metadata"]["type"]
         assert migrated["scope"] == original_data["metadata"]["scope"]
-        assert migrated["timestamp"] == original_data["metadata"]["created_at"] 
+        assert migrated["timestamp"] == original_data["metadata"]["created_at"]

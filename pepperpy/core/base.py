@@ -12,9 +12,11 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, Union
 from uuid import UUID, uuid4
 
+from pepperpy.core.errors import ComponentError, StateError
+from pepperpy.core.metrics import MetricsManager
 from pepperpy.core.metrics.types import (
     MetricCounter,
     MetricHistogram,
@@ -33,13 +35,6 @@ from pepperpy.core.types import (
     WorkflowID,
 )
 from pepperpy.utils.imports import lazy_import
-
-if TYPE_CHECKING:
-    from pepperpy.core.errors import ComponentError, StateError
-else:
-    errors = lazy_import("pepperpy.core.errors")
-    ComponentError = errors.ComponentError if errors else None
-    StateError = errors.StateError if errors else None
 
 # Import prometheus_client safely
 prometheus_client = lazy_import("prometheus_client")
@@ -249,123 +244,115 @@ class BaseComponent(Lifecycle, MetricsComponent):
         """Set the state of the component.
 
         Args:
-            value: New state
+            value: New state value
 
         Raises:
             StateError: If the state transition is invalid
         """
         if not self._is_valid_transition(value):
-            raise StateError(f"Invalid state transition from {self._state} to {value}")
+            raise StateError(f"Invalid state transition from {self.state} to {value}")
         self._state = value
 
     def _is_valid_transition(self, new_state: ComponentState) -> bool:
         """Check if a state transition is valid.
 
         Args:
-            new_state: State to transition to
+            new_state: Target state
 
         Returns:
-            True if the transition is valid, False otherwise
+            bool: True if transition is valid
         """
-        if self._state == ComponentState.CREATED:
-            return new_state == ComponentState.INITIALIZING
-        elif self._state == ComponentState.INITIALIZING:
-            return new_state in (ComponentState.READY, ComponentState.ERROR)
-        elif self._state == ComponentState.READY:
-            return new_state in (
-                ComponentState.CLEANING,
+        # Define valid transitions
+        valid_transitions = {
+            ComponentState.CREATED: {ComponentState.INITIALIZING},
+            ComponentState.INITIALIZING: {ComponentState.READY, ComponentState.ERROR},
+            ComponentState.READY: {ComponentState.EXECUTING, ComponentState.CLEANING},
+            ComponentState.EXECUTING: {
+                ComponentState.READY,
                 ComponentState.ERROR,
-                ComponentState.EXECUTING,
-            )
-        elif self._state == ComponentState.ERROR:
-            return new_state == ComponentState.CLEANING
-        elif self._state == ComponentState.CLEANING:
-            return new_state in (ComponentState.CLEANED, ComponentState.ERROR)
-        elif self._state == ComponentState.EXECUTING:
-            return new_state in (ComponentState.READY, ComponentState.ERROR)
-        return False
+                ComponentState.CLEANING,
+            },
+            ComponentState.ERROR: {ComponentState.CLEANING},
+            ComponentState.CLEANING: {ComponentState.CLEANED},
+        }
+
+        return new_state in valid_transitions.get(self.state, set())
 
     async def initialize(self) -> None:
         """Initialize the component.
 
-        This method should be overridden by subclasses to perform any necessary
-        initialization. The base implementation handles state transitions and
-        metrics.
+        This method handles the initialization lifecycle, including:
+        1. State transition to INITIALIZING
+        2. Setting up metrics
+        3. Running component-specific initialization
+        4. Transitioning to READY state
 
         Raises:
             ComponentError: If initialization fails
-            StateError: If the component is in an invalid state
         """
-        if self.state != ComponentState.CREATED:
-            raise StateError("Component must be in CREATED state to initialize")
-
-        self.state = ComponentState.INITIALIZING
         try:
+            self.state = ComponentState.INITIALIZING
             await self._setup_metrics()
             await self._initialize()
             self.state = ComponentState.READY
         except Exception as e:
             self.state = ComponentState.ERROR
-            self._increment_counter(self._execution_counter)
-            raise ComponentError(f"Failed to initialize {self.name}") from e
+            raise ComponentError(f"Failed to initialize {self.name}: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up the component.
 
-        This method should be overridden by subclasses to perform any necessary
-        cleanup. The base implementation handles state transitions and metrics.
+        This method handles the cleanup lifecycle, including:
+        1. State transition to CLEANING
+        2. Running component-specific cleanup
+        3. Transitioning to CLEANED state
 
         Raises:
             ComponentError: If cleanup fails
-            StateError: If the component is in an invalid state
         """
-        if self.state not in (ComponentState.READY, ComponentState.ERROR):
-            raise StateError("Component must be in READY or ERROR state to cleanup")
-
-        self.state = ComponentState.CLEANING
         try:
+            self.state = ComponentState.CLEANING
             await self._cleanup()
             self.state = ComponentState.CLEANED
         except Exception as e:
             self.state = ComponentState.ERROR
-            self._increment_counter(self._execution_counter)
-            raise ComponentError(f"Failed to cleanup {self.name}") from e
+            raise ComponentError(f"Failed to clean up {self.name}: {e}") from e
 
     @abstractmethod
     async def _initialize(self) -> None:
-        """Initialize the component.
+        """Component-specific initialization.
 
-        This method must be implemented by subclasses to perform any necessary
-        initialization.
+        This method should be implemented by subclasses to perform
+        any necessary initialization.
         """
         ...
 
     @abstractmethod
     async def _cleanup(self) -> None:
-        """Clean up the component.
+        """Component-specific cleanup.
 
-        This method must be implemented by subclasses to perform any necessary
-        cleanup.
+        This method should be implemented by subclasses to perform
+        any necessary cleanup.
         """
         ...
 
 
 class BaseProvider(BaseComponent):
-    """Base class for all providers."""
+    """Base class for service providers."""
 
     @abstractmethod
     async def connect(self) -> None:
-        """Establish connection to the provider."""
+        """Connect to the service."""
         ...
 
     @abstractmethod
     async def disconnect(self) -> None:
-        """Disconnect from the provider."""
+        """Disconnect from the service."""
         ...
 
 
 class BaseAgent(BaseComponent):
-    """Base class for all agents."""
+    """Base class for agents."""
 
     def __init__(
         self,
@@ -373,57 +360,70 @@ class BaseAgent(BaseComponent):
         metadata: Metadata | None = None,
         callback: AgentCallback | None = None,
     ) -> None:
-        """Initialize agent.
+        """Initialize the agent.
 
         Args:
-            id: Agent ID
-            metadata: Optional metadata
-            callback: Optional callback
+            id: Agent UUID
+            metadata: Optional agent metadata
+            callback: Optional execution callback
         """
-        super().__init__(name=str(id))  # Convert UUID to string
+        super().__init__(name=str(id), id=id)
+        self._metadata = metadata or Metadata()
         self._callback = callback
         self._context = AgentContext(
-            agent_id=id,  # UUID is already AgentID
-            state=AgentState.IDLE,
+            agent_id=AgentID(str(id)),
+            state=AgentState.CREATED,
             start_time=datetime.utcnow(),
         )
 
     @property
     def context(self) -> AgentContext:
-        """Get the agent's execution context."""
+        """Get the agent context."""
         return self._context
 
     @abstractmethod
     async def execute(self, **kwargs: Any) -> Any:
-        """Execute the agent's main functionality."""
+        """Execute the agent's task.
+
+        Args:
+            **kwargs: Task parameters
+        """
         ...
 
 
 class BaseResource(BaseComponent):
-    """Base class for all resources."""
+    """Base class for resources."""
 
     @abstractmethod
     async def load(self) -> Any:
-        """Load the resource data."""
+        """Load the resource."""
         ...
 
     @abstractmethod
     async def save(self, data: Any) -> None:
-        """Save the resource data."""
+        """Save the resource.
+
+        Args:
+            data: Data to save
+        """
         ...
 
 
 class BaseCapability(BaseComponent):
-    """Base class for all capabilities."""
+    """Base class for capabilities."""
 
     @abstractmethod
     async def execute(self, **kwargs: Any) -> Any:
-        """Execute the capability."""
+        """Execute the capability.
+
+        Args:
+            **kwargs: Execution parameters
+        """
         ...
 
 
 class BaseWorkflow(BaseComponent):
-    """Base class for all workflows."""
+    """Base class for workflows."""
 
     @abstractmethod
     async def start(self) -> None:
@@ -436,62 +436,50 @@ class BaseWorkflow(BaseComponent):
         ...
 
 
-# Generic Types
-
-
-T = TypeVar("T")
+T = TypeVar("T", bound=BaseComponent)
 
 
 class Registry(Generic[T]):
-    """Generic registry for managing framework components."""
+    """Registry for managing components."""
 
     def __init__(self) -> None:
+        """Initialize the registry."""
         self._items: dict[UUID, T] = {}
 
     def register(self, item: T) -> None:
-        """Register a new item."""
-        if not isinstance(item, BaseComponent):
-            raise TypeError("Item must be a BaseComponent")
+        """Register an item.
+
+        Args:
+            item: Item to register
+        """
         self._items[item.id] = item
 
     def unregister(self, id: UUID) -> None:
-        """Unregister an item."""
-        if id in self._items:
-            del self._items[id]
+        """Unregister an item.
+
+        Args:
+            id: ID of item to unregister
+        """
+        self._items.pop(id, None)
 
     def get(self, id: UUID) -> T | None:
-        """Get an item by ID."""
+        """Get an item by ID.
+
+        Args:
+            id: Item ID
+
+        Returns:
+            The item or None if not found
+        """
         return self._items.get(id)
 
     def list(self) -> list[T]:
-        """List all registered items."""
+        """List all registered items.
+
+        Returns:
+            List of registered items
+        """
         return list(self._items.values())
-
-
-# Expose public interface
-__all__ = [
-    # Protocols
-    "Identifiable",
-    "Validatable",
-    # Data classes
-    "Metadata",
-    "AgentContext",
-    # Enums
-    "AgentState",
-    # Base classes
-    "BaseComponent",
-    "BaseProvider",
-    "BaseAgent",
-    "BaseResource",
-    "BaseCapability",
-    "BaseWorkflow",
-    # Protocols
-    "AgentCallback",
-    # Generic types
-    "Registry",
-    # Type aliases
-    "ComponentID",
-]
 
 
 @dataclass
@@ -529,7 +517,7 @@ class ComponentCallback(Protocol):
         ...
 
     async def on_progress(self, component_id: str, progress: float) -> None:
-        """Called when component makes progress."""
+        """Called when component progress updates."""
         ...
 
 
@@ -541,17 +529,17 @@ class ComponentBase(ABC):
         config: ComponentConfig | None = None,
         callback: ComponentCallback | None = None,
     ) -> None:
-        """Initialize component.
+        """Initialize the component.
 
         Args:
-            config: Component configuration
-            callback: Component callback
+            config: Optional component configuration
+            callback: Optional component callback
         """
         self._config = config or ComponentConfig(name=self.__class__.__name__)
         self._callback = callback
         self._state = ComponentState.INITIALIZING
         self._context = ComponentContext(
-            component_id=cast(ComponentID, uuid4()),
+            component_id=ComponentID(self.__class__.__name__),
             state=self._state,
         )
         self._metrics = MetricsManager()
@@ -561,132 +549,124 @@ class ComponentBase(ABC):
         self._execution_duration = None
 
     async def _setup_metrics(self) -> None:
-        """Set up metrics for the component."""
-        # Create metrics
-        self._execution_counter = await self._metrics.create_counter(
-            name="component_executions_total",
-            description="Total number of component executions",
-            labels={"component_id": str(id(self))},
-        )
+        """Set up component metrics."""
+        # Create metrics with labels
+        labels = {
+            "component_id": str(self._context.component_id),
+            "state": str(self._state),
+        }
+
+        # Create histogram for execution duration
         self._execution_duration = await self._metrics.create_histogram(
-            name="component_execution_duration_seconds",
-            description="Duration of component executions",
+            name="execution_duration_seconds",
+            description="Time taken to execute the component",
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
-            labels={"component_id": str(id(self))},
+            labels=labels,
+        )
+
+        # Create counter for errors
+        self._execution_counter = await self._metrics.create_counter(
+            name="errors_total",
+            description="Total number of errors encountered",
+            labels=labels,
         )
 
     async def _update_metrics(self, start_time: datetime, error: bool = False) -> None:
-        """Update metrics after execution.
+        """Update component metrics.
 
         Args:
-            start_time: Start time of execution
+            start_time: Start time of operation
             error: Whether an error occurred
         """
-        if not self._execution_counter or not self._execution_duration:
-            return
-
-        # Calculate duration
-        duration = (datetime.now() - start_time).total_seconds()
-
-        # Update metrics
-        self._execution_counter.inc()
-        self._execution_duration.observe(duration)
+        duration = (datetime.utcnow() - start_time).total_seconds()
+        if self._execution_duration:
+            self._execution_duration.observe(duration)
+        if error and self._execution_counter:
+            self._execution_counter.inc()
 
     @property
     def state(self) -> ComponentState:
-        """Get current component state."""
+        """Get the current state."""
         return self._state
 
     async def set_state(self, value: ComponentState) -> None:
-        """Set component state and notify callback."""
-        if value != self._state:
-            self._state = value
-            if self._callback:
-                await self._callback.on_state_change(
-                    str(self._context.component_id), value
-                )
+        """Set the component state.
+
+        Args:
+            value: New state value
+        """
+        self._state = value
+        if self._callback:
+            await self._callback.on_state_change(str(self._context.component_id), value)
 
     async def initialize(self) -> None:
-        """Initialize component resources."""
+        """Initialize the component."""
         try:
-            # Initialize component
+            await self.set_state(ComponentState.INITIALIZING)
+            await self._setup_metrics()
             await self._initialize()
             await self.set_state(ComponentState.READY)
-
         except Exception as e:
             await self.set_state(ComponentState.ERROR)
-            self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self._context.component_id), e)
-            raise ComponentError(f"Failed to initialize component: {e}")
+            raise
 
     async def execute(self, **kwargs: Any) -> Any:
-        """Execute component's main functionality.
+        """Execute the component.
 
         Args:
             **kwargs: Execution parameters
 
         Returns:
             Execution result
-
-        Raises:
-            ComponentError: If execution fails
-            StateError: If component is not in valid state
         """
-        if self.state != ComponentState.READY:
-            raise StateError(f"Component not ready (state: {self.state})")
-
         start_time = datetime.utcnow()
-        await self.set_state(ComponentState.EXECUTING)
+        self._context.start_time = start_time
+        error = False
 
         try:
-            # Execute component
+            await self.set_state(ComponentState.EXECUTING)
             result = await self._execute(**kwargs)
-
-            # Update metrics
-            await self._update_metrics(start_time)
-
             await self.set_state(ComponentState.READY)
             return result
-
         except Exception as e:
-            # Update metrics with error labels
-            await self._update_metrics(start_time, error=True)
-
+            error = True
             await self.set_state(ComponentState.ERROR)
-            self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self._context.component_id), e)
-            raise ComponentError(f"Failed to execute component: {e}")
+            raise
+        finally:
+            self._context.end_time = datetime.utcnow()
+            await self._update_metrics(start_time, error)
 
     async def cleanup(self) -> None:
-        """Clean up component resources."""
+        """Clean up the component."""
         try:
+            await self.set_state(ComponentState.CLEANING)
             await self._cleanup()
             await self.set_state(ComponentState.CLEANED)
-
         except Exception as e:
             await self.set_state(ComponentState.ERROR)
-            self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self._context.component_id), e)
-            raise ComponentError(f"Failed to clean up component: {e}")
+            raise
 
     @abstractmethod
     async def _initialize(self) -> None:
-        """Initialize component.
+        """Component-specific initialization.
 
         This method should be implemented by subclasses to perform
-        component-specific initialization.
+        any necessary initialization.
         """
-        pass
+        ...
 
     @abstractmethod
     async def _execute(self, **kwargs: Any) -> Any:
-        """Execute component implementation.
+        """Component-specific execution.
 
         This method should be implemented by subclasses to perform
-        component-specific execution.
+        the component's main functionality.
 
         Args:
             **kwargs: Execution parameters
@@ -694,44 +674,33 @@ class ComponentBase(ABC):
         Returns:
             Execution result
         """
-        pass
+        ...
 
     @abstractmethod
     async def _cleanup(self) -> None:
-        """Clean up component implementation.
+        """Component-specific cleanup.
 
         This method should be implemented by subclasses to perform
-        component-specific cleanup.
+        any necessary cleanup.
         """
-        pass
+        ...
 
 
-class Lifecycle(ABC):
-    """Base class for components with lifecycle management.
-    
-    Provides standard initialize/cleanup lifecycle methods that all
-    components should implement.
-    
-    Example:
-        >>> class MyComponent(Lifecycle):
-        ...     async def initialize(self) -> None:
-        ...         print("Initializing")
-        ...     async def cleanup(self) -> None:
-        ...         print("Cleaning up")
-    """
-    
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize the component.
-        
-        This method should be called before using the component
-        and should set up any required resources.
-        """
-    @abstractmethod
-    async def cleanup(self) -> None:
-        """Clean up the component.
-
-        This method should be called when the component is no longer needed
-        and should release any held resources.
-        """
-        pass
+__all__ = [
+    "AgentCallback",
+    "AgentContext",
+    "BaseAgent",
+    "BaseCapability",
+    "BaseComponent",
+    "BaseProvider",
+    "BaseResource",
+    "BaseWorkflow",
+    "ComponentBase",
+    "ComponentCallback",
+    "ComponentConfig",
+    "ComponentContext",
+    "ComponentID",
+    "Metadata",
+    "MetricsComponent",
+    "Registry",
+]

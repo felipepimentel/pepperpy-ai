@@ -107,8 +107,8 @@ exclude_lines = [
     "if self.debug:",
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
-    "if TYPE_CHECKING:",
-    "class .*\\bProtocol\\):",
+    "pass",
+    "raise ImportError",
 ]
 ignore_errors = true
 
@@ -120,6 +120,8 @@ minversion = "8.0"
 addopts = "-ra -q --cov=pepperpy --cov-report=term-missing"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+python_files = ["test_*.py"]
+filterwarnings = ["ignore::DeprecationWarning", "ignore::UserWarning"]
 
 [tool.pylint.messages_control]
 disable = [
