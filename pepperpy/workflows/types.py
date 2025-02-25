@@ -7,7 +7,7 @@ both the core engine and higher-level workflow management.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from pepperpy.core.errors import PepperpyError
 
@@ -53,12 +53,12 @@ class WorkflowStep:
 
     name: str
     action: str
-    inputs: Dict[str, Any] = field(default_factory=dict)
-    outputs: List[str] = field(default_factory=list)
+    inputs: dict[str, Any] = field(default_factory=dict)
+    outputs: list[str] = field(default_factory=list)
     required: bool = True
     retry_count: int = 0
-    timeout: Optional[float] = None
-    dependencies: Set[str] = field(default_factory=set)
+    timeout: float | None = None
+    dependencies: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -79,11 +79,11 @@ class WorkflowContext:
     """
 
     workflow_id: str
-    variables: Dict[str, Any] = field(default_factory=dict)
+    variables: dict[str, Any] = field(default_factory=dict)
     state: WorkflowState = WorkflowState.CREATED
-    step_states: Dict[str, StepState] = field(default_factory=dict)
-    errors: List[Dict[str, Any]] = field(default_factory=list)
-    history: List[Dict[str, Any]] = field(default_factory=list)
+    step_states: dict[str, StepState] = field(default_factory=dict)
+    errors: list[dict[str, Any]] = field(default_factory=list)
+    history: list[dict[str, Any]] = field(default_factory=list)
 
 
 class WorkflowError(PepperpyError):
@@ -100,8 +100,8 @@ class WorkflowError(PepperpyError):
         self,
         message: str,
         workflow_id: str,
-        step_name: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        step_name: str | None = None,
+        details: dict[str, Any] | None = None,
     ) -> None:
         """Initialize the error.
 

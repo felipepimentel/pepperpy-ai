@@ -15,7 +15,7 @@ Example:
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
-from typing import Any, Dict, Final, List, Optional
+from typing import Any, Final
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -292,8 +292,8 @@ class ProviderCapability:
     name: str
     version: str
     description: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -303,8 +303,8 @@ class ProviderContext:
     provider_id: UUID
     session_id: UUID
     state: ProviderState
-    capabilities: List[ProviderCapability]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    capabilities: list[ProviderCapability]
+    metadata: dict[str, Any] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)
 
@@ -316,15 +316,15 @@ class ProviderConfig:
     provider_type: str
     name: str
     version: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
     model: str = "gpt-4-turbo-preview"
     temperature: float = 0.7
     max_tokens: int = 1000
     timeout: int = 30
     max_retries: int = 3
-    settings: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    settings: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -332,6 +332,6 @@ class ProviderMetadata(Metadata):
     """Metadata specific to providers."""
 
     provider_type: str
-    capabilities: List[str]
-    settings: Dict[str, Any] = field(default_factory=dict)
-    statistics: Dict[str, Any] = field(default_factory=dict)
+    capabilities: list[str]
+    settings: dict[str, Any] = field(default_factory=dict)
+    statistics: dict[str, Any] = field(default_factory=dict)

@@ -18,7 +18,7 @@ from pepperpy.core.context import (
 from pepperpy.core.errors.unified import (
     ConfigError,
     LifecycleError,
-    PepperpyError,
+    PepperError,
     ProviderError,
     ResourceError,
     SecurityError,
@@ -46,7 +46,7 @@ __all__ = [
     "get_context_value",
     "clear_context",
     # Errors
-    "PepperpyError",
+    "PepperError",
     "ValidationError",
     "ConfigError",
     "ProviderError",

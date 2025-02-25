@@ -7,7 +7,7 @@ It includes:
 - Common chain types
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -22,9 +22,9 @@ class ChainError(PepperpyError):
     def __init__(
         self,
         message: str,
-        details: Optional[Dict[str, Any]] = None,
-        user_message: Optional[str] = None,
-        recovery_hint: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        user_message: str | None = None,
+        recovery_hint: str | None = None,
     ) -> None:
         """Initialize the error."""
         error_details = {"error_code": "ERR008", **(details or {})}
@@ -50,8 +50,8 @@ class ChainConfig(BaseModel):
     id: UUID
     name: str
     description: str = ""
-    parameters: Dict[str, Any] = {}
-    metadata: Dict[str, Any] = {}
+    parameters: dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
 
 class ChainStep(BaseModel):
@@ -67,9 +67,9 @@ class ChainStep(BaseModel):
 
     step_id: str
     step_type: str
-    input: List[AgentMessage]
-    output: List[AgentMessage]
-    metadata: Dict[str, Any] = {}
+    input: list[AgentMessage]
+    output: list[AgentMessage]
+    metadata: dict[str, Any] = {}
 
 
 class ChainResult(BaseModel):
@@ -82,8 +82,8 @@ class ChainResult(BaseModel):
     """
 
     chain_id: UUID
-    steps: List[ChainStep]
-    metadata: Dict[str, Any] = {}
+    steps: list[ChainStep]
+    metadata: dict[str, Any] = {}
 
 
 class Chain:
@@ -104,7 +104,7 @@ class Chain:
             **kwargs: Additional chain-specific parameters
         """
         self._config = config
-        self._steps: List[ChainStep] = []
+        self._steps: list[ChainStep] = []
 
     @property
     def config(self) -> ChainConfig:
@@ -112,13 +112,13 @@ class Chain:
         return self._config
 
     @property
-    def steps(self) -> List[ChainStep]:
+    def steps(self) -> list[ChainStep]:
         """Get chain steps."""
         return self._steps
 
     async def execute(
         self,
-        messages: List[AgentMessage],
+        messages: list[AgentMessage],
         **kwargs: Any,
     ) -> ChainResult:
         """Execute the chain.
