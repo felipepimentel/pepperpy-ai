@@ -4,9 +4,6 @@ This module provides the implementation for agent-related CLI commands.
 It includes commands for creating, listing, and managing agents.
 """
 
-import builtins
-
-import click
 from rich.console import Console
 from rich.table import Table
 
@@ -22,114 +19,6 @@ logger = get_logger(__name__)
 console = Console()
 
 
-@click.group()
-def agent() -> None:
-    """Agent management commands."""
-    pass
-
-
-@agent.command()
-@click.argument("name")
-@click.argument("agent_type")
-@click.option("--description", help="Agent description")
-@click.option("--param", "-p", multiple=True, help="Agent parameters (key=value)")
-async def create(
-    name: str,
-    agent_type: str,
-    description: str | None = None,
-    param: list[str] | None = None,
-) -> None:
-    """Create a new agent."""
-    try:
-        # Parse parameters
-        parameters = {}
-        if param:
-            for p in param:
-                key, value = p.split("=", 1)
-                parameters[key.strip()] = value.strip()
-
-        # Create agent
-        agent_id = await create_agent(
-            name=name,
-            agent_type=agent_type,
-            description=description,
-            parameters=parameters,
-        )
-
-        console.print(f"[green]Created agent:[/green] {agent_id}")
-
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-
-
-@agent.command()
-@click.option("--type", "agent_type", help="Filter by agent type")
-@click.option("--status", help="Filter by agent status")
-async def list(agent_type: str | None = None, status: str | None = None) -> None:
-    """List available agents."""
-    try:
-        agents = await list_agents(agent_type=agent_type, status=status)
-        display_agents(agents)
-
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-
-
-@agent.command()
-@click.argument("agent_id")
-async def delete(agent_id: str) -> None:
-    """Delete an agent."""
-    try:
-        await delete_agent(agent_id)
-        console.print(f"[green]Deleted agent:[/green] {agent_id}")
-
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-
-
-@agent.command()
-@click.argument("agent_id")
-@click.option("--name", help="New agent name")
-@click.option("--description", help="New agent description")
-@click.option("--param", "-p", multiple=True, help="New agent parameters (key=value)")
-async def update(
-    agent_id: str,
-    name: str | None = None,
-    description: str | None = None,
-    param: builtins.list[str] | None = None,
-) -> None:
-    """Update an agent."""
-    try:
-        # Parse parameters
-        parameters = {}
-        if param:
-            for p in param:
-                key, value = p.split("=", 1)
-                parameters[key.strip()] = value.strip()
-
-        # Update agent
-        await update_agent(
-            agent_id=agent_id,
-            name=name,
-            description=description,
-            parameters=parameters,
-        )
-
-        console.print(f"[green]Updated agent:[/green] {agent_id}")
-
-    except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {e}")
-        if e.recovery_hint:
-            console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-
-
-# Helper functions
 async def create_agent(
     name: str,
     agent_type: str,
@@ -186,7 +75,7 @@ async def create_agent(
 async def list_agents(
     agent_type: str | None = None,
     status: str | None = None,
-) -> builtins.list[dict[str, str]]:
+) -> list[dict[str, str]]:
     """List available agents.
 
     Args:
@@ -237,7 +126,7 @@ async def list_agents(
         )
 
 
-def display_agents(agents: builtins.list[dict[str, str]]) -> None:
+def display_agents(agents: list[dict[str, str]]) -> None:
     """Display agents in a formatted table.
 
     Args:

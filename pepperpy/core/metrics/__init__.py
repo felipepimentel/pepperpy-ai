@@ -8,6 +8,7 @@ This module provides metrics functionality including:
 
 from pepperpy.core.metrics.base import MetricsManager
 from pepperpy.core.metrics.types import (
+    BaseMetric,
     MetricCounter,
     MetricHistogram,
     MetricLabels,
@@ -16,6 +17,7 @@ from pepperpy.core.metrics.types import (
 )
 
 __all__ = [
+    "BaseMetric",
     "MetricCounter",
     "MetricHistogram",
     "MetricLabels",

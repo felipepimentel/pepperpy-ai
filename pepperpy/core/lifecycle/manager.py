@@ -6,184 +6,136 @@ This module provides the lifecycle manager for managing component lifecycles.
 from __future__ import annotations
 
 import asyncio
+import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
-from pepperpy.core.lifecycle.base import LifecycleComponent
-from pepperpy.core.lifecycle.errors import (
-    InvalidStateError,
-    InvalidTransitionError,
-    LifecycleOperationError,
-)
-from pepperpy.core.lifecycle.types import LifecycleState
-from pepperpy.core.protocols.lifecycle import Lifecycle
+from pepperpy.core.errors import LifecycleError, NotFoundError
+from pepperpy.core.lifecycle.types import Lifecycle, LifecycleState
 
 
-class LifecycleManager(Lifecycle):
+class LifecycleManager:
     """Manager for component lifecycles."""
 
-    def __init__(self, name: str = "lifecycle") -> None:
-        """Initialize lifecycle manager.
+    def __init__(self) -> None:
+        """Initialize lifecycle manager."""
+        self._components: dict[str, Lifecycle] = {}
+        self.logger = logging.getLogger(__name__)
 
-        Args:
-            name: Manager name
-        """
-        self.name = name
-        self._components: dict[str, LifecycleComponent] = {}
-
-    async def initialize(self) -> None:
-        """Initialize manager.
-
-        Raises:
-            LifecycleOperationError: If initialization fails
-        """
-        try:
-            # Initialize components in parallel
-            tasks = [component.initialize() for component in self._components.values()]
-            await asyncio.gather(*tasks)
-        except Exception as e:
-            raise LifecycleOperationError(f"Failed to initialize components: {e}")
-
-    async def cleanup(self) -> None:
-        """Clean up manager.
-
-        Raises:
-            LifecycleOperationError: If cleanup fails
-        """
-        try:
-            # Clean up components in parallel
-            tasks = [component.cleanup() for component in self._components.values()]
-            await asyncio.gather(*tasks)
-        except Exception as e:
-            raise LifecycleOperationError(f"Failed to clean up components: {e}")
-
-    def register(self, component: LifecycleComponent) -> None:
-        """Register a component.
+    def register(self, component: Lifecycle) -> None:
+        """Register component.
 
         Args:
             component: Component to register
 
         Raises:
-            ValueError: If component already registered
+            LifecycleError: If component already registered
         """
         if component.name in self._components:
-            raise ValueError(f"Component already registered: {component.name}")
+            raise LifecycleError(
+                f"Component already registered: {component.name}",
+                recovery_hint="Use a unique name for each component.",
+            )
+
         self._components[component.name] = component
+        self.logger.debug(f"Registered component: {component.name}")
 
     def unregister(self, name: str) -> None:
-        """Unregister a component.
+        """Unregister component.
 
         Args:
             name: Component name
 
         Raises:
-            ValueError: If component not found
+            NotFoundError: If component not found
         """
         if name not in self._components:
-            raise ValueError(f"Component not found: {name}")
-        del self._components[name]
+            raise NotFoundError(
+                f"Component not found: {name}",
+                recovery_hint="Check if the component was registered.",
+            )
 
-    def get_component(self, name: str) -> LifecycleComponent:
-        """Get a component by name.
+        del self._components[name]
+        self.logger.debug(f"Unregistered component: {name}")
+
+    def get_component(self, name: str) -> Lifecycle:
+        """Get component.
 
         Args:
             name: Component name
 
         Returns:
-            LifecycleComponent: Component instance
+            Lifecycle: Component instance
 
         Raises:
-            ValueError: If component not found
+            NotFoundError: If component not found
         """
         if name not in self._components:
-            raise ValueError(f"Component not found: {name}")
+            raise NotFoundError(
+                f"Component not found: {name}",
+                recovery_hint="Check if the component was registered.",
+            )
+
         return self._components[name]
 
-    def list_components(self) -> list[LifecycleComponent]:
-        """List all registered components.
-
-        Returns:
-            list[LifecycleComponent]: List of components
-        """
-        return list(self._components.values())
-
-    def get_component_state(self, name: str) -> LifecycleState:
-        """Get component state.
-
-        Args:
-            name: Component name
-
-        Returns:
-            LifecycleState: Component state
+    async def initialize_all(self) -> None:
+        """Initialize all components.
 
         Raises:
-            ValueError: If component not found
+            LifecycleError: If initialization fails
         """
-        component = self.get_component(name)
-        return component.state
-
-    def get_component_metadata(self, name: str) -> dict[str, Any]:
-        """Get component metadata.
-
-        Args:
-            name: Component name
-
-        Returns:
-            dict[str, Any]: Component metadata
-
-        Raises:
-            ValueError: If component not found
-        """
-        component = self.get_component(name)
-        return {
-            "name": component.name,
-            "state": component.state,
-            "type": type(component).__name__,
-        }
-
-    def validate_state(self, name: str, state: LifecycleState) -> bool:
-        """Validate component state.
-
-        Args:
-            name: Component name
-            state: Expected state
-
-        Returns:
-            bool: True if state is valid
-
-        Raises:
-            ValueError: If component not found
-            InvalidStateError: If state is invalid
-        """
-        component = self.get_component(name)
-        if component.state != state:
-            raise InvalidStateError(
-                f"Invalid state for {name}: {component.state} != {state}"
+        try:
+            self.logger.debug("Initializing all components")
+            await asyncio.gather(
+                *(component.initialize() for component in self._components.values())
             )
-        return True
+            self.logger.debug("Initialized all components")
+        except Exception as e:
+            raise LifecycleError(
+                "Failed to initialize components",
+                recovery_hint="Check component initialization logs for details.",
+            ) from e
 
-    def validate_transition(self, name: str, target_state: LifecycleState) -> bool:
-        """Validate state transition.
-
-        Args:
-            name: Component name
-            target_state: Target state
-
-        Returns:
-            bool: True if transition is valid
+    async def cleanup_all(self) -> None:
+        """Clean up all components.
 
         Raises:
-            ValueError: If component not found
-            InvalidTransitionError: If transition is invalid
+            LifecycleError: If cleanup fails
         """
-        component = self.get_component(name)
-        if not component.is_valid_transition(target_state):
-            raise InvalidTransitionError(
-                f"Invalid transition for {name}: {component.state} -> {target_state}"
+        try:
+            self.logger.debug("Cleaning up all components")
+            await asyncio.gather(
+                *(component.cleanup() for component in self._components.values())
             )
-        return True
+            self.logger.debug("Cleaned up all components")
+        except Exception as e:
+            raise LifecycleError(
+                "Failed to clean up components",
+                recovery_hint="Check component cleanup logs for details.",
+            ) from e
+
+    async def list_components(
+        self,
+        state: LifecycleState | None = None,
+    ) -> AsyncIterator[tuple[str, Any]]:
+        """List components.
+
+        Args:
+            state: Optional state filter
+
+        Yields:
+            tuple[str, Any]: Component name and metadata
+        """
+        for name, component in self._components.items():
+            if state and component._state != state:
+                continue
+            yield (
+                name,
+                {
+                    "state": component._state,
+                    "type": type(component).__name__,
+                },
+            )
 
 
-# Export public API
-__all__ = [
-    "LifecycleManager",
-]
+__all__ = ["LifecycleManager"]

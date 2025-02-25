@@ -12,10 +12,10 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import Any
 
-from pepperpy.core.errors import ValidationError
+from pepperpy.core.errors import MetricsError
 from pepperpy.core.metrics.types import (
+    BaseMetric,
     MetricCounter,
     MetricHistogram,
     MetricLabels,
@@ -37,8 +37,10 @@ class MetricsManager(Lifecycle):
         """
         self.name = name
         self._state = ComponentState.CREATED
-        self._metrics: dict[str, Any] = {}
-        self._queue: asyncio.Queue[MetricValue] = asyncio.Queue()
+        self._metrics: dict[str, BaseMetric] = {}
+        self._queue: asyncio.Queue[
+            tuple[str, float, MetricType, MetricLabels, datetime]
+        ] = asyncio.Queue()
         self._task: asyncio.Task[None] | None = None
         self.logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ class MetricsManager(Lifecycle):
             self._state = ComponentState.READY
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize manager: {e}")
+            raise MetricsError(f"Failed to initialize manager: {e}")
 
     async def cleanup(self) -> None:
         """Clean up manager."""
@@ -62,7 +64,7 @@ class MetricsManager(Lifecycle):
             self._state = ComponentState.CLEANED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up manager: {e}")
+            raise MetricsError(f"Failed to clean up manager: {e}")
 
     async def create_counter(
         self,
@@ -81,10 +83,10 @@ class MetricsManager(Lifecycle):
             MetricCounter: Created counter
 
         Raises:
-            ValidationError: If metric already exists
+            MetricsError: If metric already exists
         """
         if name in self._metrics:
-            raise ValidationError(f"Metric already exists: {name}")
+            raise MetricsError(f"Metric already exists: {name}")
 
         counter = MetricCounter(
             name=name,
@@ -113,10 +115,10 @@ class MetricsManager(Lifecycle):
             MetricHistogram: Created histogram
 
         Raises:
-            ValidationError: If metric already exists
+            MetricsError: If metric already exists
         """
         if name in self._metrics:
-            raise ValidationError(f"Metric already exists: {name}")
+            raise MetricsError(f"Metric already exists: {name}")
 
         histogram = MetricHistogram(
             name=name,
@@ -145,20 +147,24 @@ class MetricsManager(Lifecycle):
             timestamp: Optional timestamp
 
         Raises:
-            ValidationError: If metric not found
+            MetricsError: If metric not found
         """
         if name not in self._metrics:
-            raise ValidationError(f"Metric not found: {name}")
+            raise MetricsError(f"Metric not found: {name}")
 
         metric = self._metrics[name]
-        metric_value = MetricValue(
-            name=name,
-            type=metric_type,
-            value=value,
-            labels=labels or {},
-            timestamp=timestamp or datetime.utcnow(),
-        )
-        await self._queue.put(metric_value)
+        if metric.type != metric_type:
+            raise MetricsError(
+                f"Invalid metric type for {name}: expected {metric.type}, got {metric_type}"
+            )
+
+        await self._queue.put((
+            name,
+            value,
+            metric_type,
+            labels or {},
+            timestamp or datetime.utcnow(),
+        ))
 
     async def get_metric(
         self,
@@ -181,13 +187,13 @@ class MetricsManager(Lifecycle):
         if not isinstance(metric, (MetricCounter, MetricHistogram)):
             return None
 
-        return MetricValue(
-            name=name,
-            type=metric.type,
-            value=metric.value,
-            labels=labels or {},
-            timestamp=datetime.utcnow(),
-        )
+        return {
+            "name": name,
+            "type": metric.type,
+            "value": metric.value,
+            "labels": labels or {},
+            "timestamp": datetime.utcnow(),
+        }
 
     async def list_metrics(
         self,
@@ -221,31 +227,39 @@ class MetricsManager(Lifecycle):
         """Process metrics from queue."""
         while True:
             try:
-                metric = await self._queue.get()
-                await self._handle_metric(metric)
+                name, value, metric_type, labels, timestamp = await self._queue.get()
+                await self._handle_metric(name, value, metric_type, labels, timestamp)
                 self._queue.task_done()
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logging.error(f"Failed to process metric: {e}", exc_info=True)
+                self.logger.error(f"Failed to process metric: {e}", exc_info=True)
 
-    async def _handle_metric(self, metric: MetricValue) -> None:
+    async def _handle_metric(
+        self,
+        name: str,
+        value: float,
+        metric_type: MetricType,
+        labels: MetricLabels,
+        timestamp: datetime,
+    ) -> None:
         """Handle metric value.
 
         Args:
-            metric: Metric value to handle
+            name: Metric name
+            value: Metric value
+            metric_type: Metric type
+            labels: Metric labels
+            timestamp: Recording timestamp
         """
-        if metric.name not in self._metrics:
+        if name not in self._metrics:
             return
 
-        target = self._metrics[metric.name]
-        if isinstance(target, MetricCounter):
-            target.inc(metric.value)
-        elif isinstance(target, MetricHistogram):
-            target.observe(metric.value)
+        metric = self._metrics[name]
+        if isinstance(metric, MetricCounter):
+            metric.inc(value)
+        elif isinstance(metric, MetricHistogram):
+            metric.observe(value)
 
 
-# Export public API
-__all__ = [
-    "MetricsManager",
-]
+__all__ = ["MetricsManager"]

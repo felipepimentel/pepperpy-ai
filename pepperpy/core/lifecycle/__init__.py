@@ -14,12 +14,12 @@ from pepperpy.core.lifecycle.types import LifecycleState, StateTransition
 from pepperpy.core.protocols.lifecycle import Lifecycle
 
 __all__ = [
+    "InvalidStateError",
+    "InvalidTransitionError",
     "Lifecycle",
     "LifecycleComponent",
     "LifecycleManager",
+    "LifecycleOperationError",
     "LifecycleState",
     "StateTransition",
-    "InvalidStateError",
-    "InvalidTransitionError",
-    "LifecycleOperationError",
 ]

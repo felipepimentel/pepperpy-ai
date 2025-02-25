@@ -1,27 +1,21 @@
-"""Lifecycle errors module for the Pepperpy framework.
+"""Error classes for the lifecycle module.
 
-This module defines lifecycle-related errors used throughout the framework.
+This module provides error classes specific to lifecycle operations.
 """
 
-from pepperpy.core.errors import ComponentError
+from pepperpy.core.errors import LifecycleError
 
 
-class LifecycleOperationError(ComponentError):
-    """Error raised when a lifecycle operation fails."""
-
-    pass
-
-
-class InvalidStateError(ComponentError):
+class InvalidStateError(LifecycleError):
     """Error raised when a component is in an invalid state."""
 
-    pass
 
-
-class InvalidTransitionError(ComponentError):
+class InvalidTransitionError(LifecycleError):
     """Error raised when a state transition is invalid."""
 
-    pass
+
+class LifecycleOperationError(LifecycleError):
+    """Error raised when a lifecycle operation fails."""
 
 
 # Export public API

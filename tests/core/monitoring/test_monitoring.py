@@ -1,7 +1,6 @@
 """Tests for the monitoring system."""
 
 import logging
-from typing import Dict
 
 import pytest
 import structlog
@@ -20,7 +19,7 @@ class TestMetricExporter(MetricExporter):
     """Test implementation of a metric exporter."""
 
     def __init__(self) -> None:
-        self.exported_metrics: Dict[str, BaseMetric] = {}
+        self.exported_metrics: dict[str, BaseMetric] = {}
         self.flush_called = False
 
     async def export(self, metric: BaseMetric) -> None:

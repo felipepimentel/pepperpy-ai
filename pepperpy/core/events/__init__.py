@@ -1,17 +1,17 @@
-"""Event system for the Pepperpy framework.
+"""Event management system.
 
-This module provides event types and handlers for the framework.
+This module provides event management functionality:
+- Event registration and dispatch
+- Event filtering and routing
+- Event monitoring and metrics
+- Event lifecycle management
 """
 
-from pepperpy.core.events.bus import EventBus
-from pepperpy.core.events.handlers import EventHandler
-from pepperpy.core.events.handlers.registry import RegistryEvent, RegistryEventHandler
-from pepperpy.core.events.types import EventType
+from pepperpy.core.events.manager import Event, EventHandler, EventManager
 
+# Export public API
 __all__ = [
-    "EventBus",
+    "Event",
     "EventHandler",
-    "EventType",
-    "RegistryEvent",
-    "RegistryEventHandler",
+    "EventManager",
 ]

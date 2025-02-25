@@ -1,9 +1,12 @@
 """Core error classes for the Pepperpy framework.
 
 This module provides the base error classes used throughout the framework.
+All framework errors should inherit from PepperpyError.
 """
 
-from typing import Any, Dict, Optional
+from __future__ import annotations
+
+from typing import Any
 
 
 class PepperpyError(Exception):
@@ -13,51 +16,85 @@ class PepperpyError(Exception):
         self,
         message: str,
         details: dict[str, Any] | None = None,
+        recovery_hint: str | None = None,
     ) -> None:
         """Initialize error.
 
         Args:
             message: Error message
             details: Optional error details
+            recovery_hint: Optional hint for error recovery
         """
         super().__init__(message)
         self.details = details or {}
+        self.recovery_hint = recovery_hint
 
 
-class ComponentError(PepperpyError):
-    """Error raised when a component operation fails."""
-
-
-class StateError(PepperpyError):
-    """Error raised when an invalid state transition is attempted."""
+# Core errors
+class ConfigError(PepperpyError):
+    """Error raised when configuration is invalid."""
 
 
 class ValidationError(PepperpyError):
     """Error raised when validation fails."""
 
 
-class ConfigError(PepperpyError):
-    """Error raised when configuration is invalid."""
+class StateError(PepperpyError):
+    """Error raised when an invalid state transition is attempted."""
 
 
-class LifecycleError(PepperpyError):
+class NotFoundError(PepperpyError):
+    """Error raised when a resource is not found."""
+
+
+class DuplicateError(PepperpyError):
+    """Error raised when a duplicate operation is attempted."""
+
+
+# Component errors
+class ComponentError(PepperpyError):
+    """Base class for component errors."""
+
+
+class LifecycleError(ComponentError):
     """Error raised when a lifecycle operation fails."""
 
 
-class ProviderError(PepperpyError):
-    """Error raised when a provider operation fails."""
-
-
-class ResourceError(PepperpyError):
+class ResourceError(ComponentError):
     """Error raised when a resource operation fails."""
 
 
+class ProviderError(ComponentError):
+    """Error raised when a provider operation fails."""
+
+
+class ExtensionError(ComponentError):
+    """Error raised when an extension operation fails."""
+
+
+class PluginError(ComponentError):
+    """Error raised when a plugin operation fails."""
+
+
+class AdapterError(ComponentError):
+    """Error raised when an adapter operation fails."""
+
+
+class FactoryError(ComponentError):
+    """Error raised when a factory operation fails."""
+
+
+# System errors
 class SecurityError(PepperpyError):
     """Error raised when a security operation fails."""
 
 
 class MonitoringError(PepperpyError):
     """Error raised when a monitoring operation fails."""
+
+
+class MetricsError(PepperpyError):
+    """Error raised when a metrics operation fails."""
 
 
 class NetworkError(PepperpyError):
@@ -68,32 +105,21 @@ class StorageError(PepperpyError):
     """Error raised when a storage operation fails."""
 
 
-class PluginError(PepperpyError):
-    """Error raised when a plugin operation fails."""
+# Feature errors
+class AgentError(PepperpyError):
+    """Error raised when an agent operation fails."""
 
 
-class ExtensionError(PepperpyError):
-    """Error raised when an extension operation fails."""
-
-
-class AdapterError(PepperpyError):
-    """Error raised when an adapter operation fails."""
-
-
-class FactoryError(PepperpyError):
-    """Error raised when a factory operation fails."""
-
-
-class HubError(PepperpyError):
-    """Error raised when a hub operation fails."""
-
-
-class CLIError(PepperpyError):
-    """Error raised when a CLI operation fails."""
+class CapabilityError(PepperpyError):
+    """Error raised when a capability operation fails."""
 
 
 class ContentError(PepperpyError):
     """Error raised when a content operation fails."""
+
+
+class HubError(PepperpyError):
+    """Error raised when a hub operation fails."""
 
 
 class LLMError(PepperpyError):
@@ -104,28 +130,26 @@ class WorkflowError(PepperpyError):
     """Error raised when a workflow operation fails."""
 
 
-class AgentError(PepperpyError):
-    """Error raised when an agent operation fails."""
+class CLIError(PepperpyError):
+    """Error raised when a CLI operation fails."""
 
 
-class CapabilityError(PepperpyError):
-    """Error raised when a capability operation fails."""
+# Aliases for backward compatibility
+PepperError = PepperpyError  # Legacy name
+PepperpyMemoryError = StorageError  # Legacy memory error
 
 
-class DuplicateError(PepperpyError):
-    """Error raised when a duplicate operation is attempted."""
+class DependencyError(PepperpyError):
+    """Error raised when a dependency operation fails."""
+
+    pass
 
 
-class NotFoundError(PepperpyError):
-    """Error raised when a resource is not found."""
+class EventError(PepperpyError):
+    """Error raised when an event operation fails."""
 
+    pass
 
-class MetricsError(PepperpyError):
-    """Error raised when a metrics operation fails."""
-
-
-# Alias for backward compatibility
-PepperpyMemoryError = StorageError
 
 __all__ = [
     "AdapterError",
@@ -135,7 +159,9 @@ __all__ = [
     "ComponentError",
     "ConfigError",
     "ContentError",
+    "DependencyError",
     "DuplicateError",
+    "EventError",
     "ExtensionError",
     "FactoryError",
     "HubError",
@@ -145,8 +171,9 @@ __all__ = [
     "MonitoringError",
     "NetworkError",
     "NotFoundError",
+    "PepperError",  # Legacy alias
     "PepperpyError",
-    "PepperpyMemoryError",  # Alias
+    "PepperpyMemoryError",  # Legacy alias
     "PluginError",
     "ProviderError",
     "ResourceError",
