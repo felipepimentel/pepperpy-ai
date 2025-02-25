@@ -313,4 +313,4 @@ class TestSecurityMonitor:
             "test_event",
             success=True,
             resource="test_resource",
-        ) 
+        )

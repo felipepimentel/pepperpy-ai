@@ -1,12 +1,12 @@
 """Dependency management system.
 
 This module provides dependency management functionality:
-- Dependency resolution
-- Dependency tracking
-- Dependency validation
-- Dependency lifecycle
+- Dependency resolution and tracking
+- Dependency validation and lifecycle
+- Dependency providers and injection
 """
 
+import asyncio
 from typing import Any, TypeVar
 
 from pepperpy.core.errors import DependencyError
@@ -16,49 +16,43 @@ from pepperpy.core.logging import get_logger
 # Configure logging
 logger = get_logger(__name__)
 
-# Type variable for dependency values
+# Type variable for dependency types
 T = TypeVar("T")
 
 
 class DependencyManager(LifecycleComponent):
-    """Manages dependencies and their lifecycle."""
+    """Manager for dependency lifecycle."""
 
     def __init__(self) -> None:
-        """Initialize dependency manager."""
+        """Initialize manager."""
         super().__init__("dependency_manager")
         self._dependencies: dict[str, Any] = {}
         self._providers: dict[str, Any] = {}
-        self._graph: dict[str, set[str]] = {}
+        self._provides: dict[str, set[str]] = {}
+        self._depends_on: dict[str, set[str]] = {}
         self._initialized = False
+        self._lock = asyncio.Lock()
 
-    async def initialize(self) -> None:
-        """Initialize dependency manager.
+    async def _initialize(self) -> None:
+        """Initialize manager.
 
         Raises:
             DependencyError: If initialization fails
         """
-        try:
-            await super().initialize()
-            await self._validate_dependencies()
-            await self._initialize_dependencies()
-            self._initialized = True
-            logger.info("Dependency manager initialized")
-        except Exception as e:
-            raise DependencyError(f"Failed to initialize dependency manager: {e}")
+        await self._validate_dependencies()
+        await self._initialize_dependencies()
+        self._initialized = True
+        logger.info("Dependency manager initialized")
 
-    async def cleanup(self) -> None:
-        """Clean up dependency manager.
+    async def _cleanup(self) -> None:
+        """Clean up manager.
 
         Raises:
             DependencyError: If cleanup fails
         """
-        try:
-            await super().cleanup()
-            await self._cleanup_dependencies()
-            self._initialized = False
-            logger.info("Dependency manager cleaned up")
-        except Exception as e:
-            raise DependencyError(f"Failed to clean up dependency manager: {e}")
+        await self._cleanup_dependencies()
+        self._initialized = False
+        logger.info("Dependency manager cleaned up")
 
     def register_dependency(
         self,
@@ -66,12 +60,12 @@ class DependencyManager(LifecycleComponent):
         dependency: Any,
         dependencies: list[str] | None = None,
     ) -> None:
-        """Register dependency.
+        """Register a dependency.
 
         Args:
             name: Dependency name
-            dependency: Dependency instance or class
-            dependencies: List of dependency names this dependency depends on
+            dependency: Dependency instance
+            dependencies: Optional list of dependency names
 
         Raises:
             DependencyError: If registration fails
@@ -80,19 +74,13 @@ class DependencyManager(LifecycleComponent):
             raise DependencyError(f"Dependency {name} already registered")
 
         self._dependencies[name] = dependency
-        if dependencies:
-            self._graph[name] = set(dependencies)
-            for dep in dependencies:
-                if dep not in self._dependencies:
-                    raise DependencyError(f"Unknown dependency {dep}")
-        else:
-            self._graph[name] = set()
+        self._depends_on[name] = set(dependencies or [])
 
         logger.info(
             "Dependency registered",
             extra={
                 "name": name,
-                "dependencies": dependencies,
+                "dependencies": list(self._depends_on[name]),
             },
         )
 
@@ -102,12 +90,12 @@ class DependencyManager(LifecycleComponent):
         provider: Any,
         provides: list[str],
     ) -> None:
-        """Register dependency provider.
+        """Register a provider.
 
         Args:
             name: Provider name
-            provider: Provider instance or class
-            provides: List of dependency names this provider provides
+            provider: Provider instance
+            provides: List of provided dependency names
 
         Raises:
             DependencyError: If registration fails
@@ -116,20 +104,18 @@ class DependencyManager(LifecycleComponent):
             raise DependencyError(f"Provider {name} already registered")
 
         self._providers[name] = provider
-        for dep in provides:
-            if dep in self._dependencies:
-                raise DependencyError(f"Dependency {dep} already registered")
+        self._provides[name] = set(provides)
 
         logger.info(
             "Provider registered",
             extra={
                 "name": name,
-                "provides": provides,
+                "provides": list(self._provides[name]),
             },
         )
 
     def unregister_dependency(self, name: str) -> None:
-        """Unregister dependency.
+        """Unregister a dependency.
 
         Args:
             name: Dependency name
@@ -138,23 +124,22 @@ class DependencyManager(LifecycleComponent):
             DependencyError: If unregistration fails
         """
         if name not in self._dependencies:
-            raise DependencyError(f"Unknown dependency {name}")
+            raise DependencyError(f"Dependency {name} not registered")
 
         # Check if any other dependencies depend on this one
-        for dep, deps in self._graph.items():
+        for dep_name, deps in self._depends_on.items():
             if name in deps:
-                raise DependencyError(f"Cannot unregister {name}, {dep} depends on it")
+                raise DependencyError(
+                    f"Cannot unregister {name}: {dep_name} depends on it"
+                )
 
         del self._dependencies[name]
-        del self._graph[name]
+        del self._depends_on[name]
 
-        logger.info(
-            "Dependency unregistered",
-            extra={"name": name},
-        )
+        logger.info("Dependency unregistered", extra={"name": name})
 
     def unregister_provider(self, name: str) -> None:
-        """Unregister provider.
+        """Unregister a provider.
 
         Args:
             name: Provider name
@@ -163,21 +148,19 @@ class DependencyManager(LifecycleComponent):
             DependencyError: If unregistration fails
         """
         if name not in self._providers:
-            raise DependencyError(f"Unknown provider {name}")
+            raise DependencyError(f"Provider {name} not registered")
 
         del self._providers[name]
+        del self._provides[name]
 
-        logger.info(
-            "Provider unregistered",
-            extra={"name": name},
-        )
+        logger.info("Provider unregistered", extra={"name": name})
 
     def get_dependency(self, name: str, type: type[T] | None = None) -> T | Any:
-        """Get dependency instance.
+        """Get a dependency.
 
         Args:
             name: Dependency name
-            type: Expected dependency type
+            type: Optional type to validate
 
         Returns:
             Dependency instance
@@ -185,22 +168,20 @@ class DependencyManager(LifecycleComponent):
         Raises:
             DependencyError: If dependency not found or type mismatch
         """
-        if not self._initialized:
-            raise DependencyError("Dependency manager not initialized")
-
         if name not in self._dependencies:
-            raise DependencyError(f"Unknown dependency {name}")
+            raise DependencyError(f"Dependency {name} not found")
 
         dependency = self._dependencies[name]
-        if type and not isinstance(dependency, type):
+
+        if type is not None and not isinstance(dependency, type):
             raise DependencyError(
-                f"Type mismatch for {name}: expected {type}, got {type(dependency)}"
+                f"Type mismatch for {name}: expected {type.__name__}, got {type(dependency).__name__}"
             )
 
         return dependency
 
     def get_provider(self, name: str) -> Any:
-        """Get provider instance.
+        """Get a provider.
 
         Args:
             name: Provider name
@@ -212,7 +193,7 @@ class DependencyManager(LifecycleComponent):
             DependencyError: If provider not found
         """
         if name not in self._providers:
-            raise DependencyError(f"Unknown provider {name}")
+            raise DependencyError(f"Provider {name} not found")
 
         return self._providers[name]
 
@@ -220,7 +201,7 @@ class DependencyManager(LifecycleComponent):
         """List registered dependencies.
 
         Returns:
-            List of dependency names
+            list[str]: List of dependency names
         """
         return list(self._dependencies.keys())
 
@@ -228,7 +209,7 @@ class DependencyManager(LifecycleComponent):
         """List registered providers.
 
         Returns:
-            List of provider names
+            list[str]: List of provider names
         """
         return list(self._providers.keys())
 
@@ -238,91 +219,100 @@ class DependencyManager(LifecycleComponent):
         Raises:
             DependencyError: If validation fails
         """
-        # Check for cycles
         visited: set[str] = set()
-        path: set[str] = set()
+        visiting: set[str] = set()
 
         def check_cycles(node: str) -> None:
-            if node in path:
-                cycle = " -> ".join(list(path) + [node])
-                raise DependencyError(f"Dependency cycle detected: {cycle}")
+            """Check for dependency cycles.
+
+            Args:
+                node: Dependency name
+
+            Raises:
+                DependencyError: If cycle is detected
+            """
+            if node in visiting:
+                raise DependencyError(f"Dependency cycle detected: {node}")
             if node in visited:
                 return
 
-            visited.add(node)
-            path.add(node)
-            for dep in self._graph[node]:
+            visiting.add(node)
+            for dep in self._depends_on[node]:
                 check_cycles(dep)
-            path.remove(node)
+            visiting.remove(node)
+            visited.add(node)
 
-        for node in self._graph:
-            check_cycles(node)
-
-        logger.info("Dependencies validated")
+        for name in self._dependencies:
+            check_cycles(name)
 
     async def _initialize_dependencies(self) -> None:
-        """Initialize dependencies.
+        """Initialize dependencies in dependency order.
 
         Raises:
             DependencyError: If initialization fails
         """
-        # Initialize in dependency order
         initialized: set[str] = set()
 
         async def initialize_dependency(name: str) -> None:
+            """Initialize a dependency and its dependencies.
+
+            Args:
+                name: Dependency name
+
+            Raises:
+                DependencyError: If initialization fails
+            """
             if name in initialized:
                 return
 
-            # Initialize dependencies first
-            for dep in self._graph[name]:
+            dependency = self._dependencies[name]
+            for dep in self._depends_on[name]:
                 await initialize_dependency(dep)
 
-            # Initialize dependency
-            dependency = self._dependencies[name]
-            if isinstance(dependency, LifecycleComponent):
-                try:
+            try:
+                if hasattr(dependency, "initialize"):
                     await dependency.initialize()
-                except Exception as e:
-                    raise DependencyError(
-                        f"Failed to initialize dependency {name}: {e}"
-                    )
-
-            initialized.add(name)
+                initialized.add(name)
+            except Exception as e:
+                raise DependencyError(f"Failed to initialize {name}: {e}")
 
         for name in self._dependencies:
             await initialize_dependency(name)
 
-        logger.info("Dependencies initialized")
-
     async def _cleanup_dependencies(self) -> None:
-        """Clean up dependencies.
+        """Clean up dependencies in reverse dependency order.
 
         Raises:
             DependencyError: If cleanup fails
         """
-        # Clean up in reverse dependency order
         cleaned: set[str] = set()
 
         async def cleanup_dependency(name: str) -> None:
+            """Clean up a dependency and its dependents.
+
+            Args:
+                name: Dependency name
+
+            Raises:
+                DependencyError: If cleanup fails
+            """
             if name in cleaned:
                 return
 
-            # Clean up dependencies that depend on this one first
-            dependents = {dep for dep, deps in self._graph.items() if name in deps}
-            for dep in dependents:
-                await cleanup_dependency(dep)
-
-            # Clean up dependency
             dependency = self._dependencies[name]
-            if isinstance(dependency, LifecycleComponent):
-                try:
-                    await dependency.cleanup()
-                except Exception as e:
-                    raise DependencyError(f"Failed to clean up dependency {name}: {e}")
+            for dep_name, deps in self._depends_on.items():
+                if name in deps:
+                    await cleanup_dependency(dep_name)
 
-            cleaned.add(name)
+            try:
+                if hasattr(dependency, "cleanup"):
+                    await dependency.cleanup()
+                cleaned.add(name)
+            except Exception as e:
+                raise DependencyError(f"Failed to clean up {name}: {e}")
 
         for name in reversed(list(self._dependencies)):
             await cleanup_dependency(name)
 
-        logger.info("Dependencies cleaned up")
+
+__all__ = ["DependencyManager"]

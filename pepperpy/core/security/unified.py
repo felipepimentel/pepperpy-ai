@@ -426,9 +426,7 @@ class SecurityManager:
                 code="SEC007",
             )
 
-        return await self._providers[provider_name].authorize(
-            context, resource, action
-        )
+        return await self._providers[provider_name].authorize(context, resource, action)
 
     async def encrypt(
         self,
@@ -515,12 +513,10 @@ class SecurityMonitor:
         }
 
         if context:
-            event_labels.update(
-                {
-                    "user_id": context.user_id,
-                    "level": context.level.value,
-                }
-            )
+            event_labels.update({
+                "user_id": context.user_id,
+                "level": context.level.value,
+            })
 
         event_labels.update(labels)
 
@@ -534,4 +530,4 @@ class SecurityMonitor:
                     "context": context.to_dict() if context else None,
                     **labels,
                 },
-            ) 
+            )

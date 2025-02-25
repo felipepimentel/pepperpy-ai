@@ -4,14 +4,13 @@ This module provides collectors for gathering metrics from various sources.
 """
 
 import asyncio
-from abc import ABC, abstractmethod
-from typing import Any
+from abc import abstractmethod
 
-from pepperpy.core.models import BaseModel, Field
 from pepperpy.core.lifecycle.base import LifecycleComponent
+from pepperpy.core.models import BaseModel, Field
 from pepperpy.core.types.states import ComponentState
 from pepperpy.monitoring.logging import get_logger
-from pepperpy.monitoring.metrics.base import Metric, MetricConfig
+from pepperpy.monitoring.metrics.base import Metric
 
 # Initialize logger
 logger = get_logger(__name__)

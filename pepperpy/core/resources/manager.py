@@ -1,10 +1,10 @@
-"""Resource manager system.
+"""Resource management system.
 
 This module provides resource management functionality:
-- Resource allocation
-- Resource tracking
-- Resource cleanup
-- Resource monitoring
+- Resource allocation and tracking
+- Resource cleanup and monitoring
+- Resource metadata management
+- Resource state tracking
 """
 
 import asyncio
@@ -41,43 +41,35 @@ class ResourceManager(LifecycleComponent):
         self._metadata: dict[str, ResourceMetadata] = {}
         self._lock = asyncio.Lock()
 
-    async def initialize(self) -> None:
+    async def _initialize(self) -> None:
         """Initialize manager.
 
         Raises:
             ResourceError: If initialization fails
         """
-        try:
-            await super().initialize()
-            logger.info("Resource manager initialized", extra={"name": self.name})
-        except Exception as e:
-            raise ResourceError(f"Failed to initialize resource manager: {e}")
+        logger.info("Resource manager initialized", extra={"name": self.name})
 
-    async def cleanup(self) -> None:
+    async def _cleanup(self) -> None:
         """Clean up manager.
 
         Raises:
             ResourceError: If cleanup fails
         """
-        try:
-            await super().cleanup()
-            async with self._lock:
-                for resource in self._resources.values():
-                    try:
-                        await resource.cleanup()
-                    except Exception as e:
-                        logger.error(
-                            "Failed to clean up resource",
-                            extra={
-                                "resource": resource.id,
-                                "error": str(e),
-                            },
-                        )
-                self._resources.clear()
-                self._metadata.clear()
-            logger.info("Resource manager cleaned up", extra={"name": self.name})
-        except Exception as e:
-            raise ResourceError(f"Failed to clean up resource manager: {e}")
+        async with self._lock:
+            for resource in self._resources.values():
+                try:
+                    await resource.cleanup()
+                except Exception as e:
+                    logger.error(
+                        "Failed to clean up resource",
+                        extra={
+                            "resource": resource.name,
+                            "error": str(e),
+                        },
+                    )
+            self._resources.clear()
+            self._metadata.clear()
+        logger.info("Resource manager cleaned up", extra={"name": self.name})
 
     async def allocate_resource(
         self,
@@ -86,91 +78,84 @@ class ResourceManager(LifecycleComponent):
         value: T,
         metadata: dict[str, Any] | None = None,
     ) -> Resource[T]:
-        """Allocate resource.
+        """Allocate a resource.
 
         Args:
-            id: Resource identifier
+            id: Resource ID
             type: Resource type
             value: Resource value
             metadata: Optional resource metadata
 
         Returns:
-            Allocated resource
+            Resource[T]: Allocated resource
 
         Raises:
             ResourceError: If allocation fails
         """
         try:
-            async with self._lock:
-                if id in self._resources:
-                    raise ResourceError(f"Resource already exists: {id}")
+            if id in self._resources:
+                raise ResourceError(f"Resource {id} already exists")
 
-                # Create resource
-                resource = Resource(
-                    id=id,
-                    type=type,
-                    value=value,
-                    state=ResourceState.ALLOCATED,
-                )
+            resource = Resource(id, type, value)
+            await resource.initialize()
 
-                # Store metadata
-                self._metadata[id] = ResourceMetadata(
-                    type=type,
-                    metadata=metadata or {},
-                )
+            self._resources[id] = resource
+            self._metadata[id] = ResourceMetadata(
+                type=type,
+                metadata=metadata or {},
+            )
 
-                # Initialize resource
-                await resource.initialize()
-                self._resources[id] = resource
+            logger.info(
+                "Resource allocated",
+                extra={
+                    "id": id,
+                    "type": type,
+                },
+            )
 
-                logger.info(
-                    "Allocated resource",
-                    extra={
-                        "id": id,
-                        "type": type,
-                    },
-                )
-
-                return resource
+            return resource
 
         except Exception as e:
-            raise ResourceError(f"Failed to allocate resource: {e}")
+            raise ResourceError(f"Failed to allocate resource {id}: {e}")
 
     async def deallocate_resource(self, id: str) -> None:
-        """Deallocate resource.
+        """Deallocate a resource.
 
         Args:
-            id: Resource identifier
+            id: Resource ID
 
         Raises:
             ResourceError: If deallocation fails
         """
         try:
-            async with self._lock:
-                resource = self._resources.get(id)
-                if not resource:
-                    raise ResourceError(f"Resource not found: {id}")
+            if id not in self._resources:
+                raise ResourceError(f"Resource {id} not found")
 
-                # Clean up resource
-                await resource.cleanup()
+            resource = self._resources[id]
+            await resource.cleanup()
 
-                # Remove resource
-                del self._resources[id]
-                self._metadata.pop(id, None)
+            del self._resources[id]
+            del self._metadata[id]
 
-                logger.info("Deallocated resource", extra={"id": id})
+            logger.info(
+                "Resource deallocated",
+                extra={
+                    "id": id,
+                    "type": resource.type,
+                },
+            )
 
         except Exception as e:
-            raise ResourceError(f"Failed to deallocate resource: {e}")
+            raise ResourceError(f"Failed to deallocate resource {id}: {e}")
 
     def get_resource(self, id: str) -> Resource[Any] | None:
-        """Get resource instance.
+        """Get a resource.
 
         Args:
-            id: Resource identifier
+            id: Resource ID
 
         Returns:
-            Resource instance if found
+            Resource | None: Resource if found, None otherwise
         """
         return self._resources.get(id)
 
@@ -178,10 +163,10 @@ class ResourceManager(LifecycleComponent):
         """Get resource metadata.
 
         Args:
-            id: Resource identifier
+            id: Resource ID
 
         Returns:
-            Resource metadata if found
+            ResourceMetadata | None: Resource metadata if found, None otherwise
         """
         return self._metadata.get(id)
 
@@ -190,20 +175,21 @@ class ResourceManager(LifecycleComponent):
         type: ResourceType | None = None,
         state: ResourceState | None = None,
     ) -> list[Resource[Any]]:
-        """List allocated resources.
+        """List resources.
 
         Args:
             type: Optional resource type filter
             state: Optional resource state filter
 
         Returns:
-            List of resources
+            list[Resource]: List of matching resources
         """
         resources = list(self._resources.values())
 
-        if type:
+        if type is not None:
             resources = [r for r in resources if r.type == type]
-        if state:
+
+        if state is not None:
             resources = [r for r in resources if r.state == state]
 
         return resources
@@ -212,23 +198,22 @@ class ResourceManager(LifecycleComponent):
         """Get resource statistics.
 
         Returns:
-            Resource statistics
+            dict[str, Any]: Resource statistics
         """
         stats: dict[str, Any] = {
-            "total_resources": len(self._resources),
+            "total": len(self._resources),
             "by_type": {},
             "by_state": {},
         }
 
-        # Count by type
         for resource in self._resources.values():
-            if resource.type not in stats["by_type"]:
-                stats["by_type"][resource.type] = 0
-            stats["by_type"][resource.type] += 1
+            # Count by type
+            type_str = str(resource.type)
+            stats["by_type"][type_str] = stats["by_type"].get(type_str, 0) + 1
 
-            if resource.state not in stats["by_state"]:
-                stats["by_state"][resource.state] = 0
-            stats["by_state"][resource.state] += 1
+            # Count by state
+            state_str = str(resource.state)
+            stats["by_state"][state_str] = stats["by_state"].get(state_str, 0) + 1
 
         return stats
 

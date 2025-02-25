@@ -4,12 +4,12 @@ This module provides context management functionality.
 """
 
 from contextvars import ContextVar
-from typing import Any, Dict, Optional
+from typing import Any
 
-_context: ContextVar[Dict[str, Any]] = ContextVar("context", default={})
+_context: ContextVar[dict[str, Any]] = ContextVar("context", default={})
 
 
-def get_context() -> Dict[str, Any]:
+def get_context() -> dict[str, Any]:
     """Get current context.
 
     Returns:
@@ -18,7 +18,7 @@ def get_context() -> Dict[str, Any]:
     return _context.get()
 
 
-def set_context(context: Dict[str, Any]) -> None:
+def set_context(context: dict[str, Any]) -> None:
     """Set current context.
 
     Args:
@@ -39,7 +39,7 @@ def update_context(key: str, value: Any) -> None:
     set_context(context)
 
 
-def get_context_value(key: str, default: Optional[Any] = None) -> Any:
+def get_context_value(key: str, default: Any | None = None) -> Any:
     """Get context value.
 
     Args:

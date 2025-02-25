@@ -3,7 +3,7 @@
 This module defines the various states that components can be in.
 """
 
-from enum import Enum, auto
+from enum import Enum
 
 
 class ComponentState(str, Enum):

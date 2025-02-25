@@ -10,7 +10,6 @@ from pepperpy.core.providers.unified import (
     ProviderError,
     ProviderNotFoundError,
     UnifiedProviderRegistry,
-    get_registry,
 )
 
 # Re-export the unified provider registry as ProviderManager for backward compatibility
@@ -20,8 +19,8 @@ __all__ = [
     "BaseProvider",
     "ProviderConfig",
     "ProviderError",
-    "ProviderNotFoundError",
     "ProviderManager",
+    "ProviderNotFoundError",
 ]
 """Provider registration and lifecycle management.
 

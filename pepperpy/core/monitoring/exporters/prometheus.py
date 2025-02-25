@@ -32,7 +32,7 @@ class PrometheusExporter(MonitoringExporter):
         self.host = host
         self.port = port
         self.path = path
-        self._app: web.Application | None = None
+        self._app = web.Application()
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
         self._metrics: dict[str, Counter | Gauge | Histogram] = {}
@@ -40,12 +40,13 @@ class PrometheusExporter(MonitoringExporter):
     async def _initialize(self) -> None:
         """Initialize the Prometheus exporter."""
         try:
-            self._app = web.Application()
             self._app.router.add_get(self.path, self._handle_metrics)
             self._runner = web.AppRunner(self._app)
-            await self._runner.setup()
-            self._site = web.TCPSite(self._runner, self.host, self.port)
-            await self._site.start()
+            if self._runner is not None:
+                await self._runner.setup()
+                self._site = web.TCPSite(self._runner, self.host, self.port)
+                if self._site is not None:
+                    await self._site.start()
         except Exception as e:
             raise ExporterError(f"Failed to initialize Prometheus exporter: {e}") from e
 

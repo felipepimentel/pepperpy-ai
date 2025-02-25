@@ -46,49 +46,42 @@ class EventHandler:
 
 
 class EventManager(LifecycleComponent):
-    """Manages events and their lifecycle."""
+    """Manager for event lifecycle."""
 
     def __init__(self) -> None:
-        """Initialize event manager."""
+        """Initialize manager."""
         super().__init__("event_manager")
         self._handlers: dict[str, list[EventHandler]] = {}
         self._initialized = False
+        self._lock = asyncio.Lock()
 
-    async def initialize(self) -> None:
-        """Initialize event manager.
+    async def _initialize(self) -> None:
+        """Initialize manager.
 
         Raises:
             EventError: If initialization fails
         """
-        try:
-            await super().initialize()
-            self._initialized = True
-            logger.info("Event manager initialized")
-        except Exception as e:
-            raise EventError(f"Failed to initialize event manager: {e}")
+        self._initialized = True
+        logger.info("Event manager initialized")
 
-    async def cleanup(self) -> None:
-        """Clean up event manager.
+    async def _cleanup(self) -> None:
+        """Clean up manager.
 
         Raises:
             EventError: If cleanup fails
         """
-        try:
-            await super().cleanup()
-            self._initialized = False
-            logger.info("Event manager cleaned up")
-        except Exception as e:
-            raise EventError(f"Failed to clean up event manager: {e}")
+        self._initialized = False
+        logger.info("Event manager cleaned up")
 
     def register_handler(
         self,
         event_type: str,
         handler: EventHandler,
     ) -> None:
-        """Register event handler.
+        """Register an event handler.
 
         Args:
-            event_type: Event type
+            event_type: Event type to handle
             handler: Event handler
 
         Raises:
@@ -97,12 +90,9 @@ class EventManager(LifecycleComponent):
         if event_type not in self._handlers:
             self._handlers[event_type] = []
 
-        # Insert handler in priority order
         handlers = self._handlers[event_type]
-        index = 0
-        while index < len(handlers) and handlers[index].priority >= handler.priority:
-            index += 1
-        handlers.insert(index, handler)
+        handlers.append(handler)
+        handlers.sort(key=lambda h: h.priority, reverse=True)
 
         logger.info(
             "Event handler registered",
@@ -117,7 +107,7 @@ class EventManager(LifecycleComponent):
         event_type: str,
         handler: EventHandler,
     ) -> None:
-        """Unregister event handler.
+        """Unregister an event handler.
 
         Args:
             event_type: Event type
@@ -127,25 +117,30 @@ class EventManager(LifecycleComponent):
             EventError: If unregistration fails
         """
         if event_type not in self._handlers:
-            raise EventError(f"Unknown event type {event_type}")
+            raise EventError(f"No handlers registered for {event_type}")
 
+        handlers = self._handlers[event_type]
         try:
-            self._handlers[event_type].remove(handler)
-            if not self._handlers[event_type]:
+            handlers.remove(handler)
+            if not handlers:
                 del self._handlers[event_type]
+
             logger.info(
                 "Event handler unregistered",
-                extra={"event_type": event_type},
+                extra={
+                    "event_type": event_type,
+                    "priority": handler.priority,
+                },
             )
         except ValueError:
-            raise EventError(f"Handler not found for event type {event_type}")
+            raise EventError(f"Handler not found for {event_type}")
 
     async def dispatch(
         self,
         event: Event,
         wait: bool = True,
     ) -> None:
-        """Dispatch event to handlers.
+        """Dispatch an event.
 
         Args:
             event: Event to dispatch
@@ -159,10 +154,7 @@ class EventManager(LifecycleComponent):
 
         handlers = self._handlers.get(event.type, [])
         if not handlers:
-            logger.warning(
-                "No handlers found for event",
-                extra={"event_type": event.type},
-            )
+            logger.debug(f"No handlers for event type: {event.type}")
             return
 
         tasks = []
@@ -175,12 +167,14 @@ class EventManager(LifecycleComponent):
             task = asyncio.create_task(self._handle_event(event, handler))
             tasks.append(task)
 
-        if wait:
-            await asyncio.gather(*tasks)
-        else:
-            # Let tasks run in background
-            for task in tasks:
+            if not wait:
                 task.add_done_callback(self._handle_task_result)
+
+        if wait:
+            try:
+                await asyncio.gather(*tasks)
+            except Exception as e:
+                raise EventError(f"Event dispatch failed: {e}")
 
     def list_handlers(
         self, event_type: str | None = None
@@ -191,7 +185,7 @@ class EventManager(LifecycleComponent):
             event_type: Optional event type filter
 
         Returns:
-            Dictionary of event types to handlers
+            dict[str, list[EventHandler]]: Mapping of event types to handlers
         """
         if event_type:
             return {event_type: self._handlers.get(event_type, [])}
@@ -202,43 +196,44 @@ class EventManager(LifecycleComponent):
         event: Event,
         handler: EventHandler,
     ) -> None:
-        """Handle event with retries.
+        """Handle an event.
 
         Args:
             event: Event to handle
             handler: Event handler
 
         Raises:
-            EventError: If handling fails after retries
+            EventError: If handling fails
         """
-        for attempt in range(handler.max_retries):
+        retries = 0
+        while True:
             try:
                 await handler.callback(event)
-                return
+                break
             except Exception as e:
-                if attempt == handler.max_retries - 1:
+                retries += 1
+                if retries >= handler.max_retries:
                     logger.error(
                         "Event handler failed",
                         extra={
                             "event_type": event.type,
                             "error": str(e),
-                            "attempts": attempt + 1,
+                            "retries": retries,
                         },
                     )
                     raise EventError(
-                        f"Event handler failed after {attempt + 1} attempts: {e}"
+                        f"Event handler failed after {retries} retries: {e}"
                     )
-                else:
-                    logger.warning(
-                        "Event handler failed, retrying",
-                        extra={
-                            "event_type": event.type,
-                            "error": str(e),
-                            "attempt": attempt + 1,
-                            "retry_delay": handler.retry_delay,
-                        },
-                    )
-                    await asyncio.sleep(handler.retry_delay)
+
+                logger.warning(
+                    "Event handler failed, retrying",
+                    extra={
+                        "event_type": event.type,
+                        "error": str(e),
+                        "retry": retries,
+                    },
+                )
+                await asyncio.sleep(handler.retry_delay)
 
     def _handle_task_result(self, task: asyncio.Task) -> None:
         """Handle background task result.
@@ -249,7 +244,11 @@ class EventManager(LifecycleComponent):
         try:
             task.result()
         except Exception as e:
-            logger.error(
-                "Background event handler failed",
-                extra={"error": str(e)},
-            )
+            logger.error("Background task failed", extra={"error": str(e)})
+
+
+__all__ = [
+    "Event",
+    "EventHandler",
+    "EventManager",
+]

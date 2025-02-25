@@ -10,7 +10,7 @@ This module provides core adapter functionality:
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 from pepperpy.core.errors import AdapterError
 from pepperpy.core.lifecycle import LifecycleComponent
@@ -52,12 +52,12 @@ class AdapterMetadata:
     version: str
     description: str
     author: str
-    dependencies: List[str] = field(default_factory=list)
+    dependencies: list[str] = field(default_factory=list)
     created_at: datetime = field(default_factory=datetime.utcnow)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    updated_at: Optional[datetime] = None
-    expires_at: Optional[datetime] = None
-    tags: Dict[str, str] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    updated_at: datetime | None = None
+    expires_at: datetime | None = None
+    tags: dict[str, str] = field(default_factory=dict)
 
 
 class Adapter(LifecycleComponent, Generic[InputT, OutputT]):
@@ -66,7 +66,7 @@ class Adapter(LifecycleComponent, Generic[InputT, OutputT]):
     def __init__(
         self,
         name: str,
-        config: Dict[str, Any],
+        config: dict[str, Any],
     ) -> None:
         """Initialize adapter.
 
@@ -272,4 +272,4 @@ __all__ = [
     "ProcessorAdapter",
     "ProviderAdapter",
     "StorageAdapter",
-] 
+]

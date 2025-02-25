@@ -5,6 +5,7 @@ This module provides a JSON formatter for structured logging output.
 
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
@@ -45,9 +46,30 @@ class JsonFormatter(logging.Formatter):
         >>> handler.setFormatter(JsonFormatter())
         >>> logger.addHandler(handler)
         >>> logger.info("Test message", extra={"context": {"key": "value"}})
-        {"timestamp": "2024-02-15T12:34:56.789Z", "level": "INFO", "logger": "test", 
+        {"timestamp": "2024-02-15T12:34:56.789Z", "level": "INFO", "logger": "test",
          "message": "Test message", "context": {"key": "value"}, "exception": null}
     """
+
+    def __init__(
+        self,
+        indent: int | None = None,
+        sort_keys: bool = False,
+        default: Callable[[Any], Any] | None = None,
+        encoders: dict[type, Callable[[Any], Any]] | None = None,
+    ) -> None:
+        """Initialize JSON formatter.
+
+        Args:
+            indent: Optional JSON indentation
+            sort_keys: Whether to sort dictionary keys
+            default: Default JSON encoder function
+            encoders: Custom type encoders
+        """
+        super().__init__()
+        self.indent = indent
+        self.sort_keys = sort_keys
+        self.default = default or str
+        self.encoders = encoders or {}
 
     def format(self, record: logging.LogRecord) -> str:
         """Format log record as JSON.
@@ -70,11 +92,35 @@ class JsonFormatter(logging.Formatter):
             logger=record.name,
             message=record.getMessage(),
             context=context,
-            exception=self.formatException(record.exc_info) if record.exc_info else None,
+            exception=self.formatException(record.exc_info)
+            if record.exc_info
+            else None,
         )
 
         # Convert to JSON
-        return json.dumps(log_record.model_dump(), default=str)
+        return json.dumps(
+            log_record.model_dump(),
+            indent=self.indent,
+            sort_keys=self.sort_keys,
+            default=self._encode_value,
+        )
+
+    def _encode_value(self, obj: Any) -> Any:
+        """Encode value using custom encoders.
+
+        Args:
+            obj: Value to encode
+
+        Returns:
+            JSON-serializable value
+        """
+        # Try custom encoders first
+        for type_, encoder in self.encoders.items():
+            if isinstance(obj, type_):
+                return encoder(obj)
+
+        # Fall back to default encoder
+        return self.default(obj)
 
 
 # Export public API

@@ -4,44 +4,78 @@ This module defines core lifecycle types used throughout the framework.
 """
 
 from abc import abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from typing import Protocol, TypeVar
-from typing_extensions import TypeAlias
+from typing import Any, Protocol
 
 
 class LifecycleState(str, Enum):
     """Component lifecycle states."""
 
-    UNREGISTERED = "unregistered"
-    CREATED = "created"
-    INITIALIZING = "initializing"
-    READY = "ready"
-    RUNNING = "running"
-    STOPPED = "stopped"
-    ERROR = "error"
-    CLEANING = "cleaning"
-    CLEANED = "cleaned"
-    EXECUTING = "executing"
+    UNREGISTERED = "unregistered"  # Initial state before registration
+    CREATED = "created"  # Component created but not initialized
+    INITIALIZING = "initializing"  # Component is being initialized
+    READY = "ready"  # Component is initialized and ready
+    RUNNING = "running"  # Component is actively running
+    STOPPING = "stopping"  # Component is being stopped
+    STOPPED = "stopped"  # Component is stopped but can be restarted
+    CLEANING = "cleaning"  # Component is being cleaned up
+    CLEANED = "cleaned"  # Component is cleaned and cannot be reused
+    ERROR = "error"  # Component is in error state
 
 
+@dataclass
+class LifecycleMetadata:
+    """Metadata for lifecycle management."""
+
+    component_id: str  # Unique identifier for the component
+    component_type: str  # Type/class name of the component
+    state: LifecycleState  # Current lifecycle state
+    created_at: datetime  # Creation timestamp
+    updated_at: datetime  # Last update timestamp
+    error: str | None = None  # Last error message if any
+    dependencies: list[str] | None = None  # List of component dependencies
+    metrics: dict[str, Any] | None = None  # Component-specific metrics
+
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.dependencies is None:
+            self.dependencies = []
+        if self.metrics is None:
+            self.metrics = {}
+
+
+@dataclass
 class StateTransition:
     """State transition definition."""
 
-    def __init__(self, from_state: LifecycleState, to_state: LifecycleState, description: str = "") -> None:
-        """Initialize state transition.
+    from_state: LifecycleState  # Source state
+    to_state: LifecycleState  # Target state
+    timestamp: datetime  # When the transition occurred
+    description: str = ""  # Optional transition description
+    metadata: dict[str, Any] | None = None  # Additional transition metadata
 
-        Args:
-            from_state: Source state
-            to_state: Target state
-            description: Optional transition description
-        """
-        self.from_state = from_state
-        self.to_state = to_state
-        self.description = description
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.metadata is None:
+            self.metadata = {}
 
 
 class Lifecycle(Protocol):
     """Protocol for components with lifecycle management."""
+
+    @property
+    @abstractmethod
+    def metadata(self) -> LifecycleMetadata:
+        """Get component metadata."""
+        ...
+
+    @property
+    @abstractmethod
+    def state(self) -> LifecycleState:
+        """Get current lifecycle state."""
+        ...
 
     @abstractmethod
     async def initialize(self) -> None:
@@ -53,6 +87,30 @@ class Lifecycle(Protocol):
 
         Raises:
             LifecycleError: If initialization fails
+        """
+        ...
+
+    @abstractmethod
+    async def start(self) -> None:
+        """Start the component.
+
+        This method should be called to start the component's main functionality.
+        It should transition the component from READY to RUNNING state.
+
+        Raises:
+            LifecycleError: If start fails
+        """
+        ...
+
+    @abstractmethod
+    async def stop(self) -> None:
+        """Stop the component.
+
+        This method should be called to stop the component's main functionality.
+        It should transition the component from RUNNING to STOPPED state.
+
+        Raises:
+            LifecycleError: If stop fails
         """
         ...
 
@@ -69,9 +127,39 @@ class Lifecycle(Protocol):
         ...
 
 
+# Valid state transitions
+VALID_TRANSITIONS: dict[LifecycleState, set[LifecycleState]] = {
+    LifecycleState.UNREGISTERED: {LifecycleState.CREATED, LifecycleState.ERROR},
+    LifecycleState.CREATED: {LifecycleState.INITIALIZING, LifecycleState.ERROR},
+    LifecycleState.INITIALIZING: {LifecycleState.READY, LifecycleState.ERROR},
+    LifecycleState.READY: {
+        LifecycleState.RUNNING,
+        LifecycleState.CLEANING,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.RUNNING: {LifecycleState.STOPPING, LifecycleState.ERROR},
+    LifecycleState.STOPPING: {LifecycleState.STOPPED, LifecycleState.ERROR},
+    LifecycleState.STOPPED: {
+        LifecycleState.RUNNING,
+        LifecycleState.CLEANING,
+        LifecycleState.ERROR,
+    },
+    LifecycleState.CLEANING: {LifecycleState.CLEANED, LifecycleState.ERROR},
+    LifecycleState.CLEANED: {LifecycleState.ERROR},
+    LifecycleState.ERROR: {
+        LifecycleState.INITIALIZING,
+        LifecycleState.RUNNING,
+        LifecycleState.STOPPING,
+        LifecycleState.CLEANING,
+    },
+}
+
+
 # Export public API
 __all__ = [
+    "VALID_TRANSITIONS",
     "Lifecycle",
+    "LifecycleMetadata",
     "LifecycleState",
     "StateTransition",
 ]

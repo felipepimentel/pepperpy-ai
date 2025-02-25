@@ -12,7 +12,7 @@ import logging
 from typing import Any, TypeVar
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.core.lifecycle import Lifecycle
+from pepperpy.core.lifecycle.types import Lifecycle
 from pepperpy.core.types import ComponentState
 
 # Configure base logging
@@ -248,41 +248,43 @@ class LogManager(Lifecycle):
             name: Handler name
 
         Raises:
-            ValidationError: If handler not found
+            ValidationError: If handler does not exist
         """
         if name not in self._handlers:
-            raise ValidationError(f"Handler not found: {name}")
+            raise ValidationError(f"Handler does not exist: {name}")
         del self._handlers[name]
 
-    async def log(
-        self,
-        message: str,
-        level: str = LogLevel.INFO,
-        context: dict[str, Any] | None = None,
-        exception: Exception | None = None,
-    ) -> None:
-        """Log message.
+    def get_handler(self, name: str) -> LogHandler:
+        """Get log handler.
 
         Args:
-            message: Message to log
-            level: Log level
-            context: Log context
-            exception: Exception if any
+            name: Handler name
+
+        Returns:
+            Log handler
+
+        Raises:
+            ValidationError: If handler does not exist
         """
-        record = LogRecord(
-            level=level,
-            message=message,
-            context=context or {},
-            exception=exception,
-        )
-        for handler in self._handlers.values():
-            await handler._queue.put(record)
+        if name not in self._handlers:
+            raise ValidationError(f"Handler does not exist: {name}")
+        return self._handlers[name]
 
+    def has_handler(self, name: str) -> bool:
+        """Check if handler exists.
 
-# Export public API
-__all__ = [
-    "LogHandler",
-    "LogLevel",
-    "LogManager",
-    "LogRecord",
-]
+        Args:
+            name: Handler name
+
+        Returns:
+            True if handler exists, False otherwise
+        """
+        return name in self._handlers
+
+    def get_handlers(self) -> list[LogHandler]:
+        """Get all handlers.
+
+        Returns:
+            List of handlers
+        """
+        return list(self._handlers.values())

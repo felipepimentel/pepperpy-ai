@@ -1,0 +1,257 @@
+"""Base lifecycle functionality for the Pepperpy framework.
+
+This module provides base classes and protocols for lifecycle management.
+"""
+
+import asyncio
+import logging
+import uuid
+from datetime import datetime
+
+from pepperpy.core.lifecycle.errors import (
+    InvalidTransitionError,
+    LifecycleOperationError,
+)
+from pepperpy.core.lifecycle.types import (
+    VALID_TRANSITIONS,
+    LifecycleMetadata,
+    LifecycleState,
+    StateTransition,
+)
+from pepperpy.monitoring.metrics import MetricsManager
+
+
+class BaseLifecycle:
+    """Base class for components with lifecycle management."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize the component.
+
+        Args:
+            name: Component name
+        """
+        self._name = name
+        self._metadata = LifecycleMetadata(
+            component_id=str(uuid.uuid4()),
+            component_type=self.__class__.__name__,
+            state=LifecycleState.UNREGISTERED,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+        self._history: list[StateTransition] = []
+        self._metrics = MetricsManager()
+        self._logger = logging.getLogger(__name__)
+        self._lock = asyncio.Lock()
+
+    @property
+    def name(self) -> str:
+        """Get component name."""
+        return self._name
+
+    @property
+    def metadata(self) -> LifecycleMetadata:
+        """Get component metadata."""
+        return self._metadata
+
+    @property
+    def state(self) -> LifecycleState:
+        """Get current lifecycle state."""
+        return self._metadata.state
+
+    def _validate_transition(self, to_state: LifecycleState) -> None:
+        """Validate state transition.
+
+        Args:
+            to_state: Target state
+
+        Raises:
+            InvalidTransitionError: If transition is invalid
+        """
+        if to_state not in VALID_TRANSITIONS[self.state]:
+            raise InvalidTransitionError(
+                message=f"Invalid transition from {self.state} to {to_state}",
+                component=self.name,
+                current_state=self.state,
+                target_state=to_state,
+            )
+
+    async def _transition_state(
+        self, to_state: LifecycleState, description: str = ""
+    ) -> None:
+        """Transition to new state.
+
+        Args:
+            to_state: Target state
+            description: Optional transition description
+
+        Raises:
+            InvalidTransitionError: If transition is invalid
+        """
+        async with self._lock:
+            self._validate_transition(to_state)
+            from_state = self.state
+            transition = StateTransition(
+                from_state=from_state,
+                to_state=to_state,
+                timestamp=datetime.now(),
+                description=description,
+            )
+            self._history.append(transition)
+            self._metadata.state = to_state
+            self._metadata.updated_at = datetime.now()
+
+            # Update metrics
+            self._metrics.counter(
+                "lifecycle_transitions",
+                1,
+                component=self.name,
+                from_state=from_state.value,
+                to_state=to_state.value,
+            )
+
+            self._logger.info(
+                f"Component {self.name} transitioned from {from_state} to {to_state}"
+            )
+
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method should be called before using the component.
+        It should set up any necessary resources and put the component
+        in a ready state.
+
+        Raises:
+            LifecycleError: If initialization fails
+        """
+        try:
+            await self._transition_state(LifecycleState.INITIALIZING)
+            await self._initialize()
+            await self._transition_state(LifecycleState.READY)
+        except Exception as e:
+            await self._transition_state(
+                LifecycleState.ERROR,
+                description=f"Initialization failed: {e!s}",
+            )
+            raise LifecycleOperationError(
+                operation="initialize",
+                component=self.name,
+                error=e,
+            ) from e
+
+    async def start(self) -> None:
+        """Start the component.
+
+        This method should be called to start the component's main functionality.
+        It should transition the component from READY to RUNNING state.
+
+        Raises:
+            LifecycleError: If start fails
+        """
+        try:
+            await self._transition_state(LifecycleState.RUNNING)
+            await self._start()
+        except Exception as e:
+            await self._transition_state(
+                LifecycleState.ERROR,
+                description=f"Start failed: {e!s}",
+            )
+            raise LifecycleOperationError(
+                operation="start",
+                component=self.name,
+                error=e,
+            ) from e
+
+    async def stop(self) -> None:
+        """Stop the component.
+
+        This method should be called to stop the component's main functionality.
+        It should transition the component from RUNNING to STOPPED state.
+
+        Raises:
+            LifecycleError: If stop fails
+        """
+        try:
+            await self._transition_state(LifecycleState.STOPPING)
+            await self._stop()
+            await self._transition_state(LifecycleState.STOPPED)
+        except Exception as e:
+            await self._transition_state(
+                LifecycleState.ERROR,
+                description=f"Stop failed: {e!s}",
+            )
+            raise LifecycleOperationError(
+                operation="stop",
+                component=self.name,
+                error=e,
+            ) from e
+
+    async def cleanup(self) -> None:
+        """Clean up the component.
+
+        This method should be called when the component is no longer needed.
+        It should release any resources and put the component in a cleaned state.
+
+        Raises:
+            LifecycleError: If cleanup fails
+        """
+        try:
+            await self._transition_state(LifecycleState.CLEANING)
+            await self._cleanup()
+            await self._transition_state(LifecycleState.CLEANED)
+        except Exception as e:
+            await self._transition_state(
+                LifecycleState.ERROR,
+                description=f"Cleanup failed: {e!s}",
+            )
+            raise LifecycleOperationError(
+                operation="cleanup",
+                component=self.name,
+                error=e,
+            ) from e
+
+    async def _initialize(self) -> None:
+        """Initialize component implementation.
+
+        This method should be overridden by subclasses to implement
+        their specific initialization logic.
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError("_initialize not implemented")
+
+    async def _start(self) -> None:
+        """Start component implementation.
+
+        This method should be overridden by subclasses to implement
+        their specific start logic.
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError("_start not implemented")
+
+    async def _stop(self) -> None:
+        """Stop component implementation.
+
+        This method should be overridden by subclasses to implement
+        their specific stop logic.
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError("_stop not implemented")
+
+    async def _cleanup(self) -> None:
+        """Clean up component implementation.
+
+        This method should be overridden by subclasses to implement
+        their specific cleanup logic.
+
+        Raises:
+            NotImplementedError: If not implemented by subclass
+        """
+        raise NotImplementedError("_cleanup not implemented")
+
+
+__all__ = ["BaseLifecycle"]

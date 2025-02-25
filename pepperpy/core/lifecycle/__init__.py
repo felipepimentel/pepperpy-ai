@@ -10,8 +10,7 @@ from pepperpy.core.lifecycle.errors import (
     LifecycleOperationError,
 )
 from pepperpy.core.lifecycle.manager import LifecycleManager
-from pepperpy.core.lifecycle.types import LifecycleState, StateTransition
-from pepperpy.core.protocols.lifecycle import Lifecycle
+from pepperpy.core.lifecycle.types import Lifecycle, LifecycleState, StateTransition
 
 __all__ = [
     "InvalidStateError",
