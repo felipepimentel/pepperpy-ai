@@ -1,96 +1,108 @@
-"""Core exception classes for the pepperpy framework."""
+"""Core error types for Pepperpy."""
+
+from typing import Any, Optional
 
 
-class PepperError(Exception):
-    """Base exception class for all pepperpy errors."""
+class PepperpyError(Exception):
+    """Base exception class for Pepperpy errors."""
 
-    pass
+    def __init__(self, message: str):
+        """Initialize the error.
 
-
-class ConfigurationError(PepperError):
-    """Raised when there is an error in configuration."""
-
-    pass
-
-
-class ValidationError(PepperError):
-    """Raised when validation fails."""
-
-    pass
+        Args:
+            message: The error message
+        """
+        super().__init__(message)
+        self.message = message
 
 
-class CommunicationError(PepperError):
-    """Raised when there is an error in service communication."""
+class ValidationError(PepperpyError):
+    """Validation error."""
 
-    pass
+    def __init__(self, message: str, details: dict[str, Any] | None = None):
+        """Initialize the error.
 
-
-class ServiceError(PepperError):
-    """Raised when there is an error in service operation."""
-
-    pass
-
-
-class NotFoundError(PepperError):
-    """Raised when a requested resource is not found."""
-
-    pass
+        Args:
+            message: The error message
+            details: Optional error details
+        """
+        super().__init__(message)
+        self.details = details or {}
 
 
-class AuthenticationError(PepperError):
-    """Raised when authentication fails."""
+class ConfigError(PepperpyError):
+    """Configuration error."""
 
-    pass
+    def __init__(self, message: str, config_path: str | None = None):
+        """Initialize the error.
 
-
-class AuthorizationError(PepperError):
-    """Raised when authorization fails."""
-
-    pass
-
-
-class TimeoutError(PepperError):
-    """Raised when an operation times out."""
-
-    pass
+        Args:
+            message: The error message
+            config_path: Optional configuration path
+        """
+        super().__init__(message)
+        self.config_path = config_path
 
 
-class StateError(PepperError):
-    """Raised when an operation fails due to invalid state."""
+class WorkflowError(PepperpyError):
+    """Workflow-related error."""
 
-    pass
+    def __init__(self, message: str, workflow_id: Optional[str] = None):
+        """Initialize the error.
+
+        Args:
+            message: The error message
+            workflow_id: Optional workflow ID
+        """
+        if workflow_id:
+            super().__init__(f"Workflow error ({workflow_id}): {message}")
+            self.workflow_id = workflow_id
+        else:
+            super().__init__(f"Workflow error: {message}")
+            self.workflow_id = None
 
 
-class ResourceError(PepperError):
-    """Raised when there is an error with system resources."""
+class ComponentError(PepperpyError):
+    """Component-related error."""
 
-    pass
+    def __init__(self, message: str, component_id: str | None = None):
+        """Initialize the error.
+
+        Args:
+            message: The error message
+            component_id: Optional component ID
+        """
+        if component_id:
+            super().__init__(f"Component error ({component_id}): {message}")
+            self.component_id = component_id
+        else:
+            super().__init__(f"Component error: {message}")
+            self.component_id = None
 
 
-class DependencyError(PepperError):
-    """Raised when there is an error with dependencies."""
+class StateError(PepperpyError):
+    """State-related error."""
 
-    pass
+    def __init__(self, message: str, state: str | None = None):
+        """Initialize the error.
 
-
-class ComponentError(PepperError):
-    """Raised when there is an error with a component."""
-
-    pass
+        Args:
+            message: The error message
+            state: Optional state information
+        """
+        if state:
+            super().__init__(f"State error ({state}): {message}")
+            self.state = state
+        else:
+            super().__init__(f"State error: {message}")
+            self.state = None
 
 
 __all__ = [
-    "AuthenticationError",
-    "AuthorizationError",
-    "CommunicationError",
-    "ComponentError",
-    "ConfigurationError",
-    "DependencyError",
-    "NotFoundError",
-    "PepperError",
-    "ResourceError",
-    "ServiceError",
-    "StateError",
-    "TimeoutError",
+    "PepperpyError",
     "ValidationError",
-]
+    "ConfigError",
+    "WorkflowError",
+    "ComponentError",
+    "StateError",
+] 

@@ -1,38 +1,24 @@
-"""@file: types.py
-@purpose: Core metrics types
-@component: Core > Metrics
-@created: 2024-03-21
-@task: TASK-007-R060
-@status: active
-"""
+"""Core metric types for Pepperpy."""
 
-from enum import Enum
-from typing import Union
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional, Union
 
-# Type aliases
+from pepperpy.core.protocols.lifecycle import Lifecycle
+
 MetricValue = Union[int, float]
-MetricLabels = Union[dict[str, str], list[str], None]
+MetricLabels = Union[Dict[str, str], None]
 
 
-class MetricType(Enum):
-    """Types of metrics supported."""
-
-    COUNTER = "counter"
-    GAUGE = "gauge"
-    HISTOGRAM = "histogram"
-    SUMMARY = "summary"
-
-
-class MetricBase:
+class MetricBase(Lifecycle):
     """Base class for all metrics."""
 
     def __init__(
         self,
         name: str,
-        description: str,
+        description: str = "",
         labels: MetricLabels = None,
     ) -> None:
-        """Initialize the metric.
+        """Initialize metric.
 
         Args:
             name: Metric name
@@ -42,11 +28,9 @@ class MetricBase:
         self.name = name
         self.description = description
         self.labels = labels or {}
-        if isinstance(self.labels, list):
-            self.labels = {label: "" for label in self.labels}
 
-    def _get_key(self, labels: dict[str, str] | None = None) -> str:
-        """Get the metric key with labels.
+    def _get_key(self, labels: Optional[Dict[str, str]] = None) -> str:
+        """Get metric key with labels.
 
         Args:
             labels: Optional label values
@@ -56,12 +40,19 @@ class MetricBase:
         """
         if not labels:
             return self.name
-
         label_str = ",".join(f"{k}={v}" for k, v in sorted(labels.items()))
         return f"{self.name}{{{label_str}}}"
 
+    async def initialize(self) -> None:
+        """Initialize metric."""
+        pass
 
-class MetricCounter(MetricBase):
+    async def cleanup(self) -> None:
+        """Clean up metric."""
+        pass
+
+
+class Counter(MetricBase):
     """Counter metric type.
 
     Counters can only increase in value and reset when the process restarts.
@@ -70,10 +61,10 @@ class MetricCounter(MetricBase):
     def __init__(
         self,
         name: str,
-        description: str,
+        description: str = "",
         labels: MetricLabels = None,
     ) -> None:
-        """Initialize the counter.
+        """Initialize counter.
 
         Args:
             name: Counter name
@@ -81,10 +72,10 @@ class MetricCounter(MetricBase):
             labels: Optional counter labels
         """
         super().__init__(name, description, labels)
-        self._values: dict[str, float] = {}
+        self._values: Dict[str, float] = {}
 
-    def inc(self, value: float = 1.0, labels: dict[str, str] | None = None) -> None:
-        """Increment the counter.
+    async def inc(self, value: float = 1.0, labels: MetricLabels = None) -> None:
+        """Increment counter.
 
         Args:
             value: Value to increment by
@@ -93,8 +84,8 @@ class MetricCounter(MetricBase):
         key = self._get_key(labels)
         self._values[key] = self._values.get(key, 0.0) + value
 
-    def get(self, labels: dict[str, str] | None = None) -> float:
-        """Get the current counter value.
+    async def get(self, labels: MetricLabels = None) -> float:
+        """Get current counter value.
 
         Args:
             labels: Optional label values
@@ -105,7 +96,7 @@ class MetricCounter(MetricBase):
         return self._values.get(self._get_key(labels), 0.0)
 
 
-class MetricGauge(MetricBase):
+class Gauge(MetricBase):
     """Gauge metric type.
 
     Gauges can increase and decrease in value.
@@ -114,10 +105,10 @@ class MetricGauge(MetricBase):
     def __init__(
         self,
         name: str,
-        description: str,
+        description: str = "",
         labels: MetricLabels = None,
     ) -> None:
-        """Initialize the gauge.
+        """Initialize gauge.
 
         Args:
             name: Gauge name
@@ -125,10 +116,10 @@ class MetricGauge(MetricBase):
             labels: Optional gauge labels
         """
         super().__init__(name, description, labels)
-        self._values: dict[str, float] = {}
+        self._values: Dict[str, float] = {}
 
-    def set(self, value: float, labels: dict[str, str] | None = None) -> None:
-        """Set the gauge value.
+    async def set(self, value: float, labels: MetricLabels = None) -> None:
+        """Set gauge value.
 
         Args:
             value: Value to set
@@ -136,8 +127,8 @@ class MetricGauge(MetricBase):
         """
         self._values[self._get_key(labels)] = value
 
-    def inc(self, value: float = 1.0, labels: dict[str, str] | None = None) -> None:
-        """Increment the gauge.
+    async def inc(self, value: float = 1.0, labels: MetricLabels = None) -> None:
+        """Increment gauge.
 
         Args:
             value: Value to increment by
@@ -146,8 +137,8 @@ class MetricGauge(MetricBase):
         key = self._get_key(labels)
         self._values[key] = self._values.get(key, 0.0) + value
 
-    def dec(self, value: float = 1.0, labels: dict[str, str] | None = None) -> None:
-        """Decrement the gauge.
+    async def dec(self, value: float = 1.0, labels: MetricLabels = None) -> None:
+        """Decrement gauge.
 
         Args:
             value: Value to decrement by
@@ -155,8 +146,8 @@ class MetricGauge(MetricBase):
         """
         self.inc(-value, labels)
 
-    def get(self, labels: dict[str, str] | None = None) -> float:
-        """Get the current gauge value.
+    async def get(self, labels: MetricLabels = None) -> float:
+        """Get current gauge value.
 
         Args:
             labels: Optional label values
@@ -167,7 +158,7 @@ class MetricGauge(MetricBase):
         return self._values.get(self._get_key(labels), 0.0)
 
 
-class MetricHistogram(MetricBase):
+class Histogram(MetricBase):
     """Histogram metric type.
 
     Histograms track the size and number of events in buckets.
@@ -176,23 +167,23 @@ class MetricHistogram(MetricBase):
     def __init__(
         self,
         name: str,
-        description: str,
-        buckets: list[float],
+        description: str = "",
+        buckets: list[float] | None = None,
         labels: MetricLabels = None,
     ) -> None:
-        """Initialize the histogram.
+        """Initialize histogram.
 
         Args:
             name: Histogram name
             description: Histogram description
-            buckets: Bucket boundaries
+            buckets: Optional bucket boundaries
             labels: Optional histogram labels
         """
         super().__init__(name, description, labels)
-        self.buckets = sorted(buckets)
-        self._values: dict[str, list[int]] = {}
+        self.buckets = sorted(buckets) if buckets else [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]
+        self._values: Dict[str, list[int]] = {}
 
-    def observe(self, value: float, labels: dict[str, str] | None = None) -> None:
+    async def observe(self, value: float, labels: MetricLabels = None) -> None:
         """Observe a value.
 
         Args:
@@ -203,7 +194,7 @@ class MetricHistogram(MetricBase):
         if key not in self._values:
             self._values[key] = [0] * (len(self.buckets) + 1)
 
-        # Find the appropriate bucket
+        # Find appropriate bucket
         bucket_index = 0
         for i, bound in enumerate(self.buckets):
             if value <= bound:
@@ -214,8 +205,8 @@ class MetricHistogram(MetricBase):
 
         self._values[key][bucket_index] += 1
 
-    def get_buckets(self, labels: dict[str, str] | None = None) -> dict[float, int]:
-        """Get the current bucket values.
+    async def get_buckets(self, labels: MetricLabels = None) -> Dict[float, int]:
+        """Get current bucket values.
 
         Args:
             labels: Optional label values
@@ -229,16 +220,15 @@ class MetricHistogram(MetricBase):
 
         return {
             bound: count
-            for bound, count in zip(self.buckets, self._values[key][:-1], strict=False)
+            for bound, count in zip(self.buckets, self._values[key][:-1])
         }
 
 
 __all__ = [
     "MetricBase",
-    "MetricCounter",
-    "MetricGauge",
-    "MetricHistogram",
-    "MetricLabels",
-    "MetricType",
+    "Counter",
+    "Gauge",
+    "Histogram",
     "MetricValue",
-]
+    "MetricLabels",
+] 

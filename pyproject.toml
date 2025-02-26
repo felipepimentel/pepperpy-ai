@@ -14,8 +14,10 @@ packages = [{ include = "pepperpy" }]
 # Core dependencies required for basic functionality
 [tool.poetry.dependencies]
 python = "^3.12"
-pydantic = ">=2.6.0,<2.10.0" # Data validation
+pydantic = ">=2.6.0"         # Data validation
 pydantic-settings = "^2.2.1" # Settings management
+rich = "^13.7.1"             # Terminal formatting
+click = "^8.1.7"             # Command-line interface
 
 # Security dependencies
 cryptography = "^44.0.1" # Cryptographic recipes
@@ -30,14 +32,15 @@ opentelemetry-api = "^1.30.0" # Telemetry API
 opentelemetry-sdk = "^1.30.0" # Telemetry SDK
 
 # Optional dependencies for future features
+pyjwt = { extras = ["crypto"], version = "^2.10.1" }
+beautifulsoup4 = "^4.13.3"
 [tool.poetry.group.web]
 optional = true
 
 [tool.poetry.group.web.dependencies]
-fastapi = "^0.115.8"                                           # Web framework
-uvicorn = { extras = ["standard"], version = "0.34.0" }        # ASGI server
-python-multipart = "^0.0.20"                                   # Multipart form parsing
-python-jose = { extras = ["cryptography"], version = "3.4.0" } # JWT
+fastapi = "^0.115.8"                                    # Web framework
+uvicorn = { extras = ["standard"], version = "0.34.0" } # ASGI server
+python-multipart = "^0.0.20"                            # Multipart form parsing
 
 [tool.poetry.group.database]
 optional = true

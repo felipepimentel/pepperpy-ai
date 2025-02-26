@@ -5,18 +5,21 @@ This module provides base classes for data validators:
 - DataValidator: Generic data validator implementation
 """
 
+import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
+
+from pydantic import BaseModel, Field
 
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import ValidationError
-from pepperpy.core.models import BaseModel, Field
-from pepperpy.core.types import ComponentState
-from pepperpy.monitoring import logger
+from pepperpy.core.lifecycle.types import LifecycleState
 
 # Type variables
 T = TypeVar("T")
 ValidatorType = TypeVar("ValidatorType", bound="BaseValidator")
+
+logger = logging.getLogger(__name__)
 
 
 class ValidatorConfig(BaseModel):
@@ -46,7 +49,7 @@ class BaseValidator(Lifecycle, Generic[T], ABC):
         """
         super().__init__()
         self.config = config or ValidatorConfig(name=self.__class__.__name__)
-        self._state = ComponentState.CREATED
+        self._state = LifecycleState.CREATED
 
     async def initialize(self) -> None:
         """Initialize validator.
@@ -54,17 +57,17 @@ class BaseValidator(Lifecycle, Generic[T], ABC):
         This method should be called before using the validator.
         """
         try:
-            self._state = ComponentState.READY
+            self._state = LifecycleState.READY
             logger.info(f"Validator initialized: {self.config.name}")
         except Exception as e:
-            self._state = ComponentState.ERROR
+            self._state = LifecycleState.ERROR
             logger.error(f"Failed to initialize validator: {e}")
             raise
 
     async def cleanup(self) -> None:
         """Clean up validator resources."""
         try:
-            self._state = ComponentState.CLEANED
+            self._state = LifecycleState.FINALIZED
             logger.info(f"Validator cleaned up: {self.config.name}")
         except Exception as e:
             logger.error(f"Failed to cleanup validator: {e}")

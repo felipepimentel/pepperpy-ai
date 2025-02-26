@@ -9,6 +9,8 @@ from typing import Any, Generic, TypeVar
 from pydantic import BaseModel, Field
 
 from pepperpy.core.providers.unified import BaseProvider, ProviderConfig
+
+
 class MemoryConfig(ProviderConfig):
     """Memory provider configuration.
 
@@ -18,7 +20,12 @@ class MemoryConfig(ProviderConfig):
         eviction_policy: Cache eviction policy
     """
 
+    ttl: int | None = Field(default=None, description="Time to live in seconds")
+    max_size: int | None = Field(default=None, description="Maximum size in bytes")
+
+
 T = TypeVar("T")
+
 
 class MemoryItem(BaseModel, Generic[T]):
     """Memory item."""
@@ -28,11 +35,6 @@ class MemoryItem(BaseModel, Generic[T]):
     expires_at: float | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
-class MemoryConfig(ProviderConfig):
-    """Configuration for memory providers."""
-
-    ttl: int | None = Field(default=None, description="Time to live in seconds")
-    max_size: int | None = Field(default=None, description="Maximum size in bytes")
 
 class MemoryProvider(BaseProvider, Generic[T]):
     """Base class for memory providers."""

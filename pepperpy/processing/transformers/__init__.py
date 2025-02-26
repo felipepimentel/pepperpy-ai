@@ -5,18 +5,20 @@ This module provides base classes for data transformers:
 - DataTransformer: Generic data transformer base
 """
 
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field
 
 from pepperpy.core.base import Lifecycle
-from pepperpy.core.types import ComponentState
-from pepperpy.monitoring import logger
+from pepperpy.core.lifecycle.types import LifecycleState
 
 # Type variables
 T = TypeVar("T")
 TransformerType = TypeVar("TransformerType", bound="BaseTransformer")
+
+logger = logging.getLogger(__name__)
 
 
 class TransformerConfig(BaseModel):
@@ -50,7 +52,7 @@ class BaseTransformer(Lifecycle, Generic[T]):
         """
         super().__init__()
         self.config = config or TransformerConfig(name=self.__class__.__name__)
-        self._state = ComponentState.UNREGISTERED
+        self._state = LifecycleState.UNINITIALIZED
 
     async def initialize(self) -> None:
         """Initialize transformer.
@@ -58,17 +60,17 @@ class BaseTransformer(Lifecycle, Generic[T]):
         This method should be called before using the transformer.
         """
         try:
-            self._state = ComponentState.RUNNING
+            self._state = LifecycleState.RUNNING
             logger.info(f"Transformer initialized: {self.config.name}")
         except Exception as e:
-            self._state = ComponentState.ERROR
+            self._state = LifecycleState.ERROR
             logger.error(f"Failed to initialize transformer: {e}")
             raise
 
     async def cleanup(self) -> None:
         """Clean up transformer resources."""
         try:
-            self._state = ComponentState.UNREGISTERED
+            self._state = LifecycleState.FINALIZED
             logger.info(f"Transformer cleaned up: {self.config.name}")
         except Exception as e:
             logger.error(f"Failed to cleanup transformer: {e}")
