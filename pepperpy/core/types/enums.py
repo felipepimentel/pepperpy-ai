@@ -1,57 +1,65 @@
-"""
-Core enums module defining state and type enumerations.
+"""Core enums for the Pepperpy project.
 
-This module provides enumerations for various states and types used
-throughout PepperPy.
+This module defines enums used throughout the project.
 """
 
 from enum import Enum, auto
-from typing import NewType
-from uuid import UUID
 
 
-class ComponentState(Enum):
-    """States that a component can be in."""
+class ProviderType(Enum):
+    """Types of AI providers."""
 
-    UNKNOWN = auto()
-    INITIALIZING = auto()
-    INITIALIZED = auto()
-    STARTING = auto()
+    OPENAI = auto()
+    ANTHROPIC = auto()
+    GOOGLE = auto()
+    CUSTOM = auto()
+
+
+class IndexType(Enum):
+    """Types of search indexes."""
+
+    VECTOR = auto()
+    TEXT = auto()
+    HYBRID = auto()
+
+
+class LogLevel(Enum):
+    """Log levels for the logging system."""
+
+    DEBUG = auto()
+    INFO = auto()
+    WARNING = auto()
+    ERROR = auto()
+    CRITICAL = auto()
+
+
+class TaskStatus(Enum):
+    """Status of a task in the system."""
+
+    PENDING = auto()
     RUNNING = auto()
-    PAUSING = auto()
-    PAUSED = auto()
-    STOPPING = auto()
-    STOPPED = auto()
-    ERROR = auto()
-    CLEANING = auto()
-    CLEANED = auto()
-
-
-class AgentState(Enum):
-    """States that an agent can be in."""
-
-    UNKNOWN = auto()
-    INITIALIZING = auto()
-    READY = auto()
-    EXECUTING = auto()
-    PAUSED = auto()
     COMPLETED = auto()
-    ERROR = auto()
+    FAILED = auto()
+    CANCELLED = auto()
 
 
-# Type aliases for IDs
-AgentID = NewType("AgentID", UUID)
-CapabilityID = NewType("CapabilityID", UUID)
-ResourceID = NewType("ResourceID", UUID)
-WorkflowID = NewType("WorkflowID", UUID)
+class ResourceType(Enum):
+    """Types of resources in the system."""
+
+    AGENT = auto()
+    WORKFLOW = auto()
+    MEMORY = auto()
+    INDEX = auto()
+    PLUGIN = auto()
+    MODEL = auto()
 
 
-# Export all types
-__all__ = [
-    "ComponentState",
-    "AgentState",
-    "AgentID",
-    "CapabilityID",
-    "ResourceID",
-    "WorkflowID",
-]
+class ErrorCategory(Enum):
+    """Categories of errors that can occur."""
+
+    VALIDATION = auto()
+    CONFIGURATION = auto()
+    PROVIDER = auto()
+    RESOURCE = auto()
+    OPERATION = auto()
+    SYSTEM = auto()
