@@ -262,12 +262,11 @@ structure:
                 - base.py: Base logging module for the Pepperpy framework
               metrics:
                 description: ''
-                modules:
-                  monitoring:
-                    description: ''
-                    files:
-                    - runtime.py: Runtime module
-                    - system.py: System module
+              monitoring:
+                description: ''
+                files:
+                - runtime.py: Runtime module
+                - system.py: System module
               tracing:
                 description: Distributed tracing module for Pepperpy
                 files:
@@ -293,6 +292,27 @@ structure:
             description: ''
             files:
             - base.py: ''
+          resources:
+            description: Resources module for the Pepperpy framework
+            modules:
+              providers:
+                description: Resource providers module
+                files:
+                - __init__.py: Resource providers module
+            files:
+            - __init__.py: Resources module for the Pepperpy framework
+            - assets.py: Asset management module
+            - base.py: Base resource module for the Pepperpy framework
+            - cache.py: Resource cache system
+            - cleanup.py: Resource cleanup module
+            - lifecycle.py: Resource lifecycle module
+            - manager.py: Resource manager implementation
+            - metrics.py: Advanced resource metrics system
+            - monitoring.py: Resource monitoring module
+            - pool.py: Resource pool module
+            - recovery.py: Recovery module
+            - storage.py: Resource storage system
+            - types.py: Resource type definitions
           security:
             description: ''
             files:
@@ -309,28 +329,6 @@ structure:
             - models.py: Models module
           utils:
             description: ''
-            modules:
-              resources:
-                description: Resources module for the Pepperpy framework
-                modules:
-                  providers:
-                    description: Resource providers module
-                    files:
-                    - __init__.py: Resource providers module
-                files:
-                - __init__.py: Resources module for the Pepperpy framework
-                - assets.py: Asset management module
-                - base.py: Base resource module for the Pepperpy framework
-                - cache.py: Resource cache system
-                - cleanup.py: Resource cleanup module
-                - lifecycle.py: Resource lifecycle module
-                - manager.py: Resource manager implementation
-                - metrics.py: Advanced resource metrics system
-                - monitoring.py: Resource monitoring module
-                - pool.py: Resource pool module
-                - recovery.py: Recovery module
-                - storage.py: Resource storage system
-                - types.py: Resource type definitions
             files:
             - formatting.py: Formatting module
           validation:
@@ -338,14 +336,12 @@ structure:
             files:
             - __init__.py: Module initialization and exports
             - base.py: Base module
-            - content.py: Content module
-            - data.py: Data module
-            - factory.py: Factory module
-            - format.py: Format module
+            - factory.py: Factory for creating validators
             - manager.py: Schema manager module
             - path.py: Path module
-            - schema.py: Schema module
-            - validation.py: Validation module
+            - schemas.py: Schema definitions and format validation for the Pepperpy
+                framework
+            - validators.py: Core validation functionality for the Pepperpy framework
           versioning:
             description: Module initialization
             modules:
@@ -383,10 +379,6 @@ structure:
         - __init__.py: ''
         - base.py: '@file: base.py'
         - types.py: Types module
-      docs:
-        description: ''
-        files:
-        - style_guide.py: Style Guide module
       hub:
         description: ''
         modules:
