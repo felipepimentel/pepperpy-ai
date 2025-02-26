@@ -5,7 +5,7 @@ This module provides tools for collecting and managing metrics.
 
 from typing import Any
 
-from pepperpy.core.observability.metrics import Counter, Gauge, Histogram
+from pepperpy.core.metrics.types import Counter, Gauge, Histogram
 
 
 class MetricsCollector:
@@ -17,7 +17,7 @@ class MetricsCollector:
         self._gauges: dict[str, Gauge] = {}
         self._histograms: dict[str, Histogram] = {}
 
-    def increment(self, name: str, labels: dict[str, str] | None = None) -> None:
+    async def increment(self, name: str, labels: dict[str, str] | None = None) -> None:
         """Increment a counter.
 
         Args:
@@ -26,9 +26,9 @@ class MetricsCollector:
         """
         if name not in self._counters:
             self._counters[name] = Counter(name)
-        self._counters[name].increment(labels or {})
+        await self._counters[name].inc(labels=labels)
 
-    def set_gauge(
+    async def set_gauge(
         self, name: str, value: float, labels: dict[str, str] | None = None
     ) -> None:
         """Set a gauge value.
@@ -40,9 +40,9 @@ class MetricsCollector:
         """
         if name not in self._gauges:
             self._gauges[name] = Gauge(name)
-        self._gauges[name].set(value, labels or {})
+        await self._gauges[name].set(value, labels)
 
-    def observe(
+    async def observe(
         self, name: str, value: float, labels: dict[str, str] | None = None
     ) -> None:
         """Observe a histogram value.
@@ -54,9 +54,9 @@ class MetricsCollector:
         """
         if name not in self._histograms:
             self._histograms[name] = Histogram(name)
-        self._histograms[name].observe(value, labels or {})
+        await self._histograms[name].observe(value, labels)
 
-    def get_metrics(self) -> dict[str, Any]:
+    async def get_metrics(self) -> dict[str, Any]:
         """Get all metrics.
 
         Returns:
@@ -68,24 +68,24 @@ class MetricsCollector:
         for name, counter in self._counters.items():
             metrics[name] = {
                 "type": "counter",
-                "value": counter.get_value(),
-                "labels": counter.get_labels(),
+                "value": await counter.get(),
+                "labels": counter.labels,
             }
 
         # Add gauges
         for name, gauge in self._gauges.items():
             metrics[name] = {
                 "type": "gauge",
-                "value": gauge.get_value(),
-                "labels": gauge.get_labels(),
+                "value": await gauge.get(),
+                "labels": gauge.labels,
             }
 
         # Add histograms
         for name, histogram in self._histograms.items():
             metrics[name] = {
                 "type": "histogram",
-                "value": histogram.get_value(),
-                "labels": histogram.get_labels(),
+                "buckets": await histogram.get_buckets(),
+                "labels": histogram.labels,
             }
 
         return metrics

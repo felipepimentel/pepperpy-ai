@@ -12,7 +12,8 @@ from pepperpy.core.base import Lifecycle
 from pepperpy.core.errors import WorkflowError
 from pepperpy.core.hub.manager import get_hub_manager
 from pepperpy.core.lifecycle.types import LifecycleState
-from pepperpy.core.observability.metrics import Counter, Histogram, get_metrics_manager
+from pepperpy.core.metrics.manager import get_metrics_manager
+from pepperpy.core.metrics.types import Counter, Histogram
 from pepperpy.core.resources.manager import ResourceManager
 from pepperpy.core.types import WorkflowID
 from pepperpy.core.workflows.base import BaseWorkflow, WorkflowConfig, WorkflowState
