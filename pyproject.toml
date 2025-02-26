@@ -11,55 +11,89 @@ license = "MIT"
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
+# Core dependencies required for basic functionality
 [tool.poetry.dependencies]
 python = "^3.12"
-cryptography = "^44.0.1"
-bcrypt = "^4.2.1"
-passlib = "^1.7.4"
-python-jose = { extras = ["cryptography"], version = "3.4.0" }
-python-multipart = "^0.0.20"
-fastapi = "^0.115.8"
-uvicorn = { extras = ["standard"], version = "0.34.0" }
-sqlalchemy = { extras = ["asyncio"], version = "2.0.38" }
-alembic = "^1.14.1"
-aiohttp = "^3.11.13"
-aiosqlite = "^0.21.0"
-redis = { extras = ["hiredis"], version = "5.2.1" }
-prometheus-client = "^0.21.1"
-pytest-asyncio = "0.25.3"
-jsonschema = "^4.23.0"
-pydantic = ">=2.6.0,<2.10.0"
-aioboto3 = "^14.0.0"
-httpx = "^0.28.1"
-google-generativeai = "^0.8.4"
-pytest-cov = "^6.0.0"
-mkdocs-autorefs = "^1.4.0"
-pytest = "^8.3.4"
-structlog = "^25.1.0"
-opentelemetry-api = "^1.30.0"
-opentelemetry-sdk = "^1.30.0"
+pydantic = ">=2.6.0,<2.10.0" # Data validation
+pydantic-settings = "^2.2.1" # Settings management
 
+# Security dependencies
+cryptography = "^44.0.1" # Cryptographic recipes
+bcrypt = "^4.2.1"        # Password hashing
+passlib = "^1.7.4"       # Password hashing framework
+
+# Storage and caching
+redis = { extras = ["hiredis"], version = "5.2.1" } # Redis client
+
+# Observability
+opentelemetry-api = "^1.30.0" # Telemetry API
+opentelemetry-sdk = "^1.30.0" # Telemetry SDK
+
+# Optional dependencies for future features
+[tool.poetry.group.web]
+optional = true
+
+[tool.poetry.group.web.dependencies]
+fastapi = "^0.115.8"                                           # Web framework
+uvicorn = { extras = ["standard"], version = "0.34.0" }        # ASGI server
+python-multipart = "^0.0.20"                                   # Multipart form parsing
+python-jose = { extras = ["cryptography"], version = "3.4.0" } # JWT
+
+[tool.poetry.group.database]
+optional = true
+
+[tool.poetry.group.database.dependencies]
+sqlalchemy = { extras = ["asyncio"], version = "2.0.38" } # Database ORM
+alembic = "^1.14.1"                                       # Database migrations
+aiosqlite = "^0.21.0"                                     # Async SQLite support
+
+[tool.poetry.group.integrations]
+optional = true
+
+[tool.poetry.group.integrations.dependencies]
+httpx = "^0.28.1"              # Modern HTTP client
+aioboto3 = "^14.0.0"           # Async AWS SDK
+google-generativeai = "^0.8.0" # Google AI integration
+
+[tool.poetry.group.monitoring]
+optional = true
+
+[tool.poetry.group.monitoring.dependencies]
+structlog = "^25.1.0"         # Structured logging
+prometheus-client = "^0.21.1" # Metrics
+
+# Development dependencies
 [tool.poetry.group.dev.dependencies]
+# Testing
 pytest = "^8.3.4"
 pytest-asyncio = "^0.25.3"
 pytest-mock = "^3.14.0"
 pytest-env = "^1.1.5"
 pytest-timeout = "^2.3.1"
 pytest-xdist = "^3.6.1"
-black = "^25.1.0"
-isort = "^6.0.0"
-flake8 = "^7.1.2"
-mypy = "^1.15.0"
-pylint = "^3.3.4"
-bandit = "^1.8.3"
-safety = "^3.3.1"
-pre-commit = "^4.1.0"
-commitizen = "^4.2.2"
-mkdocs = "^1.6.1"
-mkdocs-material = "^9.6.5"
-mkdocstrings = { extras = ["python"], version = "0.28.2" }
 pytest-cov = "^6.0.0"
-ruff = "^0.9.7"
+
+# Code quality
+black = "^25.1.0" # Code formatting
+isort = "^6.0.0"  # Import sorting
+flake8 = "^7.1.2" # Style guide enforcement
+mypy = "^1.15.0"  # Static type checking
+pylint = "^3.3.4" # Code analysis
+ruff = "^0.9.7"   # Fast linter
+
+# Security
+bandit = "^1.8.3" # Security linter
+safety = "^3.3.1" # Dependency vulnerability checking
+
+# Documentation
+mkdocs = "^1.6.1"                                          # Documentation generator
+mkdocs-material = "^9.6.5"                                 # Material theme
+mkdocstrings = { extras = ["python"], version = "0.28.2" } # API docs
+mkdocs-autorefs = "^1.4.0"                                 # Automatic references
+
+# Development workflow
+pre-commit = "^4.1.0" # Git hooks
+commitizen = "^4.2.2" # Commit conventions
 
 [tool.ruff]
 line-length = 88

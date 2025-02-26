@@ -32,6 +32,7 @@ from pepperpy.core.types import (
     ComponentState,
     ProviderID,
     ResourceID,
+    T,
     WorkflowID,
 )
 from pepperpy.utils.imports import lazy_import
@@ -686,12 +687,73 @@ class ComponentBase(ABC):
         ...
 
 
+class BaseManager(ABC):
+    """Base class for all managers in the system.
+
+    Provides common functionality and interface that all managers should implement.
+    """
+
+    def __init__(self, config: dict[str, Any] | None = None):
+        """Initialize the manager.
+
+        Args:
+            config: Optional configuration dictionary
+        """
+        self._config = config or {}
+        self._initialized = False
+
+    def initialize(self) -> None:
+        """Initialize the manager.
+
+        This method should be called before using the manager.
+        Subclasses should override this method to perform initialization.
+        """
+        if self._initialized:
+            return
+        self._initialized = True
+
+    def cleanup(self) -> None:
+        """Clean up resources used by the manager.
+
+        This method should be called when the manager is no longer needed.
+        Subclasses should override this method to perform cleanup.
+        """
+        self._initialized = False
+
+    @property
+    def initialized(self) -> bool:
+        """Whether the manager has been initialized."""
+        return self._initialized
+
+    def get_config(self, key: str, default: T = None) -> T:
+        """Get a configuration value.
+
+        Args:
+            key: The configuration key
+            default: Default value if key not found
+
+        Returns:
+            The configuration value or default
+        """
+        return self._config.get(key, default)
+
+    def set_config(self, key: str, value: Any) -> None:
+        """Set a configuration value.
+
+        Args:
+            key: The configuration key
+            value: The value to set
+        """
+        self._config[key] = value
+
+
 __all__ = [
     "AgentCallback",
     "AgentContext",
     "BaseAgent",
     "BaseCapability",
     "BaseComponent",
+    "BaseManager",
     "BaseProvider",
     "BaseResource",
     "BaseWorkflow",

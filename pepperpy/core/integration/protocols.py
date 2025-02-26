@@ -1,12 +1,11 @@
 """Communication protocols for service-to-service interaction."""
 
-from typing import Any, Dict, List, Optional, Protocol, TypeVar, Generic, Callable
+from typing import Any, Dict, List, Optional, Protocol, TypeVar, Generic
 from dataclasses import dataclass
 from enum import Enum
 import asyncio
-import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from pepperpy.core.errors import CommunicationError
 from pepperpy.core.lifecycle import Lifecycle

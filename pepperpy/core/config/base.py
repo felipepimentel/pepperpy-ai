@@ -5,20 +5,31 @@ This module provides the core configuration functionality, including:
 - Configuration validation
 - Schema management
 - Default values
+- Configuration versioning
+- Schema validation
+- Migration support
 """
 
-import json
 import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TypeVar, get_type_hints
+from typing import Any, ClassVar, TypeVar
+
+try:
+    from pydantic import BaseModel, Field, SecretStr, validator
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ImportError:
+    raise ImportError(
+        "pydantic is required for configuration management. "
+        "Install it with: poetry add pydantic pydantic-settings"
+    )
 
 from pepperpy.core.metrics import MetricsCollector
-from pepperpy.core.models import BaseModel
 from pepperpy.core.observability import ObservabilityManager
 
 T = TypeVar("T", bound="ConfigModel")
+ConfigT = TypeVar("ConfigT", bound="BaseConfig")
 
 
 class ConfigModel(BaseModel):
@@ -28,100 +39,122 @@ class ConfigModel(BaseModel):
     environment variables and providing default values.
     """
 
+    version: str = Field(default="1.0.0", description="Configuration version")
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Creation timestamp"
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow, description="Last update timestamp"
+    )
+
     class Config:
         """Model configuration."""
 
         env_prefix = "PEPPERPY_"  # Prefix for environment variables
         case_sensitive = False  # Case sensitivity for field names
         validate_all = True  # Validate default values
+        json_schema_extra = {
+            "examples": [
+                {
+                    "version": "1.0.0",
+                    "created_at": "2024-03-19T00:00:00Z",
+                    "updated_at": "2024-03-19T00:00:00Z",
+                }
+            ]
+        }
+
+    @validator("updated_at", pre=True, always=True)
+    def set_updated_at(cls, v: Any, values: dict[str, Any]) -> datetime:
+        """Set updated_at to current time on every update."""
+        return datetime.utcnow()
 
     @classmethod
     def from_env(cls: type[T], prefix: str | None = None) -> T:
         """Create instance from environment variables.
 
         Args:
-            prefix: Optional prefix for environment variables
-                (overrides Config.env_prefix)
+            prefix: Optional prefix for environment variables.
+                   If not provided, uses the class's env_prefix.
 
         Returns:
-            Configuration instance
+            Configuration instance populated from environment variables.
         """
-        # Get environment variables
         env_prefix = prefix or cls.Config.env_prefix
-        env_vars = {
-            k.replace(env_prefix, ""): v
-            for k, v in os.environ.items()
-            if k.startswith(env_prefix)
-        }
+        env_values = {}
 
-        # Convert types based on annotations
-        values: dict[str, Any] = {}
-        for field_name, field_type in get_type_hints(cls).items():
-            env_key = field_name.upper()
-            if env_key in env_vars:
-                # Convert value to correct type
-                value = env_vars[env_key]
-                if field_type == bool:
-                    value = value.lower() in ("true", "1", "yes", "on")
-                elif field_type == int:
-                    value = int(value)
-                elif field_type == float:
-                    value = float(value)
-                elif field_type == Path:
-                    value = Path(value)
-                elif field_type == list[str]:
-                    value = value.split(",")
-                values[field_name] = value
+        for field_name, field in cls.model_fields.items():
+            env_key = f"{env_prefix}{field_name}".upper()
+            if env_key in os.environ:
+                env_values[field_name] = os.environ[env_key]
 
-        return cls(**values)
+        return cls(**env_values)
 
-    @classmethod
-    def from_file(cls: type[T], path: str | Path) -> T:
-        """Create instance from configuration file.
-
-        Args:
-            path: Path to configuration file (JSON)
+    def to_schema(self) -> dict[str, Any]:
+        """Generate JSON schema for configuration.
 
         Returns:
-            Configuration instance
+            JSON schema as a dictionary.
+        """
+        return self.model_json_schema()
+
+    def validate_schema(self) -> bool:
+        """Validate configuration against its schema.
+
+        Returns:
+            True if validation succeeds.
 
         Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If file format is invalid
+            ValidationError: If validation fails.
         """
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"Configuration file not found: {path}")
+        self.model_validate(self.dict())
+        return True
 
-        try:
-            with path.open() as f:
-                data = json.load(f)
-            return cls(**data)
-        except Exception as e:
-            raise ValueError(f"Invalid configuration file: {e}")
-
-    def to_file(self, path: str | Path) -> None:
-        """Save configuration to file.
+    def migrate(self, target_version: str) -> None:
+        """Migrate configuration to target version.
 
         Args:
-            path: Path to save configuration file (JSON)
+            target_version: Version to migrate to.
 
         Raises:
-            OSError: If file cannot be written
+            ValueError: If migration path is not available.
         """
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        if target_version == self.version:
+            return
 
-        try:
-            with path.open("w") as f:
-                json.dump(
-                    self.model_dump(),
-                    f,
-                    indent=2,
-                    default=str,
-                )
-        except Exception as e:
-            raise OSError(f"Failed to save configuration: {e}")
+        # Get migration path
+        migration_path = self._get_migration_path(target_version)
+        if not migration_path:
+            raise ValueError(
+                f"No migration path from {self.version} to {target_version}"
+            )
+
+        # Apply migrations
+        for version in migration_path:
+            self._apply_migration(version)
+
+        self.version = target_version
+        self.updated_at = datetime.utcnow()
+
+    def _get_migration_path(self, target_version: str) -> list[str]:
+        """Get migration path to target version.
+
+        Args:
+            target_version: Version to migrate to.
+
+        Returns:
+            List of versions to apply in sequence.
+        """
+        # TODO: Implement migration path discovery
+        return []
+
+    def _apply_migration(self, version: str) -> None:
+        """Apply migration for specific version.
+
+        Args:
+            version: Version to migrate to.
+        """
+        # TODO: Implement migration application
+        pass
 
 
 class ConfigProvider(ABC):
@@ -369,9 +402,162 @@ class ConfigManager:
 config_manager = ConfigManager()
 
 
+class BaseConfig(ConfigModel):
+    """Base configuration with common settings."""
+
+    # Application settings
+    app_name: str = Field(default="PepperPy", description="Application name")
+    app_version: str = Field(default="0.1.0", description="Application version")
+    debug: bool = Field(default=False, description="Debug mode")
+    environment: str = Field(default="development", description="Environment name")
+
+    # Security settings
+    secret_key: SecretStr = Field(
+        default=SecretStr("change-me-in-production"),
+        description="Secret key for cryptographic operations",
+    )
+    allowed_hosts: list[str] = Field(
+        default=["localhost", "127.0.0.1"], description="List of allowed hosts"
+    )
+
+    # Database settings
+    database_url: str = Field(
+        default="sqlite+aiosqlite:///pepperpy.db", description="Database connection URL"
+    )
+
+    # Redis settings
+    redis_url: str | None = Field(default=None, description="Redis connection URL")
+
+    # Logging settings
+    log_level: str = Field(default="INFO", description="Logging level")
+    log_format: str = Field(default="json", description="Logging format")
+
+    # Path settings
+    base_dir: Path = Field(
+        default=Path(__file__).parent.parent.parent.parent,
+        description="Base directory path",
+    )
+
+    # Feature flags
+    enable_telemetry: bool = Field(default=True, description="Enable telemetry")
+    enable_cache: bool = Field(default=True, description="Enable caching")
+
+    # API settings
+    reload: bool = Field(default=False, description="Enable auto-reload")
+    cors_origins: list[str] = Field(default=[], description="CORS allowed origins")
+    api_docs: bool = Field(default=True, description="Enable API documentation")
+
+    # Schema version mapping
+    SCHEMA_VERSIONS: ClassVar[dict[str, dict[str, Any]]] = {
+        "1.0.0": {
+            "description": "Initial version",
+            "added": ["app_name", "app_version", "debug", "environment"],
+            "required": ["app_name", "environment"],
+        },
+        "1.1.0": {
+            "description": "Added security settings",
+            "added": ["secret_key", "allowed_hosts"],
+            "required": ["secret_key"],
+        },
+        "1.2.0": {
+            "description": "Added database and Redis settings",
+            "added": ["database_url", "redis_url"],
+            "required": ["database_url"],
+        },
+    }
+
+    def get_schema_version(self) -> dict[str, Any]:
+        """Get schema definition for current version.
+
+        Returns:
+            Schema definition as a dictionary.
+        """
+        return self.SCHEMA_VERSIONS.get(self.version, {})
+
+    def validate_version(self) -> bool:
+        """Validate configuration version.
+
+        Returns:
+            True if version is valid.
+
+        Raises:
+            ValueError: If version is not supported.
+        """
+        if self.version not in self.SCHEMA_VERSIONS:
+            raise ValueError(f"Unsupported configuration version: {self.version}")
+        return True
+
+    class Config:
+        """Model configuration."""
+
+        env_prefix = "PEPPERPY_"
+        case_sensitive = False
+        validate_all = True
+        json_encoders = {
+            Path: str,
+            SecretStr: lambda v: v.get_secret_value() if v else None,
+        }
+
+    @classmethod
+    def load(cls: type[ConfigT], env_file: str | None = None) -> ConfigT:
+        """Load configuration from environment and files.
+
+        Args:
+            env_file: Optional path to environment file
+
+        Returns:
+            ConfigT: Configuration instance
+        """
+        kwargs = {}
+        if env_file:
+            kwargs["env_file"] = env_file
+        return cls(**kwargs)
+
+    def get_secret(self, key: str) -> str | None:
+        """Securely retrieve a secret value.
+
+        Args:
+            key: The secret key to retrieve
+
+        Returns:
+            Optional[str]: The secret value if found
+        """
+        value = getattr(self, key, None)
+        if isinstance(value, SecretStr):
+            return value.get_secret_value()
+        return None
+
+    def to_dict(self, exclude_secrets: bool = True) -> dict[str, Any]:
+        """Convert configuration to dictionary.
+
+        Args:
+            exclude_secrets: Whether to exclude secret values
+
+        Returns:
+            Dict[str, Any]: Configuration as dictionary
+        """
+        data = {}
+        for field, value in self:
+            if exclude_secrets and isinstance(value, SecretStr):
+                continue
+            if isinstance(value, SecretStr):
+                data[field] = "**********"
+            else:
+                data[field] = value
+        return data
+
+
+class ConfigurationError(Exception):
+    """Raised when there is a configuration error."""
+
+    pass
+
+
 __all__ = [
+    "BaseConfig",
     "ConfigManager",
     "ConfigModel",
     "ConfigProvider",
+    "ConfigurationError",
     "config_manager",
 ]

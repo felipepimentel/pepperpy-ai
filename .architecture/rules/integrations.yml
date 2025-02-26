@@ -1,0 +1,46 @@
+name: integrations
+description: Integration module architectural rules
+
+patterns:
+  - "integrations/**/*.py"
+  - "integrations/*/base.py"
+  - "integrations/*/types.py"
+
+forbidden_patterns:
+  - "integrations/**/*_test.py"
+  - "integrations/**/test_*.py"
+  - "integrations/**/__pycache__"
+
+required_files:
+  - "integrations/__init__.py"
+  - "integrations/base.py"
+  - "integrations/types.py"
+  - "integrations/providers/__init__.py"
+  - "integrations/plugins/__init__.py"
+
+allowed_imports:
+  - "^pepperpy\\.core\\."
+  - "^pepperpy\\.integrations\\."
+  - "^typing"
+  - "^abc"
+  - "^dataclasses"
+  - "^enum"
+  - "^pathlib"
+  - "^logging"
+  - "^json"
+  - "^yaml"
+  - "^os"
+  - "^sys"
+  - "^re"
+  - "^datetime"
+  - "^uuid"
+  - "^contextlib"
+  - "^collections"
+  - "^asyncio"
+  - "^langchain"
+  - "^autogen"
+
+forbidden_imports:
+  - "^pepperpy\\.processing\\."
+  - "^pepperpy\\.cli\\."
+  - "^pepperpy\\.hub\\." 

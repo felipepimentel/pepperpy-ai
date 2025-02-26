@@ -1,162 +1,113 @@
-"""Metrics manager module.
-
-This module provides the metrics manager for centralized metrics management.
+"""@file: manager.py
+@purpose: Metrics manager for backward compatibility
+@component: Core > Metrics
+@created: 2024-03-21
+@task: TASK-007-R060
+@status: active
 """
 
-from typing import Dict, List, Optional, Union
+from typing import Optional
 
-from pepperpy.core.metrics.types import (
-    Counter,
-    Gauge,
-    Histogram,
-    Summary,
-    MetricType,
-    MetricValue,
-    MetricLabels,
-)
+from pepperpy.core.metrics.types import Counter, Gauge, Histogram
 
 
 class MetricsManager:
-    """Manager for metrics collection and monitoring.
-    
-    This class provides centralized management of metrics, including:
-    - Creation and retrieval of metrics
-    - Type-safe access to metrics
-    - Support for labels and metadata
-    
-    Example:
-        >>> manager = MetricsManager()
-        >>> counter = manager.counter("requests", "Total requests")
-        >>> counter.inc()  # Increment counter
-        >>> counter.get()  # Get current value
-        1.0
+    """Metrics manager for backward compatibility.
+
+    This class provides compatibility with the old metrics manager interface
+    while using the new metric classes internally.
     """
+
+    _instance: Optional["MetricsManager"] = None
 
     def __init__(self) -> None:
         """Initialize metrics manager."""
-        self._metrics: Dict[str, Union[Counter, Gauge, Histogram, Summary]] = {}
+        if MetricsManager._instance is not None:
+            raise RuntimeError("Use get_instance() instead")
+        self._counters: dict[str, Counter] = {}
+        self._gauges: dict[str, Gauge] = {}
+        self._histograms: dict[str, Histogram] = {}
+        MetricsManager._instance = self
 
-    def counter(
+    @classmethod
+    def get_instance(cls) -> "MetricsManager":
+        """Get singleton instance.
+
+        Returns:
+            Singleton metrics manager instance
+        """
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
+
+    async def create_counter(
         self,
         name: str,
-        description: str,
-        labels: Optional[List[str]] = None,
+        description: str = "",
+        labels: list[str] | None = None,
     ) -> Counter:
-        """Create or get a counter metric.
-        
+        """Create counter metric.
+
         Args:
             name: Metric name
             description: Metric description
-            labels: Optional list of label names
-            
-        Returns:
-            Counter metric instance
-        """
-        if name not in self._metrics:
-            self._metrics[name] = Counter(name, description, labels)
-        metric = self._metrics[name]
-        if not isinstance(metric, Counter):
-            raise TypeError(f"Metric {name} is not a counter")
-        return metric
+            labels: Optional label names
 
-    def gauge(
+        Returns:
+            Counter metric
+        """
+        if name not in self._counters:
+            self._counters[name] = Counter(
+                name=name, description=description, labels=labels
+            )
+        return self._counters[name]
+
+    async def create_gauge(
         self,
         name: str,
-        description: str,
-        labels: Optional[List[str]] = None,
+        description: str = "",
+        labels: list[str] | None = None,
     ) -> Gauge:
-        """Create or get a gauge metric.
-        
+        """Create gauge metric.
+
         Args:
             name: Metric name
             description: Metric description
-            labels: Optional list of label names
-            
-        Returns:
-            Gauge metric instance
-        """
-        if name not in self._metrics:
-            self._metrics[name] = Gauge(name, description, labels)
-        metric = self._metrics[name]
-        if not isinstance(metric, Gauge):
-            raise TypeError(f"Metric {name} is not a gauge")
-        return metric
+            labels: Optional label names
 
-    def histogram(
+        Returns:
+            Gauge metric
+        """
+        if name not in self._gauges:
+            self._gauges[name] = Gauge(
+                name=name, description=description, labels=labels
+            )
+        return self._gauges[name]
+
+    async def create_histogram(
         self,
         name: str,
-        description: str,
-        buckets: Optional[List[float]] = None,
-        labels: Optional[List[str]] = None,
+        description: str = "",
+        labels: list[str] | None = None,
+        buckets: list[float] | None = None,
     ) -> Histogram:
-        """Create or get a histogram metric.
-        
+        """Create histogram metric.
+
         Args:
             name: Metric name
             description: Metric description
+            labels: Optional label names
             buckets: Optional bucket boundaries
-            labels: Optional list of label names
-            
+
         Returns:
-            Histogram metric instance
+            Histogram metric
         """
-        if name not in self._metrics:
-            self._metrics[name] = Histogram(name, description, buckets, labels)
-        metric = self._metrics[name]
-        if not isinstance(metric, Histogram):
-            raise TypeError(f"Metric {name} is not a histogram")
-        return metric
-
-    def summary(
-        self,
-        name: str,
-        description: str,
-        quantiles: Optional[List[float]] = None,
-        labels: Optional[List[str]] = None,
-    ) -> Summary:
-        """Create or get a summary metric.
-        
-        Args:
-            name: Metric name
-            description: Metric description
-            quantiles: Optional quantiles to track
-            labels: Optional list of label names
-            
-        Returns:
-            Summary metric instance
-        """
-        if name not in self._metrics:
-            self._metrics[name] = Summary(name, description, quantiles, labels)
-        metric = self._metrics[name]
-        if not isinstance(metric, Summary):
-            raise TypeError(f"Metric {name} is not a summary")
-        return metric
-
-    def get_metric(
-        self, name: str
-    ) -> Union[Counter, Gauge, Histogram, Summary]:
-        """Get a metric by name.
-        
-        Args:
-            name: Metric name
-            
-        Returns:
-            Metric instance
-            
-        Raises:
-            KeyError: If metric not found
-        """
-        if name not in self._metrics:
-            raise KeyError(f"Metric {name} not found")
-        return self._metrics[name]
-
-    def get_all_metrics(self) -> Dict[str, Union[Counter, Gauge, Histogram, Summary]]:
-        """Get all registered metrics.
-        
-        Returns:
-            Dictionary mapping metric names to instances
-        """
-        return self._metrics.copy()
+        if name not in self._histograms:
+            self._histograms[name] = Histogram(
+                name=name, description=description, labels=labels, buckets=buckets
+            )
+        return self._histograms[name]
 
 
-__all__ = ["MetricsManager"]
+# Singleton instance
+metrics_manager = MetricsManager.get_instance()

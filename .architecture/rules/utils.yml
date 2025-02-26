@@ -1,0 +1,42 @@
+name: utils
+description: Utility module architectural rules
+
+patterns:
+  - "utils/**/*.py"
+  - "utils/*/base.py"
+  - "utils/*/types.py"
+
+forbidden_patterns:
+  - "utils/**/*_test.py"
+  - "utils/**/test_*.py"
+  - "utils/**/__pycache__"
+
+required_files:
+  - "utils/__init__.py"
+  - "utils/base.py"
+  - "utils/types.py"
+
+allowed_imports:
+  - "^typing"
+  - "^abc"
+  - "^dataclasses"
+  - "^enum"
+  - "^pathlib"
+  - "^logging"
+  - "^json"
+  - "^yaml"
+  - "^os"
+  - "^sys"
+  - "^re"
+  - "^datetime"
+  - "^uuid"
+  - "^contextlib"
+  - "^collections"
+  - "^asyncio"
+
+forbidden_imports:
+  - "^pepperpy\\.core\\."
+  - "^pepperpy\\.integrations\\."
+  - "^pepperpy\\.processing\\."
+  - "^pepperpy\\.cli\\."
+  - "^pepperpy\\.hub\\." 
