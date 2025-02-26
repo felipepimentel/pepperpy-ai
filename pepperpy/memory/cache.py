@@ -1,21 +1,93 @@
 """Cache system implementation for the Pepperpy framework."""
 
+import pickle
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Type, TypeVar
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
 
 T = TypeVar("T")
 
 
-class CacheBackend(ABC):
-    """Base class for cache backends."""
+@dataclass
+class CacheEntry(Generic[T]):
+    """Cache entry with value and expiration."""
+
+    value: T
+    expires_at: Optional[datetime] = None
+
+    def is_expired(self) -> bool:
+        """Check if the entry is expired."""
+        if self.expires_at is None:
+            return False
+        return datetime.now() > self.expires_at
+
+
+class CacheError(Exception):
+    """Base exception for cache-related errors."""
+
+    pass
+
+
+class SerializationError(CacheError):
+    """Error during value serialization/deserialization."""
+
+    pass
+
+
+class BackendError(CacheError):
+    """Error in cache backend operation."""
+
+    pass
+
+
+class Serializer(ABC):
+    """Base class for value serializers."""
 
     @abstractmethod
-    def get(self, key: str) -> Optional[Any]:
+    def serialize(self, value: Any) -> bytes:
+        """Serialize a value to bytes."""
+        pass
+
+    @abstractmethod
+    def deserialize(self, data: bytes) -> Any:
+        """Deserialize bytes to a value."""
+        pass
+
+
+class PickleSerializer(Serializer):
+    """Pickle-based serializer implementation."""
+
+    def serialize(self, value: Any) -> bytes:
+        """Serialize using pickle."""
+        try:
+            return pickle.dumps(value)
+        except Exception as e:
+            raise SerializationError(f"Failed to serialize value: {e}")
+
+    def deserialize(self, data: bytes) -> Any:
+        """Deserialize using pickle."""
+        try:
+            return pickle.loads(data)
+        except Exception as e:
+            raise SerializationError(f"Failed to deserialize value: {e}")
+
+
+class CacheBackend(ABC, Generic[T]):
+    """Base class for cache backends."""
+
+    def __init__(self, serializer: Optional[Serializer] = None):
+        self.serializer = serializer or PickleSerializer()
+
+    @abstractmethod
+    def get(self, key: str) -> Optional[T]:
         """Retrieve a value from cache."""
         pass
 
     @abstractmethod
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    def set(
+        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
+    ) -> None:
         """Store a value in cache."""
         pass
 
@@ -29,21 +101,40 @@ class CacheBackend(ABC):
         """Clear all values from cache."""
         pass
 
+    def _convert_ttl(self, ttl: Optional[Union[int, timedelta]]) -> Optional[datetime]:
+        """Convert TTL to expiration datetime."""
+        if ttl is None:
+            return None
+        if isinstance(ttl, int):
+            ttl = timedelta(seconds=ttl)
+        return datetime.now() + ttl
 
-class MemoryCache(CacheBackend):
-    """In-memory cache implementation."""
 
-    def __init__(self):
-        self._storage: Dict[str, Any] = {}
+class MemoryCache(CacheBackend[T]):
+    """In-memory cache implementation with TTL support."""
 
-    def get(self, key: str) -> Optional[Any]:
+    def __init__(self, serializer: Optional[Serializer] = None):
+        super().__init__(serializer)
+        self._storage: Dict[str, CacheEntry[T]] = {}
+
+    def get(self, key: str) -> Optional[T]:
         """Retrieve a value from memory cache."""
-        return self._storage.get(key)
+        entry = self._storage.get(key)
+        if entry is None:
+            return None
 
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+        if entry.is_expired():
+            self.delete(key)
+            return None
+
+        return entry.value
+
+    def set(
+        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
+    ) -> None:
         """Store a value in memory cache."""
-        # TTL não implementado para cache em memória simples
-        self._storage[key] = value
+        expires_at = self._convert_ttl(ttl)
+        self._storage[key] = CacheEntry(value=value, expires_at=expires_at)
 
     def delete(self, key: str) -> bool:
         """Delete a value from memory cache."""
@@ -56,44 +147,77 @@ class MemoryCache(CacheBackend):
         """Clear all values from memory cache."""
         self._storage.clear()
 
+    def cleanup_expired(self) -> None:
+        """Remove all expired entries."""
+        expired_keys = [
+            key for key, entry in self._storage.items() if entry.is_expired()
+        ]
+        for key in expired_keys:
+            self.delete(key)
 
-class RedisCache(CacheBackend):
+
+class RedisCache(CacheBackend[T]):
     """Redis-based cache implementation."""
 
-    def __init__(self, host: str = "localhost", port: int = 6379, db: int = 0):
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 6379,
+        db: int = 0,
+        serializer: Optional[Serializer] = None,
+    ):
+        super().__init__(serializer)
         try:
             import redis
 
             self._client = redis.Redis(host=host, port=port, db=db)
         except ImportError:
             raise ImportError("Redis package is required for RedisCache")
+        except Exception as e:
+            raise BackendError(f"Failed to connect to Redis: {e}")
 
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Optional[T]:
         """Retrieve a value from Redis cache."""
-        value = self._client.get(key)
-        if value is not None:
-            import pickle
+        try:
+            value = self._client.get(key)
+            if value is None:
+                return None
+            return self.serializer.deserialize(value)
+        except SerializationError:
+            raise
+        except Exception as e:
+            raise BackendError(f"Failed to get value from Redis: {e}")
 
-            return pickle.loads(value)
-        return None
-
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
+    def set(
+        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
+    ) -> None:
         """Store a value in Redis cache."""
-        import pickle
-
-        serialized = pickle.dumps(value)
-        if ttl is not None:
-            self._client.setex(key, ttl, serialized)
-        else:
-            self._client.set(key, serialized)
+        try:
+            serialized = self.serializer.serialize(value)
+            if isinstance(ttl, timedelta):
+                ttl = int(ttl.total_seconds())
+            if ttl is not None:
+                self._client.setex(key, ttl, serialized)
+            else:
+                self._client.set(key, serialized)
+        except SerializationError:
+            raise
+        except Exception as e:
+            raise BackendError(f"Failed to set value in Redis: {e}")
 
     def delete(self, key: str) -> bool:
         """Delete a value from Redis cache."""
-        return bool(self._client.delete(key))
+        try:
+            return bool(self._client.delete(key))
+        except Exception as e:
+            raise BackendError(f"Failed to delete value from Redis: {e}")
 
     def clear(self) -> None:
         """Clear all values from Redis cache."""
-        self._client.flushdb()
+        try:
+            self._client.flushdb()
+        except Exception as e:
+            raise BackendError(f"Failed to clear Redis cache: {e}")
 
 
 class CacheFactory:
@@ -107,12 +231,23 @@ class CacheFactory:
     @classmethod
     def register_backend(cls, name: str, backend_class: Type[CacheBackend]) -> None:
         """Register a new cache backend."""
+        if not issubclass(backend_class, CacheBackend):
+            raise ValueError("Backend class must inherit from CacheBackend")
         cls._backends[name] = backend_class
 
     @classmethod
-    def create(cls, backend_type: str, **kwargs) -> CacheBackend:
+    def create(
+        cls, backend_type: str, serializer: Optional[Serializer] = None, **kwargs
+    ) -> CacheBackend:
         """Create a cache backend instance."""
         if backend_type not in cls._backends:
             raise ValueError(f"Unknown cache backend: {backend_type}")
 
-        return cls._backends[backend_type](**kwargs)
+        backend_class = cls._backends[backend_type]
+        if serializer:
+            kwargs["serializer"] = serializer
+
+        try:
+            return backend_class(**kwargs)
+        except Exception as e:
+            raise BackendError(f"Failed to create cache backend: {e}")
