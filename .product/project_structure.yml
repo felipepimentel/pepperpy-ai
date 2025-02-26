@@ -112,9 +112,6 @@ structure:
         modules:
           base:
             description: ''
-            modules:
-              common:
-                description: ''
             files:
             - client.py: Client module
             - common.py: '@file: base.py'
@@ -125,16 +122,8 @@ structure:
             - base.py: Base capability interface
             - providers.py: Provider capabilities for the Pepperpy framework
           config:
-            description: Configuration utilities for Pepperpy
+            description: Environment-specific configuration management
             modules:
-              environments:
-                description: Environment-specific configuration management
-                files:
-                - __init__.py: Environment-specific configuration management
-                - development.py: Development environment configuration
-                - env.py: Env module
-                - production.py: Production environment configuration
-                - test.py: Test environment configuration
               providers:
                 description: Module initialization
                 files:
@@ -145,10 +134,13 @@ structure:
                 - filesystem.py: Filesystem configuration provider
                 - secure.py: Secure module
             files:
-            - __init__.py: Configuration utilities for Pepperpy
+            - __init__.py: Environment-specific configuration management
             - base.py: Base configuration system
             - config.py: Configuration utilities for Pepperpy
-            - providers.py: Providers module
+            - development.py: Development environment configuration
+            - env.py: Env module
+            - production.py: Production environment configuration
+            - test.py: Test environment configuration
             - types.py: Types module
           errors:
             description: Core errors package
@@ -268,9 +260,6 @@ structure:
             - sandbox.py: Sandbox module for secure code execution
           types:
             description: Core types package
-            modules:
-              common:
-                description: ''
             files:
             - __init__.py: ''
             - base.py: Base module
@@ -318,16 +307,9 @@ structure:
         - security.py: Hub security module
       memory:
         description: ''
-        modules:
-          cache:
-            description: ''
-            files:
-            - base.py: Base module
-            - factory.py: Factory module
-            - memory.py: Memory module
-            - redis.py: Redis module
         files:
         - base.py: Base interfaces for the Pepperpy memory system
+        - cache.py: Cache system implementation for the Pepperpy framework
         - simple.py: Simple module
         - vector.py: Vector module
       providers:
