@@ -3,14 +3,16 @@
 import base64
 import json
 from pathlib import Path
-from typing import Dict, Optional
-
-from cryptography.fernet import Fernet
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from typing import Dict, Optional, cast
 
 from pepperpy.core.config.providers.base import ConfigProvider
 from pepperpy.core.config.types import ConfigValue
+
+
+class ConfigEncryptionError(Exception):
+    """Error during configuration encryption/decryption."""
+
+    pass
 
 
 class SecureConfigProvider(ConfigProvider):
@@ -22,20 +24,37 @@ class SecureConfigProvider(ConfigProvider):
         Args:
             file_path: Path to the encrypted configuration file
             password: Password used for encryption/decryption
-        """
-        self.file_path = Path(file_path)
-        self._config: Dict[str, ConfigValue] = {}
 
-        # Generate encryption key from password
-        salt = b"pepperpy_secure_config"  # Constant salt for key derivation
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
-        self._fernet = Fernet(key)
+        Raises:
+            ImportError: If cryptography package is not installed
+            ConfigEncryptionError: If encryption setup fails
+        """
+        try:
+            from cryptography.fernet import Fernet
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        except ImportError:
+            raise ImportError(
+                "cryptography package is required for SecureConfigProvider. "
+                "Install it with: pip install cryptography"
+            )
+
+        self.file_path = Path(file_path)
+        self._config: Dict[str, str] = {}  # Store encrypted strings
+
+        try:
+            # Generate encryption key from password
+            salt = b"pepperpy_secure_config"  # Constant salt for key derivation
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=100000,
+            )
+            key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
+            self._fernet = Fernet(key)
+        except Exception as e:
+            raise ConfigEncryptionError(f"Failed to setup encryption: {e}")
 
         self._ensure_file_exists()
         self.load()
@@ -48,24 +67,31 @@ class SecureConfigProvider(ConfigProvider):
 
     def _encrypt_value(self, value: ConfigValue) -> str:
         """Encrypt a configuration value."""
-        serialized = json.dumps(value)
-        encrypted = self._fernet.encrypt(serialized.encode())
-        return base64.urlsafe_b64encode(encrypted).decode()
+        try:
+            serialized = json.dumps(value)
+            encrypted = self._fernet.encrypt(serialized.encode())
+            return base64.urlsafe_b64encode(encrypted).decode()
+        except Exception as e:
+            raise ConfigEncryptionError(f"Failed to encrypt value: {e}")
 
     def _decrypt_value(self, encrypted: str) -> ConfigValue:
         """Decrypt a configuration value."""
         try:
             encrypted_bytes = base64.urlsafe_b64decode(encrypted.encode())
             decrypted = self._fernet.decrypt(encrypted_bytes)
-            return json.loads(decrypted.decode())
+            return cast(ConfigValue, json.loads(decrypted.decode()))
         except Exception as e:
-            raise ValueError(f"Failed to decrypt value: {e}")
+            raise ConfigEncryptionError(f"Failed to decrypt value: {e}")
 
     def get(self, key: str) -> Optional[ConfigValue]:
         """Retrieve a configuration value by key."""
         encrypted = self._config.get(key)
         if encrypted is not None:
-            return self._decrypt_value(encrypted)
+            try:
+                return self._decrypt_value(encrypted)
+            except ConfigEncryptionError:
+                # If decryption fails, treat as if value doesn't exist
+                return None
         return None
 
     def set(self, key: str, value: ConfigValue) -> None:
@@ -92,11 +118,17 @@ class SecureConfigProvider(ConfigProvider):
         try:
             if self.file_path.exists():
                 with open(self.file_path, "r", encoding="utf-8") as f:
-                    self._config = json.load(f)
-        except (json.JSONDecodeError, OSError):
+                    encrypted_config = json.load(f)
+                    # Validate that all values are strings (encrypted data)
+                    if not all(isinstance(v, str) for v in encrypted_config.values()):
+                        raise ConfigEncryptionError("Invalid encrypted config format")
+                    self._config = encrypted_config
+        except (json.JSONDecodeError, OSError, ConfigEncryptionError):
             # If file is corrupted or can't be read, start with empty config
             self._config = {}
-        return self._config
+
+        # Return decrypted values
+        return {k: self._decrypt_value(v) for k, v in self._config.items()}
 
     def save(self) -> None:
         """Save all configuration values to file."""
@@ -104,7 +136,7 @@ class SecureConfigProvider(ConfigProvider):
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2, sort_keys=True)
         except OSError as e:
-            raise RuntimeError(f"Failed to save configuration: {e}")
+            raise ConfigEncryptionError(f"Failed to save configuration: {e}")
 
     def exists(self, key: str) -> bool:
         """Check if a configuration key exists."""
