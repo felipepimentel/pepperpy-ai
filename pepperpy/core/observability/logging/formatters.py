@@ -1,3 +1,12 @@
+"""Logging formatters for the Pepperpy framework.
+
+This package provides various logging formatters for structured logging output
+in different formats like JSON.
+"""
+
+from pepperpy.monitoring.logging.formatters.json import JsonFormatter
+
+__all__ = ["JsonFormatter"]
 """JSON formatter for structured logging.
 
 This module provides a JSON formatter for structured logging output.
@@ -128,3 +137,10 @@ __all__ = [
     "JsonFormatter",
     "LogRecord",
 ]
+"""@file: text.py
+@purpose: Text log formatter implementation
+@component: Core/Logging
+@created: 2024-02-25
+@task: TASK-007-R020
+@status: completed
+"""

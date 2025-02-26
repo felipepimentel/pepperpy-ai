@@ -345,4 +345,8 @@ class AWSProvider(BaseProvider):
 
 
 # Export public API
+__all__ = ["AWSProvider"]"""AWS provider package for the Pepperpy framework."""
+
+from pepperpy.providers.aws.base import AWSProvider
+
 __all__ = ["AWSProvider"]

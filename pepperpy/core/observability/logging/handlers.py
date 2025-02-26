@@ -145,3 +145,19 @@ class FileHandler(LogHandler):
 
 # Export public API
 __all__ = ["FileHandler"]
+"""Logging handlers package.
+
+This package provides handlers for handling log records in various ways.
+"""
+
+from pepperpy.monitoring.logging.handlers.file import FileHandler
+
+# Export public API
+__all__ = ["FileHandler"]
+"""@file: stream.py
+@purpose: Stream log handler implementation
+@component: Core/Logging
+@created: 2024-02-25
+@task: TASK-007-R020
+@status: completed
+"""
