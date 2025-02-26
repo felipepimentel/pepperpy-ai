@@ -28,36 +28,21 @@ structure:
         - types.py: Adapter type system
       agents:
         description: ''
-        modules:
-          chains:
-            description: ''
-            files:
-            - base.py: Base chain interface
         files:
         - agents.py: Core agent functionality for PepperPy
         - autonomous.py: Autonomous agent module for the Pepperpy framework
         - base.py: Base agent module for the Pepperpy framework
+        - chains.py: Base chain interface
         - factory.py: Agent factory module for the Pepperpy framework
         - interactive.py: Interactive agent module for the Pepperpy framework
         - manager.py: Agent manager for coordinating agent creation and execution
         - registry.py: Agent registry module for the Pepperpy framework
         - research.py: Research agents for the Pepperpy framework
         - task_assistant.py: Task Assistant Agent implementation
-        - workflow.py: Workflow agent module for the Pepperpy framework
+        - workflow_agent.py: Workflow agent module for the Pepperpy framework
       cli:
         description: Command-line interface for Pepperpy
         modules:
-          base:
-            description: ''
-            modules:
-              core:
-                description: ''
-                files:
-                - app.py: Main CLI module
-                - base.py: CLI base module
-                - exceptions.py: Exceptions for the Pepperpy CLI
-                - registry.py: CLI registry module
-                - types.py: CLI types module
           commands:
             description: Command groups for the Pepperpy CLI
             files:
@@ -69,6 +54,14 @@ structure:
             - run.py: Run commands for the Pepperpy CLI
             - tool.py: Tool commands for the Pepperpy CLI
             - workflow.py: Workflow commands for the Pepperpy CLI
+          core:
+            description: ''
+            files:
+            - app.py: Main CLI module
+            - base.py: CLI base module
+            - exceptions.py: Exceptions for the Pepperpy CLI
+            - registry.py: CLI registry module
+            - types.py: CLI types module
           utils:
             description: ''
             files:
@@ -135,7 +128,7 @@ structure:
               providers:
                 description: ''
                 files:
-                - gtts.py: Google Text-to-Speech provider for synthesis capability
+                - google_tts.py: Google Text-to-Speech provider for synthesis capability
                 - openai.py: OpenAI provider for speech synthesis capability
             files:
             - base.py: Base interfaces for synthesis capability
@@ -270,7 +263,7 @@ structure:
               metrics:
                 description: ''
                 modules:
-                  monitors:
+                  monitoring:
                     description: ''
                     files:
                     - runtime.py: Runtime module
@@ -396,7 +389,14 @@ structure:
         - style_guide.py: Style Guide module
       hub:
         description: ''
+        modules:
+          artifacts:
+            description: Hub artifacts module defining standard artifact types
+            files:
+            - __init__.py: Hub artifacts module defining standard artifact types
         files:
+        - base.py: Base interfaces for the Pepperpy Hub system
+        - manager.py: Hub manager implementation for artifact management
         - security.py: Hub security module
       memory:
         description: ''
@@ -413,6 +413,7 @@ structure:
             files:
             - vector.py: Vector module
         files:
+        - base.py: Base interfaces for the Pepperpy memory system
         - simple.py: Simple module
       providers:
         description: ''
