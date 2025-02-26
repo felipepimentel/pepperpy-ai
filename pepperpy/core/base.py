@@ -15,24 +15,22 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, Generic, Optional, Protocol, TypeVar, Union
 from uuid import UUID, uuid4
 
-from pepperpy.core.errors import ComponentError, StateError
+from pepperpy.core.errors import StateError
 from pepperpy.core.metrics import MetricsManager
-from pepperpy.core.metrics.types import (
+from pepperpy.core.metrics.base import (
     MetricCounter,
     MetricHistogram,
     MetricLabels,
-    MetricType,
     MetricValue,
 )
 from pepperpy.core.protocols.lifecycle import Lifecycle
-from pepperpy.core.types import (
+from pepperpy.core.types.enums import (
     AgentID,
     AgentState,
     CapabilityID,
     ComponentState,
     ProviderID,
     ResourceID,
-    T,
     WorkflowID,
 )
 from pepperpy.utils.imports import lazy_import
@@ -207,21 +205,20 @@ class BaseComponent(Lifecycle, MetricsComponent):
         """
         self.name = name
         self.id = id or uuid4()
-        self._state = ComponentState.CREATED
+        self._state = ComponentState.UNKNOWN
         self.logger = logging.getLogger(f"{self.__class__.__name__}.{name}")
         self.metrics = MetricsManager()
 
         # Initialize metrics
-        self._execution_counter = None
         self._execution_duration = None
+        self._execution_counter = None
 
     async def _setup_metrics(self) -> None:
         """Set up metrics for the component."""
-        # Create metrics with labels
-        labels: MetricLabels = {"component_id": str(self.id), "state": str(self.state)}
+        labels = MetricLabels(component=self.name)
 
         # Create histogram for initialization duration
-        self._execution_duration = await self.metrics.create_histogram(
+        self._execution_duration = self.metrics.create_histogram(
             name="execution_duration_seconds",
             description="Time taken to execute the component",
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
@@ -229,7 +226,7 @@ class BaseComponent(Lifecycle, MetricsComponent):
         )
 
         # Create counter for errors
-        self._execution_counter = await self.metrics.create_counter(
+        self._execution_counter = self.metrics.create_counter(
             name="errors_total",
             description="Total number of errors encountered",
             labels=labels,
@@ -265,14 +262,29 @@ class BaseComponent(Lifecycle, MetricsComponent):
         """
         # Define valid transitions
         valid_transitions = {
-            ComponentState.CREATED: {ComponentState.INITIALIZING},
-            ComponentState.INITIALIZING: {ComponentState.READY, ComponentState.ERROR},
-            ComponentState.READY: {ComponentState.EXECUTING, ComponentState.CLEANING},
-            ComponentState.EXECUTING: {
-                ComponentState.READY,
+            ComponentState.UNKNOWN: {ComponentState.INITIALIZING},
+            ComponentState.INITIALIZING: {
+                ComponentState.INITIALIZED,
                 ComponentState.ERROR,
+            },
+            ComponentState.INITIALIZED: {
+                ComponentState.STARTING,
                 ComponentState.CLEANING,
             },
+            ComponentState.STARTING: {ComponentState.RUNNING, ComponentState.ERROR},
+            ComponentState.RUNNING: {
+                ComponentState.PAUSING,
+                ComponentState.STOPPING,
+                ComponentState.ERROR,
+            },
+            ComponentState.PAUSING: {ComponentState.PAUSED, ComponentState.ERROR},
+            ComponentState.PAUSED: {
+                ComponentState.RUNNING,
+                ComponentState.STOPPING,
+                ComponentState.ERROR,
+            },
+            ComponentState.STOPPING: {ComponentState.STOPPED, ComponentState.ERROR},
+            ComponentState.STOPPED: {ComponentState.STARTING, ComponentState.CLEANING},
             ComponentState.ERROR: {ComponentState.CLEANING},
             ComponentState.CLEANING: {ComponentState.CLEANED},
         }
@@ -291,14 +303,13 @@ class BaseComponent(Lifecycle, MetricsComponent):
         Raises:
             ComponentError: If initialization fails
         """
-        try:
-            self.state = ComponentState.INITIALIZING
-            await self._setup_metrics()
-            await self._initialize()
-            self.state = ComponentState.READY
-        except Exception as e:
-            self.state = ComponentState.ERROR
-            raise ComponentError(f"Failed to initialize {self.name}: {e}") from e
+        if self.state != ComponentState.UNKNOWN:
+            raise StateError("Component already initialized")
+
+        self.state = ComponentState.INITIALIZING
+        await self._setup_metrics()
+        await self._initialize()
+        self.state = ComponentState.INITIALIZED
 
     async def cleanup(self) -> None:
         """Clean up the component.
@@ -311,13 +322,12 @@ class BaseComponent(Lifecycle, MetricsComponent):
         Raises:
             ComponentError: If cleanup fails
         """
-        try:
-            self.state = ComponentState.CLEANING
-            await self._cleanup()
-            self.state = ComponentState.CLEANED
-        except Exception as e:
-            self.state = ComponentState.ERROR
-            raise ComponentError(f"Failed to clean up {self.name}: {e}") from e
+        if self.state == ComponentState.CLEANED:
+            return
+
+        self.state = ComponentState.CLEANING
+        await self._cleanup()
+        self.state = ComponentState.CLEANED
 
     @abstractmethod
     async def _initialize(self) -> None:
@@ -369,11 +379,11 @@ class BaseAgent(BaseComponent):
             callback: Optional execution callback
         """
         super().__init__(name=str(id), id=id)
-        self._metadata = metadata or Metadata()
-        self._callback = callback
+        self.metadata = metadata or Metadata()
+        self.callback = callback
         self._context = AgentContext(
-            agent_id=AgentID(str(id)),
-            state=AgentState.CREATED,
+            agent_id=AgentID(id),
+            state=AgentState.UNKNOWN,
             start_time=datetime.utcnow(),
         )
 
@@ -546,19 +556,18 @@ class ComponentBase(ABC):
         self._metrics = MetricsManager()
 
         # Initialize metrics
-        self._execution_counter = None
         self._execution_duration = None
+        self._execution_counter = None
 
     async def _setup_metrics(self) -> None:
         """Set up component metrics."""
-        # Create metrics with labels
         labels = {
             "component_id": str(self._context.component_id),
             "state": str(self._state),
         }
 
         # Create histogram for execution duration
-        self._execution_duration = await self._metrics.create_histogram(
+        self._execution_duration = self._metrics.create_histogram(
             name="execution_duration_seconds",
             description="Time taken to execute the component",
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
@@ -566,7 +575,7 @@ class ComponentBase(ABC):
         )
 
         # Create counter for errors
-        self._execution_counter = await self._metrics.create_counter(
+        self._execution_counter = self._metrics.create_counter(
             name="errors_total",
             description="Total number of errors encountered",
             labels=labels,
@@ -602,16 +611,13 @@ class ComponentBase(ABC):
 
     async def initialize(self) -> None:
         """Initialize the component."""
-        try:
-            await self.set_state(ComponentState.INITIALIZING)
-            await self._setup_metrics()
-            await self._initialize()
-            await self.set_state(ComponentState.READY)
-        except Exception as e:
-            await self.set_state(ComponentState.ERROR)
-            if self._callback:
-                await self._callback.on_error(str(self._context.component_id), e)
-            raise
+        if self.state != ComponentState.INITIALIZING:
+            raise StateError("Component already initialized")
+
+        await self.set_state(ComponentState.INITIALIZING)
+        await self._setup_metrics()
+        await self._initialize()
+        await self.set_state(ComponentState.INITIALIZED)
 
     async def execute(self, **kwargs: Any) -> Any:
         """Execute the component.
@@ -643,15 +649,12 @@ class ComponentBase(ABC):
 
     async def cleanup(self) -> None:
         """Clean up the component."""
-        try:
-            await self.set_state(ComponentState.CLEANING)
-            await self._cleanup()
-            await self.set_state(ComponentState.CLEANED)
-        except Exception as e:
-            await self.set_state(ComponentState.ERROR)
-            if self._callback:
-                await self._callback.on_error(str(self._context.component_id), e)
-            raise
+        if self.state == ComponentState.CLEANED:
+            return
+
+        self.state = ComponentState.CLEANING
+        await self._cleanup()
+        self.state = ComponentState.CLEANED
 
     @abstractmethod
     async def _initialize(self) -> None:
