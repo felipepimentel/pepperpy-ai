@@ -12,7 +12,7 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Generic, Protocol, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, Generic, Optional, Protocol, TypeVar, Union
 from uuid import UUID, uuid4
 
 from pepperpy.core.errors import ComponentError, StateError
@@ -747,6 +747,166 @@ class BaseManager(ABC):
         self._config[key] = value
 
 
+class PepperComponent(ABC):
+    """Base class for all PepperPy components."""
+
+    def __init__(self, name: str, **kwargs):
+        self.name = name
+        self._config = kwargs.get("config", {})
+        self._initialized = False
+
+    @abstractmethod
+    def initialize(self) -> None:
+        """Initialize the component."""
+        self._initialized = True
+
+    @abstractmethod
+    def cleanup(self) -> None:
+        """Cleanup resources used by the component."""
+        self._initialized = False
+
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the component is initialized."""
+        return self._initialized
+
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Configure the component with the given configuration."""
+        self._config.update(config)
+
+
+class Registry(Generic[T]):
+    """Base class for component registries."""
+
+    def __init__(self):
+        self._registry: Dict[str, T] = {}
+
+    def register(self, name: str, component: T) -> None:
+        """Register a component with the given name."""
+        if name in self._registry:
+            raise ValueError(f"Component {name} already registered")
+        self._registry[name] = component
+
+    def unregister(self, name: str) -> None:
+        """Unregister a component by name."""
+        if name in self._registry:
+            del self._registry[name]
+
+    def get(self, name: str) -> Optional[T]:
+        """Get a component by name."""
+        return self._registry.get(name)
+
+    def list(self) -> Dict[str, T]:
+        """List all registered components."""
+        return self._registry.copy()
+
+
+class Factory(ABC, Generic[T]):
+    """Base class for component factories."""
+
+    @abstractmethod
+    def create(self, name: str, **kwargs) -> T:
+        """Create a new component instance."""
+        pass
+
+
+class Manager(ABC, Generic[T]):
+    """Base class for component managers."""
+
+    def __init__(self):
+        self._components: Dict[str, T] = {}
+
+    @abstractmethod
+    def add(self, name: str, component: T) -> None:
+        """Add a component to be managed."""
+        if name in self._components:
+            raise ValueError(f"Component {name} already exists")
+        self._components[name] = component
+
+    @abstractmethod
+    def remove(self, name: str) -> None:
+        """Remove a component from management."""
+        if name in self._components:
+            del self._components[name]
+
+    @abstractmethod
+    def get(self, name: str) -> Optional[T]:
+        """Get a managed component by name."""
+        return self._components.get(name)
+
+    def list(self) -> Dict[str, T]:
+        """List all managed components."""
+        return self._components.copy()
+
+
+class Provider(ABC):
+    """Base class for service providers."""
+
+    def __init__(self, name: str, **kwargs):
+        self.name = name
+        self._config = kwargs.get("config", {})
+
+    @abstractmethod
+    def connect(self) -> None:
+        """Establish connection to the service."""
+        pass
+
+    @abstractmethod
+    def disconnect(self) -> None:
+        """Disconnect from the service."""
+        pass
+
+    @abstractmethod
+    def is_available(self) -> bool:
+        """Check if the service is available."""
+        pass
+
+
+class Configurable(ABC):
+    """Interface for configurable components."""
+
+    @abstractmethod
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Configure the component with the given configuration."""
+        pass
+
+    @abstractmethod
+    def get_config(self) -> Dict[str, Any]:
+        """Get the current configuration."""
+        pass
+
+
+class Observable(ABC):
+    """Interface for observable components that can emit events."""
+
+    def __init__(self):
+        self._observers = []
+
+    def add_observer(self, observer: "Observer") -> None:
+        """Add an observer to this component."""
+        if observer not in self._observers:
+            self._observers.append(observer)
+
+    def remove_observer(self, observer: "Observer") -> None:
+        """Remove an observer from this component."""
+        if observer in self._observers:
+            self._observers.remove(observer)
+
+    def notify_observers(self, event: Any) -> None:
+        """Notify all observers of an event."""
+        for observer in self._observers:
+            observer.update(self, event)
+
+
+class Observer(ABC):
+    """Interface for observers that can receive events."""
+
+    @abstractmethod
+    def update(self, observable: Observable, event: Any) -> None:
+        """Handle an update from an observable component."""
+        pass
+
+
 __all__ = [
     "AgentCallback",
     "AgentContext",
@@ -765,4 +925,11 @@ __all__ = [
     "Metadata",
     "MetricsComponent",
     "Registry",
+    "PepperComponent",
+    "Factory",
+    "Manager",
+    "Provider",
+    "Configurable",
+    "Observable",
+    "Observer",
 ]
