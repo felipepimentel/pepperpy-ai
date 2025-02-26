@@ -27,8 +27,9 @@ structure:
         - registry.py: Adapter registry module
         - types.py: Adapter type system
       agents:
-        description: ''
+        description: Agent capabilities package for Pepperpy
         files:
+        - __init__.py: Agent capabilities package for Pepperpy
         - agents.py: Core agent functionality for PepperPy
         - autonomous.py: Autonomous agent module for the Pepperpy framework
         - base.py: Base agent module for the Pepperpy framework
@@ -36,6 +37,9 @@ structure:
         - factory.py: Agent factory module for the Pepperpy framework
         - interactive.py: Interactive agent module for the Pepperpy framework
         - manager.py: Agent manager for coordinating agent creation and execution
+        - multi_agent.py: Module for multi-agent collaboration capabilities
+        - planning.py: Module for agent planning capabilities
+        - reasoning.py: Module for agent reasoning capabilities
         - registry.py: Agent registry module for the Pepperpy framework
         - research.py: Research agents for the Pepperpy framework
         - task_assistant.py: Task Assistant Agent implementation
@@ -125,23 +129,24 @@ structure:
             description: Environment-specific configuration management
             modules:
               providers:
-                description: Module initialization
+                description: Configuration providers for the Pepperpy framework
                 files:
-                - __init__.py: Module initialization and exports
-                - base.py: Base module
+                - __init__.py: Configuration providers for the Pepperpy framework
+                - base.py: Base interface for configuration providers
                 - env.py: Environment variable configuration provider
-                - file.py: File module
+                - file.py: File-based configuration provider
                 - filesystem.py: Filesystem configuration provider
-                - secure.py: Secure module
+                - secure.py: Secure configuration provider that encrypts sensitive
+                    data
             files:
             - __init__.py: Environment-specific configuration management
             - base.py: Base configuration system
             - config.py: Configuration utilities for Pepperpy
             - development.py: Development environment configuration
-            - env.py: Env module
+            - env.py: Environment management for configuration
             - production.py: Production environment configuration
             - test.py: Test environment configuration
-            - types.py: Types module
+            - types.py: Configuration types and constants
           errors:
             description: Core errors package
             modules:
@@ -271,13 +276,13 @@ structure:
             files:
             - formatting.py: Formatting module
           validation:
-            description: Module initialization
+            description: Validation module for the Pepperpy framework
             files:
-            - __init__.py: Module initialization and exports
-            - base.py: Base module
+            - __init__.py: Validation module for the Pepperpy framework
+            - base.py: Base interfaces and exceptions for validation
             - factory.py: Factory for creating validators
             - manager.py: Schema manager module
-            - path.py: Path module
+            - path.py: Path validation utilities
             - schemas.py: Schema definitions and format validation for the Pepperpy
                 framework
             - validators.py: Core validation functionality for the Pepperpy framework
@@ -298,6 +303,13 @@ structure:
         - events.py: ''
         - metrics.py: ''
         - registry.py: ''
+      evaluation:
+        description: Evaluation package for assessing agent performance
+        files:
+        - __init__.py: Evaluation package for assessing agent performance
+        - benchmarks.py: Module for standardized agent evaluation benchmarks
+        - human_feedback.py: Module for incorporating human feedback in agent evaluation
+        - metrics.py: Module for evaluating agent performance using various metrics
       hub:
         description: ''
         files:
@@ -310,8 +322,24 @@ structure:
         files:
         - base.py: Base interfaces for the Pepperpy memory system
         - cache.py: Cache system implementation for the Pepperpy framework
-        - simple.py: Simple module
-        - vector.py: Vector module
+        - simple.py: Simple in-memory storage implementation
+        - vector.py: Vector-based memory storage implementation
+      multimodal:
+        description: Multimodal processing package for Pepperpy
+        files:
+        - __init__.py: Multimodal processing package for Pepperpy
+        - audio.py: Module for audio processing capabilities
+        - fusion.py: Module for multimodal data fusion
+        - vision.py: Module for vision and image processing capabilities
+      observability:
+        description: Observability package for monitoring AI-specific metrics
+        files:
+        - __init__.py: Observability package for monitoring AI-specific metrics
+        - cost_tracking.py: Module for tracking and monitoring API usage costs
+        - hallucination_detection.py: Module for detecting potential hallucinations
+            in LLM outputs
+        - model_performance.py: Module for tracking and analyzing AI model performance
+            metrics
       providers:
         description: ''
         modules:
@@ -330,36 +358,59 @@ structure:
             description: ''
             files:
             - aws.py: AWS provider for the Pepperpy framework
-            - gcp.py: Gcp module
+            - gcp.py: Google Cloud Platform provider implementation
+          embedding:
+            description: Embedding providers for the Pepperpy framework
+            files:
+            - __init__.py: Embedding providers for the Pepperpy framework
+            - base.py: Base interfaces and exceptions for embedding providers
           llm:
             description: LLM (Language Model) providers for the Pepperpy framework
             files:
             - __init__.py: LLM (Language Model) providers for the Pepperpy framework
-            - anthropic.py: Anthropic module
+            - anthropic.py: Anthropic LLM provider implementation
             - base.py: Base LLM provider module
             - gemini.py: Google Gemini provider module
             - openai.py: OpenAI provider implementation
             - openrouter.py: OpenRouter provider module
             - perplexity.py: Perplexity AI provider module
           memory:
-            description: Module initialization
+            description: Memory providers for the Pepperpy framework
             files:
-            - __init__.py: Module initialization and exports
+            - __init__.py: Memory providers for the Pepperpy framework
             - base.py: Base memory provider module
-            - postgres.py: Postgres module
+            - postgres.py: PostgreSQL-based memory provider implementation
             - redis.py: Redis memory provider module
           storage:
-            description: Module initialization
+            description: Storage providers for the Pepperpy framework
             files:
-            - __init__.py: Module initialization and exports
-            - base.py: Base storage provider interface
-            - cloud.py: Cloud module
-            - local.py: Local storage provider implementation
+            - __init__.py: Storage providers for the Pepperpy framework
+            - base.py: Base interfaces and exceptions for storage providers
+            - cloud.py: Cloud storage provider implementation
+            - local.py: Local filesystem storage provider implementation
           synthesis:
             description: ''
             files:
             - google_tts.py: Google Text-to-Speech provider for synthesis capability
             - openai.py: OpenAI provider for speech synthesis capability
+          transcription:
+            description: ''
+            files:
+            - google.py: Google Cloud Speech-to-Text provider implementation
+          vision:
+            description: Vision providers for the Pepperpy framework
+            files:
+            - __init__.py: Vision providers for the Pepperpy framework
+            - base.py: Base interfaces and exceptions for vision providers
+            - google.py: Google Cloud Vision provider implementation
+            - openai.py: OpenAI vision provider implementation
+      security:
+        description: Security package for AI-specific protections
+        files:
+        - __init__.py: Security package for AI-specific protections
+        - audit.py: Module for auditing LLM interactions and security events
+        - content_filter.py: Module for filtering sensitive or inappropriate content
+        - prompt_injection.py: Module for protecting against prompt injection attacks
       workflows:
         description: Core workflow management module
         files:

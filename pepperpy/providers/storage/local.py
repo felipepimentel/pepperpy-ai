@@ -1,363 +1,218 @@
-"""Local storage provider implementation.
+"""Local filesystem storage provider implementation."""
 
-This module provides a local filesystem implementation of the storage provider interface.
-It handles:
-- Local file operations
-- Directory management
-- Metadata tracking
-- Error handling
-"""
-
-import os
-import shutil
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
-import aiofiles
-import aiofiles.os
-import magic
-
-from pepperpy.core.errors import ConfigurationError
-from pepperpy.core.logging import get_logger
-from pepperpy.providers.base import ProviderError
-from pepperpy.providers.storage.base import (
-    BaseStorageProvider,
-    StorageConfig,
-    StorageMetadata,
-)
-
-# Configure logging
-logger = get_logger(__name__)
-
-# Default chunk size for streaming (64KB)
-DEFAULT_CHUNK_SIZE = 64 * 1024
+from pepperpy.providers.storage.base import StorageError, StorageProvider
 
 
-class LocalStorageProvider(BaseStorageProvider):
+class LocalStorageProvider(StorageProvider):
     """Local filesystem storage provider implementation."""
 
-    def __init__(self, config: StorageConfig) -> None:
+    def __init__(
+        self,
+        root_path: Union[str, Path],
+        create_if_missing: bool = True,
+        permissions: Optional[int] = None,
+        **kwargs,
+    ):
         """Initialize local storage provider.
 
         Args:
-            config: Storage configuration
+            root_path: Root path for storage operations
+            create_if_missing: Create directories if missing
+            permissions: File/directory permissions
+            **kwargs: Additional parameters
 
         Raises:
-            ConfigurationError: If configuration is invalid
+            StorageError: If initialization fails
         """
-        super().__init__(config)
-        if not self.root_path:
-            raise ConfigurationError("Root path is required for local storage")
-        self.root_path = Path(self.root_path).resolve()
-
-    async def initialize(self) -> None:
-        """Initialize the provider.
-
-        This method creates the root directory if needed.
-
-        Raises:
-            ConfigurationError: If initialization fails
-        """
-        if self._initialized:
-            return
+        self.root_path = Path(root_path).resolve()
+        self.create_if_missing = create_if_missing
+        self.permissions = permissions
 
         try:
-            # Create root directory if needed
-            if self.create_if_missing:
-                os.makedirs(self.root_path, exist_ok=True)
-
-            # Set permissions if specified
-            if self.permissions is not None:
-                os.chmod(self.root_path, self.permissions)
-
-            self._initialized = True
-            logger.info(
-                "Local storage provider initialized",
-                extra={"root_path": str(self.root_path)},
-            )
-
+            if not self.root_path.exists():
+                if self.create_if_missing:
+                    self.root_path.mkdir(parents=True, exist_ok=True)
+                    if self.permissions is not None:
+                        self.root_path.chmod(self.permissions)
+                else:
+                    raise StorageError(f"Root path does not exist: {self.root_path}")
+            elif not self.root_path.is_dir():
+                raise StorageError(f"Root path is not a directory: {self.root_path}")
         except Exception as e:
-            raise ConfigurationError(f"Failed to initialize local storage: {e}")
-
-    async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        self._initialized = False
-        logger.info("Local storage provider cleaned up")
+            raise StorageError(f"Failed to initialize local storage: {e}")
 
     def _resolve_path(self, path: Union[str, Path]) -> Path:
-        """Resolve path relative to root.
+        """Resolve path relative to root path.
 
         Args:
             path: Path to resolve
 
         Returns:
-            Absolute path
+            Path: Resolved path
 
         Raises:
-            ProviderError: If path is invalid or outside root
+            StorageError: If path resolution fails
         """
         try:
             resolved = (self.root_path / Path(path)).resolve()
             if not str(resolved).startswith(str(self.root_path)):
-                raise ProviderError("Path is outside root directory")
+                raise StorageError(f"Path {path} is outside root path")
             return resolved
         except Exception as e:
-            raise ProviderError(f"Invalid path: {e}")
+            raise StorageError(f"Failed to resolve path: {e}")
 
-    async def read(self, path: Union[str, Path]) -> bytes:
-        """Read file contents.
-
-        Args:
-            path: File path
-
-        Returns:
-            File contents
-
-        Raises:
-            ProviderError: If read fails
-        """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
-        try:
-            resolved_path = self._resolve_path(path)
-            async with aiofiles.open(resolved_path, "rb") as f:
-                return await f.read()
-        except Exception as e:
-            raise ProviderError(f"Failed to read file: {e}")
-
-    async def write(
-        self,
-        path: Union[str, Path],
-        data: Union[str, bytes],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> StorageMetadata:
-        """Write data to file.
+    def store(self, path: Union[str, Path], data: Union[str, bytes]) -> None:
+        """Store data in local filesystem.
 
         Args:
-            path: File path
-            data: Data to write
-            metadata: Optional metadata
-
-        Returns:
-            File metadata
+            path: Path to store data at
+            data: Data to store
 
         Raises:
-            ProviderError: If write fails
+            StorageError: If storage operation fails
         """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
         try:
-            resolved_path = self._resolve_path(path)
+            target = self._resolve_path(path)
+            if not target.parent.exists():
+                if self.create_if_missing:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    if self.permissions is not None:
+                        target.parent.chmod(self.permissions)
+                else:
+                    raise StorageError(
+                        f"Parent directory does not exist: {target.parent}"
+                    )
 
-            # Create parent directories if needed
-            if self.create_if_missing:
-                os.makedirs(resolved_path.parent, exist_ok=True)
+            mode = "wb" if isinstance(data, bytes) else "w"
+            with open(target, mode) as f:
+                f.write(data)
 
-            # Convert string to bytes if needed
-            if isinstance(data, str):
-                data = data.encode()
-
-            # Write data
-            async with aiofiles.open(resolved_path, "wb") as f:
-                await f.write(data)
-
-            # Set permissions if specified
             if self.permissions is not None:
-                os.chmod(resolved_path, self.permissions)
-
-            # Get metadata
-            return await self.get_metadata(path)
+                target.chmod(self.permissions)
 
         except Exception as e:
-            raise ProviderError(f"Failed to write file: {e}")
+            raise StorageError(f"Failed to store data: {e}")
 
-    async def delete(self, path: Union[str, Path]) -> None:
-        """Delete file or directory.
+    def retrieve(self, path: Union[str, Path]) -> bytes:
+        """Retrieve data from local filesystem.
+
+        Args:
+            path: Path to retrieve data from
+
+        Returns:
+            bytes: Retrieved data
+
+        Raises:
+            StorageError: If retrieval operation fails
+        """
+        try:
+            target = self._resolve_path(path)
+            if not target.exists():
+                raise StorageError(f"File not found: {target}")
+            if not target.is_file():
+                raise StorageError(f"Path is not a file: {target}")
+
+            with open(target, "rb") as f:
+                return f.read()
+
+        except Exception as e:
+            raise StorageError(f"Failed to retrieve data: {e}")
+
+    def delete(self, path: Union[str, Path]) -> bool:
+        """Delete file from local filesystem.
 
         Args:
             path: Path to delete
 
+        Returns:
+            bool: True if deleted, False if not found
+
         Raises:
-            ProviderError: If deletion fails
+            StorageError: If deletion operation fails
         """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
         try:
-            resolved_path = self._resolve_path(path)
-            if resolved_path.is_dir():
-                shutil.rmtree(resolved_path)
-            else:
-                os.remove(resolved_path)
-        except Exception as e:
-            raise ProviderError(f"Failed to delete path: {e}")
+            target = self._resolve_path(path)
+            if not target.exists():
+                return False
+            if not target.is_file():
+                raise StorageError(f"Path is not a file: {target}")
 
-    async def exists(self, path: Union[str, Path]) -> bool:
-        """Check if path exists.
+            target.unlink()
+            return True
+
+        except Exception as e:
+            raise StorageError(f"Failed to delete file: {e}")
+
+    def exists(self, path: Union[str, Path]) -> bool:
+        """Check if path exists in local filesystem.
 
         Args:
             path: Path to check
 
         Returns:
-            True if path exists
+            bool: True if exists, False otherwise
 
         Raises:
-            ProviderError: If check fails
+            StorageError: If check operation fails
         """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
         try:
-            resolved_path = self._resolve_path(path)
-            return resolved_path.exists()
+            target = self._resolve_path(path)
+            return target.exists() and target.is_file()
         except Exception as e:
-            raise ProviderError(f"Failed to check path: {e}")
+            raise StorageError(f"Failed to check path: {e}")
 
-    async def list(
-        self,
-        path: Union[str, Path],
-        recursive: bool = False,
-        include_metadata: bool = False,
-    ) -> Union[List[str], List[StorageMetadata]]:
-        """List directory contents.
+    def list_files(self, path: Optional[Union[str, Path]] = None) -> List[str]:
+        """List files in local filesystem.
 
         Args:
-            path: Directory path
-            recursive: List recursively
-            include_metadata: Include metadata
+            path: Optional path to list files from
 
         Returns:
-            List of paths or metadata
+            List[str]: List of file paths
 
         Raises:
-            ProviderError: If listing fails
+            StorageError: If list operation fails
         """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
         try:
-            resolved_path = self._resolve_path(path)
-            if not resolved_path.is_dir():
-                raise ProviderError("Path is not a directory")
+            target = self._resolve_path(path) if path else self.root_path
+            if not target.exists():
+                raise StorageError(f"Path does not exist: {target}")
+            if not target.is_dir():
+                raise StorageError(f"Path is not a directory: {target}")
 
-            # Get paths
-            if recursive:
-                paths = [
-                    p
-                    for p in resolved_path.rglob("*")
-                    if not any(part.startswith(".") for part in p.parts)
-                ]
-            else:
-                paths = [
-                    p for p in resolved_path.iterdir() if not p.name.startswith(".")
-                ]
-
-            # Convert to relative paths
-            rel_paths = [str(p.relative_to(self.root_path)) for p in paths]
-
-            # Return paths or metadata
-            if include_metadata:
-                return [await self.get_metadata(p) for p in rel_paths]
-            return rel_paths
+            files = []
+            for item in target.rglob("*"):
+                if item.is_file():
+                    files.append(str(item.relative_to(self.root_path)))
+            return files
 
         except Exception as e:
-            raise ProviderError(f"Failed to list directory: {e}")
+            raise StorageError(f"Failed to list files: {e}")
 
-    async def get_metadata(self, path: Union[str, Path]) -> StorageMetadata:
-        """Get item metadata.
+    def get_url(self, path: Union[str, Path], expires_in: Optional[int] = None) -> str:
+        """Get URL for accessing file in local filesystem.
 
         Args:
-            path: Item path
+            path: Path to file
+            expires_in: Optional expiration time in seconds (ignored)
 
         Returns:
-            Item metadata
+            str: URL for accessing file
 
         Raises:
-            ProviderError: If metadata retrieval fails
+            StorageError: If URL generation fails
         """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
         try:
-            resolved_path = self._resolve_path(path)
-            if not resolved_path.exists():
-                raise ProviderError("Path does not exist")
+            target = self._resolve_path(path)
+            if not target.exists():
+                raise StorageError(f"File not found: {target}")
+            if not target.is_file():
+                raise StorageError(f"Path is not a file: {target}")
 
-            # Get file stats
-            stats = resolved_path.stat()
-
-            # Get content type
-            content_type = None
-            if resolved_path.is_file():
-                content_type = magic.from_file(str(resolved_path), mime=True)
-
-            # Create metadata
-            return StorageMetadata(
-                path=str(Path(path)),
-                size=stats.st_size,
-                created_at=stats.st_ctime,
-                modified_at=stats.st_mtime,
-                content_type=content_type,
-                metadata={},
-            )
+            return f"file://{target}"
 
         except Exception as e:
-            raise ProviderError(f"Failed to get metadata: {e}")
-
-    async def update_metadata(
-        self, path: Union[str, Path], metadata: Dict[str, Any]
-    ) -> StorageMetadata:
-        """Update item metadata.
-
-        Args:
-            path: Item path
-            metadata: New metadata
-
-        Returns:
-            Updated metadata
-
-        Raises:
-            ProviderError: If update fails
-        """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
-        try:
-            # Get current metadata
-            current = await self.get_metadata(path)
-
-            # Update metadata
-            current.metadata.update(metadata)
-            return current
-
-        except Exception as e:
-            raise ProviderError(f"Failed to update metadata: {e}")
-
-    async def stream(self, path: Union[str, Path]) -> AsyncIterator[bytes]:
-        """Stream file contents.
-
-        Args:
-            path: File path
-
-        Returns:
-            Content stream
-
-        Raises:
-            ProviderError: If streaming fails
-        """
-        if not self._initialized:
-            raise ProviderError("Provider not initialized")
-
-        try:
-            resolved_path = self._resolve_path(path)
-            if not resolved_path.is_file():
-                raise ProviderError("Path is not a file")
-
-            async with aiofiles.open(resolved_path, "rb") as f:
-                while chunk := await f.read(DEFAULT_CHUNK_SIZE):
-                    yield chunk
-
-        except Exception as e:
-            raise ProviderError(f"Failed to stream file: {e}")
+            raise StorageError(f"Failed to generate URL: {e}")

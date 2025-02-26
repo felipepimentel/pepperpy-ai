@@ -1,12 +1,12 @@
 """Storage providers for the Pepperpy framework."""
 
-from .base import StorageProvider, StorageError
-from .local import LocalStorageProvider
+from .base import StorageError, StorageProvider
 from .cloud import CloudStorageProvider
+from .local import LocalStorageProvider
 
 __all__ = [
     "StorageProvider",
     "StorageError",
-    "LocalStorageProvider",
     "CloudStorageProvider",
+    "LocalStorageProvider",
 ]

@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from pepperpy.providers.transcription.base import TranscriptionProvider, TranscriptionError
+from pepperpy.providers.transcription.base import TranscriptionError, TranscriptionProvider
 
 
 class OpenAITranscriptionProvider(TranscriptionProvider):
@@ -19,7 +19,7 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
 
         Args:
             api_key: OpenAI API key
-            model: Model to use (default: whisper-1)
+            model: Model to use for transcription
             **kwargs: Additional parameters to pass to OpenAI
 
         Raises:
@@ -42,13 +42,36 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
         except Exception as e:
             raise TranscriptionError(f"Failed to initialize OpenAI client: {e}")
 
+    def _load_audio(self, audio: Union[str, Path, bytes]) -> Union[str, bytes]:
+        """Load audio data.
+
+        Args:
+            audio: Path to audio file, audio file bytes, or URL
+
+        Returns:
+            Union[str, bytes]: Audio data or URL
+
+        Raises:
+            TranscriptionError: If audio loading fails
+        """
+        try:
+            if isinstance(audio, (str, Path)):
+                path = Path(audio)
+                if path.exists():
+                    with open(path, "rb") as f:
+                        return f.read()
+                return str(audio)  # Treat as URL
+            return audio
+        except Exception as e:
+            raise TranscriptionError(f"Failed to load audio: {e}")
+
     def transcribe(
         self,
         audio: Union[str, Path, bytes],
         language: Optional[str] = None,
         **kwargs,
     ) -> str:
-        """Transcribe audio using OpenAI.
+        """Transcribe audio to text.
 
         Args:
             audio: Path to audio file, audio file bytes, or URL
@@ -62,38 +85,30 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
             TranscriptionError: If transcription fails
         """
         try:
-            # Handle different audio input types
-            if isinstance(audio, (str, Path)):
-                audio_path = Path(audio)
-                if not audio_path.exists():
-                    raise TranscriptionError(f"Audio file not found: {audio_path}")
-                audio_file = open(audio_path, "rb")
-            else:
-                from io import BytesIO
-                audio_file = BytesIO(audio)
+            # Load audio data
+            audio_data = self._load_audio(audio)
 
-            try:
-                # Prepare parameters
-                params = {
-                    "model": self.model,
-                    "language": language,
-                    **self.kwargs,
-                    **kwargs,
-                }
+            # Prepare parameters
+            params = {
+                "model": self.model,
+                "language": language,
+                **self.kwargs,
+                **kwargs,
+            }
 
-                # Remove None values
-                params = {k: v for k, v in params.items() if v is not None}
-
-                # Transcribe audio
+            # Call OpenAI API
+            if isinstance(audio_data, str):
                 response = self.client.audio.transcriptions.create(
-                    file=audio_file,
+                    file=audio_data,
+                    **params,
+                )
+            else:
+                response = self.client.audio.transcriptions.create(
+                    file=("audio", audio_data),
                     **params,
                 )
 
-                return response.text
-
-            finally:
-                audio_file.close()
+            return response.text
 
         except Exception as e:
             raise TranscriptionError(f"Failed to transcribe audio: {e}")
@@ -104,7 +119,7 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
         language: Optional[str] = None,
         **kwargs,
     ) -> List[Dict[str, Union[str, float]]]:
-        """Transcribe audio with timestamps using OpenAI.
+        """Transcribe audio to text with word/segment timestamps.
 
         Args:
             audio: Path to audio file, audio file bytes, or URL
@@ -118,51 +133,43 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
             TranscriptionError: If transcription fails
         """
         try:
-            # Handle different audio input types
-            if isinstance(audio, (str, Path)):
-                audio_path = Path(audio)
-                if not audio_path.exists():
-                    raise TranscriptionError(f"Audio file not found: {audio_path}")
-                audio_file = open(audio_path, "rb")
-            else:
-                from io import BytesIO
-                audio_file = BytesIO(audio)
+            # Load audio data
+            audio_data = self._load_audio(audio)
 
-            try:
-                # Prepare parameters
-                params = {
-                    "model": self.model,
-                    "language": language,
-                    "response_format": "verbose_json",
-                    **self.kwargs,
-                    **kwargs,
-                }
+            # Prepare parameters
+            params = {
+                "model": self.model,
+                "language": language,
+                "response_format": "verbose_json",
+                **self.kwargs,
+                **kwargs,
+            }
 
-                # Remove None values
-                params = {k: v for k, v in params.items() if v is not None}
-
-                # Transcribe audio
+            # Call OpenAI API
+            if isinstance(audio_data, str):
                 response = self.client.audio.transcriptions.create(
-                    file=audio_file,
+                    file=audio_data,
+                    **params,
+                )
+            else:
+                response = self.client.audio.transcriptions.create(
+                    file=("audio", audio_data),
                     **params,
                 )
 
-                # Extract segments with timestamps
-                segments = []
-                for segment in response.segments:
-                    segments.append({
-                        "text": segment.text,
-                        "start": segment.start,
-                        "end": segment.end,
-                    })
-
-                return segments
-
-            finally:
-                audio_file.close()
+            # Extract segments with timestamps
+            segments = []
+            for segment in response.segments:
+                segments.append({
+                    "text": segment.text,
+                    "start": segment.start,
+                    "end": segment.end,
+                    "confidence": segment.confidence,
+                })
+            return segments
 
         except Exception as e:
-            raise TranscriptionError(f"Failed to transcribe audio: {e}")
+            raise TranscriptionError(f"Failed to transcribe audio with timestamps: {e}")
 
     def get_supported_languages(self) -> List[str]:
         """Get list of supported language codes.
@@ -170,13 +177,15 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
         Returns:
             List[str]: List of language codes
         """
+        # List of languages supported by Whisper
+        # Source: https://platform.openai.com/docs/guides/speech-to-text/supported-languages
         return [
             "af", "ar", "hy", "az", "be", "bs", "bg", "ca", "zh", "hr",
             "cs", "da", "nl", "en", "et", "fi", "fr", "gl", "de", "el",
-            "he", "hi", "hu", "is", "id", "it", "ja", "kk", "ko", "lv",
-            "lt", "mk", "ms", "mr", "mi", "ne", "no", "fa", "pl", "pt",
-            "ro", "ru", "sr", "sk", "sl", "es", "sw", "sv", "tl", "ta",
-            "th", "tr", "uk", "ur", "vi", "cy",
+            "he", "hi", "hu", "is", "id", "it", "ja", "kn", "kk", "ko",
+            "lv", "lt", "mk", "ms", "ml", "mt", "mr", "ne", "no", "fa",
+            "pl", "pt", "ro", "ru", "sr", "sk", "sl", "es", "sw", "sv",
+            "tl", "ta", "th", "tr", "uk", "ur", "vi", "cy",
         ]
 
     def get_supported_formats(self) -> List[str]:
@@ -193,4 +202,4 @@ class OpenAITranscriptionProvider(TranscriptionProvider):
             "m4a",
             "wav",
             "webm",
-        ]
+        ] 

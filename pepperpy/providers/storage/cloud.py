@@ -1,44 +1,54 @@
 """Cloud storage provider implementation."""
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
-from pepperpy.providers.storage.base import StorageProvider
+from pepperpy.providers.storage.base import StorageError, StorageProvider
 
 
 class CloudStorageProvider(StorageProvider):
-    """Base class for cloud storage providers."""
+    """Cloud storage provider implementation."""
 
     def __init__(
         self,
         bucket_name: str,
-        base_path: Optional[str] = None,
-        credentials: Optional[Dict[str, Any]] = None,
+        credentials: Optional[Dict[str, str]] = None,
+        project_id: Optional[str] = None,
+        **kwargs,
     ):
         """Initialize cloud storage provider.
 
         Args:
-            bucket_name: Name of the cloud storage bucket
-            base_path: Optional base path within the bucket
-            credentials: Optional credentials for authentication
+            bucket_name: Cloud storage bucket name
+            credentials: Optional service account credentials
+            project_id: Optional cloud project ID
+            **kwargs: Additional parameters
+
+        Raises:
+            ImportError: If google-cloud-storage package is not installed
+            StorageError: If initialization fails
         """
+        try:
+            from google.cloud import storage
+        except ImportError:
+            raise ImportError(
+                "google-cloud-storage package is required for CloudStorageProvider. "
+                "Install it with: pip install google-cloud-storage"
+            )
+
         self.bucket_name = bucket_name
-        self.base_path = base_path or ""
-        self.credentials = credentials or {}
+        self.kwargs = kwargs
 
-    def _get_full_path(self, path: Union[str, Path]) -> str:
-        """Get full path including base path.
-
-        Args:
-            path: Path to file or directory
-
-        Returns:
-            str: Full path including base path
-        """
-        path_str = str(path).strip("/")
-        if self.base_path:
-            return f"{self.base_path.strip('/')}/{path_str}"
-        return path_str
+        try:
+            self.client = storage.Client(
+                credentials=credentials,
+                project=project_id,
+            )
+            self.bucket = self.client.bucket(bucket_name)
+            if not self.bucket.exists():
+                raise StorageError(f"Bucket does not exist: {bucket_name}")
+        except Exception as e:
+            raise StorageError(f"Failed to initialize cloud storage: {e}")
 
     def store(self, path: Union[str, Path], data: Union[str, bytes]) -> None:
         """Store data in cloud storage.
@@ -49,9 +59,15 @@ class CloudStorageProvider(StorageProvider):
 
         Raises:
             StorageError: If storage operation fails
-            NotImplementedError: If not implemented by subclass
         """
-        raise NotImplementedError("Must be implemented by subclass")
+        try:
+            blob = self.bucket.blob(str(path))
+            if isinstance(data, str):
+                blob.upload_from_string(data)
+            else:
+                blob.upload_from_string(data, content_type="application/octet-stream")
+        except Exception as e:
+            raise StorageError(f"Failed to store data: {e}")
 
     def retrieve(self, path: Union[str, Path]) -> bytes:
         """Retrieve data from cloud storage.
@@ -64,12 +80,17 @@ class CloudStorageProvider(StorageProvider):
 
         Raises:
             StorageError: If retrieval operation fails
-            NotImplementedError: If not implemented by subclass
         """
-        raise NotImplementedError("Must be implemented by subclass")
+        try:
+            blob = self.bucket.blob(str(path))
+            if not blob.exists():
+                raise StorageError(f"File not found: {path}")
+            return blob.download_as_bytes()
+        except Exception as e:
+            raise StorageError(f"Failed to retrieve data: {e}")
 
     def delete(self, path: Union[str, Path]) -> bool:
-        """Delete data from cloud storage.
+        """Delete file from cloud storage.
 
         Args:
             path: Path to delete
@@ -79,9 +100,15 @@ class CloudStorageProvider(StorageProvider):
 
         Raises:
             StorageError: If deletion operation fails
-            NotImplementedError: If not implemented by subclass
         """
-        raise NotImplementedError("Must be implemented by subclass")
+        try:
+            blob = self.bucket.blob(str(path))
+            if not blob.exists():
+                return False
+            blob.delete()
+            return True
+        except Exception as e:
+            raise StorageError(f"Failed to delete file: {e}")
 
     def exists(self, path: Union[str, Path]) -> bool:
         """Check if path exists in cloud storage.
@@ -94,24 +121,31 @@ class CloudStorageProvider(StorageProvider):
 
         Raises:
             StorageError: If check operation fails
-            NotImplementedError: If not implemented by subclass
         """
-        raise NotImplementedError("Must be implemented by subclass")
+        try:
+            blob = self.bucket.blob(str(path))
+            return blob.exists()
+        except Exception as e:
+            raise StorageError(f"Failed to check path: {e}")
 
     def list_files(self, path: Optional[Union[str, Path]] = None) -> List[str]:
         """List files in cloud storage.
 
         Args:
-            path: Optional path to list files from
+            path: Optional path prefix to list files from
 
         Returns:
             List[str]: List of file paths
 
         Raises:
             StorageError: If list operation fails
-            NotImplementedError: If not implemented by subclass
         """
-        raise NotImplementedError("Must be implemented by subclass")
+        try:
+            prefix = str(path) if path else None
+            blobs = self.bucket.list_blobs(prefix=prefix)
+            return [blob.name for blob in blobs]
+        except Exception as e:
+            raise StorageError(f"Failed to list files: {e}")
 
     def get_url(self, path: Union[str, Path], expires_in: Optional[int] = None) -> str:
         """Get URL for accessing file in cloud storage.
@@ -125,6 +159,14 @@ class CloudStorageProvider(StorageProvider):
 
         Raises:
             StorageError: If URL generation fails
-            NotImplementedError: If not implemented by subclass
         """
-        raise NotImplementedError("Must be implemented by subclass")
+        try:
+            blob = self.bucket.blob(str(path))
+            if not blob.exists():
+                raise StorageError(f"File not found: {path}")
+            return blob.generate_signed_url(
+                expiration=expires_in,
+                **self.kwargs,
+            )
+        except Exception as e:
+            raise StorageError(f"Failed to generate URL: {e}")

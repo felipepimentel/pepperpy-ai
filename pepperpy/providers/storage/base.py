@@ -1,170 +1,105 @@
-"""Base storage provider interface.
+"""Base interfaces and exceptions for storage providers."""
 
-This module defines the base interface for storage providers.
-It includes:
-- Base storage provider interface
-- Storage configuration
-- Common storage types
-"""
-
-import os
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
-
-from pydantic import BaseModel
-
-from pepperpy.providers.base import BaseProvider, ProviderConfig
+from typing import Any, Dict, List, Optional, Union
 
 
-class StorageConfig(ProviderConfig):
-    """Storage provider configuration.
+class StorageError(Exception):
+    """Base exception for storage errors."""
 
-    Attributes:
-        root_path: Root path for storage operations
-        create_if_missing: Create directories if missing
-        permissions: File/directory permissions
-    """
-
-    root_path: Optional[str] = None
-    create_if_missing: bool = True
-    permissions: Optional[int] = None
+    pass
 
 
-class StorageMetadata(BaseModel):
-    """Storage item metadata.
-
-    Attributes:
-        path: Item path
-        size: Item size in bytes
-        created_at: Creation timestamp
-        modified_at: Last modification timestamp
-        content_type: Content type
-        metadata: Additional metadata
-    """
-
-    path: str
-    size: int
-    created_at: float
-    modified_at: float
-    content_type: Optional[str] = None
-    metadata: Dict[str, Any] = {}
-
-
-class BaseStorageProvider(BaseProvider[StorageMetadata]):
-    """Base class for storage providers.
-
-    This class defines the interface that all storage providers must implement.
-    """
-
-    def __init__(self, config: StorageConfig) -> None:
-        """Initialize storage provider.
-
-        Args:
-            config: Storage configuration
-        """
-        super().__init__(config)
-        self.root_path = config.root_path
-        self.create_if_missing = config.create_if_missing
-        self.permissions = config.permissions
+class StorageProvider(ABC):
+    """Base class for storage providers."""
 
     @abstractmethod
-    async def read(self, path: Union[str, Path]) -> bytes:
-        """Read file contents.
+    def store(self, path: Union[str, Path], data: Union[str, bytes]) -> None:
+        """Store data in storage.
 
         Args:
-            path: File path
-
-        Returns:
-            File contents
+            path: Path to store data at
+            data: Data to store
 
         Raises:
-            ProviderError: If read fails
+            StorageError: If storage operation fails
         """
         pass
 
     @abstractmethod
-    async def write(
-        self,
-        path: Union[str, Path],
-        data: Union[str, bytes],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> StorageMetadata:
-        """Write data to file.
+    def retrieve(self, path: Union[str, Path]) -> bytes:
+        """Retrieve data from storage.
 
         Args:
-            path: File path
-            data: Data to write
-            metadata: Optional metadata
+            path: Path to retrieve data from
 
         Returns:
-            File metadata
+            bytes: Retrieved data
 
         Raises:
-            ProviderError: If write fails
+            StorageError: If retrieval operation fails
         """
         pass
 
     @abstractmethod
-    async def delete(self, path: Union[str, Path]) -> None:
-        """Delete file or directory.
+    def delete(self, path: Union[str, Path]) -> bool:
+        """Delete data from storage.
 
         Args:
             path: Path to delete
 
+        Returns:
+            bool: True if deleted, False if not found
+
         Raises:
-            ProviderError: If deletion fails
+            StorageError: If deletion operation fails
         """
         pass
 
     @abstractmethod
-    async def exists(self, path: Union[str, Path]) -> bool:
-        """Check if path exists.
+    def exists(self, path: Union[str, Path]) -> bool:
+        """Check if path exists in storage.
 
         Args:
             path: Path to check
 
         Returns:
-            True if path exists
+            bool: True if exists, False otherwise
 
         Raises:
-            ProviderError: If check fails
+            StorageError: If check operation fails
         """
         pass
 
     @abstractmethod
-    async def list(
-        self,
-        path: Union[str, Path],
-        recursive: bool = False,
-        include_metadata: bool = False,
-    ) -> Union[List[str], List[StorageMetadata]]:
-        """List directory contents.
+    def list_files(self, path: Optional[Union[str, Path]] = None) -> List[str]:
+        """List files in storage.
 
         Args:
-            path: Directory path
-            recursive: List recursively
-            include_metadata: Include metadata
+            path: Optional path to list files from
 
         Returns:
-            List of paths or metadata
+            List[str]: List of file paths
 
         Raises:
-            ProviderError: If listing fails
+            StorageError: If list operation fails
         """
         pass
 
     @abstractmethod
-    async def get_metadata(self, path: Union[str, Path]) -> StorageMetadata:
-        """Get item metadata.
+    def get_url(self, path: Union[str, Path], expires_in: Optional[int] = None) -> str:
+        """Get URL for accessing file in storage.
 
         Args:
-            path: Item path
+            path: Path to file
+            expires_in: Optional expiration time in seconds
 
         Returns:
-            Item metadata
+            str: URL for accessing file
 
         Raises:
+            StorageError: If URL generation fails
             ProviderError: If metadata retrieval fails
         """
         pass
@@ -212,3 +147,102 @@ class BaseStorageProvider(BaseProvider[StorageMetadata]):
             raise ValueError("Root path must be absolute")
         if self.permissions is not None and not 0 <= self.permissions <= 0o777:
             raise ValueError("Invalid permissions")
+
+
+class StorageError(Exception):
+    """Base exception for storage errors."""
+
+    pass
+
+
+class StorageProvider(BaseProvider[StorageMetadata]):
+    """Base class for storage providers."""
+
+    @abstractmethod
+    def store(self, path: Union[str, Path], data: Union[str, bytes]) -> None:
+        """Store data in storage.
+
+        Args:
+            path: Path to store data at
+            data: Data to store
+
+        Raises:
+            StorageError: If storage operation fails
+        """
+        pass
+
+    @abstractmethod
+    def retrieve(self, path: Union[str, Path]) -> bytes:
+        """Retrieve data from storage.
+
+        Args:
+            path: Path to retrieve data from
+
+        Returns:
+            bytes: Retrieved data
+
+        Raises:
+            StorageError: If retrieval operation fails
+        """
+        pass
+
+    @abstractmethod
+    def delete(self, path: Union[str, Path]) -> bool:
+        """Delete data from storage.
+
+        Args:
+            path: Path to delete
+
+        Returns:
+            bool: True if deleted, False if not found
+
+        Raises:
+            StorageError: If deletion operation fails
+        """
+        pass
+
+    @abstractmethod
+    def exists(self, path: Union[str, Path]) -> bool:
+        """Check if path exists in storage.
+
+        Args:
+            path: Path to check
+
+        Returns:
+            bool: True if exists, False otherwise
+
+        Raises:
+            StorageError: If check operation fails
+        """
+        pass
+
+    @abstractmethod
+    def list_files(self, path: Optional[Union[str, Path]] = None) -> List[str]:
+        """List files in storage.
+
+        Args:
+            path: Optional path to list files from
+
+        Returns:
+            List[str]: List of file paths
+
+        Raises:
+            StorageError: If list operation fails
+        """
+        pass
+
+    @abstractmethod
+    def get_url(self, path: Union[str, Path], expires_in: Optional[int] = None) -> str:
+        """Get URL for accessing file in storage.
+
+        Args:
+            path: Path to file
+            expires_in: Optional expiration time in seconds
+
+        Returns:
+            str: URL for accessing file
+
+        Raises:
+            StorageError: If URL generation fails
+        """
+        pass
