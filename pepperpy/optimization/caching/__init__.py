@@ -1,32 +1,32 @@
-"""Cache geral para otimização de performance.
+"""General cache for performance optimization.
 
-Este módulo implementa um sistema de cache para otimização geral de performance,
-focando em:
+This module implements a cache system for general performance optimization,
+focusing on:
 
-- Cache de Dados
-  - Resultados de computação
-  - Dados frequentes
-  - Recursos externos
-  - Consultas comuns
+- Data Cache
+  - Computation results
+  - Frequent data
+  - External resources
+  - Common queries
 
-- Características Gerais
-  - Política de expiração
-  - Limite de tamanho
-  - Persistência
-  - Distribuição
+- General Features
+  - Expiration policy
+  - Size limit
+  - Persistence
+  - Distribution
 
-Este cache é diferente do cache de agentes (pepperpy/memory/cache.py)
-pois é focado em:
-- Otimizar performance geral
-- Reduzir carga em recursos
-- Minimizar latência
-- Economizar banda
+This cache is different from the agent cache (pepperpy/memory/cache.py)
+as it focuses on:
+- Optimizing general performance
+- Reducing resource load
+- Minimizing latency
+- Saving bandwidth
 
-O módulo fornece:
-- Cache local
-- Cache distribuído
-- Políticas configuráveis
-- Métricas de performance
+The module provides:
+- Local cache
+- Distributed cache
+- Configurable policies
+- Performance metrics
 """
 
 from typing import Dict, List, Optional, Union

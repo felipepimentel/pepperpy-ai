@@ -1,7 +1,7 @@
-"""Cache local para otimização de performance.
+"""Local cache for performance optimization.
 
-Implementa um sistema de cache local em memória para otimização
-de performance em requisições frequentes.
+Implements an in-memory local cache system for optimizing
+performance in frequent requests.
 """
 
 from datetime import datetime, timedelta

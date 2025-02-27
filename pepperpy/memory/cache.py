@@ -1,32 +1,33 @@
-"""Cache específico para contexto de agentes.
+"""Agent-specific cache system.
 
-Este módulo implementa um sistema de cache otimizado para o contexto de agentes,
-focando em:
+This module implements a cache system optimized for agent context,
+focusing on:
 
-- Cache de Contexto
-  - Histórico de interações
-  - Estado do agente
-  - Memória de curto prazo
-  - Conhecimento temporário
+- Context Cache
+  - Interaction history
+  - Agent state
+  - Short-term memory
+  - Temporary knowledge
 
-- Características Específicas
-  - Priorização por relevância
-  - Expiração adaptativa
-  - Compressão seletiva
-  - Persistência opcional
+- Specific Features
+  - Relevance-based prioritization
+  - Adaptive expiration
+  - Selective compression
+  - Optional persistence
 
-Este cache é diferente do cache geral de otimização (pepperpy/optimization/caching/)
-pois é especializado para:
-- Manter contexto de conversas
-- Gerenciar estado de agentes
-- Otimizar memória de trabalho
-- Facilitar recuperação contextual
+This module is part of a unified caching architecture:
+- This module (memory/cache.py): Agent-specific caching with context awareness
+- optimization/caching/: General performance caching with distribution support
 
-O módulo fornece:
-- Cache em memória
-- Cache em Redis
-- Serialização flexível
-- Estratégias de evicção
+Both modules share core concepts but have specialized implementations.
+Future versions may consolidate these into a unified caching system
+with specialized adapters.
+
+The module provides:
+- In-memory cache
+- Redis cache
+- Flexible serialization
+- Eviction strategies
 """
 
 import pickle

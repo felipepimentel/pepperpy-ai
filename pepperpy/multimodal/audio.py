@@ -1,32 +1,31 @@
-"""Processamento de áudio para entrada multimodal.
+"""Audio processing for multimodal input.
 
-Este módulo implementa o processamento de áudio para entrada multimodal,
-focando em:
+This module implements audio processing for multimodal input,
+focusing on:
 
-- Processamento de Entrada
-  - Captura de áudio
-  - Detecção de fala
-  - Segmentação
-  - Filtragem
+- Input Processing
+  - Audio capture
+  - Speech detection
+  - Segmentation
+  - Filtering
 
-- Características Específicas
-  - Processamento em tempo real
-  - Detecção de ruído
-  - Normalização
-  - Análise espectral
+- Specific Features
+  - Real-time processing
+  - Noise detection
+  - Normalization
+  - Spectral analysis
 
-Este módulo é diferente do processamento de áudio em synthesis/
-pois é focado em:
-- Processar entrada de áudio
-- Detectar características
-- Extrair informações
-- Preparar para análise
+This module handles the input/analysis side of audio processing,
+while synthesis/processors/audio.py handles the output/generation side.
+Together they form a complete audio processing pipeline:
+- This module: audio → features/analysis
+- Synthesis module: features/parameters → audio
 
-O módulo fornece:
-- Captura de áudio
-- Processamento de stream
-- Análise de características
-- Integração com ASR
+The module provides:
+- Audio capture
+- Stream processing
+- Feature analysis
+- ASR integration
 """
 
 from dataclasses import dataclass

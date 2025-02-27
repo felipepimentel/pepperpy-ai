@@ -1,6 +1,6 @@
-"""Builder para construção de workflows.
+"""Builder for workflow construction.
 
-Implementa o padrão Builder para construção de workflows de forma fluente.
+Implements the Builder pattern for fluent workflow construction.
 """
 
 from typing import Any, Dict, Optional

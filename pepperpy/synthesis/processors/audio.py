@@ -1,6 +1,18 @@
-"""Processador de áudio para síntese.
+"""Audio processor for synthesis.
 
-Implementa o processamento de áudio para síntese de conteúdo.
+Implements audio processing for content synthesis and generation.
+
+This module handles the output/generation side of audio processing,
+while multimodal/audio.py handles the input/analysis side.
+Together they form a complete audio processing pipeline:
+- Multimodal module: audio → features/analysis
+- This module: features/parameters → audio
+
+The module provides:
+- Audio normalization
+- Filter application
+- Effect processing
+- Output formatting
 """
 
 from typing import Any, Dict, Optional

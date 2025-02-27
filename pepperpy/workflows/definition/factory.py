@@ -1,6 +1,6 @@
-"""Factory para criação de workflows.
+"""Factory for workflow creation.
 
-Implementa o padrão Factory para criação de workflows a partir de definições.
+Implements the Factory pattern for creating workflows from definitions.
 """
 
 from typing import Dict, Optional, Type
