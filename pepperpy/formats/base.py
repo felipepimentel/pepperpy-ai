@@ -1,0 +1,198 @@
+"""Base classes and interfaces for the unified format handling system.
+
+This module provides the core abstractions for the format handling system:
+- FormatHandler: Base interface for all format handlers
+- FormatConverter: Interface for converting between formats
+- FormatValidator: Interface for validating format compliance
+- FormatRegistry: Registry for managing format handlers and converters
+- FormatError: Base exception for format-related errors
+"""
+
+import abc
+from typing import Dict, Generic, List, Optional, TypeVar
+
+# Type variable for generic format handlers
+T = TypeVar("T")
+
+
+class FormatError(Exception):
+    """Base exception for format-related errors."""
+
+    pass
+
+
+class FormatHandler(Generic[T], abc.ABC):
+    """Base interface for all format handlers."""
+
+    @property
+    @abc.abstractmethod
+    def mime_type(self) -> str:
+        """Get the MIME type for this format.
+
+        Returns:
+            MIME type string
+        """
+        pass
+
+    @property
+    @abc.abstractmethod
+    def file_extensions(self) -> list[str]:
+        """Get the file extensions for this format.
+
+        Returns:
+            List of file extensions (without dot)
+        """
+        pass
+
+    @abc.abstractmethod
+    def serialize(self, data: T) -> bytes:
+        """Serialize data to bytes.
+
+        Args:
+            data: Data to serialize
+
+        Returns:
+            Serialized data as bytes
+
+        Raises:
+            FormatError: If serialization fails
+        """
+        pass
+
+    @abc.abstractmethod
+    def deserialize(self, data: bytes) -> T:
+        """Deserialize bytes to data.
+
+        Args:
+            data: Bytes to deserialize
+
+        Returns:
+            Deserialized data
+
+        Raises:
+            FormatError: If deserialization fails
+        """
+        pass
+
+    def validate(self, data: bytes) -> bool:
+        """Validate that the bytes conform to this format.
+
+        Args:
+            data: Bytes to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        try:
+            self.deserialize(data)
+            return True
+        except FormatError:
+            return False
+
+
+class FormatConverter(abc.ABC):
+    """Interface for converting between formats."""
+
+    @abc.abstractmethod
+    def convert(
+        self, data: bytes, source_format: FormatHandler, target_format: FormatHandler
+    ) -> bytes:
+        """Convert data from one format to another.
+
+        Args:
+            data: Data in source format
+            source_format: Source format handler
+            target_format: Target format handler
+
+        Returns:
+            Data in target format
+
+        Raises:
+            FormatError: If conversion fails
+        """
+        pass
+
+
+class FormatValidator(abc.ABC):
+    """Interface for validating format compliance."""
+
+    @abc.abstractmethod
+    def validate(self, data: bytes, format_handler: FormatHandler) -> bool:
+        """Validate that the bytes conform to the specified format.
+
+        Args:
+            data: Bytes to validate
+            format_handler: Format handler to use for validation
+
+        Returns:
+            True if valid, False otherwise
+        """
+        pass
+
+
+class FormatRegistry:
+    """Registry for managing format handlers and converters."""
+
+    def __init__(self):
+        """Initialize the registry."""
+        self._handlers: Dict[str, FormatHandler] = {}  # MIME type -> handler
+        self._extensions: Dict[str, FormatHandler] = {}  # extension -> handler
+
+    def register(self, handler: FormatHandler) -> None:
+        """Register a format handler.
+
+        Args:
+            handler: Format handler to register
+        """
+        # Register by MIME type
+        self._handlers[handler.mime_type] = handler
+
+        # Register by file extensions
+        for ext in handler.file_extensions:
+            self._extensions[ext.lower()] = handler
+
+    def get_by_mime_type(self, mime_type: str) -> Optional[FormatHandler]:
+        """Get a format handler by MIME type.
+
+        Args:
+            mime_type: MIME type string
+
+        Returns:
+            Format handler or None if not found
+        """
+        return self._handlers.get(mime_type)
+
+    def get_by_extension(self, extension: str) -> Optional[FormatHandler]:
+        """Get a format handler by file extension.
+
+        Args:
+            extension: File extension (without dot)
+
+        Returns:
+            Format handler or None if not found
+        """
+        return self._extensions.get(extension.lower())
+
+    def get_all_handlers(self) -> List[FormatHandler]:
+        """Get all registered format handlers.
+
+        Returns:
+            List of all format handlers
+        """
+        return list(set(self._handlers.values()))
+
+    def get_all_mime_types(self) -> List[str]:
+        """Get all registered MIME types.
+
+        Returns:
+            List of all MIME types
+        """
+        return list(self._handlers.keys())
+
+    def get_all_extensions(self) -> List[str]:
+        """Get all registered file extensions.
+
+        Returns:
+            List of all file extensions
+        """
+        return list(self._extensions.keys())
