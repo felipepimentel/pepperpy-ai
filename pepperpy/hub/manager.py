@@ -1,66 +1,95 @@
-"""Hub manager implementation for artifact management."""
+"""Hub management functionality for PepperPy.
 
-from typing import Any, Dict, List, Optional, Type
+This module provides centralized management of PepperPy's component hub.
+"""
 
-from .base import HubArtifact, HubInterface
+import logging
+from typing import Any, Dict, Optional
+
+from pepperpy.core.base import Lifecycle
+from pepperpy.core.types import ComponentState
+
+logger = logging.getLogger(__name__)
 
 
-class HubManager(HubInterface):
-    """Manager class for the Pepperpy Hub system."""
+class HubManager(Lifecycle):
+    """Manager for PepperPy's component hub."""
 
-    def __init__(self):
-        self._storage: Dict[str, Dict[str, Any]] = {}
-        self._artifact_types: Dict[str, Type[HubArtifact]] = {}
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """Initialize hub manager.
 
-    def register_artifact_type(
-        self, type_name: str, artifact_class: Type[HubArtifact]
-    ) -> None:
-        """Register a new artifact type."""
-        self._artifact_types[type_name] = artifact_class
+        Args:
+            config: Optional configuration dictionary
+        """
+        super().__init__()
+        self.config = config or {}
+        self._components: Dict[str, Any] = {}
 
-    def get_artifact(self, artifact_id: str) -> HubArtifact:
-        """Retrieve an artifact from the hub."""
-        if artifact_id not in self._storage:
-            raise KeyError(f"Artifact {artifact_id} not found")
+    async def initialize(self) -> None:
+        """Initialize the hub system."""
+        try:
+            # Initialize core components
+            self._initialize_core_components()
 
-        data = self._storage[artifact_id]
-        artifact_type = self._artifact_types[data["type"]]
-        return artifact_type.deserialize(data)
+            # Load plugins if configured
+            if self.config.get("load_plugins", True):
+                await self._load_plugins()
 
-    def store_artifact(
-        self, artifact: HubArtifact, metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """Store an artifact in the hub."""
-        if not artifact.validate():
-            raise ValueError("Invalid artifact")
+            self._state = ComponentState.RUNNING
+            logger.info("Hub system initialized")
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to initialize hub: {e}")
+            raise RuntimeError(f"Failed to initialize hub manager: {str(e)}") from e
 
-        artifact_data = artifact.serialize()
-        if metadata:
-            artifact_data["metadata"] = {**artifact.metadata, **metadata}
+    async def cleanup(self) -> None:
+        """Clean up the hub system."""
+        try:
+            # Cleanup all components
+            for component_id, component in self._components.items():
+                try:
+                    if hasattr(component, "cleanup"):
+                        await component.cleanup()
+                except Exception as e:
+                    logger.error(f"Failed to cleanup component {component_id}: {e}")
 
-        self._storage[artifact.artifact_id] = artifact_data
-        return artifact.artifact_id
+            self._components.clear()
+            self._state = ComponentState.UNREGISTERED
+            logger.info("Hub system cleaned up")
+        except Exception as e:
+            self._state = ComponentState.ERROR
+            logger.error(f"Failed to cleanup hub: {e}")
+            raise RuntimeError(f"Failed to cleanup hub manager: {str(e)}") from e
 
-    def list_artifacts(
-        self, filter_criteria: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """List artifacts matching the given criteria."""
-        artifacts = list(self._storage.values())
+    def register_component(self, component_id: str, component: Any) -> None:
+        """Register a component with the hub.
 
-        if filter_criteria:
-            return [
-                artifact
-                for artifact in artifacts
-                if all(
-                    artifact.get(key) == value for key, value in filter_criteria.items()
-                )
-            ]
+        Args:
+            component_id: Unique identifier for the component
+            component: The component instance to register
+        """
+        if component_id in self._components:
+            raise ValueError(f"Component {component_id} is already registered")
+        self._components[component_id] = component
+        logger.debug(f"Registered component: {component_id}")
 
-        return artifacts
+    def get_component(self, component_id: str) -> Optional[Any]:
+        """Get a registered component by ID.
 
-    def delete_artifact(self, artifact_id: str) -> bool:
-        """Delete an artifact from the hub."""
-        if artifact_id in self._storage:
-            del self._storage[artifact_id]
-            return True
-        return False
+        Args:
+            component_id: ID of the component to retrieve
+
+        Returns:
+            The component instance if found, None otherwise
+        """
+        return self._components.get(component_id)
+
+    def _initialize_core_components(self) -> None:
+        """Initialize core system components."""
+        # This would initialize essential components that should always be present
+        pass
+
+    async def _load_plugins(self) -> None:
+        """Load and initialize plugins."""
+        # This would handle dynamic loading of plugins based on configuration
+        pass

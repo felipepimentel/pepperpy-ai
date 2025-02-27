@@ -1,50 +1,47 @@
-"""Observability package for monitoring AI-specific metrics."""
+"""Observability package for PepperPy.
 
-from .hallucination_detection import (
-    HallucinationType,
-    HallucinationEvidence,
-    HallucinationDetection,
-    BaseHallucinationDetector,
-    FactualConsistencyChecker,
-    SemanticConsistencyChecker,
-    ContextualConsistencyChecker,
-    HallucinationDetector,
+This package provides comprehensive observability features including:
+- Health monitoring
+- Metrics collection
+- Distributed tracing
+- System monitoring
+"""
+
+from .health import (
+    HealthCheck,
+    HealthChecker,
+    HealthCheckResult,
+    HealthStatus,
+    SystemHealthCheck,
 )
-from .cost_tracking import (
-    CostEntry,
-    CostTracker,
-    BudgetAlert,
-    CostOptimizer,
+from .metrics import (
+    Metric,
+    MetricsCollector,
+    MetricsRegistry,
+    MetricType,
 )
-from .model_performance import (
-    ModelCall,
-    ModelMetrics,
-    PerformanceTracker,
-    PerformanceAnalyzer,
-    PerformanceMonitor,
+from .monitoring import (
+    RuntimeMetrics,
+    RuntimeMonitor,
+    SystemMetrics,
+    SystemMonitor,
 )
 
 __all__ = [
-    # Hallucination Detection
-    'HallucinationType',
-    'HallucinationEvidence',
-    'HallucinationDetection',
-    'BaseHallucinationDetector',
-    'FactualConsistencyChecker',
-    'SemanticConsistencyChecker',
-    'ContextualConsistencyChecker',
-    'HallucinationDetector',
-    
-    # Cost Tracking
-    'CostEntry',
-    'CostTracker',
-    'BudgetAlert',
-    'CostOptimizer',
-    
-    # Model Performance
-    'ModelCall',
-    'ModelMetrics',
-    'PerformanceTracker',
-    'PerformanceAnalyzer',
-    'PerformanceMonitor',
-] 
+    # Health monitoring
+    "HealthStatus",
+    "HealthCheckResult",
+    "HealthCheck",
+    "HealthChecker",
+    "SystemHealthCheck",
+    # Metrics
+    "MetricType",
+    "Metric",
+    "MetricsCollector",
+    "MetricsRegistry",
+    # Monitoring
+    "RuntimeMetrics",
+    "RuntimeMonitor",
+    "SystemMetrics",
+    "SystemMonitor",
+]

@@ -19,8 +19,9 @@ from opentelemetry.trace import Status, StatusCode
 
 from pepperpy.core.base import Lifecycle
 from pepperpy.core.types import ComponentState
-from pepperpy.monitoring.tracing.context import TraceContext
-from pepperpy.monitoring.tracing.providers import (
+
+from .context import TraceContext
+from .providers import (
     ConsoleTraceProvider,
     JaegerTraceProvider,
     ZipkinTraceProvider,
