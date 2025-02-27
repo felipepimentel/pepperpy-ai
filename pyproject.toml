@@ -5,9 +5,20 @@ build-backend = "hatchling.build"
 [project]
 name = "pepperpy"
 version = "0.1.0"
-description = "A powerful framework for building AI agents"
-authors = [{ name = "Your Name", email = "your.email@example.com" }]
+authors = [
+    { name = "Vinicius Pimentel", email = "vinicius.pimentel@gmail.com" },
+]
+description = "A Python framework for building AI agents"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
 dependencies = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.1",
     # Core dependencies
     "numpy>=1.24.0",
     "pydantic>=2.0.0",
@@ -56,6 +67,10 @@ dev = [
     "mypy>=1.5.0",
     "ruff>=0.0.284",
 ]
+
+[project.urls]
+"Homepage" = "https://github.com/viniciuspx/pepperpy"
+"Bug Tracker" = "https://github.com/viniciuspx/pepperpy/issues"
 
 [tool.black]
 line-length = 88

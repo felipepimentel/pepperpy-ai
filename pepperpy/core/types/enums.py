@@ -100,3 +100,23 @@ class ErrorCategory(Enum):
     RESOURCE = auto()
     OPERATION = auto()
     SYSTEM = auto()
+
+
+class WorkflowStatus(Enum):
+    """Workflow execution status."""
+
+    PENDING = auto()
+    RUNNING = auto()
+    PAUSED = auto()
+    COMPLETED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
+
+
+class WorkflowPriority(Enum):
+    """Workflow execution priority."""
+
+    LOW = auto()
+    NORMAL = auto()
+    HIGH = auto()
+    CRITICAL = auto()

@@ -1,118 +1,101 @@
-"""Core workflow types and data structures.
+"""Tipos e enums para o módulo de workflows
 
-This module provides the foundational types and data structures used by the workflow system.
-It defines the core models for workflow steps, states, and contexts that are used across
-both the core engine and higher-level workflow management.
+Define os tipos de dados e enumerações utilizados no módulo de workflows.
 """
 
-from dataclasses import dataclass, field
-from enum import Enum
-from typing import Any
+from enum import Enum, auto
+from typing import Any, Dict, Protocol, TypeVar
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.types.base import BaseComponent
 
-
-class WorkflowState(Enum):
-    """States that a workflow can be in."""
-
-    CREATED = "created"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
+from .base import BaseWorkflow
 
 
-class StepState(Enum):
-    """States that a workflow step can be in."""
+class WorkflowStatus(Enum):
+    """Workflow execution status."""
 
-    PENDING = "pending"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    SKIPPED = "skipped"
-
-
-@dataclass
-class WorkflowStep:
-    """Definition of a workflow step.
-
-    A step represents a single unit of work in a workflow, with its own
-    inputs, outputs, and execution logic.
-
-    Attributes:
-        name: Unique name of the step within the workflow
-        action: Name of the action to execute
-        inputs: Dictionary of input parameters for the action
-        outputs: List of output names to capture from the action
-        required: Whether the step must complete successfully
-        retry_count: Number of times to retry on failure
-        timeout: Optional timeout in seconds
-        dependencies: Set of step names this step depends on
-
-    """
-
-    name: str
-    action: str
-    inputs: dict[str, Any] = field(default_factory=dict)
-    outputs: list[str] = field(default_factory=list)
-    required: bool = True
-    retry_count: int = 0
-    timeout: float | None = None
-    dependencies: set[str] = field(default_factory=set)
+    PENDING = auto()
+    RUNNING = auto()
+    PAUSED = auto()
+    COMPLETED = auto()
+    FAILED = auto()
+    CANCELLED = auto()
 
 
-@dataclass
-class WorkflowContext:
-    """Runtime context for workflow execution.
+class WorkflowPriority(Enum):
+    """Workflow execution priority."""
 
-    This class maintains the state and variables during workflow execution,
-    including step results and error information.
-
-    Attributes:
-        workflow_id: Unique identifier for the workflow instance
-        variables: Dictionary of workflow variables and step outputs
-        state: Current state of the workflow
-        step_states: Dictionary mapping step names to their states
-        errors: List of errors encountered during execution
-        history: List of execution history events
-
-    """
-
-    workflow_id: str
-    variables: dict[str, Any] = field(default_factory=dict)
-    state: WorkflowState = WorkflowState.CREATED
-    step_states: dict[str, StepState] = field(default_factory=dict)
-    errors: list[dict[str, Any]] = field(default_factory=list)
-    history: list[dict[str, Any]] = field(default_factory=list)
+    LOW = auto()
+    NORMAL = auto()
+    HIGH = auto()
+    CRITICAL = auto()
 
 
-class WorkflowError(PepperpyError):
-    """Base error class for workflow-related errors.
+class WorkflowCallback(Protocol):
+    """Protocol for workflow callbacks."""
 
-    Attributes:
-        workflow_id: ID of the workflow that encountered the error
-        step_name: Optional name of the specific step that failed
-        details: Optional additional error details
-
-    """
-
-    def __init__(
-        self,
-        message: str,
-        workflow_id: str,
-        step_name: str | None = None,
-        details: dict[str, Any] | None = None,
-    ) -> None:
-        """Initialize the error.
+    async def on_start(self, workflow_id: str) -> None:
+        """Called when workflow starts.
 
         Args:
-            message: Error message
-            workflow_id: ID of the workflow that encountered the error
-            step_name: Optional name of the specific step that failed
-            details: Optional additional error details
-
+            workflow_id: Workflow ID
         """
-        super().__init__(message)
-        self.workflow_id = workflow_id
-        self.step_name = step_name
-        self.details = details or {}
+        ...
+
+    async def on_pause(self, workflow_id: str) -> None:
+        """Called when workflow is paused."""
+        ...
+
+    async def on_resume(self, workflow_id: str) -> None:
+        """Called when workflow resumes."""
+        ...
+
+    async def on_complete(self, workflow_id: str) -> None:
+        """Called when workflow completes.
+
+        Args:
+            workflow_id: Workflow ID
+        """
+        ...
+
+    async def on_error(self, workflow_id: str, error: Exception) -> None:
+        """Called when workflow encounters an error.
+
+        Args:
+            workflow_id: Workflow ID
+            error: Error that occurred
+        """
+        ...
+
+    async def on_step_start(self, workflow_id: str, step_name: str) -> None:
+        """Called when workflow step starts.
+
+        Args:
+            workflow_id: Workflow ID
+            step_name: Step name
+        """
+        ...
+
+    async def on_step_complete(
+        self,
+        workflow_id: str,
+        step_name: str,
+        result: Any,
+    ) -> None:
+        """Called when workflow step completes.
+
+        Args:
+            workflow_id: Workflow ID
+            step_name: Step name
+            result: Step result
+        """
+        ...
+
+
+# Type aliases
+WorkflowConfig = Dict[str, Any]
+WorkflowResult = Dict[str, Any]
+
+# Type variables
+T = TypeVar("T", bound=BaseComponent)
+WorkflowT = TypeVar("WorkflowT", bound=BaseWorkflow)

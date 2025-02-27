@@ -28,7 +28,7 @@ O sistema de erros é projetado para:
 - Melhorar a experiência do desenvolvedor
 """
 
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from .base import (
     ConfigError,
@@ -46,3 +46,35 @@ __all__ = [
     "RuntimeError",
     "SystemError",
 ]
+
+
+class PepperPyError(Exception):
+    """Base class for all PepperPy exceptions."""
+
+    def __init__(self, message: str, *args: Any) -> None:
+        """Initialize error.
+
+        Args:
+            message: Error message
+            *args: Additional arguments
+        """
+        super().__init__(message, *args)
+        self.message = message
+
+
+class ExecutionError(PepperPyError):
+    """Raised when workflow execution fails."""
+
+    pass
+
+
+class DuplicateError(PepperPyError):
+    """Raised when attempting to register a duplicate item."""
+
+    pass
+
+
+class NotFoundError(PepperPyError):
+    """Raised when an item is not found."""
+
+    pass

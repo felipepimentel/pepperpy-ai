@@ -1,4 +1,27 @@
-"""Cache system implementation for the Pepperpy framework."""
+"""Cache específico para contexto de agentes.
+
+Este módulo implementa um sistema de cache otimizado para o contexto de agentes,
+focando em:
+
+- Cache de Contexto
+  - Histórico de interações
+  - Estado do agente
+  - Memória de curto prazo
+  - Conhecimento temporário
+
+- Características Específicas
+  - Priorização por relevância
+  - Expiração adaptativa
+  - Compressão seletiva
+  - Persistência opcional
+
+Este cache é diferente do cache geral de otimização (pepperpy/optimization/caching/)
+pois é especializado para:
+- Manter contexto de conversas
+- Gerenciar estado de agentes
+- Otimizar memória de trabalho
+- Facilitar recuperação contextual
+"""
 
 import pickle
 from abc import ABC, abstractmethod

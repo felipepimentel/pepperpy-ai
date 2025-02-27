@@ -1,30 +1,17 @@
-"""Core workflow management module.
+"""Workflow system for PepperPy framework.
 
-This module provides a unified system for defining, managing and executing workflows
-with proper state tracking, error handling, and lifecycle management.
+This module provides functionality for defining and executing workflows.
 """
 
-from .base import WorkflowContext, WorkflowState, WorkflowStep
-from .engine import WorkflowEngine
-from .errors import (
-    StepExecutionError,
-    StepTimeoutError,
-    WorkflowError,
-    WorkflowNotFoundError,
-    WorkflowValidationError,
-)
+from .core.base import BaseWorkflow, WorkflowDefinition, WorkflowStep
+from .core.types import WorkflowCallback, WorkflowStatus
+from .execution.executor import WorkflowExecutor
 
 __all__ = [
-    # Base components
-    "WorkflowState",
+    "BaseWorkflow",
+    "WorkflowDefinition",
     "WorkflowStep",
-    "WorkflowContext",
-    # Engine
-    "WorkflowEngine",
-    # Errors
-    "WorkflowError",
-    "WorkflowNotFoundError",
-    "WorkflowValidationError",
-    "StepExecutionError",
-    "StepTimeoutError",
+    "WorkflowCallback",
+    "WorkflowStatus",
+    "WorkflowExecutor",
 ]

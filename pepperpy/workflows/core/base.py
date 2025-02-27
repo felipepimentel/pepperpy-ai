@@ -4,12 +4,12 @@ Define as interfaces e classes base para o sistema de workflows,
 incluindo definição, execução e gerenciamento de fluxos de trabalho.
 """
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol, Union
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from pepperpy.core.base import (
     ComponentCallback,
@@ -18,7 +18,6 @@ from pepperpy.core.base import (
 )
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
-from pepperpy.core.types.base import BaseComponent
 from pepperpy.core.types.enums import ComponentState
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
@@ -94,18 +93,73 @@ class WorkflowCallback(ComponentCallback, Protocol):
         ...
 
 
-class BaseWorkflow(BaseComponent):
-    """Base class for workflow implementations."""
+class WorkflowStep(ABC):
+    """Abstract base class for workflow steps."""
 
-    def __init__(self, id: UUID, definition: WorkflowDefinition) -> None:
+    def __init__(self, name: str) -> None:
+        """Initialize workflow step.
+
+        Args:
+            name: Step name
+        """
+        self.name = name
+
+    @abstractmethod
+    async def execute(self) -> Any:
+        """Execute the workflow step.
+
+        Returns:
+            Step execution result
+        """
+        pass
+
+
+class WorkflowDefinition(ABC):
+    """Abstract base class for workflow definitions."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize workflow definition.
+
+        Args:
+            name: Workflow name
+        """
+        self.name = name
+        self._steps: List[WorkflowStep] = []
+
+    def add_step(self, step: WorkflowStep) -> None:
+        """Add a step to the workflow.
+
+        Args:
+            step: Step to add
+        """
+        self._steps.append(step)
+
+    def get_steps(self) -> List[WorkflowStep]:
+        """Get workflow steps.
+
+        Returns:
+            List of workflow steps
+        """
+        return self._steps.copy()
+
+
+class BaseWorkflow(ABC):
+    """Abstract base class for workflows."""
+
+    def __init__(
+        self,
+        definition: WorkflowDefinition,
+        workflow_id: Optional[WorkflowID] = None,
+    ) -> None:
         """Initialize workflow.
 
         Args:
-            id: Workflow ID
             definition: Workflow definition
+            workflow_id: Optional workflow ID
         """
-        super().__init__(name=definition.name, id=id)
         self.definition = definition
+        self.workflow_id = workflow_id or UUID(str(uuid4()))
+        self._results: Dict[str, Any] = {}
         self._current_step: Optional[WorkflowStep] = None
         self._context = WorkflowContext(workflow_id=self.workflow_id)
         self._step_metrics: Dict[str, Union[Counter, Histogram]] = {}

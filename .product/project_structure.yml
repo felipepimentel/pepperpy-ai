@@ -99,8 +99,6 @@ structure:
             modules:
               processors:
                 description: ''
-            files:
-            - base.py: Base interfaces for synthesis capability
         files:
         - __init__.py: Módulos para processamento, análise e transformação de conteúdo
         - base.py: Base data pipeline components for stream and batch processing
@@ -142,7 +140,7 @@ structure:
             - test.py: Test environment configuration
             - types.py: Configuration types and constants
           errors:
-            description: Core errors package
+            description: Sistema de tratamento de erros do PepperPy
             modules:
               handlers:
                 description: Module initialization
@@ -163,7 +161,7 @@ structure:
                 files:
                 - __init__.py: Error reporting functionality
             files:
-            - __init__.py: ''
+            - __init__.py: Sistema de tratamento de erros do PepperPy
             - base.py: Core error definitions for the Pepperpy framework
             - errors.py: Core error types for Pepperpy
           imports:
@@ -211,9 +209,9 @@ structure:
             - __init__.py: Module initialization and exports
             - base.py: Base module
           protocols:
-            description: Core protocols package
+            description: Protocolos e interfaces do PepperPy
             files:
-            - __init__.py: ''
+            - __init__.py: Protocolos e interfaces do PepperPy
             - base.py: Core protocols for the Pepperpy framework
             - lifecycle.py: Lifecycle protocol
             - manager.py: Protocol manager for the Pepperpy framework
@@ -236,9 +234,9 @@ structure:
             - storage.py: Resource storage system
             - types.py: Resource type definitions
           types:
-            description: Core types package
+            description: Sistema de tipos do PepperPy
             files:
-            - __init__.py: ''
+            - __init__.py: Sistema de tipos do PepperPy
             - base.py: Base types for core components
             - common.py: Common module
             - enums.py: Core enumerations
@@ -275,6 +273,11 @@ structure:
         - base.py: Core base classes for PepperPy
         - events.py: Sistema de eventos para comunicação entre componentes
         - registry.py: Registro central de componentes do sistema
+      docs:
+        description: ''
+        modules:
+          architecture:
+            description: ''
       evaluation:
         description: Evaluation package for assessing agent performance
         files:
@@ -382,8 +385,9 @@ structure:
         - config.py: Configuration settings for optimization components
         - profiler.py: Resource usage monitoring and profiling
       pipeline:
-        description: ''
+        description: Pipeline de processamento de dados para o PepperPy
         files:
+        - __init__.py: Pipeline de processamento de dados para o PepperPy
         - batch.py: Batch processing implementation for data pipelines
         - stream.py: Stream processing implementation for data pipelines
       providers:
@@ -469,20 +473,10 @@ structure:
             files:
             - __init__.py: RAG chunking package
             - chunkers.py: RAG chunking implementations
-          embedding:
-            description: RAG embedding package
-            files:
-            - __init__.py: RAG embedding package
-            - embedders.py: RAG embedding implementations
           evaluation:
             description: RAG evaluation package
             files:
             - __init__.py: RAG evaluation package
-          indexing:
-            description: RAG indexing package
-            files:
-            - __init__.py: RAG indexing package
-            - indexers.py: RAG indexing implementations
           retrieval:
             description: RAG retrieval package
             files:
@@ -492,6 +486,23 @@ structure:
             description: RAG templates package
             files:
             - __init__.py: RAG templates package
+          vector:
+            description: Módulo de vetorização e indexação para RAG
+            modules:
+              embedding:
+                description: RAG embedding package
+                files:
+                - __init__.py: RAG embedding package
+                - embedders.py: RAG embedding implementations
+              indexing:
+                description: RAG indexing package
+                files:
+                - __init__.py: RAG indexing package
+                - indexers.py: RAG indexing implementations
+              optimization:
+                description: ''
+            files:
+            - __init__.py: Módulo de vetorização e indexação para RAG
         files:
         - __init__.py: RAG (Retrieval Augmented Generation) package
         - base.py: Core interfaces and base classes for the RAG system
@@ -530,6 +541,7 @@ structure:
             - effects.py: Audio effects processor for synthesis capability
         files:
         - __init__.py: Módulo para síntese de conteúdo multimodal
+        - base.py: Base interfaces for synthesis capability
       transformers:
         description: Base transformer implementations
         files:
@@ -541,19 +553,33 @@ structure:
         - sql.py: Sql module
       workflows:
         description: Core workflow management module
+        modules:
+          core:
+            description: ''
+            files:
+            - base.py: Interfaces base para workflows
+            - registry.py: Registro central de workflows
+            - types.py: Tipos e enums para o módulo de workflows
+          definition:
+            description: ''
+            files:
+            - actions.py: Workflow action registry implementation
+            - definitions.py: Core workflows module
+          examples:
+            description: ''
+            files:
+            - hello_world.py: Hello World module
+          execution:
+            description: ''
+            files:
+            - executor.py: Executor de workflows
+            - runtime.py: Workflow engine module for the Pepperpy framework
+            - scheduler.py: Workflow scheduler module for the Pepperpy framework
         files:
         - __init__.py: Core workflow management module
-        - actions.py: Workflow action registry implementation
-        - base.py: Base workflow module for the Pepperpy framework
-        - definitions.py: Core workflows module
         - errors.py: Workflow-specific error types
         - examples.py: Example workflow actions
-        - executor.py: Workflow executor module for the Pepperpy framework
         - manager.py: Workflow manager module for the Pepperpy framework
-        - registry.py: Registry module
-        - runtime.py: Workflow engine module for the Pepperpy framework
-        - scheduler.py: Workflow scheduler module for the Pepperpy framework
-        - types.py: Core workflow types and data structures
         - workflow_pipeline.py: Processing pipeline implementation
     files:
     - __init__.py: PepperPy Framework
