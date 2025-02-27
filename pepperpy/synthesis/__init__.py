@@ -1,4 +1,4 @@
-"""Módulo para síntese de conteúdo multimodal
+"""Módulo para síntese de conteúdo multimodal.
 
 Este módulo implementa funcionalidades para síntese de diferentes tipos de conteúdo,
 incluindo:
@@ -27,11 +27,38 @@ incluindo:
   - Efeitos
   - Renderização
 
-O módulo fornece uma camada de abstração sobre diferentes provedores
-e implementa otimizações específicas para cada tipo de síntese.
+Este módulo é diferente do processamento em multimodal/
+pois é focado em:
+- Gerar novo conteúdo
+- Aplicar transformações criativas
+- Produzir saídas de alta qualidade
+- Personalizar resultados
+
+O módulo fornece:
+- Interfaces unificadas
+- Pipeline modular
+- Otimizações específicas
+- Controle de qualidade
 """
 
 from typing import Dict, List, Optional, Union
 
+from .generators import AudioGenerator, ImageGenerator, TextGenerator
+from .optimizers import AudioOptimizer, ImageOptimizer, TextOptimizer
+from .processors import AudioProcessor, ImageProcessor, TextProcessor
+
 __version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
+__all__ = [
+    # Processors
+    "AudioProcessor",
+    "ImageProcessor",
+    "TextProcessor",
+    # Generators
+    "AudioGenerator",
+    "ImageGenerator",
+    "TextGenerator",
+    # Optimizers
+    "AudioOptimizer",
+    "ImageOptimizer",
+    "TextOptimizer",
+]

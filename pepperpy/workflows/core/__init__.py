@@ -1,4 +1,4 @@
-"""Core workflow components.
+"""Componentes principais do sistema de workflows.
 
 Este módulo fornece os componentes fundamentais do sistema de workflows,
 incluindo:
@@ -29,12 +29,25 @@ O módulo core é responsável por:
 """
 
 from .base import BaseWorkflow, WorkflowDefinition, WorkflowStep
-from .types import WorkflowCallback, WorkflowStatus
+from .registry import WorkflowRegistry
+from .types import (
+    WorkflowCallback,
+    WorkflowConfig,
+    WorkflowPriority,
+    WorkflowStatus,
+)
 
+__version__ = "0.1.0"
 __all__ = [
+    # Base
     "BaseWorkflow",
     "WorkflowDefinition",
     "WorkflowStep",
+    # Registry
+    "WorkflowRegistry",
+    # Types
     "WorkflowCallback",
+    "WorkflowConfig",
+    "WorkflowPriority",
     "WorkflowStatus",
 ]

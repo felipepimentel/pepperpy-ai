@@ -21,6 +21,12 @@ pois é especializado para:
 - Gerenciar estado de agentes
 - Otimizar memória de trabalho
 - Facilitar recuperação contextual
+
+O módulo fornece:
+- Cache em memória
+- Cache em Redis
+- Serialização flexível
+- Estratégias de evicção
 """
 
 import pickle

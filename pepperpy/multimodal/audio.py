@@ -1,10 +1,42 @@
-"""Module for audio processing capabilities."""
+"""Processamento de áudio para entrada multimodal.
+
+Este módulo implementa o processamento de áudio para entrada multimodal,
+focando em:
+
+- Processamento de Entrada
+  - Captura de áudio
+  - Detecção de fala
+  - Segmentação
+  - Filtragem
+
+- Características Específicas
+  - Processamento em tempo real
+  - Detecção de ruído
+  - Normalização
+  - Análise espectral
+
+Este módulo é diferente do processamento de áudio em synthesis/
+pois é focado em:
+- Processar entrada de áudio
+- Detectar características
+- Extrair informações
+- Preparar para análise
+
+O módulo fornece:
+- Captura de áudio
+- Processamento de stream
+- Análise de características
+- Integração com ASR
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
+from numpy.typing import NDArray
+
+from ..core.base.common import BaseComponent
 
 
 @dataclass
@@ -28,8 +60,90 @@ class Transcription:
     metadata: Optional[dict] = None
 
 
-class AudioProcessor:
-    """Base class for audio processing operations."""
+class AudioProcessor(BaseComponent):
+    """Processor for audio input."""
+
+    def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize audio processor.
+
+        Args:
+            name: Processor name
+            config: Optional configuration
+        """
+        super().__init__(name)
+        self._config = config or {}
+        self._sample_rate = self._config.get("sample_rate", 44100)
+
+    async def process(self, audio: NDArray) -> NDArray:
+        """Process audio input.
+
+        Args:
+            audio: Input audio array
+
+        Returns:
+            Processed audio array
+        """
+        # Apply input processing
+        result = audio
+
+        if self._config.get("denoise", True):
+            result = self._denoise(result)
+
+        if self._config.get("normalize", True):
+            result = self._normalize(result)
+
+        if self._config.get("segment"):
+            result = self._segment(result)
+
+        return result
+
+    def _denoise(self, audio: NDArray) -> NDArray:
+        """Remove noise from audio.
+
+        Args:
+            audio: Input audio array
+
+        Returns:
+            Denoised audio array
+        """
+        # Simple noise reduction
+        threshold = self._config.get("noise_threshold", 0.1)
+        mask = np.abs(audio) > threshold
+        return audio * mask
+
+    def _normalize(self, audio: NDArray) -> NDArray:
+        """Normalize audio levels.
+
+        Args:
+            audio: Input audio array
+
+        Returns:
+            Normalized audio array
+        """
+        # Scale to [-1, 1] range
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            return audio / max_val
+        return audio
+
+    def _segment(self, audio: NDArray) -> NDArray:
+        """Segment audio into speech regions.
+
+        Args:
+            audio: Input audio array
+
+        Returns:
+            Segmented audio array
+        """
+        # Simple energy-based segmentation
+        window_size = self._config.get("window_size", 1024)
+        energy = np.array([
+            np.sum(audio[i : i + window_size] ** 2)
+            for i in range(0, len(audio), window_size)
+        ])
+        threshold = np.mean(energy) * self._config.get("energy_threshold", 2.0)
+        mask = energy > threshold
+        return audio
 
     async def process_audio(self, audio_path: Union[str, Path]) -> AudioFeatures:
         """Process an audio file and extract features."""

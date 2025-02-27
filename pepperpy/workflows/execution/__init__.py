@@ -1,4 +1,4 @@
-"""Componentes de execução de workflows.
+"""Execução e controle de workflows.
 
 Este módulo implementa o sistema de execução de workflows,
 fornecendo:
@@ -28,6 +28,13 @@ O módulo de execução é responsável por:
 - Prover observabilidade
 """
 
-from .executor import WorkflowExecutor
+from typing import Dict, List, Optional, Union
 
-__all__ = ["WorkflowExecutor"]
+from .executor import WorkflowExecutor
+from .pipeline import Pipeline
+
+__version__ = "0.1.0"
+__all__ = [
+    "WorkflowExecutor",
+    "Pipeline",
+]

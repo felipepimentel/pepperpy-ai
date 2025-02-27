@@ -25,4 +25,14 @@ Os exemplos servem para:
 - Demonstrar funcionalidades
 - Ilustrar boas práticas
 - Facilitar aprendizado
-- Validar implementações."""
+- Validar implementações
+"""
+
+from typing import Dict, List, Optional, Union
+
+from .hello_world import HelloWorldWorkflow
+
+__version__ = "0.1.0"
+__all__ = [
+    "HelloWorldWorkflow",
+]

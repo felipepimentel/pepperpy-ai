@@ -30,5 +30,20 @@ O módulo fornece:
 
 from typing import Dict, List, Optional, Union
 
+from .caching import VectorCache
+from .compression import PCACompressor, QuantizationCompressor, VectorCompressor
+from .pruning import ThresholdPruner, TopKPruner, VectorPruner
+
 __version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
+__all__ = [
+    # Caching
+    "VectorCache",
+    # Compression
+    "VectorCompressor",
+    "PCACompressor",
+    "QuantizationCompressor",
+    # Pruning
+    "VectorPruner",
+    "ThresholdPruner",
+    "TopKPruner",
+]
