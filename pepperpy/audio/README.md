@@ -1,54 +1,51 @@
 # PepperPy Unified Audio Processing System
 
-This module provides a comprehensive audio processing system for all PepperPy components, with specialized implementations for different use cases.
+The PepperPy Unified Audio Processing System provides a comprehensive framework for audio processing, analysis, and synthesis within the PepperPy ecosystem. This system replaces previous fragmented implementations and offers a consistent API for all components.
 
-## Overview
+## Key Components
 
-The unified audio processing system consolidates previously fragmented audio processing implementations into a single, coherent module with a consistent API. This system replaces:
+### Base Components
 
-- `multimodal/audio.py` (input/analysis side)
-- `synthesis/processors/audio.py` (output/generation side)
+- **AudioFeatures**: Container for extracted features from audio signals
+- **BaseAudioProcessor**: Base class for all audio processors with common functionality
 
-## Components
+### Input Processing
 
-### Base Functionality (`base.py`)
-
-- `AudioFeatures`: Container for extracted features from audio
-- `BaseAudioProcessor`: Base class for all audio processors
-
-### Input Processing (`input.py`)
-
-- `AudioProcessor`: Processor for audio input
+- **InputProcessor**: Processes audio input for analysis
   - Noise reduction
   - Normalization
   - Segmentation
   - Feature extraction
 
-### Output Processing (`output.py`)
+### Output Processing
 
-- `AudioProcessor`: Processor for audio output
+- **OutputProcessor**: Processes audio for output and synthesis
   - Normalization
   - Filter application
   - Effect processing
   - Format conversion
 
-### Analysis (`analysis.py`)
+### Analysis
 
-- `SpeechTranscriber`: Base class for speech-to-text transcription
-- `AudioClassifier`: Base class for audio classification
-- `AudioAnalyzer`: High-level interface for comprehensive audio analysis
+- **SpeechTranscriber**: Transcribes speech in audio content
+- **AudioClassifier**: Classifies audio content into categories
+- **AudioAnalyzer**: High-level interface combining multiple analysis capabilities
+
+### Migration
+
+- **MigrationHelper**: Utilities for migrating from old audio processing systems
+- **map_imports**: Function to update import statements in existing code
 
 ## Usage Examples
 
-### Input Processing
+### Processing Audio Input
 
 ```python
 from pepperpy.audio import InputProcessor
-import numpy as np
 
 # Create an input processor
 processor = InputProcessor(
-    name="input_processor",
+    name="speech_processor",
     config={
         "denoise": True,
         "normalize": True,
@@ -57,117 +54,132 @@ processor = InputProcessor(
 )
 
 # Process audio
+import numpy as np
 audio_data = np.random.random(44100)  # 1 second of random audio
-processed = await processor.process(audio_data)
+processed_audio = await processor.process(audio_data)
 
 # Extract features from an audio file
-features = await processor.process_audio("path/to/audio.wav")
+features = await processor.process_audio("speech.wav")
 print(f"Sample rate: {features.sample_rate}, Duration: {features.duration}s")
 ```
 
-### Output Processing
+### Generating Audio Output
 
 ```python
 from pepperpy.audio import OutputProcessor
-import numpy as np
 
 # Create an output processor
 processor = OutputProcessor(
-    name="output_processor",
+    name="music_processor",
     config={
         "normalize": True,
         "filter": "lowpass",
         "effects": {
             "reverb": {"room_size": 0.8, "damping": 0.5},
-            "eq": {"bass": 1.2, "mid": 1.0, "treble": 0.8}
+            "delay": {"time": 0.3, "feedback": 0.4},
         }
     }
 )
 
 # Process audio for output
-audio_data = np.random.random(44100)  # 1 second of random audio
-processed = await processor.process(audio_data)
+processed_audio = await processor.process(input_audio)
 
 # Export to a specific format
-wav_data = await processor.export_audio(processed, format="wav", sample_rate=44100)
+wav_data = await processor.export_audio(processed_audio, format="wav", sample_rate=44100)
+with open("output.wav", "wb") as f:
+    f.write(wav_data)
 ```
 
-### Audio Analysis
+### Analyzing Audio Content
 
 ```python
-from pepperpy.audio import AudioAnalyzer, SpeechTranscriber, AudioClassifier, InputProcessor
+from pepperpy.audio import AudioAnalyzer, InputProcessor, SpeechTranscriber, AudioClassifier
 
 # Create components
-processor = InputProcessor(name="analyzer_processor")
+input_processor = InputProcessor(name="analyzer_input")
 transcriber = SpeechTranscriber()
 classifier = AudioClassifier()
 
-# Create analyzer
+# Create analyzer with components
 analyzer = AudioAnalyzer(
-    processor=processor,
+    processor=input_processor,
     transcriber=transcriber,
     classifier=classifier
 )
 
 # Analyze audio file
-result = await analyzer.analyze("path/to/audio.wav")
+result = await analyzer.analyze("recording.wav")
 
 # Access results
 if result.features:
-    print(f"Features shape: {result.features.features.shape}")
-
+    print(f"Features extracted: {result.features.features.shape}")
+    
 if result.transcriptions:
     for t in result.transcriptions:
-        print(f"Transcription: {t.text} (confidence: {t.confidence})")
-
+        print(f"Transcription: {t.text} ({t.confidence:.2f})")
+        
 if result.classifications:
     for c in result.classifications:
-        print(f"Classification: {c.label} (confidence: {c.confidence})")
+        print(f"Classification: {c.label} ({c.confidence:.2f})")
+```
+
+### Migrating from Old Systems
+
+```python
+from pepperpy.audio.migration import MigrationHelper
+from pepperpy.multimodal.audio import AudioProcessor as OldProcessor
+
+# Create old processor
+old_processor = OldProcessor(name="legacy", config={"sample_rate": 16000})
+
+# Get equivalent new processor
+new_processor = MigrationHelper.get_equivalent_processor(old_processor)
+
+# Generate migration code
+code = MigrationHelper.generate_migration_code(
+    old_processor_var="processor",
+    new_processor_type="InputProcessor",
+    module_path="my_module"
+)
+print(code)
+
+# Print migration guide
+MigrationHelper.print_migration_guide()
 ```
 
 ## Best Practices
 
-1. **Choose the right processor** for your use case:
-   - `InputProcessor` for capturing and analyzing audio
-   - `OutputProcessor` for generating and exporting audio
+1. **Use async methods** for all I/O operations
+2. **Configure processors** with appropriate settings for your use case
+3. **Reuse processor instances** when processing multiple files
+4. **Handle errors** appropriately during audio processing
+5. **Use batch methods** for processing multiple files efficiently
 
-2. **Configure processors appropriately** for your specific needs:
-   ```python
-   processor = InputProcessor(
-       name="speech_processor",
-       config={
-           "denoise": True,
-           "normalize": True,
-           "segment": True,
-           "noise_threshold": 0.05,
-           "energy_threshold": 1.5,
-           "window_size": 512,
-       }
-   )
-   ```
+## Integration with Other PepperPy Components
 
-3. **Use the high-level analyzer** for comprehensive analysis:
-   ```python
-   analyzer = AudioAnalyzer(
-       processor=processor,
-       transcriber=transcriber,
-       classifier=classifier
-   )
-   ```
+The audio system is designed to integrate seamlessly with other PepperPy components:
 
-4. **Process audio in batches** when working with multiple files:
-   ```python
-   features_list = await processor.process_batch(["file1.wav", "file2.wav"])
-   ```
+- **Formats**: Use the formats module for audio file handling
+- **Workflow**: Create audio processing workflows
+- **Memory**: Cache processed audio for performance
+- **Multimodal**: Combine audio with other modalities
 
-5. **Handle async operations properly**:
-   ```python
-   import asyncio
-   
-   async def process_files(files):
-       results = await processor.process_batch(files)
-       return results
-   
-   # Run the async function
-   results = asyncio.run(process_files(["file1.wav", "file2.wav"]))
-   ``` 
+## Dependencies
+
+The system has minimal dependencies:
+
+- **Required**: None (basic functionality works without external libraries)
+- **Recommended**: NumPy (for efficient array operations)
+- **Optional**: 
+  - PyAudio (for real-time audio capture)
+  - librosa (for advanced audio analysis)
+  - SoundFile (for audio file I/O)
+
+## Error Handling
+
+All audio processing methods include appropriate error handling:
+
+- **File not found**: When audio files don't exist
+- **Format errors**: When audio format is not supported
+- **Processing errors**: When audio processing fails
+- **Resource errors**: When required resources are unavailable 

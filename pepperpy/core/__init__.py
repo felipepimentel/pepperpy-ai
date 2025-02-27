@@ -1,13 +1,9 @@
-"""Core package providing fundamental functionality for PepperPy.
+"""Core functionality for PepperPy.
 
-This package provides core functionality and base classes used throughout
-the PepperPy system.
+This module provides the core functionality and abstractions used across
+the PepperPy ecosystem.
 """
 
-from .base import Lifecycle
-from .types import ComponentState
+from .base import BaseComponent
 
-__all__ = [
-    'Lifecycle',
-    'ComponentState',
-]
+__all__ = ["BaseComponent"]

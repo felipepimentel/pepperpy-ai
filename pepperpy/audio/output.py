@@ -24,7 +24,21 @@ Together they form a complete audio processing pipeline:
 
 from typing import Any, Dict, Optional
 
-from numpy.typing import NDArray
+# Try to import numpy, but provide fallbacks if not available
+try:
+    import numpy as np
+    from numpy.typing import NDArray
+
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+    # Define a simple placeholder for np.ndarray when numpy is not available
+    class MockNDArray:
+        pass
+
+    np = None
+    NDArray = Any
 
 from .base import BaseAudioProcessor
 
@@ -41,7 +55,7 @@ class AudioProcessor(BaseAudioProcessor):
         """
         super().__init__(name, config)
 
-    async def process(self, audio: NDArray) -> NDArray:
+    async def process(self, audio: Any) -> Any:
         """Process audio for output.
 
         Args:
@@ -64,7 +78,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         return result
 
-    def _apply_filter(self, audio: NDArray, filter_type: str) -> NDArray:
+    def _apply_filter(self, audio: Any, filter_type: str) -> Any:
         """Apply audio filter.
 
         Args:
@@ -74,6 +88,10 @@ class AudioProcessor(BaseAudioProcessor):
         Returns:
             Filtered audio array
         """
+        # This is a placeholder implementation
+        # In a real implementation, you would apply the appropriate filter
+        # based on the filter_type parameter
+
         if filter_type == "lowpass":
             # Apply lowpass filter
             # This is a placeholder implementation
@@ -89,7 +107,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         return audio
 
-    def _apply_effects(self, audio: NDArray, effects: Dict[str, Any]) -> NDArray:
+    def _apply_effects(self, audio: Any, effects: Dict[str, Any]) -> Any:
         """Apply audio effects.
 
         Args:
@@ -99,6 +117,10 @@ class AudioProcessor(BaseAudioProcessor):
         Returns:
             Processed audio array
         """
+        # This is a placeholder implementation
+        # In a real implementation, you would apply the appropriate effects
+        # based on the effects parameter
+
         result = audio
 
         if "reverb" in effects:
@@ -119,7 +141,7 @@ class AudioProcessor(BaseAudioProcessor):
         return result
 
     async def export_audio(
-        self, audio: NDArray, format: str = "wav", sample_rate: Optional[int] = None
+        self, audio: Any, format: str = "wav", sample_rate: Optional[int] = None
     ) -> bytes:
         """Export audio to specified format.
 

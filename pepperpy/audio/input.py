@@ -22,11 +22,25 @@ Together they form a complete audio processing pipeline:
 - Output module: features/parameters → audio
 """
 
+import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
-from numpy.typing import NDArray
+# Try to import numpy, but provide fallbacks if not available
+try:
+    import numpy as np
+    from numpy.typing import NDArray
+
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+    # Define a simple placeholder for np.ndarray when numpy is not available
+    class MockNDArray:
+        pass
+
+    np = None
+    NDArray = Any
 
 from .base import AudioFeatures, BaseAudioProcessor
 
@@ -43,7 +57,7 @@ class AudioProcessor(BaseAudioProcessor):
         """
         super().__init__(name, config)
 
-    async def process(self, audio: NDArray) -> NDArray:
+    async def process(self, audio: Any) -> Any:
         """Process audio input.
 
         Args:
@@ -66,7 +80,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         return result
 
-    def _denoise(self, audio: NDArray) -> NDArray:
+    def _denoise(self, audio: Any) -> Any:
         """Remove noise from audio.
 
         Args:
@@ -75,12 +89,19 @@ class AudioProcessor(BaseAudioProcessor):
         Returns:
             Denoised audio array
         """
-        # Simple noise reduction
-        threshold = self._config.get("noise_threshold", 0.1)
-        mask = np.abs(audio) > threshold
-        return audio * mask
+        if not NUMPY_AVAILABLE:
+            # Simple noise reduction for non-numpy arrays
+            threshold = self._config.get("noise_threshold", 0.1)
+            if not audio:
+                return audio
+            return [x if abs(x) > threshold else 0 for x in audio]
+        else:
+            # Simple noise reduction using numpy
+            threshold = self._config.get("noise_threshold", 0.1)
+            mask = np.abs(audio) > threshold
+            return audio * mask
 
-    def _segment(self, audio: NDArray) -> NDArray:
+    def _segment(self, audio: Any) -> Any:
         """Segment audio into speech regions.
 
         Args:
@@ -89,15 +110,19 @@ class AudioProcessor(BaseAudioProcessor):
         Returns:
             Segmented audio array
         """
-        # Simple energy-based segmentation
-        window_size = self._config.get("window_size", 1024)
-        energy = np.array([
-            np.sum(audio[i : i + window_size] ** 2)
-            for i in range(0, len(audio), window_size)
-        ])
-        threshold = np.mean(energy) * self._config.get("energy_threshold", 2.0)
-        mask = energy > threshold
-        return audio
+        if not NUMPY_AVAILABLE:
+            # Simple placeholder implementation for non-numpy arrays
+            return audio
+        else:
+            # Simple energy-based segmentation using numpy
+            window_size = self._config.get("window_size", 1024)
+            energy = np.array([
+                np.sum(audio[i : i + window_size] ** 2)
+                for i in range(0, len(audio), window_size)
+            ])
+            threshold = np.mean(energy) * self._config.get("energy_threshold", 2.0)
+            mask = energy > threshold
+            return audio
 
     async def process_audio(self, audio_path: Union[str, Path]) -> AudioFeatures:
         """Process an audio file and extract features.
@@ -116,7 +141,12 @@ class AudioProcessor(BaseAudioProcessor):
         # 4. Return the features
 
         # Placeholder implementation
-        features = np.random.random((100, 10))
+        if NUMPY_AVAILABLE:
+            features = np.random.random((100, 10))
+        else:
+            # Create a simple 2D list of random values
+            features = [[random.random() for _ in range(10)] for _ in range(100)]
+
         return AudioFeatures(
             features=features,
             sample_rate=self._sample_rate,

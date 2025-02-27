@@ -66,6 +66,27 @@ structure:
         - manager.py: Code analysis manager module
         - metrics.py: Analysis metrics functionality for PepperPy
         - types.py: Core types for the code analysis system
+      audio:
+        description: Unified audio processing system for PepperPy
+        files:
+        - __init__.py: Unified audio processing system for PepperPy
+        - analysis.py: Audio analysis and classification
+        - base.py: Base classes and interfaces for the unified audio processing system
+        - input.py: Audio input processing
+        - migration.py: Migration utilities for transitioning to the unified audio
+            processing system
+        - output.py: Audio output processing
+      caching:
+        description: Unified caching system for PepperPy
+        files:
+        - __init__.py: Unified caching system for PepperPy
+        - base.py: Base classes and interfaces for the unified caching system
+        - distributed.py: Distributed cache implementations for the unified caching
+            system
+        - memory.py: In-memory cache implementation for the unified caching system
+        - migration.py: Migration utilities for transitioning to the unified caching
+            system
+        - vector.py: Vector cache implementation for the unified caching system
       cli:
         description: Command-line interface for Pepperpy
         modules:
@@ -100,13 +121,14 @@ structure:
               processors:
                 description: ''
       core:
-        description: Core package providing fundamental functionality for PepperPy
+        description: Core functionality for PepperPy
         modules:
           base:
-            description: ''
+            description: Base classes and interfaces for PepperPy core components
             files:
+            - __init__.py: Base classes and interfaces for PepperPy core components
             - client.py: Client module
-            - common.py: Funções e classes comuns do core
+            - common.py: Common base classes for PepperPy components
           capabilities:
             description: Capabilities module for the Pepperpy framework
             files:
@@ -281,7 +303,7 @@ structure:
             - tracking.py: ''
             - types.py: Types module
         files:
-        - __init__.py: Core package providing fundamental functionality for PepperPy
+        - __init__.py: Core functionality for PepperPy
         - base.py: Core base classes for PepperPy
         - events.py: Sistema de eventos para comunicação entre componentes
         - registry.py: Registro central de componentes do sistema
@@ -293,13 +315,21 @@ structure:
         - human_feedback.py: Module for incorporating human feedback in agent evaluation
         - metrics.py: Module for evaluating agent performance using various metrics
       formats:
-        description: PepperPy formats package
+        description: Unified format handling system for PepperPy
         files:
-        - __init__.py: PepperPy formats package
+        - __init__.py: Unified format handling system for PepperPy
+        - audio.py: Audio format handlers for the unified format handling system
+        - base.py: Base classes and interfaces for the unified format handling system
+        - examples.py: Examples of using the unified format handling system
         - formatters.py: Formatters functionality for PepperPy formats
+        - image.py: Image format handlers for the unified format handling system
         - json.py: Json module
         - markdown.py: Markdown module
+        - migration.py: Migration utilities for transitioning from old format handling
+            to the unified system
         - parsers.py: Parsers functionality for PepperPy formats
+        - text.py: Text format handlers for the unified format handling system
+        - vector.py: Vector format handlers for the unified format handling system
         - xml.py: Xml module
         - yaml.py: Yaml module
       hub:
@@ -315,7 +345,7 @@ structure:
         files:
         - __init__.py: Sistema de armazenamento e recuperação de memória para agentes
         - base.py: Base interfaces for the Pepperpy memory system
-        - cache.py: Cache específico para contexto de agentes
+        - cache.py: Agent-specific cache system
         - in_memory.py: Simple in-memory storage implementation
         - vector.py: Vector-based memory storage implementation
       monitoring:
@@ -326,7 +356,7 @@ structure:
         description: Multimodal processing package for Pepperpy
         files:
         - __init__.py: Multimodal processing package for Pepperpy
-        - audio.py: Processamento de áudio para entrada multimodal
+        - audio.py: Audio processing for multimodal input
         - fusion.py: Module for multimodal data fusion
         - vision.py: Module for vision and image processing capabilities
       observability:
@@ -371,11 +401,11 @@ structure:
             - __init__.py: Otimização de processamento em lote para requisições à
                 API
           caching:
-            description: Cache geral para otimização de performance
+            description: General cache for performance optimization
             files:
-            - __init__.py: Cache geral para otimização de performance
+            - __init__.py: General cache for performance optimization
             - distributed.py: Cache distribuído para otimização de performance
-            - local.py: Cache local para otimização de performance
+            - local.py: Local cache for performance optimization
             - policy.py: Políticas de cache para otimização de performance
           metrics:
             description: Sistema de coleta e análise de métricas de desempenho
@@ -558,7 +588,7 @@ structure:
             description: Processadores para síntese de conteúdo
             files:
             - __init__.py: Processadores para síntese de conteúdo
-            - audio.py: Processador de áudio para síntese
+            - audio.py: Audio processor for synthesis
             - effects.py: Audio effects processor for synthesis capability
             - image.py: Processador de imagem para síntese
             - text.py: Processador de texto para síntese
@@ -574,6 +604,16 @@ structure:
         - csv.py: Csv module
         - html.py: Html module
         - sql.py: Sql module
+      workflow:
+        description: Unified workflow system for PepperPy
+        files:
+        - __init__.py: Unified workflow system for PepperPy
+        - base.py: Base classes and interfaces for the unified workflow system
+        - builder.py: Builder classes for constructing workflows
+        - examples.py: Example usage of the unified workflow system
+        - factory.py: Factory classes for instantiating workflows
+        - migration.py: Migration utilities for transitioning to the unified workflow
+            system
       workflows:
         description: Workflow system for PepperPy framework
         modules:
@@ -590,9 +630,9 @@ structure:
             files:
             - __init__.py: Definição e construção de workflows
             - actions.py: Workflow action registry implementation
-            - builder.py: Builder para construção de workflows
+            - builder.py: Builder for workflow construction
             - definitions.py: Core workflows module
-            - factory.py: Factory para criação de workflows
+            - factory.py: Factory for workflow creation
             - validator.py: Validador de workflows
           examples:
             description: Workflow implementation examples

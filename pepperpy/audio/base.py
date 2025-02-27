@@ -7,10 +7,23 @@ This module provides the core abstractions for the audio processing system:
 
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
-from numpy.typing import NDArray
+# Try to import numpy, but provide fallbacks if not available
+try:
+    import numpy as np
+    from numpy.typing import NDArray
+
+    NUMPY_AVAILABLE = True
+except ImportError:
+    NUMPY_AVAILABLE = False
+
+    # Define a simple placeholder for np.ndarray when numpy is not available
+    class MockNDArray:
+        pass
+
+    np = None
+    NDArray = Any
 
 from ..core.base.common import BaseComponent
 
@@ -19,7 +32,7 @@ from ..core.base.common import BaseComponent
 class AudioFeatures:
     """Represents extracted features from an audio signal."""
 
-    features: np.ndarray
+    features: Union[List[float], "np.ndarray"] if NUMPY_AVAILABLE else List[float]
     sample_rate: int
     duration: float
     metadata: Optional[Dict[str, Any]] = None
@@ -40,7 +53,7 @@ class BaseAudioProcessor(BaseComponent):
         self._sample_rate = self._config.get("sample_rate", 44100)
 
     @abstractmethod
-    async def process(self, audio: NDArray) -> NDArray:
+    async def process(self, audio: Any) -> Any:
         """Process audio data.
 
         Args:
@@ -51,7 +64,7 @@ class BaseAudioProcessor(BaseComponent):
         """
         pass
 
-    def _normalize(self, audio: NDArray) -> NDArray:
+    def _normalize(self, audio: Any) -> Any:
         """Normalize audio levels.
 
         Args:
@@ -60,8 +73,17 @@ class BaseAudioProcessor(BaseComponent):
         Returns:
             Normalized audio array
         """
-        # Scale to [-1, 1] range
-        max_val = np.max(np.abs(audio))
-        if max_val > 0:
-            return audio / max_val
-        return audio
+        if not NUMPY_AVAILABLE:
+            # Simple normalization for non-numpy arrays
+            if not audio:
+                return audio
+            max_val = max(abs(x) for x in audio)
+            if max_val > 0:
+                return [x / max_val for x in audio]
+            return audio
+        else:
+            # Scale to [-1, 1] range using numpy
+            max_val = np.max(np.abs(audio))
+            if max_val > 0:
+                return audio / max_val
+            return audio
