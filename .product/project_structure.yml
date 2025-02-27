@@ -32,14 +32,16 @@ structure:
         description: Módulo de agentes do PepperPy
         modules:
           capabilities:
-            description: ''
+            description: Capacidades cognitivas implementadas pelos agentes
             files:
+            - __init__.py: Capacidades cognitivas implementadas pelos agentes
             - planning.py: Module for agent planning capabilities
             - reasoning.py: Module for agent reasoning capabilities
             - research.py: Research agents for the Pepperpy framework
           types:
-            description: ''
+            description: Tipos específicos de agentes implementados pelo framework
             files:
+            - __init__.py: Tipos específicos de agentes implementados pelo framework
             - autonomous.py: Autonomous agent module for the Pepperpy framework
             - interactive.py: Interactive agent module for the Pepperpy framework
             - task_assistant.py: Task Assistant Agent implementation
@@ -92,15 +94,6 @@ structure:
       content:
         description: Módulos para processamento, análise e transformação de conteúdo
         modules:
-          analysis:
-            description: ''
-          formats:
-            description: ''
-          pipeline:
-            description: ''
-            files:
-            - batch.py: Batch processing implementation for data pipelines
-            - stream.py: Stream processing implementation for data pipelines
           synthesis:
             description: ''
             modules:
@@ -108,15 +101,6 @@ structure:
                 description: ''
             files:
             - base.py: Base interfaces for synthesis capability
-          transformers:
-            description: Base transformer implementations
-            files:
-            - __init__.py: Base transformer implementations
-            - base.py: Base module
-            - code.py: Code module
-            - csv.py: Csv module
-            - html.py: Html module
-            - sql.py: Sql module
         files:
         - __init__.py: Módulos para processamento, análise e transformação de conteúdo
         - base.py: Base data pipeline components for stream and batch processing
@@ -220,7 +204,7 @@ structure:
               monitoring:
                 description: ''
             files:
-            - base.py: ''
+            - base.py: Interfaces base para o sistema de observabilidade
           plugins:
             description: Module initialization
             files:
@@ -251,8 +235,6 @@ structure:
             - recovery.py: Recovery module
             - storage.py: Resource storage system
             - types.py: Resource type definitions
-          security:
-            description: ''
           types:
             description: Core types package
             files:
@@ -292,7 +274,7 @@ structure:
         - __init__.py: Core package providing fundamental functionality for PepperPy
         - base.py: Core base classes for PepperPy
         - events.py: Sistema de eventos para comunicação entre componentes
-        - registry.py: ''
+        - registry.py: Registro central de componentes do sistema
       evaluation:
         description: Evaluation package for assessing agent performance
         files:
@@ -399,8 +381,13 @@ structure:
         - base.py: Core interfaces for optimization components
         - config.py: Configuration settings for optimization components
         - profiler.py: Resource usage monitoring and profiling
-      providers:
+      pipeline:
         description: ''
+        files:
+        - batch.py: Batch processing implementation for data pipelines
+        - stream.py: Stream processing implementation for data pipelines
+      providers:
+        description: Provedores de integração com serviços externos
         modules:
           agents:
             description: Providers package for the Pepperpy framework
@@ -414,8 +401,9 @@ structure:
             - manager.py: Provider manager for handling multiple providers
             - types.py: Type definitions for providers
           cloud:
-            description: ''
+            description: Provedores de serviços em nuvem
             files:
+            - __init__.py: Provedores de serviços em nuvem
             - aws.py: AWS provider for the Pepperpy framework
             - gcp.py: Google Cloud Platform provider implementation
           embedding:
@@ -449,13 +437,15 @@ structure:
             - cloud.py: Cloud storage provider implementation
             - local.py: Local filesystem storage provider implementation
           synthesis:
-            description: ''
+            description: Provedores para síntese de áudio e conteúdo
             files:
+            - __init__.py: Provedores para síntese de áudio e conteúdo
             - google_tts.py: Google Text-to-Speech provider for synthesis capability
             - openai.py: OpenAI provider for speech synthesis capability
           transcription:
-            description: ''
+            description: Provedores para transcrição de áudio
             files:
+            - __init__.py: Provedores para transcrição de áudio
             - google.py: Google Cloud Speech-to-Text provider implementation
           vision:
             description: Vision providers for the Pepperpy framework
@@ -464,6 +454,8 @@ structure:
             - base.py: Base interfaces and exceptions for vision providers
             - google.py: Google Cloud Vision provider implementation
             - openai.py: OpenAI vision provider implementation
+        files:
+        - __init__.py: Provedores de integração com serviços externos
       rag:
         description: RAG (Retrieval Augmented Generation) package
         modules:
@@ -529,13 +521,24 @@ structure:
         - prompt_injection.py: Module for protecting against prompt injection attacks
         - sandbox.py: Sandbox module for secure code execution
       synthesis:
-        description: ''
+        description: Módulo para síntese de conteúdo multimodal
         modules:
           processors:
             description: Processadores para síntese de conteúdo multimodal
             files:
             - __init__.py: Processadores para síntese de conteúdo multimodal
             - effects.py: Audio effects processor for synthesis capability
+        files:
+        - __init__.py: Módulo para síntese de conteúdo multimodal
+      transformers:
+        description: Base transformer implementations
+        files:
+        - __init__.py: Base transformer implementations
+        - base.py: Base module
+        - code.py: Code module
+        - csv.py: Csv module
+        - html.py: Html module
+        - sql.py: Sql module
       workflows:
         description: Core workflow management module
         files:

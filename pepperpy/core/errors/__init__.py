@@ -1,45 +1,48 @@
-"""
-Core errors package.
+"""Sistema de tratamento de erros do PepperPy
 
-This package provides error handling functionality used throughout PepperPy.
+Este módulo define o sistema de tratamento de erros do framework,
+fornecendo:
+
+- Hierarquia de Exceções
+  - Erros de validação
+  - Erros de configuração
+  - Erros de execução
+  - Erros de sistema
+
+- Tratamento de Erros
+  - Captura e propagação
+  - Contextualização
+  - Logging estruturado
+  - Recuperação
+
+- Categorização
+  - Por severidade
+  - Por origem
+  - Por impacto
+  - Por ação necessária
+
+O sistema de erros é projetado para:
+- Facilitar o diagnóstico
+- Permitir recuperação graceful
+- Manter rastreabilidade
+- Melhorar a experiência do desenvolvedor
 """
+
+from typing import Dict, List, Optional, Union
 
 from .base import (
-    AuthenticationError,
-    ComponentError,
-    ConfigurationError,
-    ConnectionError,
-    DuplicateError,
-    EventError,
-    InitializationError,
-    NotFoundError,
+    ConfigError,
     PepperError,
-    PermissionError,
-    ProviderError,
-    ResourceError,
-    SecurityError,
-    StateError,
+    RuntimeError,
+    SystemError,
     ValidationError,
-    WorkflowError,
-    error_handler,
 )
 
+__version__ = "0.1.0"
 __all__ = [
     "PepperError",
-    "ConfigurationError",
     "ValidationError",
-    "ComponentError",
-    "InitializationError",
-    "StateError",
-    "ProviderError",
-    "ConnectionError",
-    "AuthenticationError",
-    "ResourceError",
-    "NotFoundError",
-    "DuplicateError",
-    "SecurityError",
-    "PermissionError",
-    "EventError",
-    "WorkflowError",
-    "error_handler",
+    "ConfigError",
+    "RuntimeError",
+    "SystemError",
 ]

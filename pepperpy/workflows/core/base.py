@@ -1,24 +1,25 @@
-"""Base workflow module for the Pepperpy framework.
+"""Interfaces base para workflows
 
-This module provides the core workflow functionality and interfaces that all workflows must implement.
-It defines the base workflow class, workflow states, configuration, and common utilities.
+Define as interfaces e classes base para o sistema de workflows,
+incluindo definição, execução e gerenciamento de fluxos de trabalho.
 """
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol, Union
-from uuid import uuid4
+from uuid import UUID
 
 from pepperpy.core.base import (
-    ComponentBase,
     ComponentCallback,
     ComponentConfig,
     ComponentState,
 )
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
+from pepperpy.core.types.base import BaseComponent
+from pepperpy.core.types.enums import ComponentState
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 
@@ -93,32 +94,20 @@ class WorkflowCallback(ComponentCallback, Protocol):
         ...
 
 
-class BaseWorkflow(ComponentBase, ABC):
-    """Base class for all workflows.
+class BaseWorkflow(BaseComponent):
+    """Base class for workflow implementations."""
 
-    This class extends ComponentBase with workflow-specific functionality:
-    - Step management
-    - Parallel execution
-    - Timeout handling
-    - Retry policies
-    """
-
-    def __init__(
-        self,
-        config: Optional[WorkflowConfig] = None,
-        callback: Optional[WorkflowCallback] = None,
-    ) -> None:
+    def __init__(self, id: UUID, definition: WorkflowDefinition) -> None:
         """Initialize workflow.
 
         Args:
-            config: Optional workflow configuration
-            callback: Optional callback for workflow events
+            id: Workflow ID
+            definition: Workflow definition
         """
-        super().__init__(
-            config or WorkflowConfig(name=self.__class__.__name__), callback
-        )
-        self.id = WorkflowID(uuid4())
-        self._context = WorkflowContext(workflow_id=self.id)
+        super().__init__(name=definition.name, id=id)
+        self.definition = definition
+        self._current_step: Optional[WorkflowStep] = None
+        self._context = WorkflowContext(workflow_id=self.workflow_id)
         self._step_metrics: Dict[str, Union[Counter, Histogram]] = {}
         self._metrics_manager = MetricsManager.get_instance()
 
@@ -135,8 +124,8 @@ class BaseWorkflow(ComponentBase, ABC):
     @property
     def steps(self) -> List[WorkflowStep]:
         """Get workflow steps."""
-        if isinstance(self.config, WorkflowConfig):
-            return self.config.steps
+        if isinstance(self.definition, WorkflowDefinition):
+            return self.definition.get_steps()
         return []
 
     async def set_state(self, value: WorkflowState) -> None:
@@ -144,7 +133,7 @@ class BaseWorkflow(ComponentBase, ABC):
         if value != self._context.state:
             self._context.state = value
             if self._callback:
-                await self._callback.on_state_change(str(self.id), value)
+                await self._callback.on_state_change(str(self.workflow_id), value)
 
     async def initialize(self) -> None:
         """Initialize workflow resources."""
@@ -153,26 +142,26 @@ class BaseWorkflow(ComponentBase, ABC):
             self._metrics[
                 "execution_count"
             ] = await self._metrics_manager.create_counter(
-                name=f"workflow_{self.config.name}_executions_total",
-                description=f"Total number of executions for workflow {self.config.name}",
+                name=f"workflow_{self.definition.name}_executions_total",
+                description=f"Total number of executions for workflow {self.definition.name}",
                 labels={"status": "success"},
             )
             self._metrics[
                 "execution_time"
             ] = await self._metrics_manager.create_histogram(
-                name=f"workflow_{self.config.name}_execution_seconds",
-                description=f"Execution time in seconds for workflow {self.config.name}",
+                name=f"workflow_{self.definition.name}_execution_seconds",
+                description=f"Execution time in seconds for workflow {self.definition.name}",
                 labels={"status": "success"},
                 buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             )
             self._metrics["step_count"] = await self._metrics_manager.create_counter(
-                name=f"workflow_{self.config.name}_steps_total",
-                description=f"Total number of steps executed for workflow {self.config.name}",
+                name=f"workflow_{self.definition.name}_steps_total",
+                description=f"Total number of steps executed for workflow {self.definition.name}",
                 labels={"status": "success"},
             )
             self._metrics["step_time"] = await self._metrics_manager.create_histogram(
-                name=f"workflow_{self.config.name}_step_seconds",
-                description=f"Step execution time in seconds for workflow {self.config.name}",
+                name=f"workflow_{self.definition.name}_step_seconds",
+                description=f"Step execution time in seconds for workflow {self.definition.name}",
                 labels={"status": "success"},
                 buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             )
@@ -182,14 +171,14 @@ class BaseWorkflow(ComponentBase, ABC):
                 self._step_metrics[
                     f"{step.name}_count"
                 ] = await self._metrics_manager.create_counter(
-                    name=f"{self.config.name}_step_{step.name}_total",
+                    name=f"{self.definition.name}_step_{step.name}_total",
                     description=f"Total number of executions for step {step.name}",
                     labels={"status": "success"},
                 )
                 self._step_metrics[
                     f"{step.name}_time"
                 ] = await self._metrics_manager.create_histogram(
-                    name=f"{self.config.name}_step_{step.name}_seconds",
+                    name=f"{self.definition.name}_step_{step.name}_seconds",
                     description=f"Execution time in seconds for step {step.name}",
                     labels={"status": "success"},
                     buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
@@ -203,7 +192,7 @@ class BaseWorkflow(ComponentBase, ABC):
             await self.set_state(WorkflowState.ERROR)
             self._context.error = e
             if self._callback:
-                await self._callback.on_error(str(self.id), e)
+                await self._callback.on_error(str(self.workflow_id), e)
             raise WorkflowError(f"Failed to initialize workflow: {e}")
 
     async def execute(self, **kwargs: Any) -> Any:
@@ -243,13 +232,13 @@ class BaseWorkflow(ComponentBase, ABC):
         except Exception as e:
             # Update metrics with error labels
             error_counter = await self._metrics_manager.create_counter(
-                name=f"workflow_{self.config.name}_executions_total",
-                description=f"Total number of executions for workflow {self.config.name}",
+                name=f"workflow_{self.definition.name}_executions_total",
+                description=f"Total number of executions for workflow {self.definition.name}",
                 labels={"status": "error"},
             )
             error_histogram = await self._metrics_manager.create_histogram(
-                name=f"workflow_{self.config.name}_execution_seconds",
-                description=f"Execution time in seconds for workflow {self.config.name}",
+                name=f"workflow_{self.definition.name}_execution_seconds",
+                description=f"Execution time in seconds for workflow {self.definition.name}",
                 labels={"status": "error"},
                 buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             )
@@ -261,7 +250,7 @@ class BaseWorkflow(ComponentBase, ABC):
             await self.set_state(WorkflowState.ERROR)
             self._context.error = e
             if self._callback:
-                await self._callback.on_error(str(self.id), e)
+                await self._callback.on_error(str(self.workflow_id), e)
             raise WorkflowError(f"Failed to execute workflow: {e}")
 
     async def execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
@@ -286,7 +275,7 @@ class BaseWorkflow(ComponentBase, ABC):
         try:
             # Notify step start
             if isinstance(self._callback, WorkflowCallback):
-                await self._callback.on_step_start(str(self.id), step.name)
+                await self._callback.on_step_start(str(self.workflow_id), step.name)
 
             # Execute step
             result = await self._execute_step(step, **kwargs)
@@ -299,19 +288,21 @@ class BaseWorkflow(ComponentBase, ABC):
 
             # Notify step complete
             if isinstance(self._callback, WorkflowCallback):
-                await self._callback.on_step_complete(str(self.id), step.name, result)
+                await self._callback.on_step_complete(
+                    str(self.workflow_id), step.name, result
+                )
 
             return result
 
         except Exception as e:
             # Update metrics with error labels
             error_counter = await self._metrics_manager.create_counter(
-                name=f"{self.config.name}_step_{step.name}_total",
+                name=f"{self.definition.name}_step_{step.name}_total",
                 description=f"Total number of executions for step {step.name}",
                 labels={"status": "error"},
             )
             error_histogram = await self._metrics_manager.create_histogram(
-                name=f"{self.config.name}_step_{step.name}_seconds",
+                name=f"{self.definition.name}_step_{step.name}_seconds",
                 description=f"Execution time in seconds for step {step.name}",
                 labels={"status": "error"},
                 buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
@@ -336,7 +327,7 @@ class BaseWorkflow(ComponentBase, ABC):
             await self.set_state(WorkflowState.ERROR)
             self._context.error = e
             if self._callback:
-                await self._callback.on_error(str(self.id), e)
+                await self._callback.on_error(str(self.workflow_id), e)
             raise WorkflowError(f"Failed to clean up workflow: {e}")
 
     @abstractmethod
@@ -387,3 +378,23 @@ class BaseWorkflow(ComponentBase, ABC):
         workflow-specific cleanup.
         """
         pass
+
+    @abstractmethod
+    async def start(self) -> None:
+        """Start workflow execution."""
+        ...
+
+    @abstractmethod
+    async def pause(self) -> None:
+        """Pause workflow execution."""
+        ...
+
+    @abstractmethod
+    async def resume(self) -> None:
+        """Resume workflow execution."""
+        ...
+
+    @abstractmethod
+    async def stop(self) -> None:
+        """Stop workflow execution."""
+        ...

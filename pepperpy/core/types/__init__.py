@@ -1,29 +1,37 @@
-"""
-Core types package.
+"""Sistema de tipos do PepperPy
 
-Defines core types and type aliases used throughout the framework.
+Este módulo define o sistema de tipos fundamental do framework,
+fornecendo:
+
+- Tipos Base
+  - Componentes
+  - Identificadores
+  - Configurações
+  - Metadados
+
+- Tipos Genéricos
+  - Eventos
+  - Resultados
+  - Estados
+  - Prioridades
+
+- Tipos Específicos
+  - Agentes
+  - Recursos
+  - Provedores
+  - Workflows
+
+O sistema de tipos é projetado para:
+- Garantir type safety
+- Facilitar refatoração
+- Melhorar documentação
+- Permitir extensibilidade
 """
 
 from .base import (
     BaseComponent,
     ComponentID,
-    ComponentT,
-    ConfigDict,
-    ConfigT,
-    Event,
-    EventData,
-    EventT,
-    Identifiable,
-    Json,
     Metadata,
-    MetadataDict,
-    Priority,
-    ProviderID,
-    Result,
-    Serializable,
-    Status,
-    Validatable,
-    Versionable,
 )
 from .enums import (
     AgentID,
@@ -33,6 +41,7 @@ from .enums import (
     ErrorCategory,
     IndexType,
     LogLevel,
+    ProviderID,
     ProviderType,
     ResourceID,
     ResourceType,
@@ -41,39 +50,26 @@ from .enums import (
 )
 from .results import Result
 
+__version__ = "0.1.0"
 __all__ = [
-    # From base
+    # Base types
     "BaseComponent",
-    "ComponentT",
-    "ConfigT",
-    "Event",
-    "EventT",
-    "Result",
-    "Status",
-    "Priority",
-    "Metadata",
-    "Serializable",
-    "Validatable",
-    "Identifiable",
-    "Versionable",
-    "Json",
-    "ConfigDict",
-    "MetadataDict",
-    "EventData",
     "ComponentID",
-    "ProviderID",
-    # From enums
-    "ComponentState",
-    "AgentState",
+    "Metadata",
+    # Enums
     "AgentID",
+    "AgentState",
     "CapabilityID",
-    "ResourceID",
-    "WorkflowID",
-    # Additional enums
+    "ComponentState",
     "ErrorCategory",
     "IndexType",
     "LogLevel",
+    "ProviderID",
     "ProviderType",
+    "ResourceID",
     "ResourceType",
     "TaskStatus",
+    "WorkflowID",
+    # Results
+    "Result",
 ]
