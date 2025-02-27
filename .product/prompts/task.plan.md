@@ -1,155 +1,66 @@
 ---
-title: Task Planning Template
-description: Template for task planning with clear specifications and implementation details.
-version: 4.0
-category: planning
-tags: [planning, task-management]
-yolo: true
-strict_mode: true
+title: Task Implementation Template
+description: Direct, sequential template focusing only on implementation needs
+version: 1.1
 ---
 
-# Task File Location
-Tasks should be created in the `.product/tasks/<TASK-ID>/` directory following the naming convention:
+# Task Structure
+All tasks follow this exact file structure:
 - Main task file: `.product/tasks/<TASK-ID>/<TASK-ID>.md`
-- Requirement files: `.product/tasks/<TASK-ID>/<TASK-ID>-R{XXX}.md`
-- Example: `.product/tasks/TASK-005/TASK-005.md` and `.product/tasks/TASK-005/TASK-005-R001.md`
 
-# Main Task File Template
+# Task Template
 ```markdown
 ---
-title: {task_title}
-priority: high|medium|low
-points: 1|2|3|5|8|13
-status: 📋 To Do
-mode: Plan
-created: YYYY-MM-DD
-updated: YYYY-MM-DD
----
-
-# Objetivo
-{Clear task objective and expected outcomes}
-
-# Métricas de Sucesso
-- {Metric 1}
-- {Metric 2}
-- {Metric N}
-
-# Requirements Overview
-- [ ] [R001] {Requirement title} - [Details](TASK-XXX-R001.md)
-- [ ] [R002] {Requirement title} - [Details](TASK-XXX-R002.md)
-- [ ] [R003] {Requirement title} - [Details](TASK-XXX-R003.md)
-
-# Progress Updates
-
-## YYYY-MM-DD
-- Current Status: {status}
-- Completed: {items}
-- Next Steps: {next actions}
-
-# Validation Checklist
-- [ ] {Validation item 1}
-- [ ] {Validation item 2}
-
-# Breaking Changes
-{List of breaking changes}
-
-# Migration Guide
-{Migration steps}
-
-# Dependencies
-{List of dependencies}
-```
-
-# Requirement File Template
-```markdown
----
-title: {requirement_title}
-task: TASK-XXX
-code: R001
+title: {Task Title}
+priority: medium
 status: 📋 To Do
 created: YYYY-MM-DD
-updated: YYYY-MM-DD
-started: null
-completed: null
 ---
 
-# Requirement
-{Clear requirement description}
+## 1. Objective
+Clear description of what needs to be implemented.
 
-# Dependencies
-- {Dependency 1}
-- {Dependency 2}
+## 2. Project Structure Context
+- Relevant existing files: {paths to relevant files}
+- New files to create: {exact paths for new files}
 
-## Current State
+## 3. Implementation Plan
+Sequential list of changes to make:
+
+1. {First step: specific change in specific file}
+2. {Second step: another specific change}
+3. {Third step: create new file with specific content}
+
+## 4. Code Changes
+
+### Existing File: {path/to/file.py}
 ```python
-# Existing code or structure to be modified
+# Exact code changes to make
 ```
 
-## Implementation
+### New File: {path/to/new_file.py}
 ```python
-# Exact code changes and implementation
+# Exact content for the new file
 ```
 
-## Validation
-```python
-def test_requirement():
-    # Specific tests for this change
+## 5. Validation Approach
+Manual verification steps to ensure implementation works correctly.
 ```
 
-## Rollback Plan
-1. {Step 1}
-2. {Step 2}
+# Important Guidelines
 
-## Success Metrics
-- [ ] {Metric 1}
-- [ ] {Metric 2}
+1. **ONLY generate exactly what is requested** - no extra tests, docs, or other artifacts unless explicitly asked for
 
-# Progress Updates
+2. **Follow strict sequential implementation order** - each step should build on the previous
 
-## YYYY-MM-DD
-- Status: {status}
-- Progress: {details}
-```
+3. **Reference existing project structure** - always check `.product/project_structure.yml` first
 
-# Task Creation Process
+4. **Keep implementation focused** - include only what's necessary for the specific task
 
-1. **Create Task Directory**
-   ```bash
-   mkdir -p .product/tasks/TASK-XXX
-   ```
+5. **Use absolute file paths** - always specify exact locations for new files
 
-2. **Create Main Task File**
-   ```bash
-   touch .product/tasks/TASK-XXX/TASK-XXX.md
-   ```
+6. **Follow existing patterns** - maintain consistency with the current codebase
 
-3. **Create Initial Requirements**
-   ```bash
-   touch .product/tasks/TASK-XXX/TASK-XXX-R001.md
-   touch .product/tasks/TASK-XXX/TASK-XXX-R002.md
-   ```
+7. **Prioritize clarity over completeness** - it's better to be clear about what's needed than to add unnecessary details
 
-4. **Fill Templates**
-   - Use the templates above
-   - Keep requirements atomic
-   - Include all necessary sections
-   - Maintain clear links
-
-# Example Task Structure
-
-```
-.product/tasks/TASK-007/
-├── TASK-007.md                # Main task file
-├── TASK-007-R001.md          # Remove dashboard web
-├── TASK-007-R002.md          # Consolidate providers
-└── TASK-007-R003.md          # Restructure capabilities
-```
-
-Remember: 
-1. Each task has its own directory
-2. Main task file contains overview and status tracking
-3. Each requirement has its own file with complete details
-4. Use requirement codes (R001, R002, etc.) for clear referencing
-5. Keep all files in sync regarding status updates
-6. Include rollback plans for each requirement
-7. Maintain clear dependencies between requirements
+DO NOT include sections for tests, documentation, metrics, breaking changes, or other elements unless specifically requested in the task description.

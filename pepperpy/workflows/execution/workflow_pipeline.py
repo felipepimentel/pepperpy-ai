@@ -1,6 +1,6 @@
-"""Processing pipeline implementation.
+"""Workflow processing pipeline implementation.
 
-This module provides the core processing pipeline functionality:
+This module provides the core workflow processing pipeline functionality:
 - Pipeline configuration and execution
 - Processor chaining
 - Metrics collection
@@ -25,8 +25,8 @@ T = TypeVar("T")
 ProcessorType = TypeVar("ProcessorType", bound="BaseProcessor")
 
 
-class ProcessingError(Exception):
-    """Base class for processing errors."""
+class WorkflowProcessingError(Exception):
+    """Base class for workflow processing errors."""
 
     def __init__(self, message: str, details: dict[str, Any] | None = None) -> None:
         """Initialize error.
@@ -39,8 +39,8 @@ class ProcessingError(Exception):
         self.details = details or {}
 
 
-class ProcessingResult(BaseModel):
-    """Result of processing operation.
+class WorkflowProcessingResult(BaseModel):
+    """Result of workflow processing operation.
 
     Attributes:
         success: Whether processing was successful
@@ -57,8 +57,8 @@ class ProcessingResult(BaseModel):
     )
 
 
-class ProcessingPipeline(Lifecycle, Generic[T]):
-    """Processing pipeline implementation."""
+class WorkflowPipeline(Lifecycle, Generic[T]):
+    """Workflow processing pipeline implementation."""
 
     def __init__(self) -> None:
         """Initialize pipeline."""
@@ -79,24 +79,24 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
         try:
             # Set up metrics
             self._total_counter = await self._metrics.create_counter(
-                "processing_total",
-                "Total number of processing operations",
+                "workflow_processing_total",
+                "Total number of workflow processing operations",
             )
             self._error_counter = await self._metrics.create_counter(
-                "processing_errors",
-                "Number of processing errors",
+                "workflow_processing_errors",
+                "Number of workflow processing errors",
             )
             self._latency_histogram = await self._metrics.create_histogram(
-                "processing_latency",
-                "Processing operation latency",
+                "workflow_processing_latency",
+                "Workflow processing operation latency",
                 buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             )
 
             self._state = ComponentState.READY
-            logger.info("Processing pipeline initialized")
+            logger.info("Workflow processing pipeline initialized")
         except Exception as e:
             self._state = ComponentState.ERROR
-            logger.error(f"Failed to initialize processing pipeline: {e}")
+            logger.error(f"Failed to initialize workflow processing pipeline: {e}")
             raise
 
     async def cleanup(self) -> None:
@@ -106,9 +106,9 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
             self._transformers.clear()
             self._validators.clear()
             self._state = ComponentState.CLEANED
-            logger.info("Processing pipeline cleaned up")
+            logger.info("Workflow processing pipeline cleaned up")
         except Exception as e:
-            logger.error(f"Failed to cleanup processing pipeline: {e}")
+            logger.error(f"Failed to cleanup workflow processing pipeline: {e}")
             raise
 
     async def _record_success(self) -> None:
@@ -154,7 +154,7 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
         """
         self._validators.append(validator)
 
-    async def process(self, data: T, **kwargs: Any) -> ProcessingResult:
+    async def process(self, data: T, **kwargs: Any) -> WorkflowProcessingResult:
         """Process data through pipeline.
 
         Args:
@@ -165,10 +165,10 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
             Processing result
 
         Raises:
-            ProcessingError: If processing fails
+            WorkflowProcessingError: If processing fails
         """
         if self._state != ComponentState.READY:
-            raise ProcessingError("Pipeline not running")
+            raise WorkflowProcessingError("Pipeline not running")
 
         start_time = datetime.utcnow()
 
@@ -184,7 +184,7 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
                     await validator.validate(transformed_data)
                 except ValidationError as e:
                     await self._record_error()
-                    return ProcessingResult(
+                    return WorkflowProcessingResult(
                         success=False,
                         data=transformed_data,
                         error={"type": "validation", "details": e.details},
@@ -201,7 +201,7 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
             await self._record_success()
             await self._record_latency(duration)
 
-            return ProcessingResult(
+            return WorkflowProcessingResult(
                 success=True,
                 data=processed_data,
                 metrics={"duration": duration},
@@ -213,7 +213,7 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
 
             # Log error
             logger.error(
-                "Processing error",
+                "Workflow processing error",
                 extra={
                     "error": str(e),
                     "error_type": type(e).__name__,
@@ -221,7 +221,7 @@ class ProcessingPipeline(Lifecycle, Generic[T]):
             )
 
             # Return error result
-            return ProcessingResult(
+            return WorkflowProcessingResult(
                 success=False,
                 data=data,
                 error={

@@ -1,38 +1,52 @@
-"""Exemplos de implementação de workflows.
+"""Workflow implementation examples.
 
-Este módulo fornece exemplos práticos de implementação de workflows,
-demonstrando:
+This module provides practical examples of workflow implementations,
+demonstrating:
 
-- Tipos de Workflows
-  - Workflows simples
-  - Workflows complexos
-  - Workflows paralelos
-  - Workflows aninhados
+- Workflow Types
+  - Simple workflows
+  - Complex workflows
+  - Parallel workflows
+  - Nested workflows
 
-- Padrões de Implementação
-  - Definição de passos
-  - Configuração de execução
-  - Tratamento de erros
-  - Callbacks e eventos
+- Implementation Patterns
+  - Step definition
+  - Execution configuration
+  - Error handling
+  - Callbacks and events
 
-- Casos de Uso
-  - Processamento de dados
-  - Integração de serviços
-  - Automação de tarefas
-  - Orquestração de agentes
+- Use Cases
+  - Data processing
+  - Service integration
+  - Task automation
+  - Agent orchestration
 
-Os exemplos servem para:
-- Demonstrar funcionalidades
-- Ilustrar boas práticas
-- Facilitar aprendizado
-- Validar implementações
+The examples serve to:
+- Demonstrate functionality
+- Illustrate best practices
+- Facilitate learning
+- Validate implementations
 """
 
 from typing import Dict, List, Optional, Union
 
+from .actions import (
+    DelayAction,
+    HelloWorldAction,
+    ListProcessorAction,
+    RandomNumberAction,
+    register_example_actions,
+)
 from .hello_world import HelloWorldWorkflow
 
 __version__ = "0.1.0"
 __all__ = [
+    # Actions
+    "DelayAction",
+    "HelloWorldAction",
+    "ListProcessorAction",
+    "RandomNumberAction",
+    "register_example_actions",
+    # Workflows
     "HelloWorldWorkflow",
 ]

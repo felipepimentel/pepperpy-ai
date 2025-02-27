@@ -17,10 +17,10 @@ class HelloWorldAction(Action):
 
     async def execute(self, context: ActionContext) -> Dict[str, str]:
         """Execute the action.
-        
+
         Args:
             context: Action execution context
-            
+
         Returns:
             Dictionary with greeting message
         """
@@ -33,7 +33,7 @@ class DelayAction(Action):
 
     async def execute(self, context: ActionContext) -> None:
         """Execute the action.
-        
+
         Args:
             context: Action execution context
         """
@@ -46,10 +46,10 @@ class RandomNumberAction(Action):
 
     async def execute(self, context: ActionContext) -> Dict[str, float]:
         """Execute the action.
-        
+
         Args:
             context: Action execution context
-            
+
         Returns:
             Dictionary with random number
         """
@@ -63,10 +63,10 @@ class ListProcessorAction(Action):
 
     async def execute(self, context: ActionContext) -> Dict[str, List[str]]:
         """Execute the action.
-        
+
         Args:
             context: Action execution context
-            
+
         Returns:
             Dictionary with processed items
         """
@@ -94,4 +94,4 @@ def register_example_actions() -> None:
 
     action_registry.register_function("uppercase", uppercase_text)
 
-    logger.info("Example actions registered") 
+    logger.info("Example actions registered")

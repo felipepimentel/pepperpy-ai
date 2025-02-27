@@ -1,31 +1,31 @@
-"""Otimizações para índices vetoriais em RAG.
+"""Vector index optimizations for RAG.
 
-Este módulo implementa otimizações para melhorar a eficiência e performance
-dos índices vetoriais no sistema RAG, incluindo:
+This module implements optimizations to improve the efficiency and performance
+of vector indices in the RAG system, including:
 
-- Otimizações de Memória
-  - Compressão de vetores
-  - Quantização
+- Memory Optimizations
+  - Vector compression
+  - Quantization
   - Pruning
   - Caching
 
-- Otimizações de Busca
-  - Indexação aproximada
+- Search Optimizations
+  - Approximate indexing
   - Clustering
-  - Particionamento
-  - Paralelização
+  - Partitioning
+  - Parallelization
 
-- Otimizações de Qualidade
-  - Normalização
-  - Dimensionalidade
-  - Ponderação
-  - Filtragem
+- Quality Optimizations
+  - Normalization
+  - Dimensionality
+  - Weighting
+  - Filtering
 
-O módulo fornece:
-- Algoritmos eficientes
-- Estruturas otimizadas
-- Métricas de performance
-- Configurações ajustáveis
+The module provides:
+- Efficient algorithms
+- Optimized structures
+- Performance metrics
+- Adjustable configurations
 """
 
 from typing import Dict, List, Optional, Union

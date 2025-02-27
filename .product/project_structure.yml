@@ -242,9 +242,21 @@ structure:
             - enums.py: Core enumerations
             - models.py: Models module
           utils:
-            description: ''
+            description: Utilitários e funções auxiliares do core
             files:
+            - __init__.py: Utilitários e funções auxiliares do core
+            - data.py: Utilitários para manipulação de dados
+            - dates.py: Utilitários para manipulação de datas
+            - dicts.py: Utilitários para manipulação de dicionários
+            - files.py: Utilitários para manipulação de arquivos
             - formatting.py: Formatting module
+            - io.py: Io module
+            - json.py: Utilitários para manipulação de arquivos JSON
+            - lists.py: Utilitários para manipulação de listas
+            - numbers.py: Utilitários para manipulação de números
+            - strings.py: Utilitários para manipulação de strings
+            - system.py: System module
+            - validation.py: Validation module
           validation:
             description: Validation module for the Pepperpy framework
             files:
@@ -273,11 +285,6 @@ structure:
         - base.py: Core base classes for PepperPy
         - events.py: Sistema de eventos para comunicação entre componentes
         - registry.py: Registro central de componentes do sistema
-      docs:
-        description: ''
-        modules:
-          architecture:
-            description: ''
       evaluation:
         description: Evaluation package for assessing agent performance
         files:
@@ -308,14 +315,18 @@ structure:
         files:
         - __init__.py: Sistema de armazenamento e recuperação de memória para agentes
         - base.py: Base interfaces for the Pepperpy memory system
-        - cache.py: Cache system implementation for the Pepperpy framework
+        - cache.py: Cache específico para contexto de agentes
         - in_memory.py: Simple in-memory storage implementation
         - vector.py: Vector-based memory storage implementation
+      monitoring:
+        description: ''
+        files:
+        - metrics.py: Sistema de métricas para monitoramento
       multimodal:
         description: Multimodal processing package for Pepperpy
         files:
         - __init__.py: Multimodal processing package for Pepperpy
-        - audio.py: Module for audio processing capabilities
+        - audio.py: Processamento de áudio para entrada multimodal
         - fusion.py: Module for multimodal data fusion
         - vision.py: Module for vision and image processing capabilities
       observability:
@@ -360,9 +371,12 @@ structure:
             - __init__.py: Otimização de processamento em lote para requisições à
                 API
           caching:
-            description: Sistema de cache para reduzir chamadas repetidas à API
+            description: Cache geral para otimização de performance
             files:
-            - __init__.py: Sistema de cache para reduzir chamadas repetidas à API
+            - __init__.py: Cache geral para otimização de performance
+            - distributed.py: Cache distribuído para otimização de performance
+            - local.py: Cache local para otimização de performance
+            - policy.py: Políticas de cache para otimização de performance
           metrics:
             description: Sistema de coleta e análise de métricas de desempenho
             files:
@@ -500,7 +514,12 @@ structure:
                 - __init__.py: RAG indexing package
                 - indexers.py: RAG indexing implementations
               optimization:
-                description: ''
+                description: Otimizações para índices vetoriais em RAG
+                files:
+                - __init__.py: Otimizações para índices vetoriais em RAG
+                - caching.py: Cache de vetores para otimização de performance
+                - compression.py: Compressão de vetores para otimização de memória
+                - pruning.py: Pruning de vetores para otimização de índices
             files:
             - __init__.py: Módulo de vetorização e indexação para RAG
         files:
@@ -535,10 +554,13 @@ structure:
         description: Módulo para síntese de conteúdo multimodal
         modules:
           processors:
-            description: Processadores para síntese de conteúdo multimodal
+            description: Processadores para síntese de conteúdo
             files:
-            - __init__.py: Processadores para síntese de conteúdo multimodal
+            - __init__.py: Processadores para síntese de conteúdo
+            - audio.py: Processador de áudio para síntese
             - effects.py: Audio effects processor for synthesis capability
+            - image.py: Processador de imagem para síntese
+            - text.py: Processador de texto para síntese
         files:
         - __init__.py: Módulo para síntese de conteúdo multimodal
         - base.py: Base interfaces for synthesis capability
@@ -552,34 +574,42 @@ structure:
         - html.py: Html module
         - sql.py: Sql module
       workflows:
-        description: Core workflow management module
+        description: Workflow system for PepperPy framework
         modules:
           core:
-            description: ''
+            description: Componentes principais do sistema de workflows
             files:
+            - __init__.py: Componentes principais do sistema de workflows
             - base.py: Interfaces base para workflows
             - registry.py: Registro central de workflows
             - types.py: Tipos e enums para o módulo de workflows
           definition:
-            description: ''
+            description: Definição e construção de workflows
             files:
+            - __init__.py: Definição e construção de workflows
             - actions.py: Workflow action registry implementation
+            - builder.py: Builder para construção de workflows
             - definitions.py: Core workflows module
+            - factory.py: Factory para criação de workflows
+            - validator.py: Validador de workflows
           examples:
-            description: ''
+            description: Exemplos de implementação de workflows
             files:
-            - hello_world.py: Hello World module
+            - __init__.py: Exemplos de implementação de workflows
+            - hello_world.py: Example workflow implementation
           execution:
-            description: ''
+            description: Execução e controle de workflows
             files:
+            - __init__.py: Execução e controle de workflows
             - executor.py: Executor de workflows
+            - pipeline.py: Pipeline module
             - runtime.py: Workflow engine module for the Pepperpy framework
             - scheduler.py: Workflow scheduler module for the Pepperpy framework
         files:
-        - __init__.py: Core workflow management module
+        - __init__.py: Workflow system for PepperPy framework
         - errors.py: Workflow-specific error types
         - examples.py: Example workflow actions
         - manager.py: Workflow manager module for the Pepperpy framework
-        - workflow_pipeline.py: Processing pipeline implementation
+        - pipeline.py: Processing pipeline implementation
     files:
     - __init__.py: PepperPy Framework
