@@ -1,5 +1,6 @@
 """Default component registration for the RAG system."""
 
+from .augmenters import HybridAugmenter, MultiStageAugmenter, TemplateAugmenter
 from .chunkers import HTMLChunker, RecursiveChunker, TextChunker
 from .embedders import (
     BatchedEmbedder,
@@ -9,6 +10,7 @@ from .embedders import (
 )
 from .indexers import AnnoyIndexer, FaissIndexer, HybridIndexer
 from .registry import registry
+from .retrievers import HybridRetriever, ReRankingRetriever, StandardRetriever
 
 
 def register_default_components():
@@ -44,3 +46,27 @@ def register_default_components():
     # Register specialized indexers
     registry.register_indexer("qa_indexer", FaissIndexer)  # Optimized for QA
     registry.register_indexer("kb_indexer", HybridIndexer)  # For knowledge bases
+
+    # Register retrievers
+    registry.register_retriever("default", StandardRetriever)
+    registry.register_retriever("standard", StandardRetriever)
+    registry.register_retriever("hybrid", HybridRetriever)
+    registry.register_retriever("reranking", ReRankingRetriever)
+
+    # Register specialized retrievers
+    registry.register_retriever(
+        "qa_retriever", ReRankingRetriever
+    )  # With re-ranking for QA
+    registry.register_retriever("kb_retriever", HybridRetriever)  # For knowledge bases
+
+    # Register augmenters
+    registry.register_augmenter("default", TemplateAugmenter)
+    registry.register_augmenter("template", TemplateAugmenter)
+    registry.register_augmenter("multistage", MultiStageAugmenter)
+    registry.register_augmenter("hybrid", HybridAugmenter)
+
+    # Register specialized augmenters
+    registry.register_augmenter(
+        "qa_augmenter", MultiStageAugmenter
+    )  # Multi-stage for QA
+    registry.register_augmenter("kb_augmenter", HybridAugmenter)  # For knowledge bases

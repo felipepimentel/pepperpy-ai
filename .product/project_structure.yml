@@ -340,6 +340,24 @@ structure:
             in LLM outputs
         - model_performance.py: Module for tracking and analyzing AI model performance
             metrics
+      optimization:
+        description: Optimization package for resource efficiency
+        modules:
+          batching:
+            description: ''
+          caching:
+            description: ''
+          metrics:
+            description: ''
+          routing:
+            description: ''
+          token_management:
+            description: ''
+        files:
+        - __init__.py: Optimization package for resource efficiency
+        - base.py: Core interfaces for optimization components
+        - config.py: Configuration settings for optimization components
+        - profiler.py: Resource usage monitoring and profiling
       providers:
         description: ''
         modules:
@@ -364,6 +382,7 @@ structure:
             files:
             - __init__.py: Embedding providers for the Pepperpy framework
             - base.py: Base interfaces and exceptions for embedding providers
+            - openai.py: OpenAI embedding provider implementation
           llm:
             description: LLM (Language Model) providers for the Pepperpy framework
             files:
@@ -404,6 +423,37 @@ structure:
             - base.py: Base interfaces and exceptions for vision providers
             - google.py: Google Cloud Vision provider implementation
             - openai.py: OpenAI vision provider implementation
+      rag:
+        description: RAG (Retrieval Augmented Generation) package
+        modules:
+          augmentation:
+            description: ''
+          chunking:
+            description: ''
+          embedding:
+            description: ''
+          evaluation:
+            description: ''
+          indexing:
+            description: ''
+          retrieval:
+            description: ''
+          templates:
+            description: ''
+        files:
+        - __init__.py: RAG (Retrieval Augmented Generation) package
+        - augmenters.py: Augmenter implementations for the RAG system
+        - base.py: Core interfaces and base classes for the RAG system
+        - chunkers.py: Implementations of different chunking strategies
+        - config.py: Configuration settings for the RAG system
+        - defaults.py: Default component registration for the RAG system
+        - embedders.py: Implementations of different embedding strategies
+        - factory.py: Factory for creating RAG pipelines
+        - indexers.py: Indexer implementations for the RAG system
+        - pipeline.py: Standard RAG pipeline implementation
+        - registry.py: Registry for managing RAG components
+        - retrievers.py: Retriever implementations for the RAG system
+        - types.py: Core data types for the RAG system
       security:
         description: Security package for AI-specific protections
         files:

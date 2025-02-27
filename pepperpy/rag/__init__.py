@@ -1,5 +1,6 @@
 """RAG (Retrieval Augmented Generation) package."""
 
+from .augmenters import HybridAugmenter, MultiStageAugmenter, TemplateAugmenter
 from .base import (
     Augmenter,
     Chunker,
@@ -29,6 +30,7 @@ from .factory import RagPipelineFactory
 from .indexers import AnnoyIndexer, FaissIndexer, HybridIndexer
 from .pipeline import StandardRagPipeline
 from .registry import registry
+from .retrievers import HybridRetriever, ReRankingRetriever, StandardRetriever
 from .types import (
     Chunk,
     ChunkType,
@@ -86,4 +88,12 @@ __all__ = [
     "FaissIndexer",
     "AnnoyIndexer",
     "HybridIndexer",
+    # Retriever implementations
+    "StandardRetriever",
+    "HybridRetriever",
+    "ReRankingRetriever",
+    # Augmenter implementations
+    "TemplateAugmenter",
+    "MultiStageAugmenter",
+    "HybridAugmenter",
 ]
