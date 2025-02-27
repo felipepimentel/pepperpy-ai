@@ -1,7 +1,7 @@
-"""Cache de vetores para otimização de performance.
+"""Vector caching for performance optimization.
 
-Implementa estratégias de cache para vetores e índices,
-melhorando a performance de buscas frequentes.
+Implements caching strategies for vectors and indices,
+improving performance for frequent searches.
 """
 
 from datetime import datetime, timedelta

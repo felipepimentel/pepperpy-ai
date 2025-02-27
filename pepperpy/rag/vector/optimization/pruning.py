@@ -1,7 +1,7 @@
-"""Pruning de vetores para otimização de índices.
+"""Vector pruning for index optimization.
 
-Implementa técnicas de pruning para reduzir o tamanho dos índices
-mantendo a qualidade das buscas.
+Implements pruning techniques to reduce index size
+while maintaining search quality.
 """
 
 from typing import Tuple

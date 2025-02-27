@@ -92,17 +92,13 @@ structure:
         - types.py: CLI types module
         - utils.py: CLI utilities for Pepperpy
       content:
-        description: Módulos para processamento, análise e transformação de conteúdo
+        description: ''
         modules:
           synthesis:
             description: ''
             modules:
               processors:
                 description: ''
-        files:
-        - __init__.py: Módulos para processamento, análise e transformação de conteúdo
-        - base.py: Base data pipeline components for stream and batch processing
-        - code_processor.py: Code content processor implementation
       core:
         description: Core package providing fundamental functionality for PepperPy
         modules:
@@ -245,6 +241,8 @@ structure:
             description: Utilitários e funções auxiliares do core
             files:
             - __init__.py: Utilitários e funções auxiliares do core
+            - config.py: Utilitários para manipulação de arquivos de configuração
+            - csv.py: Utilitários para manipulação de arquivos CSV
             - data.py: Utilitários para manipulação de dados
             - dates.py: Utilitários para manipulação de datas
             - dicts.py: Utilitários para manipulação de dicionários
@@ -257,6 +255,8 @@ structure:
             - strings.py: Utilitários para manipulação de strings
             - system.py: System module
             - validation.py: Validation module
+            - xml.py: Utilitários para manipulação de arquivos XML
+            - yaml.py: Utilitários para manipulação de arquivos YAML
           validation:
             description: Validation module for the Pepperpy framework
             files:
@@ -402,6 +402,7 @@ structure:
         description: Pipeline de processamento de dados para o PepperPy
         files:
         - __init__.py: Pipeline de processamento de dados para o PepperPy
+        - base.py: Base data pipeline components for stream and batch processing
         - batch.py: Batch processing implementation for data pipelines
         - stream.py: Stream processing implementation for data pipelines
       providers:
@@ -514,12 +515,12 @@ structure:
                 - __init__.py: RAG indexing package
                 - indexers.py: RAG indexing implementations
               optimization:
-                description: Otimizações para índices vetoriais em RAG
+                description: Vector index optimizations for RAG
                 files:
-                - __init__.py: Otimizações para índices vetoriais em RAG
-                - caching.py: Cache de vetores para otimização de performance
-                - compression.py: Compressão de vetores para otimização de memória
-                - pruning.py: Pruning de vetores para otimização de índices
+                - __init__.py: Vector index optimizations for RAG
+                - caching.py: Vector caching for performance optimization
+                - compression.py: Vector compression for memory optimization
+                - pruning.py: Vector pruning for index optimization
             files:
             - __init__.py: Módulo de vetorização e indexação para RAG
         files:
@@ -569,7 +570,7 @@ structure:
         files:
         - __init__.py: Base transformer implementations
         - base.py: Base module
-        - code.py: Code module
+        - code.py: Code transformation and processing functionality
         - csv.py: Csv module
         - html.py: Html module
         - sql.py: Sql module
@@ -581,6 +582,7 @@ structure:
             files:
             - __init__.py: Componentes principais do sistema de workflows
             - base.py: Interfaces base para workflows
+            - manager.py: Workflow manager module for the Pepperpy framework
             - registry.py: Registro central de workflows
             - types.py: Tipos e enums para o módulo de workflows
           definition:
@@ -593,23 +595,21 @@ structure:
             - factory.py: Factory para criação de workflows
             - validator.py: Validador de workflows
           examples:
-            description: Exemplos de implementação de workflows
+            description: Workflow implementation examples
             files:
-            - __init__.py: Exemplos de implementação de workflows
+            - __init__.py: Workflow implementation examples
+            - actions.py: Example workflow actions
             - hello_world.py: Example workflow implementation
           execution:
             description: Execução e controle de workflows
             files:
             - __init__.py: Execução e controle de workflows
             - executor.py: Executor de workflows
-            - pipeline.py: Pipeline module
+            - pipeline.py: Workflow processing pipeline implementation
             - runtime.py: Workflow engine module for the Pepperpy framework
             - scheduler.py: Workflow scheduler module for the Pepperpy framework
         files:
         - __init__.py: Workflow system for PepperPy framework
         - errors.py: Workflow-specific error types
-        - examples.py: Example workflow actions
-        - manager.py: Workflow manager module for the Pepperpy framework
-        - pipeline.py: Processing pipeline implementation
     files:
     - __init__.py: PepperPy Framework

@@ -1,7 +1,7 @@
-"""Compressão de vetores para otimização de memória.
+"""Vector compression for memory optimization.
 
-Implementa técnicas de compressão de vetores para reduzir uso de memória
-mantendo a qualidade das buscas.
+Implements vector compression techniques to reduce memory usage
+while maintaining search quality.
 """
 
 from typing import Optional
