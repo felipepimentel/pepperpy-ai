@@ -18,6 +18,16 @@ pydantic = ">=2.6.0"         # Data validation
 pydantic-settings = "^2.2.1" # Settings management
 rich = "^13.7.1"             # Terminal formatting
 click = "^8.1.7"             # Command-line interface
+numpy = "^1.26.4"            # Numerical computations
+psutil = "^5.9.8"            # System resource monitoring
+
+# RAG dependencies
+sentence-transformers = "^2.5.1" # Text embeddings
+faiss-cpu = "^1.8.0"             # Vector similarity search
+annoy = "^1.17.3"                # Approximate nearest neighbors
+nltk = "^3.8.1"                  # Natural language processing
+beautifulsoup4 = "^4.13.3"       # HTML parsing
+python-magic = "^0.4.27"         # File type detection
 
 # Security dependencies
 cryptography = "^44.0.1" # Cryptographic recipes
@@ -33,7 +43,7 @@ opentelemetry-sdk = "^1.30.0" # Telemetry SDK
 
 # Optional dependencies for future features
 pyjwt = { extras = ["crypto"], version = "^2.10.1" }
-beautifulsoup4 = "^4.13.3"
+
 [tool.poetry.group.web]
 optional = true
 
