@@ -1,71 +1,107 @@
-# Pepperpy
+# PepperPy
 
-A Python framework for building AI-powered applications.
+PepperPy is a Python library that provides a comprehensive set of tools for building and deploying AI-powered applications. It includes modules for Retrieval-Augmented Generation (RAG), observability, security, and analysis.
 
 ## Features
 
-- **Security**: Comprehensive security system with authentication, authorization, and data protection
-- **Extensible**: Plugin-based architecture for easy extension and customization
-- **Type-Safe**: Full type hints and runtime type checking with Pydantic
-- **Modern**: Built with modern Python features and best practices
-- **Scalable**: Designed for scalability and performance
-- **Observable**: Built-in monitoring, logging, and tracing
-- **Documented**: Extensive documentation and examples
+- **RAG Module**: Implements retrieval-augmented generation with:
+  - Text chunking and preprocessing
+  - Document embedding using transformer models
+  - Vector and text-based indexing
+  - Hybrid retrieval strategies
+
+- **Observability**: Provides tools for:
+  - Health checks and monitoring
+  - Metrics collection and reporting
+  - Performance analysis
+
+- **Security**: Includes features for:
+  - Code and content auditing
+  - Security event analysis
+  - Vulnerability reporting
+
+- **Analysis**: Offers functionality for:
+  - Data processing and transformation
+  - Metrics collection and analysis
+  - Performance optimization
 
 ## Installation
 
+1. Clone the repository:
 ```bash
-pip install pepperpy
+git clone https://github.com/yourusername/pepperpy.git
+cd pepperpy
 ```
 
-Or with Poetry:
-
+2. Create a virtual environment (optional but recommended):
 ```bash
-poetry add pepperpy
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-## Quick Start
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-Here's a simple example of using Pepperpy's security system:
+## Usage
+
+Here's a simple example of using PepperPy's RAG module:
 
 ```python
-from pepperpy.security import (
-    BaseSecurityProvider,
-    Credentials,
-    SecurityScope,
-    requires_authentication,
-    requires_scope,
-)
+from pepperpy.rag.embedding import TextEmbedder
+from pepperpy.rag.indexing import VectorIndexer
+from pepperpy.rag.retrieval import VectorRetriever
 
-# Create security provider
-provider = BaseSecurityProvider()
-provider.initialize()
+# Initialize components
+embedder = TextEmbedder()
+indexer = VectorIndexer()
+retriever = VectorRetriever(embedder=embedder, indexer=indexer)
 
-# Authenticate user
-credentials = Credentials(
-    user_id="user123",
-    password="secret",
-    scopes={SecurityScope.READ},
-)
-token = provider.authenticate(credentials)
+# Initialize the retriever
+await retriever.initialize()
 
-# Use security decorators
-@requires_authentication
-@requires_scope(SecurityScope.READ)
-def get_data():
-    return "Sensitive data"
+# Index some documents
+documents = ["First document", "Second document", "Third document"]
+embeddings = await embedder.embed(documents)
+await indexer.index(embeddings, metadata=[{"id": i} for i in range(len(documents))])
 
-# Access protected data
-data = get_data()  # Will raise AuthenticationError if not authenticated
+# Retrieve similar documents
+results = await retriever.retrieve("query text", k=2)
+print(results)
+
+# Clean up
+await retriever.cleanup()
 ```
 
-## Documentation
+## Development
 
-For more information, check out our [documentation](https://pepperpy.readthedocs.io/).
+1. Install development dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+2. Run tests:
+```bash
+pytest tests/
+```
+
+3. Run linters and formatters:
+```bash
+black .
+isort .
+mypy .
+pylint pepperpy/
+flake8 pepperpy/
+```
 
 ## Contributing
 
-We welcome contributions! Please see our [contributing guide](CONTRIBUTING.md) for details.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and linters
+5. Submit a pull request
 
 ## License
 

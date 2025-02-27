@@ -1,7 +1,7 @@
 """
 Core types package.
 
-This package provides fundamental type definitions used throughout PepperPy.
+Defines core types and type aliases used throughout the framework.
 """
 
 from .base import (
@@ -30,9 +30,16 @@ from .enums import (
     AgentState,
     CapabilityID,
     ComponentState,
+    ErrorCategory,
+    IndexType,
+    LogLevel,
+    ProviderType,
     ResourceID,
+    ResourceType,
+    TaskStatus,
     WorkflowID,
 )
+from .results import Result
 
 __all__ = [
     # From base
@@ -62,4 +69,11 @@ __all__ = [
     "CapabilityID",
     "ResourceID",
     "WorkflowID",
+    # Additional enums
+    "ErrorCategory",
+    "IndexType",
+    "LogLevel",
+    "ProviderType",
+    "ResourceType",
+    "TaskStatus",
 ]

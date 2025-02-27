@@ -1,113 +1,92 @@
-"""Base agent module for the Pepperpy framework.
+"""Interfaces base para o módulo de agentes
 
-This module provides the core agent functionality and interfaces that all agents must implement.
-It defines the base agent class, agent states, configuration, and common utilities.
+Define as interfaces e classes base para os diferentes tipos de agentes
+e suas capacidades no framework.
 """
 
-from dataclasses import dataclass, field
+from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Protocol
+from uuid import UUID
 
-from pepperpy.core.base import (
-    ComponentBase,
-    ComponentCallback,
-    ComponentConfig,
-    ComponentState,
-)
-from pepperpy.core.types import AgentID
+from pepperpy.core.types.base import BaseComponent
+from pepperpy.core.types.enums import AgentID, AgentState
 
 
-@dataclass
-class AgentConfig(ComponentConfig):
-    """Agent configuration."""
+class AgentCapability(Protocol):
+    """Protocol for agent capabilities."""
 
-    model: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 2048
-    capabilities: List[str] = field(default_factory=list)
-    memory: Dict[str, Any] = field(default_factory=dict)
-    workflow: Optional[List[Dict[str, Any]]] = None
+    async def execute(self, **kwargs: Any) -> Any:
+        """Execute the capability.
 
+        Args:
+            **kwargs: Capability parameters
 
-class AgentCallback(ComponentCallback, Protocol):
-    """Protocol for agent callbacks."""
-
-    async def on_state_change(self, agent_id: str, state: ComponentState) -> None:
-        """Called when agent state changes."""
-        ...
-
-    async def on_error(self, agent_id: str, error: Exception) -> None:
-        """Called when agent encounters an error."""
-        ...
-
-    async def on_progress(self, agent_id: str, progress: float) -> None:
-        """Called when agent makes progress."""
+        Returns:
+            Capability result
+        """
         ...
 
 
-class BaseAgent(ComponentBase):
-    """Base class for all agents.
+class BaseAgent(BaseComponent, ABC):
+    """Base class for all agents."""
 
-    This class extends ComponentBase with agent-specific functionality:
-    - Model configuration
-    - Capabilities management
-    - Memory management
-    - Workflow integration
-    """
-
-    def __init__(
-        self,
-        config: Optional[AgentConfig] = None,
-        callback: Optional[AgentCallback] = None,
-    ) -> None:
+    def __init__(self, id: UUID, name: str) -> None:
         """Initialize agent.
 
         Args:
-            config: Optional agent configuration
-            callback: Optional callback for agent events
+            id: Agent ID
+            name: Agent name
         """
-        super().__init__(config or AgentConfig(name=self.__class__.__name__), callback)
-        self.id = AgentID(self.id)  # Convert ComponentID to AgentID
+        super().__init__(name=name, id=id)
+        self._state = AgentState.UNKNOWN
+        self._capabilities: Dict[str, AgentCapability] = {}
 
     @property
-    def capabilities(self) -> List[str]:
-        """Get agent capabilities."""
-        if isinstance(self.config, AgentConfig):
-            return self.config.capabilities
-        return []
+    def agent_id(self) -> AgentID:
+        """Get agent ID."""
+        return AgentID(str(self.id))
 
     @property
-    def memory(self) -> Dict[str, Any]:
-        """Get agent memory."""
-        if isinstance(self.config, AgentConfig):
-            return self.config.memory
-        return {}
+    def state(self) -> AgentState:
+        """Get agent state."""
+        return self._state
 
-    async def _initialize(self) -> None:
-        """Initialize agent implementation.
-
-        This method should be implemented by subclasses to perform
-        agent-specific initialization.
-        """
-        pass
-
-    async def _execute(self, **kwargs: Any) -> Any:
-        """Execute agent implementation.
-
-        This method should be implemented by subclasses to perform
-        agent-specific execution.
+    @abstractmethod
+    async def execute(self, **kwargs: Any) -> Any:
+        """Execute agent task.
 
         Args:
-            **kwargs: Execution parameters
+            **kwargs: Task parameters
 
         Returns:
-            Execution result
+            Task result
         """
-        pass
+        ...
 
-    async def _cleanup(self) -> None:
-        """Clean up agent implementation.
+    def add_capability(self, name: str, capability: AgentCapability) -> None:
+        """Add a capability to the agent.
 
-        This method should be implemented by subclasses to perform
-        agent-specific cleanup.
+        Args:
+            name: Capability name
+            capability: Capability implementation
         """
-        pass
+        self._capabilities[name] = capability
+
+    def get_capability(self, name: str) -> Optional[AgentCapability]:
+        """Get a capability by name.
+
+        Args:
+            name: Capability name
+
+        Returns:
+            Capability implementation or None if not found
+        """
+        return self._capabilities.get(name)
+
+    def list_capabilities(self) -> List[str]:
+        """List all capabilities.
+
+        Returns:
+            List of capability names
+        """
+        return list(self._capabilities.keys())

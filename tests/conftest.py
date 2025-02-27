@@ -8,7 +8,9 @@ It includes:
 """
 
 import asyncio
+import sys
 from collections.abc import AsyncGenerator, Generator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -16,6 +18,48 @@ import pytest_asyncio
 
 from pepperpy.core.metrics import MetricsManager
 from pepperpy.security import SecurityContext, SecurityLevel
+
+# Add the project root directory to the Python path
+project_root = str(Path(__file__).parent.parent)
+sys.path.insert(0, project_root)
+
+
+# Configure pytest
+def pytest_configure(config):
+    """Configure pytest."""
+    config.addinivalue_line(
+        "markers",
+        "asyncio: mark test as requiring asyncio",
+    )
+
+
+# Create fixtures that can be used across tests
+@pytest.fixture
+def test_data_dir():
+    """Return the path to the test data directory."""
+    return Path(__file__).parent / "data"
+
+
+@pytest.fixture
+def sample_documents():
+    """Return a list of sample documents for testing."""
+    return [
+        "This is the first test document.",
+        "This is the second test document.",
+        "This is the third test document.",
+        "This is a different document about testing.",
+        "This document is about something else entirely.",
+    ]
+
+
+@pytest.fixture
+def sample_queries():
+    """Return a list of sample queries for testing."""
+    return [
+        "test document",
+        "different document",
+        "something else",
+    ]
 
 
 @pytest.fixture(scope="session")

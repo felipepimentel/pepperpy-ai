@@ -1,9 +1,46 @@
-"""Core enums for the Pepperpy project.
+"""Core enumerations.
 
-This module defines enums used throughout the project.
+Defines enumerations used throughout the framework.
 """
 
 from enum import Enum, auto
+from uuid import UUID
+
+
+class ComponentState(Enum):
+    """Component execution states."""
+
+    UNKNOWN = auto()
+    INITIALIZING = auto()
+    READY = auto()
+    EXECUTING = auto()
+    PAUSED = auto()
+    COMPLETED = auto()
+    ERROR = auto()
+    CLEANED = auto()
+
+
+class AgentState(Enum):
+    """Agent execution states."""
+
+    UNKNOWN = auto()
+    INITIALIZING = auto()
+    READY = auto()
+    EXECUTING = auto()
+    PAUSED = auto()
+    COMPLETED = auto()
+    ERROR = auto()
+    CLEANED = auto()
+
+
+# Type aliases for IDs
+AgentID = UUID
+CapabilityID = UUID
+ProviderID = UUID
+ResourceID = UUID
+WorkflowID = UUID
+
+# Re-export AgentState from agents module to avoid circular imports
 
 
 class ProviderType(Enum):

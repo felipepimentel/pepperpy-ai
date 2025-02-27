@@ -29,22 +29,30 @@ structure:
         - registry.py: Adapter registry module
         - types.py: Adapter type system
       agents:
-        description: Agent capabilities package for Pepperpy
+        description: Módulo de agentes do PepperPy
+        modules:
+          capabilities:
+            description: ''
+            files:
+            - planning.py: Module for agent planning capabilities
+            - reasoning.py: Module for agent reasoning capabilities
+            - research.py: Research agents for the Pepperpy framework
+          types:
+            description: ''
+            files:
+            - autonomous.py: Autonomous agent module for the Pepperpy framework
+            - interactive.py: Interactive agent module for the Pepperpy framework
+            - task_assistant.py: Task Assistant Agent implementation
         files:
-        - __init__.py: Agent capabilities package for Pepperpy
-        - agents.py: Core agent functionality for PepperPy
-        - autonomous.py: Autonomous agent module for the Pepperpy framework
-        - base.py: Base agent module for the Pepperpy framework
+        - __init__.py: Módulo de agentes do PepperPy
+        - base.py: Interfaces base para o módulo de agentes
         - chains.py: Base chain interface
         - factory.py: Agent factory module for the Pepperpy framework
-        - interactive.py: Interactive agent module for the Pepperpy framework
+        - implementations.py: Core agent functionality for PepperPy
         - manager.py: Agent manager for coordinating agent creation and execution
         - multi_agent.py: Module for multi-agent collaboration capabilities
-        - planning.py: Module for agent planning capabilities
-        - reasoning.py: Module for agent reasoning capabilities
         - registry.py: Agent registry module for the Pepperpy framework
-        - research.py: Research agents for the Pepperpy framework
-        - task_assistant.py: Task Assistant Agent implementation
+        - types.py: Tipos e enums para o módulo de agentes
         - workflow_agent.py: Workflow agent module for the Pepperpy framework
       analysis:
         description: Analysis package for PepperPy
@@ -112,7 +120,7 @@ structure:
         files:
         - __init__.py: Módulos para processamento, análise e transformação de conteúdo
         - base.py: Base data pipeline components for stream and batch processing
-        - code.py: '@file: code.py'
+        - code_processor.py: Code content processor implementation
       core:
         description: Core package providing fundamental functionality for PepperPy
         modules:
@@ -120,7 +128,7 @@ structure:
             description: ''
             files:
             - client.py: Client module
-            - common.py: '@file: base.py'
+            - common.py: Funções e classes comuns do core
           capabilities:
             description: Capabilities module for the Pepperpy framework
             files:
@@ -206,7 +214,7 @@ structure:
                 - base.py: Base logging module for the Pepperpy framework
                 - filters.py: Context filter for logging
                 - formatters.py: Logging formatters for the Pepperpy framework
-                - handlers.py: '@file: file.py'
+                - handlers.py: Handlers de logging para diferentes destinos
               metrics:
                 description: ''
               monitoring:
@@ -249,9 +257,9 @@ structure:
             description: Core types package
             files:
             - __init__.py: ''
-            - base.py: Base module
+            - base.py: Base types for core components
             - common.py: Common module
-            - enums.py: Core enums for the Pepperpy project
+            - enums.py: Core enumerations
             - models.py: Models module
           utils:
             description: ''
@@ -283,10 +291,8 @@ structure:
         files:
         - __init__.py: Core package providing fundamental functionality for PepperPy
         - base.py: Core base classes for PepperPy
-        - events.py: ''
-        - metrics.py: ''
+        - events.py: Sistema de eventos para comunicação entre componentes
         - registry.py: ''
-        - types.py: Core types for PepperPy
       evaluation:
         description: Evaluation package for assessing agent performance
         files:
@@ -318,7 +324,7 @@ structure:
         - __init__.py: Sistema de armazenamento e recuperação de memória para agentes
         - base.py: Base interfaces for the Pepperpy memory system
         - cache.py: Cache system implementation for the Pepperpy framework
-        - simple.py: Simple in-memory storage implementation
+        - in_memory.py: Simple in-memory storage implementation
         - vector.py: Vector-based memory storage implementation
       multimodal:
         description: Multimodal processing package for Pepperpy
@@ -383,7 +389,11 @@ structure:
             - __init__.py: Sistema de roteamento inteligente de requisições entre
                 diferentes modelos e endpoints
           token_management:
-            description: ''
+            description: Sistema de gerenciamento eficiente de tokens para redução
+              de custos
+            files:
+            - __init__.py: Sistema de gerenciamento eficiente de tokens para redução
+                de custos
         files:
         - __init__.py: Optimization package for resource efficiency
         - base.py: Core interfaces for optimization components
@@ -458,32 +468,46 @@ structure:
         description: RAG (Retrieval Augmented Generation) package
         modules:
           augmentation:
-            description: ''
+            description: RAG augmentation package
+            files:
+            - __init__.py: RAG augmentation package
+            - augmenters.py: RAG augmentation implementations
           chunking:
-            description: ''
+            description: RAG chunking package
+            files:
+            - __init__.py: RAG chunking package
+            - chunkers.py: RAG chunking implementations
           embedding:
-            description: ''
+            description: RAG embedding package
+            files:
+            - __init__.py: RAG embedding package
+            - embedders.py: RAG embedding implementations
           evaluation:
-            description: ''
+            description: RAG evaluation package
+            files:
+            - __init__.py: RAG evaluation package
           indexing:
-            description: ''
+            description: RAG indexing package
+            files:
+            - __init__.py: RAG indexing package
+            - indexers.py: RAG indexing implementations
           retrieval:
-            description: ''
+            description: RAG retrieval package
+            files:
+            - __init__.py: RAG retrieval package
+            - retrievers.py: RAG retrieval implementations
           templates:
-            description: ''
+            description: RAG templates package
+            files:
+            - __init__.py: RAG templates package
         files:
         - __init__.py: RAG (Retrieval Augmented Generation) package
-        - augmenters.py: Augmenter implementations for the RAG system
         - base.py: Core interfaces and base classes for the RAG system
-        - chunkers.py: Implementations of different chunking strategies
         - config.py: Configuration settings for the RAG system
         - defaults.py: Default component registration for the RAG system
-        - embedders.py: Implementations of different embedding strategies
         - factory.py: Factory for creating RAG pipelines
-        - indexers.py: Indexer implementations for the RAG system
         - pipeline.py: Pipeline implementations for the RAG system
         - registry.py: Registry for RAG components
-        - retrievers.py: Retriever implementations for the RAG system
         - types.py: Core data types for the RAG system
       security:
         description: Security package for PepperPy
@@ -492,13 +516,14 @@ structure:
             description: Audit package for PepperPy security
             files:
             - __init__.py: Audit package for PepperPy security
+            - analyzer.py: Audit analysis functionality for PepperPy security
             - events.py: Audit events functionality for PepperPy security
             - logger.py: Audit logging for security events
+            - reporting.py: Audit reporting functionality for PepperPy security
         files:
         - __init__.py: Security package for PepperPy
-        - audit.py: Module for auditing LLM interactions and security events
         - auth.py: Authentication and authorization functionality
-        - base.py: ''
+        - base.py: Interfaces base para o sistema de segurança
         - content_filter.py: Module for filtering sensitive or inappropriate content
         - crypto.py: Cryptographic functionality
         - prompt_injection.py: Module for protecting against prompt injection attacks
@@ -517,15 +542,15 @@ structure:
         - __init__.py: Core workflow management module
         - actions.py: Workflow action registry implementation
         - base.py: Base workflow module for the Pepperpy framework
-        - engine.py: Workflow engine module for the Pepperpy framework
+        - definitions.py: Core workflows module
         - errors.py: Workflow-specific error types
         - examples.py: Example workflow actions
         - executor.py: Workflow executor module for the Pepperpy framework
         - manager.py: Workflow manager module for the Pepperpy framework
-        - pipeline.py: Processing pipeline implementation
         - registry.py: Registry module
+        - runtime.py: Workflow engine module for the Pepperpy framework
         - scheduler.py: Workflow scheduler module for the Pepperpy framework
         - types.py: Core workflow types and data structures
-        - workflows.py: Core workflows module
+        - workflow_pipeline.py: Processing pipeline implementation
     files:
     - __init__.py: PepperPy Framework

@@ -1,16 +1,25 @@
-"""
-Core registry module defining component registration functionality.
+"""Registro central de componentes do sistema
 
-This module provides the base classes and interfaces for registering and managing
-components throughout PepperPy.
+Este módulo implementa o registro central que gerencia todos os componentes do framework,
+fornecendo:
+
+- Registro e descoberta de componentes
+- Gerenciamento do ciclo de vida
+- Resolução de dependências
+- Metadados e configurações
+- Validação de componentes
+- Monitoramento de estado
+
+O registro é uma peça fundamental para manter a coesão e permitir a extensibilidade
+do framework através de um ponto central de controle.
 """
 
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 from uuid import uuid4
 
-from ..errors import DuplicateError, NotFoundError
-from ..types import BaseComponent, ComponentID, Metadata
+from pepperpy.core.errors import DuplicateError, NotFoundError
+from pepperpy.core.types.base import BaseComponent, ComponentID, Metadata
 
 T = TypeVar("T", bound=BaseComponent)
 

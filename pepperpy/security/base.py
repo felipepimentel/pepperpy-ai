@@ -1,8 +1,7 @@
-"""
-Core security module defining security functionality.
+"""Interfaces base para o sistema de segurança
 
-This module provides base classes and utilities for implementing security
-features throughout PepperPy.
+Define as interfaces e classes base para o sistema de segurança,
+incluindo permissões, papéis e usuários.
 """
 
 from abc import ABC

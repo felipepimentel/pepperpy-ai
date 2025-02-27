@@ -1,8 +1,21 @@
-"""
-Core observability module defining monitoring functionality.
+"""Interfaces base para o sistema de observabilidade
 
-This module provides base classes and utilities for implementing observability
-features (metrics, tracing, logging) throughout PepperPy.
+Este módulo define as interfaces e classes base para o sistema de observabilidade,
+fornecendo:
+
+- Métricas e telemetria
+- Tracing distribuído
+- Logging estruturado
+- Monitoramento de saúde
+- Alertas e notificações
+- Dashboards e visualizações
+
+O sistema de observabilidade é essencial para:
+- Monitorar o comportamento do sistema
+- Diagnosticar problemas
+- Otimizar performance
+- Garantir confiabilidade
+- Manter segurança
 """
 
 from datetime import datetime

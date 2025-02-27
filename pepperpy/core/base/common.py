@@ -1,9 +1,7 @@
-"""@file: base.py
-@purpose: Core base interfaces and classes for the Pepperpy framework
-@component: Core
-@created: 2024-02-15
-@task: TASK-003
-@status: active
+"""Funções e classes comuns do core
+
+Common functions and base classes used throughout the core module.
+Provides foundational interfaces and implementations for the framework.
 """
 
 from __future__ import annotations

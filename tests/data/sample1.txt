@@ -1,0 +1,14 @@
+This is a sample text document for testing the RAG module.
+It contains multiple paragraphs with different content.
+
+The first paragraph talks about machine learning and artificial intelligence.
+These technologies are revolutionizing how we process and understand information.
+Neural networks and deep learning have enabled significant advances in natural language processing.
+
+The second paragraph discusses data processing and analysis.
+Organizations need efficient ways to handle large volumes of data.
+Proper data management is crucial for making informed decisions.
+
+The final paragraph covers information retrieval systems.
+Modern search engines use sophisticated algorithms to find relevant content.
+Vector similarity and semantic search have improved the quality of search results. 

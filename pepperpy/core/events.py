@@ -1,8 +1,7 @@
-"""
-Core events module defining the event system functionality.
+"""Sistema de eventos para comunicação entre componentes
 
-This module provides the base classes and interfaces for the event-driven
-architecture used throughout PepperPy.
+Implementa o sistema de eventos que permite a comunicação assíncrona e desacoplada
+entre diferentes componentes do framework através de um barramento de eventos.
 """
 
 from abc import ABC, abstractmethod

@@ -1,3 +1,9 @@
+"""Handlers de logging para diferentes destinos
+
+Implementação de handlers para logging que suportam diferentes destinos como
+arquivos, streams, e outros mecanismos de output.
+"""
+
 """@file: file.py
 @purpose: File log handler implementation
 @component: Core/Logging
