@@ -1,44 +1,68 @@
-"""Utilitários e funções auxiliares do core.
+"""Core utilities and helper functions.
 
-Este módulo fornece utilitários e funções auxiliares usados em todo o framework,
-incluindo:
+This module provides utilities and helper functions used throughout the framework,
+including:
 
-- Manipulação de Dados
-  - Conversão de tipos
-  - Validação de dados
-  - Serialização
-  - Formatação
+- Data Manipulation
+  - Type conversion
+  - Data validation
+  - Serialization
+  - Formatting
 
-- Gerenciamento de Recursos
-  - Alocação
-  - Limpeza
-  - Monitoramento
-  - Cache
+- Resource Management
+  - Allocation
+  - Cleanup
+  - Monitoring
+  - Caching
 
-- Otimizações
+- Optimizations
   - Performance
-  - Memória
+  - Memory
   - I/O
-  - Concorrência
+  - Concurrency
 
-O módulo é projetado para:
-- Centralizar funções comuns
-- Evitar duplicação
-- Padronizar operações
-- Facilitar manutenção
+The module is designed to:
+- Centralize common functions
+- Avoid duplication
+- Standardize operations
+- Facilitate maintenance
 """
 
 from typing import Dict, List, Optional, Union
 
 from .data import DataUtils
-from .io import IOUtils
-from .system import SystemUtils
-from .validation import ValidationUtils
+from .data_manipulation import (
+    DataUtils as DataUtilsNew,
+)
+from .data_manipulation import (
+    DateUtils,
+    DictUtils,
+    ListUtils,
+    NumberUtils,
+    StringUtils,
+)
+
+# These modules are planned but not yet implemented with proper classes
+# from .io import IOUtils
+# from .system import SystemUtils
+# from .validation import ValidationUtils
+from .serialization import CsvUtils, JsonUtils, SerializationUtils, XmlUtils, YamlUtils
 
 __version__ = "0.1.0"
 __all__ = [
     "DataUtils",
-    "IOUtils",
-    "SystemUtils",
-    "ValidationUtils",
+    # "IOUtils",
+    # "SystemUtils",
+    # "ValidationUtils",
+    "SerializationUtils",
+    "JsonUtils",
+    "YamlUtils",
+    "XmlUtils",
+    "CsvUtils",
+    "StringUtils",
+    "NumberUtils",
+    "DateUtils",
+    "DictUtils",
+    "ListUtils",
+    "DataUtilsNew",
 ]

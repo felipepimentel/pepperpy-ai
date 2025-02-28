@@ -1,7 +1,7 @@
-"""Módulo de agentes do PepperPy
+"""Agent module for PepperPy.
 
-Implementa diferentes tipos de agentes e suas capacidades,
-permitindo a execução de tarefas autônomas e interativas.
+Implements different types of agents and their capabilities,
+enabling autonomous and interactive task execution.
 """
 
 from typing import Dict, List, Optional, Union

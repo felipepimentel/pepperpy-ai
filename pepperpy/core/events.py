@@ -1,7 +1,7 @@
-"""Sistema de eventos para comunicação entre componentes
+"""Event system for component communication.
 
-Implementa o sistema de eventos que permite a comunicação assíncrona e desacoplada
-entre diferentes componentes do framework através de um barramento de eventos.
+Implements an event system that enables asynchronous and decoupled communication
+between different framework components through an event bus.
 """
 
 from abc import ABC, abstractmethod

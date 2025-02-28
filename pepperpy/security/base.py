@@ -1,7 +1,7 @@
-"""Interfaces base para o sistema de segurança
+"""Base interfaces for the security system.
 
-Define as interfaces e classes base para o sistema de segurança,
-incluindo permissões, papéis e usuários.
+Defines the interfaces and base classes for the security system,
+including permissions, roles, and users.
 """
 
 from abc import ABC

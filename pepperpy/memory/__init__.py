@@ -1,4 +1,4 @@
-"""Sistema de armazenamento e recuperação de memória para agentes."""
+"""Memory storage and retrieval system for agents."""
 
 from .base import Memory, MemoryConfig
 from .manager import MemoryManager

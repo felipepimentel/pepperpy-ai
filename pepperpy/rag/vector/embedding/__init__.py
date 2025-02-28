@@ -1,21 +1,24 @@
-"""RAG embedding package.
+"""Embedding module for RAG (DEPRECATED)
 
-This package provides functionality for converting text and documents into
-vector embeddings for semantic search and retrieval.
+This module is deprecated, use pepperpy.rag.embedders instead.
+This module will be removed in version 1.0.0.
 """
 
-from .embedders import (
-    Embedder,
-    TextEmbedder,
-    DocumentEmbedder,
-    SentenceEmbedder,
+import warnings
+from typing import Any, Dict
+
+# Import from new location for backward compatibility
+from ...embedders import TextEmbedder as EmbeddingModel
+
+# Configuration type for backward compatibility
+EmbeddingConfig = Dict[str, Any]
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.rag.vector.embedding' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.rag.embedders' instead.",
+    DeprecationWarning,
+    stacklevel=2,
 )
 
-__all__ = [
-    # Base class
-    "Embedder",
-    # Specific embedders
-    "TextEmbedder",
-    "DocumentEmbedder",
-    "SentenceEmbedder",
-]
+__all__ = ["EmbeddingModel", "EmbeddingConfig"]

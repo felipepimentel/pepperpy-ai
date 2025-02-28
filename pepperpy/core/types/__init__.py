@@ -1,13 +1,13 @@
-"""Sistema de tipos do PepperPy
+"""Type system for PepperPy.
 
-Este módulo define o sistema de tipos fundamental do framework,
-fornecendo:
+This module defines the framework's fundamental type system,
+providing:
 
-- Tipos Base
-  - Componentes
-  - Identificadores
-  - Configurações
-  - Metadados
+- Base Types
+  - Components
+  - Identifiers
+  - Configurations
+  - Metadata
 
 - Tipos Genéricos
   - Eventos

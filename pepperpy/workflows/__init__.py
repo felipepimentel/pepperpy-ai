@@ -1,8 +1,13 @@
 """Workflow system for PepperPy framework (DEPRECATED).
 
 This module provides functionality for defining and executing workflows.
-This module is deprecated and will be removed in a future version.
+This module is deprecated and will be removed in version 1.0.0 (scheduled for Q3 2023).
 Please use the 'pepperpy.workflow' module instead.
+
+The functionality previously provided by this module has been moved:
+- workflows/definition/base.py → workflow/base.py
+- workflows/definition/builder.py → workflow/builder.py
+- workflows/definition/factory.py → workflow/factory.py
 """
 
 import warnings
@@ -53,7 +58,7 @@ class WorkflowExecutor:
 
 # Show deprecation warning
 warnings.warn(
-    "The 'pepperpy.workflows' module is deprecated and will be removed in a future version. "
+    "The 'pepperpy.workflows' module is deprecated and will be removed in version 1.0.0 (Q3 2023). "
     "Please use 'pepperpy.workflow' module instead.",
     DeprecationWarning,
     stacklevel=2,

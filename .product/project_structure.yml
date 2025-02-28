@@ -532,6 +532,13 @@ structure:
             description: RAG evaluation package
             files:
             - __init__.py: RAG evaluation package
+          optimizations:
+            description: RAG Optimizations Module
+            files:
+            - __init__.py: ''
+            - caching.py: Vector caching for performance optimization
+            - compression.py: Vector compression for memory optimization
+            - pruning.py: Vector pruning for index optimization
           retrieval:
             description: RAG retrieval package
             files:
@@ -568,8 +575,11 @@ structure:
         - base.py: Core interfaces and base classes for the RAG system
         - config.py: Configuration settings for the RAG system
         - defaults.py: Default component registration for the RAG system
+        - embedders.py: RAG embedding implementations
         - factory.py: Factory for creating RAG pipelines
+        - indexers.py: RAG indexing implementations
         - pipeline.py: Pipeline implementations for the RAG system
+        - preprocessing.py: RAG preprocessing implementations
         - registry.py: Registry for RAG components
         - types.py: Core data types for the RAG system
       security:

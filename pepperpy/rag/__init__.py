@@ -1,16 +1,9 @@
 """RAG (Retrieval Augmented Generation) package."""
 
-from .augmenters import HybridAugmenter, MultiStageAugmenter, TemplateAugmenter
 from .base import (
-    Augmenter,
-    Chunker,
-    Embedder,
-    Indexer,
     RagComponent,
     RagPipeline,
-    Retriever,
 )
-from .chunkers import HTMLChunker, RecursiveChunker, TextChunker
 from .config import (
     AugmentationConfig,
     ChunkingConfig,
@@ -21,16 +14,49 @@ from .config import (
 )
 from .defaults import register_default_components
 from .embedders import (
-    BatchedEmbedder,
-    CachedEmbedder,
-    HybridEmbedder,
-    TransformerEmbedder,
+    DocumentEmbedder,
+    Embedder,
+    SentenceEmbedder,
+    TextEmbedder,
 )
 from .factory import RagPipelineFactory
-from .indexers import AnnoyIndexer, FaissIndexer, HybridIndexer
+from .indexers import (
+    HybridIndexer,
+    Indexer,
+    TextIndexer,
+    VectorIndexer,
+)
+from .optimizations import (
+    # Compression
+    DimensionalityReducer,
+    DiversityPruner,
+    # Caching
+    EmbeddingCache,
+    QualityPruner,
+    QuantizationCompressor,
+    QueryCache,
+    # Pruning
+    RedundancyPruner,
+    ResultCache,
+    VectorCompressor,
+)
 from .pipeline import StandardRagPipeline
+
+# Import from new consolidated modules
+from .preprocessing import (
+    # Augmentation
+    Augmenter,
+    # Chunking
+    Chunker,
+    ContextAugmenter,
+    ParagraphChunker,
+    QueryAugmenter,
+    ResultAugmenter,
+    SentenceChunker,
+    TextChunker,
+    TokenChunker,
+)
 from .registry import registry
-from .retrievers import HybridRetriever, ReRankingRetriever, StandardRetriever
 from .types import (
     Chunk,
     ChunkType,
@@ -77,23 +103,32 @@ __all__ = [
     "RagResponse",
     # Chunker implementations
     "TextChunker",
-    "RecursiveChunker",
-    "HTMLChunker",
+    "TokenChunker",
+    "SentenceChunker",
+    "ParagraphChunker",
     # Embedder implementations
-    "TransformerEmbedder",
-    "CachedEmbedder",
-    "BatchedEmbedder",
-    "HybridEmbedder",
+    "TextEmbedder",
+    "DocumentEmbedder",
+    "SentenceEmbedder",
     # Indexer implementations
-    "FaissIndexer",
-    "AnnoyIndexer",
+    "VectorIndexer",
+    "TextIndexer",
     "HybridIndexer",
-    # Retriever implementations
-    "StandardRetriever",
-    "HybridRetriever",
-    "ReRankingRetriever",
     # Augmenter implementations
-    "TemplateAugmenter",
-    "MultiStageAugmenter",
-    "HybridAugmenter",
+    "QueryAugmenter",
+    "ResultAugmenter",
+    "ContextAugmenter",
+    # Optimization implementations
+    # Caching
+    "EmbeddingCache",
+    "QueryCache",
+    "ResultCache",
+    # Compression
+    "DimensionalityReducer",
+    "VectorCompressor",
+    "QuantizationCompressor",
+    # Pruning
+    "RedundancyPruner",
+    "QualityPruner",
+    "DiversityPruner",
 ]

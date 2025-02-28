@@ -36,7 +36,7 @@ class VectorCompressor:
         raise NotImplementedError
 
 
-class PCACompressor(VectorCompressor):
+class DimensionalityReducer(VectorCompressor):
     """PCA-based vector compression."""
 
     def __init__(self, n_components: int) -> None:

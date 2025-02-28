@@ -1,49 +1,21 @@
-"""Vector index optimizations for RAG.
+"""Vector optimization module for RAG (DEPRECATED)
 
-This module implements optimizations to improve the efficiency and performance
-of vector indices in the RAG system, including:
-
-- Memory Optimizations
-  - Vector compression
-  - Quantization
-  - Pruning
-  - Caching
-
-- Search Optimizations
-  - Approximate indexing
-  - Clustering
-  - Partitioning
-  - Parallelization
-
-- Quality Optimizations
-  - Normalization
-  - Dimensionality
-  - Weighting
-  - Filtering
-
-The module provides:
-- Efficient algorithms
-- Optimized structures
-- Performance metrics
-- Adjustable configurations
+This module is deprecated, use pepperpy.rag.optimizations instead.
+This module will be removed in version 1.0.0.
 """
 
-from typing import Dict, List, Optional, Union
+import warnings
+from typing import Any, Dict
 
-from .caching import VectorCache
-from .compression import PCACompressor, QuantizationCompressor, VectorCompressor
-from .pruning import ThresholdPruner, TopKPruner, VectorPruner
+# Configuration type for backward compatibility
+VectorOptimizer = Dict[str, Any]
 
-__version__ = "0.1.0"
-__all__ = [
-    # Caching
-    "VectorCache",
-    # Compression
-    "VectorCompressor",
-    "PCACompressor",
-    "QuantizationCompressor",
-    # Pruning
-    "VectorPruner",
-    "ThresholdPruner",
-    "TopKPruner",
-]
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.rag.vector.optimization' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.rag.optimizations' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+__all__ = ["VectorOptimizer"]

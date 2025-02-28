@@ -1,31 +1,31 @@
-"""Sistema de tratamento de erros do PepperPy
+"""Error handling system for PepperPy.
 
-Este módulo define o sistema de tratamento de erros do framework,
-fornecendo:
+This module defines the framework's error handling system,
+providing:
 
-- Hierarquia de Exceções
-  - Erros de validação
-  - Erros de configuração
-  - Erros de execução
-  - Erros de sistema
+- Exception Hierarchy
+  - Validation errors
+  - Configuration errors
+  - Execution errors
+  - System errors
 
-- Tratamento de Erros
-  - Captura e propagação
-  - Contextualização
-  - Logging estruturado
-  - Recuperação
+- Error Handling
+  - Capturing and propagating
+  - Contextualization
+  - Structured Logging
+  - Recovery
 
-- Categorização
-  - Por severidade
-  - Por origem
-  - Por impacto
-  - Por ação necessária
+- Categorization
+  - By severity
+  - By origin
+  - By impact
+  - By necessary action
 
-O sistema de erros é projetado para:
-- Facilitar o diagnóstico
-- Permitir recuperação graceful
-- Manter rastreabilidade
-- Melhorar a experiência do desenvolvedor
+The error system is designed to:
+- Facilitate diagnosis
+- Allow graceful recovery
+- Maintain traceability
+- Improve developer experience
 """
 
 from typing import Any, Dict, List, Optional, Union

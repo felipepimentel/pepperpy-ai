@@ -1,31 +1,31 @@
-"""Pipeline de processamento de dados para o PepperPy
+"""Data processing pipeline for PepperPy.
 
-Este módulo implementa o sistema de pipelines para processamento de dados,
-fornecendo:
+This module implements the pipeline system for data processing,
+providing:
 
-- Definição de pipelines
-  - Etapas de processamento
-  - Fluxos de dados
-  - Transformações
-  - Validações
+- Pipeline definition
+  - Processing steps
+  - Data flows
+  - Transformations
+  - Validations
 
-- Execução de pipelines
-  - Processamento assíncrono
-  - Paralelização
-  - Monitoramento
-  - Tratamento de erros
+- Execution of pipelines
+  - Asynchronous processing
+  - Parallelization
+  - Monitoring
+  - Error handling
 
-- Extensibilidade
-  - Componentes plugáveis
-  - Hooks personalizados
+- Extensibility
+  - Plugable components
+  - Custom hooks
   - Middleware
-  - Métricas
+  - Metrics
 
-O sistema de pipelines é fundamental para:
-- Processamento estruturado de dados
-- Transformações em cadeia
-- Integração de componentes
-- Rastreabilidade de operações
+The pipeline system is fundamental for:
+- Structured data processing
+- Chain transformations
+- Component integration
+- Operation traceability
 """
 
 from typing import Dict, List, Optional, Union
