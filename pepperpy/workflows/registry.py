@@ -1,4 +1,4 @@
-"""Registro central de workflows
+"""Central registry for workflows
 
 Implementa o registro central que gerencia todos os workflows do sistema,
 incluindo seu ciclo de vida e estado de execução.

@@ -97,6 +97,8 @@ def list() -> None:
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort()
+
+
 """Workflow commands for the Pepperpy CLI.
 
 This module provides commands for managing workflows:
@@ -115,9 +117,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.core.errors import PepperpyError
 from pepperpy.monitoring import audit_logger
-from pepperpy.agents.workflowss import WorkflowEngine, WorkflowState
+from pepperpy.workflows import WorkflowEngine, WorkflowState
 
 console = Console()
 

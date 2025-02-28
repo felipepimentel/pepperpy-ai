@@ -6,13 +6,17 @@ This module provides the core abstractions for the format handling system:
 - FormatValidator: Interface for validating format compliance
 - FormatRegistry: Registry for managing format handlers and converters
 - FormatError: Base exception for format-related errors
+- BaseProcessor: Base class for data processors
+- BaseTransformer: Base class for data transformers
+- BaseValidator: Base class for data validators
 """
 
 import abc
-from typing import Dict, Generic, List, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 # Type variable for generic format handlers
 T = TypeVar("T")
+U = TypeVar("U")
 
 
 class FormatError(Exception):
@@ -196,3 +200,76 @@ class FormatRegistry:
             List of all file extensions
         """
         return list(self._extensions.keys())
+
+
+class BaseProcessor(Generic[T, U], abc.ABC):
+    """Base class for data processors."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize processor.
+
+        Args:
+            name: Processor name
+        """
+        self.name = name
+
+    @abc.abstractmethod
+    async def process(self, data: T, **kwargs: Any) -> U:
+        """Process data.
+
+        Args:
+            data: Data to process
+            **kwargs: Additional processing parameters
+
+        Returns:
+            Processed data
+        """
+        pass
+
+
+class BaseTransformer(Generic[T, U], abc.ABC):
+    """Base class for data transformers."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize transformer.
+
+        Args:
+            name: Transformer name
+        """
+        self.name = name
+
+    @abc.abstractmethod
+    async def transform(self, data: T) -> U:
+        """Transform data.
+
+        Args:
+            data: Data to transform
+
+        Returns:
+            Transformed data
+        """
+        pass
+
+
+class BaseValidator(Generic[T], abc.ABC):
+    """Base class for data validators."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize validator.
+
+        Args:
+            name: Validator name
+        """
+        self.name = name
+
+    @abc.abstractmethod
+    async def validate(self, data: T) -> bool:
+        """Validate data.
+
+        Args:
+            data: Data to validate
+
+        Returns:
+            True if valid, False otherwise
+        """
+        pass

@@ -1,6 +1,6 @@
-"""Validador de workflows.
+"""Workflow validator.
 
-Implementa a validação de workflows e suas definições.
+Implements validation for workflows and their definitions.
 """
 
 from typing import List

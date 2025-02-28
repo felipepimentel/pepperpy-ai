@@ -24,12 +24,13 @@ from pepperpy.core.common.utils.serialization import (
     YamlUtils,
 )
 from pepperpy.formats.audio import AudioProcessor
-from pepperpy.formats.base import FormatProcessor
+from pepperpy.formats.base import (
+    BaseProcessor,
+    BaseTransformer,
+    BaseValidator,
+    FormatProcessor,
+)
 from pepperpy.formats.csv import CSVProcessor
-from pepperpy.formats.html import HTMLProcessor
-from pepperpy.formats.image import ImageProcessor
-from pepperpy.formats.text import TextProcessor
-from pepperpy.formats.vector import VectorProcessor
 
 # Re-export utility classes from serialization.py
 # to maintain backward compatibility
@@ -40,6 +41,8 @@ from pepperpy.formats.formatters import (
     XmlFormatter,
     YamlFormatter,
 )
+from pepperpy.formats.html import HTMLProcessor
+from pepperpy.formats.image import ImageProcessor
 from pepperpy.formats.parsers import (
     JsonParser,
     Parser,
@@ -47,6 +50,8 @@ from pepperpy.formats.parsers import (
     XmlParser,
     YamlParser,
 )
+from pepperpy.formats.text import TextProcessor
+from pepperpy.formats.vector import VectorProcessor
 
 __all__ = [
     # Processors
@@ -57,21 +62,22 @@ __all__ = [
     "AudioProcessor",
     "ImageProcessor",
     "VectorProcessor",
-    
+    # Base classes
+    "BaseProcessor",
+    "BaseTransformer",
+    "BaseValidator",
     # Parsers
     "Parser",
     "TextParser",
     "JsonParser",
     "YamlParser",
     "XmlParser",
-    
     # Formatters
     "Formatter",
     "TextFormatter",
     "JsonFormatter",
     "YamlFormatter",
     "XmlFormatter",
-    
     # Utils
     "SerializationUtils",
     "JsonUtils",

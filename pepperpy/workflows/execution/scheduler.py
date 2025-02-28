@@ -12,11 +12,11 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Union
 from uuid import UUID
 
+from pepperpy.agents.workflowss.base import BaseWorkflow
 from pepperpy.core.common.base import ComponentBase, ComponentConfig
 from pepperpy.core.errors import WorkflowError
 from pepperpy.core.types import WorkflowID
 from pepperpy.monitoring.metrics import Counter, Histogram
-from pepperpy.agents.workflowss.base import BaseWorkflow
 
 logger = logging.getLogger(__name__)
 

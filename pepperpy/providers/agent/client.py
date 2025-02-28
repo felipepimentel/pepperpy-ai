@@ -1,9 +1,9 @@
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, Union
 
-from pepperpy.agents.providers.base import BaseProvider
-from pepperpy.agents.providers.domain import ProviderConfig, ProviderError
-from pepperpy.agents.providers.types import ProviderMessage, ProviderResponse
+from pepperpy.providers.agent.base import BaseProvider
+from pepperpy.providers.agent.domain import ProviderConfig, ProviderError
+from pepperpy.providers.agent.types import ProviderMessage, ProviderResponse
 
 
 # Alias for backward compatibility

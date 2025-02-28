@@ -8,14 +8,14 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID, uuid4
 
-from pepperpy.agents.providers.base import BaseProvider
-from pepperpy.agents.providers.domain import (
+from pepperpy.providers.agent.base import BaseProvider
+from pepperpy.providers.agent.domain import (
     ProviderConfig,
     ProviderMetadata,
 )
 from pepperpy.core.common.base import BaseComponent
-from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.common.logging import get_logger
+from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.types import ComponentState
 
 logger = get_logger(__name__)

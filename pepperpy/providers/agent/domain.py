@@ -5,7 +5,7 @@ It includes message and conversation models, as well as a hierarchy of
 provider-specific exceptions.
 
 Example:
-    >>> from pepperpy.agents.providers.domain import Message, Conversation
+    >>> from pepperpy.providers.agent.domain import Message, Conversation
     >>> message = Message(role="user", content="Hello!")
     >>> conversation = Conversation()
     >>> conversation.add_message("user", "Hello!")
@@ -21,8 +21,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pepperpy.core.common.base import Metadata
-from pepperpy.core.errors import PepperpyError
 from pepperpy.core.common.logging import get_logger
+from pepperpy.core.errors import PepperpyError
 from pepperpy.core.types import MetadataDict, MetadataValue
 
 logger = get_logger(__name__)

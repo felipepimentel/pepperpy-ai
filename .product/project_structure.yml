@@ -47,13 +47,9 @@ structure:
             - task_assistant.py: Task Assistant Agent implementation
             - workflow_agent.py: Workflow agent module for the Pepperpy framework
           providers:
-            description: Compatibility stub for providers
-            files:
-            - __init__.py: Compatibility stub for providers
+            description: ''
           workflows:
-            description: Compatibility stub for workflows
-            files:
-            - __init__.py: Compatibility stub for workflows
+            description: ''
         files:
         - __init__.py: Agent module for PepperPy
         - base.py: Base interfaces for the agents module
@@ -64,7 +60,6 @@ structure:
         - multi_agent.py: Module for multi-agent collaboration capabilities
         - registry.py: Agent registry module for the Pepperpy framework
         - types.py: Types and enums for the agents module
-        - workflow_agent.py: Workflow agent module for the Pepperpy framework
       analysis:
         description: Analysis package for PepperPy
         files:
@@ -135,12 +130,6 @@ structure:
             - workflow.py: Workflow commands for the Pepperpy CLI
           plugins:
             description: CLI plugins compatibility layer
-            modules:
-              examples:
-                description: ''
-                modules:
-                  hello:
-                    description: ''
             files:
             - __init__.py: CLI plugins compatibility layer
           utils:
@@ -181,13 +170,7 @@ structure:
             - client.py: Client module
             - common.py: Common base classes for PepperPy components
           capabilities:
-            description: 'COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.capabilities.__init__
-              This stub exists for backward compatibility and will be removed in a
-              future version'
-            files:
-            - __init__.py: ''
-            - base.py: ''
-            - providers.py: ''
+            description: ''
           common:
             description: Common utilities and shared components for the Pepperpy framework
             modules:
@@ -379,29 +362,9 @@ structure:
             - storage.py: Resource storage system
             - types.py: Resource type definitions
           types:
-            description: Compatibility stub for types
-            files:
-            - __init__.py: Compatibility stub for types
-            - base.py: Base types for core components
-            - common.py: Common module
-            - enums.py: Core enumerations
-            - models.py: Models module
+            description: ''
           utils:
-            description: Compatibility stub for utils
-            files:
-            - __init__.py: Compatibility stub for utils
-            - collections.py: Collection utilities for PepperPy
-            - config.py: Utilities for configuration file manipulation
-            - data.py: Data manipulation utilities
-            - data_manipulation.py: Data manipulation utilities
-            - dates.py: Date utilities
-            - files.py: File handling utilities
-            - formatting.py: Formatting module
-            - io.py: Io module
-            - numbers.py: Number manipulation utilities
-            - serialization.py: Serialization utilities for PepperPy
-            - system.py: System module
-            - validation.py: Validation module
+            description: ''
           validation:
             description: Validation module for the Pepperpy framework
             files:
@@ -544,7 +507,7 @@ structure:
         - in_memory.py: Simple in-memory storage implementation
         - vector.py: Vector-based memory storage implementation
       multimodal:
-        description: Compatibility stub for multimodal
+        description: Multimodal processing system for PepperPy
         modules:
           audio:
             description: Unified audio processing system for PepperPy
@@ -606,10 +569,11 @@ structure:
                 - openai.py: OpenAI vision provider implementation
             files:
             - __init__.py: Vision processing capabilities for the PepperPy framework
+            - base.py: Base classes and interfaces for the vision processing system
             - processing.py: Module for vision and image processing capabilities
         files:
-        - __init__.py: Compatibility stub for multimodal
-        - base.py: Base module
+        - __init__.py: Multimodal processing system for PepperPy
+        - base.py: Base classes and interfaces for the multimodal processing system
         - fusion.py: Module for multimodal data fusion
       observability:
         description: Observability package for PepperPy
@@ -676,10 +640,7 @@ structure:
         - batch.py: Batch processing implementation for data pipelines
         - stream.py: Stream processing implementation for data pipelines
       processing:
-        description: Module initialization
-        files:
-        - __init__.py: Module initialization and exports
-        - transformers.py: Transformers module
+        description: ''
       providers:
         description: Unified provider system for PepperPy
         modules:
@@ -737,9 +698,7 @@ structure:
             - openrouter.py: OpenRouter provider module
             - perplexity.py: Perplexity AI provider module
           rag:
-            description: RAG providers
-            files:
-            - __init__.py: RAG providers
+            description: ''
           vision:
             description: Provider implementations for vision capabilities
             files:
@@ -774,11 +733,8 @@ structure:
         - defaults.py: Default component registration for the RAG system
         - factory.py: Factory for creating RAG pipelines
         - indexing.py: RAG indexing implementations
-        - optimization.py: RAG optimization components
         - pipeline.py: Pipeline implementations for the RAG system
-        - preprocessing.py: RAG preprocessing components
         - registry.py: Registry for RAG components
-        - retrieval_system.py: RAG retrieval system
         - types.py: Core data types for the RAG system
       security:
         description: Security package for PepperPy
@@ -836,7 +792,7 @@ structure:
             - builder.py: Builder for workflow construction
             - definitions.py: Core workflows module
             - factory.py: Factory for workflow creation
-            - validator.py: Workflow validator
+            - validator.py: Validador de workflows
           examples:
             description: Workflow implementation examples
             files:
@@ -860,8 +816,8 @@ structure:
         - manager.py: Workflow manager module for the Pepperpy framework
         - migration.py: Migration utilities for transitioning to the unified workflow
             system
-        - registry.py: Registro central de workflows
-        - types.py: Tipos e enums para o módulo de workflows
+        - registry.py: Central registry for workflows
+        - types.py: Types and enums for the workflow module
     files:
     - __init__.py: PepperPy Framework
     - migration.py: Migration module

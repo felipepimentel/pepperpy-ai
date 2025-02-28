@@ -11,14 +11,12 @@ from datetime import datetime
 from typing import Any, Generic, TypeVar
 
 from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.errors import ValidationError
 from pepperpy.core.common.models import BaseModel, Field
+from pepperpy.core.errors import ValidationError
 from pepperpy.core.types import ComponentState
+from pepperpy.formats.base import BaseProcessor, BaseTransformer, BaseValidator
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
-from pepperpy.processing.processors import BaseProcessor
-from pepperpy.processing.transformers import BaseTransformer
-from pepperpy.processing.validators import BaseValidator
 
 # Type variables
 T = TypeVar("T")
