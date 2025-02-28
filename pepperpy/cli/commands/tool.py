@@ -10,7 +10,7 @@ This module provides commands for:
 import click
 from rich.console import Console
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.common.errors import PepperpyError
 
 # Configure rich console
 console = Console()
@@ -110,7 +110,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.common.errors import PepperpyError
 
 console = Console()
 

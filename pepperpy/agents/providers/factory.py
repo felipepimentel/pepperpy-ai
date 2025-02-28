@@ -13,10 +13,10 @@ from pepperpy.agents.providers.domain import (
     ProviderConfig,
     ProviderMetadata,
 )
-from pepperpy.core.base import BaseComponent
-from pepperpy.core.errors import ConfigurationError
-from pepperpy.core.logging import get_logger
-from pepperpy.core.types import ComponentState
+from pepperpy.common.base import BaseComponent
+from pepperpy.common.errors import ConfigurationError
+from pepperpy.common.logging import get_logger
+from pepperpy.common.types import ComponentState
 
 logger = get_logger(__name__)
 

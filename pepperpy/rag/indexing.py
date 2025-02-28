@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from pepperpy.core.base import Lifecycle
+from pepperpy.common.base import Lifecycle
 
 
 class Indexer(Lifecycle, ABC):

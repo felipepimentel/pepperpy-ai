@@ -3,7 +3,7 @@
 import os
 from typing import Optional
 
-from pepperpy.core.config.types import (
+from pepperpy.common.config.types import (
     ENV_DEVELOPMENT,
     ENV_PRODUCTION,
     ENV_TEST,

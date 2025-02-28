@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Protocol
 
-from pepperpy.core.models import BaseModel, Field
+from pepperpy.common.models import BaseModel, Field
 
 
 class ResourceType(str, Enum):

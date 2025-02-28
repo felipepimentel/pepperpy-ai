@@ -237,4 +237,21 @@ Install the necessary dependencies based on your needs:
 
 ```bash
 pip install numpy pyyaml lxml pillow faiss-cpu
-``` 
+``` ## Código Migrado
+
+Como parte das melhorias de código, as funcionalidades foram reorganizadas para evitar duplicações e tornar a estrutura mais coesa:
+
+1. O código de transformação de formatos foi migrado dos seguintes locais:
+   - `pepperpy/transformers/code.py` → `pepperpy/analysis/code.py`
+   - `pepperpy/transformers/csv.py` → `pepperpy/formats/csv.py`
+   - `pepperpy/transformers/html.py` → `pepperpy/formats/html.py`
+   - `pepperpy/transformers/sql.py` → `pepperpy/storage/providers/sql.py`
+
+2. O diretório `pepperpy/transformers/` foi removido após a migração bem-sucedida.
+
+3. A lógica relacionada a formatos foi consolidada entre `pepperpy/formats/` e `pepperpy/core/utils/`:
+   - `SerializationUtils`, `JsonUtils`, `YamlUtils`, `XmlUtils` e `CsvUtils` são importados de `pepperpy.core.utils.serialization`
+   - Classes específicas para processamento de formatos como `CSVProcessor` e `HTMLProcessor` estão em `pepperpy.formats`
+   - Isso evita duplicação e mantém a lógica de serialização centralizada
+
+4. O módulo `pepperpy.processing.transformers` foi criado para manter a compatibilidade com o código existente que dependia da classe `BaseTransformer`.

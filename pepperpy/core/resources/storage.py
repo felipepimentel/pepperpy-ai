@@ -11,7 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from pepperpy.core.errors import ResourceError
+from pepperpy.common.errors import ResourceError
 from pepperpy.resources.base import BaseResource, ResourceType
 
 # Configure logging

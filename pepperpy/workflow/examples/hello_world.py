@@ -3,7 +3,7 @@
 Demonstrates basic workflow functionality.
 """
 
-from pepperpy.workflows.core.base import BaseWorkflow, WorkflowDefinition, WorkflowStep
+from pepperpy.agents.workflowss.core.base import BaseWorkflow, WorkflowDefinition, WorkflowStep
 
 
 class HelloStep(WorkflowStep):

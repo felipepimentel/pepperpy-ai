@@ -13,7 +13,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from pepperpy.agents.base import AgentMessage
-from pepperpy.core.errors import PepperpyError
+from pepperpy.common.errors import PepperpyError
 
 
 class ChainError(PepperpyError):

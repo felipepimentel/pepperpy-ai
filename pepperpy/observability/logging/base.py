@@ -18,9 +18,9 @@ import asyncio
 import logging
 from typing import Any, TypeVar
 
-from pepperpy.core.errors import ValidationError
-from pepperpy.core.lifecycle.types import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.common.errors import ValidationError
+from pepperpy.common.lifecycle.types import Lifecycle
+from pepperpy.common.types import ComponentState
 
 # Configure base logging
 logging.basicConfig(
@@ -40,7 +40,7 @@ def get_model_imports():
     """Get model imports lazily."""
     global _BaseModel, _Field
     if _BaseModel is None or _Field is None:
-        from pepperpy.core.models import BaseModel, Field
+        from pepperpy.common.models import BaseModel, Field
 
         _BaseModel = BaseModel
         _Field = Field

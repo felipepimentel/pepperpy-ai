@@ -2,6 +2,13 @@
 
 from typing import Dict, List, Optional, Type, TypeVar
 
+from pepperpy.common.logging import get_logger
+from pepperpy.common.registry.base import (
+    ComponentMetadata,
+    Registry,
+    get_registry,
+)
+
 from .base import (
     Augmenter,
     Chunker,
@@ -11,20 +18,22 @@ from .base import (
     Retriever,
 )
 
+logger = get_logger(__name__)
 T = TypeVar("T", bound=RagComponent)
 
 
-class ComponentRegistry:
+class ComponentRegistry(Registry[RagComponent]):
     """Registry for managing RAG components."""
 
     def __init__(self):
         """Initialize empty component registry."""
-        self._components: Dict[str, Dict[str, Type[RagComponent]]] = {
-            "chunker": {},
-            "embedder": {},
-            "indexer": {},
-            "retriever": {},
-            "augmenter": {},
+        super().__init__(RagComponent)
+        self._component_categories = {
+            "chunker": Chunker,
+            "embedder": Embedder,
+            "indexer": Indexer,
+            "retriever": Retriever,
+            "augmenter": Augmenter,
         }
 
     def register(self, component_type: str, name: str, component_class: Type[T]):
@@ -35,10 +44,25 @@ class ComponentRegistry:
             name: Name to register the component under
             component_class: Component class to register
         """
-        if component_type not in self._components:
+        if component_type not in self._component_categories:
             raise ValueError(f"Unknown component type: {component_type}")
 
-        self._components[component_type][name] = component_class
+        expected_base = self._component_categories[component_type]
+        if not issubclass(component_class, expected_base):
+            raise TypeError(f"Component must be a subclass of {expected_base.__name__}")
+
+        metadata = ComponentMetadata(
+            name=name,
+            description=component_class.__doc__ or "",
+            tags={component_type},
+            properties={"category": component_type},
+        )
+
+        try:
+            self.register_type(f"{component_type}.{name}", component_class, metadata)
+        except Exception as e:
+            logger.error(f"Failed to register {component_type} '{name}': {e}")
+            raise
 
     def get(self, component_type: str, name: str) -> Type[RagComponent]:
         """Get a registered component class.
@@ -53,13 +77,13 @@ class ComponentRegistry:
         Raises:
             KeyError: If component not found
         """
-        if component_type not in self._components:
+        if component_type not in self._component_categories:
             raise ValueError(f"Unknown component type: {component_type}")
 
-        if name not in self._components[component_type]:
-            raise KeyError(f"No {component_type} registered with name: {name}")
-
-        return self._components[component_type][name]
+        try:
+            return self.get_type(f"{component_type}.{name}")
+        except Exception as e:
+            raise KeyError(f"No {component_type} registered with name: {name}") from e
 
     def list_components(
         self, component_type: Optional[str] = None
@@ -72,15 +96,24 @@ class ComponentRegistry:
         Returns:
             Dictionary mapping component types to lists of registered names
         """
-        if component_type:
-            if component_type not in self._components:
-                raise ValueError(f"Unknown component type: {component_type}")
-            return {component_type: list(self._components[component_type].keys())}
+        result = {}
+        types = self.list_component_types()
 
-        return {
-            ctype: list(components.keys())
-            for ctype, components in self._components.items()
-        }
+        for full_name in types:
+            if "." not in full_name:
+                continue
+
+            cat, name = full_name.split(".", 1)
+
+            if component_type and cat != component_type:
+                continue
+
+            if cat not in result:
+                result[cat] = []
+
+            result[cat].append(name)
+
+        return result
 
     def register_chunker(self, name: str, chunker_class: Type[Chunker]):
         """Register a chunker implementation."""
@@ -124,4 +157,22 @@ class ComponentRegistry:
 
 
 # Global registry instance
-registry = ComponentRegistry()
+_registry = None
+
+
+def get_component_registry() -> ComponentRegistry:
+    """Get the global RAG component registry instance."""
+    global _registry
+    if _registry is None:
+        _registry = ComponentRegistry()
+        # Register with the global registry manager
+        try:
+            registry_manager = get_registry()
+            registry_manager.register_registry("rag", _registry)
+        except Exception as e:
+            logger.warning(f"Failed to register with global registry: {e}")
+    return _registry
+
+
+# For backwards compatibility
+registry = get_component_registry()

@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, TypeVar, cast
 
 from pepperpy.cli.base import Command, CommandContext, CommandResult
 from pepperpy.cli.registry import CommandRegistry
-from pepperpy.core.errors import CLIError
+from pepperpy.common.errors import CLIError
 from pepperpy.monitoring import logger
 
 # Configure logging

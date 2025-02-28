@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 from typing import Dict, Optional, cast
 
-from pepperpy.core.config.providers.base import ConfigProvider
-from pepperpy.core.config.types import ConfigValue
+from pepperpy.common.config.providers.base import ConfigProvider
+from pepperpy.common.config.types import ConfigValue
 
 
 class ConfigEncryptionError(Exception):

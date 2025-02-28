@@ -22,8 +22,9 @@ from pepperpy.cli.commands import (
     tool,
     workflow,
 )
-from pepperpy.core.errors import PepperpyError
-from pepperpy.monitoring import logger
+from pepperpy.cli.plugins.loader import get_plugin_commands, load_all_plugins
+from pepperpy.common.errors import PepperpyError
+from pepperpy.common.logging import get_logger
 
 # Configure rich console
 console = Console()
@@ -36,6 +37,9 @@ logging.basicConfig(
     handlers=[RichHandler(console=console)],
 )
 
+# Get logger
+logger = get_logger(__name__)
+
 
 def setup_environment() -> None:
     """Set up the CLI environment."""
@@ -45,7 +49,7 @@ def setup_environment() -> None:
     # Create Pepperpy directories if needed
     home = Path.home()
     pepperpy_dir = home / ".pepperpy"
-    for subdir in ["config", "hub", "logs", "cache"]:
+    for subdir in ["config", "hub", "logs", "cache", "plugins"]:
         (pepperpy_dir / subdir).mkdir(parents=True, exist_ok=True)
 
 
@@ -78,6 +82,14 @@ def cli(debug: bool, config: str | None = None) -> None:
     if config:
         click.echo(f"Using config file: {config}")
 
+    # Load plugins
+    try:
+        plugins = load_all_plugins()
+        if plugins:
+            logger.debug(f"Loaded {len(plugins)} plugins")
+    except Exception as e:
+        logger.error(f"Failed to load plugins: {e}")
+
 
 # Add command groups
 cli.add_command(agent.agent)
@@ -88,6 +100,16 @@ cli.add_command(run.run)
 cli.add_command(tool.tool)
 cli.add_command(workflow.workflow)
 
+# Add plugin commands
+try:
+    plugin_commands = get_plugin_commands()
+    for plugin_id, commands in plugin_commands.items():
+        for command in commands:
+            cli.add_command(command)
+            logger.debug(f"Added plugin command: {command.name} from {plugin_id}")
+except Exception as e:
+    logger.error(f"Failed to add plugin commands: {e}")
+
 
 def main() -> None:
     """Main CLI entry point."""
@@ -95,7 +117,7 @@ def main() -> None:
         cli()
     except PepperpyError as e:
         console.print(f"[red]Error:[/red] {e!s}")
-        if e.recovery_hint:
+        if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         sys.exit(1)
     except Exception as e:

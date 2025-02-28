@@ -4,8 +4,8 @@ This module provides the main manager for code analysis operations,
 coordinating multiple analyzers and aggregating their results.
 """
 
-from pepperpy.core.analysis.analyzers import ComplexityAnalyzer, SecurityAnalyzer
-from pepperpy.core.analysis.types import AnalysisLevel, AnalysisResult, CodeAnalyzer
+from pepperpy.common.analysis.analyzers import ComplexityAnalyzer, SecurityAnalyzer
+from pepperpy.common.analysis.types import AnalysisLevel, AnalysisResult, CodeAnalyzer
 from pepperpy.observability import MetricsManager
 
 

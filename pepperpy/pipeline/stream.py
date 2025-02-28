@@ -5,10 +5,10 @@ import logging
 from datetime import datetime
 from typing import Generic, TypeVar
 
-from pepperpy.core.errors import ProcessingError
-from pepperpy.core.lifecycle import Lifecycle
-from pepperpy.core.metrics import MetricsCollector
-from pepperpy.core.pipeline.base import (
+from pepperpy.common.errors import ProcessingError
+from pepperpy.common.lifecycle import Lifecycle
+from pepperpy.common.metrics import MetricsCollector
+from pepperpy.common.pipeline.base import (
     DataItem,
     DataProcessor,
 )

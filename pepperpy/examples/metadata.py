@@ -9,8 +9,8 @@ This example shows how to:
 
 from typing import Any
 
-from pepperpy.core.base.common import BaseComponent
-from pepperpy.core.metadata import (
+from pepperpy.common.base.common import BaseComponent
+from pepperpy.common.metadata import (
     ComponentCategory,
     component,
     get_component,

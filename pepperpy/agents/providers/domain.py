@@ -20,10 +20,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from pepperpy.core.base import Metadata
-from pepperpy.core.errors import PepperpyError
-from pepperpy.core.logging import get_logger
-from pepperpy.core.types import MetadataDict, MetadataValue
+from pepperpy.common.base import Metadata
+from pepperpy.common.errors import PepperpyError
+from pepperpy.common.logging import get_logger
+from pepperpy.common.types import MetadataDict, MetadataValue
 
 logger = get_logger(__name__)
 

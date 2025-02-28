@@ -13,8 +13,8 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.base import Capability
-from pepperpy.core.messages import ProviderMessage, ProviderResponse
+from pepperpy.common.base import Capability
+from pepperpy.common.messages import ProviderMessage, ProviderResponse
 
 # Type variables
 T = TypeVar("T")

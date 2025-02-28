@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from pepperpy.core.config.base import ConfigProvider
+from pepperpy.common.config.base import ConfigProvider
 
 
 class FilesystemProvider(ConfigProvider):

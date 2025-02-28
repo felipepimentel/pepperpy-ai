@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Dict, Optional
 
-from pepperpy.core.config.providers.base import ConfigProvider
-from pepperpy.core.config.types import ConfigValue
+from pepperpy.common.config.providers.base import ConfigProvider
+from pepperpy.common.config.types import ConfigValue
 
 
 class FileConfigProvider(ConfigProvider):

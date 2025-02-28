@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
 
-from pepperpy.core.config.types import ConfigValue
+from pepperpy.common.config.types import ConfigValue
 
 
 class ConfigProvider(ABC):

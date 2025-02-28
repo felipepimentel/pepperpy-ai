@@ -15,12 +15,17 @@ from pepperpy.adapters.types import (
     AdapterSpec,
     AdapterState,
 )
-from pepperpy.core.errors import AdapterError
+from pepperpy.common.errors import AdapterError
+from pepperpy.common.registry.base import (
+    ComponentMetadata,
+    Registry,
+    get_registry,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class AdapterRegistry:
+class AdapterRegistry(Registry[BaseAdapter]):
     """Registry for adapters and factories.
 
     This class manages adapter registration, creation, and lifecycle.
@@ -32,9 +37,9 @@ class AdapterRegistry:
 
     def __init__(self) -> None:
         """Initialize registry."""
-        self._adapters: Dict[str, BaseAdapter] = {}
+        super().__init__(BaseAdapter)
         self._factories: Dict[str, AdapterFactory] = {}
-        self._metadata: Dict[str, AdapterMetadata] = {}
+        self._adapter_metadata: Dict[str, AdapterMetadata] = {}
         self._specs: Dict[str, AdapterSpec] = {}
 
     @classmethod
@@ -42,6 +47,12 @@ class AdapterRegistry:
         """Get singleton instance."""
         if cls._instance is None:
             cls._instance = cls()
+            # Register with the global registry manager
+            try:
+                registry_manager = get_registry()
+                registry_manager.register_registry("adapters", cls._instance)
+            except Exception as e:
+                logger.warning(f"Failed to register with global registry: {e}")
         return cls._instance
 
     async def register_adapter(
@@ -61,12 +72,24 @@ class AdapterRegistry:
         async with self._lock:
             try:
                 name = adapter.name
-                if name in self._adapters:
-                    raise AdapterError(f"Adapter '{name}' already registered")
 
-                self._adapters[name] = adapter
+                # Create component metadata
+                component_metadata = ComponentMetadata(
+                    name=name,
+                    description=getattr(adapter, "description", ""),
+                    version=adapter.version,
+                    properties={
+                        "type": str(adapter.type),
+                        "state": str(adapter.state),
+                    },
+                )
+
+                # Register with unified registry
+                self.register(adapter, component_metadata)
+
+                # Store adapter-specific metadata
                 if metadata:
-                    self._metadata[name] = metadata
+                    self._adapter_metadata[name] = metadata
 
                 logger.info(
                     f"Registered adapter: {name}",
@@ -144,18 +167,27 @@ class AdapterRegistry:
             AdapterError: If adapter initialization fails
         """
         async with self._lock:
-            adapter = self._adapters.get(name)
-            if adapter and initialize and adapter.state == AdapterState.CREATED:
-                try:
-                    await adapter.initialize()
-                except Exception as e:
-                    logger.error(
-                        f"Failed to initialize adapter: {e}",
-                        extra={"adapter": name},
-                        exc_info=True,
-                    )
-                    raise AdapterError(f"Failed to initialize adapter: {e}") from e
-            return adapter
+            try:
+                adapter = self.get(name)
+                if initialize and adapter.state == AdapterState.CREATED:
+                    try:
+                        await adapter.initialize()
+
+                        # Update metadata
+                        metadata = self.get_metadata(name)
+                        metadata.properties["state"] = str(adapter.state)
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to initialize adapter: {e}",
+                            extra={"adapter": name},
+                            exc_info=True,
+                        )
+                        raise AdapterError(f"Failed to initialize adapter: {e}") from e
+                return adapter
+            except Exception as e:
+                if "not found" in str(e).lower():
+                    return None
+                raise AdapterError(f"Error getting adapter: {e}") from e
 
     async def create_adapter(
         self,
@@ -223,12 +255,17 @@ class AdapterRegistry:
         """
         async with self._lock:
             try:
-                adapter = self._adapters.get(name)
+                adapter = None
+                try:
+                    adapter = self.get(name)
+                except Exception:
+                    return
+
                 if adapter:
                     if cleanup:
                         await adapter.cleanup()
-                    del self._adapters[name]
-                    self._metadata.pop(name, None)
+                    self.unregister(name)
+                    self._adapter_metadata.pop(name, None)
                     logger.info(f"Removed adapter: {name}")
 
             except Exception as e:
@@ -239,8 +276,8 @@ class AdapterRegistry:
                 )
                 raise AdapterError(f"Failed to remove adapter: {e}") from e
 
-    async def get_metadata(self, name: str) -> Optional[AdapterMetadata]:
-        """Get adapter metadata.
+    async def get_adapter_metadata(self, name: str) -> Optional[AdapterMetadata]:
+        """Get adapter-specific metadata.
 
         Args:
             name: Adapter name
@@ -248,31 +285,35 @@ class AdapterRegistry:
         Returns:
             Optional[AdapterMetadata]: Adapter metadata if found
         """
-        return self._metadata.get(name)
+        async with self._lock:
+            return self._adapter_metadata.get(name)
 
     async def get_spec(self, name: str) -> Optional[AdapterSpec]:
-        """Get adapter specification.
+        """Get factory specification.
 
         Args:
             name: Factory name
 
         Returns:
-            Optional[AdapterSpec]: Adapter specification if found
+            Optional[AdapterSpec]: Factory specification if found
         """
-        return self._specs.get(name)
+        async with self._lock:
+            return self._specs.get(name)
 
-    async def list_adapters(self) -> Dict[str, AdapterMetadata]:
-        """List all registered adapters with metadata.
+    async def list_adapters(self) -> Dict[str, ComponentMetadata]:
+        """List registered adapters with metadata.
 
         Returns:
-            Dict[str, AdapterMetadata]: Dictionary of adapter names to metadata
+            Dict[str, ComponentMetadata]: Dictionary of adapter metadata
         """
-        return self._metadata.copy()
+        async with self._lock:
+            return self.list_metadata()
 
     async def list_factories(self) -> Dict[str, AdapterSpec]:
-        """List all registered factories with specifications.
+        """List registered factories with specifications.
 
         Returns:
-            Dict[str, AdapterSpec]: Dictionary of factory names to specifications
+            Dict[str, AdapterSpec]: Dictionary of factory specifications
         """
-        return self._specs.copy() 
+        async with self._lock:
+            return self._specs.copy()

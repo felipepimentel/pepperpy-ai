@@ -18,7 +18,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from pepperpy.core.models import BaseModel, Field
+from pepperpy.common.models import BaseModel, Field
 
 
 class LogRecord(BaseModel):

@@ -10,7 +10,7 @@ This module provides advanced metrics collection and monitoring for resources:
 from dataclasses import dataclass, field
 from datetime import datetime
 
-from pepperpy.core.metrics import MetricsCollector
+from pepperpy.common.metrics import MetricsCollector
 from pepperpy.monitoring import logger
 from pepperpy.resources.types import Resource, ResourceState
 

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pepperpy.core.config.base import BaseConfig
+from pepperpy.common.config.base import BaseConfig
 
 
 class TestConfig(BaseConfig):

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
-from pepperpy.core.extensions import Extension
+from pepperpy.common.extensions import Extension
 
 
 class CapabilityConfig(BaseModel):

@@ -25,8 +25,8 @@ except ImportError:
         "Install it with: poetry add pydantic pydantic-settings"
     )
 
-from pepperpy.core.metrics import MetricsCollector
-from pepperpy.core.observability import ObservabilityManager
+from pepperpy.common.metrics import MetricsCollector
+from pepperpy.common.observability import ObservabilityManager
 
 T = TypeVar("T", bound="ConfigModel")
 ConfigT = TypeVar("ConfigT", bound="BaseConfig")

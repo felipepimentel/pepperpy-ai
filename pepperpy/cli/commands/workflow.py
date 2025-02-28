@@ -10,7 +10,7 @@ This module provides commands for:
 import click
 from rich.console import Console
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.common.errors import PepperpyError
 
 # Configure rich console
 console = Console()
@@ -115,9 +115,9 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.common.errors import PepperpyError
 from pepperpy.monitoring import audit_logger
-from pepperpy.workflows import WorkflowEngine, WorkflowState
+from pepperpy.agents.workflowss import WorkflowEngine, WorkflowState
 
 console = Console()
 

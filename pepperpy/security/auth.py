@@ -8,8 +8,8 @@ This module provides classes for managing authentication and authorization:
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from pepperpy.core.base import BaseManager
-from pepperpy.core.types import UserId
+from pepperpy.common.base import BaseManager
+from pepperpy.common.types import UserId
 
 
 class AuthenticationError(Exception):

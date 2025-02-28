@@ -10,14 +10,19 @@ from pepperpy.agents.autonomous import AutonomousAgent, AutonomousAgentConfig
 from pepperpy.agents.base import AgentConfig, BaseAgent
 from pepperpy.agents.interactive import InteractiveAgent, InteractiveAgentConfig
 from pepperpy.agents.workflow import WorkflowAgent, WorkflowAgentConfig
-from pepperpy.core.errors import AgentError
-from pepperpy.core.logging import get_logger
+from pepperpy.common.errors import AgentError
+from pepperpy.common.logging import get_logger
+from pepperpy.common.registry.base import (
+    ComponentMetadata,
+    Registry,
+    get_registry,
+)
 
 # Configure logging
 logger = get_logger(__name__)
 
 
-class AgentRegistry:
+class AgentRegistry(Registry[BaseAgent]):
     """Registry for managing agent types.
 
     This class provides functionality for registering agent types,
@@ -26,7 +31,7 @@ class AgentRegistry:
 
     def __init__(self) -> None:
         """Initialize agent registry."""
-        self._agent_types: Dict[str, Type[BaseAgent]] = {}
+        super().__init__(BaseAgent)
         self._config_types: Dict[str, Type[AgentConfig]] = {}
 
         # Register built-in agent types
@@ -62,11 +67,16 @@ class AgentRegistry:
         Raises:
             AgentError: If agent type is already registered
         """
-        if agent_type in self._agent_types:
-            raise AgentError(f"Agent type already registered: {agent_type}")
-
-        self._agent_types[agent_type] = agent_class
-        self._config_types[agent_type] = config_class
+        try:
+            metadata = ComponentMetadata(
+                name=agent_type,
+                description=agent_class.__doc__ or "",
+                properties={"config_class": config_class.__name__},
+            )
+            self.register_type(agent_type, agent_class, metadata)
+            self._config_types[agent_type] = config_class
+        except Exception as e:
+            raise AgentError(f"Failed to register agent type: {e}") from e
 
     def create_agent(
         self,
@@ -85,33 +95,24 @@ class AgentRegistry:
         Raises:
             AgentError: If agent type is not registered
         """
-        agent_class = self._agent_types.get(agent_type)
-        if not agent_class:
-            raise AgentError(f"Agent type not registered: {agent_type}")
-
-        config_class = self._config_types[agent_type]
-        agent_config = None
-
-        if config:
-            # Create configuration instance
-            try:
-                agent_config = config_class(**config)
-            except Exception as e:
-                raise AgentError(f"Invalid configuration for {agent_type}: {e}") from e
-
-        # Create agent instance
         try:
+            agent_class = self.get_type(agent_type)
+            config_class = self._config_types[agent_type]
+            agent_config = None
+
+            if config:
+                # Create configuration instance
+                try:
+                    agent_config = config_class(**config)
+                except Exception as e:
+                    raise AgentError(
+                        f"Invalid configuration for {agent_type}: {e}"
+                    ) from e
+
+            # Create agent instance
             return agent_class(config=agent_config)
         except Exception as e:
             raise AgentError(f"Failed to create {agent_type} agent: {e}") from e
-
-    def get_agent_types(self) -> Dict[str, Type[BaseAgent]]:
-        """Get registered agent types.
-
-        Returns:
-            Dictionary of agent types
-        """
-        return self._agent_types.copy()
 
     def get_config_types(self) -> Dict[str, Type[AgentConfig]]:
         """Get registered configuration types.
@@ -135,4 +136,10 @@ def get_agent_registry() -> AgentRegistry:
     global _registry
     if _registry is None:
         _registry = AgentRegistry()
+        # Register with the global registry manager
+        try:
+            registry_manager = get_registry()
+            registry_manager.register_registry("agents", _registry)
+        except Exception as e:
+            logger.warning(f"Failed to register with global registry: {e}")
     return _registry

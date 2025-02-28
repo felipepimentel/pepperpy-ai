@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from pepperpy.core.base import Lifecycle
+from pepperpy.common.base import Lifecycle
 
 
 class Embedder(Lifecycle, ABC):

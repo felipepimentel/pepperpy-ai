@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.types import Message
+from pepperpy.common.types import Message
 
 
 class BaseAgent:

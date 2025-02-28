@@ -23,9 +23,9 @@ from pepperpy.agents.manager import AgentManager
 from pepperpy.agents.providers.services import ProviderRegistry
 from pepperpy.cli.exceptions import ExecutionError
 from pepperpy.cli.utils import format_error, format_success, load_config
-from pepperpy.core.errors import PepperpyError
-from pepperpy.core.messages import ProviderMessage
-from pepperpy.workflows.engine import WorkflowEngine
+from pepperpy.common.errors import PepperpyError
+from pepperpy.common.messages import ProviderMessage
+from pepperpy.agents.workflowss.engine import WorkflowEngine
 
 # Configure rich console
 console = Console()

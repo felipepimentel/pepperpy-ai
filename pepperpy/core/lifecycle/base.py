@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
-from pepperpy.core.lifecycle.errors import (
+from pepperpy.common.lifecycle.errors import (
     FinalizeError,
     HookError,
     InitializationError,
@@ -17,7 +17,7 @@ from pepperpy.core.lifecycle.errors import (
     StateError,
     StopError,
 )
-from pepperpy.core.lifecycle.types import (
+from pepperpy.common.lifecycle.types import (
     LifecycleConfig,
     LifecycleContext,
     LifecycleEvent,

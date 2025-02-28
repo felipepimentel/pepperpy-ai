@@ -16,8 +16,8 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.core.errors import PepperpyError
-from pepperpy.core.registry import CapabilityRegistry, ProviderRegistry
+from pepperpy.common.errors import PepperpyError
+from pepperpy.common.registry import CapabilityRegistry, ProviderRegistry
 
 # Configure rich console
 console = Console()
@@ -232,6 +232,8 @@ def cleanup(force: bool) -> None:
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort()
+
+
 """Registry commands for the Pepperpy CLI.
 
 This module provides commands for managing the component registry:
@@ -242,9 +244,6 @@ This module provides commands for managing the component registry:
 
 import click
 from rich.console import Console
-from rich.table import Table
-
-from pepperpy.core.errors import PepperpyError
 
 console = Console()
 

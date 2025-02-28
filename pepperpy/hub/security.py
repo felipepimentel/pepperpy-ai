@@ -7,7 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from pepperpy.core.errors import SecurityError
+from pepperpy.common.errors import SecurityError
 from pepperpy.monitoring import logger
 from pepperpy.security.base import SecurityManager as BaseSecurityManager
 from pepperpy.security.types import SecurityContext

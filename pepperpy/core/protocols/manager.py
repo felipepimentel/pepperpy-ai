@@ -6,8 +6,8 @@ lifecycle management, and protocol discovery.
 
 from typing import Dict, List, Optional, Type, TypeVar
 
-from pepperpy.core.base import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.common.base import Lifecycle
+from pepperpy.common.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import MetricsManager
 from pepperpy.protocols import (

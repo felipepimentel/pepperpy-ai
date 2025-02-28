@@ -12,8 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.extensions import Extension, ExtensionMetadata
-from pepperpy.core.events import EventBus
+from pepperpy.common.extensions import Extension, ExtensionMetadata
+from pepperpy.common.events import EventBus
 
 
 class CapabilityType(Enum):

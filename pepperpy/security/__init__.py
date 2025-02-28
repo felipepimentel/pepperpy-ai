@@ -5,6 +5,7 @@ This package provides security-related functionality including:
 - Access control and authorization
 - Secure configuration management
 - Threat detection and prevention
+- Content filtering and prompt protection
 """
 
 from .audit import (
@@ -13,6 +14,24 @@ from .audit import (
     AuditEventType,
     AuditLogger,
 )
+from .content import (
+    # Content filtering
+    ContentCategory,
+    ContentFilter,
+    ContentGuard,
+    ContentPolicy,
+    ContentRule,
+    DetectionResult,
+    FilterMatch,
+    FilterResult,
+    InjectionPattern,
+    PersonalInfoDetector,
+    PromptGuard,
+    PromptSanitizer,
+    PromptValidator,
+    # Prompt protection
+    ThreatLevel,
+)
 
 __all__ = [
     # Audit
@@ -20,4 +39,20 @@ __all__ = [
     "AuditEventType",
     "AuditEventSeverity",
     "AuditLogger",
+    # Content filtering
+    "ContentCategory",
+    "ContentRule",
+    "FilterMatch",
+    "FilterResult",
+    "ContentFilter",
+    "PersonalInfoDetector",
+    "ContentPolicy",
+    "ContentGuard",
+    # Prompt protection
+    "ThreatLevel",
+    "InjectionPattern",
+    "DetectionResult",
+    "PromptSanitizer",
+    "PromptValidator",
+    "PromptGuard",
 ]

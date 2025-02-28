@@ -17,8 +17,8 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.trace import Status, StatusCode
 
-from pepperpy.core.base import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.common.base import Lifecycle
+from pepperpy.common.types import ComponentState
 
 from .context import TraceContext
 from .providers import (

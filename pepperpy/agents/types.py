@@ -6,7 +6,7 @@ Defines the data types and enumerations used in the agents module.
 from enum import Enum, auto
 from typing import Any, Dict, TypeVar
 
-from pepperpy.core.types.base import BaseComponent
+from pepperpy.common.types.base import BaseComponent
 
 from .base import BaseAgent
 

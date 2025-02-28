@@ -12,9 +12,9 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.events import EventBus
-from pepperpy.core.extensions import Extension
-from pepperpy.core.extensions import ExtensionMetadata as ExtensionMetadata
+from pepperpy.common.events import EventBus
+from pepperpy.common.extensions import Extension
+from pepperpy.common.extensions import ExtensionMetadata as ExtensionMetadata
 
 
 class ResourceType(Enum):

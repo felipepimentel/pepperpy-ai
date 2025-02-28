@@ -6,8 +6,8 @@ This module provides standard hooks for lifecycle management.
 import logging
 from typing import Any
 
-from pepperpy.core.metrics import Counter, Histogram
-from pepperpy.core.protocols.lifecycle import LifecycleHook
+from pepperpy.common.metrics import Counter, Histogram
+from pepperpy.common.protocols.lifecycle import LifecycleHook
 
 logger = logging.getLogger(__name__)
 

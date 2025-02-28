@@ -10,7 +10,7 @@ from typing import Any, Optional
 import httpx
 from pydantic import Field
 
-from pepperpy.core.providers.unified import ProviderConfig
+from pepperpy.common.providers.unified import ProviderConfig
 from pepperpy.providers.llm.base import LLMMessage, LLMProvider, LLMResponse
 
 # Configure logger

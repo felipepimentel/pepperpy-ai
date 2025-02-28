@@ -10,10 +10,10 @@ This module provides the provider engine functionality for:
 from typing import Dict, Optional
 from uuid import uuid4
 
-from pepperpy.core.base import Lifecycle
-from pepperpy.core.errors import ProviderError, ValidationError
-from pepperpy.core.logging import get_logger
-from pepperpy.core.types import ComponentState
+from pepperpy.common.base import Lifecycle
+from pepperpy.common.errors import ProviderError, ValidationError
+from pepperpy.common.logging import get_logger
+from pepperpy.common.types import ComponentState
 
 from .base import BaseProvider, ProviderConfig
 from .factory import ProviderFactory

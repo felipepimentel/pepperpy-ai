@@ -8,8 +8,8 @@ import asyncio
 import random
 from typing import Dict, List
 
-from pepperpy.core.monitoring.logging import get_logger
-from pepperpy.core.workflows.actions import Action, ActionContext, action_registry
+from pepperpy.common.monitoring.logging import get_logger
+from pepperpy.common.workflows.actions import Action, ActionContext, action_registry
 
 
 class HelloWorldAction(Action):
