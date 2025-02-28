@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.errors import CLIError
+from pepperpy.core.errors import CLIError
 from pepperpy.monitoring import logger
 
 # Configure logging

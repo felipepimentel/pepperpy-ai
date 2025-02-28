@@ -3,7 +3,7 @@
 This module defines specific errors that can occur during lifecycle operations.
 """
 
-from pepperpy.common.errors import LifecycleError
+from pepperpy.core.errors import LifecycleError
 
 
 class InitializationError(LifecycleError):

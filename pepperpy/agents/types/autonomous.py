@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 from pepperpy.agents.base import AgentConfig, BaseAgent
-from pepperpy.common.errors import AgentError
+from pepperpy.core.errors import AgentError
 
 
 @dataclass

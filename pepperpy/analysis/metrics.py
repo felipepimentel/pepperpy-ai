@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pepperpy.common.base import Lifecycle
-from pepperpy.common.types import ComponentState
+from pepperpy.core.types import ComponentState
 
 
 @dataclass

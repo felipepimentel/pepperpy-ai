@@ -13,7 +13,7 @@ from pepperpy.agents.base import (
     AgentResponse,
 )
 from pepperpy.agents.chains.base import Chain, ChainConfig, ChainError, ChainResult
-from pepperpy.common.errors import ConfigurationError
+from pepperpy.core.errors import ConfigurationError
 
 logger = logging.getLogger(__name__)
 

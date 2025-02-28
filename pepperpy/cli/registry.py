@@ -7,7 +7,7 @@ from typing import Dict, List, Optional
 
 from pepperpy.cli.base import Command, CommandGroup
 from pepperpy.cli.types import CommandLike, CommandPath
-from pepperpy.common.errors import CLIError
+from pepperpy.core.errors import CLIError
 from pepperpy.monitoring import logger
 
 # Configure logging

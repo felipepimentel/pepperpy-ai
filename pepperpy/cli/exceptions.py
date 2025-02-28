@@ -4,7 +4,7 @@ This module defines CLI-specific exceptions that can be raised during command ex
 These exceptions are caught and handled by the CLI to provide user-friendly error messages.
 """
 
-from pepperpy.common.errors import PepperError
+from pepperpy.core.errors import PepperError
 
 
 class CLIError(PepperError):

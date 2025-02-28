@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar
 
-from pepperpy.common.errors import ProcessingError, ValidationError
+from pepperpy.core.errors import ProcessingError, ValidationError
 from pepperpy.common.lifecycle import Lifecycle
 from pepperpy.common.metrics import MetricsCollector
 

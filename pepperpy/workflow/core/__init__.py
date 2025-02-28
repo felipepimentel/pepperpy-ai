@@ -1,4 +1,4 @@
-"""Componentes principais do sistema de workflows.
+"""Main components of the workflow system.
 
 Este módulo fornece os componentes fundamentais do sistema de workflows,
 incluindo:

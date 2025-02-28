@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 
 from pepperpy.agents.base import BaseAgent
 from pepperpy.agents.registry import get_agent_registry
-from pepperpy.common.errors import AgentError
+from pepperpy.core.errors import AgentError
 from pepperpy.common.logging import get_logger
 
 logger = get_logger(__name__)

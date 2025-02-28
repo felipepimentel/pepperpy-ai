@@ -137,7 +137,7 @@ class MigrationHelper:
         Returns:
             Python code for migration
         """
-        imports = f"from pepperpy.audio import {new_processor_type}"
+        imports = f"from pepperpy.capabilities.audio import {new_processor_type}"
         if module_path:
             imports = f"from {module_path} import {old_processor_var}\n{imports}"
 
@@ -171,7 +171,7 @@ Follow these steps to migrate your code:
 
 1. Import from the new module:
    OLD: from pepperpy.multimodal.audio import AudioProcessor
-   NEW: from pepperpy.audio import InputProcessor
+   NEW: from pepperpy.capabilities.audio import InputProcessor
 
 2. Update initialization:
    OLD: processor = AudioProcessor(name="processor", config={...})
@@ -180,12 +180,12 @@ Follow these steps to migrate your code:
 3. For output processors:
    OLD: from pepperpy.synthesis.processors.audio import AudioProcessor
         processor = AudioProcessor(name="output", config={...})
-   NEW: from pepperpy.audio import OutputProcessor
+   NEW: from pepperpy.capabilities.audio import OutputProcessor
         processor = OutputProcessor(name="output", config={...})
 
 4. For analysis components:
    OLD: from pepperpy.multimodal.audio import AudioAnalyzer, SpeechTranscriber, AudioClassifier
-   NEW: from pepperpy.audio import AudioAnalyzer, SpeechTranscriber, AudioClassifier
+   NEW: from pepperpy.capabilities.audio import AudioAnalyzer, SpeechTranscriber, AudioClassifier
 
 5. To migrate existing processors:
    from pepperpy.audio.migration import MigrationHelper
@@ -214,11 +214,11 @@ def map_imports(source_code: str) -> str:
         Updated source code
     """
     import_mappings = {
-        "from pepperpy.multimodal.audio import AudioProcessor": "from pepperpy.audio import InputProcessor",
-        "from pepperpy.multimodal.audio import AudioAnalyzer": "from pepperpy.audio import AudioAnalyzer",
-        "from pepperpy.multimodal.audio import AudioClassifier": "from pepperpy.audio import AudioClassifier",
-        "from pepperpy.multimodal.audio import SpeechTranscriber": "from pepperpy.audio import SpeechTranscriber",
-        "from pepperpy.synthesis.processors.audio import AudioProcessor": "from pepperpy.audio import OutputProcessor",
+        "from pepperpy.multimodal.audio import AudioProcessor": "from pepperpy.capabilities.audio import InputProcessor",
+        "from pepperpy.multimodal.audio import AudioAnalyzer": "from pepperpy.capabilities.audio import AudioAnalyzer",
+        "from pepperpy.multimodal.audio import AudioClassifier": "from pepperpy.capabilities.audio import AudioClassifier",
+        "from pepperpy.multimodal.audio import SpeechTranscriber": "from pepperpy.capabilities.audio import SpeechTranscriber",
+        "from pepperpy.synthesis.processors.audio import AudioProcessor": "from pepperpy.capabilities.audio import OutputProcessor",
     }
 
     # Simple string replacement for imports
@@ -228,10 +228,10 @@ def map_imports(source_code: str) -> str:
 
     # Also handle combined imports
     result = result.replace(
-        "from pepperpy.multimodal.audio import", "from pepperpy.audio import"
+        "from pepperpy.multimodal.audio import", "from pepperpy.capabilities.audio import"
     )
     result = result.replace(
-        "from pepperpy.synthesis.processors.audio import", "from pepperpy.audio import"
+        "from pepperpy.synthesis.processors.audio import", "from pepperpy.capabilities.audio import"
     )
 
     # Replace class names in code

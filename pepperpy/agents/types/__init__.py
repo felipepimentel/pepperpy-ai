@@ -1,4 +1,4 @@
-"""Tipos específicos de agentes implementados pelo framework
+"""Specific agent types implemented by the framework
 
 Este módulo define os diferentes tipos de agentes suportados pelo framework,
 incluindo:

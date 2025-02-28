@@ -11,7 +11,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.cli.plugins import (
+from pepperpy.core.plugins.cli import (
     PluginRegistry,
     disable_plugin,
     discover_plugins,
@@ -21,7 +21,7 @@ from pepperpy.cli.plugins import (
     load_plugin,
     load_plugin_config,
 )
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.common.logging import get_logger
 
 # Configure rich console

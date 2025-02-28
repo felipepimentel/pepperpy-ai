@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 from uuid import uuid4
 
-from pepperpy.common.errors import DuplicateError, NotFoundError
+from pepperpy.core.errors import DuplicateError, NotFoundError
 from pepperpy.common.types.base import BaseComponent, ComponentID, Metadata
 
 T = TypeVar("T", bound=BaseComponent)

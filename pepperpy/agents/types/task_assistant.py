@@ -4,7 +4,7 @@ import json
 from typing import Any, Dict, List, Optional
 
 from pepperpy.agents.base import Agent
-from pepperpy.common.errors import ProcessingError
+from pepperpy.core.errors import ProcessingError
 
 
 class TaskAssistant(Agent):

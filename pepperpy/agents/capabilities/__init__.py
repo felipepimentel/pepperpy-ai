@@ -1,4 +1,4 @@
-"""Capacidades cognitivas implementadas pelos agentes
+"""Cognitive capabilities implemented by agents
 
 Este módulo define as capacidades cognitivas que podem ser implementadas pelos agentes,
 incluindo:

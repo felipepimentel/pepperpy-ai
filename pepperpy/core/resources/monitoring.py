@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import Any
 
 from pepperpy.common.base import Lifecycle
-from pepperpy.common.errors import ValidationError
+from pepperpy.core.errors import ValidationError
 from pepperpy.common.metrics import Counter, Gauge, Histogram
-from pepperpy.common.types import ComponentState
+from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.resources.types import Resource, ResourceState
 

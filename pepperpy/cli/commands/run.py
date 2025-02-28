@@ -23,7 +23,7 @@ from pepperpy.agents.manager import AgentManager
 from pepperpy.agents.providers.services import ProviderRegistry
 from pepperpy.cli.exceptions import ExecutionError
 from pepperpy.cli.utils import format_error, format_success, load_config
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.common.messages import ProviderMessage
 from pepperpy.agents.workflowss.engine import WorkflowEngine
 

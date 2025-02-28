@@ -7,7 +7,7 @@ import logging
 import time
 from typing import Any
 
-from pepperpy.common.errors import ValidationError
+from pepperpy.core.errors import ValidationError
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 from pepperpy.validation.base import BaseSchema
 

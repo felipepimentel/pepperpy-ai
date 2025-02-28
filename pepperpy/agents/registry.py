@@ -10,7 +10,7 @@ from pepperpy.agents.autonomous import AutonomousAgent, AutonomousAgentConfig
 from pepperpy.agents.base import AgentConfig, BaseAgent
 from pepperpy.agents.interactive import InteractiveAgent, InteractiveAgentConfig
 from pepperpy.agents.workflow import WorkflowAgent, WorkflowAgentConfig
-from pepperpy.common.errors import AgentError
+from pepperpy.core.errors import AgentError
 from pepperpy.common.logging import get_logger
 from pepperpy.common.registry.base import (
     ComponentMetadata,

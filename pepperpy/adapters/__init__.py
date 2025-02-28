@@ -1,4 +1,4 @@
-"""Adaptadores para integração com frameworks e bibliotecas de terceiros."""
+"""Adapters for integration with third-party frameworks and libraries."""
 
 from .base import Adapter, AdapterConfig
 from .manager import AdapterManager

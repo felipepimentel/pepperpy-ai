@@ -23,7 +23,7 @@ from pepperpy.cli.commands import (
     workflow,
 )
 from pepperpy.cli.plugins.loader import get_plugin_commands, load_all_plugins
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.common.logging import get_logger
 
 # Configure rich console

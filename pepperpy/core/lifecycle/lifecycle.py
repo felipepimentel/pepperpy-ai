@@ -5,7 +5,7 @@ import logging
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from pepperpy.common.errors import StateError
+from pepperpy.core.errors import StateError
 
 
 class LifecycleState(Enum):

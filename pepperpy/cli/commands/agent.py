@@ -9,7 +9,7 @@ from rich.table import Table
 
 from pepperpy.agents.base import AgentConfig, BaseAgent
 from pepperpy.agents.registry import AgentRegistry
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.common.logging import get_logger
 
 # Configure logging
@@ -250,7 +250,7 @@ This module provides commands for managing agents:
 import click
 from rich.console import Console
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 
 console = Console()
 

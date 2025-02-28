@@ -22,7 +22,7 @@ import asyncio
 import gzip
 import os
 
-from pepperpy.common.errors import ValidationError
+from pepperpy.core.errors import ValidationError
 from pepperpy.monitoring.logging.base import LogHandler, LogRecord
 from pepperpy.monitoring.logging.formatters.json import JsonFormatter
 

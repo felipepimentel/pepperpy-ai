@@ -10,7 +10,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 
 # Configure rich console
 console = Console()
@@ -137,7 +137,7 @@ from typing import Optional
 import click
 from rich.console import Console
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 
 console = Console()
 

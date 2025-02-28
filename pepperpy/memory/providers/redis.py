@@ -11,7 +11,7 @@ from typing import Any, TypeVar, cast
 import redis.asyncio as redis
 from structlog import get_logger
 
-from pepperpy.common.errors import ConfigurationError, ProviderError
+from pepperpy.core.errors import ConfigurationError, ProviderError
 from pepperpy.memory.providers.base import MemoryItem, MemoryProvider
 from pepperpy.common.providers.unified import ProviderConfig
 

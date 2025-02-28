@@ -1,13 +1,3 @@
-"""Configuration providers for the Pepperpy framework."""
+"""Compatibility stub for providers"""
 
-from .base import ConfigProvider
-from .env import EnvConfigProvider
-from .file import FileConfigProvider
-from .secure import SecureConfigProvider
-
-__all__ = [
-    "ConfigProvider",
-    "EnvConfigProvider",
-    "FileConfigProvider",
-    "SecureConfigProvider",
-]
+from .........providers.config import *  # noqa

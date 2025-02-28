@@ -7,8 +7,8 @@ from collections.abc import Callable, Coroutine
 from typing import Any
 
 from pepperpy.common.base import Lifecycle
-from pepperpy.common.errors import ValidationError
-from pepperpy.common.types import ComponentState
+from pepperpy.core.errors import ValidationError
+from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.resources.cleanup import ResourceCleaner
 from pepperpy.resources.monitoring import ResourceMonitor

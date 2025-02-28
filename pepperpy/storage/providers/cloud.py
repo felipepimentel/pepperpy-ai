@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from pepperpy.providers.storage.base import StorageError, StorageProvider
+from pepperpy.storage.base import StorageError, StorageProvider
 
 
 class CloudStorageProvider(StorageProvider):

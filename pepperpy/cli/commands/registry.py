@@ -16,7 +16,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.common.registry import CapabilityRegistry, ProviderRegistry
 
 # Configure rich console

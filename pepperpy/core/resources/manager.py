@@ -13,7 +13,7 @@ from typing import Any, Optional, TypeVar
 from pydantic import BaseModel, Field
 
 from pepperpy.common.base import Lifecycle
-from pepperpy.common.types import ComponentState
+from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import Counter, Gauge, MetricsManager
 from pepperpy.resources.base import Resource, ResourceConfig

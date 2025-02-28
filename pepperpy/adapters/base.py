@@ -23,7 +23,7 @@ from pepperpy.adapters.types import (
     T_Output,
 )
 from pepperpy.common.base import ComponentBase, ComponentConfig, ComponentState
-from pepperpy.common.errors import AdapterError
+from pepperpy.core.errors import AdapterError
 
 # Configure logging
 logger = logging.getLogger(__name__)

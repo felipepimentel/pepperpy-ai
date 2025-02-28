@@ -18,9 +18,9 @@ import asyncio
 import logging
 from typing import Any, TypeVar
 
-from pepperpy.common.errors import ValidationError
+from pepperpy.core.errors import ValidationError
 from pepperpy.common.lifecycle.types import Lifecycle
-from pepperpy.common.types import ComponentState
+from pepperpy.core.types import ComponentState
 
 # Configure base logging
 logging.basicConfig(

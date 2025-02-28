@@ -16,7 +16,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.hub.marketplace import MarketplaceConfig, MarketplaceManager
 from pepperpy.hub.publishing import Publisher
 from pepperpy.hub.security import SecurityConfig, SecurityManager
@@ -363,7 +363,7 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.hub.marketplace import MarketplaceConfig
 from pepperpy.hub.security import SecurityManager
 

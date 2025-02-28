@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
 from pepperpy.common.base import BaseManager
-from pepperpy.common.types import UserId
+from pepperpy.core.types import UserId
 
 
 class AuthenticationError(Exception):

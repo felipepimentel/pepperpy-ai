@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, cast
 import click
 from rich.console import Console
 
-from pepperpy.common.errors import PepperpyError
+from pepperpy.core.errors import PepperpyError
 from pepperpy.common.logging import get_logger
 
 # Configure rich console
