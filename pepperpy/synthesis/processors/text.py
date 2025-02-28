@@ -1,6 +1,6 @@
-"""Processador de texto para síntese.
+"""Text processor for synthesis.
 
-Implementa o processamento de texto para síntese de conteúdo.
+Implements text processing for content synthesis.
 """
 
 from typing import Any, Dict, Optional

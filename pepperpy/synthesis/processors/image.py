@@ -1,6 +1,6 @@
-"""Processador de imagem para síntese.
+"""Image processor for synthesis.
 
-Implementa o processamento de imagem para síntese de conteúdo.
+Implements image processing for content synthesis.
 """
 
 from typing import Any, Dict, Optional, Tuple

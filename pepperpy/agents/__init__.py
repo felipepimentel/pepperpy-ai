@@ -7,8 +7,26 @@ enabling autonomous and interactive task execution.
 from typing import Dict, List, Optional, Union
 
 __version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
 
+# Import providers subpackage
+from .providers import (
+    BaseProvider,
+    ProviderCapability,
+    ProviderConfig,
+    ProviderContext,
+    ProviderEngine,
+    ProviderFactory,
+    ProviderID,
+    ProviderManager,
+    ProviderMessage,
+    ProviderMetadata,
+    ProviderResponse,
+    ProviderState,
+)
+
+# Note: These imports are commented out as they could not be resolved
+# Uncomment when these modules are implemented
+"""
 from .multi_agent import (
     Agent,
     AgentRole,
@@ -36,8 +54,25 @@ from .reasoning import (
     ReasoningEngine,
     ReasoningStrategy,
 )
+"""
 
 __all__ = [
+    # Providers
+    "BaseProvider",
+    "ProviderCapability",
+    "ProviderConfig",
+    "ProviderContext",
+    "ProviderEngine",
+    "ProviderFactory",
+    "ProviderManager",
+    "ProviderMetadata",
+    "ProviderState",
+    "ProviderID",
+    "ProviderMessage",
+    "ProviderResponse",
+    # The following are commented out as they could not be resolved
+    # Uncomment when these modules are implemented
+    """
     # Planning
     "PlanStatus",
     "PlanStep",
@@ -62,4 +97,5 @@ __all__ = [
     "CollaborationSystem",
     "TeamFormation",
     "Consensus",
+    """,
 ]

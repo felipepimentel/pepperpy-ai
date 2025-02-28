@@ -1,27 +1,14 @@
-"""Audit package for PepperPy security.
+"""Audit logging for PepperPy.
 
-This package provides functionality for security auditing, including event
-tracking, logging, analysis, and reporting of security-relevant actions.
+This module provides audit logging capabilities for the PepperPy framework:
+- Security auditing: Track security-relevant events
+- Compliance logging: Record events required for regulatory compliance
+- User activity tracking: Monitor and record user actions
+- Change tracking: Record changes to system state
+
+The audit logging system enables applications to maintain a secure and
+compliant record of important events and actions within the system.
 """
 
-from .analyzer import AuditAnalyzer
-from .events import (
-    AuditEvent,
-    AuditEventSeverity,
-    AuditEventType,
-    AuditLogger,
-)
-from .reporting import AuditReport
-
-__all__ = [
-    # Event types and data structures
-    "AuditEvent",
-    "AuditEventType",
-    "AuditEventSeverity",
-    # Core functionality
-    "AuditLogger",
-    # Analysis
-    "AuditAnalyzer",
-    # Reporting
-    "AuditReport",
-]
+# Export public API
+__all__ = []

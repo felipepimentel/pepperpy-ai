@@ -1,15 +1,14 @@
-"""Monitoring package for PepperPy observability.
+"""System monitoring for PepperPy.
 
-This package provides functionality for monitoring both runtime and system-level
-metrics and performance of PepperPy components.
+This module provides system monitoring capabilities for the PepperPy framework:
+- Resource monitoring: Track system resource usage
+- Performance monitoring: Monitor system performance metrics
+- Alerting: Generate alerts based on monitoring thresholds
+- Dashboards: Visualize monitoring data
+
+The monitoring system enables applications to track their operational status
+and performance, facilitating proactive management and optimization.
 """
 
-from .runtime import RuntimeMetrics, RuntimeMonitor
-from .system import SystemMetrics, SystemMonitor
-
-__all__ = [
-    "RuntimeMetrics",
-    "RuntimeMonitor",
-    "SystemMetrics",
-    "SystemMonitor",
-]
+# Export public API
+__all__ = []

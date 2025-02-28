@@ -1,14 +1,12 @@
-"""Tipos e enums para o módulo de agentes
+"""Types and enums for the agents module
 
-Define os tipos de dados e enumerações utilizados no módulo de agentes.
+Defines the data types and enumerations used in the agents module.
 """
 
 from enum import Enum, auto
 from typing import Any, Dict, TypeVar
-from uuid import UUID
 
 from pepperpy.core.types.base import BaseComponent
-from pepperpy.core.types.enums import AgentID, AgentState
 
 from .base import BaseAgent
 

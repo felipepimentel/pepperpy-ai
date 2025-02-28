@@ -13,36 +13,31 @@ from .config import (
     RetrievalConfig,
 )
 from .defaults import register_default_components
-from .embedders import (
+from .embedding import (
     DocumentEmbedder,
     Embedder,
-    SentenceEmbedder,
+    MultiModalEmbedder,
     TextEmbedder,
 )
 from .factory import RagPipelineFactory
-from .indexers import (
+from .indexing import (
     HybridIndexer,
     Indexer,
     TextIndexer,
     VectorIndexer,
 )
-from .optimizations import (
+from .optimization import (
     # Compression
     DimensionalityReducer,
+    # Pruning
     DiversityPruner,
-    # Caching
-    EmbeddingCache,
     QualityPruner,
     QuantizationCompressor,
-    QueryCache,
-    # Pruning
     RedundancyPruner,
-    ResultCache,
     VectorCompressor,
+    VectorPruner,
 )
 from .pipeline import StandardRagPipeline
-
-# Import from new consolidated modules
 from .preprocessing import (
     # Augmentation
     Augmenter,
@@ -57,6 +52,12 @@ from .preprocessing import (
     TokenChunker,
 )
 from .registry import registry
+from .retrieval_system import (
+    HybridRetriever,
+    Retriever,
+    TextRetriever,
+    VectorRetriever,
+)
 from .types import (
     Chunk,
     ChunkType,
@@ -109,20 +110,20 @@ __all__ = [
     # Embedder implementations
     "TextEmbedder",
     "DocumentEmbedder",
-    "SentenceEmbedder",
+    "MultiModalEmbedder",
     # Indexer implementations
     "VectorIndexer",
     "TextIndexer",
     "HybridIndexer",
+    # Retriever implementations
+    "VectorRetriever",
+    "TextRetriever",
+    "HybridRetriever",
     # Augmenter implementations
     "QueryAugmenter",
     "ResultAugmenter",
     "ContextAugmenter",
     # Optimization implementations
-    # Caching
-    "EmbeddingCache",
-    "QueryCache",
-    "ResultCache",
     # Compression
     "DimensionalityReducer",
     "VectorCompressor",
@@ -131,4 +132,5 @@ __all__ = [
     "RedundancyPruner",
     "QualityPruner",
     "DiversityPruner",
+    "VectorPruner",
 ]

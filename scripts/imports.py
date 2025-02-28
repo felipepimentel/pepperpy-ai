@@ -61,6 +61,16 @@ IMPORT_MAPPINGS: dict[ImportType, list[ImportMapping]] = {
             "from pepperpy.providers.memory",
             "Memory provider imports",
         ),
+        ImportMapping(
+            "from pepperpy.providers.llm",
+            "from pepperpy.providers.llm",
+            "LLM provider imports",
+        ),
+        ImportMapping(
+            "from pepperpy.memory.providers",
+            "from pepperpy.memory.providers",
+            "Memory provider imports",
+        ),
     ],
     ImportType.DATA: [
         ImportMapping(

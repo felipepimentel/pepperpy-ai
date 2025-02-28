@@ -1,21 +1,14 @@
-"""Health monitoring package for PepperPy observability.
+"""Health monitoring for PepperPy.
 
-This package provides functionality for monitoring and checking the health of
-various PepperPy components and services.
+This module provides health monitoring capabilities for the PepperPy framework:
+- Health checks: Verify the health of system components
+- Status reporting: Report system status to external systems
+- Readiness probes: Determine if the system is ready to accept requests
+- Liveness probes: Determine if the system is alive and functioning
+
+The health monitoring system enables applications to report their health status
+and allows infrastructure to make decisions based on that status.
 """
 
-from .checks import (
-    HealthCheck,
-    HealthChecker,
-    HealthCheckResult,
-    HealthStatus,
-    SystemHealthCheck,
-)
-
-__all__ = [
-    "HealthStatus",
-    "HealthCheckResult",
-    "HealthCheck",
-    "HealthChecker",
-    "SystemHealthCheck",
-]
+# Export public API
+__all__ = []

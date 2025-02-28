@@ -1,21 +1,14 @@
-"""Metrics package for PepperPy observability.
+"""Metrics collection for PepperPy.
 
-This package provides functionality for collecting, aggregating, and managing
-metrics from various PepperPy components and operations.
+This module provides metrics collection capabilities for the PepperPy framework:
+- Counters: Track cumulative values
+- Gauges: Track values that can increase and decrease
+- Histograms: Track distributions of values
+- Exporters: Export metrics to various backends
+
+The metrics system enables applications to collect and analyze quantitative data
+about their operation, facilitating performance analysis and optimization.
 """
 
-from .collector import (
-    Metric,
-    MetricsCollector,
-    MetricsRegistry,
-    MetricType,
-)
-from .manager import MetricsManager
-
-__all__ = [
-    "MetricType",
-    "Metric",
-    "MetricsCollector",
-    "MetricsRegistry",
-    "MetricsManager",
-]
+# Export public API
+__all__ = []

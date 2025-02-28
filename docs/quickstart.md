@@ -45,7 +45,7 @@ Here's how to use different providers:
 
 ```python
 from pepperpy.providers.llm import OpenAIProvider
-from pepperpy.providers.memory import RedisProvider
+from pepperpy.memory.providers import RedisProvider
 from pepperpy.providers.storage import LocalStorageProvider
 
 async def setup_providers():

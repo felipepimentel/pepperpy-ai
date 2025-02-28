@@ -1,6 +1,6 @@
-"""Utilitários para manipulação de arquivos de configuração.
+"""Utilities for configuration file manipulation.
 
-Implementa funções auxiliares para manipulação e formatação de arquivos de configuração.
+Implements helper functions for manipulating and formatting configuration files.
 """
 
 import os

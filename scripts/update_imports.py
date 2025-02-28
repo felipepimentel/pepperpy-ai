@@ -21,7 +21,8 @@ IMPORT_MAP = {
     "from pepperpy.persistence.storage.conversation": (
         "from pepperpy.persistence.storage.conversation"
     ),
-    "from pepperpy.providers.memory": "from pepperpy.providers.memory",
+    "from pepperpy.providers.llm": "from pepperpy.providers.llm",
+    "from pepperpy.providers.memory": "from pepperpy.memory.providers",
     "from pepperpy.persistence.storage.rag": ("from pepperpy.persistence.storage.rag"),
     "from pepperpy.providers.embedding": "from pepperpy.providers.embedding",
     "from pepperpy.providers.vector_store": ("from pepperpy.providers.vector_store"),

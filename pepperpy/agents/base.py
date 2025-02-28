@@ -1,7 +1,7 @@
-"""Interfaces base para o módulo de agentes
+"""Base interfaces for the agents module
 
-Define as interfaces e classes base para os diferentes tipos de agentes
-e suas capacidades no framework.
+Defines the interfaces and base classes for different types of agents
+and their capabilities in the framework.
 """
 
 from abc import ABC, abstractmethod

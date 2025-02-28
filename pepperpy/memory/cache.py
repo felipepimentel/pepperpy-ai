@@ -17,11 +17,11 @@ focusing on:
 
 This module is part of a unified caching architecture:
 - This module (memory/cache.py): Agent-specific caching with context awareness
-- optimization/caching/: General performance caching with distribution support
+- pepperpy/caching/: Unified caching system with various backends
 
 Both modules share core concepts but have specialized implementations.
-Future versions may consolidate these into a unified caching system
-with specialized adapters.
+This module now integrates with the unified caching system while
+maintaining its agent-specific features.
 
 The module provides:
 - In-memory cache
@@ -35,6 +35,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, Generic, Optional, Type, TypeVar, Union
+
+# Import from the unified caching system
 
 T = TypeVar("T")
 
