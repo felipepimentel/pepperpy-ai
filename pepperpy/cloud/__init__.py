@@ -29,8 +29,8 @@ Supported providers:
 from typing import Dict, List, Optional, Union
 
 from pepperpy.cloud.base import CloudProvider, CloudProviderConfig
-from pepperpy.cloud.providers.aws import AWSProvider
-from pepperpy.cloud.providers.gcp import GCPStorageProvider
+from pepperpy.providers.cloud.aws import AWSProvider
+from pepperpy.providers.cloud.gcp import GCPStorageProvider
 
 __version__ = "0.1.0"
 __all__ = [

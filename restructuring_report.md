@@ -846,7 +846,7 @@ diff -r -u -N /home/pimentel/Workspace/pepperpy/pepperpy_backup_20250228_020849/
 +   NEW: from pepperpy.capabilities.audio import AudioAnalyzer, SpeechTranscriber, AudioClassifier
  
  5. To migrate existing processors:
-    from pepperpy.audio.migration import MigrationHelper
+    from pepperpy.capabilities.audio.migration import MigrationHelper
 @@ -214,11 +214,11 @@
          Updated source code
      """

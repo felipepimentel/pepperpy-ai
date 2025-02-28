@@ -1,3 +1,3 @@
 """Compatibility stub for providers"""
 
-from ......providers.cloud import *  # noqa
+from pepperpy.providers.cloud import *  # noqa

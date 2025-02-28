@@ -1,3 +1,3 @@
 """Compatibility stub for multimodal"""
 
-from ...capabilities.multimodal import *  # noqa
+from pepperpy.capabilities.multimodal import *  # noqa

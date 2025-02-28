@@ -188,7 +188,7 @@ Follow these steps to migrate your code:
    NEW: from pepperpy.capabilities.audio import AudioAnalyzer, SpeechTranscriber, AudioClassifier
 
 5. To migrate existing processors:
-   from pepperpy.audio.migration import MigrationHelper
+   from pepperpy.capabilities.audio.migration import MigrationHelper
    new_processor = MigrationHelper.get_equivalent_processor(old_processor)
 
 6. New features available:

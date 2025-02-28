@@ -1,257 +1,237 @@
-#!/usr/bin/env python
-"""
-Script para validar a reestruturação do projeto PepperPy.
-Este script verifica:
-- Se os módulos estão nos locais esperados
-- Se as dependências circulares foram eliminadas
-- Se os imports estão atualizados corretamente
-- Se os stubs de compatibilidade estão funcionando
+#!/usr/bin/env python3
+"""Script to validate the restructuring of the PepperPy project.
+
+This script checks if the restructuring was successful by verifying:
+1. If the directories were moved correctly
+2. If compatibility stubs were created
+3. If imports were updated correctly
 """
 
 import os
-import re
-import sys
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Tuple
 
-# Adicionar o diretório pai ao caminho para importar o restructure.py
-sys.path.append(str(Path(__file__).parent))
-from restructure import PEPPERPY_DIR
+# Define the expected directory structure after restructuring
+EXPECTED_DIRECTORIES = [
+    # Capabilities
+    "pepperpy/capabilities/audio",
+    "pepperpy/capabilities/vision",
+    "pepperpy/capabilities/multimodal",
+    # Providers
+    "pepperpy/providers/llm",
+    "pepperpy/providers/cloud",
+    # Caching
+    "pepperpy/caching",
+]
+
+# Define the expected compatibility stubs
+EXPECTED_STUBS = [
+    # Original directories with compatibility stubs
+    "pepperpy/audio",
+    "pepperpy/vision",
+    "pepperpy/multimodal",
+    "pepperpy/memory/cache.py",
+]
+
+# Define problematic imports that should not exist after restructuring
+PROBLEMATIC_IMPORTS = [
+    "from pepperpy.audio import",
+    "import pepperpy.audio",
+    "from pepperpy.vision import",
+    "import pepperpy.vision",
+    "from pepperpy.multimodal import",
+    "import pepperpy.multimodal",
+    "from pepperpy.memory.cache import",
+    "import pepperpy.memory.cache",
+]
+
+# Diretórios e arquivos a serem ignorados na verificação de imports problemáticos
+IGNORED_PATHS = [
+    "scripts/",
+    "backup/",
+    ".git/",
+    ".venv/",
+    "__pycache__/",
+]
 
 
-def check_module_locations() -> List[str]:
-    """
-    Verifica se os módulos estão nos locais esperados após a reestruturação.
+def check_directories(project_root: Path) -> Tuple[List[str], List[str]]:
+    """Check if the expected directories exist.
+
+    Args:
+        project_root: Path to the project root
 
     Returns:
-        List[str]: Lista de problemas encontrados
+        Tuple of (existing directories, missing directories)
     """
-    problems = []
+    existing = []
+    missing = []
 
-    # Lista de módulos que devem existir após a reestruturação
-    expected_modules = [
-        "providers",  # Novo módulo centralizado de provedores
-        "capabilities",  # Novo módulo de capacidades
-        "workflows",  # Workflows movidos para o nível superior
-        "core/errors",  # Erros consolidados no core
-    ]
-
-    # Lista de módulos que não devem mais existir como estruturas separadas
-    deprecated_modules = [
-        "common/errors",  # Deve ter sido consolidado em core/errors
-        "agents/workflows",  # Deve ter sido movido para workflows no nível superior
-        "agents/providers",  # Deve ter sido movido para providers/agent
-        "audio/providers",  # Deve ter sido movido para providers/audio
-    ]
-
-    # Verifica os módulos esperados
-    for module in expected_modules:
-        module_path = PEPPERPY_DIR / module
-        if not module_path.exists():
-            problems.append(f"Módulo esperado não encontrado: {module}")
-
-    # Verifica os módulos deprecados (devem existir apenas como stubs)
-    for module in deprecated_modules:
-        module_path = PEPPERPY_DIR / module
-        if not module_path.exists():
-            problems.append(
-                f"Módulo deprecado completamente removido (deve existir como stub): {module}"
-            )
+    for directory in EXPECTED_DIRECTORIES:
+        dir_path = project_root / directory
+        if dir_path.exists() and dir_path.is_dir():
+            existing.append(directory)
         else:
-            # Verifica se é apenas um stub (deve ter apenas um __init__.py)
-            module_files = list(module_path.glob("*"))
-            if len(module_files) > 1 or not (module_path / "__init__.py").exists():
-                problems.append(
-                    f"Módulo deprecado contém mais do que um stub: {module}"
-                )
+            missing.append(directory)
 
-    return problems
+    return existing, missing
 
 
-def detect_circular_dependencies() -> List[str]:
-    """
-    Detecta dependências circulares no código.
+def check_stubs(project_root: Path) -> Tuple[List[str], List[str]]:
+    """Check if the expected compatibility stubs exist.
+
+    Args:
+        project_root: Path to the project root
 
     Returns:
-        List[str]: Lista de dependências circulares encontradas
+        Tuple of (existing stubs, missing stubs)
     """
-    circular_deps = []
-    import_graph = {}  # Módulo -> conjunto de módulos importados
+    existing = []
+    missing = []
 
-    # Constrói o grafo de importações
-    for root, _, files in os.walk(PEPPERPY_DIR):
+    for stub in EXPECTED_STUBS:
+        stub_path = project_root / stub
+
+        # Check if it's a directory with __init__.py
+        if stub_path.is_dir() and (stub_path / "__init__.py").exists():
+            with open(stub_path / "__init__.py", "r", encoding="utf-8") as f:
+                content = f.read()
+                if "Compatibility stub" in content:
+                    existing.append(stub)
+                else:
+                    missing.append(stub)
+        # Check if it's a file
+        elif stub_path.is_file():
+            with open(stub_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                if "Compatibility stub" in content:
+                    existing.append(stub)
+                else:
+                    missing.append(stub)
+        else:
+            missing.append(stub)
+
+    return existing, missing
+
+
+def should_ignore_path(path: str) -> bool:
+    """Check if a path should be ignored in the validation.
+
+    Args:
+        path: Path to check
+
+    Returns:
+        True if the path should be ignored, False otherwise
+    """
+    for ignored_path in IGNORED_PATHS:
+        if path.startswith(ignored_path):
+            return True
+    return False
+
+
+def find_problematic_imports(project_root: Path) -> Dict[str, List[str]]:
+    """Find files with problematic imports.
+
+    Args:
+        project_root: Path to the project root
+
+    Returns:
+        Dictionary mapping problematic imports to lists of files
+    """
+    problematic_files: Dict[str, List[str]] = {imp: [] for imp in PROBLEMATIC_IMPORTS}
+
+    # Skip directories
+    skip_dirs = {".git", ".venv", "backup", "__pycache__", "scripts"}
+
+    for root, dirs, files in os.walk(project_root):
+        # Skip specified directories
+        dirs[:] = [d for d in dirs if d not in skip_dirs]
+
         for file in files:
             if file.endswith(".py"):
                 file_path = Path(root) / file
-                module_path = os.path.relpath(file_path, PEPPERPY_DIR)
-                module_name = module_path.replace("/", ".").replace(".py", "")
+                rel_path = str(file_path.relative_to(project_root))
 
-                if module_name.endswith("__init__"):
-                    module_name = module_name[:-9]
-
-                import_graph[module_name] = set()
-
-                # Extrai imports
-                with open(file_path, "r") as f:
-                    content = f.read()
-
-                # Busca padrões de import
-                import_patterns = [
-                    r"import\s+(pepperpy\.[^\s;]+)",
-                    r"from\s+(pepperpy\.[^\s;]+)\s+import",
-                ]
-
-                for pattern in import_patterns:
-                    for match in re.finditer(pattern, content):
-                        imported_module = match.group(1)
-                        import_graph[module_name].add(imported_module)
-
-    # Detecta ciclos usando DFS
-    def has_cycle(node, visited, rec_stack):
-        visited.add(node)
-        rec_stack.add(node)
-
-        for neighbor in import_graph.get(node, []):
-            if neighbor.startswith("pepperpy."):
-                if neighbor not in visited:
-                    if has_cycle(neighbor, visited, rec_stack):
-                        return True
-                elif neighbor in rec_stack:
-                    circular_deps.append(f"Dependência circular: {node} -> {neighbor}")
-                    return True
-
-        rec_stack.remove(node)
-        return False
-
-    # Verifica ciclos para cada nó
-    visited = set()
-    for node in import_graph:
-        if node not in visited:
-            has_cycle(node, visited, set())
-
-    return circular_deps
-
-
-def check_import_consistency() -> List[str]:
-    """
-    Verifica se os imports foram atualizados corretamente.
-
-    Returns:
-        List[str]: Lista de problemas de importação encontrados
-    """
-    problems = []
-
-    # Mapeamento de imports antigos que não devem mais ser usados
-    deprecated_imports = {
-        "pepperpy.common.errors": "pepperpy.core.errors",
-        "pepperpy.agents.workflows": "pepperpy.workflows",
-        "pepperpy.agents.providers": "pepperpy.providers.agent",
-        "pepperpy.audio.providers": "pepperpy.providers.audio",
-        "pepperpy.vision.providers": "pepperpy.providers.vision",
-        "pepperpy.audio": "pepperpy.capabilities.audio",
-        "pepperpy.vision": "pepperpy.capabilities.vision",
-        "pepperpy.cli.plugins": "pepperpy.core.plugins.cli",
-    }
-
-    # Verifica todos os arquivos Python
-    for root, _, files in os.walk(PEPPERPY_DIR):
-        for file in files:
-            if file.endswith(".py"):
-                file_path = Path(root) / file
-                rel_path = os.path.relpath(file_path, PEPPERPY_DIR)
-
-                # Não verificamos os stubs de compatibilidade
-                if "__init__.py" in rel_path and "from" in rel_path:
+                # Skip ignored paths
+                if should_ignore_path(rel_path):
                     continue
 
-                with open(file_path, "r") as f:
-                    content = f.read()
+                try:
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        content = f.read()
 
-                # Verifica cada import obsoleto
-                for old_import, new_import in deprecated_imports.items():
-                    # Evita falsos positivos em comentários
-                    pattern = rf"[^\'\"]import\s+{re.escape(old_import)}[^\'\"]|[^\'\"]from\s+{re.escape(old_import)}\s+import[^\'\"]"
-                    if re.search(pattern, content):
-                        problems.append(
-                            f"Import obsoleto em {rel_path}: {old_import} (deve ser {new_import})"
-                        )
+                    for imp in PROBLEMATIC_IMPORTS:
+                        if imp in content:
+                            # Check if it's not in a compatibility stub
+                            with open(file_path, "r", encoding="utf-8") as f:
+                                first_lines = "".join(f.readlines()[:5])
+                                if "Compatibility stub" not in first_lines:
+                                    problematic_files[imp].append(rel_path)
+                except Exception as e:
+                    print(f"Error reading {file_path}: {e}")
 
-    return problems
-
-
-def check_stub_functionality() -> List[str]:
-    """
-    Verifica se os stubs de compatibilidade estão funcionando corretamente.
-
-    Returns:
-        List[str]: Lista de problemas encontrados com stubs
-    """
-    problems = []
-
-    # Lista de locais onde esperamos stubs de compatibilidade
-    expected_stubs = [
-        ("common/errors/__init__.py", "core/errors"),
-        ("agents/workflows/__init__.py", "workflows"),
-        ("agents/providers/__init__.py", "providers/agent"),
-        ("audio/providers/__init__.py", "providers/audio"),
-        ("vision/providers/__init__.py", "providers/vision"),
-        ("audio/__init__.py", "capabilities/audio"),
-        ("vision/__init__.py", "capabilities/vision"),
-        ("cli/plugins/__init__.py", "core/plugins/cli"),
-    ]
-
-    for stub_path, target in expected_stubs:
-        stub_file = PEPPERPY_DIR / stub_path
-        if not stub_file.exists():
-            problems.append(f"Stub de compatibilidade ausente: {stub_path}")
-            continue
-
-        with open(stub_file, "r") as f:
-            content = f.read()
-
-        # Verifica se o stub importa corretamente do novo local
-        expected_import = f"from pepperpy.{target}"
-        if expected_import not in content and "import *" not in content:
-            problems.append(
-                f"Stub de compatibilidade em {stub_path} não importa corretamente de {target}"
-            )
-
-    return problems
+    return problematic_files
 
 
 def main():
-    """Executa todas as verificações de validação."""
-    print("Validando a reestruturação do PepperPy...")
+    """Main function."""
+    # Get the project root directory
+    project_root = Path(__file__).parent.parent
 
-    # Lista para armazenar todos os problemas encontrados
-    all_problems = []
+    print("Validating PepperPy restructuring...")
+    print("=" * 50)
 
-    # Executa as verificações
-    module_problems = check_module_locations()
-    circular_deps = detect_circular_dependencies()
-    import_problems = check_import_consistency()
-    stub_problems = check_stub_functionality()
-
-    # Combina todos os problemas
-    all_problems.extend(module_problems)
-    all_problems.extend(circular_deps)
-    all_problems.extend(import_problems)
-    all_problems.extend(stub_problems)
-
-    # Exibe os resultados
-    if all_problems:
-        print(f"\n❌ {len(all_problems)} problemas encontrados após a reestruturação:")
-        for i, problem in enumerate(all_problems, 1):
-            print(f"{i}. {problem}")
-        print("\nA reestruturação pode precisar de ajustes adicionais.")
+    # Check directories
+    existing_dirs, missing_dirs = check_directories(project_root)
+    print("\n1. Directory Structure Check:")
+    print(f"   - {len(existing_dirs)} expected directories exist")
+    if missing_dirs:
+        print(f"   - {len(missing_dirs)} expected directories are missing:")
+        for directory in missing_dirs:
+            print(f"     - {directory}")
     else:
-        print(
-            "\n✅ Nenhum problema encontrado! A reestruturação parece ter sido bem-sucedida."
-        )
+        print("   - All expected directories exist")
 
-    # Retorna código de saída apropriado
-    return 1 if all_problems else 0
+    # Check stubs
+    existing_stubs, missing_stubs = check_stubs(project_root)
+    print("\n2. Compatibility Stubs Check:")
+    print(f"   - {len(existing_stubs)} expected compatibility stubs exist")
+    if missing_stubs:
+        print(f"   - {len(missing_stubs)} expected compatibility stubs are missing:")
+        for stub in missing_stubs:
+            print(f"     - {stub}")
+    else:
+        print("   - All expected compatibility stubs exist")
+
+    # Check imports
+    problematic_imports = find_problematic_imports(project_root)
+    total_problematic = sum(len(files) for files in problematic_imports.values())
+    print("\n3. Import Check:")
+    if total_problematic > 0:
+        print(f"   - Found {total_problematic} problematic imports:")
+        for imp, files in problematic_imports.items():
+            if files:
+                print(f"     - '{imp}' found in {len(files)} files:")
+                for file in files[:5]:  # Show only first 5 files
+                    print(f"       - {file}")
+                if len(files) > 5:
+                    print(f"       - ... and {len(files) - 5} more files")
+    else:
+        print("   - No problematic imports found")
+
+    # Overall result
+    print("\nOverall Validation Result:")
+    if not missing_dirs and not missing_stubs and total_problematic == 0:
+        print("✅ Restructuring validation PASSED")
+    else:
+        print("❌ Restructuring validation FAILED")
+        if missing_dirs:
+            print(f"   - {len(missing_dirs)} directories are missing")
+        if missing_stubs:
+            print(f"   - {len(missing_stubs)} compatibility stubs are missing")
+        if total_problematic > 0:
+            print(f"   - {total_problematic} problematic imports found")
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()

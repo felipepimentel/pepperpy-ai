@@ -1,3 +1,3 @@
 """Compatibility stub for audio"""
 
-from ...capabilities.audio import *  # noqa
+from pepperpy.capabilities.audio import *  # noqa

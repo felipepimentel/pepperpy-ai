@@ -104,7 +104,7 @@ general_cache.set("key", "value", ttl=3600)
 value = general_cache.get("key")
 
 # Agent memory caching
-from pepperpy.memory.cache import ContextCache
+from pepperpy.caching.memory_cache import ContextCache
 context_cache = ContextCache()
 context_cache.add_to_context("user_preference", {"theme": "dark"})
 preferences = context_cache.get_from_context("user_preference")

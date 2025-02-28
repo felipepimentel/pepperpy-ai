@@ -41,7 +41,7 @@ The PepperPy Unified Audio Processing System provides a comprehensive framework 
 ### Processing Audio Input
 
 ```python
-from pepperpy.audio import InputProcessor
+from pepperpy.capabilities.audio import InputProcessor
 
 # Create an input processor
 processor = InputProcessor(
@@ -66,7 +66,7 @@ print(f"Sample rate: {features.sample_rate}, Duration: {features.duration}s")
 ### Generating Audio Output
 
 ```python
-from pepperpy.audio import OutputProcessor
+from pepperpy.capabilities.audio import OutputProcessor
 
 # Create an output processor
 processor = OutputProcessor(
@@ -93,7 +93,7 @@ with open("output.wav", "wb") as f:
 ### Analyzing Audio Content
 
 ```python
-from pepperpy.audio import AudioAnalyzer, InputProcessor, SpeechTranscriber, AudioClassifier
+from pepperpy.capabilities.audio import AudioAnalyzer, InputProcessor, SpeechTranscriber, AudioClassifier
 
 # Create components
 input_processor = InputProcessor(name="analyzer_input")
@@ -126,8 +126,8 @@ if result.classifications:
 ### Migrating from Old Systems
 
 ```python
-from pepperpy.audio.migration import MigrationHelper
-from pepperpy.multimodal.audio import AudioProcessor as OldProcessor
+from pepperpy.capabilities.audio.migration import MigrationHelper
+from pepperpy.capabilities.multimodal.audio import AudioProcessor as OldProcessor
 
 # Create old processor
 old_processor = OldProcessor(name="legacy", config={"sample_rate": 16000})

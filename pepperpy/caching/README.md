@@ -134,7 +134,7 @@ await cache.batch_set(vectors, ttl=3600)
 
 ```python
 from pepperpy.caching import MigrationHelper, MemoryCache
-from pepperpy.memory.cache import MemoryCache as OldMemoryCache
+from pepperpy.caching.memory_cache import MemoryCache as OldMemoryCache
 
 # Create old and new caches
 old_cache = OldMemoryCache()

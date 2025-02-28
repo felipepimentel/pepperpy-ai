@@ -207,7 +207,7 @@ from pepperpy.formats.migration import MigrationHelper, detect_old_formats_in_fi
 
 # Detect old format classes in code
 code = """
-from pepperpy.audio.processors import WAVProcessor
+from pepperpy.capabilities.audio.processors import WAVProcessor
 processor = WAVProcessor()
 audio_bytes = processor.process(audio_data)
 """

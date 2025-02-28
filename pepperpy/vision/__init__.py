@@ -1,3 +1,3 @@
 """Compatibility stub for vision"""
 
-from ...capabilities.vision import *  # noqa
+from pepperpy.capabilities.vision import *  # noqa
