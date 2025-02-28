@@ -1,33 +1,22 @@
-"""Version management and compatibility system
-
-This module provides comprehensive versioning capabilities for the framework:
-
-- Semantic versioning implementation (SemVer)
-- Version compatibility checking
-- Migration paths between versions
-- Version tracking for components and data
-- Schema evolution management
-- Backward compatibility utilities
-
-The versioning system ensures reliable upgrades, consistent data structures,
-and proper handling of breaking changes across framework versions.
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.versioning.__init__
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from .compatibility import CompatibilityChecker, VersionRange
-from .evolution import SchemaEvolution
-from .migration import MigrationManager, MigrationPath
-from .semver import SemVer, compare_versions, parse_version
-from .tracking import VersionHistory, VersionTracker
+import warnings
+import importlib
 
-__all__ = [
-    "SemVer",
-    "parse_version",
-    "compare_versions",
-    "CompatibilityChecker",
-    "VersionRange",
-    "MigrationManager",
-    "MigrationPath",
-    "VersionTracker",
-    "VersionHistory",
-    "SchemaEvolution",
-]
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/common/versioning/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.versioning.__init__. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.core.common.versioning.__init__")
+
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

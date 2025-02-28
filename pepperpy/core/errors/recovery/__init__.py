@@ -7,7 +7,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any, TypeVar
 
-from pepperpy.common.errors.unified import PepperError
+from pepperpy.core.common.errors.unified import PepperError
 
 T = TypeVar("T")
 

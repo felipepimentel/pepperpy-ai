@@ -1,76 +1,22 @@
-"""Base capability interface.
-
-This module defines the base interface for AI capabilities.
-It includes:
-- Base capability interface
-- Capability configuration
-- Common capability types
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.capabilities.base
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from typing import Any, Dict, List, Optional
+import warnings
+import importlib
 
-from pydantic import BaseModel
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/core/capabilities/base.py has been moved to pepperpy.pepperpy-ai.pepperpy.capabilities.base. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-from pepperpy.common.extensions import Extension
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.capabilities.base")
 
-
-class CapabilityConfig(BaseModel):
-    """Capability configuration.
-
-    Attributes:
-        name: Capability name
-        description: Capability description
-        parameters: Capability parameters
-        metadata: Additional metadata
-    """
-
-    name: str
-    description: str = ""
-    parameters: Dict[str, Any] = {}
-    metadata: Dict[str, Any] = {}
-
-
-class BaseCapability(Extension[CapabilityConfig]):
-    """Base class for AI capabilities.
-
-    This class defines the interface that all capabilities must implement.
-    """
-
-    def __init__(
-        self,
-        name: str,
-        version: str,
-        config: Optional[CapabilityConfig] = None,
-    ) -> None:
-        """Initialize capability.
-
-        Args:
-            name: Capability name
-            version: Capability version
-            config: Optional capability configuration
-        """
-        super().__init__(name, version, config)
-
-    async def get_capabilities(self) -> List[str]:
-        """Get list of capabilities provided.
-
-        Returns:
-            List of capability identifiers
-        """
-        return [self.metadata.name]
-
-    async def get_dependencies(self) -> List[str]:
-        """Get list of required dependencies.
-
-        Returns:
-            List of dependency identifiers
-        """
-        return []
-
-    async def _initialize(self) -> None:
-        """Initialize capability resources."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up capability resources."""
-        pass
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

@@ -1,67 +1,22 @@
-"""Base types for core components.
-
-Defines the base types and interfaces used by core components.
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.types.base
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from abc import ABC
-from typing import Any, Dict, Optional
-from uuid import UUID, uuid4
+import warnings
+import importlib
 
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/common/types/base.py has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.types.base. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-class ComponentID(UUID):
-    """Component identifier type."""
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.core.common.types.base")
 
-    pass
-
-
-Metadata = Dict[str, Any]
-
-
-class BaseComponent(ABC):
-    """Base class for all components in the framework."""
-
-    def __init__(self, name: str, id: Optional[UUID] = None) -> None:
-        """Initialize component.
-
-        Args:
-            name: Component name
-            id: Optional component ID (auto-generated if not provided)
-        """
-        self._id = id or uuid4()
-        self._name = name
-        self._metadata: Metadata = {}
-
-    @property
-    def id(self) -> ComponentID:
-        """Get component ID."""
-        return ComponentID(str(self._id))
-
-    @property
-    def name(self) -> str:
-        """Get component name."""
-        return self._name
-
-    @property
-    def metadata(self) -> Metadata:
-        """Get component metadata."""
-        return self._metadata
-
-    def add_metadata(self, key: str, value: Any) -> None:
-        """Add metadata.
-
-        Args:
-            key: Metadata key
-            value: Metadata value
-        """
-        self._metadata[key] = value
-
-    def get_metadata(self, key: str) -> Optional[Any]:
-        """Get metadata value.
-
-        Args:
-            key: Metadata key
-
-        Returns:
-            Metadata value if found, None otherwise
-        """
-        return self._metadata.get(key)
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

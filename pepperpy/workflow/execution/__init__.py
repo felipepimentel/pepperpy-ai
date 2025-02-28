@@ -1,40 +1,22 @@
-"""Workflow execution and control.
-
-Este módulo implementa o sistema de execução de workflows,
-fornecendo:
-
-- Execução
-  - Execução síncrona e assíncrona
-  - Paralelismo e concorrência
-  - Controle de fluxo
-  - Tratamento de erros
-
-- Monitoramento
-  - Estado de execução
-  - Progresso
-  - Métricas
-  - Logs
-
-- Controle
-  - Início e parada
-  - Pausa e retomada
-  - Cancelamento
-  - Timeout
-
-O módulo de execução é responsável por:
-- Gerenciar ciclo de vida
-- Garantir confiabilidade
-- Otimizar performance
-- Prover observabilidade
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.execution.__init__
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from typing import Dict, List, Optional, Union
+import warnings
+import importlib
 
-from .executor import WorkflowExecutor
-from .pipeline import Pipeline
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/execution/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.execution.__init__. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-__version__ = "0.1.0"
-__all__ = [
-    "WorkflowExecutor",
-    "Pipeline",
-]
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.execution.__init__")
+
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

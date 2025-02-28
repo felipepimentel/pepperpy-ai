@@ -5,7 +5,7 @@ This module provides centralized management of metrics collection and reporting.
 
 from typing import Dict, Optional
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.types import ComponentState
 
 from .collector import Metric, MetricsCollector, MetricsRegistry

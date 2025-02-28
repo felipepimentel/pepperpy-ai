@@ -1,57 +1,22 @@
-"""Factory for workflow creation.
-
-Implements the Factory pattern for creating workflows from definitions.
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.definition.factory
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from typing import Dict, Optional, Type
+import warnings
+import importlib
 
-from ..core.base import BaseWorkflow, WorkflowDefinition
-from ..core.types import WorkflowConfig
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/definition/factory.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.definition.factory. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.definition.factory")
 
-class WorkflowFactory:
-    """Factory for creating workflow instances."""
-
-    def __init__(self) -> None:
-        """Initialize workflow factory."""
-        self._workflow_types: Dict[str, Type[BaseWorkflow]] = {}
-
-    def register_type(self, name: str, workflow_type: Type[BaseWorkflow]) -> None:
-        """Register a workflow type.
-
-        Args:
-            name: Type name
-            workflow_type: Workflow class
-        """
-        self._workflow_types[name] = workflow_type
-
-    def create(
-        self,
-        workflow_type: str,
-        definition: WorkflowDefinition,
-        config: Optional[WorkflowConfig] = None,
-    ) -> BaseWorkflow:
-        """Create a workflow instance.
-
-        Args:
-            workflow_type: Type of workflow to create
-            definition: Workflow definition
-            config: Optional workflow configuration
-
-        Returns:
-            Workflow instance
-
-        Raises:
-            ValueError: If workflow type not registered
-        """
-        if workflow_type not in self._workflow_types:
-            raise ValueError(f"Unknown workflow type: {workflow_type}")
-
-        workflow_class = self._workflow_types[workflow_type]
-        workflow = workflow_class(definition)
-
-        if config:
-            for key, value in config.items():
-                workflow.add_metadata(key, value)
-
-        return workflow
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

@@ -8,8 +8,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, TypeVar
 
-from pepperpy.common.lifecycle import Lifecycle
-from pepperpy.common.monitoring.logging import get_logger
+from pepperpy.core.common.lifecycle import Lifecycle
+from pepperpy.core.common.monitoring.logging import get_logger
 
 # Type variable for action results
 T = TypeVar("T")

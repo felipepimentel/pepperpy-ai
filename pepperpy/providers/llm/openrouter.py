@@ -9,7 +9,7 @@ from typing import Any, List, Optional, Union
 import httpx
 from pydantic import Field
 
-from pepperpy.common.providers.unified import ProviderConfig
+from pepperpy.core.common.providers.unified import ProviderConfig
 from pepperpy.llm.base import LLMMessage, LLMProvider, LLMResponse
 
 

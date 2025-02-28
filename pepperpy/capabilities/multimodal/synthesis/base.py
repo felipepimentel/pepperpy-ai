@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from pepperpy.common.base import BaseComponent as Processor
-from pepperpy.common.base import BaseProvider as Provider
+from pepperpy.core.common.base import BaseComponent as Processor
+from pepperpy.core.common.base import BaseProvider as Provider
 
 
 class SynthesisError(Exception):

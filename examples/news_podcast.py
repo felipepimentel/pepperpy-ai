@@ -27,8 +27,8 @@ from pathlib import Path
 from typing import Any, List, Optional, Union
 from uuid import uuid4
 
-from pepperpy.common.messages import ProviderMessage, ProviderResponse
-from pepperpy.common.providers.base import BaseProvider, ProviderConfig
+from pepperpy.core.common.messages import ProviderMessage, ProviderResponse
+from pepperpy.core.common.providers.base import BaseProvider, ProviderConfig
 from pepperpy.providers.llm.base import (
     LLMConfig,
     LLMMessage,

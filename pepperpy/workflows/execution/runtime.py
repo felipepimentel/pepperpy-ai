@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Type, Union
 from uuid import UUID
 
-from pepperpy.common.base import ComponentBase, ComponentConfig
+from pepperpy.core.common.base import ComponentBase, ComponentConfig
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager

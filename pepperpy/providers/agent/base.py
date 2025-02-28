@@ -15,9 +15,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 
-from pepperpy.common.base import BaseComponent
+from pepperpy.core.common.base import BaseComponent
 from pepperpy.core.errors import ConfigurationError, StateError
-from pepperpy.common.logging import get_logger
+from pepperpy.core.common.logging import get_logger
 from pepperpy.core.types import (
     AgentConfig,
     AgentError,

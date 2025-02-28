@@ -19,7 +19,7 @@ import logging
 from typing import Any, TypeVar
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.common.lifecycle.types import Lifecycle
+from pepperpy.core.common.lifecycle.types import Lifecycle
 from pepperpy.core.types import ComponentState
 
 # Configure base logging
@@ -40,7 +40,7 @@ def get_model_imports():
     """Get model imports lazily."""
     global _BaseModel, _Field
     if _BaseModel is None or _Field is None:
-        from pepperpy.common.models import BaseModel, Field
+        from pepperpy.core.common.models import BaseModel, Field
 
         _BaseModel = BaseModel
         _Field = Field

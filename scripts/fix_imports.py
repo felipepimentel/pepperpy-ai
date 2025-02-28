@@ -20,8 +20,8 @@ IMPORT_MAPPINGS = {
     "from pepperpy.multimodal": "from pepperpy.capabilities.multimodal",
     "import pepperpy.multimodal": "import pepperpy.capabilities.multimodal",
     # Moved providers
-    "from pepperpy.llm.providers": "from pepperpy.providers.llm",
-    "import pepperpy.llm.providers": "import pepperpy.providers.llm",
+    "from pepperpy.providers.llm": "from pepperpy.providers.llm",
+    "import pepperpy.providers.llm": "import pepperpy.providers.llm",
     "from pepperpy.rag.providers": "from pepperpy.providers.rag",
     "import pepperpy.rag.providers": "import pepperpy.providers.rag",
     "from pepperpy.cloud.providers": "from pepperpy.providers.cloud",

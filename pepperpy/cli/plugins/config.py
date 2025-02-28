@@ -7,7 +7,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.logging import get_logger
+from pepperpy.core.common.logging import get_logger
 
 logger = get_logger(__name__)
 

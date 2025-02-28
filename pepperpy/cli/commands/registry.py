@@ -17,7 +17,7 @@ from rich.console import Console
 from rich.table import Table
 
 from pepperpy.core.errors import PepperpyError
-from pepperpy.common.registry import CapabilityRegistry, ProviderRegistry
+from pepperpy.core.common.registry import CapabilityRegistry, ProviderRegistry
 
 # Configure rich console
 console = Console()

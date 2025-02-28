@@ -1,100 +1,22 @@
-"""Workflow manager module for the Pepperpy framework.
-
-This module provides the workflow manager that handles workflow registration and discovery.
-It manages workflow types, configurations, and provides a central point for workflow creation.
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.core.manager
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-import logging
-from typing import Dict, List, Optional, Type
+import warnings
+import importlib
 
-from pepperpy.core.errors import WorkflowError
-from pepperpy.common.lifecycle import Lifecycle
-from pepperpy.common.models import BaseModel
-from pepperpy.agents.workflowss.definition import WorkflowDefinition
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/core/manager.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.core.manager. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-logger = logging.getLogger(__name__)
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.core.manager")
 
-
-class WorkflowManager(Lifecycle):
-    """Manages workflow registration, discovery, and creation."""
-
-    def __init__(self) -> None:
-        """Initialize workflow manager."""
-        super().__init__()
-        self._workflows: Dict[str, Type[WorkflowDefinition]] = {}
-        self._logger = logger
-
-    def register_workflow(
-        self, name: str, workflow_class: Type[WorkflowDefinition]
-    ) -> None:
-        """Register a workflow type.
-
-        Args:
-            name: Workflow type name
-            workflow_class: Workflow class to register
-        """
-        if name in self._workflows:
-            raise WorkflowError(f"Workflow type {name} already registered")
-
-        self._workflows[name] = workflow_class
-        self._logger.info(f"Registered workflow type: {name}")
-
-    def get_workflow_class(self, name: str) -> Type[WorkflowDefinition]:
-        """Get workflow class by name.
-
-        Args:
-            name: Workflow type name
-
-        Returns:
-            Workflow class
-
-        Raises:
-            WorkflowError: If workflow type not found
-        """
-        if name not in self._workflows:
-            raise WorkflowError(f"Workflow type {name} not found")
-
-        return self._workflows[name]
-
-    def list_workflows(self) -> List[str]:
-        """List registered workflow types.
-
-        Returns:
-            List of workflow type names
-        """
-        return list(self._workflows.keys())
-
-    async def create_workflow(
-        self, name: str, config: Optional[BaseModel] = None
-    ) -> WorkflowDefinition:
-        """Create a workflow instance.
-
-        Args:
-            name: Workflow type name
-            config: Optional workflow configuration
-
-        Returns:
-            Workflow instance
-
-        Raises:
-            WorkflowError: If workflow creation fails
-        """
-        workflow_class = self.get_workflow_class(name)
-
-        try:
-            workflow = workflow_class()
-            if config:
-                workflow.configure(config)
-            await workflow.initialize()
-            return workflow
-        except Exception as e:
-            raise WorkflowError(f"Failed to create workflow {name}: {e}")
-
-    async def _initialize(self) -> None:
-        """Initialize workflow manager."""
-        self._logger.info("Initializing workflow manager")
-
-    async def _cleanup(self) -> None:
-        """Clean up workflow manager resources."""
-        self._workflows.clear()
-        self._logger.info("Cleaned up workflow manager")
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

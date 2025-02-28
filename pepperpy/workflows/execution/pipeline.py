@@ -10,9 +10,9 @@ This module provides the core workflow processing pipeline functionality:
 from datetime import datetime
 from typing import Any, Generic, TypeVar
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.errors import ValidationError
-from pepperpy.common.models import BaseModel, Field
+from pepperpy.core.common.models import BaseModel, Field
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager

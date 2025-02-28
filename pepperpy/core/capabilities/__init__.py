@@ -1,107 +1,22 @@
-"""Capabilities module for the Pepperpy framework.
-
-This module provides functionality for managing AI capabilities:
-- Base capability interface
-- Capability configuration
-- Common capability types
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.capabilities.__init__
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from enum import Enum, auto
-from typing import Any, Dict, List, Optional
-from uuid import UUID
+import warnings
+import importlib
 
-from pydantic import BaseModel, Field
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/core/capabilities/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.capabilities.__init__. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-from pepperpy.common.extensions import Extension, ExtensionMetadata
-from pepperpy.common.events import EventBus
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.capabilities.__init__")
 
-
-class CapabilityType(Enum):
-    """Types of capabilities."""
-
-    MEMORY = auto()
-    STORAGE = auto()
-    TASK = auto()
-    CHAT = auto()
-    CALENDAR = auto()
-    NOTE = auto()
-
-
-class CapabilityMetadata(ExtensionMetadata):
-    """Metadata for capabilities.
-
-    Attributes:
-        capability_type: Type of capability
-        capability_name: Name of the capability
-        version: Version of the capability
-        tags: Capability tags
-        properties: Additional properties
-    """
-
-    capability_type: CapabilityType
-    capability_name: str
-    version: str
-    tags: List[str] = Field(default_factory=list)
-    properties: Dict[str, Any] = Field(default_factory=dict)
-
-
-class BaseCapability(Extension):
-    """Base class for AI capabilities.
-
-    This class defines the interface that all capabilities must implement.
-    """
-
-    def __init__(
-        self,
-        metadata: CapabilityMetadata,
-        event_bus: Optional[EventBus] = None,
-    ) -> None:
-        """Initialize capability.
-
-        Args:
-            metadata: Capability metadata
-            event_bus: Optional event bus for capability events
-        """
-        super().__init__(
-            name=metadata.capability_name,
-            version=metadata.version,
-            event_bus=event_bus,
-        )
-        self._capability_metadata = metadata
-
-    @property
-    def metadata(self) -> ExtensionMetadata:
-        """Get extension metadata."""
-        return super().metadata
-
-    @property
-    def capability_metadata(self) -> CapabilityMetadata:
-        """Get capability metadata.
-
-        Returns:
-            Capability metadata
-        """
-        return self._capability_metadata
-
-    async def _initialize(self) -> None:
-        """Initialize capability resources."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up capability resources."""
-        pass
-
-    async def execute(self, operation: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute capability operation.
-
-        Args:
-            operation: Operation to execute
-            params: Operation parameters
-
-        Returns:
-            Operation result
-
-        Raises:
-            NotImplementedError: If not implemented by subclass
-        """
-        raise NotImplementedError("Capability must implement execute method")
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

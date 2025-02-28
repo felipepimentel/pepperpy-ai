@@ -9,8 +9,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from pepperpy.common.providers.unified import BaseProvider, ProviderConfig
-from pepperpy.common.metrics import MetricsManager
+from pepperpy.core.common.providers.unified import BaseProvider, ProviderConfig
+from pepperpy.core.common.metrics import MetricsManager
     """Language model message.
 
     Attributes:

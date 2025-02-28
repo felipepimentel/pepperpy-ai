@@ -7,9 +7,9 @@ import asyncio
 import logging
 from typing import Callable, Dict, Generic, Optional, TypeVar
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.errors import ValidationError
-from pepperpy.common.metrics import Counter, Gauge, Histogram
+from pepperpy.core.common.metrics import Counter, Gauge, Histogram
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.resources.types import Resource

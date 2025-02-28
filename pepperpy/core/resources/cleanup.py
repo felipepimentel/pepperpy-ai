@@ -9,7 +9,7 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.errors import ValidationError
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger

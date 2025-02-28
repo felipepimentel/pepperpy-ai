@@ -12,9 +12,9 @@ import sys
 import time
 from typing import Any
 
-from pepperpy.common.base import BaseComponent
-from pepperpy.common.import_errors import CircularDependencyError
-from pepperpy.common.utils import logger
+from pepperpy.core.common.base import BaseComponent
+from pepperpy.core.common.import_errors import CircularDependencyError
+from pepperpy.core.common.utils import logger
 
 
 class ImportMetadata:

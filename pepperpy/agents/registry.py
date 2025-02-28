@@ -11,8 +11,8 @@ from pepperpy.agents.base import AgentConfig, BaseAgent
 from pepperpy.agents.interactive import InteractiveAgent, InteractiveAgentConfig
 from pepperpy.agents.workflow import WorkflowAgent, WorkflowAgentConfig
 from pepperpy.core.errors import AgentError
-from pepperpy.common.logging import get_logger
-from pepperpy.common.registry.base import (
+from pepperpy.core.common.logging import get_logger
+from pepperpy.core.common.registry.base import (
     ComponentMetadata,
     Registry,
     get_registry,

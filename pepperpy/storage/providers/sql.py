@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 # from sqlalchemy import create_engine, text
 # from sqlalchemy.engine import Engine
 # from sqlalchemy.exc import SQLAlchemyError
-from pepperpy.common.errors.base import PepperError
+from pepperpy.core.common.errors.base import PepperError
 from pepperpy.storage.base import StorageProvider
 
 

@@ -8,7 +8,7 @@ This module provides classes for managing authentication and authorization:
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from pepperpy.common.base import BaseManager
+from pepperpy.core.common.base import BaseManager
 from pepperpy.core.types import UserId
 
 

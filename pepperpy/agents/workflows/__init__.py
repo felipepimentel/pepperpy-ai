@@ -1,3 +1,3 @@
 """Compatibility stub for workflows"""
 
-from pepperpy.workflows import *  # noqa
+from pepperpy.workflowss import *  # noqa

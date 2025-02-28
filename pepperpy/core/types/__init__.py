@@ -1,3 +1,3 @@
 """Compatibility stub for types"""
 
-from ......core.types import *  # noqa
+from pepperpy.core.common.types import *  # noqa

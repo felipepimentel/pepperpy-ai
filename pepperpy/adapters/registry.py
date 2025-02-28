@@ -16,7 +16,7 @@ from pepperpy.adapters.types import (
     AdapterState,
 )
 from pepperpy.core.errors import AdapterError
-from pepperpy.common.registry.base import (
+from pepperpy.core.common.registry.base import (
     ComponentMetadata,
     Registry,
     get_registry,

@@ -33,9 +33,9 @@ from typing import Any, Dict, List, Optional, Union
 from .base import (
     ConfigError,
     PepperError,
-    RuntimeError,
-    SystemError,
+    StateError,
     ValidationError,
+    WorkflowError,
 )
 
 __version__ = "0.1.0"
@@ -43,8 +43,8 @@ __all__ = [
     "PepperError",
     "ValidationError",
     "ConfigError",
-    "RuntimeError",
-    "SystemError",
+    "StateError",
+    "WorkflowError",
 ]
 
 

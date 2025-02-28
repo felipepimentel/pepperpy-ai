@@ -10,7 +10,7 @@ from rich.table import Table
 from pepperpy.agents.base import AgentConfig, BaseAgent
 from pepperpy.agents.registry import AgentRegistry
 from pepperpy.core.errors import PepperpyError
-from pepperpy.common.logging import get_logger
+from pepperpy.core.common.logging import get_logger
 
 # Configure logging
 logger = get_logger(__name__)

@@ -5,7 +5,7 @@ It implements a central registry mechanism that can be used by all modules
 to register and discover components in a consistent way.
 """
 
-from pepperpy.common.registry.base import (
+from pepperpy.core.common.registry.base import (
     ComponentDuplicateError,
     ComponentMetadata,
     ComponentNotFoundError,

@@ -7,8 +7,8 @@ This module provides functionality for managing component lifecycles, including:
 - Error handling
 """
 
-from pepperpy.common.lifecycle.base import LifecycleComponent
-from pepperpy.common.lifecycle.errors import (
+from pepperpy.core.common.lifecycle.base import LifecycleComponent
+from pepperpy.core.common.lifecycle.errors import (
     FinalizeError,
     HookError,
     InitializationError,
@@ -18,9 +18,9 @@ from pepperpy.common.lifecycle.errors import (
     StopError,
     TimeoutError,
 )
-from pepperpy.common.lifecycle.hooks import LoggingHook, MetricsHook
-from pepperpy.common.lifecycle.manager import LifecycleManager
-from pepperpy.common.lifecycle.types import (
+from pepperpy.core.common.lifecycle.hooks import LoggingHook, MetricsHook
+from pepperpy.core.common.lifecycle.manager import LifecycleManager
+from pepperpy.core.common.lifecycle.types import (
     Lifecycle,
     LifecycleConfig,
     LifecycleContext,

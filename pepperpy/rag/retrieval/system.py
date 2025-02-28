@@ -7,7 +7,7 @@ relevant documents based on queries.
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 from pepperpy.embedding.rag import Embedder, TextEmbedder
 from pepperpy.rag.indexing import Indexer, VectorIndexer
 

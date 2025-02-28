@@ -8,7 +8,7 @@ from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, Field
 
-from pepperpy.common.providers.unified import BaseProvider, ProviderConfig
+from pepperpy.core.common.providers.unified import BaseProvider, ProviderConfig
 
 
 class MemoryConfig(ProviderConfig):

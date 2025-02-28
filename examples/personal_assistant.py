@@ -31,8 +31,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel
 
-from pepperpy.common.extensions import Extension
-from pepperpy.common.logging import get_logger
+from pepperpy.core.common.extensions import Extension
+from pepperpy.core.common.logging import get_logger
 from pepperpy.events import EventBus
 from pepperpy.resources import (
     BaseResource,

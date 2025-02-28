@@ -11,10 +11,10 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 from pydantic import Field
 
-from pepperpy.common.base import ComponentBase
+from pepperpy.core.common.base import ComponentBase
 from pepperpy.core.errors import AssetError
-from pepperpy.common.metrics import Counter, Histogram
-from pepperpy.common.resources import Resource, ResourceManager, ResourceMetadata
+from pepperpy.core.common.metrics import Counter, Histogram
+from pepperpy.core.common.resources import Resource, ResourceManager, ResourceMetadata
 from pepperpy.core.types import ResourceType
 
 # Configure logging

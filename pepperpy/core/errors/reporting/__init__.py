@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict
 
-from pepperpy.common.errors.unified import PepperError
+from pepperpy.core.common.errors.unified import PepperError
 
 
 @dataclass

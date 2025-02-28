@@ -1,53 +1,22 @@
-"""Main components of the workflow system.
-
-Este módulo fornece os componentes fundamentais do sistema de workflows,
-incluindo:
-
-- Componentes Base
-  - Definições de workflow
-  - Passos de execução
-  - Estados e transições
-  - Callbacks e eventos
-
-- Tipos e Interfaces
-  - Tipos de workflow
-  - Estados de execução
-  - Configurações
-  - Protocolos
-
-- Registro e Gerenciamento
-  - Registro de workflows
-  - Gerenciamento de estado
-  - Validação
-  - Monitoramento
-
-O módulo core é responsável por:
-- Definir a estrutura base
-- Garantir consistência
-- Facilitar extensibilidade
-- Prover abstrações comuns
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.core.__init__
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from .base import BaseWorkflow, WorkflowDefinition, WorkflowStep
-from .registry import WorkflowRegistry
-from .types import (
-    WorkflowCallback,
-    WorkflowConfig,
-    WorkflowPriority,
-    WorkflowStatus,
+import warnings
+import importlib
+
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/core/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.core.__init__. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
 )
 
-__version__ = "0.1.0"
-__all__ = [
-    # Base
-    "BaseWorkflow",
-    "WorkflowDefinition",
-    "WorkflowStep",
-    # Registry
-    "WorkflowRegistry",
-    # Types
-    "WorkflowCallback",
-    "WorkflowConfig",
-    "WorkflowPriority",
-    "WorkflowStatus",
-]
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.core.__init__")
+
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

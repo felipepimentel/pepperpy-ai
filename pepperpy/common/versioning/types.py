@@ -1,54 +1,22 @@
-"""Type definitions for the versioning system.
-
-This module defines the type system used by the versioning components:
-
-- VersionNumber: Type for individual version components (major, minor, patch)
-- VersionString: Type for string representation of versions
-- VersionDict: Type for dictionary representation of versions
-- VersionRange: Type for representing version ranges
-- VersionRequirement: Type for version requirements
-- VersionIdentifier: Type for unique version identifiers
-
-These types provide a consistent foundation for version handling throughout
-the framework, ensuring type safety and clear interfaces.
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.versioning.types
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from typing import Dict, List, NewType, Tuple, Union
+import warnings
+import importlib
 
-# Basic version types
-VersionNumber = NewType("VersionNumber", int)
-VersionString = NewType("VersionString", str)
-VersionDict = NewType("VersionDict", Dict[str, Union[int, str]])
-
-# Version range types
-VersionRange = NewType("VersionRange", Tuple[VersionString, VersionString])
-VersionRequirement = NewType("VersionRequirement", str)
-
-# Version identification
-VersionIdentifier = NewType("VersionIdentifier", str)
-
-# Version comparison results
-VersionComparisonResult = NewType("VersionComparisonResult", int)
-
-# Version metadata
-VersionMetadata = NewType("VersionMetadata", Dict[str, str])
-
-# Version constraints
-VersionConstraintType = NewType("VersionConstraintType", str)
-VersionConstraintDict = NewType(
-    "VersionConstraintDict", Dict[str, Union[str, List[str]]]
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/common/versioning/types.py has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.versioning.types. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
 )
 
-# Export all types
-__all__ = [
-    "VersionNumber",
-    "VersionString",
-    "VersionDict",
-    "VersionRange",
-    "VersionRequirement",
-    "VersionIdentifier",
-    "VersionComparisonResult",
-    "VersionMetadata",
-    "VersionConstraintType",
-    "VersionConstraintDict",
-]
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.core.common.versioning.types")
+
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

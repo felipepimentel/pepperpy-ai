@@ -11,7 +11,7 @@ import pkgutil
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, cast
 
-from pepperpy.common.registry.base import (
+from pepperpy.core.common.registry.base import (
     ComponentMetadata,
     Registry,
     RegistryComponent,

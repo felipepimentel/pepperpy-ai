@@ -2,10 +2,10 @@
 
 from typing import Type
 
-from pepperpy.common.config.base import BaseConfig
-from pepperpy.common.config.environments.development import DevelopmentConfig
-from pepperpy.common.config.environments.production import ProductionConfig
-from pepperpy.common.config.environments.test import TestConfig
+from pepperpy.core.common.config.base import BaseConfig
+from pepperpy.core.common.config.environments.development import DevelopmentConfig
+from pepperpy.core.common.config.environments.production import ProductionConfig
+from pepperpy.core.common.config.environments.test import TestConfig
 
 
 def get_config(environment: str) -> type[BaseConfig]:

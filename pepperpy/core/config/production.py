@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from pepperpy.common.config.base import BaseConfig
+from pepperpy.core.common.config.base import BaseConfig
 
 
 class ProductionConfig(BaseConfig):

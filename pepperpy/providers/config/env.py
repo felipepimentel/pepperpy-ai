@@ -6,7 +6,7 @@ environment variables.
 
 import os
 
-from pepperpy.common.config.base import ConfigProvider
+from pepperpy.core.common.config.base import ConfigProvider
 
 
 class EnvironmentProvider(ConfigProvider):

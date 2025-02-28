@@ -16,7 +16,7 @@ The module centralizes format handling to provide consistent interfaces
 for working with different data formats throughout the framework.
 """
 
-from pepperpy.common.utils.serialization import (
+from pepperpy.core.common.utils.serialization import (
     CsvUtils,
     JsonUtils,
     SerializationUtils,

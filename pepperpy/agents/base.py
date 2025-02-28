@@ -8,8 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Protocol
 from uuid import UUID
 
-from pepperpy.common.types.base import BaseComponent
-from pepperpy.common.types.enums import AgentID, AgentState
+from pepperpy.core.common.types.base import BaseComponent
+from pepperpy.core.common.types.enums import AgentID, AgentState
 
 
 class AgentCapability(Protocol):

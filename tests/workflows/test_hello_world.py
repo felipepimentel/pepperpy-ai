@@ -2,8 +2,8 @@
 
 import pytest
 
-from pepperpy.workflows.examples.hello_world import HelloWorldWorkflow
-from pepperpy.workflows.execution.executor import WorkflowExecutor
+from pepperpy.workflowss.examples.hello_world import HelloWorldWorkflow
+from pepperpy.workflowss.execution.executor import WorkflowExecutor
 
 
 @pytest.mark.asyncio

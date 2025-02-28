@@ -5,7 +5,7 @@ This module provides tools for managing error hierarchies and relationships.
 
 from typing import Dict, List, Optional, Set
 
-from pepperpy.common.errors.unified import PepperError
+from pepperpy.core.common.errors.unified import PepperError
 
 
 class ErrorNode:

@@ -13,7 +13,7 @@ from typing import Any
 
 import click
 
-from pepperpy.common.errors.errors import ConfigError, ValidationError
+from pepperpy.core.common.errors.errors import ConfigError, ValidationError
 
 
 def validate_path(path: str | Path, must_exist: bool = True) -> Path:

@@ -13,7 +13,7 @@ from structlog import get_logger
 
 from pepperpy.core.errors import ConfigurationError, ProviderError
 from pepperpy.memory.providers.base import MemoryItem, MemoryProvider
-from pepperpy.common.providers.unified import ProviderConfig
+from pepperpy.core.common.providers.unified import ProviderConfig
 
 T = TypeVar("T")
 logger = get_logger(__name__)

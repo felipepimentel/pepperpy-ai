@@ -1,47 +1,22 @@
-"""Base interfaces and exceptions for validation."""
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.validation.base
+This stub exists for backward compatibility and will be removed in a future version.
+"""
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, TypeVar
+import warnings
+import importlib
 
-T = TypeVar("T")
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/common/validation/base.py has been moved to pepperpy.pepperpy-ai.pepperpy.core.common.validation.base. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.core.common.validation.base")
 
-class ValidationError(Exception):
-    """Base exception for validation errors."""
-
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
-        """Initialize validation error.
-
-        Args:
-            message: Error message
-            details: Optional error details
-        """
-        super().__init__(message)
-        self.details = details or {}
-
-
-class Validator(ABC):
-    """Base class for all validators."""
-
-    @abstractmethod
-    def validate(self, value: Any) -> bool:
-        """Validate a value.
-
-        Args:
-            value: Value to validate
-
-        Returns:
-            bool: True if value is valid, False otherwise
-        """
-        pass
-
-    def __call__(self, value: Any) -> bool:
-        """Make validator callable.
-
-        Args:
-            value: Value to validate
-
-        Returns:
-            bool: True if value is valid, False otherwise
-        """
-        return self.validate(value)
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

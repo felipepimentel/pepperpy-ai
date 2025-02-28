@@ -28,7 +28,7 @@ Core Components:
    - Shared tools
 """
 
-from pepperpy.common import *  # noqa
+from pepperpy.core.common import *  # noqa
 # from pepperpy.integrations import *  # noqa
 from pepperpy.processing import *  # noqa
 # from pepperpy.utils import *  # noqa

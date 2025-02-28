@@ -6,9 +6,9 @@ from datetime import datetime
 from typing import Generic, TypeVar
 
 from pepperpy.core.errors import ProcessingError
-from pepperpy.common.lifecycle import Lifecycle
-from pepperpy.common.metrics import MetricsCollector
-from pepperpy.common.pipeline.base import (
+from pepperpy.core.common.lifecycle import Lifecycle
+from pepperpy.core.common.metrics import MetricsCollector
+from pepperpy.core.common.pipeline.base import (
     DataItem,
     DataProcessor,
 )

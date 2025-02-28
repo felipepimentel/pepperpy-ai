@@ -12,8 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.base import ComponentBase
-from pepperpy.common.metrics import Counter, Histogram
+from pepperpy.core.common.base import ComponentBase
+from pepperpy.core.common.metrics import Counter, Histogram
 
 # Configure logging
 logger = logging.getLogger(__name__)

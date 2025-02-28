@@ -11,7 +11,7 @@ import signal
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 from pepperpy.security.errors import SecurityError
 
 logger = logging.getLogger(__name__)

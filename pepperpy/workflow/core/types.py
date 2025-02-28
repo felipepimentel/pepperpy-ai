@@ -1,101 +1,22 @@
-"""Tipos e enums para o módulo de workflows
-
-Define os tipos de dados e enumerações utilizados no módulo de workflows.
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.core.types
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from enum import Enum, auto
-from typing import Any, Dict, Protocol, TypeVar
+import warnings
+import importlib
 
-from pepperpy.common.types.base import BaseComponent
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/core/types.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.core.types. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-from .base import BaseWorkflow
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.core.types")
 
-
-class WorkflowStatus(Enum):
-    """Workflow execution status."""
-
-    PENDING = auto()
-    RUNNING = auto()
-    PAUSED = auto()
-    COMPLETED = auto()
-    FAILED = auto()
-    CANCELLED = auto()
-
-
-class WorkflowPriority(Enum):
-    """Workflow execution priority."""
-
-    LOW = auto()
-    NORMAL = auto()
-    HIGH = auto()
-    CRITICAL = auto()
-
-
-class WorkflowCallback(Protocol):
-    """Protocol for workflow callbacks."""
-
-    async def on_start(self, workflow_id: str) -> None:
-        """Called when workflow starts.
-
-        Args:
-            workflow_id: Workflow ID
-        """
-        ...
-
-    async def on_pause(self, workflow_id: str) -> None:
-        """Called when workflow is paused."""
-        ...
-
-    async def on_resume(self, workflow_id: str) -> None:
-        """Called when workflow resumes."""
-        ...
-
-    async def on_complete(self, workflow_id: str) -> None:
-        """Called when workflow completes.
-
-        Args:
-            workflow_id: Workflow ID
-        """
-        ...
-
-    async def on_error(self, workflow_id: str, error: Exception) -> None:
-        """Called when workflow encounters an error.
-
-        Args:
-            workflow_id: Workflow ID
-            error: Error that occurred
-        """
-        ...
-
-    async def on_step_start(self, workflow_id: str, step_name: str) -> None:
-        """Called when workflow step starts.
-
-        Args:
-            workflow_id: Workflow ID
-            step_name: Step name
-        """
-        ...
-
-    async def on_step_complete(
-        self,
-        workflow_id: str,
-        step_name: str,
-        result: Any,
-    ) -> None:
-        """Called when workflow step completes.
-
-        Args:
-            workflow_id: Workflow ID
-            step_name: Step name
-            result: Step result
-        """
-        ...
-
-
-# Type aliases
-WorkflowConfig = Dict[str, Any]
-WorkflowResult = Dict[str, Any]
-
-# Type variables
-T = TypeVar("T", bound=BaseComponent)
-WorkflowT = TypeVar("WorkflowT", bound=BaseWorkflow)
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

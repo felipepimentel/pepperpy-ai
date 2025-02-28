@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from pepperpy.common.metrics import MetricsManager
+from pepperpy.core.common.metrics import MetricsManager
 from pepperpy.security import SecurityContext, SecurityLevel
 
 # Add the project root directory to the Python path

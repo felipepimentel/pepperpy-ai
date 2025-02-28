@@ -1,42 +1,22 @@
-"""Workflow definition and construction.
-
-Este módulo fornece as ferramentas para definir e construir workflows,
-incluindo:
-
-- Definição de Workflows
-  - Estrutura do workflow
-  - Configuração de passos
-  - Dependências
-  - Validações
-
-- Construção de Workflows
-  - Padrões de construção
-  - Templates
-  - Composição
-  - Reutilização
-
-- Validação
-  - Verificação de estrutura
-  - Validação de dependências
-  - Checagem de tipos
-  - Consistência
-
-O módulo é responsável por:
-- Definir interfaces claras
-- Garantir consistência
-- Facilitar manutenção
-- Promover reusabilidade
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.definition.__init__
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from typing import Dict, List, Optional, Union
+import warnings
+import importlib
 
-from .builder import WorkflowBuilder
-from .factory import WorkflowFactory
-from .validator import WorkflowValidator
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/definition/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.definition.__init__. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
+)
 
-__version__ = "0.1.0"
-__all__ = [
-    "WorkflowBuilder",
-    "WorkflowFactory",
-    "WorkflowValidator",
-]
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.definition.__init__")
+
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

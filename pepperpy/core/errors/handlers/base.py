@@ -19,7 +19,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
-from pepperpy.common.errors.unified import PepperError
+from pepperpy.core.common.errors.unified import PepperError
 
 logger = logging.getLogger(__name__)
 

@@ -8,7 +8,7 @@ This module provides concrete implementations for preprocessing in RAG systems:
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.base import Lifecycle
+from pepperpy.core.common.base import Lifecycle
 
 #
 # Chunking

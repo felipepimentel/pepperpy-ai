@@ -9,7 +9,7 @@ import importlib.util
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-from pepperpy.common.analysis.types import (
+from pepperpy.core.common.analysis.types import (
     AnalysisLevel,
     AnalysisResult,
     BaseVisitor,

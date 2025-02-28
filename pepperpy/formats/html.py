@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 
-from pepperpy.common.errors.base import PepperError
+from pepperpy.core.common.errors.base import PepperError
 
 
 class ProcessingError(PepperError):

@@ -8,7 +8,7 @@ import csv
 import io
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.errors.base import PepperError
+from pepperpy.core.common.errors.base import PepperError
 
 
 class ProcessingError(PepperError):

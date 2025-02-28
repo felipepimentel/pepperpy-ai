@@ -20,8 +20,8 @@ from openai.types.chat.chat_completion_assistant_message_param import (
 from pydantic import Field, SecretStr
 
 from pepperpy.core.errors import ConfigurationError
-from pepperpy.common.messages import Message, ProviderMessage, ProviderResponse
-from pepperpy.common.monitoring import logger
+from pepperpy.core.common.messages import Message, ProviderMessage, ProviderResponse
+from pepperpy.core.common.monitoring import logger
 from pepperpy.llm.base import LLMConfig, LLMProvider
 
 

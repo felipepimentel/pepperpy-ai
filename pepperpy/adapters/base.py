@@ -22,7 +22,7 @@ from pepperpy.adapters.types import (
     T_Input,
     T_Output,
 )
-from pepperpy.common.base import ComponentBase, ComponentConfig, ComponentState
+from pepperpy.core.common.base import ComponentBase, ComponentConfig, ComponentState
 from pepperpy.core.errors import AdapterError
 
 # Configure logging

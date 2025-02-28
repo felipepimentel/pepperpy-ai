@@ -1,52 +1,22 @@
-"""Workflow implementation examples.
-
-This module provides practical examples of workflow implementations,
-demonstrating:
-
-- Workflow Types
-  - Simple workflows
-  - Complex workflows
-  - Parallel workflows
-  - Nested workflows
-
-- Implementation Patterns
-  - Step definition
-  - Execution configuration
-  - Error handling
-  - Callbacks and events
-
-- Use Cases
-  - Data processing
-  - Service integration
-  - Task automation
-  - Agent orchestration
-
-The examples serve to:
-- Demonstrate functionality
-- Illustrate best practices
-- Facilitate learning
-- Validate implementations
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.examples.__init__
+This stub exists for backward compatibility and will be removed in a future version.
 """
 
-from typing import Dict, List, Optional, Union
+import warnings
+import importlib
 
-from .actions import (
-    DelayAction,
-    HelloWorldAction,
-    ListProcessorAction,
-    RandomNumberAction,
-    register_example_actions,
+warnings.warn(
+    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/examples/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.workflows.examples.__init__. "
+    f"Please update your imports. This stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2
 )
-from .hello_world import HelloWorldWorkflow
 
-__version__ = "0.1.0"
-__all__ = [
-    # Actions
-    "DelayAction",
-    "HelloWorldAction",
-    "ListProcessorAction",
-    "RandomNumberAction",
-    "register_example_actions",
-    # Workflows
-    "HelloWorldWorkflow",
-]
+# Import the module from the new location
+_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.workflows.examples.__init__")
+
+# Copy all attributes from the imported module to this module's namespace
+for _attr in dir(_module):
+    if not _attr.startswith("_"):
+        globals()[_attr] = getattr(_module, _attr)

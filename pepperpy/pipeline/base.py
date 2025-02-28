@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar
 
 from pepperpy.core.errors import ProcessingError, ValidationError
-from pepperpy.common.lifecycle import Lifecycle
-from pepperpy.common.metrics import MetricsCollector
+from pepperpy.core.common.lifecycle import Lifecycle
+from pepperpy.core.common.metrics import MetricsCollector
 
 T = TypeVar("T")  # Input type
 U = TypeVar("U")  # Output type
