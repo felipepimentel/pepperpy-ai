@@ -113,13 +113,15 @@ structure:
         - types.py: CLI types module
         - utils.py: CLI utilities for Pepperpy
       content:
-        description: ''
+        description: Content module for PepperPy (DEPRECATED)
         modules:
           synthesis:
             description: ''
             modules:
               processors:
                 description: ''
+        files:
+        - __init__.py: Content module for PepperPy (DEPRECATED)
       core:
         description: Core functionality for PepperPy
         modules:
@@ -182,6 +184,10 @@ structure:
             - __init__.py: Sistema de tratamento de erros do PepperPy
             - base.py: Core error definitions for the Pepperpy framework
             - errors.py: Core error types for Pepperpy
+          examples:
+            description: ''
+            files:
+            - metadata_example.py: Example demonstrating the component metadata system
           imports:
             description: Module initialization
             files:
@@ -306,6 +312,7 @@ structure:
         - __init__.py: Core functionality for PepperPy
         - base.py: Core base classes for PepperPy
         - events.py: Sistema de eventos para comunicação entre componentes
+        - metadata.py: Component metadata system for PepperPy
         - registry.py: Registro central de componentes do sistema
       evaluation:
         description: Evaluation package for assessing agent performance
@@ -349,8 +356,9 @@ structure:
         - in_memory.py: Simple in-memory storage implementation
         - vector.py: Vector-based memory storage implementation
       monitoring:
-        description: ''
+        description: Monitoring module for PepperPy (DEPRECATED)
         files:
+        - __init__.py: Monitoring module for PepperPy (DEPRECATED)
         - metrics.py: Sistema de métricas para monitoramento
       multimodal:
         description: Multimodal processing package for Pepperpy
@@ -390,6 +398,8 @@ structure:
         - cost_tracking.py: Module for tracking and monitoring API usage costs
         - hallucination_detection.py: Module for detecting potential hallucinations
             in LLM outputs
+        - migration.py: Migration utilities for transitioning to the unified observability
+            system
         - model_performance.py: Module for tracking and analyzing AI model performance
             metrics
       optimization:
@@ -582,7 +592,7 @@ structure:
         - prompt_injection.py: Module for protecting against prompt injection attacks
         - sandbox.py: Sandbox module for secure code execution
       synthesis:
-        description: Módulo para síntese de conteúdo multimodal
+        description: Multimodal content synthesis module
         modules:
           processors:
             description: Processadores para síntese de conteúdo
@@ -593,8 +603,12 @@ structure:
             - image.py: Processador de imagem para síntese
             - text.py: Processador de texto para síntese
         files:
-        - __init__.py: Módulo para síntese de conteúdo multimodal
+        - __init__.py: Multimodal content synthesis module
         - base.py: Base interfaces for synthesis capability
+        - generators.py: Content generators for synthesis
+        - migration.py: Migration utilities for transitioning to the unified synthesis
+            system
+        - optimizers.py: Content optimizers for synthesis
       transformers:
         description: Base transformer implementations
         files:
@@ -615,7 +629,7 @@ structure:
         - migration.py: Migration utilities for transitioning to the unified workflow
             system
       workflows:
-        description: Workflow system for PepperPy framework
+        description: Workflow system for PepperPy framework (DEPRECATED)
         modules:
           core:
             description: Componentes principais do sistema de workflows
@@ -649,7 +663,7 @@ structure:
             - runtime.py: Workflow engine module for the Pepperpy framework
             - scheduler.py: Workflow scheduler module for the Pepperpy framework
         files:
-        - __init__.py: Workflow system for PepperPy framework
+        - __init__.py: Workflow system for PepperPy framework (DEPRECATED)
         - errors.py: Workflow-specific error types
     files:
     - __init__.py: PepperPy Framework

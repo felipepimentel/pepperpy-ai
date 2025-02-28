@@ -20,6 +20,7 @@ from .metrics import (
     MetricsRegistry,
     MetricType,
 )
+from .migration import MigrationHelper
 from .monitoring import (
     RuntimeMetrics,
     RuntimeMonitor,
@@ -44,4 +45,6 @@ __all__ = [
     "RuntimeMonitor",
     "SystemMetrics",
     "SystemMonitor",
+    # Migration
+    "MigrationHelper",
 ]

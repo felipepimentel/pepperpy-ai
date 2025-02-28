@@ -1,49 +1,50 @@
-"""Módulo para síntese de conteúdo multimodal.
+"""Multimodal content synthesis module.
 
-Este módulo implementa funcionalidades para síntese de diferentes tipos de conteúdo,
-incluindo:
+This module implements functionality for synthesizing different types of content,
+including:
 
-- Síntese de Texto
-  - Geração de texto
-  - Resumos
-  - Paráfrases
-  - Traduções
+- Text Synthesis
+  - Text generation
+  - Summaries
+  - Paraphrases
+  - Translations
 
-- Síntese de Voz
+- Voice Synthesis
   - Text-to-Speech
-  - Clonagem de voz
-  - Prosódia e emoção
-  - Múltiplos idiomas
+  - Voice cloning
+  - Prosody and emotion
+  - Multiple languages
 
-- Síntese de Imagem
+- Image Synthesis
   - Text-to-Image
-  - Edição e manipulação
-  - Estilos e filtros
-  - Composição
+  - Editing and manipulation
+  - Styles and filters
+  - Composition
 
-- Síntese de Vídeo
-  - Animações
-  - Avatares
-  - Efeitos
-  - Renderização
+- Video Synthesis
+  - Animations
+  - Avatars
+  - Effects
+  - Rendering
 
-Este módulo é diferente do processamento em multimodal/
-pois é focado em:
-- Gerar novo conteúdo
-- Aplicar transformações criativas
-- Produzir saídas de alta qualidade
-- Personalizar resultados
+This module is different from processing in multimodal/
+as it focuses on:
+- Generating new content
+- Applying creative transformations
+- Producing high-quality outputs
+- Customizing results
 
-O módulo fornece:
-- Interfaces unificadas
-- Pipeline modular
-- Otimizações específicas
-- Controle de qualidade
+The module provides:
+- Unified interfaces
+- Modular pipeline
+- Specific optimizations
+- Quality control
 """
 
 from typing import Dict, List, Optional, Union
 
 from .generators import AudioGenerator, ImageGenerator, TextGenerator
+from .migration import MigrationHelper
 from .optimizers import AudioOptimizer, ImageOptimizer, TextOptimizer
 from .processors import AudioProcessor, ImageProcessor, TextProcessor
 
@@ -61,4 +62,6 @@ __all__ = [
     "AudioOptimizer",
     "ImageOptimizer",
     "TextOptimizer",
+    # Migration
+    "MigrationHelper",
 ]
