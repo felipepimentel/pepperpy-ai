@@ -1,12 +1,24 @@
-"""Utilitários para manipulação de arquivos YAML.
+"""Utilitários para manipulação de arquivos YAML (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de arquivos YAML.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.serialization.YamlUtils' instead.
 """
 
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Union
 
 import yaml
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.yaml' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.serialization.YamlUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class YamlUtils:

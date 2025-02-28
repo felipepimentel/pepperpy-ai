@@ -1,13 +1,26 @@
-"""Utilitários para manipulação de dicionários.
+"""Utilitários para manipulação de dicionários (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de dicionários.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.collections.DictUtils' instead.
 """
 
+import warnings
 from typing import Any, Callable, Dict, List, TypeVar
 
 K = TypeVar("K")
 V = TypeVar("V")
 T = TypeVar("T")
+
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.dicts' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.collections.DictUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class DictUtils:

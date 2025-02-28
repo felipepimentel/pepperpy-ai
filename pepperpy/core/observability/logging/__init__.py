@@ -1,24 +1,21 @@
-"""Logging package for the Pepperpy framework.
+"""Structured logging for PepperPy.
 
-This package provides a unified logging system with support for:
-- Structured logging with JSON formatting
-- Asynchronous logging with file rotation
-- Context-based and level-based filtering
-- Customizable handlers and formatters
+This module provides structured logging capabilities for the PepperPy framework:
+- Context-aware logging: Include context information in log entries
+- Structured output: Generate structured log data for easier analysis
+- Log levels: Support different log levels for filtering
+- Log routing: Route logs to different destinations
+
+The logging system enables applications to generate meaningful and structured logs
+that facilitate debugging, monitoring, and analysis of system behavior.
 """
 
 import logging
 
-from pepperpy.monitoring.logging.base import (
-    LogHandler,
-    LogLevel,
-    LogManager,
-    LogRecord,
-)
-from pepperpy.monitoring.logging.filters.context import ContextFilter
-from pepperpy.monitoring.logging.filters.level import LevelFilter
-from pepperpy.monitoring.logging.formatters.json import JsonFormatter
-from pepperpy.monitoring.logging.handlers.file import FileHandler
+# Export public API
+__all__ = [
+    "get_logger",
+]
 
 
 def get_logger(name: str) -> logging.Logger:
@@ -33,20 +30,9 @@ def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(JsonFormatter())
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        handler.setFormatter(formatter)
         logger.addHandler(handler)
     return logger
-
-
-# Export public API
-__all__ = [
-    "ContextFilter",
-    "FileHandler",
-    "JsonFormatter",
-    "LevelFilter",
-    "LogHandler",
-    "LogLevel",
-    "LogManager",
-    "LogRecord",
-    "get_logger",
-]

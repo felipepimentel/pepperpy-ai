@@ -1,15 +1,27 @@
-"""Utilitários para manipulação de arquivos JSON.
+"""Utilitários para manipulação de arquivos JSON (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de arquivos JSON.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.serialization.JsonUtils' instead.
 """
 
 import json
+import warnings
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.utils.dates import DateUtils
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.json' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.serialization.JsonUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class JsonUtils:

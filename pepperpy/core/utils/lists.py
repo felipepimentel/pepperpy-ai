@@ -1,12 +1,25 @@
-"""Utilitários para manipulação de listas.
+"""Utilitários para manipulação de listas (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de listas.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.collections.ListUtils' instead.
 """
 
+import warnings
 from typing import Any, Callable, List, Optional, TypeVar
 
 T = TypeVar("T")
 U = TypeVar("U")
+
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.lists' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.collections.ListUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class ListUtils:

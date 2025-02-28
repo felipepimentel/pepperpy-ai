@@ -1,12 +1,24 @@
-"""Utilitários para manipulação de arquivos XML.
+"""Utilitários para manipulação de arquivos XML (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de arquivos XML.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.serialization.XmlUtils' instead.
 """
 
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from xml.dom import minidom
 from xml.etree import ElementTree as ET
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.xml' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.serialization.XmlUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class XmlUtils:

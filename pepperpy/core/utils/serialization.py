@@ -15,13 +15,25 @@ import json
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from xml.dom import minidom
 from xml.etree import ElementTree as ET
 
 import yaml
 
 from pepperpy.core.utils.dates import DateUtils
+
+T = TypeVar("T")
+D = TypeVar("D", bound=Dict[str, Any])
 
 
 class SerializationUtils:
@@ -694,13 +706,31 @@ class XmlUtils:
 class CsvUtils:
     """Utility functions for CSV manipulation."""
 
+    @overload
     @staticmethod
     def load(
         path: Union[str, Path],
         delimiter: str = ",",
         quotechar: str = '"',
         has_header: bool = True,
-    ) -> List[Dict[str, str]] if has_header else List[List[str]]:
+    ) -> List[Dict[str, str]]: ...
+
+    @overload
+    @staticmethod
+    def load(
+        path: Union[str, Path],
+        delimiter: str = ",",
+        quotechar: str = '"',
+        has_header: bool = False,
+    ) -> List[List[str]]: ...
+
+    @staticmethod
+    def load(
+        path: Union[str, Path],
+        delimiter: str = ",",
+        quotechar: str = '"',
+        has_header: bool = True,
+    ) -> Union[List[Dict[str, str]], List[List[str]]]:
         """Load CSV from file.
 
         Args:
@@ -738,8 +768,9 @@ class CsvUtils:
             header: Header row (required for list of lists)
         """
         with open(path, "w", encoding="utf-8", newline="") as f:
-            if isinstance(data[0], dict):
-                fieldnames = header or list(data[0].keys())
+            if data and isinstance(data[0], dict):
+                dict_data = cast(List[Dict[str, Any]], data)
+                fieldnames = header or list(dict_data[0].keys())
                 writer = csv.DictWriter(
                     f,
                     fieldnames=fieldnames,
@@ -748,8 +779,9 @@ class CsvUtils:
                     quoting=csv.QUOTE_MINIMAL,
                 )
                 writer.writeheader()
-                writer.writerows(data)
+                writer.writerows(dict_data)
             else:
+                list_data = cast(List[List[Any]], data)
                 writer = csv.writer(
                     f,
                     delimiter=delimiter,
@@ -758,7 +790,7 @@ class CsvUtils:
                 )
                 if header:
                     writer.writerow(header)
-                writer.writerows(data)
+                writer.writerows(list_data)
 
     @staticmethod
     def dumps(
@@ -781,8 +813,9 @@ class CsvUtils:
         import io
 
         output = io.StringIO()
-        if isinstance(data[0], dict):
-            fieldnames = header or list(data[0].keys())
+        if data and isinstance(data[0], dict):
+            dict_data = cast(List[Dict[str, Any]], data)
+            fieldnames = header or list(dict_data[0].keys())
             writer = csv.DictWriter(
                 output,
                 fieldnames=fieldnames,
@@ -791,8 +824,9 @@ class CsvUtils:
                 quoting=csv.QUOTE_MINIMAL,
             )
             writer.writeheader()
-            writer.writerows(data)
+            writer.writerows(dict_data)
         else:
+            list_data = cast(List[List[Any]], data)
             writer = csv.writer(
                 output,
                 delimiter=delimiter,
@@ -801,13 +835,25 @@ class CsvUtils:
             )
             if header:
                 writer.writerow(header)
-            writer.writerows(data)
+            writer.writerows(list_data)
         return output.getvalue()
+
+    @overload
+    @staticmethod
+    def loads(
+        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True
+    ) -> List[Dict[str, str]]: ...
+
+    @overload
+    @staticmethod
+    def loads(
+        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = False
+    ) -> List[List[str]]: ...
 
     @staticmethod
     def loads(
         data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True
-    ) -> List[Dict[str, str]] if has_header else List[List[str]]:
+    ) -> Union[List[Dict[str, str]], List[List[str]]]:
         """Parse CSV string.
 
         Args:
@@ -843,12 +889,13 @@ class CsvUtils:
         Returns:
             JSON data (list of dictionaries)
         """
-        if isinstance(data[0], dict):
-            return data
+        if data and isinstance(data[0], dict):
+            return cast(List[Dict[str, Any]], data)
         else:
+            list_data = cast(List[List[Any]], data)
             if not header:
                 raise ValueError("Header is required for list of lists")
-            return [dict(zip(header, row)) for row in data]
+            return [dict(zip(header, row)) for row in list_data]
 
     @staticmethod
     def from_json(data: List[Dict[str, Any]]) -> tuple[List[str], List[List[Any]]]:

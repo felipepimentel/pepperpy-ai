@@ -1,10 +1,22 @@
-"""Utilitários para manipulação de strings.
+"""Utilitários para manipulação de strings (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de strings.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.collections.StringUtils' instead.
 """
 
 import re
+import warnings
 from typing import List, Optional
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.strings' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.collections.StringUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class StringUtils:

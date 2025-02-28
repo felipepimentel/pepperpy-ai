@@ -1,11 +1,23 @@
-"""Utilitários para manipulação de arquivos CSV.
+"""Utilitários para manipulação de arquivos CSV (DEPRECATED).
 
 Implementa funções auxiliares para manipulação e formatação de arquivos CSV.
+
+This module is deprecated and will be removed in version 1.0.0.
+Please use 'pepperpy.core.utils.serialization.CsvUtils' instead.
 """
 
 import csv
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+
+# Show deprecation warning
+warnings.warn(
+    "The 'pepperpy.core.utils.csv' module is deprecated and will be removed in version 1.0.0. "
+    "Please use 'pepperpy.core.utils.serialization.CsvUtils' instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 class CsvUtils:
