@@ -14,10 +14,26 @@ Provider Categories:
 """
 
 # Import public classes and functions from the implementation
-from pepperpy.providers.agent.base import BaseProvider as BaseProvider
-from pepperpy.providers.agent.factory import ProviderFactory as ProviderFactory
-from pepperpy.providers.agent.manager import ProviderManager as ProviderManager
-from pepperpy.providers.audio.synthesis import SynthesisProvider as SynthesisProvider
-from pepperpy.providers.audio.transcription import (
-    TranscriptionProvider as TranscriptionProvider,
-)
+from pepperpy.providers.agent.base import BaseProvider
+from pepperpy.providers.agent.factory import ProviderFactory
+from pepperpy.providers.agent.manager import ProviderManager
+
+# Audio providers
+from pepperpy.providers.audio.synthesis import SynthesisProvider
+from pepperpy.providers.audio.transcription import TranscriptionProvider
+
+# Cloud providers
+from pepperpy.providers.cloud.aws import AWSProvider
+from pepperpy.providers.cloud.gcp import GCPProvider
+from pepperpy.providers.cloud.storage import CloudStorageProvider
+
+# Config providers
+from pepperpy.providers.config.base import ConfigProvider
+from pepperpy.providers.config.env import EnvConfigProvider
+from pepperpy.providers.config.file import FileConfigProvider
+from pepperpy.providers.config.filesystem import FilesystemConfigProvider
+from pepperpy.providers.config.secure import SecureConfigProvider
+
+# LLM providers
+from pepperpy.providers.llm.anthropic import AnthropicProvider
+from pepperpy.providers.llm.openai import OpenAIProvider

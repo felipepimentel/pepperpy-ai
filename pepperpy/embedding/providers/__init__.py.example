@@ -1,0 +1,15 @@
+"""
+COMPATIBILITY STUB: This module has been moved to pepperpy.providers.embedding
+This stub exists for backward compatibility and will be removed in a future version
+"""
+
+import warnings
+
+warnings.warn(
+    "The module pepperpy.embedding.providers has been moved to pepperpy.providers.embedding. "
+    "Please update your imports. This compatibility stub will be removed in a future version.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+from pepperpy.providers.embedding import * 

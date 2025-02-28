@@ -445,34 +445,8 @@ structure:
             description: Public Interface for embeddings
             files:
             - __init__.py: Public interface for embedding and vector representation systems
-          llm:
-            description: Public Interface for llm
-            files:
-            - __init__.py: Public interface for language model providers and functionality
-          providers:
-            description: Public Interface for providers
-            files:
-            - __init__.py: Public interface for service and resource providers
-          workflows:
-            description: Public Interface for workflows
-            files:
-            - __init__.py: Public Interface for workflows
-        files:
-        - __init__.py: Main entry point for public interfaces package
       llm:
         description: LLM (Language Model) providers for the Pepperpy framework
-        modules:
-          providers:
-            description: 'COMPATIBILITY STUB: This module has been moved to pepperpy.providers.llm
-              This stub exists for backward compatibility and will be removed in a
-              future version'
-            files:
-            - __init__.py: ''
-            - anthropic.py: ''
-            - gemini.py: ''
-            - openai.py: ''
-            - openrouter.py: ''
-            - perplexity.py: ''
         files:
         - __init__.py: LLM (Language Model) providers for the Pepperpy framework
         - base.py: Base LLM provider module
@@ -553,7 +527,7 @@ structure:
             description: Metrics collection for PepperPy
             modules:
               collector:
-                description: ''
+                description: 'Specialized metric collectors for different subsystems'
             files:
             - __init__.py: Metrics collection for PepperPy
             - collector.py: Metrics collection functionality for PepperPy observability
@@ -645,26 +619,6 @@ structure:
             - file.py: File-based configuration provider
             - filesystem.py: Filesystem configuration provider
             - secure.py: Secure configuration provider that encrypts sensitive data
-          llm:
-            description: Provider implementations for llm capabilities
-            files:
-            - __init__.py: Provider implementations for llm capabilities
-            - anthropic.py: Anthropic LLM provider implementation
-            - gemini.py: Gemini module
-            - openai.py: OpenAI provider implementation
-            - openrouter.py: OpenRouter provider module
-            - perplexity.py: Perplexity AI provider module
-          storage:
-            description: Storage Providers Module
-            files:
-            - __init__.py: Storage Providers Module
-            - local.py: Local filesystem storage provider implementation
-            - sql.py: SQL storage provider functionality
-          vision:
-            description: Vision providers for the PepperPy framework
-            files:
-            - __init__.py: Vision providers for the PepperPy framework
-            - base.py: Base interfaces and exceptions for vision providers
             - google.py: Google Cloud Vision provider implementation
             - openai.py: OpenAI vision provider implementation
         files:
@@ -678,10 +632,6 @@ structure:
             - __init__.py: RAG Processing Components for document chunking and vector optimization
             - optimization.py: Vector optimization techniques for RAG systems
             - preprocessing.py: RAG preprocessing implementations
-          providers:
-            description: Compatibility stub for RAG providers
-            files:
-            - __init__.py: Compatibility stub for RAG providers
           retrieval:
             description: RAG Retrieval Systems for efficient document search
             files:

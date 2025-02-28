@@ -1,6 +1,54 @@
-# Development Scripts
+# Scripts de Utilidade para o PepperPy
 
-This directory contains utility scripts for development and maintenance of the Pepperpy project.
+Este diretório contém scripts de utilidade para o desenvolvimento e manutenção do framework PepperPy.
+
+## Scripts Disponíveis
+
+### migrate_providers.py
+
+Script para migrar providers distribuídos para o diretório centralizado.
+
+#### Descrição
+
+Este script automatiza o processo de padronização dos providers no framework PepperPy, movendo os providers distribuídos em seus respectivos módulos de domínio para o diretório centralizado `pepperpy/providers/`.
+
+#### Uso
+
+```bash
+# Executar o script de migração
+./scripts/migrate_providers.py
+```
+
+#### O que o script faz
+
+1. Cria os diretórios necessários no módulo `pepperpy/providers/`
+2. Copia os arquivos dos providers distribuídos para o diretório centralizado
+3. Cria stubs de compatibilidade nos locais originais, redirecionando para os novos locais
+4. Emite avisos de depreciação quando os stubs são utilizados
+
+#### Módulos Afetados
+
+Os seguintes módulos serão afetados por esta padronização:
+
+- `embedding/providers/` → `providers/embedding/`
+- `memory/providers/` → `providers/memory/`
+- `rag/providers/` → `providers/rag/`
+- `cloud/providers/` → `providers/cloud/`
+
+#### Após a Migração
+
+Após executar o script de migração, você deve:
+
+1. Verificar se os arquivos foram migrados corretamente
+2. Atualizar as referências aos providers nos módulos de domínio para apontar para o novo local
+3. Ativar os imports comentados no arquivo `pepperpy/providers/__init__.py`
+4. Executar os testes para garantir que tudo está funcionando corretamente
+
+#### Documentação Relacionada
+
+Para mais informações sobre a padronização dos providers, consulte o documento de design:
+
+- [Padronização de Providers no PepperPy](../docs/design/provider_standardization.md)
 
 ## Check Script
 
