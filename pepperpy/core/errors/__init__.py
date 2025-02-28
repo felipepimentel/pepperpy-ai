@@ -35,6 +35,11 @@ from .base import (
     PepperError,
     StateError,
     ValidationError,
+    VersionCompatibilityError,
+    VersionDependencyError,
+    VersionMigrationError,
+    VersionParseError,
+    VersionValidationError,
     WorkflowError,
 )
 
@@ -45,6 +50,11 @@ __all__ = [
     "ConfigError",
     "StateError",
     "WorkflowError",
+    "VersionCompatibilityError",
+    "VersionMigrationError",
+    "VersionParseError",
+    "VersionValidationError",
+    "VersionDependencyError",
 ]
 
 

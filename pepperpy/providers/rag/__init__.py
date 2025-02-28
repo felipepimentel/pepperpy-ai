@@ -1,1 +1,1 @@
-"""Provedores de RAG."""
+"""RAG providers."""

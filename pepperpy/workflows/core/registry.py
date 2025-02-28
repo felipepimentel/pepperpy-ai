@@ -1,12 +1,11 @@
-"""Registro central de workflows
+"""Central registry for workflows
 
-Implementa o registro central que gerencia todos os workflows do sistema,
-incluindo seu ciclo de vida e estado de execução.
+Implements the central registry that manages all system workflows,
+including their lifecycle and execution state.
 """
 
 from typing import Dict, List
 
-from pepperpy.core.errors import DuplicateError, NotFoundError
 from pepperpy.core.common.logging import get_logger
 from pepperpy.core.common.registry.base import (
     ComponentMetadata,
@@ -14,6 +13,7 @@ from pepperpy.core.common.registry.base import (
     get_registry,
 )
 from pepperpy.core.common.types.enums import WorkflowID
+from pepperpy.core.errors import DuplicateError, NotFoundError
 
 from .base import BaseWorkflow, WorkflowDefinition
 from .types import WorkflowStatus

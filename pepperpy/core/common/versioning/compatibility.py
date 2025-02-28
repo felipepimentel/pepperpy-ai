@@ -12,10 +12,136 @@ The compatibility system enables applications to determine if different versions
 can work together, facilitating safe upgrades and component integration.
 """
 
-from typing import Any
+from typing import Any, Optional
 
 from ..errors import VersionCompatibilityError
 from ..types import Version, VersionChange, VersionChangeType
+
+
+class VersionRange:
+    """Represents a range of versions."""
+
+    def __init__(
+        self,
+        min_version: Optional[Version] = None,
+        max_version: Optional[Version] = None,
+        include_min: bool = True,
+        include_max: bool = False,
+    ) -> None:
+        """Initialize version range.
+
+        Args:
+            min_version: Minimum version (inclusive by default)
+            max_version: Maximum version (exclusive by default)
+            include_min: Whether to include min_version in the range
+            include_max: Whether to include max_version in the range
+        """
+        self.min_version = min_version
+        self.max_version = max_version
+        self.include_min = include_min
+        self.include_max = include_max
+
+    def contains(self, version: Version) -> bool:
+        """Check if version is in range.
+
+        Args:
+            version: Version to check
+
+        Returns:
+            True if version is in range
+        """
+        if self.min_version:
+            if version.major < self.min_version.major:
+                return False
+            if version.major == self.min_version.major:
+                if version.minor < self.min_version.minor:
+                    return False
+                if version.minor == self.min_version.minor:
+                    if version.patch < self.min_version.patch:
+                        return False
+                    if version.patch == self.min_version.patch and not self.include_min:
+                        return False
+
+        if self.max_version:
+            if version.major > self.max_version.major:
+                return False
+            if version.major == self.max_version.major:
+                if version.minor > self.max_version.minor:
+                    return False
+                if version.minor == self.max_version.minor:
+                    if version.patch > self.max_version.patch:
+                        return False
+                    if version.patch == self.max_version.patch and not self.include_max:
+                        return False
+
+        return True
+
+    def __str__(self) -> str:
+        """Convert range to string.
+
+        Returns:
+            String representation of range
+        """
+        if not self.min_version and not self.max_version:
+            return "*"
+
+        result = ""
+        if self.min_version:
+            result += f"{'[' if self.include_min else '('}{self.min_version}"
+        else:
+            result += "(-∞"
+
+        result += ", "
+
+        if self.max_version:
+            result += f"{self.max_version}{']' if self.include_max else ')'}"
+        else:
+            result += "+∞)"
+
+        return result
+
+    @classmethod
+    def parse(cls, range_str: str) -> "VersionRange":
+        """Parse version range string.
+
+        Args:
+            range_str: Range string (e.g. "[1.0.0, 2.0.0)")
+
+        Returns:
+            VersionRange object
+
+        Raises:
+            ValueError: If range string is invalid
+        """
+        if range_str == "*":
+            return cls()
+
+        if not (range_str.startswith("[") or range_str.startswith("(")) or not (
+            range_str.endswith("]") or range_str.endswith(")")
+        ):
+            raise ValueError(f"Invalid range format: {range_str}")
+
+        include_min = range_str.startswith("[")
+        include_max = range_str.endswith("]")
+
+        # Remove brackets
+        range_str = range_str[1:-1]
+
+        # Split by comma
+        parts = [p.strip() for p in range_str.split(",")]
+        if len(parts) != 2:
+            raise ValueError(f"Invalid range format: {range_str}")
+
+        # Parse versions
+        min_version = None if parts[0] == "-∞" else Version.parse(parts[0])
+        max_version = None if parts[1] == "+∞" else Version.parse(parts[1])
+
+        return cls(
+            min_version=min_version,
+            max_version=max_version,
+            include_min=include_min,
+            include_max=include_max,
+        )
 
 
 class CompatibilityChecker:

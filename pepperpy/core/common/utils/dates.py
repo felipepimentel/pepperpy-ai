@@ -1,88 +1,81 @@
-"""Utilitários para manipulação de datas.
+"""Date utilities.
 
-Implementa funções auxiliares para manipulação e formatação de datas.
+This module provides utilities for working with dates and times.
 """
 
-from datetime import datetime, timedelta
-from typing import Optional
-
-import pytz
+from datetime import datetime, timedelta, timezone
+from typing import Optional, Union
 
 
 class DateUtils:
     """Utility functions for date manipulation."""
 
-    DEFAULT_TIMEZONE = pytz.UTC
+    DEFAULT_TIMEZONE = timezone.utc
     DEFAULT_DATE_FORMAT = "%Y-%m-%d"
     DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
     @staticmethod
-    def now(timezone: Optional[str] = None) -> datetime:
+    def now(tz: Optional[timezone] = None) -> datetime:
         """Get current datetime.
 
         Args:
-            timezone: Timezone name
+            tz: Timezone object
 
         Returns:
             Current datetime
         """
-        dt = datetime.now(DateUtils.DEFAULT_TIMEZONE)
-        if timezone:
-            dt = dt.astimezone(pytz.timezone(timezone))
-        return dt
+        tz = tz or DateUtils.DEFAULT_TIMEZONE
+        return datetime.now(tz)
 
     @staticmethod
-    def today(timezone: Optional[str] = None) -> datetime:
+    def today(tz: Optional[timezone] = None) -> datetime:
         """Get current date at midnight.
 
         Args:
-            timezone: Timezone name
+            tz: Timezone object
 
         Returns:
             Current date at midnight
         """
-        return DateUtils.now(timezone).replace(
-            hour=0, minute=0, second=0, microsecond=0
-        )
+        return DateUtils.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
 
     @staticmethod
     def parse_date(
-        date_str: str, format: Optional[str] = None, timezone: Optional[str] = None
+        date_str: str, format: Optional[str] = None, tz: Optional[timezone] = None
     ) -> datetime:
         """Parse date string.
 
         Args:
             date_str: Date string
             format: Date format
-            timezone: Timezone name
+            tz: Timezone object
 
         Returns:
             Parsed datetime
         """
         format = format or DateUtils.DEFAULT_DATE_FORMAT
         dt = datetime.strptime(date_str, format)
-        if timezone:
-            tz = pytz.timezone(timezone)
-            dt = tz.localize(dt)
+        if tz:
+            dt = dt.replace(tzinfo=tz)
         return dt
 
     @staticmethod
     def format_date(
-        dt: datetime, format: Optional[str] = None, timezone: Optional[str] = None
+        dt: datetime, format: Optional[str] = None, tz: Optional[timezone] = None
     ) -> str:
         """Format datetime.
 
         Args:
             dt: Datetime to format
             format: Date format
-            timezone: Timezone name
+            tz: Timezone object
 
         Returns:
             Formatted date string
         """
         format = format or DateUtils.DEFAULT_DATE_FORMAT
-        if timezone:
-            dt = dt.astimezone(pytz.timezone(timezone))
+        if tz and dt.tzinfo != tz:
+            dt = dt.astimezone(tz)
         return dt.strftime(format)
 
     @staticmethod
@@ -185,3 +178,24 @@ class DateUtils:
         """
         next_month = dt.replace(day=28) + timedelta(days=4)
         return next_month.replace(day=1) - timedelta(days=1)
+
+    @staticmethod
+    def utc_now() -> datetime:
+        """Get current UTC datetime.
+
+        Returns:
+            Current UTC datetime
+        """
+        return datetime.now(timezone.utc)
+
+    @staticmethod
+    def from_timestamp(timestamp: Union[int, float]) -> datetime:
+        """Convert timestamp to datetime.
+
+        Args:
+            timestamp: Unix timestamp
+
+        Returns:
+            Datetime object
+        """
+        return datetime.fromtimestamp(timestamp, timezone.utc)

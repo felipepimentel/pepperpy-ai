@@ -1,3 +1,6 @@
-"""Compatibility stub for plugins"""
+"""CLI plugins compatibility layer.
 
-from ......core.plugins.cli import *  # noqa
+Import from core.plugins.cli to maintain backward compatibility.
+"""
+
+from pepperpy.core.plugins.cli import *  # noqa

@@ -1,13 +1,13 @@
-"""Executor de workflows
+"""Workflow executor
 
-Implementa o executor que gerencia a execução de workflows,
-incluindo paralelismo, tratamento de erros e monitoramento.
+Implements the executor that manages the execution of workflows,
+including parallelism, error handling, and monitoring.
 """
 
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.errors import ExecutionError
 from pepperpy.core.common.types.enums import WorkflowID
+from pepperpy.core.errors import ExecutionError
 
 from ..core.base import BaseWorkflow, WorkflowStep
 from ..core.types import WorkflowCallback

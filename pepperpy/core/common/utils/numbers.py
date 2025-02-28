@@ -1,6 +1,6 @@
-"""Utilitários para manipulação de números.
+"""Number manipulation utilities.
 
-Implementa funções auxiliares para manipulação e formatação de números.
+Implements helper functions for number manipulation and conversion.
 """
 
 from decimal import ROUND_HALF_UP, Decimal

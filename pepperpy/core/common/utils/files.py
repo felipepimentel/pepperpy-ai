@@ -1,6 +1,6 @@
-"""Utilitários para manipulação de arquivos.
+"""File handling utilities.
 
-Implementa funções auxiliares para manipulação de arquivos e diretórios.
+Implements helper functions for file operations and management.
 """
 
 import shutil

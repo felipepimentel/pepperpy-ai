@@ -1,5 +1,5 @@
 """
-COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.providers.llm.__init__
+COMPATIBILITY STUB: This module has been moved to pepperpy.providers.llm
 This stub exists for backward compatibility and will be removed in a future version.
 """
 
@@ -7,14 +7,14 @@ import warnings
 import importlib
 
 warnings.warn(
-    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/llm/providers/__init__.py has been moved to pepperpy.pepperpy-ai.pepperpy.providers.llm.__init__. "
-    f"Please update your imports. This stub will be removed in a future version.",
+    "The module pepperpy.llm.providers has been moved to pepperpy.providers.llm. "
+    "Please update your imports. This stub will be removed in a future version.",
     DeprecationWarning,
     stacklevel=2
 )
 
 # Import the module from the new location
-_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.providers.llm.__init__")
+_module = importlib.import_module("pepperpy.providers.llm")
 
 # Copy all attributes from the imported module to this module's namespace
 for _attr in dir(_module):

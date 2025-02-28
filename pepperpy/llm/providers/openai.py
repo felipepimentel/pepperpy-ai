@@ -3,14 +3,14 @@ COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.
 This stub exists for backward compatibility and will be removed in a future version.
 """
 
-import warnings
 import importlib
+import warnings
 
 warnings.warn(
-    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/llm/providers/openai.py has been moved to pepperpy.pepperpy-ai.pepperpy.providers.llm.openai. "
-    f"Please update your imports. This stub will be removed in a future version.",
+    "The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/llm/providers/openai.py has been moved to pepperpy.pepperpy-ai.pepperpy.providers.llm.openai. "
+    "Please update your imports. This stub will be removed in a future version.",
     DeprecationWarning,
-    stacklevel=2
+    stacklevel=2,
 )
 
 # Import the module from the new location

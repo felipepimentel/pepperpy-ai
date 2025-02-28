@@ -1,7 +1,7 @@
-"""Interfaces base para workflows
+"""Base interfaces for workflows
 
-Define as interfaces e classes base para o sistema de workflows,
-incluindo definição, execução e gerenciamento de fluxos de trabalho.
+Define the interfaces and base classes for the workflow system,
+including definition, execution, and management of workflows.
 """
 
 from abc import ABC, abstractmethod
@@ -16,9 +16,9 @@ from pepperpy.core.common.base import (
     ComponentConfig,
     ComponentState,
 )
+from pepperpy.core.common.types.enums import ComponentState
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
-from pepperpy.core.common.types.enums import ComponentState
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 

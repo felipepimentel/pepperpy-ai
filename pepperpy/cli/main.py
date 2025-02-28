@@ -22,9 +22,9 @@ from pepperpy.cli.commands import (
     tool,
     workflow,
 )
-from pepperpy.cli.plugins.loader import get_plugin_commands, load_all_plugins
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core.plugins.cli.loader import get_plugin_commands, load_all_plugins
 from pepperpy.core.common.logging import get_logger
+from pepperpy.core.errors import PepperpyError
 
 # Configure rich console
 console = Console()

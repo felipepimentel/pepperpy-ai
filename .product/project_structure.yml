@@ -105,6 +105,7 @@ structure:
         - distributed.py: Distributed cache implementations for the unified caching
             system
         - local.py: Local module
+        - memory.py: Memory cache implementation
         - memory_cache.py: Agent-specific cache system
         - migration.py: Migration utilities for transitioning to the unified caching
             system
@@ -401,30 +402,41 @@ structure:
                 description: Compatibility stub for errors
                 files:
                 - __init__.py: Compatibility stub for errors
-              types:
-                description: Compatibility stub for types
+              metrics:
+                description: Metrics management system
                 files:
-                - __init__.py: Compatibility stub for types
+                - __init__.py: Metrics management system
+              registry:
+                description: Compatibility stub for registry
+                files:
+                - __init__.py: Compatibility stub for registry
+                - base.py: Compatibility stub for registry base
+              types:
+                description: Core types for the PepperPy framework
+                files:
+                - __init__.py: Core types for the PepperPy framework
                 - base.py: Base types for core components
                 - common.py: Common module
                 - enums.py: Core enumerations
                 - models.py: Models module
               utils:
-                description: Compatibility stub for utils
+                description: Core utility functions for the PepperPy framework
                 files:
-                - __init__.py: Compatibility stub for utils
+                - __init__.py: Core utility functions for the PepperPy framework
                 - collections.py: Collection utilities for PepperPy
                 - config.py: Utilities for configuration file manipulation
                 - data.py: Utilitários para manipulação de dados
                 - data_manipulation.py: Data manipulation utilities
-                - dates.py: Utilitários para manipulação de datas
+                - dates.py: Date utilities
                 - files.py: Utilitários para manipulação de arquivos
                 - formatting.py: Formatting module
                 - io.py: Io module
+                - json.py: JSON utilities
                 - numbers.py: Utilitários para manipulação de números
                 - serialization.py: Serialization utilities for PepperPy
                 - system.py: System module
                 - validation.py: Validation module
+                - yaml.py: YAML utilities
               validation:
                 description: Validation module for the Pepperpy framework
                 files:
@@ -444,13 +456,16 @@ structure:
                 - compatibility.py: Version compatibility checking system
                 - errors.py: Error definitions for the versioning system
                 - evolution.py: Schema evolution management for versioned data
+                - manager.py: Version migration manager
                 - migration.py: Version migration management system
                 - semver.py: Semantic versioning implementation
+                - steps.py: Migration steps for version management
                 - tracking.py: Version tracking and dependency management system
                 - types.py: Type definitions for the versioning system
             files:
             - __init__.py: Common utilities and shared components for the Pepperpy
                 framework
+            - metrics.py: Metrics management system
           config:
             description: Environment-specific configuration management
             modules:

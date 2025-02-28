@@ -1,6 +1,6 @@
-"""Utilitários para manipulação de dados.
+"""Data manipulation utilities.
 
-Implementa funções auxiliares para manipulação e conversão de dados.
+Implements helper functions for data manipulation and conversion.
 """
 
 import json

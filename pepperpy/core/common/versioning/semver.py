@@ -12,18 +12,11 @@ The semantic versioning implementation follows the SemVer 2.0.0 specification
 (https://semver.org/), ensuring consistent version handling across the framework.
 """
 
-from .parser import SemVerParser
-from .validator import SemVerValidator
-
-__all__ = ["SemVerParser", "SemVerValidator"]
-"""
-Semantic versioning parser functionality.
-"""
-
 import re
+from typing import List, Optional, Tuple
 
-from ..errors import VersionParseError
-from ..types import Version
+from ..errors import VersionParseError, VersionValidationError
+from ..types import Version, VersionComponent
 
 
 class SemVerParser:
@@ -74,7 +67,7 @@ class SemVerParser:
             raise VersionParseError(version_str, str(e))
 
     @classmethod
-    def parse_range(cls, range_str: str) -> tuple[Version, Version]:
+    def parse_range(cls, range_str: str) -> Tuple[Version, Version]:
         """Parse a version range string into a tuple of Version objects."""
         parts = range_str.split("-")
         if len(parts) != 2:
@@ -95,8 +88,8 @@ class SemVerParser:
         major: int,
         minor: int,
         patch: int,
-        pre_release: str | None = None,
-        build: str | None = None,
+        pre_release: Optional[str] = None,
+        build: Optional[str] = None,
     ) -> str:
         """Format version components into a version string."""
         version = f"{major}.{minor}.{patch}"
@@ -114,7 +107,7 @@ class SemVerParser:
 
     @classmethod
     def increment(
-        cls, version: Version, component: str, pre_release: str | None = None
+        cls, version: Version, component: str, pre_release: Optional[str] = None
     ) -> Version:
         """Create a new version by incrementing a component."""
         if component not in ["major", "minor", "patch"]:
@@ -141,15 +134,6 @@ class SemVerParser:
             pre_release=pre_release,
             build=None,  # Build metadata is dropped on increment
         )
-"""
-Semantic versioning validation functionality.
-"""
-
-import re
-from typing import List, Optional
-
-from ..types import Version, VersionComponent
-from ..errors import VersionValidationError
 
 
 class SemVerValidator:
@@ -255,21 +239,19 @@ class SemVerValidator:
     def validate_pre_release(
         cls, version: Version, allowed_identifiers: Optional[List[str]] = None
     ) -> bool:
-        """Validate pre-release version."""
+        """Validate pre-release identifiers."""
         if not version.pre_release:
             return True
 
         try:
-            identifiers = version.pre_release.split(".")
             cls._validate_pre_release_identifiers(version.pre_release)
 
+            # Check against allowed identifiers if provided
             if allowed_identifiers:
-                if not any(
-                    identifier in allowed_identifiers for identifier in identifiers
-                ):
+                if version.pre_release not in allowed_identifiers:
                     raise VersionValidationError(
                         version,
-                        f"Pre-release identifier must be one of: {allowed_identifiers}",
+                        f"Pre-release identifier '{version.pre_release}' not in allowed list: {allowed_identifiers}",
                     )
 
             return True
@@ -281,23 +263,95 @@ class SemVerValidator:
     @classmethod
     def _validate_pre_release_identifiers(cls, pre_release: str) -> None:
         """Validate individual pre-release identifiers."""
-        identifiers = pre_release.split(".")
-        for identifier in identifiers:
+        for identifier in pre_release.split("."):
+            if not identifier:
+                raise ValueError("Pre-release identifiers cannot be empty")
             # Numeric identifiers cannot have leading zeros
             if identifier.isdigit() and len(identifier) > 1 and identifier[0] == "0":
-                raise VersionValidationError(
-                    cls.DUMMY_VERSION,
-                    f"Numeric pre-release identifier '{identifier}' cannot have leading zeros",
+                raise ValueError(
+                    "Numeric pre-release identifiers cannot have leading zeros"
                 )
 
     @classmethod
     def _validate_build_identifiers(cls, build: str) -> None:
         """Validate individual build metadata identifiers."""
-        identifiers = build.split(".")
-        for identifier in identifiers:
+        for identifier in build.split("."):
             if not identifier:
-                raise VersionValidationError(
-                    cls.DUMMY_VERSION,
-                    "Build metadata identifiers cannot be empty",
-                )
-``` 
+                raise ValueError("Build metadata identifiers cannot be empty")
+
+
+def compare_versions(version1: Version, version2: Version) -> int:
+    """Compare two versions according to semantic versioning rules.
+
+    Returns:
+        -1 if version1 < version2
+        0 if version1 == version2
+        1 if version1 > version2
+    """
+    # Compare major.minor.patch
+    for v1, v2 in zip(
+        [version1.major, version1.minor, version1.patch],
+        [version2.major, version2.minor, version2.patch],
+    ):
+        if v1 < v2:
+            return -1
+        if v1 > v2:
+            return 1
+
+    # If we get here, major.minor.patch are equal
+
+    # A version with pre-release is lower than one without
+    if version1.pre_release is None and version2.pre_release is not None:
+        return 1
+    if version1.pre_release is not None and version2.pre_release is None:
+        return -1
+    if version1.pre_release is None and version2.pre_release is None:
+        return 0  # Both versions are equal (build metadata doesn't affect precedence)
+
+    # Compare pre-release identifiers
+    # At this point, we know both pre_release values are not None
+    assert version1.pre_release is not None  # for type checking
+    assert version2.pre_release is not None  # for type checking
+
+    pre1 = version1.pre_release.split(".")
+    pre2 = version2.pre_release.split(".")
+
+    for i in range(min(len(pre1), len(pre2))):
+        # Numeric identifiers are compared numerically
+        if pre1[i].isdigit() and pre2[i].isdigit():
+            num1 = int(pre1[i])
+            num2 = int(pre2[i])
+            if num1 < num2:
+                return -1
+            if num1 > num2:
+                return 1
+        # Numeric identifiers have lower precedence than non-numeric
+        elif pre1[i].isdigit() and not pre2[i].isdigit():
+            return -1
+        elif not pre1[i].isdigit() and pre2[i].isdigit():
+            return 1
+        # Non-numeric identifiers are compared lexically
+        else:
+            if pre1[i] < pre2[i]:
+                return -1
+            if pre1[i] > pre2[i]:
+                return 1
+
+    # If we get here, all common identifiers are equal
+    # The one with fewer identifiers has higher precedence
+    if len(pre1) < len(pre2):
+        return -1
+    if len(pre1) > len(pre2):
+        return 1
+
+    # If we get here, the versions are equal
+    return 0
+
+
+def parse_version(version_str: str) -> Version:
+    """Parse a version string into a Version object."""
+    return SemVerParser.parse(version_str)
+
+
+# Alias for backward compatibility
+SemVer = Version

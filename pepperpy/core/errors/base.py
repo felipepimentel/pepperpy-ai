@@ -18,7 +18,7 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, TypedDict
+from typing import Any, Dict, Optional, TypedDict
 
 
 class ErrorCategory(str, Enum):
@@ -255,7 +255,7 @@ class CapabilityError(PepperError):
         error_details = {"capability_type": capability_type} if capability_type else {}
         if details:
             error_details.update(details)
-        super().__init__(message, details=error_details, error_code="ERR100")
+        super().__init__(message, details=error_details, error_code="ERR010")
 
 
 class LearningError(CapabilityError):
@@ -832,3 +832,120 @@ class SecurityError(PepperError):
         """Initialize the error."""
         error_details = {"error_code": "ERR019", **(details or {})}
         super().__init__(message, details=error_details)
+
+
+class VersionCompatibilityError(PepperError):
+    """Error raised when version compatibility check fails."""
+
+    def __init__(
+        self, from_version, to_version, message: str, details: Optional[Dict] = None
+    ):
+        """Initialize version compatibility error.
+
+        Args:
+            from_version: Source version
+            to_version: Target version
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(
+            message=message,
+            details={
+                "from_version": str(from_version) if from_version else None,
+                "to_version": str(to_version) if to_version else None,
+                **(details or {}),
+            },
+            error_code="ERR011",
+        )
+
+
+class VersionMigrationError(PepperError):
+    """Error raised when version migration fails."""
+
+    def __init__(
+        self, from_version, to_version, message: str, details: Optional[Dict] = None
+    ):
+        """Initialize version migration error.
+
+        Args:
+            from_version: Source version
+            to_version: Target version
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(
+            message=message,
+            details={
+                "from_version": str(from_version) if from_version else None,
+                "to_version": str(to_version) if to_version else None,
+                **(details or {}),
+            },
+            error_code="ERR012",
+        )
+
+
+class VersionParseError(PepperError):
+    """Error raised when version parsing fails."""
+
+    def __init__(self, version_str: str, message: str, details: Optional[Dict] = None):
+        """Initialize version parse error.
+
+        Args:
+            version_str: Version string that failed to parse
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(
+            message=message,
+            details={
+                "version_str": version_str,
+                **(details or {}),
+            },
+            error_code="ERR013",
+        )
+
+
+class VersionValidationError(PepperError):
+    """Error raised when version validation fails."""
+
+    def __init__(self, version, message: str, details: Optional[Dict] = None):
+        """Initialize version validation error.
+
+        Args:
+            version: Version that failed validation
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(
+            message=message,
+            details={
+                "version": str(version) if version else None,
+                **(details or {}),
+            },
+            error_code="ERR014",
+        )
+
+
+class VersionDependencyError(PepperError):
+    """Error raised when version dependency check fails."""
+
+    def __init__(
+        self, version, dependency, message: str, details: Optional[Dict] = None
+    ):
+        """Initialize version dependency error.
+
+        Args:
+            version: Version with dependency issue
+            dependency: Dependency version
+            message: Error message
+            details: Optional error details
+        """
+        super().__init__(
+            message=message,
+            details={
+                "version": str(version) if version else None,
+                "dependency": str(dependency) if dependency else None,
+                **(details or {}),
+            },
+            error_code="ERR015",
+        )

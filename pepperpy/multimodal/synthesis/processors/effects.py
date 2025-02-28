@@ -6,7 +6,7 @@ from typing import Any, List, Optional, Union
 from pydantic import BaseModel, Field
 from pydub import AudioSegment
 
-from pepperpy.synthesis.base import AudioData, AudioProcessor, SynthesisError
+from pepperpy.multimodal.synthesis.base import AudioData, AudioProcessor, SynthesisError
 
 
 class AudioEffectsConfig(BaseModel):

@@ -36,7 +36,7 @@ Version migration management functionality.
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Dict, List, Optional, Tuple
 
 from ..errors import VersionMigrationError
 from ..types import Version
@@ -289,7 +289,7 @@ Migration step functionality.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Type
+from typing import Any, Callable, Type
 
 from ..types import Version
 
@@ -497,3 +497,104 @@ def create_validation_step(
         .validate(validation_func)
         .build()
     )
+
+
+class MigrationPath:
+    """Represents a path of migrations between versions."""
+
+    def __init__(self, steps: List[Tuple[Version, Version]]) -> None:
+        """Initialize migration path.
+
+        Args:
+            steps: List of migration steps (from_version, to_version)
+        """
+        self.steps = steps
+
+    @property
+    def from_version(self) -> Optional[Version]:
+        """Get source version of migration path.
+
+        Returns:
+            Source version or None if path is empty
+        """
+        if not self.steps:
+            return None
+        return self.steps[0][0]
+
+    @property
+    def to_version(self) -> Optional[Version]:
+        """Get target version of migration path.
+
+        Returns:
+            Target version or None if path is empty
+        """
+        if not self.steps:
+            return None
+        return self.steps[-1][1]
+
+    @property
+    def is_empty(self) -> bool:
+        """Check if migration path is empty.
+
+        Returns:
+            True if path is empty, False otherwise
+        """
+        return len(self.steps) == 0
+
+    def __len__(self) -> int:
+        """Get number of steps in migration path.
+
+        Returns:
+            Number of steps
+        """
+        return len(self.steps)
+
+    def __str__(self) -> str:
+        """Get string representation of migration path.
+
+        Returns:
+            String representation
+        """
+        if not self.steps:
+            return "Empty migration path"
+
+        path_str = f"Migration path: {self.from_version} -> "
+        for i, (_, to_ver) in enumerate(self.steps):
+            if i < len(self.steps) - 1:
+                path_str += f"{to_ver} -> "
+            else:
+                path_str += f"{to_ver}"
+
+        return path_str
+
+    def to_dict(self) -> Dict:
+        """Convert migration path to dictionary.
+
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "steps": [
+                {"from": str(from_ver), "to": str(to_ver)}
+                for from_ver, to_ver in self.steps
+            ]
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict) -> "MigrationPath":
+        """Create migration path from dictionary.
+
+        Args:
+            data: Dictionary representation
+
+        Returns:
+            MigrationPath instance
+        """
+        steps = [
+            (Version.parse(step["from"]), Version.parse(step["to"]))
+            for step in data.get("steps", [])
+        ]
+        return cls(steps)
+
+
+__all__ = ["MigrationManager", "MigrationPath"]

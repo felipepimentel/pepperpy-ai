@@ -1,31 +1,31 @@
-"""Protocolos e interfaces do PepperPy
+"""Protocols and interfaces for PepperPy
 
-Este módulo define os protocolos e interfaces fundamentais do framework,
-incluindo:
+This module defines the fundamental protocols and interfaces of the framework,
+including:
 
-- Ciclo de Vida
-  - Inicialização
-  - Execução
-  - Finalização
-  - Estados
+- Lifecycle
+  - Initialization
+  - Execution
+  - Finalization
+  - States
 
-- Capacidades
-  - Serialização
-  - Validação
-  - Observabilidade
-  - Configuração
+- Capabilities
+  - Serialization
+  - Validation
+  - Observability
+  - Configuration
 
-- Comunicação
-  - Eventos
-  - Mensagens
+- Communication
+  - Events
+  - Messages
   - Callbacks
   - Streams
 
-Os protocolos são essenciais para:
-- Definir contratos claros
-- Garantir extensibilidade
-- Permitir polimorfismo
-- Facilitar testes
+Protocols are essential for:
+- Defining clear contracts
+- Ensuring extensibility
+- Allowing polymorphism
+- Facilitating testing
 """
 
 from typing import Dict, List, Optional, Protocol, Union
