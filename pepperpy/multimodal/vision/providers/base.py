@@ -92,4 +92,4 @@ class VisionProvider(ABC):
         Returns:
             List[str]: List of format extensions
         """
-        pass 
+        pass

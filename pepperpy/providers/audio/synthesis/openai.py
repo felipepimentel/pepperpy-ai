@@ -7,7 +7,7 @@ from typing import Any, BinaryIO, Dict, Literal, Optional
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 
-from pepperpy.capabilities.audio.providers.synthesis.base import BaseSynthesisProvider
+from pepperpy.multimodal.audio.providers.synthesis.base import BaseSynthesisProvider
 
 
 class OpenAIConfig(BaseModel):

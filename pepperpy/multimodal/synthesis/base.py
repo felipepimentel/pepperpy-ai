@@ -6,17 +6,23 @@ from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.common.base import BaseComponent as Processor
-from pepperpy.core.common.base import BaseProvider as Provider
+from ..base import (
+    ContentType,
+    DataFormat,
+    MultimodalError,
+    MultimodalProcessor,
+    MultimodalProvider,
+)
 
 
-class SynthesisError(Exception):
+class SynthesisError(MultimodalError):
     """Base class for synthesis-related errors."""
 
     def __init__(
         self,
         message: str,
         *,
+        component: Optional[str] = None,
         provider: Optional[str] = None,
         voice: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
@@ -25,14 +31,19 @@ class SynthesisError(Exception):
 
         Args:
             message: Error message
+            component: Optional component name that caused the error
             provider: Optional provider name that caused the error
             voice: Optional voice that caused the error
             details: Optional additional details
         """
-        super().__init__(message)
-        self.provider = provider
+        all_details = details or {}
+        if voice:
+            all_details["voice"] = voice
+
+        super().__init__(
+            message, component=component, provider=provider, details=all_details
+        )
         self.voice = voice
-        self.details = details or {}
 
 
 class AudioConfig(BaseModel):
@@ -61,8 +72,54 @@ class AudioData(BaseModel):
     )
 
 
-class SynthesisProvider(Provider):
+class SynthesisProvider(MultimodalProvider):
     """Base class for synthesis providers."""
+
+    def __init__(
+        self,
+        name: str,
+        config: Optional[Dict[str, Any]] = None,
+        supported_formats: Optional[List[DataFormat]] = None,
+    ) -> None:
+        """Initialize synthesis provider.
+
+        Args:
+            name: Provider name
+            config: Optional configuration
+            supported_formats: List of supported formats
+        """
+        if supported_formats is None:
+            supported_formats = [
+                DataFormat.MP3,
+                DataFormat.WAV,
+                DataFormat.OGG,
+                DataFormat.FLAC,
+            ]
+
+        super().__init__(
+            name,
+            config=config,
+            supported_content_types=[ContentType.AUDIO],
+            supported_formats=supported_formats,
+        )
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        Raises:
+            SynthesisError: If initialization fails
+        """
+        pass
+
+    @abstractmethod
+    async def shutdown(self) -> None:
+        """Shutdown the provider.
+
+        Raises:
+            SynthesisError: If shutdown fails
+        """
+        pass
 
     @abstractmethod
     async def synthesize(
@@ -112,8 +169,36 @@ class SynthesisProvider(Provider):
         pass
 
 
-class AudioProcessor(Processor):
-    """Base class for audio processors."""
+class SynthesisProcessor(MultimodalProcessor):
+    """Base class for synthesis processors."""
+
+    def __init__(
+        self,
+        name: str,
+        config: Optional[Dict[str, Any]] = None,
+        supported_formats: Optional[List[DataFormat]] = None,
+    ) -> None:
+        """Initialize synthesis processor.
+
+        Args:
+            name: Processor name
+            config: Optional configuration
+            supported_formats: List of supported formats
+        """
+        if supported_formats is None:
+            supported_formats = [
+                DataFormat.MP3,
+                DataFormat.WAV,
+                DataFormat.OGG,
+                DataFormat.FLAC,
+            ]
+
+        super().__init__(
+            name,
+            config=config,
+            supported_content_types=[ContentType.AUDIO],
+            supported_formats=supported_formats,
+        )
 
     @abstractmethod
     async def process(

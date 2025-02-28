@@ -1,20 +1,20 @@
 """
-COMPATIBILITY STUB: This module has been moved to pepperpy.pepperpy-ai.pepperpy.providers.llm.perplexity
+COMPATIBILITY STUB: This module has been moved to pepperpy.providers.llm.perplexity
 This stub exists for backward compatibility and will be removed in a future version.
 """
 
-import warnings
 import importlib
+import warnings
 
 warnings.warn(
-    f"The module /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/llm/providers/perplexity.py has been moved to pepperpy.pepperpy-ai.pepperpy.providers.llm.perplexity. "
-    f"Please update your imports. This stub will be removed in a future version.",
+    "The module pepperpy.llm.providers.perplexity has been moved to pepperpy.providers.llm.perplexity. "
+    "Please update your imports. This stub will be removed in a future version.",
     DeprecationWarning,
-    stacklevel=2
+    stacklevel=2,
 )
 
 # Import the module from the new location
-_module = importlib.import_module("pepperpy.pepperpy-ai.pepperpy.providers.llm.perplexity")
+_module = importlib.import_module("pepperpy.providers.llm.perplexity")
 
 # Copy all attributes from the imported module to this module's namespace
 for _attr in dir(_module):

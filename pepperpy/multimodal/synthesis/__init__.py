@@ -1,67 +1,46 @@
 """Multimodal content synthesis module.
 
-This module implements functionality for synthesizing different types of content,
-including:
-
-- Text Synthesis
-  - Text generation
-  - Summaries
-  - Paraphrases
-  - Translations
-
-- Voice Synthesis
-  - Text-to-Speech
-  - Voice cloning
-  - Prosody and emotion
-  - Multiple languages
-
-- Image Synthesis
-  - Text-to-Image
-  - Editing and manipulation
-  - Styles and filters
-  - Composition
-
-- Video Synthesis
-  - Animations
-  - Avatars
-  - Effects
-  - Rendering
-
-This module is different from processing in multimodal/
-as it focuses on:
-- Generating new content
-- Applying creative transformations
-- Producing high-quality outputs
-- Customizing results
-
-The module provides:
-- Unified interfaces
-- Modular pipeline
-- Specific optimizations
-- Quality control
+This module provides functionality for generating multimodal content:
+- Text-to-speech synthesis
+- Content generation and optimization
+- Audio processing and effects
 """
 
-from typing import Dict, List, Optional, Union
+# Import submodules
+from . import processors
+from .base import (
+    AudioConfig,
+    AudioData,
+    SynthesisError,
+    SynthesisProcessor,
+    SynthesisProvider,
+)
+from .generators import (
+    ContentGenerator,
+    SpeechGenerator,
+    TextGenerator,
+)
+from .optimizers import (
+    ContentOptimizer,
+    QualityOptimizer,
+    SizeOptimizer,
+)
 
-from .generators import AudioGenerator, ImageGenerator, TextGenerator
-from .migration import MigrationHelper
-from .optimizers import AudioOptimizer, ImageOptimizer, TextOptimizer
-from .processors import AudioProcessor, ImageProcessor, TextProcessor
-
-__version__ = "0.1.0"
 __all__ = [
-    # Processors
-    "AudioProcessor",
-    "ImageProcessor",
-    "TextProcessor",
-    # Generators
-    "AudioGenerator",
-    "ImageGenerator",
+    # Base classes
+    "AudioConfig",
+    "AudioData",
+    "SynthesisError",
+    "SynthesisProcessor",
+    "SynthesisProvider",
+    # Generator classes
+    "ContentGenerator",
+    "SpeechGenerator",
     "TextGenerator",
-    # Optimizers
-    "AudioOptimizer",
-    "ImageOptimizer",
-    "TextOptimizer",
-    # Migration
-    "MigrationHelper",
+    # Optimizer classes
+    "ContentOptimizer",
+    "QualityOptimizer",
+    "SizeOptimizer",
+    # Submodules
+    "processors",
 ]

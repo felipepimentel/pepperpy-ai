@@ -14,14 +14,16 @@ Classes:
 """
 
 # Import public classes and functions from the implementation
-from pepperpy.embedding import (
+from pepperpy.embedding.providers.base import EmbeddingProvider
+
+# Verificar se esta classe realmente existe
+from pepperpy.embedding.providers.openai import OpenAIEmbeddingProvider
+from pepperpy.embedding.rag import (
     DocumentEmbedder,
     Embedder,
     SentenceEmbedder,
     TextEmbedder,
 )
-from pepperpy.embedding.providers import EmbeddingProvider
-from pepperpy.embedding.providers.openai import OpenAIEmbeddingProvider
 
 __all__ = [
     "Embedder",

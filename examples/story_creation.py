@@ -26,11 +26,11 @@ from pepperpy.core.common.errors import ConfigurationError
 from pepperpy.core.common.logging import get_logger
 from pepperpy.providers import registry
 from pepperpy.providers.base import ProviderConfig, ProviderError
-from pepperpy.providers.llm.base import (
-    BaseLLMProvider,
+from pepperpy.llm.base import (
+    LLMProvider as BaseLLMProvider,
     LLMConfig,
-    LLMMessage,
-    LLMResponse,
+    Message as LLMMessage,
+    ProviderResponse as LLMResponse,
 )
 
 # Configure logging

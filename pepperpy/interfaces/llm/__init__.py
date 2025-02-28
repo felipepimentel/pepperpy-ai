@@ -13,25 +13,19 @@ Classes:
 Implementations:
     OpenAIProvider: Provider for OpenAI models
     AnthropicProvider: Provider for Anthropic Claude models
-    GeminiProvider: Provider for Google Gemini models
     PerplexityProvider: Provider for Perplexity models
     OpenRouterProvider: Provider for OpenRouter models
 """
 
 # Import public classes and functions from the implementation
-from pepperpy.llm import (
-    AnthropicProvider,
-    GeminiProvider,
-    LLMMessage,
-    LLMProvider,
-    LLMResponse,
-    OpenAIConfig,
-    OpenAIProvider,
-    OpenRouterConfig,
-    OpenRouterProvider,
-    PerplexityConfig,
-    PerplexityProvider,
-)
+from pepperpy.llm.base import LLMMessage, LLMProvider, LLMResponse
+from pepperpy.providers.llm.anthropic import AnthropicProvider
+
+# Comentando importação que não existe
+# from pepperpy.providers.llm.gemini import GeminiProvider
+from pepperpy.providers.llm.openai import OpenAIConfig, OpenAIProvider
+from pepperpy.providers.llm.openrouter import OpenRouterConfig, OpenRouterProvider
+from pepperpy.providers.llm.perplexity import PerplexityConfig, PerplexityProvider
 
 __all__ = [
     "LLMMessage",
@@ -40,7 +34,7 @@ __all__ = [
     "OpenAIConfig",
     "OpenAIProvider",
     "AnthropicProvider",
-    "GeminiProvider",
+    # "GeminiProvider",  # Comentando classe que não existe
     "PerplexityConfig",
     "PerplexityProvider",
     "OpenRouterConfig",

@@ -4,7 +4,7 @@ import base64
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.providers.vision.base import VisionError, VisionProvider
+from pepperpy.multimodal.vision.providers.base import VisionError, VisionProvider
 
 
 class OpenAIVisionProvider(VisionProvider):

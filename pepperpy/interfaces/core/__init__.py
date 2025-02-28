@@ -17,7 +17,7 @@ Classes:
 from pepperpy.core.base import BaseComponent
 from pepperpy.core.common.types.enums import ComponentState
 from pepperpy.core.events import EventBus
-from pepperpy.core.protocols import Lifecycle
+from pepperpy.core.protocols.base import Lifecycle
 from pepperpy.core.registry import Registry
 
 __all__ = [

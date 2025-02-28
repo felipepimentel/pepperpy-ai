@@ -193,7 +193,7 @@ If you have references to the content module in your code, update them:
 import pepperpy.content.synthesis as content_synthesis
 
 # New
-import pepperpy.synthesis as synthesis
+import pepperpy.multimodal.synthesis as synthesis
 ```
 
 ### 3. Check for Method Changes
