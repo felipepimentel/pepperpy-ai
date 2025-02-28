@@ -14,7 +14,7 @@ from uuid import UUID
 
 from pepperpy.core.common.base import ComponentBase, ComponentConfig
 from pepperpy.core.errors import WorkflowError
-from pepperpy.core.types import WorkflowID
+from pepperpy.core.common.types import WorkflowID
 from pepperpy.monitoring.metrics import Counter, Histogram
 from pepperpy.workflows.base import BaseWorkflow
 

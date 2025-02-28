@@ -17,7 +17,7 @@ from typing import Any, Generic, Optional, Protocol, TypeVar
 from pepperpy.core.common.base import ComponentBase, Lifecycle
 from pepperpy.core.errors import ResourceError, ValidationError
 from pepperpy.core.common.metrics import Counter, Histogram
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.resources.types import (
     Asset,

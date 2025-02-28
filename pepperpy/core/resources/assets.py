@@ -15,7 +15,7 @@ from pepperpy.core.common.base import ComponentBase
 from pepperpy.core.errors import AssetError
 from pepperpy.core.common.metrics import Counter, Histogram
 from pepperpy.core.common.resources import Resource, ResourceManager, ResourceMetadata
-from pepperpy.core.types import ResourceType
+from pepperpy.core.common.types import ResourceType
 
 # Configure logging
 logger = logging.getLogger(__name__)

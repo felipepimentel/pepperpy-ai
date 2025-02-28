@@ -1,7 +1,5 @@
 """Compatibility stub for RAG providers.
 
-Este é um stub de compatibilidade para manter a compatibilidade com código existente.
-Os provedores de RAG foram movidos para pepperpy.providers.rag
+This is a compatibility stub to maintain compatibility with existing code.
+The RAG providers have been moved to pepperpy.providers.rag
 """
-
-from pepperpy.providers.rag import *  # noqa

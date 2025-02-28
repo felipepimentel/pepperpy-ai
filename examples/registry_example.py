@@ -19,7 +19,7 @@ from pepperpy.core.common.registry.auto import (
     register_component,
 )
 from pepperpy.rag.registry import get_component_registry
-from pepperpy.agents.workflows.core.registry import get_workflow_registry
+from pepperpy.workflows.core.registry import get_workflow_registry
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

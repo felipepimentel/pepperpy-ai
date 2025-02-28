@@ -8,7 +8,7 @@ from typing import Any, Optional, Union
 from gtts import gTTS
 from pydantic import BaseModel, Field
 
-from pepperpy.multimodal.audio.providers.synthesis.base import (
+from pepperpy.providers.audio.synthesis.base import (
     AudioConfig,
     AudioData,
     SynthesisError,

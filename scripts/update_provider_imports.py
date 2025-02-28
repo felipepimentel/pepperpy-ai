@@ -12,7 +12,7 @@ This script updates imports in Python files to reflect the new provider organiza
 import os
 import re
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 # Define the import mappings
 IMPORT_MAPPINGS = {
@@ -26,6 +26,7 @@ IMPORT_MAPPINGS = {
     r"import pepperpy\.providers\.rag": "import pepperpy.rag.providers",
 }
 
+
 def find_python_files(root_dir: str) -> List[Path]:
     """Find all Python files in the given directory and its subdirectories."""
     python_files = []
@@ -34,6 +35,7 @@ def find_python_files(root_dir: str) -> List[Path]:
             if file.endswith(".py"):
                 python_files.append(Path(os.path.join(root, file)))
     return python_files
+
 
 def update_imports_in_file(file_path: Path) -> Tuple[int, List[str]]:
     """Update imports in a single file according to the mappings."""
@@ -54,17 +56,18 @@ def update_imports_in_file(file_path: Path) -> Tuple[int, List[str]]:
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
         return len(changes), changes
-    
+
     return 0, []
+
 
 def main():
     """Main function to update imports in all Python files."""
     root_dir = "pepperpy"
     python_files = find_python_files(root_dir)
-    
+
     total_files_changed = 0
     total_changes = 0
-    
+
     for file_path in python_files:
         num_changes, changes = update_imports_in_file(file_path)
         if num_changes > 0:
@@ -73,8 +76,9 @@ def main():
             print(f"Updated {file_path}:")
             for change in changes:
                 print(f"  - {change}")
-    
+
     print(f"\nSummary: Updated {total_changes} imports in {total_files_changed} files.")
 
+
 if __name__ == "__main__":
-    main() 
+    main()

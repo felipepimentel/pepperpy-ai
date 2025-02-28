@@ -29,5 +29,17 @@ Supported providers:
 
 from typing import Dict, List, Optional, Union
 
+from .base import (
+    TranscriptionError,
+    TranscriptionProvider,
+    TranscriptionResult,
+    TranscriptionSegment,
+)
+
 __version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
+__all__ = [
+    "TranscriptionProvider",
+    "TranscriptionError",
+    "TranscriptionResult",
+    "TranscriptionSegment",
+]

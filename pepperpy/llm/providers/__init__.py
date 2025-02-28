@@ -22,13 +22,13 @@ for _attr in dir(_module):
         globals()[_attr] = getattr(_module, _attr)
 
 # Explicitly import specific providers to ensure they're available
-from pepperpy.providers.llm.anthropic import AnthropicConfig as AnthropicConfig
-from pepperpy.providers.llm.anthropic import AnthropicProvider as AnthropicProvider
-from pepperpy.providers.llm.gemini import GeminiConfig as GeminiConfig
-from pepperpy.providers.llm.gemini import GeminiProvider as GeminiProvider
-from pepperpy.providers.llm.openai import OpenAIConfig as OpenAIConfig
-from pepperpy.providers.llm.openai import OpenAIProvider as OpenAIProvider
-from pepperpy.providers.llm.openrouter import OpenRouterConfig as OpenRouterConfig
-from pepperpy.providers.llm.openrouter import OpenRouterProvider as OpenRouterProvider
-from pepperpy.providers.llm.perplexity import PerplexityConfig as PerplexityConfig
-from pepperpy.providers.llm.perplexity import PerplexityProvider as PerplexityProvider
+from pepperpy.llm.providers.anthropic import AnthropicConfig as AnthropicConfig
+from pepperpy.llm.providers.anthropic import AnthropicProvider as AnthropicProvider
+from pepperpy.llm.providers.gemini import GeminiConfig as GeminiConfig
+from pepperpy.llm.providers.gemini import GeminiProvider as GeminiProvider
+from pepperpy.llm.providers.openai import OpenAIConfig as OpenAIConfig
+from pepperpy.llm.providers.openai import OpenAIProvider as OpenAIProvider
+from pepperpy.llm.providers.openrouter import OpenRouterConfig as OpenRouterConfig
+from pepperpy.llm.providers.openrouter import OpenRouterProvider as OpenRouterProvider
+from pepperpy.llm.providers.perplexity import PerplexityConfig as PerplexityConfig
+from pepperpy.llm.providers.perplexity import PerplexityProvider as PerplexityProvider

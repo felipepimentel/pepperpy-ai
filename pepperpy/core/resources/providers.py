@@ -10,7 +10,7 @@ This module implements specific resource providers:
 from typing import Any, Dict, List, Optional, Type
 
 from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.resources.base import Resource
 from pepperpy.resources.base import ResourceConfig as ResourceConfig

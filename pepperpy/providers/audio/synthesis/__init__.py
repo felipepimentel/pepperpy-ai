@@ -29,5 +29,19 @@ Supported providers:
 
 from typing import Dict, List, Optional, Union
 
+from .base import (
+    AudioConfig,
+    AudioData,
+    BaseSynthesisProvider,
+    SynthesisError,
+    SynthesisProvider,
+)
+
 __version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
+__all__ = [
+    "SynthesisProvider",
+    "BaseSynthesisProvider",
+    "SynthesisError",
+    "AudioConfig",
+    "AudioData",
+]

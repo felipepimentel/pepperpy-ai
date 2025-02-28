@@ -13,7 +13,7 @@ from uuid import UUID, uuid4
 from pepperpy.core.common.base import BaseAgent, Metadata
 from pepperpy.core.errors import ConfigurationError, ValidationError
 from pepperpy.core.common.logging import get_logger
-from pepperpy.core.types import (
+from pepperpy.core.common.types import (
     Message,
     MessageContent,
     MessageType,

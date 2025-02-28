@@ -7,7 +7,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 
 logger = logging.getLogger(__name__)
 

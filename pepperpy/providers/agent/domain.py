@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pepperpy.core.common.base import Metadata
 from pepperpy.core.common.logging import get_logger
 from pepperpy.core.errors import PepperpyError
-from pepperpy.core.types import MetadataDict, MetadataValue
+from pepperpy.core.common.types import MetadataDict, MetadataValue
 
 logger = get_logger(__name__)
 

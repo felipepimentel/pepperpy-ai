@@ -13,7 +13,7 @@ from typing import Any, Generic, TypeVar
 from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.common.models import BaseModel, Field
 from pepperpy.core.errors import ValidationError
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 from pepperpy.formats.base import BaseProcessor, BaseTransformer, BaseValidator
 from pepperpy.monitoring import logger
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager

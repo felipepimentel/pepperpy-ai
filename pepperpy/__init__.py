@@ -31,7 +31,6 @@ Core Components:
 from pepperpy.core.common import *  # noqa
 
 # from pepperpy.integrations import *  # noqa
-from pepperpy.processing import *  # noqa
 # from pepperpy.utils import *  # noqa
 
 __version__ = "0.1.0"

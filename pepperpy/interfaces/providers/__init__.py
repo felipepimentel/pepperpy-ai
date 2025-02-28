@@ -16,6 +16,25 @@ Provider Categories:
 """
 
 # Import public classes and functions from the implementation
+# Comentando importações que não existem
+# from pepperpy.providers.cloud import (
+#     AWSProvider,
+#     GCPProvider,
+# )
+# Comentando importações que não existem
+# from pepperpy.providers.config import (
+#     ConfigProvider,
+#     EnvConfigProvider,
+#     FileConfigProvider,
+#     SecureConfigProvider,
+# )
+# Atualizando importações para os novos caminhos
+from pepperpy.providers.llm import (
+    AnthropicProvider,
+    OpenAIProvider,
+    OpenRouterProvider,
+    PerplexityProvider,
+)
 from pepperpy.providers.agent.base import BaseProvider
 
 # Comentando importações que não existem
@@ -24,33 +43,11 @@ from pepperpy.providers.agent.factory import ProviderFactory
 from pepperpy.providers.agent.manager import ProviderManager
 
 # Atualizando importações para os novos caminhos
-from pepperpy.multimodal.audio.providers.synthesis import SynthesisProvider
-from pepperpy.multimodal.audio.providers.transcription import TranscriptionProvider
-
-# Comentando importações que não existem
-# from pepperpy.providers.cloud import (
-#     AWSProvider,
-#     GCPProvider,
-# )
-
-# Comentando importações que não existem
-# from pepperpy.providers.config import (
-#     ConfigProvider,
-#     EnvConfigProvider,
-#     FileConfigProvider,
-#     SecureConfigProvider,
-# )
+from pepperpy.providers.audio.synthesis import SynthesisProvider
+from pepperpy.providers.audio.transcription import TranscriptionProvider
 
 # Atualizando importações para os novos caminhos
-from pepperpy.llm.providers import (
-    AnthropicProvider,
-    OpenAIProvider,
-    OpenRouterProvider,
-    PerplexityProvider,
-)
-
-# Atualizando importações para os novos caminhos
-from pepperpy.multimodal.vision.providers import (
+from pepperpy.providers.vision import (
     GoogleVisionProvider,
     OpenAIVisionProvider,
     VisionProvider,

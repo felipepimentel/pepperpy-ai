@@ -6,9 +6,9 @@ This module provides examples of how to use the workflow system.
 import asyncio
 from typing import Any, Dict
 
-from pepperpy.agents.workflows.base import BaseWorkflow, WorkflowStep
-from pepperpy.agents.workflows.builder import WorkflowBuilder
-from pepperpy.agents.workflows.factory import default_factory
+from pepperpy.workflows.base import BaseWorkflow, WorkflowStep
+from pepperpy.workflows.builder import WorkflowBuilder
+from pepperpy.workflows.factory import default_factory
 
 
 async def simple_workflow_example() -> None:

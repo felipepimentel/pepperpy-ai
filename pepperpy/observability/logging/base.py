@@ -20,7 +20,7 @@ from typing import Any, TypeVar
 
 from pepperpy.core.errors import ValidationError
 from pepperpy.core.common.lifecycle.types import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 
 # Configure base logging
 logging.basicConfig(

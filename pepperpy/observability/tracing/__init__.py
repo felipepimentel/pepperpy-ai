@@ -18,7 +18,7 @@ from opentelemetry.sdk.trace.sampling import ParentBasedTraceIdRatio
 from opentelemetry.trace import Status, StatusCode
 
 from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 
 from .context import TraceContext
 from .providers import (

@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, TypeVar, Union
 from uuid import UUID, uuid4
 
-from pepperpy.core.types import Message, MessageType, Response
+from pepperpy.core.common.types import Message, MessageType, Response
 
 T = TypeVar("T")
 

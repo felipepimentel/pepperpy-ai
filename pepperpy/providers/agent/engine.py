@@ -13,7 +13,7 @@ from uuid import uuid4
 from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.errors import ProviderError, ValidationError
 from pepperpy.core.common.logging import get_logger
-from pepperpy.core.types import ComponentState
+from pepperpy.core.common.types import ComponentState
 
 from .base import BaseProvider, ProviderConfig
 from .factory import ProviderFactory
