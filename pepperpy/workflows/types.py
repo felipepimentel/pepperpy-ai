@@ -1,6 +1,6 @@
-"""Tipos e enums para o módulo de workflows
+"""Types and enums for the workflow module
 
-Define os tipos de dados e enumerações utilizados no módulo de workflows.
+Defines the data types and enumerations used in the workflow module.
 """
 
 from enum import Enum, auto

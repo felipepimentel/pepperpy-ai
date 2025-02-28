@@ -1,7 +1,7 @@
 """Central registry for workflows
 
-Implementa o registro central que gerencia todos os workflows do sistema,
-incluindo seu ciclo de vida e estado de execução.
+Implements the central registry that manages all system workflows,
+including their lifecycle and execution state.
 """
 
 from typing import Dict, List

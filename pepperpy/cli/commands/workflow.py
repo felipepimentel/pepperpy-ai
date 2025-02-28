@@ -9,8 +9,12 @@ This module provides commands for:
 
 import click
 from rich.console import Console
+from rich.table import Table
 
 from pepperpy.core.errors import PepperpyError
+from pepperpy.monitoring import audit_logger
+from pepperpy.workflows.base import WorkflowState
+from pepperpy.workflows.execution.runtime import WorkflowEngine
 
 # Configure rich console
 console = Console()
@@ -115,10 +119,6 @@ from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
-
-from pepperpy.monitoring import audit_logger
-from pepperpy.workflows import WorkflowEngine, WorkflowState
 
 console = Console()
 

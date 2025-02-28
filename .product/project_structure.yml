@@ -792,7 +792,7 @@ structure:
             - builder.py: Builder for workflow construction
             - definitions.py: Core workflows module
             - factory.py: Factory for workflow creation
-            - validator.py: Validador de workflows
+            - validator.py: Workflow validator
           examples:
             description: Workflow implementation examples
             files:

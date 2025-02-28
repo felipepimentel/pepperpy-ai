@@ -7,10 +7,10 @@ It manages workflow types, configurations, and provides a central point for work
 import logging
 from typing import Dict, List, Optional, Type
 
-from pepperpy.workflows.definition import WorkflowDefinition
 from pepperpy.core.common.lifecycle import Lifecycle
 from pepperpy.core.common.models import BaseModel
 from pepperpy.core.errors import WorkflowError
+from pepperpy.workflows.core.definition import WorkflowDefinition
 
 logger = logging.getLogger(__name__)
 

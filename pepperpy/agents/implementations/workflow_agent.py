@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 
 from pepperpy.agents.base import AgentConfig, BaseAgent
 from pepperpy.core.errors import AgentError
-from pepperpy.workflows.core.base import WorkflowStep
+from pepperpy.workflows.base import WorkflowStep
 
 
 @dataclass
