@@ -22,8 +22,8 @@ import os
 from typing import Any, List, Optional, cast
 from uuid import uuid4
 
-from pepperpy.core.errors import ConfigurationError
-from pepperpy.core.logging import get_logger
+from pepperpy.common.errors import ConfigurationError
+from pepperpy.common.logging import get_logger
 from pepperpy.providers import registry
 from pepperpy.providers.base import ProviderConfig, ProviderError
 from pepperpy.providers.llm.base import (

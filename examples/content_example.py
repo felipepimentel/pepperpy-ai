@@ -30,9 +30,9 @@ from pepperpy.content.base import (
 from pepperpy.content.loaders import TextContent
 from pepperpy.content.processors import TextProcessor
 from pepperpy.content.storage import LocalContentStorage
-from pepperpy.core.base import BaseComponent, Metadata
-from pepperpy.core.errors import ContentError, PepperpyError
-from pepperpy.core.logging import get_logger
+from pepperpy.common.base import BaseComponent, Metadata
+from pepperpy.common.errors import ContentError, PepperpyError
+from pepperpy.common.logging import get_logger
 
 # Configure logging
 logger = get_logger(__name__)

@@ -10,5 +10,19 @@ The health monitoring system enables applications to report their health status
 and allows infrastructure to make decisions based on that status.
 """
 
+from .checks import (
+    HealthCheck,
+    HealthChecker,
+    HealthCheckResult,
+    HealthStatus,
+    SystemHealthCheck,
+)
+
 # Export public API
-__all__ = []
+__all__ = [
+    "HealthCheck",
+    "HealthChecker",
+    "HealthCheckResult",
+    "HealthStatus",
+    "SystemHealthCheck",
+]

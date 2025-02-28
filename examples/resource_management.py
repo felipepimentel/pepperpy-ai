@@ -11,7 +11,7 @@ This example shows how to:
 import asyncio
 from datetime import UTC, datetime, timedelta
 
-from pepperpy.core.resources import resource_session
+from pepperpy.common.resources import resource_session
 from pepperpy.memory.errors import MemoryError, MemoryKeyError
 from pepperpy.memory.simple import SimpleMemory
 

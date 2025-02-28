@@ -4,7 +4,7 @@ This module provides functionality for processing and transforming HTML content,
 including parsing, formatting, and validation.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 
@@ -17,10 +17,10 @@ class ProcessingError(PepperError):
     def __init__(
         self,
         message: str,
-        details: Dict[str, Any] = None,
+        details: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize the error."""
-        super().__init__(message, details=details)
+        super().__init__(message, details=details if details is not None else {})
 
 
 class HTMLProcessor:

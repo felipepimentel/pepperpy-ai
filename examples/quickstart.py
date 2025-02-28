@@ -22,7 +22,7 @@ from datetime import datetime
 from typing import Any
 
 from pepperpy.agents.base import Agent
-from pepperpy.core.errors import ProcessingError
+from pepperpy.common.errors import ProcessingError
 
 # Configure logging
 logging.basicConfig(

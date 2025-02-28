@@ -3,50 +3,32 @@
 This module implements the OpenRouter provider for LLM functionality.
 """
 
-import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 
 import httpx
 from pydantic import Field
 
 from pepperpy.common.providers.unified import ProviderConfig
-from pepperpy.providers.llm.base import LLMMessage, LLMProvider, LLMResponse
-
-# Configure logger
-logger = get_logger(__name__)
-
-# Type variable for OpenRouter response types
-ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
-
-# Type aliases for OpenRouter parameters
-OpenRouterMessages = Sequence[ChatCompletionMessageParam]
-OpenRouterStop = list[str] | NotGiven
-ModelParam: TypeAlias = str
-TemperatureParam: TypeAlias = float
-MaxTokensParam: TypeAlias = int
+from pepperpy.llm.base import LLMMessage, LLMProvider, LLMResponse
 
 
-class OpenRouterConfig(ProviderConfig):
-    """OpenRouter provider configuration.
-
-    Attributes
-    ----------
-        api_key: OpenRouter API key
-        model: Model to use
-        temperature: Sampling temperature
-        max_tokens: Maximum tokens to generate
-        stop_sequences: Optional stop sequences
-        timeout: Request timeout in seconds
 class OpenRouterConfig(ProviderConfig):
     """Configuration for OpenRouter provider."""
 
     api_key: str = Field(description="OpenRouter API key")
-    model: str = Field(default="anthropic/claude-3-opus", description="Model name to use")
+    model: str = Field(
+        default="anthropic/claude-3-opus", description="Model name to use"
+    )
     temperature: float = Field(default=0.7, description="Sampling temperature")
-    max_tokens: Optional[int] = Field(default=None, description="Maximum tokens to generate")
-    top_p: Optional[float] = Field(default=None, description="Nucleus sampling parameter")
+    max_tokens: Optional[int] = Field(
+        default=None, description="Maximum tokens to generate"
+    )
+    top_p: Optional[float] = Field(
+        default=None, description="Nucleus sampling parameter"
+    )
     top_k: Optional[int] = Field(default=None, description="Top-k sampling parameter")
+
 
 class OpenRouterProvider(LLMProvider):
     """OpenRouter provider implementation."""
@@ -68,7 +50,7 @@ class OpenRouterProvider(LLMProvider):
     async def process_message(
         self,
         message: LLMMessage,
-    ) -> LLMResponse | AsyncGenerator[LLMResponse, None]:
+    ) -> Union[LLMResponse, AsyncGenerator[LLMResponse, None]]:
         """Process a provider message.
 
         Args:
@@ -105,7 +87,11 @@ class OpenRouterProvider(LLMProvider):
                             yield LLMResponse(
                                 content=content,
                                 model=self.config.model,
-                                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                                usage={
+                                    "prompt_tokens": 0,
+                                    "completion_tokens": 0,
+                                    "total_tokens": 0,
+                                },
                                 finish_reason=None,
                             )
 
@@ -118,7 +104,7 @@ class OpenRouterProvider(LLMProvider):
         model: Optional[str] = None,
         dimensions: Optional[int] = None,
         **kwargs: Any,
-    ) -> list[float]:
+    ) -> List[float]:
         """Generate embeddings for text.
 
         Args:
@@ -137,7 +123,7 @@ class OpenRouterProvider(LLMProvider):
 
     async def generate(
         self,
-        messages: list[LLMMessage],
+        messages: List[LLMMessage],
         **kwargs: Any,
     ) -> LLMResponse:
         """Generate response from messages.
@@ -154,8 +140,7 @@ class OpenRouterProvider(LLMProvider):
             json={
                 "model": self.config.model,
                 "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in messages
+                    {"role": msg.role, "content": msg.content} for msg in messages
                 ],
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,

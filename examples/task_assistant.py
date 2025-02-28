@@ -21,9 +21,9 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Union
 
 from pepperpy.agents.task_assistant import TaskAssistant
-from pepperpy.core.errors import ProcessingError
-from pepperpy.core.messages import ProviderMessage, ProviderResponse
-from pepperpy.core.providers.base import BaseProvider, ProviderConfig
+from pepperpy.common.errors import ProcessingError
+from pepperpy.common.messages import ProviderMessage, ProviderResponse
+from pepperpy.common.providers.base import BaseProvider, ProviderConfig
 
 # Configure logging
 logging.basicConfig(

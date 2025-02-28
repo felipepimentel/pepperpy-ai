@@ -3,50 +3,30 @@
 This module implements the Perplexity AI provider for LLM functionality.
 """
 
-import asyncio
 from collections.abc import AsyncGenerator
-from typing import Any, Optional
+from typing import Any, List, Optional, Union
 
 import httpx
 from pydantic import Field
 
 from pepperpy.common.providers.unified import ProviderConfig
-from pepperpy.providers.llm.base import LLMMessage, LLMProvider, LLMResponse
-# Configure logger
-logger = get_logger(__name__)
-
-# Type variable for Perplexity response types
-ResponseT = TypeVar("ResponseT", ChatCompletion, ChatCompletionChunk)
-
-# Type alias for Perplexity errors
-PerplexityErrorType = OpenAIError | APIError | ValueError | Exception  # type: ignore
-
-# Type aliases for Perplexity parameters
-PerplexityMessages = Sequence[ChatCompletionMessageParam]
-PerplexityStop = list[str] | NotGiven
-ModelParam: TypeAlias = str
-TemperatureParam: TypeAlias = float
-MaxTokensParam: TypeAlias = int
-
-# Type aliases for provider parameters
-GenerateKwargs = dict[str, Any]
-StreamKwargs = dict[str, Any]
+from pepperpy.llm.base import LLMMessage, LLMProvider, LLMResponse
 
 
-class PerplexityConfig(ProviderConfig):
-    """Perplexity provider configuration.
-
-    Attributes:
-        api_key: Perplexity API key
 class PerplexityConfig(ProviderConfig):
     """Configuration for Perplexity provider."""
 
     api_key: str = Field(description="Perplexity API key")
     model: str = Field(default="pplx-7b-chat", description="Model name to use")
     temperature: float = Field(default=0.7, description="Sampling temperature")
-    max_tokens: Optional[int] = Field(default=None, description="Maximum tokens to generate")
-    top_p: Optional[float] = Field(default=None, description="Nucleus sampling parameter")
+    max_tokens: Optional[int] = Field(
+        default=None, description="Maximum tokens to generate"
+    )
+    top_p: Optional[float] = Field(
+        default=None, description="Nucleus sampling parameter"
+    )
     top_k: Optional[int] = Field(default=None, description="Top-k sampling parameter")
+
 
 class PerplexityProvider(LLMProvider):
     """Perplexity AI provider implementation."""
@@ -68,7 +48,7 @@ class PerplexityProvider(LLMProvider):
     async def process_message(
         self,
         message: LLMMessage,
-    ) -> LLMResponse | AsyncGenerator[LLMResponse, None]:
+    ) -> Union[LLMResponse, AsyncGenerator[LLMResponse, None]]:
         """Process a provider message.
 
         Args:
@@ -105,7 +85,11 @@ class PerplexityProvider(LLMProvider):
                             yield LLMResponse(
                                 content=content,
                                 model=self.config.model,
-                                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                                usage={
+                                    "prompt_tokens": 0,
+                                    "completion_tokens": 0,
+                                    "total_tokens": 0,
+                                },
                                 finish_reason=None,
                             )
 
@@ -118,7 +102,7 @@ class PerplexityProvider(LLMProvider):
         model: Optional[str] = None,
         dimensions: Optional[int] = None,
         **kwargs: Any,
-    ) -> list[float]:
+    ) -> List[float]:
         """Generate embeddings for text.
 
         Args:
@@ -137,7 +121,7 @@ class PerplexityProvider(LLMProvider):
 
     async def generate(
         self,
-        messages: list[LLMMessage],
+        messages: List[LLMMessage],
         **kwargs: Any,
     ) -> LLMResponse:
         """Generate response from messages.
@@ -154,8 +138,7 @@ class PerplexityProvider(LLMProvider):
             json={
                 "model": self.config.model,
                 "messages": [
-                    {"role": msg.role, "content": msg.content}
-                    for msg in messages
+                    {"role": msg.role, "content": msg.content} for msg in messages
                 ],
                 "temperature": self.config.temperature,
                 "max_tokens": self.config.max_tokens,

@@ -20,7 +20,7 @@ class ProcessingError(PepperError):
         details: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize the error."""
-        super().__init__(message, details=details)
+        super().__init__(message, details=details if details is not None else {})
 
 
 class CSVProcessor:

@@ -10,7 +10,18 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pepperpy.common.errors import ProcessingError
+from pepperpy.common.errors.base import PepperError
+\n# Definindo a classe ProcessingError localmente para evitar erros de importação
+class ProcessingError(PepperError):
+    """Error raised when processing fails."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error."""
+        super().__init__(message, details=details if details is not None else {})
 from pepperpy.common.metrics import MetricsCollector
 
 
