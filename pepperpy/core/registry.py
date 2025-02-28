@@ -1,17 +1,18 @@
-"""Registro central de componentes do sistema
+"""Central registry for system components
 
-Este módulo implementa o registro central que gerencia todos os componentes do framework,
-fornecendo:
+This module implements the central registry that manages all framework components,
+providing:
 
-- Registro e descoberta de componentes
-- Gerenciamento do ciclo de vida
-- Resolução de dependências
-- Metadados e configurações
-- Validação de componentes
-- Monitoramento de estado
+- Component registration and discovery
+- Lifecycle management
+- Dependency resolution
+- Metadata and configuration management
+- Component validation
+- State monitoring and tracking
 
-O registro é uma peça fundamental para manter a coesão e permitir a extensibilidade
-do framework através de um ponto central de controle.
+The registry is a fundamental piece for maintaining cohesion and enabling extensibility
+of the framework through a central control point. It serves as the backbone for
+component management across the entire system.
 """
 
 from abc import ABC, abstractmethod

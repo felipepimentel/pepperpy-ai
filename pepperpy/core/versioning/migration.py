@@ -1,5 +1,15 @@
-"""
-Version migration management support.
+"""Version migration management system.
+
+This module provides tools for managing migrations between different versions:
+
+- MigrationManager: Core class for managing version migrations
+- MigrationStep: Interface for individual migration steps
+- MigrationContext: Context for executing migration steps
+- Migration path planning and execution
+- Validation steps for pre and post-migration checks
+
+The migration system enables applications to safely upgrade between versions,
+ensuring data consistency and proper handling of breaking changes.
 """
 
 from .manager import MigrationManager
@@ -272,6 +282,8 @@ class MigrationManager:
         # callable functions. We only restore the metadata and history.
 
         return manager
+
+
 """
 Migration step functionality.
 """
@@ -279,7 +291,6 @@ Migration step functionality.
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Type
 
-from ..errors import VersionMigrationError
 from ..types import Version
 
 

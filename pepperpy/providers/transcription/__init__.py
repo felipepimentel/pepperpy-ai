@@ -1,32 +1,30 @@
-"""Provedores para transcrição de áudio
+"""Audio transcription providers
 
-Este módulo implementa integrações com provedores de transcrição,
-fornecendo:
+This module implements integrations with transcription providers,
+offering:
 
-- Transcrição de Áudio (STT)
-  - Fala para texto
-  - Identificação de falantes
-  - Detecção de idiomas
-  - Pontuação automática
+- Audio Transcription (STT)
+  - Speech to text
+  - Speaker identification
+  - Language detection
+  - Automatic punctuation
 
-- Reconhecimento Ótico (OCR)
-  - Documentos digitalizados
-  - Imagens de texto
-  - Formulários e tabelas
-  - Múltiplos idiomas
+- Optical Recognition (OCR)
+  - Scanned documents
+  - Text images
+  - Forms and tables
+  - Multiple languages
 
-- Análise de Vídeo
-  - Extração de legendas
-  - Reconhecimento de cenas
-  - Detecção de objetos
-  - Análise de sentimento
+- Video Analysis
+  - Caption extraction
+  - Scene recognition
 
-Provedores suportados:
+Supported providers:
 - OpenAI Whisper
 - Google Speech-to-Text
 - Amazon Transcribe
 - Microsoft Azure Speech
-- Outros conforme necessário
+- Other providers as needed
 """
 
 from typing import Dict, List, Optional, Union

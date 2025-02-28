@@ -1,5 +1,15 @@
-"""
-Semantic versioning support.
+"""Semantic versioning implementation.
+
+This module provides a comprehensive implementation of Semantic Versioning (SemVer):
+
+- SemVer parsing and formatting
+- Version comparison and validation
+- Version increment and manipulation
+- Pre-release and build metadata support
+- Version range specification
+
+The semantic versioning implementation follows the SemVer 2.0.0 specification
+(https://semver.org/), ensuring consistent version handling across the framework.
 """
 
 from .parser import SemVerParser

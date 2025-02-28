@@ -1,7 +1,7 @@
-"""Cache distribuído para otimização de performance.
+"""Distributed cache for performance optimization.
 
-Implementa um sistema de cache distribuído usando Redis para otimização
-de performance em requisições frequentes em ambientes distribuídos.
+Implements a distributed cache system using Redis for performance
+optimization in frequent requests across distributed environments.
 """
 
 from typing import Any, Dict, Optional, TypeVar

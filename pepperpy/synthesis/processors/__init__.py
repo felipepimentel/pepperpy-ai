@@ -1,31 +1,31 @@
-"""Processadores para síntese de conteúdo.
+"""Content synthesis processors.
 
-Este módulo implementa processadores especializados para síntese de conteúdo,
-incluindo:
+This module implements specialized processors for content synthesis,
+including:
 
-- Processamento de Texto
-  - Tokenização
-  - Normalização
-  - Formatação
-  - Estilização
+- Text Processing
+  - Tokenization
+  - Normalization
+  - Formatting
+  - Styling
 
-- Processamento de Áudio
-  - Normalização
-  - Filtragem
-  - Efeitos
-  - Mixagem
+- Audio Processing
+  - Normalization
+  - Filtering
+  - Effects
+  - Mixing
 
-- Processamento de Imagem
-  - Redimensionamento
-  - Filtros
-  - Composição
-  - Otimização
+- Image Processing
+  - Resizing
+  - Filters
+  - Composition
+  - Optimization
 
-O módulo fornece:
-- Interfaces padronizadas
-- Configuração flexível
-- Pipeline modular
-- Extensibilidade
+The module provides:
+- Standardized interfaces
+- Flexible configuration
+- Modular pipeline
+- Extensibility
 """
 
 from typing import Dict, List, Optional, Union

@@ -29,7 +29,7 @@ structure:
         - registry.py: Adapter registry module
         - types.py: Adapter type system
       agents:
-        description: Módulo de agentes do PepperPy
+        description: Agent module for PepperPy
         modules:
           capabilities:
             description: Capacidades cognitivas implementadas pelos agentes
@@ -46,7 +46,7 @@ structure:
             - interactive.py: Interactive agent module for the Pepperpy framework
             - task_assistant.py: Task Assistant Agent implementation
         files:
-        - __init__.py: Módulo de agentes do PepperPy
+        - __init__.py: Agent module for PepperPy
         - base.py: Interfaces base para o módulo de agentes
         - chains.py: Base chain interface
         - factory.py: Agent factory module for the Pepperpy framework
@@ -160,7 +160,7 @@ structure:
             - test.py: Test environment configuration
             - types.py: Configuration types and constants
           errors:
-            description: Sistema de tratamento de erros do PepperPy
+            description: Error handling system for PepperPy
             modules:
               handlers:
                 description: Module initialization
@@ -181,12 +181,13 @@ structure:
                 files:
                 - __init__.py: Error reporting functionality
             files:
-            - __init__.py: Sistema de tratamento de erros do PepperPy
+            - __init__.py: Error handling system for PepperPy
             - base.py: Core error definitions for the Pepperpy framework
             - errors.py: Core error types for Pepperpy
           examples:
-            description: ''
+            description: Example code for PepperPy
             files:
+            - __init__.py: Example code for PepperPy
             - metadata_example.py: Example demonstrating the component metadata system
           imports:
             description: Module initialization
@@ -207,30 +208,39 @@ structure:
             - manager.py: Lifecycle manager module
             - types.py: Core lifecycle types module
           observability:
-            description: ''
+            description: Observability framework for PepperPy
             modules:
               audit:
-                description: ''
-              health:
-                description: ''
-              logging:
-                description: Logging package for the Pepperpy framework
+                description: Audit logging for PepperPy
                 files:
-                - __init__.py: Logging package for the Pepperpy framework
+                - __init__.py: Audit logging for PepperPy
+              health:
+                description: Health monitoring for PepperPy
+                files:
+                - __init__.py: Health monitoring for PepperPy
+              logging:
+                description: Structured logging for PepperPy
+                files:
+                - __init__.py: Structured logging for PepperPy
                 - base.py: Base logging module for the Pepperpy framework
                 - filters.py: Context filter for logging
                 - formatters.py: Logging formatters for the Pepperpy framework
                 - handlers.py: Handlers de logging para diferentes destinos
               metrics:
-                description: ''
+                description: Metrics collection for PepperPy
+                files:
+                - __init__.py: Metrics collection for PepperPy
               monitoring:
-                description: ''
+                description: System monitoring for PepperPy
+                files:
+                - __init__.py: System monitoring for PepperPy
             files:
+            - __init__.py: Observability framework for PepperPy
             - base.py: Interfaces base para o sistema de observabilidade
           plugins:
-            description: Module initialization
+            description: Plugin system for PepperPy
             files:
-            - __init__.py: Module initialization and exports
+            - __init__.py: Plugin system for PepperPy
             - base.py: Base module
           protocols:
             description: Protocolos e interfaces do PepperPy
@@ -258,33 +268,29 @@ structure:
             - storage.py: Resource storage system
             - types.py: Resource type definitions
           types:
-            description: Sistema de tipos do PepperPy
+            description: Type system for PepperPy
             files:
-            - __init__.py: Sistema de tipos do PepperPy
+            - __init__.py: Type system for PepperPy
             - base.py: Base types for core components
             - common.py: Common module
             - enums.py: Core enumerations
             - models.py: Models module
           utils:
-            description: Utilitários e funções auxiliares do core
+            description: Core utilities and helper functions
             files:
-            - __init__.py: Utilitários e funções auxiliares do core
+            - __init__.py: Core utilities and helper functions
+            - collections.py: Collection utilities for PepperPy
             - config.py: Utilitários para manipulação de arquivos de configuração
-            - csv.py: Utilitários para manipulação de arquivos CSV
             - data.py: Utilitários para manipulação de dados
+            - data_manipulation.py: Data manipulation utilities
             - dates.py: Utilitários para manipulação de datas
-            - dicts.py: Utilitários para manipulação de dicionários
             - files.py: Utilitários para manipulação de arquivos
             - formatting.py: Formatting module
             - io.py: Io module
-            - json.py: Utilitários para manipulação de arquivos JSON
-            - lists.py: Utilitários para manipulação de listas
             - numbers.py: Utilitários para manipulação de números
-            - strings.py: Utilitários para manipulação de strings
+            - serialization.py: Serialization utilities for PepperPy
             - system.py: System module
             - validation.py: Validation module
-            - xml.py: Utilitários para manipulação de arquivos XML
-            - yaml.py: Utilitários para manipulação de arquivos YAML
           validation:
             description: Validation module for the Pepperpy framework
             files:
@@ -297,23 +303,25 @@ structure:
                 framework
             - validators.py: Core validation functionality for the Pepperpy framework
           versioning:
-            description: Module initialization
+            description: Version management and compatibility system
             files:
-            - __init__.py: Module initialization and exports
-            - base.py: Base module
-            - compatibility.py: ''
-            - errors.py: Errors module
-            - evolution.py: Evolution module
-            - migration.py: ''
-            - semver.py: ''
-            - tracking.py: ''
-            - types.py: Types module
+            - __init__.py: Version management and compatibility system
+            - base.py: Base interfaces for the versioning system
+            - compatibility.py: Version compatibility checking system
+            - errors.py: Error definitions for the versioning system
+            - evolution.py: Schema evolution management for versioned data
+            - migration.py: Version migration management system
+            - semver.py: Semantic versioning implementation
+            - tracking.py: Version tracking and dependency management system
+            - types.py: Type definitions for the versioning system
         files:
         - __init__.py: Core functionality for PepperPy
         - base.py: Core base classes for PepperPy
-        - events.py: Sistema de eventos para comunicação entre componentes
+        - events.py: Event system for component communication
         - metadata.py: Component metadata system for PepperPy
-        - registry.py: Registro central de componentes do sistema
+        - registry.py: Central registry for system components
+      docs:
+        description: ''
       evaluation:
         description: Evaluation package for assessing agent performance
         files:
@@ -340,17 +348,19 @@ structure:
         - xml.py: Xml module
         - yaml.py: Yaml module
       hub:
-        description: Hub package for PepperPy
+        description: Hub system for PepperPy
         files:
-        - __init__.py: Hub package for PepperPy
+        - __init__.py: Hub system for PepperPy
         - artifacts.py: Hub artifacts module defining standard artifact types
         - base.py: Base interfaces for the Pepperpy Hub system
+        - discovery.py: Component discovery for the PepperPy Hub
         - manager.py: Hub management functionality for PepperPy
+        - registration.py: Component registration for the PepperPy Hub
         - security.py: Hub security module
       memory:
-        description: Sistema de armazenamento e recuperação de memória para agentes
+        description: Memory storage and retrieval system for agents
         files:
-        - __init__.py: Sistema de armazenamento e recuperação de memória para agentes
+        - __init__.py: Memory storage and retrieval system for agents
         - base.py: Base interfaces for the Pepperpy memory system
         - cache.py: Agent-specific cache system
         - in_memory.py: Simple in-memory storage implementation
@@ -406,15 +416,14 @@ structure:
         description: Optimization package for resource efficiency
         modules:
           batching:
-            description: Otimização de processamento em lote para requisições à API
+            description: Batch processing optimization for API requests
             files:
-            - __init__.py: Otimização de processamento em lote para requisições à
-                API
+            - __init__.py: Batch processing optimization for API requests
           caching:
             description: General cache for performance optimization
             files:
             - __init__.py: General cache for performance optimization
-            - distributed.py: Cache distribuído para otimização de performance
+            - distributed.py: Distributed cache for performance optimization
             - local.py: Local cache for performance optimization
             - policy.py: Políticas de cache para otimização de performance
           metrics:
@@ -439,14 +448,14 @@ structure:
         - config.py: Configuration settings for optimization components
         - profiler.py: Resource usage monitoring and profiling
       pipeline:
-        description: Pipeline de processamento de dados para o PepperPy
+        description: Data processing pipeline for PepperPy
         files:
-        - __init__.py: Pipeline de processamento de dados para o PepperPy
+        - __init__.py: Data processing pipeline for PepperPy
         - base.py: Base data pipeline components for stream and batch processing
         - batch.py: Batch processing implementation for data pipelines
         - stream.py: Stream processing implementation for data pipelines
       providers:
-        description: Provedores de integração com serviços externos
+        description: External service integration providers
         modules:
           agents:
             description: Providers package for the Pepperpy framework
@@ -460,9 +469,9 @@ structure:
             - manager.py: Provider manager for handling multiple providers
             - types.py: Type definitions for providers
           cloud:
-            description: Provedores de serviços em nuvem
+            description: Cloud service providers
             files:
-            - __init__.py: Provedores de serviços em nuvem
+            - __init__.py: Cloud service providers
             - aws.py: AWS provider for the Pepperpy framework
             - gcp.py: Google Cloud Platform provider implementation
           embedding:
@@ -496,15 +505,15 @@ structure:
             - cloud.py: Cloud storage provider implementation
             - local.py: Local filesystem storage provider implementation
           synthesis:
-            description: Provedores para síntese de áudio e conteúdo
+            description: Audio and content synthesis providers
             files:
-            - __init__.py: Provedores para síntese de áudio e conteúdo
+            - __init__.py: Audio and content synthesis providers
             - google_tts.py: Google Text-to-Speech provider for synthesis capability
             - openai.py: OpenAI provider for speech synthesis capability
           transcription:
-            description: Provedores para transcrição de áudio
+            description: Audio transcription providers
             files:
-            - __init__.py: Provedores para transcrição de áudio
+            - __init__.py: Audio transcription providers
             - google.py: Google Cloud Speech-to-Text provider implementation
           vision:
             description: Vision providers for the Pepperpy framework
@@ -514,7 +523,7 @@ structure:
             - google.py: Google Cloud Vision provider implementation
             - openai.py: OpenAI vision provider implementation
         files:
-        - __init__.py: Provedores de integração com serviços externos
+        - __init__.py: External service integration providers
       rag:
         description: RAG (Retrieval Augmented Generation) package
         modules:
@@ -535,7 +544,7 @@ structure:
           optimizations:
             description: RAG Optimizations Module
             files:
-            - __init__.py: ''
+            - __init__.py: RAG Optimizations Module
             - caching.py: Vector caching for performance optimization
             - compression.py: Vector compression for memory optimization
             - pruning.py: Vector pruning for index optimization
@@ -549,27 +558,22 @@ structure:
             files:
             - __init__.py: RAG templates package
           vector:
-            description: Módulo de vetorização e indexação para RAG
+            description: Vector embedding and indexing module for RAG (DEPRECATED)
             modules:
               embedding:
-                description: RAG embedding package
+                description: Embedding module for RAG (DEPRECATED)
                 files:
-                - __init__.py: RAG embedding package
-                - embedders.py: RAG embedding implementations
+                - __init__.py: Embedding module for RAG (DEPRECATED)
               indexing:
-                description: RAG indexing package
+                description: Indexing module for RAG (DEPRECATED)
                 files:
-                - __init__.py: RAG indexing package
-                - indexers.py: RAG indexing implementations
+                - __init__.py: Indexing module for RAG (DEPRECATED)
               optimization:
-                description: Vector index optimizations for RAG
+                description: Vector optimization module for RAG (DEPRECATED)
                 files:
-                - __init__.py: Vector index optimizations for RAG
-                - caching.py: Vector caching for performance optimization
-                - compression.py: Vector compression for memory optimization
-                - pruning.py: Vector pruning for index optimization
+                - __init__.py: Vector optimization module for RAG (DEPRECATED)
             files:
-            - __init__.py: Módulo de vetorização e indexação para RAG
+            - __init__.py: Vector embedding and indexing module for RAG (DEPRECATED)
         files:
         - __init__.py: RAG (Retrieval Augmented Generation) package
         - base.py: Core interfaces and base classes for the RAG system
@@ -596,7 +600,7 @@ structure:
         files:
         - __init__.py: Security package for PepperPy
         - auth.py: Authentication and authorization functionality
-        - base.py: Interfaces base para o sistema de segurança
+        - base.py: Base interfaces for the security system
         - content_filter.py: Module for filtering sensitive or inappropriate content
         - crypto.py: Cryptographic functionality
         - prompt_injection.py: Module for protecting against prompt injection attacks
@@ -605,9 +609,9 @@ structure:
         description: Multimodal content synthesis module
         modules:
           processors:
-            description: Processadores para síntese de conteúdo
+            description: Content synthesis processors
             files:
-            - __init__.py: Processadores para síntese de conteúdo
+            - __init__.py: Content synthesis processors
             - audio.py: Audio processor for synthesis
             - effects.py: Audio effects processor for synthesis capability
             - image.py: Processador de imagem para síntese

@@ -1,31 +1,29 @@
-"""Provedores de serviços em nuvem
+"""Cloud service providers
 
-Este módulo implementa integrações com provedores de serviços em nuvem,
-fornecendo:
+This module implements integrations with cloud service providers,
+offering:
 
-- Gerenciamento de recursos
-  - Computação
-  - Armazenamento
-  - Redes
+- Resource management
+  - Compute
+  - Storage
+  - Networking
   - Containers
 
-- Serviços gerenciados
-  - Bancos de dados
+- Managed services
+  - Databases
   - Cache
-  - Mensageria
-  - Análise
+  - Messaging
+  - Analytics
 
-- Segurança e identidade
-  - Autenticação
-  - Autorização
-  - Criptografia
-  - Auditoria
+- Security and identity
+  - Authentication
+  - Authorization
 
-Provedores suportados:
+Supported providers:
 - Amazon Web Services (AWS)
 - Microsoft Azure
 - Google Cloud Platform (GCP)
-- Outros provedores conforme necessário
+- Other providers as needed
 """
 
 from typing import Dict, List, Optional, Union

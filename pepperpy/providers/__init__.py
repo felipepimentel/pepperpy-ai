@@ -1,38 +1,42 @@
-"""Provedores de integração com serviços externos
+"""External service integration providers.
 
-Este módulo implementa os provedores que integram o framework com serviços externos,
-incluindo:
+This module implements providers that integrate the framework with external services,
+including:
 
-- Provedores de IA e LLMs
+- AI and LLM Providers
   - OpenAI
   - Anthropic
   - Google
-  - Outros
+  - Others
 
-- Provedores de Nuvem
+- Cloud Providers
   - AWS
   - Azure
   - GCP
-  - Outros
+  - Others
 
-- Provedores de Síntese
+- Synthesis Providers
   - Text-to-Speech
   - Image Generation
-  - Video Synthesis
-  - Outros
+  - Image Analysis
+  - Video Processing
 
-- Provedores de Transcrição
+- Transcription Providers
   - Speech-to-Text
-  - OCR
-  - Video Analysis
-  - Outros
+  - Audio Analysis
+  - Language Detection
 
-O módulo de provedores é fundamental para:
-- Abstrair integrações externas
-- Padronizar interfaces
-- Gerenciar credenciais
-- Otimizar custos
-- Garantir resiliência
+- Storage Providers
+  - Object Storage
+  - File Systems
+  - Databases
+
+The providers module is essential for:
+- Abstracting external integrations
+- Standardizing interfaces
+- Managing credentials
+- Optimizing costs
+- Ensuring resilience
 """
 
 from typing import Dict, List, Optional, Union

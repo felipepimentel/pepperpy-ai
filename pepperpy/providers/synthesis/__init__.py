@@ -1,32 +1,30 @@
-"""Provedores para síntese de áudio e conteúdo
+"""Audio and content synthesis providers
 
-Este módulo implementa integrações com provedores de síntese de conteúdo,
-incluindo:
+This module implements integrations with content synthesis providers,
+including:
 
-- Síntese de Voz (TTS)
-  - Vozes naturais
-  - Clonagem de voz
-  - Emoções e entonação
-  - Múltiplos idiomas
+- Voice Synthesis (TTS)
+  - Natural voices
+  - Voice cloning
+  - Emotions and intonation
+  - Multiple languages
 
-- Geração de Imagens
-  - Imagens realistas
-  - Arte digital
-  - Edição e manipulação
-  - Estilos e filtros
+- Image Generation
+  - Realistic images
+  - Digital art
+  - Editing and manipulation
+  - Styles and filters
 
-- Síntese de Vídeo
-  - Animações
-  - Avatares digitais
-  - Efeitos visuais
-  - Renderização
+- Video Synthesis
+  - Animations
+  - Digital avatars
 
-Provedores suportados:
+Supported providers:
 - OpenAI (DALL-E, TTS)
 - Stability AI
 - Midjourney
 - ElevenLabs
-- Outros conforme necessário
+- Other providers as needed
 """
 
 from typing import Dict, List, Optional, Union
