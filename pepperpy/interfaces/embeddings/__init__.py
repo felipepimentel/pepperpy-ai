@@ -11,12 +11,11 @@ Classes:
     DocumentEmbedder: Embedder for document content
     SentenceEmbedder: Embedder for sentence-level content
     EmbeddingProvider: Base class for embedding providers
+    OpenAIEmbeddingProvider: OpenAI implementation of embedding provider
 """
 
 # Import public classes and functions from the implementation
 from pepperpy.embedding.providers.base import EmbeddingProvider
-
-# Verificar se esta classe realmente existe
 from pepperpy.embedding.providers.openai import OpenAIEmbeddingProvider
 from pepperpy.embedding.rag import (
     DocumentEmbedder,

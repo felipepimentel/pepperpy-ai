@@ -1,3 +1,7 @@
-"""Storage provider implementations."""
-from pepperpy.providers.storage import CloudStorageProvider, LocalStorageProvider, SQLStorageProvider, SQLQueryBuilder
-__all__ = ["CloudStorageProvider", "LocalStorageProvider", "SQLStorageProvider", "SQLQueryBuilder"]
+"""Compatibility stub for providers
+
+This module has been moved to pepperpy.providers.storage.
+Please update your imports. This compatibility stub will be removed in a future version.
+"""
+
+from pepperpy.providers.storage import *  # noqa 

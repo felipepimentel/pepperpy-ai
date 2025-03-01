@@ -20,9 +20,6 @@ Implementations:
 # Import public classes and functions from the implementation
 from pepperpy.llm.base import LLMMessage, LLMProvider, LLMResponse
 from pepperpy.providers.llm.anthropic import AnthropicProvider
-
-# Comentando importação que não existe
-# from pepperpy.providers.llm.gemini import GeminiProvider
 from pepperpy.providers.llm.openai import OpenAIConfig, OpenAIProvider
 from pepperpy.providers.llm.openrouter import OpenRouterConfig, OpenRouterProvider
 from pepperpy.providers.llm.perplexity import PerplexityConfig, PerplexityProvider
@@ -34,7 +31,6 @@ __all__ = [
     "OpenAIConfig",
     "OpenAIProvider",
     "AnthropicProvider",
-    # "GeminiProvider",  # Comentando classe que não existe
     "PerplexityConfig",
     "PerplexityProvider",
     "OpenRouterConfig",

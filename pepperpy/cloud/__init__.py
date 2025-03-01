@@ -9,3 +9,12 @@ It supports:
 - Service discovery
 - Data transfer and synchronization
 """
+
+# Re-export from providers.cloud for backward compatibility
+from pepperpy.cloud.base import CloudProvider, CloudProviderConfig
+from pepperpy.providers.cloud import *
+
+__all__ = [
+    "CloudProvider",
+    "CloudProviderConfig",
+]

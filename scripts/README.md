@@ -50,6 +50,36 @@ Para mais informações sobre a padronização dos providers, consulte o documen
 
 - [Padronização de Providers no PepperPy](../docs/design/provider_standardization.md)
 
+## Provider API Update Script
+
+The `update_provider_api.py` script updates the public API in `interfaces/providers/__init__.py` to include all provider implementations from the centralized providers directory.
+
+### Usage
+
+```bash
+python scripts/update_provider_api.py
+```
+
+### What it does
+
+1. Scans all provider domains in the centralized `pepperpy/providers/` directory
+2. Finds all provider classes (classes that end with "Provider")
+3. Updates the `interfaces/providers/__init__.py` file with:
+   - Imports for all provider classes
+   - Updated `__all__` list
+   - Organized by domain with appropriate comments
+
+### When to use
+
+Run this script after:
+1. Adding new provider implementations
+2. Moving providers to the centralized structure
+3. Renaming provider classes
+
+### Requirements
+
+- Python 3.8+
+
 ## Check Script
 
 The `check.py` script is a unified validation tool that runs all necessary checks on the codebase:

@@ -436,15 +436,32 @@ structure:
           capabilities:
             description: Public Interface for capabilities
             files:
-            - __init__.py: Public interface for agent and system capabilities
+            - __init__.py: ''
           core:
             description: Public Interface for core
             files:
-            - __init__.py: Public interface for core framework functionality
+            - __init__.py: ''
           embeddings:
             description: Public Interface for embeddings
             files:
-            - __init__.py: Public interface for embedding and vector representation systems
+            - __init__.py: ''
+          llm:
+            description: Public Interface for llm
+            files:
+            - __init__.py: ''
+          providers:
+            description: Public Interface for providers This module provides a stable
+              public interface for the providers functionality. It exposes the core
+              provider abstractions and implementations that are considered part of
+              the public API
+            files:
+            - __init__.py: Public Interface for providers
+          workflows:
+            description: Public Interface for workflows
+            files:
+            - __init__.py: Public Interface for workflows
+        files:
+        - __init__.py: ''
       llm:
         description: LLM (Language Model) providers for the Pepperpy framework
         files:
@@ -527,7 +544,9 @@ structure:
             description: Metrics collection for PepperPy
             modules:
               collector:
-                description: 'Specialized metric collectors for different subsystems'
+                description: Specialized metric collectors for different subsystems
+                files:
+                - __init__.py: Specialized metric collectors for different subsystems
             files:
             - __init__.py: Metrics collection for PepperPy
             - collector.py: Metrics collection functionality for PepperPy observability
@@ -619,6 +638,29 @@ structure:
             - file.py: File-based configuration provider
             - filesystem.py: Filesystem configuration provider
             - secure.py: Secure configuration provider that encrypts sensitive data
+          embedding:
+            description: ''
+          llm:
+            description: Provider implementations for llm capabilities
+            files:
+            - __init__.py: Provider implementations for llm capabilities
+            - anthropic.py: Anthropic LLM provider implementation
+            - gemini.py: Gemini module
+            - openai.py: OpenAI provider implementation
+            - openrouter.py: OpenRouter provider module
+            - perplexity.py: Perplexity AI provider module
+          storage:
+            description: Storage Providers Module
+            files:
+            - __init__.py: Storage Providers Module
+            - cloud.py: Cloud storage provider implementation
+            - local.py: Local filesystem storage provider implementation
+            - sql.py: SQL storage provider functionality
+          vision:
+            description: Vision providers for the PepperPy framework
+            files:
+            - __init__.py: Vision providers for the PepperPy framework
+            - base.py: Base interfaces and exceptions for vision providers
             - google.py: Google Cloud Vision provider implementation
             - openai.py: OpenAI vision provider implementation
         files:
@@ -627,15 +669,15 @@ structure:
         description: RAG (Retrieval Augmented Generation) package
         modules:
           processors:
-            description: RAG Processing Components for document chunking and vector optimization
+            description: RAG Processing Components
             files:
-            - __init__.py: RAG Processing Components for document chunking and vector optimization
+            - __init__.py: RAG Processing Components
             - optimization.py: Vector optimization techniques for RAG systems
             - preprocessing.py: RAG preprocessing implementations
           retrieval:
-            description: RAG Retrieval Systems for efficient document search
+            description: RAG Retrieval Systems
             files:
-            - __init__.py: RAG Retrieval Systems for efficient document search
+            - __init__.py: RAG Retrieval Systems
             - system.py: RAG retrieval implementations
         files:
         - __init__.py: RAG (Retrieval Augmented Generation) package
@@ -672,7 +714,7 @@ structure:
         - crypto.py: Cryptographic functionality
         - sandbox.py: Sandbox module for secure code execution
       storage:
-        description: Storage system for PepperPy
+        description: Storage System for PepperPy
         modules:
           providers:
             description: Storage provider implementations
@@ -682,7 +724,7 @@ structure:
             - local.py: Local filesystem storage provider implementation
             - sql.py: SQL storage provider functionality
         files:
-        - __init__.py: Storage system for managing data persistence and retrieval
+        - __init__.py: Storage System for PepperPy
         - base.py: Base interfaces and exceptions for storage providers
       workflows:
         description: Workflows Module
@@ -731,4 +773,4 @@ structure:
         - types.py: Types and enums for the workflow module
     files:
     - __init__.py: PepperPy Framework
-    - migration.py: Migration module
+    - migration.py: Utilities for migrating between different versions of the framework and standardizing providers

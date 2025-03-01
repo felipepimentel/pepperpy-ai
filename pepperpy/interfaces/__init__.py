@@ -11,6 +11,8 @@ The public interfaces are organized by domain:
 - embeddings: Vector embedding functionality
 - llm: Language model integration
 - providers: Service provider integrations
+- rag: Retrieval Augmented Generation
+- security: Security and authentication
 
 Users of the framework should import from these interfaces rather than
 directly from implementation modules to ensure compatibility with future versions.
@@ -22,4 +24,6 @@ from .core import *
 from .embeddings import *
 from .llm import *
 from .providers import *
+from .rag import *
+from .security import *
 from .workflows import *

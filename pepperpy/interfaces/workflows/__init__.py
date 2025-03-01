@@ -9,30 +9,25 @@ Core Components:
     WorkflowDefinition: Definition of workflow structure
     WorkflowStep: Individual step in a workflow
     WorkflowRegistry: Registry for workflow definitions
+    WorkflowStatus: Enumeration of workflow execution states
 
 Execution:
     WorkflowExecutor: Executes workflow definitions
-    WorkflowRuntime: Runtime environment for workflows
     WorkflowScheduler: Schedules workflow execution
 
 Definition:
     WorkflowBuilder: Builds workflow definitions
     WorkflowFactory: Creates workflow instances
-    WorkflowValidator: Validates workflow definitions
 """
 
 # Import public classes and functions from the implementation
 from pepperpy.workflows.base import BaseWorkflow, WorkflowDefinition, WorkflowStep
-from pepperpy.workflows.core.definition.builder import WorkflowBuilder
-from pepperpy.workflows.core.definition.factory import WorkflowFactory
-from pepperpy.workflows.core.definition.validator import WorkflowValidator
-from pepperpy.workflows.core.registry import WorkflowRegistry
-from pepperpy.workflows.core.types import WorkflowStatus
+from pepperpy.workflows.builder import WorkflowBuilder
 from pepperpy.workflows.execution.executor import WorkflowExecutor
-
-# Comentando importação que não existe
-# from pepperpy.workflows.execution.runtime import WorkflowRuntime
 from pepperpy.workflows.execution.scheduler import WorkflowScheduler
+from pepperpy.workflows.factory import WorkflowFactory
+from pepperpy.workflows.registry import WorkflowRegistry
+from pepperpy.workflows.types import WorkflowStatus
 
 __all__ = [
     # Core
@@ -43,10 +38,8 @@ __all__ = [
     "WorkflowStatus",
     # Execution
     "WorkflowExecutor",
-    # "WorkflowRuntime",  # Comentando classe que não existe
     "WorkflowScheduler",
     # Definition
     "WorkflowBuilder",
     "WorkflowFactory",
-    "WorkflowValidator",
 ]

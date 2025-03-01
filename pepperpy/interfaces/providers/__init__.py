@@ -37,3 +37,46 @@ from pepperpy.providers.config.secure import SecureConfigProvider
 # LLM providers
 from pepperpy.providers.llm.anthropic import AnthropicProvider
 from pepperpy.providers.llm.openai import OpenAIProvider
+from pepperpy.providers.llm.openrouter import OpenRouterProvider
+from pepperpy.providers.llm.perplexity import PerplexityProvider
+
+# Storage providers
+from pepperpy.providers.storage.local import LocalStorageProvider
+from pepperpy.providers.storage.sql import SQLStorageProvider
+
+# Vision providers
+from pepperpy.providers.vision.base import VisionProvider
+from pepperpy.providers.vision.google import GoogleVisionProvider
+from pepperpy.providers.vision.openai import OpenAIVisionProvider
+
+__all__ = [
+    # Base provider classes
+    "BaseProvider",
+    "ProviderFactory",
+    "ProviderManager",
+    # Audio providers
+    "SynthesisProvider",
+    "TranscriptionProvider",
+    # Cloud providers
+    "AWSProvider",
+    "GCPProvider",
+    "CloudStorageProvider",
+    # Config providers
+    "ConfigProvider",
+    "EnvConfigProvider",
+    "FileConfigProvider",
+    "FilesystemConfigProvider",
+    "SecureConfigProvider",
+    # LLM providers
+    "AnthropicProvider",
+    "OpenAIProvider",
+    "OpenRouterProvider",
+    "PerplexityProvider",
+    # Storage providers
+    "LocalStorageProvider",
+    "SQLStorageProvider",
+    # Vision providers
+    "VisionProvider",
+    "GoogleVisionProvider",
+    "OpenAIVisionProvider",
+]
