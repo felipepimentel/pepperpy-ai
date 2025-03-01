@@ -143,3 +143,50 @@ class MyEmbeddingProvider(BaseEmbeddingProvider):
 4. **Tratamento de erros robusto**: Converta erros específicos para exceções do framework
 5. **Testes abrangentes**: Teste tanto o comportamento normal quanto casos de erro
 6. **Métricas e observabilidade**: Integre com o sistema de métricas do PepperPy
+
+# Provider Migration Notice
+
+## Important: Providers Have Been Moved
+
+The providers in this directory have been moved to their respective domain directories for better modularity and maintainability.
+
+### New Provider Locations
+
+- `providers/audio/` → `multimodal/audio/providers/`
+- `providers/vision/` → `multimodal/vision/providers/`
+- `providers/agent/` → `agents/providers/`
+- `providers/storage/` → `storage/providers/`
+- `providers/cloud/` → `cloud/providers/`
+- `providers/config/` → `core/config/providers/`
+
+### Why This Change?
+
+This reorganization follows the principle of high cohesion, keeping implementations close to their abstractions. Benefits include:
+
+- **Domain-Specific Organization**: All components related to a domain are in one place
+- **Better Maintainability**: Developers working on a domain have access to all its implementation
+- **Consistency**: Follows the pattern already established with `embedding/providers/` and `llm/providers/`
+- **Modern Framework Design**: Aligns with practices in contemporary frameworks
+
+### How to Update Your Code
+
+If you were importing from the old locations, update your imports as follows:
+
+```python
+# Old import
+from pepperpy.providers.audio import SomeAudioProvider
+
+# New import
+from pepperpy.multimodal.audio.providers import SomeAudioProvider
+```
+
+### Backward Compatibility
+
+For backward compatibility, the main `pepperpy` package still re-exports all providers, so code that imports directly from `pepperpy` will continue to work:
+
+```python
+# This still works
+from pepperpy import SomeAudioProvider
+```
+
+However, direct imports from `pepperpy.providers.*` are deprecated and will be removed in a future version.

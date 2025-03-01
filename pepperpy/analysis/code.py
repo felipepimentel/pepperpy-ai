@@ -22,7 +22,7 @@ class ProcessingError(PepperError):
     ) -> None:
         """Initialize the error."""
         super().__init__(message, details=details if details is not None else {})
-from pepperpy.core.common.metrics import MetricsCollector
+from pepperpy.core.metrics import MetricsCollector
 
 
 class CodeAnalysisType(Enum):

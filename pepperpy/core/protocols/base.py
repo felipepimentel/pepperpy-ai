@@ -16,7 +16,7 @@ from typing_extensions import runtime_checkable
 
 from pepperpy.core.common.events import EventBus, EventType
 from pepperpy.core.common.lifecycle import Lifecycle
-from pepperpy.core.common.metrics.types import MetricType
+from pepperpy.core.metrics.types import MetricType
 
 # Type variables for generic implementations
 T = TypeVar("T")

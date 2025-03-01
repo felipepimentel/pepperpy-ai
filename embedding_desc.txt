@@ -1,2 +1,0 @@
-          embedding:
-            description: "Embedding provider implementations for vector embeddings"

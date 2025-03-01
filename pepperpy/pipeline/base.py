@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar
 
 from pepperpy.core.errors import ProcessingError, ValidationError
 from pepperpy.core.common.lifecycle import Lifecycle
-from pepperpy.core.common.metrics import MetricsCollector
+from pepperpy.core.metrics import MetricsCollector
 
 T = TypeVar("T")  # Input type
 U = TypeVar("U")  # Output type

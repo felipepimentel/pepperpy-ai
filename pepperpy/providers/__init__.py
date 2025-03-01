@@ -1,31 +1,29 @@
-"""Unified provider system for PepperPy"""
+"""Deprecated: Providers have been moved to domain-specific directories
 
-# Importações para compatibilidade e conveniência
-from pepperpy.providers import (
-    agent,
-    audio,
-    cloud,
-    config,
-    llm,
-    storage,
-    vision,
-)
+This module is maintained for backward compatibility only.
+Please update your imports to use the domain-specific providers:
 
-# Novos módulos a serem adicionados após a migração
-# Estes imports serão ativados após a execução do script de migração
-# from pepperpy.providers import embedding
-# from pepperpy.providers import memory
-# from pepperpy.providers import rag
+- from pepperpy.multimodal.audio.providers import ...
+- from pepperpy.multimodal.vision.providers import ...
+- from pepperpy.agents.providers import ...
+- from pepperpy.storage.providers import ...
+- from pepperpy.cloud.providers import ...
+- from pepperpy.core.config.providers import ...
+- from pepperpy.embedding.providers import ...
+- from pepperpy.llm.providers import ...
 
-__all__ = [
-    "agent",
-    "audio",
-    "cloud",
-    "config",
-    "llm",
-    "storage",
-    "vision",
-    # "embedding",  # Será ativado após a migração
-    # "memory",     # Será ativado após a migração
-    # "rag",        # Será ativado após a migração
-]
+This module will be removed in a future version.
+"""
+
+# Import providers from their new locations for backward compatibility
+from pepperpy.agents.providers import *
+from pepperpy.cloud.providers import *
+from pepperpy.core.config.providers import *
+from pepperpy.embedding.providers import *
+from pepperpy.llm.providers import *
+from pepperpy.multimodal.audio.providers import *
+from pepperpy.multimodal.vision.providers import *
+from pepperpy.storage.providers import *
+
+# Re-export all imported names
+__all__ = []

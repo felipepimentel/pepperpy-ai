@@ -10,7 +10,7 @@ from uuid import UUID
 import logging
 
 from pepperpy.core.common.base import ComponentConfig, Lifecycle
-from pepperpy.core.common.metrics import MetricsManager
+from pepperpy.core.metrics import MetricsManager
 from pepperpy.core.common.types.base import BaseComponent
 from pepperpy.core.types.enums import AgentID, AgentState
 

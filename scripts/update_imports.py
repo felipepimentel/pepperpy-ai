@@ -1,71 +1,62 @@
 #!/usr/bin/env python3
-"""Import statement updater.
+"""
+Script to update imports after directory restructuring.
 
-Updates import statements in Python files to match new module structure.
+This script updates imports in Python files to reflect the new directory structure:
+- pepperpy.core.types -> pepperpy.core.common.types
+- pepperpy.core.utils -> pepperpy.core.common.utils
+- pepperpy.core.capabilities -> pepperpy.capabilities
 """
 
-import os
+import re
 from pathlib import Path
 
-# Map of old imports to new imports
-IMPORT_MAP = {
-    "from pepperpy.providers.vector_store.base": (
-        "from pepperpy.providers.vector_store.base"
-    ),
-    "from pepperpy.persistence.storage.document": (
-        "from pepperpy.persistence.storage.document"
-    ),
-    "from pepperpy.persistence.storage.chunking": (
-        "from pepperpy.persistence.storage.chunking"
-    ),
-    "from pepperpy.persistence.storage.conversation": (
-        "from pepperpy.persistence.storage.conversation"
-    ),
-    "from pepperpy.providers.llm": "from pepperpy.providers.llm",
-    "from pepperpy.providers.memory": "from pepperpy.memory.providers",
-    "from pepperpy.persistence.storage.rag": ("from pepperpy.persistence.storage.rag"),
-    "from pepperpy.providers.embedding": "from pepperpy.providers.embedding",
-    "from pepperpy.providers.vector_store": ("from pepperpy.providers.vector_store"),
+# Define the import replacements
+REPLACEMENTS = {
+    r"from pepperpy\.core\.types(\.?)": r"from pepperpy.core.common.types\1",
+    r"from pepperpy\.core\.utils(\.?)": r"from pepperpy.core.common.utils\1",
+    r"from pepperpy\.core\.capabilities(\.?)": r"from pepperpy.capabilities\1",
+    r"from pepperpy\.agents\.workflows(\.?)": r"from pepperpy.workflows\1",
+    r"from pepperpy\.agents\.providers(\.?)": r"from pepperpy.providers.agent\1",
+    r"from pepperpy\.processing(\.?)": r"# Removed import: pepperpy.processing\1",
 }
 
 
-def update_imports(file_path: str) -> None:
-    """Update imports in a file.
-
-    Args:
-        file_path: Path to file to update
-    """
-    with open(file_path) as f:
+def update_file(file_path):
+    """Update imports in a single file."""
+    with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    updated = False
-    for old, new in IMPORT_MAP.items():
-        if old in content:
-            content = content.replace(old, new)
-            updated = True
-            print(f"Updated {old} -> {new} in {file_path}")
+    original_content = content
+    for pattern, replacement in REPLACEMENTS.items():
+        content = re.sub(pattern, replacement, content)
 
-    if updated:
-        with open(file_path, "w") as f:
+    if content != original_content:
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
+        return True
+    return False
 
 
-def main() -> None:
-    """Main entry point."""
-    workspace = Path(__file__).parent.parent
+def main():
+    """Update imports in all Python files in the project."""
+    root_dir = Path("pepperpy")
+    examples_dir = Path("examples")
+    tests_dir = Path("tests")
 
-    # Files to exclude
-    exclude = {".git", "__pycache__", "venv", "env", ".venv"}
+    updated_files = 0
 
-    # Find all Python files
-    for root, dirs, files in os.walk(workspace):
-        # Skip excluded directories
-        dirs[:] = [d for d in dirs if d not in exclude]
+    # Process all Python files in the project
+    for directory in [root_dir, examples_dir, tests_dir]:
+        if not directory.exists():
+            continue
 
-        for file in files:
-            if file.endswith(".py"):
-                file_path = os.path.join(root, file)
-                update_imports(file_path)
+        for file_path in directory.glob("**/*.py"):
+            if update_file(file_path):
+                print(f"Updated imports in {file_path}")
+                updated_files += 1
+
+    print(f"\nTotal files updated: {updated_files}")
 
 
 if __name__ == "__main__":

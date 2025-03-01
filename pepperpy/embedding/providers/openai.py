@@ -4,10 +4,10 @@ from typing import List, Union
 
 import numpy as np
 
-from pepperpy.providers.embedding.base import EmbeddingError, EmbeddingProvider
+from pepperpy.embedding.base import BaseEmbedding, EmbeddingError
 
 
-class OpenAIEmbeddingProvider(EmbeddingProvider):
+class OpenAIEmbeddingProvider(BaseEmbedding):
     """OpenAI embedding provider implementation."""
 
     def __init__(

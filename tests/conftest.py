@@ -16,7 +16,7 @@ from typing import Any
 import pytest
 import pytest_asyncio
 
-from pepperpy.core.common.metrics import MetricsManager
+from pepperpy.core.metrics import MetricsManager
 from pepperpy.security import SecurityContext, SecurityLevel
 
 # Add the project root directory to the Python path
@@ -108,4 +108,4 @@ async def test_security_context() -> AsyncGenerator[SecurityContext, None]:
 @pytest.fixture
 def metrics_manager():
     """Create a new metrics manager for each test."""
-    return MetricsManager()
+    return MetricsManager(namespace="test")

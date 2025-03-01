@@ -94,26 +94,42 @@ structure:
             description: Command groups for the Pepperpy CLI
             modules:
               agent:
-                description: ''
+                description: Agent management commands for the CLI
+                files:
+                - __init__.py: Agent management commands for the CLI
               config:
-                description: ''
+                description: Configuration management commands for the CLI
+                files:
+                - __init__.py: Configuration management commands for the CLI
               hub:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
               plugin:
                 description: Plugin management commands for the PepperPy CLI
                 files:
                 - __init__.py: Plugin management commands for the PepperPy CLI
                 - manage.py: Plugin management commands for Pepperpy CLI
               plugins:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
               registry:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
               run:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
               tool:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
               workflow:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
             files:
             - __init__.py: Command groups for the Pepperpy CLI
             - agent.py: Agent management commands
@@ -157,11 +173,6 @@ structure:
           common:
             description: Common utilities and shared components for the PepperPy framework
             modules:
-              metrics:
-                description: Metrics management system
-                files:
-                - __init__.py: Metrics management system
-                - implementation.py: Implementation module
               types:
                 description: Core types for the PepperPy framework
                 files:
@@ -199,25 +210,10 @@ structure:
                 - schemas.py: Schema definitions and format validation for the Pepperpy
                     framework
                 - validators.py: Core validation functionality for the Pepperpy framework
-              versioning:
-                description: Version management and compatibility system
-                files:
-                - __init__.py: Version management and compatibility system
-                - base.py: Base interfaces for the versioning system
-                - compatibility.py: Version compatibility checking system
-                - errors.py: Error definitions for the versioning system
-                - evolution.py: Schema evolution management for versioned data
-                - manager.py: Version migration manager
-                - migration.py: Version migration management system
-                - semver.py: Semantic versioning implementation
-                - steps.py: Migration steps for version management
-                - tracking.py: Version tracking and dependency management system
-                - types.py: Type definitions for the versioning system
             files:
             - __init__.py: Common utilities and shared components for the PepperPy
                 framework
             - base.py: Common base classes for PepperPy components
-            - metrics.py: Metrics management system for PepperPy
           config:
             description: Environment-specific configuration management
             files:
@@ -328,8 +324,10 @@ structure:
             - compatibility.py: Version compatibility checking system
             - errors.py: Error definitions for the versioning system
             - evolution.py: Schema evolution management for versioned data
+            - manager.py: Version migration manager
             - migration.py: Version migration management system
             - semver.py: Semantic versioning implementation
+            - steps.py: Migration steps for version management
             - tracking.py: Version tracking and dependency management system
             - types.py: Type definitions for the versioning system
         files:
@@ -338,10 +336,8 @@ structure:
         - errors.py: Error handling system for PepperPy
         - events.py: Event system for component communication
         - metadata.py: Component metadata system for PepperPy
-        - metrics.py: Metrics module
+        - metrics.py: Metrics management system for PepperPy
         - registry.py: Central registry for system components
-      docs:
-        description: ''
       embedding:
         description: Embedding module for vector representations
         modules:
@@ -353,11 +349,11 @@ structure:
             - openai.py: OpenAI embedding provider implementation
         files:
         - __init__.py: Embedding module for vector representations
-        - base.py: Base module
-        - factory.py: ''
+        - base.py: Base interfaces and exceptions for the embedding system
+        - factory.py: Factory for creating embedding components
         - rag.py: RAG embedding implementations
-        - registry.py: ''
-        - types.py: ''
+        - registry.py: Registry for embedding providers
+        - types.py: Type definitions for the embedding system
       evaluation:
         description: Evaluation package for assessing agent performance
         files:
@@ -365,8 +361,6 @@ structure:
         - benchmarks.py: Module for standardized agent evaluation benchmarks
         - human_feedback.py: Module for incorporating human feedback in agent evaluation
         - metrics.py: Module for evaluating agent performance using various metrics
-      factory:
-        description: ''
       formats:
         description: Format handling functionality for PepperPy
         files:
@@ -642,21 +636,6 @@ structure:
             - file.py: File-based configuration provider
             - filesystem.py: Filesystem configuration provider
             - secure.py: Secure configuration provider that encrypts sensitive data
-          embedding:
-            description: Embedding providers module
-            files:
-            - __init__.py: Embedding providers module
-            - base.py: Base interfaces and exceptions for embedding providers
-            - openai.py: OpenAI embedding provider implementation
-          llm:
-            description: Provider implementations for llm capabilities
-            files:
-            - __init__.py: Provider implementations for llm capabilities
-            - anthropic.py: Anthropic LLM provider implementation
-            - gemini.py: Gemini module
-            - openai.py: OpenAI provider implementation
-            - openrouter.py: OpenRouter provider module
-            - perplexity.py: Perplexity AI provider module
           storage:
             description: Storage Providers Module
             files:
@@ -774,4 +753,3 @@ structure:
         - types.py: Types and enums for the workflow module
     files:
     - __init__.py: PepperPy Framework
-    - migration.py: ''

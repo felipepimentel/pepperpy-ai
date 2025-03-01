@@ -7,7 +7,7 @@ from typing import Generic, TypeVar
 
 from pepperpy.core.errors import ProcessingError
 from pepperpy.core.common.lifecycle import Lifecycle
-from pepperpy.core.common.metrics import MetricsCollector
+from pepperpy.core.metrics import MetricsCollector
 from pepperpy.core.common.pipeline.base import (
     DataItem,
     DataProcessor,

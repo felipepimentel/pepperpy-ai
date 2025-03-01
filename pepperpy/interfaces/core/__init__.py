@@ -18,10 +18,10 @@ Classes:
 
 # Import public classes and functions from the implementation
 from pepperpy.core.base import BaseComponent
-from pepperpy.core.types.enums import ComponentState
 from pepperpy.core.events import EventBus
 from pepperpy.core.protocols.base import Lifecycle
 from pepperpy.core.registry import Registry
+from pepperpy.core.types.enums import ComponentState
 
 # Import from submodules
 from pepperpy.interfaces.core.config import ConfigManager

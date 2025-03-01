@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from pepperpy.core.common.providers.unified import BaseProvider, ProviderConfig
-from pepperpy.core.common.metrics import MetricsManager
+from pepperpy.core.metrics import MetricsManager
     """Language model message.
 
     Attributes:

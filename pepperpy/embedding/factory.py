@@ -1,17 +1,38 @@
-from typing import Any, Dict, Type
-from .base import BaseEmbedding
-from .registry import get_component_class
+"""Factory for creating embedding components."""
 
-def create_component(component_type: str, **kwargs) -> BaseEmbedding:
-    """
-    Cria uma instância de componente do tipo especificado.
-    
+from typing import Any, Dict, Optional
+
+from pepperpy.embedding.base import BaseEmbedding, EmbeddingError
+from pepperpy.embedding.registry import get_embedding_class
+
+
+def create_embedding(
+    provider: str, config: Optional[Dict[str, Any]] = None, **kwargs
+) -> BaseEmbedding:
+    """Create an embedding provider instance.
+
     Args:
-        component_type: Tipo de componente a ser criado
-        **kwargs: Argumentos para inicialização do componente
-        
+        provider: Name of the embedding provider to create
+        config: Optional configuration dictionary
+        **kwargs: Additional provider-specific parameters
+
     Returns:
-        Instância do componente
+        BaseEmbedding: Embedding provider instance
+
+    Raises:
+        EmbeddingError: If provider creation fails
     """
-    component_class = get_component_class(component_type)
-    return component_class(**kwargs)
+    try:
+        # Get provider class from registry
+        provider_class = get_embedding_class(provider)
+
+        # Merge config and kwargs
+        provider_config = {}
+        if config:
+            provider_config.update(config)
+        provider_config.update(kwargs)
+
+        # Create provider instance
+        return provider_class(**provider_config)
+    except Exception as e:
+        raise EmbeddingError(f"Failed to create embedding provider '{provider}': {e}")

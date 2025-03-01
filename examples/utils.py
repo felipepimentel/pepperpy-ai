@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pepperpy.core.common.base import ComponentBase
-from pepperpy.core.common.metrics import Counter, Histogram
+from pepperpy.core.metrics import Counter, Histogram
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -82,24 +82,24 @@ class ExampleComponent(ComponentBase):
     async def _initialize(self) -> None:
         """Initialize component."""
         await super()._initialize()
-        self._operations.inc()
+        await self._operations.record()
         logger.info(f"Initialized example component: {self.name}")
 
     async def _cleanup(self) -> None:
         """Clean up component."""
-        self._operations.inc()
+        await self._operations.record()
         logger.info(f"Cleaning up example component: {self.name}")
         await super()._cleanup()
 
     async def _execute(self) -> None:
         """Execute component operation."""
-        self._operations.inc()
+        await self._operations.record()
         try:
             # Simulate work
             await asyncio.sleep(0.1)
-            self._duration.observe(0.1)
+            await self._duration.record(0.1)
         except Exception:
-            self._errors.inc()
+            await self._errors.record()
             raise
 
 

@@ -1,40 +1,53 @@
-from typing import Dict, Type
-from .base import BaseEmbedding
+"""Registry for embedding providers."""
 
-_COMPONENT_REGISTRY: Dict[str, Type[BaseEmbedding]] = {}
+from typing import Dict, List, Type
 
-def register_component(name: str, component_class: Type[BaseEmbedding]):
-    """
-    Registra uma implementação de componente.
-    
+from pepperpy.embedding.base import BaseEmbedding
+
+# Registry of embedding providers
+_EMBEDDING_REGISTRY: Dict[str, Type[BaseEmbedding]] = {}
+
+
+def register_embedding(name: str, embedding_class: Type[BaseEmbedding]) -> None:
+    """Register an embedding provider class.
+
     Args:
-        name: Nome do componente
-        component_class: Classe do componente
+        name: Name of the embedding provider
+        embedding_class: Embedding provider class
     """
-    _COMPONENT_REGISTRY[name] = component_class
+    _EMBEDDING_REGISTRY[name] = embedding_class
 
-def get_component_class(name: str) -> Type[BaseEmbedding]:
-    """
-    Obtém uma classe de componente pelo nome.
-    
+
+def get_embedding_class(name: str) -> Type[BaseEmbedding]:
+    """Get an embedding provider class by name.
+
     Args:
-        name: Nome do componente
-        
+        name: Name of the embedding provider
+
     Returns:
-        Classe do componente
-        
+        Type[BaseEmbedding]: Embedding provider class
+
     Raises:
-        ValueError: Se o componente não for encontrado no registro
+        ValueError: If embedding provider is not found
     """
-    if name not in _COMPONENT_REGISTRY:
-        raise ValueError(f"Component '{name}' not found in registry")
-    return _COMPONENT_REGISTRY[name]
+    if name not in _EMBEDDING_REGISTRY:
+        raise ValueError(f"Embedding provider '{name}' not found in registry")
+    return _EMBEDDING_REGISTRY[name]
 
-def list_components() -> Dict[str, Type[BaseEmbedding]]:
-    """
-    Lista todos os componentes registrados.
-    
+
+def list_embeddings() -> List[str]:
+    """List all registered embedding providers.
+
     Returns:
-        Dicionário com os componentes registrados
+        List[str]: List of embedding provider names
     """
-    return _COMPONENT_REGISTRY.copy()
+    return list(_EMBEDDING_REGISTRY.keys())
+
+
+def get_embedding_registry() -> Dict[str, Type[BaseEmbedding]]:
+    """Get the embedding provider registry.
+
+    Returns:
+        Dict[str, Type[BaseEmbedding]]: Copy of the embedding provider registry
+    """
+    return _EMBEDDING_REGISTRY.copy()
