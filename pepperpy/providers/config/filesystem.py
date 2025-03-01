@@ -213,3 +213,7 @@ class FilesystemProvider(ConfigProvider):
                 context={"prefix": prefix},
             )
             raise
+
+
+# Alias for backward compatibility
+FilesystemConfigProvider = FilesystemProvider

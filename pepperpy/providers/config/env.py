@@ -143,3 +143,7 @@ class EnvironmentProvider(ConfigProvider):
                 context={"prefix": prefix},
             )
             raise
+
+
+# Alias for backward compatibility
+EnvConfigProvider = EnvironmentProvider

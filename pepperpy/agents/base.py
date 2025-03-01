@@ -1,15 +1,28 @@
-"""Base interfaces for the agents module
+"""Base interfaces for the agents module.
 
-Defines the interfaces and base classes for different types of agents
-and their capabilities in the framework.
+This module defines the base interfaces and classes for agents in the PepperPy framework.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 from uuid import UUID
+import logging
 
+from pepperpy.core.common.base import ComponentConfig, Lifecycle
+from pepperpy.core.common.metrics import MetricsManager
 from pepperpy.core.common.types.base import BaseComponent
-from pepperpy.core.common.types.enums import AgentID, AgentState
+from pepperpy.core.types.enums import AgentID, AgentState
+
+
+@dataclass
+class AgentConfig(ComponentConfig):
+    """Base configuration for agents."""
+
+    name: str
+    description: Optional[str] = None
+    version: str = "1.0.0"
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class AgentCapability(Protocol):
@@ -27,17 +40,19 @@ class AgentCapability(Protocol):
         ...
 
 
-class BaseAgent(BaseComponent, ABC):
-    """Base class for all agents."""
+class BaseAgent(Lifecycle, ABC):
+    """Base class for all agents in the PepperPy framework."""
 
-    def __init__(self, id: UUID, name: str) -> None:
-        """Initialize agent.
+    def __init__(self, config: AgentConfig) -> None:
+        """Initialize base agent.
 
         Args:
-            id: Agent ID
-            name: Agent name
+            config: Agent configuration
         """
-        super().__init__(name=name, id=id)
+        super().__init__()
+        self.config = config
+        self._logger = logging.getLogger(f"pepperpy.agents.{config.name}")
+        self._metrics_manager = MetricsManager(namespace=f"agents.{config.name}")
         self._state = AgentState.UNKNOWN
         self._capabilities: Dict[str, AgentCapability] = {}
 
@@ -50,6 +65,30 @@ class BaseAgent(BaseComponent, ABC):
     def state(self) -> AgentState:
         """Get agent state."""
         return self._state
+
+    @abstractmethod
+    async def _initialize(self) -> None:
+        """Initialize agent resources."""
+        pass
+
+    @abstractmethod
+    async def _cleanup(self) -> None:
+        """Clean up agent resources."""
+        pass
+
+    async def initialize(self) -> None:
+        """Initialize agent."""
+        self._logger.info(f"Initializing agent: {self.config.name}")
+        await self._metrics_manager.initialize()
+        await self._initialize()
+        self._logger.info(f"Agent initialized: {self.config.name}")
+
+    async def cleanup(self) -> None:
+        """Clean up agent resources."""
+        self._logger.info(f"Cleaning up agent: {self.config.name}")
+        await self._cleanup()
+        await self._metrics_manager.cleanup()
+        self._logger.info(f"Agent cleaned up: {self.config.name}")
 
     @abstractmethod
     async def execute(self, **kwargs: Any) -> Any:

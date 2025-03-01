@@ -5,13 +5,14 @@ It implements a central registry mechanism that can be used by all modules
 to register and discover components in a consistent way.
 """
 
-from pepperpy.core.common.registry.base import (
+from pepperpy.core.registry.base import (
     ComponentDuplicateError,
     ComponentMetadata,
     ComponentNotFoundError,
     Registry,
     RegistryComponent,
     RegistryError,
+    RegistryManager,
     auto_register,
     get_registry,
 )
@@ -23,6 +24,7 @@ __all__ = [
     "RegistryError",
     "ComponentNotFoundError",
     "ComponentDuplicateError",
+    "RegistryManager",
     "get_registry",
     "auto_register",
 ]

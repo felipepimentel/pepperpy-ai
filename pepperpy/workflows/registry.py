@@ -6,14 +6,14 @@ including their lifecycle and execution state.
 
 from typing import Dict, List
 
-from pepperpy.core.common.logging import get_logger
-from pepperpy.core.common.registry.base import (
+from pepperpy.core.logging import get_logger
+from pepperpy.core.types.enums import WorkflowID
+from pepperpy.core.errors import DuplicateError, NotFoundError
+from pepperpy.core.registry import (
     ComponentMetadata,
     Registry,
     get_registry,
 )
-from pepperpy.core.common.types.enums import WorkflowID
-from pepperpy.core.errors import DuplicateError, NotFoundError
 
 from .base import BaseWorkflow, WorkflowDefinition
 from .types import WorkflowStatus

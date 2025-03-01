@@ -12,4 +12,4 @@ from .openai import OpenAIEmbeddingProvider
 __all__ = [
     "EmbeddingProvider",
     "OpenAIEmbeddingProvider",
-] 
+]

@@ -16,9 +16,9 @@ from pepperpy.core.common.base import (
     ComponentConfig,
     ComponentState,
 )
-from pepperpy.core.common.types.enums import ComponentState
-from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.common.types import WorkflowID
+from pepperpy.core.types.enums import ComponentState
+from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 

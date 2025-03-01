@@ -1,365 +1,291 @@
-"""Metrics management system.
+"""Metrics management system for PepperPy.
 
-This module provides functionality for collecting, tracking, and reporting metrics:
-
-- MetricsManager: Core class for managing metrics collection
-- Metric types: Counters, gauges, histograms, etc.
-- Reporting: Exporting metrics to various backends
-- Aggregation: Combining metrics across components
+This module provides a unified metrics collection and reporting system
+for tracking performance, usage, and other metrics across the framework.
 """
 
-import time
-from dataclasses import dataclass, field
-from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
-
-from .utils.dates import DateUtils
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Union
+import logging
 
 
-class MetricType(Enum):
-    """Types of metrics."""
+class Metric(ABC):
+    """Base class for all metrics."""
 
-    COUNTER = auto()
-    GAUGE = auto()
-    HISTOGRAM = auto()
-    SUMMARY = auto()
-    TIMER = auto()
+    def __init__(self, name: str, description: str, labels: Optional[Dict[str, str]] = None):
+        """Initialize metric.
 
-
-@dataclass
-class Metric:
-    """Base class for metrics."""
-
-    name: str
-    description: str
-    type: MetricType
-    tags: Dict[str, str] = field(default_factory=dict)
-    timestamp: float = field(default_factory=time.time)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metric to dictionary.
-
-        Returns:
-            Dictionary representation
+        Args:
+            name: Metric name
+            description: Metric description
+            labels: Optional metric labels
         """
-        return {
-            "name": self.name,
-            "description": self.description,
-            "type": self.type.name,
-            "tags": self.tags,
-            "timestamp": self.timestamp,
-        }
+        self.name = name
+        self.description = description
+        self.labels = labels or {}
+        self._logger = logging.getLogger(f"pepperpy.metrics.{name}")
+
+    @abstractmethod
+    async def record(self, value: Any, labels: Optional[Dict[str, str]] = None) -> None:
+        """Record a metric value.
+
+        Args:
+            value: Metric value
+            labels: Optional additional labels
+        """
+        pass
 
 
-@dataclass
-class CounterMetric(Metric):
-    """Counter metric."""
+class Counter(Metric):
+    """Counter metric that can only increase."""
 
-    value: int = 0
+    def __init__(self, name: str, description: str, labels: Optional[Dict[str, str]] = None):
+        """Initialize counter.
 
-    def __post_init__(self) -> None:
-        """Initialize counter metric."""
-        self.type = MetricType.COUNTER
+        Args:
+            name: Counter name
+            description: Counter description
+            labels: Optional counter labels
+        """
+        super().__init__(name, description, labels)
+        self._value = 0
 
-    def increment(self, amount: int = 1) -> None:
+    async def record(self, value: Union[int, float] = 1, labels: Optional[Dict[str, str]] = None) -> None:
         """Increment counter.
 
         Args:
-            amount: Amount to increment
+            value: Increment value (default: 1)
+            labels: Optional additional labels
         """
-        self.value += amount
-        self.timestamp = time.time()
+        self._value += value
+        self._logger.debug(f"Counter {self.name} incremented by {value} to {self._value}")
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metric to dictionary.
+    async def get_value(self) -> Union[int, float]:
+        """Get current counter value.
 
         Returns:
-            Dictionary representation
+            Current value
         """
-        result = super().to_dict()
-        result["value"] = self.value
-        return result
+        return self._value
 
 
-@dataclass
-class GaugeMetric(Metric):
-    """Gauge metric."""
+class Gauge(Metric):
+    """Gauge metric that can increase and decrease."""
 
-    value: float = 0.0
+    def __init__(self, name: str, description: str, labels: Optional[Dict[str, str]] = None):
+        """Initialize gauge.
 
-    def __post_init__(self) -> None:
-        """Initialize gauge metric."""
-        self.type = MetricType.GAUGE
+        Args:
+            name: Gauge name
+            description: Gauge description
+            labels: Optional gauge labels
+        """
+        super().__init__(name, description, labels)
+        self._value = 0
 
-    def set(self, value: float) -> None:
+    async def record(self, value: Union[int, float], labels: Optional[Dict[str, str]] = None) -> None:
         """Set gauge value.
 
         Args:
-            value: New value
+            value: New gauge value
+            labels: Optional additional labels
         """
-        self.value = value
-        self.timestamp = time.time()
+        self._value = value
+        self._logger.debug(f"Gauge {self.name} set to {value}")
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metric to dictionary.
+    async def get_value(self) -> Union[int, float]:
+        """Get current gauge value.
 
         Returns:
-            Dictionary representation
+            Current value
         """
-        result = super().to_dict()
-        result["value"] = self.value
-        return result
+        return self._value
 
 
-@dataclass
-class HistogramMetric(Metric):
-    """Histogram metric."""
+class Histogram(Metric):
+    """Histogram metric for measuring distributions."""
 
-    values: List[float] = field(default_factory=list)
-    buckets: List[float] = field(default_factory=list)
-    counts: Dict[str, int] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        """Initialize histogram metric."""
-        self.type = MetricType.HISTOGRAM
-        if not self.buckets:
-            self.buckets = [0.1, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, float("inf")]
-        for bucket in self.buckets:
-            self.counts[str(bucket)] = 0
-
-    def observe(self, value: float) -> None:
-        """Observe a value.
+    def __init__(
+        self,
+        name: str,
+        description: str,
+        labels: Optional[Dict[str, str]] = None,
+        buckets: Optional[List[float]] = None,
+    ):
+        """Initialize histogram.
 
         Args:
-            value: Value to observe
+            name: Histogram name
+            description: Histogram description
+            labels: Optional histogram labels
+            buckets: Optional histogram buckets
         """
-        self.values.append(value)
-        self.timestamp = time.time()
-        for bucket in self.buckets:
-            if value <= bucket:
-                self.counts[str(bucket)] += 1
+        super().__init__(name, description, labels)
+        self._buckets = buckets or [0.1, 0.5, 1.0, 2.5, 5.0, 10.0]
+        self._values: List[float] = []
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metric to dictionary.
+    async def record(self, value: float, labels: Optional[Dict[str, str]] = None) -> None:
+        """Record a histogram observation.
+
+        Args:
+            value: Observation value
+            labels: Optional additional labels
+        """
+        self._values.append(value)
+        self._logger.debug(f"Histogram {self.name} observed value {value}")
+
+    async def get_values(self) -> List[float]:
+        """Get all recorded values.
 
         Returns:
-            Dictionary representation
+            List of values
         """
-        result = super().to_dict()
-        result["values"] = self.values
-        result["buckets"] = self.buckets
-        result["counts"] = self.counts
-        return result
-
-
-@dataclass
-class TimerMetric(Metric):
-    """Timer metric."""
-
-    start_time: Optional[float] = None
-    duration: Optional[float] = None
-    active: bool = False
-
-    def __post_init__(self) -> None:
-        """Initialize timer metric."""
-        self.type = MetricType.TIMER
-
-    def start(self) -> None:
-        """Start timer."""
-        self.start_time = time.time()
-        self.active = True
-
-    def stop(self) -> float:
-        """Stop timer.
-
-        Returns:
-            Duration in seconds
-        """
-        if self.start_time is None:
-            raise ValueError("Timer not started")
-        self.duration = time.time() - self.start_time
-        self.active = False
-        self.timestamp = time.time()
-        return self.duration
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metric to dictionary.
-
-        Returns:
-            Dictionary representation
-        """
-        result = super().to_dict()
-        result["start_time"] = self.start_time
-        result["duration"] = self.duration
-        result["active"] = self.active
-        return result
+        return self._values
 
 
 class MetricsManager:
-    """Manager for metrics collection and reporting."""
+    """Manager for creating and tracking metrics."""
 
-    def __init__(self) -> None:
-        """Initialize metrics manager."""
-        self._metrics: Dict[str, Metric] = {}
-        self._reporters: List[Callable[[Dict[str, Metric]], None]] = []
-        self._tags: Dict[str, str] = {}
-
-    def register_metric(self, metric: Metric) -> None:
-        """Register a metric.
+    def __init__(self, namespace: str):
+        """Initialize metrics manager.
 
         Args:
-            metric: Metric to register
+            namespace: Metrics namespace
         """
-        # Add global tags
-        for key, value in self._tags.items():
-            if key not in metric.tags:
-                metric.tags[key] = value
-        self._metrics[metric.name] = metric
+        self.namespace = namespace
+        self._metrics: Dict[str, Metric] = {}
+        self._logger = logging.getLogger(f"pepperpy.metrics.{namespace}")
 
-    def get_metric(self, name: str) -> Optional[Metric]:
+    async def initialize(self) -> None:
+        """Initialize metrics manager."""
+        self._logger.info(f"Initializing metrics manager for namespace: {self.namespace}")
+
+    async def cleanup(self) -> None:
+        """Clean up metrics manager."""
+        self._metrics.clear()
+        self._logger.info(f"Cleaned up metrics manager for namespace: {self.namespace}")
+
+    async def create_counter(
+        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
+    ) -> Counter:
+        """Create a counter metric.
+
+        Args:
+            name: Counter name
+            description: Counter description
+            labels: Optional counter labels
+
+        Returns:
+            Counter metric
+        """
+        full_name = f"{self.namespace}.{name}"
+        counter = Counter(full_name, description, labels)
+        self._metrics[full_name] = counter
+        self._logger.debug(f"Created counter: {full_name}")
+        return counter
+
+    async def create_gauge(
+        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
+    ) -> Gauge:
+        """Create a gauge metric.
+
+        Args:
+            name: Gauge name
+            description: Gauge description
+            labels: Optional gauge labels
+
+        Returns:
+            Gauge metric
+        """
+        full_name = f"{self.namespace}.{name}"
+        gauge = Gauge(full_name, description, labels)
+        self._metrics[full_name] = gauge
+        self._logger.debug(f"Created gauge: {full_name}")
+        return gauge
+
+    async def create_histogram(
+        self,
+        name: str,
+        description: str,
+        labels: Optional[Dict[str, str]] = None,
+        buckets: Optional[List[float]] = None,
+    ) -> Histogram:
+        """Create a histogram metric.
+
+        Args:
+            name: Histogram name
+            description: Histogram description
+            labels: Optional histogram labels
+            buckets: Optional histogram buckets
+
+        Returns:
+            Histogram metric
+        """
+        full_name = f"{self.namespace}.{name}"
+        histogram = Histogram(full_name, description, labels, buckets)
+        self._metrics[full_name] = histogram
+        self._logger.debug(f"Created histogram: {full_name}")
+        return histogram
+
+    async def get_metric(self, name: str) -> Optional[Metric]:
         """Get a metric by name.
 
         Args:
             name: Metric name
 
         Returns:
-            Metric if found, None otherwise
+            Metric or None if not found
         """
-        return self._metrics.get(name)
+        full_name = f"{self.namespace}.{name}"
+        return self._metrics.get(full_name)
 
-    def add_reporter(self, reporter: Callable[[Dict[str, Metric]], None]) -> None:
-        """Add a metrics reporter.
+    async def increment_counter(
+        self, name: str, value: Union[int, float] = 1, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Increment a counter metric.
 
         Args:
-            reporter: Reporter function
+            name: Counter name
+            value: Increment value (default: 1)
+            labels: Optional additional labels
         """
-        self._reporters.append(reporter)
+        full_name = f"{self.namespace}.{name}"
+        counter = self._metrics.get(full_name)
+        if counter is not None and isinstance(counter, Counter):
+            await counter.record(value, labels)
+        else:
+            self._logger.warning(f"Counter not found: {full_name}")
 
-    def set_tag(self, key: str, value: str) -> None:
-        """Set a global tag.
+    async def set_gauge(
+        self, name: str, value: Union[int, float], labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Set a gauge metric.
 
         Args:
-            key: Tag key
-            value: Tag value
+            name: Gauge name
+            value: New gauge value
+            labels: Optional additional labels
         """
-        self._tags[key] = value
-        # Update existing metrics
-        for metric in self._metrics.values():
-            if key not in metric.tags:
-                metric.tags[key] = value
+        full_name = f"{self.namespace}.{name}"
+        gauge = self._metrics.get(full_name)
+        if gauge is not None and isinstance(gauge, Gauge):
+            await gauge.record(value, labels)
+        else:
+            self._logger.warning(f"Gauge not found: {full_name}")
 
-    def create_counter(
-        self, name: str, description: str, tags: Optional[Dict[str, str]] = None
-    ) -> CounterMetric:
-        """Create a counter metric.
+    async def observe_histogram(
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Record a histogram observation.
 
         Args:
-            name: Metric name
-            description: Metric description
-            tags: Optional tags
-
-        Returns:
-            Counter metric
+            name: Histogram name
+            value: Observation value
+            labels: Optional additional labels
         """
-        metric = CounterMetric(
-            name=name, description=description, tags=tags or {}, type=MetricType.COUNTER
-        )
-        self.register_metric(metric)
-        return metric
-
-    def create_gauge(
-        self, name: str, description: str, tags: Optional[Dict[str, str]] = None
-    ) -> GaugeMetric:
-        """Create a gauge metric.
-
-        Args:
-            name: Metric name
-            description: Metric description
-            tags: Optional tags
-
-        Returns:
-            Gauge metric
-        """
-        metric = GaugeMetric(
-            name=name, description=description, tags=tags or {}, type=MetricType.GAUGE
-        )
-        self.register_metric(metric)
-        return metric
-
-    def create_histogram(
-        self,
-        name: str,
-        description: str,
-        buckets: Optional[List[float]] = None,
-        tags: Optional[Dict[str, str]] = None,
-    ) -> HistogramMetric:
-        """Create a histogram metric.
-
-        Args:
-            name: Metric name
-            description: Metric description
-            buckets: Optional bucket boundaries
-            tags: Optional tags
-
-        Returns:
-            Histogram metric
-        """
-        metric = HistogramMetric(
-            name=name,
-            description=description,
-            buckets=buckets or [],
-            tags=tags or {},
-            type=MetricType.HISTOGRAM,
-        )
-        self.register_metric(metric)
-        return metric
-
-    def create_timer(
-        self, name: str, description: str, tags: Optional[Dict[str, str]] = None
-    ) -> TimerMetric:
-        """Create a timer metric.
-
-        Args:
-            name: Metric name
-            description: Metric description
-            tags: Optional tags
-
-        Returns:
-            Timer metric
-        """
-        metric = TimerMetric(
-            name=name, description=description, tags=tags or {}, type=MetricType.TIMER
-        )
-        self.register_metric(metric)
-        return metric
-
-    def report(self) -> None:
-        """Report metrics to all reporters."""
-        for reporter in self._reporters:
-            reporter(self._metrics)
-
-    def reset(self) -> None:
-        """Reset all metrics."""
-        self._metrics = {}
-
-    def get_all_metrics(self) -> Dict[str, Metric]:
-        """Get all metrics.
-
-        Returns:
-            Dictionary of metrics
-        """
-        return self._metrics
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metrics manager to dictionary.
-
-        Returns:
-            Dictionary representation
-        """
-        return {
-            "metrics": {
-                name: metric.to_dict() for name, metric in self._metrics.items()
-            },
-            "tags": self._tags,
-            "timestamp": DateUtils.utc_now().isoformat(),
-        }
+        full_name = f"{self.namespace}.{name}"
+        histogram = self._metrics.get(full_name)
+        if histogram is not None and isinstance(histogram, Histogram):
+            await histogram.record(value, labels)
+        else:
+            self._logger.warning(f"Histogram not found: {full_name}")

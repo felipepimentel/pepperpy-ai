@@ -8,10 +8,13 @@ from typing import Any, Dict, Optional, Type
 
 from pepperpy.agents.autonomous import AutonomousAgent, AutonomousAgentConfig
 from pepperpy.agents.base import AgentConfig, BaseAgent
+from pepperpy.agents.implementations.workflow_agent import (
+    WorkflowAgent,
+    WorkflowAgentConfig,
+)
 from pepperpy.agents.interactive import InteractiveAgent, InteractiveAgentConfig
-from pepperpy.agents.implementations.workflow_agent import WorkflowAgent, WorkflowAgentConfig
-from pepperpy.core.common.logging import get_logger
-from pepperpy.core.common.registry.base import (
+from pepperpy.core.logging import get_logger
+from pepperpy.core.registry import (
     ComponentMetadata,
     Registry,
     get_registry,

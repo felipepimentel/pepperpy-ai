@@ -9,7 +9,7 @@ from typing import Optional
 
 from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.errors import ConfigurationError, ProviderError
-from pepperpy.core.common.logging import get_logger
+from pepperpy.core.logging import get_logger
 from pepperpy.core.common.types import ComponentState, MessageType, Response
 
 from .base import ProviderConfig

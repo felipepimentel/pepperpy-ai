@@ -25,7 +25,6 @@ from pepperpy.providers.audio.transcription import TranscriptionProvider
 # Cloud providers
 from pepperpy.providers.cloud.aws import AWSProvider
 from pepperpy.providers.cloud.gcp import GCPProvider
-from pepperpy.providers.cloud.storage import CloudStorageProvider
 
 # Config providers
 from pepperpy.providers.config.base import ConfigProvider
@@ -41,6 +40,7 @@ from pepperpy.providers.llm.openrouter import OpenRouterProvider
 from pepperpy.providers.llm.perplexity import PerplexityProvider
 
 # Storage providers
+from pepperpy.providers.storage.cloud import CloudStorageProvider
 from pepperpy.providers.storage.local import LocalStorageProvider
 from pepperpy.providers.storage.sql import SQLStorageProvider
 

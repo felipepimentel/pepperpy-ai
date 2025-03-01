@@ -9,6 +9,7 @@ It includes providers for:
 - Cloud storage services
 """
 
-from pepperpy.providers.cloud.gcp import GCPStorageProvider
+from pepperpy.providers.cloud.gcp import GCPProvider, GCPStorageProvider
+from pepperpy.providers.cloud.aws import AWSProvider
 
-__all__ = ["GCPStorageProvider"]
+__all__ = ["GCPProvider", "GCPStorageProvider", "AWSProvider"]

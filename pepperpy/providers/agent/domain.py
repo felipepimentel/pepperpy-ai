@@ -21,7 +21,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from pepperpy.core.common.base import Metadata
-from pepperpy.core.common.logging import get_logger
+from pepperpy.core.logging import get_logger
 from pepperpy.core.errors import PepperpyError
 from pepperpy.core.common.types import MetadataDict, MetadataValue
 

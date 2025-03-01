@@ -7,14 +7,14 @@ and discover components across different modules.
 import logging
 
 from pepperpy.agents.registry import get_agent_registry
-from pepperpy.core.common.registry import (
+from pepperpy.core.registry import (
     ComponentMetadata,
     Registry,
     RegistryComponent,
     auto_register,
     get_registry,
 )
-from pepperpy.core.common.registry.auto import (
+from pepperpy.core.registry.auto import (
     initialize_registry_system,
     register_component,
 )

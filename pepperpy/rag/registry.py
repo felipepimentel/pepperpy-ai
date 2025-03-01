@@ -2,8 +2,8 @@
 
 from typing import Dict, List, Optional, Type, TypeVar
 
-from pepperpy.core.common.logging import get_logger
-from pepperpy.core.common.registry.base import (
+from pepperpy.core.logging import get_logger
+from pepperpy.core.registry import (
     ComponentMetadata,
     Registry,
     get_registry,

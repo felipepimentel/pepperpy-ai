@@ -10,7 +10,7 @@ import click
 from rich.console import Console
 
 from pepperpy.core.errors import PepperpyError
-from pepperpy.core.common.logging import get_logger
+from pepperpy.core.logging import get_logger
 
 # Configure rich console
 console = Console()

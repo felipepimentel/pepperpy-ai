@@ -17,7 +17,7 @@ from pydantic import BaseModel
 
 from pepperpy.core.common.base import BaseComponent
 from pepperpy.core.errors import ConfigurationError, StateError
-from pepperpy.core.common.logging import get_logger
+from pepperpy.core.logging import get_logger
 from pepperpy.core.common.types import (
     AgentConfig,
     AgentError,

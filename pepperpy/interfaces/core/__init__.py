@@ -11,19 +11,32 @@ Classes:
     Lifecycle: Protocol for lifecycle management
     Registry: Component registry system
     EventBus: Event system for component communication
+    MetricsManager: System for collecting and reporting metrics
+    ConfigManager: Configuration management system
+    ResourceManager: Resource allocation and management
 """
 
 # Import public classes and functions from the implementation
 from pepperpy.core.base import BaseComponent
-from pepperpy.core.common.types.enums import ComponentState
+from pepperpy.core.types.enums import ComponentState
 from pepperpy.core.events import EventBus
 from pepperpy.core.protocols.base import Lifecycle
 from pepperpy.core.registry import Registry
 
+# Import from submodules
+from pepperpy.interfaces.core.config import ConfigManager
+from pepperpy.interfaces.core.metrics import MetricsManager
+from pepperpy.interfaces.core.resources import ResourceManager
+
 __all__ = [
+    # Base core classes
     "BaseComponent",
     "ComponentState",
     "Lifecycle",
     "Registry",
     "EventBus",
+    # Management systems
+    "ConfigManager",
+    "MetricsManager",
+    "ResourceManager",
 ]

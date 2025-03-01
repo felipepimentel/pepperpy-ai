@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type
 
 import click
 
-from pepperpy.core.common.logging import get_logger
+from pepperpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

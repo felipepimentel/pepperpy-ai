@@ -14,7 +14,7 @@ from pepperpy.providers.agent.domain import (
     ProviderMetadata,
 )
 from pepperpy.core.common.base import BaseComponent
-from pepperpy.core.common.logging import get_logger
+from pepperpy.core.logging import get_logger
 from pepperpy.core.errors import ConfigurationError
 from pepperpy.core.common.types import ComponentState
 
