@@ -5,16 +5,16 @@ the PepperPy ecosystem.
 """
 
 from .base import BaseComponent
-from .registry.base import ComponentMetadata, Registry, RegistryComponent, get_registry
 from .common.validation import (
+    ContentValidator,
+    DataValidator,
+    SchemaDefinition,
+    SchemaRegistry,
     ValidationError,
     Validator,
     ValidatorFactory,
-    SchemaDefinition,
-    SchemaRegistry,
-    ContentValidator,
-    DataValidator,
 )
+from .registry.base import ComponentMetadata, Registry, RegistryComponent, get_registry
 
 __all__ = [
     "BaseComponent",

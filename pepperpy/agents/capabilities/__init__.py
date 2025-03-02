@@ -1,17 +1,30 @@
-"""Cognitive capabilities implemented by agents
+"""Cognitive capabilities implemented by agents.
 
-Este módulo define as capacidades cognitivas que podem ser implementadas pelos agentes,
-incluindo:
-
-- Raciocínio e tomada de decisão
-- Processamento de linguagem natural
-- Aprendizado e adaptação
-- Interação com outros agentes
-- Manipulação de conhecimento
-- Planejamento e execução de tarefas
+This module provides the cognitive capabilities that can be implemented by agents,
+including planning, reasoning, and research.
 """
 
-from typing import Dict, List, Optional, Union
+from pepperpy.agents.capabilities.base import (
+    AgentCapability,
+    CapabilityManager,
+    CapabilityProvider,
+    CapabilityRegistry,
+)
 
-__version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
+# Import specific capabilities
+from pepperpy.agents.capabilities.planning import PlanningCapability
+from pepperpy.agents.capabilities.reasoning import ReasoningCapability
+from pepperpy.agents.capabilities.research import ResearchCapability
+from pepperpy.agents.capabilities.types import CapabilityType
+
+__version__ = "0.2.0"
+__all__ = [
+    "AgentCapability",
+    "CapabilityManager",
+    "CapabilityProvider",
+    "CapabilityRegistry",
+    "CapabilityType",
+    "PlanningCapability",
+    "ReasoningCapability",
+    "ResearchCapability",
+]

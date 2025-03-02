@@ -11,9 +11,9 @@ from typing import Any, TypeVar, cast
 import redis.asyncio as redis
 from structlog import get_logger
 
+from pepperpy.core.common.providers.unified import ProviderConfig
 from pepperpy.core.errors import ConfigurationError, ProviderError
 from pepperpy.memory.providers.base import MemoryItem, MemoryProvider
-from pepperpy.core.common.providers.unified import ProviderConfig
 
 T = TypeVar("T")
 logger = get_logger(__name__)
@@ -36,7 +36,7 @@ class RedisConfig(ProviderConfig):
 
 
 class RedisMemoryProvider(MemoryProvider[T]):
-    """Redis memory provider implementation."""
+    """Provider implementation for Redis-based memory storage."""
 
     def __init__(self, config: RedisConfig) -> None:
         """Initialize Redis provider.

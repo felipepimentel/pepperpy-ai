@@ -1,99 +1,116 @@
-"""Pipeline implementations for the RAG system."""
+"""RAG pipeline implementations.
 
-from typing import Dict, List, Optional
+This module provides concrete implementations of RAG pipelines.
+"""
 
-from .base import Augmenter, Chunker, Embedder, Indexer, RagPipeline, Retriever
-from .types import Document, RagContext, RagResponse, SearchQuery
+from typing import Optional
+
+from pepperpy.core.logging import get_logger
+from pepperpy.rag.base import RagPipeline
+from pepperpy.rag.generation import GenerationManager
+from pepperpy.rag.indexing import IndexingManager
+from pepperpy.rag.retrieval import RetrievalManager
+from pepperpy.rag.types import RagComponentType, RagResponse, SearchQuery
+
+logger = get_logger(__name__)
 
 
 class StandardRagPipeline(RagPipeline):
-    """Standard RAG pipeline implementation."""
+    """Standard RAG pipeline implementation.
 
-    def __init__(
-        self,
-        chunker: Chunker,
-        embedder: Embedder,
-        indexer: Indexer,
-        retriever: Retriever,
-        augmenter: Augmenter,
-        name: str = "standard_rag_pipeline",
-        version: str = "0.1.0",
-    ):
-        super().__init__(name=name, version=version)
-        self.chunker = chunker
-        self.embedder = embedder
-        self.indexer = indexer
-        self.retriever = retriever
-        self.augmenter = augmenter
-        self._indexed_docs: Dict[str, Document] = {}
+    This pipeline implements the standard RAG flow:
+    1. Retrieve relevant chunks using the retrieval manager
+    2. Generate a response using the generation manager
+    """
 
-    async def process(
-        self, query: str, metadata: Optional[Dict[str, str]] = None
-    ) -> RagResponse:
-        """Process a query through the RAG pipeline."""
-        # Create search query
-        search_query = SearchQuery(
-            text=query,
-            filters=metadata or {},
-            top_k=5,  # TODO: Make configurable
-            threshold=0.0,  # TODO: Make configurable
-            metadata=metadata or {},
-        )
+    def __init__(self, component_id: str, name: str, description: str = ""):
+        """Initialize the standard RAG pipeline.
+
+        Args:
+            component_id: Unique identifier for the pipeline
+            name: Human-readable name for the pipeline
+            description: Description of the pipeline's functionality
+        """
+        super().__init__(component_id, name, description)
+        self._indexing_manager: Optional[IndexingManager] = None
+        self._retrieval_manager: Optional[RetrievalManager] = None
+        self._generation_manager: Optional[GenerationManager] = None
+
+    @property
+    def indexing_manager(self) -> IndexingManager:
+        """Get the indexing manager.
+
+        Returns:
+            The indexing manager
+
+        Raises:
+            ValueError: If the indexing manager is not set
+        """
+        if self._indexing_manager is None:
+            raise ValueError("Indexing manager not set")
+        return self._indexing_manager
+
+    @property
+    def retrieval_manager(self) -> RetrievalManager:
+        """Get the retrieval manager.
+
+        Returns:
+            The retrieval manager
+
+        Raises:
+            ValueError: If the retrieval manager is not set
+        """
+        if self._retrieval_manager is None:
+            raise ValueError("Retrieval manager not set")
+        return self._retrieval_manager
+
+    @property
+    def generation_manager(self) -> GenerationManager:
+        """Get the generation manager.
+
+        Returns:
+            The generation manager
+
+        Raises:
+            ValueError: If the generation manager is not set
+        """
+        if self._generation_manager is None:
+            raise ValueError("Generation manager not set")
+        return self._generation_manager
+
+    def add_component(self, component: RagPipeline) -> None:
+        """Add a component to the pipeline.
+
+        Args:
+            component: The component to add
+        """
+        super().add_component(component)
+
+        # Store references to manager components for convenience
+        if component.component_type == RagComponentType.INDEXING_MANAGER:
+            self._indexing_manager = component  # type: ignore
+        elif component.component_type == RagComponentType.RETRIEVAL_MANAGER:
+            self._retrieval_manager = component  # type: ignore
+        elif component.component_type == RagComponentType.GENERATION_MANAGER:
+            self._generation_manager = component  # type: ignore
+
+    async def process(self, query: SearchQuery) -> RagResponse:
+        """Process a query through the pipeline.
+
+        Args:
+            query: The query to process
+
+        Returns:
+            The generated response
+        """
+        logger.info(f"Processing query: {query.query}")
 
         # Retrieve relevant chunks
-        results = await self.retriever.retrieve(search_query)
+        context = await self.retrieval_manager.retrieve(query)
+        logger.debug(f"Retrieved {len(context.results)} results")
 
-        # Create context
-        context = RagContext(
-            query=query,
-            results=results,
-            metadata=metadata or {},
-        )
+        # Generate a response
+        response = await self.generation_manager.generate(context)
+        logger.debug("Generated response")
 
-        # Generate response
-        response = await self.augmenter.augment(query, context)
         return response
-
-    async def index_document(self, document: Document):
-        """Index a single document."""
-        # Chunk document
-        chunks = await self.chunker.chunk_document(document)
-
-        # Generate embeddings
-        embeddings = await self.embedder.embed_chunks(chunks)
-
-        # Index embeddings
-        await self.indexer.index_embeddings(embeddings)
-
-        # Store document reference
-        self._indexed_docs[document.id] = document
-
-    async def batch_index_documents(self, documents: List[Document]):
-        """Index multiple documents in batch."""
-        for document in documents:
-            await self.index_document(document)
-
-    async def save_index(self, path: str):
-        """Save the index to disk."""
-        await self.indexer.save(path)
-
-    async def load_index(self, path: str):
-        """Load the index from disk."""
-        await self.indexer.load(path)
-
-    @property
-    def indexed_documents(self) -> List[Document]:
-        """Get list of indexed documents."""
-        return list(self._indexed_docs.values())
-
-    @property
-    def metadata(self) -> Dict[str, str]:
-        """Get pipeline metadata."""
-        return {
-            "chunker": self.chunker.name,
-            "embedder": self.embedder.name,
-            "indexer": self.indexer.name,
-            "retriever": self.retriever.name,
-            "augmenter": self.augmenter.name,
-            "num_documents": len(self._indexed_docs),
-        }

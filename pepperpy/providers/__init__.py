@@ -1,29 +1,24 @@
-"""Deprecated: Providers have been moved to domain-specific directories
+"""Provider implementations for PepperPy framework capabilities.
 
-This module is maintained for backward compatibility only.
-Please update your imports to use the domain-specific providers:
+This module contains implementations of various providers that integrate
+with external services and APIs. The providers are organized by domain:
 
-- from pepperpy.multimodal.audio.providers import ...
-- from pepperpy.multimodal.vision.providers import ...
-- from pepperpy.agents.providers import ...
-- from pepperpy.storage.providers import ...
-- from pepperpy.cloud.providers import ...
-- from pepperpy.core.config.providers import ...
-- from pepperpy.embedding.providers import ...
-- from pepperpy.llm.providers import ...
-
-This module will be removed in a future version.
+- agent: Agent and chain providers
+- audio: Audio processing providers (synthesis, transcription)
+- cloud: Cloud service providers (AWS, GCP, Azure)
+- embedding: Vector embedding providers
+- llm: Language model providers
+- memory: Memory storage providers
+- storage: Data storage providers
+- vision: Computer vision providers
 """
 
-# Import providers from their new locations for backward compatibility
-from pepperpy.agents.providers import *
-from pepperpy.cloud.providers import *
-from pepperpy.core.config.providers import *
-from pepperpy.embedding.providers import *
-from pepperpy.llm.providers import *
-from pepperpy.multimodal.audio.providers import *
-from pepperpy.multimodal.vision.providers import *
-from pepperpy.storage.providers import *
+# Import submodules
+from . import agent, audio, memory, storage
 
-# Re-export all imported names
-__all__ = []
+__all__ = [
+    "agent",
+    "audio",
+    "memory",
+    "storage",
+]

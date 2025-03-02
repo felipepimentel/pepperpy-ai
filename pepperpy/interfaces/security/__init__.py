@@ -18,11 +18,11 @@ Audit:
 """
 
 # Import public classes and functions from the implementation
-from pepperpy.security.auth import AuthProvider, Authenticator
-from pepperpy.security.content.filter import ContentFilter
-from pepperpy.security.content.prompt_protection import PromptProtection
 from pepperpy.security.audit.events import AuditEvent
 from pepperpy.security.audit.logger import AuditLogger
+from pepperpy.security.auth import Authenticator, AuthProvider
+from pepperpy.security.content.filter import ContentFilter
+from pepperpy.security.content.prompt_protection import PromptProtection
 
 __all__ = [
     # Authentication
@@ -34,4 +34,4 @@ __all__ = [
     # Audit
     "AuditLogger",
     "AuditEvent",
-] 
+]

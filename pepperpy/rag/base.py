@@ -1,169 +1,142 @@
-"""Core interfaces and base classes for the RAG system."""
+"""Base classes for the RAG system.
+
+This module provides the base classes and interfaces for the RAG system.
+"""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, Optional, Type, TypeVar
 
-from .types import (
-    Chunk,
-    Document,
-    Embedding,
-    RagContext,
-    RagResponse,
-    SearchQuery,
-    SearchResult,
-)
+from pepperpy.core.logging import get_logger
+from pepperpy.rag.types import RagComponentType, RagResponse, SearchQuery
+
+logger = get_logger(__name__)
+
+T = TypeVar("T", bound="RagComponent")
 
 
-@runtime_checkable
-class RagComponent(Protocol):
-    """Base protocol for all RAG components."""
+class RagComponent(ABC):
+    """Base class for all RAG components."""
 
-    @property
-    def name(self) -> str:
-        """Get component name."""
-        ...
+    component_type: RagComponentType = RagComponentType.CUSTOM
 
-    @property
-    def version(self) -> str:
-        """Get component version."""
-        ...
+    def __init__(self, component_id: str, name: str, description: str = ""):
+        """Initialize the RAG component.
 
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """Get component metadata."""
-        ...
-
-
-class BaseRagProcessor(ABC):
-    """Base class for RAG processors with common functionality."""
-
-    def __init__(self, name: str, version: str = "0.1.0"):
-        self._name = name
-        self._version = version
-        self._metadata: Dict[str, Any] = {}
-
-    @property
-    def name(self) -> str:
-        """Get processor name."""
-        return self._name
-
-    @property
-    def version(self) -> str:
-        """Get processor version."""
-        return self._version
-
-    @property
-    def metadata(self) -> Dict[str, Any]:
-        """Get processor metadata."""
-        return self._metadata
-
-    def update_metadata(self, metadata: Dict[str, Any]):
-        """Update processor metadata."""
-        self._metadata.update(metadata)
-
-
-class Chunker(BaseRagProcessor):
-    """Base class for document chunking processors."""
+        Args:
+            component_id: Unique identifier for the component
+            name: Human-readable name for the component
+            description: Description of the component's functionality
+        """
+        self.component_id = component_id
+        self.name = name
+        self.description = description
+        self.initialized = False
+        self.config: Dict[str, Any] = {}
 
     @abstractmethod
-    async def chunk_document(self, document: Document) -> List[Chunk]:
-        """Split document into chunks."""
-        raise NotImplementedError
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method should be called before using the component.
+        """
+        self.initialized = True
+        logger.info(f"Initialized RAG component: {self.name}")
 
     @abstractmethod
-    async def chunk_text(
-        self, text: str, metadata: Optional[Dict[str, Any]] = None
-    ) -> List[Chunk]:
-        """Split text into chunks."""
-        raise NotImplementedError
+    async def cleanup(self) -> None:
+        """Clean up resources used by the component.
+
+        This method should be called when the component is no longer needed.
+        """
+        self.initialized = False
+        logger.info(f"Cleaned up RAG component: {self.name}")
+
+    def configure(self, config: Dict[str, Any]) -> None:
+        """Configure the component with the provided configuration.
+
+        Args:
+            config: Configuration dictionary
+        """
+        self.config.update(config)
+        logger.debug(f"Updated configuration for component: {self.name}")
+
+    @classmethod
+    def create(cls: Type[T], component_id: str, name: str, **kwargs) -> T:
+        """Create a new instance of the component.
+
+        Args:
+            component_id: Unique identifier for the component
+            name: Human-readable name for the component
+            **kwargs: Additional arguments to pass to the constructor
+
+        Returns:
+            A new instance of the component
+        """
+        return cls(component_id, name, **kwargs)
 
 
-class Embedder(BaseRagProcessor):
-    """Base class for embedding processors."""
+class RagPipeline(RagComponent):
+    """Base class for RAG pipelines.
 
-    @abstractmethod
-    async def embed_chunks(self, chunks: List[Chunk]) -> List[Embedding]:
-        """Generate embeddings for chunks."""
-        raise NotImplementedError
+    A RAG pipeline orchestrates the flow of data through indexing,
+    retrieval, and generation components.
+    """
 
-    @abstractmethod
-    async def embed_query(self, query: str) -> List[float]:
-        """Generate embedding for search query."""
-        raise NotImplementedError
+    component_type = RagComponentType.PIPELINE
 
+    def __init__(self, component_id: str, name: str, description: str = ""):
+        """Initialize the RAG pipeline.
 
-class Indexer(BaseRagProcessor):
-    """Base class for vector index processors."""
+        Args:
+            component_id: Unique identifier for the pipeline
+            name: Human-readable name for the pipeline
+            description: Description of the pipeline's functionality
+        """
+        super().__init__(component_id, name, description)
+        self.components: Dict[str, RagComponent] = {}
 
-    @abstractmethod
-    async def index_embeddings(self, embeddings: List[Embedding]):
-        """Add embeddings to the index."""
-        raise NotImplementedError
+    def add_component(self, component: RagComponent) -> None:
+        """Add a component to the pipeline.
 
-    @abstractmethod
-    async def search(
-        self, query_embedding: List[float], query: SearchQuery
-    ) -> List[SearchResult]:
-        """Search for similar vectors in the index."""
-        raise NotImplementedError
+        Args:
+            component: The component to add
+        """
+        self.components[component.component_id] = component
+        logger.debug(f"Added component {component.name} to pipeline {self.name}")
 
-    @abstractmethod
-    async def save(self, path: str):
-        """Save index to disk."""
-        raise NotImplementedError
+    def get_component(self, component_id: str) -> Optional[RagComponent]:
+        """Get a component by ID.
 
-    @abstractmethod
-    async def load(self, path: str):
-        """Load index from disk."""
-        raise NotImplementedError
+        Args:
+            component_id: The ID of the component to get
 
-
-class Retriever(BaseRagProcessor):
-    """Base class for context retrieval processors."""
-
-    @abstractmethod
-    async def retrieve(self, query: SearchQuery) -> List[SearchResult]:
-        """Retrieve relevant chunks for query."""
-        raise NotImplementedError
-
-
-class Augmenter(BaseRagProcessor):
-    """Base class for context augmentation processors."""
-
-    @abstractmethod
-    async def augment(self, query: str, context: RagContext) -> RagResponse:
-        """Augment query with retrieved context."""
-        raise NotImplementedError
-
-
-class RagPipeline(BaseRagProcessor):
-    """Base class for end-to-end RAG pipelines."""
-
-    def __init__(
-        self,
-        chunker: Chunker,
-        embedder: Embedder,
-        indexer: Indexer,
-        retriever: Retriever,
-        augmenter: Augmenter,
-        name: str = "rag_pipeline",
-        version: str = "0.1.0",
-    ):
-        super().__init__(name=name, version=version)
-        self.chunker = chunker
-        self.embedder = embedder
-        self.indexer = indexer
-        self.retriever = retriever
-        self.augmenter = augmenter
+        Returns:
+            The component if found, None otherwise
+        """
+        return self.components.get(component_id)
 
     @abstractmethod
-    async def process(
-        self, query: str, metadata: Optional[Dict[str, Any]] = None
-    ) -> RagResponse:
-        """Process query through the RAG pipeline."""
-        raise NotImplementedError
+    async def process(self, query: SearchQuery) -> RagResponse:
+        """Process a query through the pipeline.
 
-    @abstractmethod
-    async def index_document(self, document: Document):
-        """Index a document for future retrieval."""
-        raise NotImplementedError
+        Args:
+            query: The query to process
+
+        Returns:
+            The generated response
+        """
+        pass
+
+    async def initialize(self) -> None:
+        """Initialize all components in the pipeline."""
+        logger.info(f"Initializing RAG pipeline: {self.name}")
+        for component in self.components.values():
+            await component.initialize()
+        await super().initialize()
+
+    async def cleanup(self) -> None:
+        """Clean up all components in the pipeline."""
+        logger.info(f"Cleaning up RAG pipeline: {self.name}")
+        for component in self.components.values():
+            await component.cleanup()
+        await super().cleanup()

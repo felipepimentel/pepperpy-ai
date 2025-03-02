@@ -7,6 +7,7 @@ from .base import (
     Detection,
     ImageDescription,
     ImageFeatures,
+    ImageLoader,
     VisionProcessor,
 )
 
@@ -73,8 +74,6 @@ class ImageCaptioner(VisionProcessor):
     ) -> List[ImageDescription]:
         """Generate descriptions for multiple images.
 
-        This is a convenience method that calls process_batch().
-
         Args:
             image_paths: List of paths to images
 
@@ -84,7 +83,10 @@ class ImageCaptioner(VisionProcessor):
         Raises:
             VisionError: If processing fails
         """
-        return await self.process_batch(image_paths)
+        results = []
+        for path in image_paths:
+            results.append(await self.process(path))
+        return results
 
 
 class ObjectDetector(VisionProcessor):
@@ -128,8 +130,6 @@ class ObjectDetector(VisionProcessor):
     ) -> List[List[Detection]]:
         """Detect objects in multiple images.
 
-        This is a convenience method that calls process_batch().
-
         Args:
             image_paths: List of paths to images
 
@@ -139,7 +139,10 @@ class ObjectDetector(VisionProcessor):
         Raises:
             VisionError: If processing fails
         """
-        return await self.process_batch(image_paths)
+        results = []
+        for path in image_paths:
+            results.append(await self.process(path))
+        return results
 
 
 class ImageAnalyzer:
@@ -182,7 +185,9 @@ class ImageAnalyzer:
             self.caption = caption
             self.detections = detections
 
-    async def analyze(self, image_path: Union[str, Path]) -> AnalysisResult:
+    async def analyze(
+        self, image_path: Union[str, Path]
+    ) -> "ImageAnalyzer.AnalysisResult":
         """Perform comprehensive analysis of an image.
 
         Args:
@@ -201,3 +206,63 @@ class ImageAnalyzer:
         return self.AnalysisResult(
             features=features, caption=caption, detections=detections
         )
+
+
+class ImagePreprocessor:
+    """Utility for common image preprocessing operations."""
+
+    @staticmethod
+    async def load_and_resize(
+        image_path: Union[str, Path], width: int, height: int
+    ) -> Any:
+        """Load and resize an image.
+
+        Args:
+            image_path: Path to the image
+            width: Target width
+            height: Target height
+
+        Returns:
+            Resized image data
+
+        Raises:
+            VisionError: If processing fails
+        """
+        # Use the ImageLoader from base.py
+        image = ImageLoader.load(image_path)
+        return ImageLoader.resize(image, width, height)
+
+    @staticmethod
+    async def load_and_normalize(image_path: Union[str, Path]) -> Any:
+        """Load and normalize an image.
+
+        Args:
+            image_path: Path to the image
+
+        Returns:
+            Normalized image data
+
+        Raises:
+            VisionError: If processing fails
+        """
+        # Use the ImageLoader from base.py
+        image = ImageLoader.load(image_path)
+        return ImageLoader.normalize(image)
+
+    @staticmethod
+    async def load_for_model(image_path: Union[str, Path]) -> Any:
+        """Load and prepare an image for model input.
+
+        Args:
+            image_path: Path to the image
+
+        Returns:
+            Model-ready image data
+
+        Raises:
+            VisionError: If processing fails
+        """
+        # Use the ImageLoader from base.py
+        image = ImageLoader.load(image_path)
+        normalized = ImageLoader.normalize(image)
+        return ImageLoader.to_tensor(normalized)

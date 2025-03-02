@@ -6,9 +6,8 @@ This module provides centralized management of metrics collection and reporting.
 from typing import Dict, Optional
 
 from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.common.types import ComponentState
-
-from .collector import Metric, MetricsCollector, MetricsRegistry
+from pepperpy.core.common.types.enums import ComponentState
+from pepperpy.core.metrics import MetricsCollector, MetricsRegistry
 
 
 class MetricsManager(Lifecycle):
@@ -32,7 +31,7 @@ class MetricsManager(Lifecycle):
             if not system_collector:
                 self._registry.register_collector("system", MetricsCollector())
 
-            self._state = ComponentState.RUNNING
+            self._state = ComponentState.READY
         except Exception as e:
             self._state = ComponentState.ERROR
             raise RuntimeError(f"Failed to initialize metrics manager: {str(e)}") from e
@@ -41,27 +40,43 @@ class MetricsManager(Lifecycle):
         """Clean up the metrics system."""
         try:
             # Clear all metrics
-            for collector_name in self._registry._collectors:
+            for collector_name in list(self._registry._collectors.keys()):
                 collector = self._registry.get_collector(collector_name)
                 if collector:
                     collector.clear_metrics()
-            self._registry._default_collector.clear_metrics()
 
-            self._state = ComponentState.UNREGISTERED
+            self._state = ComponentState.CLEANED
         except Exception as e:
             self._state = ComponentState.ERROR
             raise RuntimeError(f"Failed to cleanup metrics manager: {str(e)}") from e
 
-    def record_metric(
-        self, metric: Metric, collector_name: Optional[str] = None
-    ) -> None:
-        """Record a metric using the specified collector.
+    def get_registry(self) -> MetricsRegistry:
+        """Get the metrics registry.
+
+        Returns:
+            Metrics registry
+        """
+        return self._registry
+
+    def get_collector(self, name: str) -> Optional[MetricsCollector]:
+        """Get a metrics collector by name.
 
         Args:
-            metric: The metric to record
-            collector_name: Optional name of the collector to use
+            name: Collector name
+
+        Returns:
+            Metrics collector, or None if not found
         """
-        self._registry.record_metric(metric, collector_name)
+        return self._registry.get_collector(name)
+
+    def register_collector(self, name: str, collector: MetricsCollector) -> None:
+        """Register a metrics collector.
+
+        Args:
+            name: Collector name
+            collector: Metrics collector
+        """
+        self._registry.register_collector(name, collector)
 
     def get_metrics(self, collector_name: Optional[str] = None) -> Dict:
         """Get metrics from the specified collector.

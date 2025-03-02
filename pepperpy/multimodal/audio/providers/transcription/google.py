@@ -1,4 +1,4 @@
-"""Google Cloud Speech-to-Text provider implementation."""
+"""Provider implementation for Google Cloud Speech-to-Text capabilities."""
 
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -10,7 +10,7 @@ from pepperpy.providers.audio.transcription.base import (
 
 
 class GoogleTranscriptionProvider(TranscriptionProvider):
-    """Google Cloud Speech-to-Text provider implementation."""
+    """Provider implementation for Google Cloud Speech-to-Text capabilities."""
 
     def __init__(
         self,

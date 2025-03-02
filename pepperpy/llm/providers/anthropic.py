@@ -1,4 +1,4 @@
-"""Anthropic LLM provider implementation."""
+"""Provider implementation for Anthropic language models."""
 
 from typing import Dict, List, Optional, Union
 
@@ -6,7 +6,7 @@ from pepperpy.llm.base import LLMError, LLMProvider
 
 
 class AnthropicProvider(LLMProvider):
-    """Anthropic LLM provider implementation."""
+    """Provider implementation for Anthropic language models."""
 
     def __init__(
         self,

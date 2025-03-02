@@ -3,6 +3,7 @@
 This module defines the core error types and exceptions used throughout the framework.
 """
 
+
 class PepperPyError(Exception):
     """Base exception for all PepperPy errors."""
 

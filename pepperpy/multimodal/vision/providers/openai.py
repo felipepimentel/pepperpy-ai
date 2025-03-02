@@ -8,7 +8,7 @@ from pepperpy.providers.vision.base import VisionError, VisionProvider
 
 
 class OpenAIVisionProvider(VisionProvider):
-    """OpenAI vision provider implementation."""
+    """Provider implementation for OpenAI vision capabilities."""
 
     def __init__(
         self,

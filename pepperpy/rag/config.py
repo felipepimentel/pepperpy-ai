@@ -1,143 +1,100 @@
-"""Configuration settings for the RAG system."""
+"""Configuration for the RAG system.
 
-from typing import Optional
+This module provides configuration classes for the RAG system.
+"""
+
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
 
-class ChunkingConfig(BaseModel):
-    """Configuration for document chunking."""
+class RagConfig(BaseModel):
+    """Configuration for a RAG pipeline."""
 
-    chunk_size: int = Field(default=512, ge=1, description="Size of chunks in tokens")
-    chunk_overlap: int = Field(
-        default=50, ge=0, description="Overlap between chunks in tokens"
-    )
-    min_chunk_size: int = Field(
-        default=100, ge=1, description="Minimum chunk size in tokens"
-    )
-    max_chunk_size: int = Field(
-        default=1024, ge=1, description="Maximum chunk size in tokens"
-    )
-    chunking_strategy: str = Field(
-        default="token",
-        description="Strategy for chunking (token, sentence, paragraph)",
-    )
-    preserve_whitespace: bool = Field(
-        default=False,
-        description="Whether to preserve whitespace in chunks",
-    )
+    id: str
+    name: str
+    description: str = ""
+
+    # Component configurations
+    indexers: List[Dict[str, Any]] = Field(default_factory=list)
+    retrievers: List[Dict[str, Any]] = Field(default_factory=list)
+    generators: List[Dict[str, Any]] = Field(default_factory=list)
+
+    # Default components
+    default_retriever: Optional[str] = None
+    default_generator: Optional[str] = None
+
+    # Additional configuration
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ChunkingConfig(BaseModel):
+    """Configuration for chunking."""
+
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    chunk_strategy: str = "recursive"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class EmbeddingConfig(BaseModel):
-    """Configuration for embedding generation."""
+    """Configuration for embedding."""
 
-    model_name: str = Field(
-        default="sentence-transformers/all-mpnet-base-v2",
-        description="Name of the embedding model to use",
-    )
-    batch_size: int = Field(
-        default=32, ge=1, description="Batch size for embedding generation"
-    )
-    cache_dir: Optional[str] = Field(
-        default=None,
-        description="Directory to cache embeddings",
-    )
-    normalize_embeddings: bool = Field(
-        default=True,
-        description="Whether to L2-normalize embeddings",
-    )
-    embedding_device: str = Field(
-        default="cuda",
-        description="Device to use for embedding generation (cuda, cpu)",
-    )
+    model_name: str
+    model_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    batch_size: int = 32
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class IndexConfig(BaseModel):
-    """Configuration for vector indexing."""
+    """Configuration for indexing."""
 
-    index_type: str = Field(
-        default="faiss",
-        description="Type of vector index to use (faiss, annoy)",
-    )
-    metric: str = Field(
-        default="cosine",
-        description="Similarity metric to use (cosine, l2, dot)",
-    )
-    nprobe: int = Field(
-        default=8,
-        description="Number of clusters to probe in index search",
-    )
-    index_path: Optional[str] = Field(
-        default=None,
-        description="Path to save/load index",
-    )
-    use_gpu: bool = Field(
-        default=True,
-        description="Whether to use GPU for index operations",
-    )
+    index_type: str
+    index_name: str
+    index_path: Optional[str] = None
+    similarity_metric: str = "cosine"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
 class RetrievalConfig(BaseModel):
-    """Configuration for context retrieval."""
+    """Configuration for retrieval."""
 
-    top_k: int = Field(default=5, ge=1, description="Number of chunks to retrieve")
-    min_score: float = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Minimum similarity score for retrieval",
-    )
-    rerank_top_k: Optional[int] = Field(
-        default=None,
-        description="Number of results to rerank",
-    )
-    use_hybrid_search: bool = Field(
-        default=False,
-        description="Whether to use hybrid search (vector + keyword)",
-    )
+    retriever_type: str
+    top_k: int = 5
+    similarity_threshold: float = 0.7
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class AugmentationConfig(BaseModel):
-    """Configuration for context augmentation."""
+class GenerationConfig(BaseModel):
+    """Configuration for generation."""
 
-    max_tokens: int = Field(
-        default=2048, ge=1, description="Maximum tokens in augmented context"
-    )
-    temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=2.0,
-        description="Temperature for text generation",
-    )
-    prompt_template: Optional[str] = Field(
-        default=None,
-        description="Template for prompt construction",
-    )
-    include_metadata: bool = Field(
-        default=True,
-        description="Whether to include chunk metadata in context",
-    )
+    generator_type: str
+    model_name: str
+    model_kwargs: Dict[str, Any] = Field(default_factory=dict)
+    prompt_template: Optional[str] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-class RagConfig(BaseModel):
-    """Main configuration for the RAG system."""
+def create_default_config(
+    pipeline_id: str,
+    pipeline_name: str,
+    description: str = "Default RAG pipeline",
+) -> RagConfig:
+    """Create a default RAG configuration.
 
-    chunking: ChunkingConfig = Field(default_factory=ChunkingConfig)
-    embedding: EmbeddingConfig = Field(default_factory=EmbeddingConfig)
-    indexing: IndexConfig = Field(default_factory=IndexConfig)
-    retrieval: RetrievalConfig = Field(default_factory=RetrievalConfig)
-    augmentation: AugmentationConfig = Field(default_factory=AugmentationConfig)
-    cache_dir: Optional[str] = Field(
-        default=None,
-        description="Base directory for all caching",
+    Args:
+        pipeline_id: Unique identifier for the pipeline
+        pipeline_name: Human-readable name for the pipeline
+        description: Description of the pipeline
+
+    Returns:
+        A default RAG configuration
+    """
+    return RagConfig(
+        id=pipeline_id,
+        name=pipeline_name,
+        description=description,
+        indexers=[],
+        retrievers=[],
+        generators=[],
     )
-    debug_mode: bool = Field(
-        default=False,
-        description="Whether to enable debug mode",
-    )
-
-    class Config:
-        """Pydantic config."""
-
-        validate_assignment = True
-        extra = "forbid"

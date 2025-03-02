@@ -1,11 +1,24 @@
 """RAG Processing Components.
 
-This module provides specialized components for processing data in RAG (Retrieval Augmented Generation) systems:
-- Preprocessing tools for document chunking and content preparation
-- Optimization techniques for vector representations and embeddings
+This module provides specialized processors for RAG (Retrieval Augmented Generation) systems:
 
-These components help improve the quality and efficiency of RAG systems by properly
-preparing content for indexing and retrieval.
+- Preprocessing
+  - Document chunking
+  - Content preparation
+  - Text segmentation
+  - Metadata extraction
+
+- Optimization
+  - Vector compression
+  - Dimensionality reduction
+  - Pruning techniques
+  - Quality filtering
+
+The module provides:
+- Standardized interfaces
+- Flexible configuration
+- Modular pipeline
+- Extensibility
 """
 
 from pepperpy.rag.processors.optimization import (
@@ -29,6 +42,7 @@ from pepperpy.rag.processors.preprocessing import (
     TokenChunker,
 )
 
+__version__ = "0.1.0"
 __all__ = [
     # Preprocessing
     "Chunker",

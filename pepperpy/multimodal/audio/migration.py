@@ -228,10 +228,12 @@ def map_imports(source_code: str) -> str:
 
     # Also handle combined imports
     result = result.replace(
-        "from pepperpy.multimodal.audio import", "from pepperpy.capabilities.audio import"
+        "from pepperpy.multimodal.audio import",
+        "from pepperpy.capabilities.audio import",
     )
     result = result.replace(
-        "from pepperpy.synthesis.processors.audio import", "from pepperpy.capabilities.audio import"
+        "from pepperpy.synthesis.processors.audio import",
+        "from pepperpy.capabilities.audio import",
     )
 
     # Replace class names in code

@@ -6,7 +6,31 @@ for tracking performance, usage, and other metrics across the framework.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+
+class MetricType(Enum):
+    """Types of metrics that can be collected."""
+
+    COUNTER = "counter"
+    GAUGE = "gauge"
+    HISTOGRAM = "histogram"
+    SUMMARY = "summary"
+
+
+@dataclass
+class MetricRecord:
+    """Container for metric information."""
+
+    name: str
+    type: MetricType
+    value: float
+    timestamp: datetime = field(default_factory=datetime.now)
+    labels: Dict[str, str] = field(default_factory=dict)
+    description: Optional[str] = None
 
 
 class Metric(ABC):
@@ -26,6 +50,7 @@ class Metric(ABC):
         self.description = description
         self.labels = labels or {}
         self._logger = logging.getLogger(f"pepperpy.metrics.{name}")
+        self.type: MetricType = MetricType.GAUGE  # Default type
 
     @abstractmethod
     async def record(self, value: Any, labels: Optional[Dict[str, str]] = None) -> None:
@@ -36,6 +61,30 @@ class Metric(ABC):
             labels: Optional additional labels
         """
         pass
+
+    def create_record(
+        self, value: float, labels: Optional[Dict[str, str]] = None
+    ) -> MetricRecord:
+        """Create a metric record.
+
+        Args:
+            value: Metric value
+            labels: Optional additional labels
+
+        Returns:
+            Metric record
+        """
+        combined_labels = self.labels.copy()
+        if labels:
+            combined_labels.update(labels)
+
+        return MetricRecord(
+            name=self.name,
+            type=self.type,
+            value=value,
+            labels=combined_labels,
+            description=self.description,
+        )
 
 
 class Counter(Metric):
@@ -52,33 +101,30 @@ class Counter(Metric):
             labels: Optional counter labels
         """
         super().__init__(name, description, labels)
-        self._value = 0
+        self._value = 0.0
+        self.type = MetricType.COUNTER
 
     async def record(
-        self, value: Union[int, float] = 1, labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None
     ) -> None:
         """Increment counter.
 
         Args:
-            value: Increment value (default: 1)
+            value: Value to increment by (must be non-negative)
             labels: Optional additional labels
+
+        Raises:
+            ValueError: If value is negative
         """
+        if value < 0:
+            raise ValueError("Counter value cannot be negative")
+
         self._value += value
-        self._logger.debug(
-            f"Counter {self.name} incremented by {value} to {self._value}"
-        )
-
-    async def get_value(self) -> Union[int, float]:
-        """Get current counter value.
-
-        Returns:
-            Current value
-        """
-        return self._value
+        self._logger.debug(f"Counter {self.name} incremented by {value}")
 
 
 class Gauge(Metric):
-    """Gauge metric that can increase and decrease."""
+    """Gauge metric that can go up and down."""
 
     def __init__(
         self, name: str, description: str, labels: Optional[Dict[str, str]] = None
@@ -91,10 +137,11 @@ class Gauge(Metric):
             labels: Optional gauge labels
         """
         super().__init__(name, description, labels)
-        self._value = 0
+        self._value = 0.0
+        self.type = MetricType.GAUGE
 
     async def record(
-        self, value: Union[int, float], labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None
     ) -> None:
         """Set gauge value.
 
@@ -105,14 +152,6 @@ class Gauge(Metric):
         self._value = value
         self._logger.debug(f"Gauge {self.name} set to {value}")
 
-    async def get_value(self) -> Union[int, float]:
-        """Get current gauge value.
-
-        Returns:
-            Current value
-        """
-        return self._value
-
 
 class Histogram(Metric):
     """Histogram metric for measuring distributions."""
@@ -121,198 +160,222 @@ class Histogram(Metric):
         self,
         name: str,
         description: str,
-        labels: Optional[Dict[str, str]] = None,
         buckets: Optional[List[float]] = None,
+        labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize histogram.
 
         Args:
             name: Histogram name
             description: Histogram description
+            buckets: Optional bucket boundaries
             labels: Optional histogram labels
-            buckets: Optional histogram buckets
         """
         super().__init__(name, description, labels)
-        self._buckets = buckets or [0.1, 0.5, 1.0, 2.5, 5.0, 10.0]
+        self.buckets = buckets or [
+            0.005,
+            0.01,
+            0.025,
+            0.05,
+            0.1,
+            0.25,
+            0.5,
+            1,
+            2.5,
+            5,
+            10,
+        ]
         self._values: List[float] = []
+        self.type = MetricType.HISTOGRAM
 
     async def record(
         self, value: float, labels: Optional[Dict[str, str]] = None
     ) -> None:
-        """Record a histogram observation.
+        """Record a value in the histogram.
 
         Args:
-            value: Observation value
+            value: Value to record
             labels: Optional additional labels
         """
         self._values.append(value)
-        self._logger.debug(f"Histogram {self.name} observed value {value}")
-
-    async def get_values(self) -> List[float]:
-        """Get all recorded values.
-
-        Returns:
-            List of values
-        """
-        return self._values
+        self._logger.debug(f"Histogram {self.name} recorded value {value}")
 
 
-class MetricsManager:
-    """Manager for creating and tracking metrics."""
+class Summary(Metric):
+    """Summary metric for measuring distributions with quantiles."""
 
-    def __init__(self, namespace: str):
-        """Initialize metrics manager.
-
-        Args:
-            namespace: Metrics namespace
-        """
-        self.namespace = namespace
-        self._metrics: Dict[str, Metric] = {}
-        self._logger = logging.getLogger(f"pepperpy.metrics.{namespace}")
-
-    async def initialize(self) -> None:
-        """Initialize metrics manager."""
-        self._logger.info(
-            f"Initializing metrics manager for namespace: {self.namespace}"
-        )
-
-    async def cleanup(self) -> None:
-        """Clean up metrics manager."""
-        self._metrics.clear()
-        self._logger.info(f"Cleaned up metrics manager for namespace: {self.namespace}")
-
-    async def create_counter(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
-    ) -> Counter:
-        """Create a counter metric.
-
-        Args:
-            name: Counter name
-            description: Counter description
-            labels: Optional counter labels
-
-        Returns:
-            Counter metric
-        """
-        full_name = f"{self.namespace}.{name}"
-        counter = Counter(full_name, description, labels)
-        self._metrics[full_name] = counter
-        self._logger.debug(f"Created counter: {full_name}")
-        return counter
-
-    async def create_gauge(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
-    ) -> Gauge:
-        """Create a gauge metric.
-
-        Args:
-            name: Gauge name
-            description: Gauge description
-            labels: Optional gauge labels
-
-        Returns:
-            Gauge metric
-        """
-        full_name = f"{self.namespace}.{name}"
-        gauge = Gauge(full_name, description, labels)
-        self._metrics[full_name] = gauge
-        self._logger.debug(f"Created gauge: {full_name}")
-        return gauge
-
-    async def create_histogram(
+    def __init__(
         self,
         name: str,
         description: str,
+        quantiles: Optional[List[float]] = None,
         labels: Optional[Dict[str, str]] = None,
-        buckets: Optional[List[float]] = None,
-    ) -> Histogram:
-        """Create a histogram metric.
+    ):
+        """Initialize summary.
 
         Args:
-            name: Histogram name
-            description: Histogram description
-            labels: Optional histogram labels
-            buckets: Optional histogram buckets
-
-        Returns:
-            Histogram metric
+            name: Summary name
+            description: Summary description
+            quantiles: Optional quantiles to track
+            labels: Optional summary labels
         """
-        full_name = f"{self.namespace}.{name}"
-        histogram = Histogram(full_name, description, labels, buckets)
-        self._metrics[full_name] = histogram
-        self._logger.debug(f"Created histogram: {full_name}")
-        return histogram
+        super().__init__(name, description, labels)
+        self.quantiles = quantiles or [0.5, 0.9, 0.95, 0.99]
+        self._values: List[float] = []
+        self.type = MetricType.SUMMARY
 
-    async def get_metric(self, name: str) -> Optional[Metric]:
-        """Get a metric by name.
+    async def record(
+        self, value: float, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Record a value in the summary.
+
+        Args:
+            value: Value to record
+            labels: Optional additional labels
+        """
+        self._values.append(value)
+        self._logger.debug(f"Summary {self.name} recorded value {value}")
+
+
+class MetricsCollector:
+    """Collector for system and application metrics."""
+
+    def __init__(self):
+        """Initialize metrics collector."""
+        self._metrics: Dict[str, List[MetricRecord]] = {}
+        self._registered_metrics: Dict[str, Metric] = {}
+
+    def register_metric(self, metric: Metric) -> None:
+        """Register a metric with the collector.
+
+        Args:
+            metric: Metric to register
+        """
+        self._registered_metrics[metric.name] = metric
+
+    def record_metric(self, metric_record: MetricRecord) -> None:
+        """Record a new metric.
+
+        Args:
+            metric_record: Metric record to store
+        """
+        if metric_record.name not in self._metrics:
+            self._metrics[metric_record.name] = []
+        self._metrics[metric_record.name].append(metric_record)
+
+    async def record(
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
+    ) -> None:
+        """Record a value for a registered metric.
+
+        Args:
+            name: Metric name
+            value: Metric value
+            labels: Optional metric labels
+
+        Raises:
+            ValueError: If metric is not registered
+        """
+        if name not in self._registered_metrics:
+            raise ValueError(f"Metric '{name}' is not registered")
+
+        metric = self._registered_metrics[name]
+        await metric.record(value, labels)
+        self.record_metric(metric.create_record(value, labels))
+
+    def get_metric(self, name: str) -> List[MetricRecord]:
+        """Get all recorded values for a specific metric.
 
         Args:
             name: Metric name
 
         Returns:
-            Metric or None if not found
+            List of metric records
         """
-        full_name = f"{self.namespace}.{name}"
-        return self._metrics.get(full_name)
+        return self._metrics.get(name, [])
 
-    async def increment_counter(
-        self,
-        name: str,
-        value: Union[int, float] = 1,
-        labels: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """Increment a counter metric.
+    def get_latest_metric(self, name: str) -> Optional[MetricRecord]:
+        """Get the most recent value for a specific metric.
 
         Args:
-            name: Counter name
-            value: Increment value (default: 1)
-            labels: Optional additional labels
-        """
-        metric = await self.get_metric(name)
-        if not metric or not isinstance(metric, Counter):
-            metric = await self.create_counter(name, f"Auto-created counter: {name}")
-        await metric.record(value, labels)
+            name: Metric name
 
-    async def set_gauge(
-        self,
-        name: str,
-        value: Union[int, float],
-        labels: Optional[Dict[str, str]] = None,
-    ) -> None:
-        """Set a gauge metric.
+        Returns:
+            Most recent metric record, or None if not found
+        """
+        metrics = self._metrics.get(name, [])
+        if not metrics:
+            return None
+        return max(metrics, key=lambda m: m.timestamp)
+
+    def get_all_metrics(self) -> Dict[str, List[MetricRecord]]:
+        """Get all recorded metrics.
+
+        Returns:
+            Dictionary of metric names to lists of metric records
+        """
+        return self._metrics.copy()
+
+    def clear_metrics(self) -> None:
+        """Clear all recorded metrics."""
+        self._metrics.clear()
+
+
+class MetricsRegistry:
+    """Registry for metrics collectors."""
+
+    def __init__(self):
+        """Initialize metrics registry."""
+        self._collectors: Dict[str, MetricsCollector] = {}
+        self._default_collector = MetricsCollector()
+
+    def register_collector(self, name: str, collector: MetricsCollector) -> None:
+        """Register a collector with the registry.
 
         Args:
-            name: Gauge name
-            value: New gauge value
-            labels: Optional additional labels
+            name: Collector name
+            collector: Metrics collector
         """
-        metric = await self.get_metric(name)
-        if not metric or not isinstance(metric, Gauge):
-            metric = await self.create_gauge(name, f"Auto-created gauge: {name}")
-        await metric.record(value, labels)
+        self._collectors[name] = collector
 
-    async def observe_histogram(
-        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
-    ) -> None:
-        """Record a histogram observation.
+    def get_collector(self, name: str) -> Optional[MetricsCollector]:
+        """Get a collector by name.
 
         Args:
-            name: Histogram name
-            value: Observation value
-            labels: Optional additional labels
+            name: Collector name
+
+        Returns:
+            Metrics collector, or None if not found
         """
-        metric = await self.get_metric(name)
-        if not metric or not isinstance(metric, Histogram):
-            metric = await self.create_histogram(
-                name, f"Auto-created histogram: {name}"
-            )
-        await metric.record(value, labels)
+        return self._collectors.get(name)
 
+    def record_metric(
+        self, metric_record: MetricRecord, collector_name: Optional[str] = None
+    ) -> None:
+        """Record a metric using the specified collector.
 
-# Aliases for backward compatibility
-CounterMetric = Counter
-GaugeMetric = Gauge
-HistogramMetric = Histogram
-TimerMetric = Histogram  # Timer is just a specialized histogram
-MetricType = Metric
-MetricsCollector = MetricsManager
+        Args:
+            metric_record: Metric record to store
+            collector_name: Optional name of the collector to use
+        """
+        if collector_name:
+            collector = self.get_collector(collector_name)
+            if collector:
+                collector.record_metric(metric_record)
+            else:
+                self._default_collector.record_metric(metric_record)
+        else:
+            self._default_collector.record_metric(metric_record)
+
+    def get_all_metrics(self) -> Dict[str, Dict[str, List[MetricRecord]]]:
+        """Get all metrics from all collectors.
+
+        Returns:
+            Dictionary of collector names to dictionaries of metric names to lists of metric records
+        """
+        result: Dict[str, Dict[str, List[MetricRecord]]] = {
+            "default": self._default_collector.get_all_metrics()
+        }
+        for name, collector in self._collectors.items():
+            result[name] = collector.get_all_metrics()
+        return result

@@ -1,82 +1,76 @@
 """Public Interface for providers
-This module provides a stable public interface for the providers functionality.
-It exposes the core provider abstractions and implementations that are
-considered part of the public API.
+
+This module provides a stable public interface for provider abstractions.
+It exposes the core provider interfaces that are considered part of the public API.
 
 Provider Categories:
-    LLM: Language model providers
-    Embedding: Vector embedding providers
-    Storage: Data storage providers
-    Vision: Computer vision providers
-    Audio: Audio processing providers
-    Cloud: Cloud service providers
-    Config: Configuration providers
+    LLM: Language model provider interfaces
+    Embedding: Vector embedding provider interfaces
+    Storage: Data storage provider interfaces
+    Vision: Computer vision provider interfaces
+    Audio: Audio processing provider interfaces
+    Cloud: Cloud service provider interfaces
+    Config: Configuration provider interfaces
 """
 
-# Import public classes and functions from the implementation
-from pepperpy.providers.agent.base import BaseProvider
-from pepperpy.providers.agent.factory import ProviderFactory
-from pepperpy.providers.agent.manager import ProviderManager
+# Re-export provider interfaces
+from pepperpy.interfaces.storage import StorageError, StorageProvider
 
-# Audio providers
-from pepperpy.providers.audio.synthesis import SynthesisProvider
-from pepperpy.providers.audio.transcription import TranscriptionProvider
 
-# Cloud providers
-from pepperpy.providers.cloud.aws import AWSProvider
-from pepperpy.providers.cloud.gcp import GCPProvider
+# Define provider interface types
+class ProviderInterface:
+    """Base marker class for all provider interfaces."""
 
-# Config providers
-from pepperpy.providers.config.base import ConfigProvider
-from pepperpy.providers.config.env import EnvConfigProvider
-from pepperpy.providers.config.file import FileConfigProvider
-from pepperpy.providers.config.filesystem import FilesystemConfigProvider
-from pepperpy.providers.config.secure import SecureConfigProvider
+    pass
 
-# LLM providers
-from pepperpy.providers.llm.anthropic import AnthropicProvider
-from pepperpy.providers.llm.openai import OpenAIProvider
-from pepperpy.providers.llm.openrouter import OpenRouterProvider
-from pepperpy.providers.llm.perplexity import PerplexityProvider
 
-# Storage providers
-from pepperpy.providers.storage.cloud import CloudStorageProvider
-from pepperpy.providers.storage.local import LocalStorageProvider
-from pepperpy.providers.storage.sql import SQLStorageProvider
+class LLMProviderInterface(ProviderInterface):
+    """Interface for LLM providers."""
 
-# Vision providers
-from pepperpy.providers.vision.base import VisionProvider
-from pepperpy.providers.vision.google import GoogleVisionProvider
-from pepperpy.providers.vision.openai import OpenAIVisionProvider
+    pass
 
+
+class EmbeddingProviderInterface(ProviderInterface):
+    """Interface for embedding providers."""
+
+    pass
+
+
+class VisionProviderInterface(ProviderInterface):
+    """Interface for vision providers."""
+
+    pass
+
+
+class AudioProviderInterface(ProviderInterface):
+    """Interface for audio providers."""
+
+    pass
+
+
+class CloudProviderInterface(ProviderInterface):
+    """Interface for cloud providers."""
+
+    pass
+
+
+class ConfigProviderInterface(ProviderInterface):
+    """Interface for configuration providers."""
+
+    pass
+
+
+# Export the interfaces
 __all__ = [
-    # Base provider classes
-    "BaseProvider",
-    "ProviderFactory",
-    "ProviderManager",
-    # Audio providers
-    "SynthesisProvider",
-    "TranscriptionProvider",
-    # Cloud providers
-    "AWSProvider",
-    "GCPProvider",
-    "CloudStorageProvider",
-    # Config providers
-    "ConfigProvider",
-    "EnvConfigProvider",
-    "FileConfigProvider",
-    "FilesystemConfigProvider",
-    "SecureConfigProvider",
-    # LLM providers
-    "AnthropicProvider",
-    "OpenAIProvider",
-    "OpenRouterProvider",
-    "PerplexityProvider",
-    # Storage providers
-    "LocalStorageProvider",
-    "SQLStorageProvider",
-    # Vision providers
-    "VisionProvider",
-    "GoogleVisionProvider",
-    "OpenAIVisionProvider",
+    # Base interfaces
+    "ProviderInterface",
+    "LLMProviderInterface",
+    "EmbeddingProviderInterface",
+    "VisionProviderInterface",
+    "AudioProviderInterface",
+    "CloudProviderInterface",
+    "ConfigProviderInterface",
+    # Storage interfaces
+    "StorageError",
+    "StorageProvider",
 ]

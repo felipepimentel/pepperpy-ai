@@ -1,8 +1,13 @@
-"""Public Interface for embeddings
+"""Public Interface for embeddings in the PepperPy framework
 
 This module provides a stable public interface for the embeddings functionality.
 It exposes the core embedding abstractions and implementations that are considered
 part of the public API.
+
+The embeddings interface enables vector representation of text and documents,
+supporting semantic search, similarity comparison, and retrieval augmented generation.
+It provides standardized access to various embedding models and providers while
+abstracting implementation details.
 
 Classes:
     Embedder: Base class for text embedding

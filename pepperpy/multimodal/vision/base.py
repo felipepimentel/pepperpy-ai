@@ -1,185 +1,66 @@
 """Base classes and interfaces for the vision processing system.
 
-This module provides the core abstractions for the vision processing system:
-- ImageFeatures: Container for extracted features from images
-- ImageDescription: Representation of image descriptions
-- VisionProcessor: Base class for all vision processors
-- VisionProvider: Base class for vision service providers
+This module provides the core abstractions for vision processing in PepperPy.
 """
 
-from abc import abstractmethod
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Union
 
-# Try to import numpy, but provide fallbacks if not available
-try:
-    import numpy as np
-
-    NUMPY_AVAILABLE = True
-except ImportError:
-    NUMPY_AVAILABLE = False
-    np = None
-
-from ..base import (
-    ContentType,
-    DataFormat,
-    MultimodalError,
-    MultimodalProcessor,
-    MultimodalProvider,
-)
-
-
-class VisionError(MultimodalError):
-    """Base exception for vision-related errors."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        component: Optional[str] = None,
-        provider: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize the error.
-
-        Args:
-            message: Error message
-            component: Optional component name that caused the error
-            provider: Optional provider name that caused the error
-            details: Optional additional details
-        """
-        super().__init__(
-            message, component=component, provider=provider, details=details
-        )
-
-
-@dataclass
-class ImageFeatures:
-    """Represents extracted features from an image."""
-
-    features: Any  # np.ndarray when numpy is available
-    metadata: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class ImageDescription:
-    """Represents a natural language description of an image."""
-
-    text: str
-    confidence: float
-    metadata: Optional[Dict[str, Any]] = None
+from pepperpy.formats.image import ImageData
 
 
 @dataclass
 class BoundingBox:
-    """Represents a bounding box in an image."""
+    """Bounding box for object detection."""
 
-    x1: float
-    y1: float
-    x2: float
-    y2: float
-
-    @property
-    def width(self) -> float:
-        """Get the width of the bounding box.
-
-        Returns:
-            Width of the bounding box
-        """
-        return self.x2 - self.x1
-
-    @property
-    def height(self) -> float:
-        """Get the height of the bounding box.
-
-        Returns:
-            Height of the bounding box
-        """
-        return self.y2 - self.y1
-
-    @property
-    def area(self) -> float:
-        """Get the area of the bounding box.
-
-        Returns:
-            Area of the bounding box
-        """
-        return self.width * self.height
-
-    @property
-    def center(self) -> Tuple[float, float]:
-        """Get the center coordinates of the bounding box.
-
-        Returns:
-            Center coordinates (x, y)
-        """
-        return (self.x1 + self.width / 2, self.y1 + self.height / 2)
-
-    @classmethod
-    def from_tuple(cls, bbox: Tuple[float, float, float, float]) -> "BoundingBox":
-        """Create a BoundingBox from a tuple of coordinates.
-
-        Args:
-            bbox: Tuple of (x1, y1, x2, y2) coordinates
-
-        Returns:
-            BoundingBox instance
-        """
-        return cls(x1=bbox[0], y1=bbox[1], x2=bbox[2], y2=bbox[3])
-
-    def to_tuple(self) -> Tuple[float, float, float, float]:
-        """Convert to a tuple of coordinates.
-
-        Returns:
-            Tuple of (x1, y1, x2, y2) coordinates
-        """
-        return (self.x1, self.y1, self.x2, self.y2)
+    x: float
+    y: float
+    width: float
+    height: float
+    confidence: float = 1.0
 
 
 @dataclass
 class Detection:
-    """Represents a detected object in an image."""
+    """Object detection result."""
 
     label: str
     confidence: float
-    bbox: BoundingBox
-    metadata: Optional[Dict[str, Any]] = None
+    bounding_box: BoundingBox
 
 
-class VisionProcessor(MultimodalProcessor):
-    """Base class for all vision processors."""
+@dataclass
+class ImageFeatures:
+    """Features extracted from an image."""
 
-    def __init__(
-        self,
-        name: str,
-        config: Optional[Dict[str, Any]] = None,
-        supported_formats: Optional[List[DataFormat]] = None,
-    ) -> None:
-        """Initialize vision processor.
+    features: List[float]
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-        Args:
-            name: Processor name
-            config: Optional configuration
-            supported_formats: List of supported image formats
-        """
-        if supported_formats is None:
-            supported_formats = [
-                DataFormat.JPEG,
-                DataFormat.PNG,
-                DataFormat.GIF,
-                DataFormat.WEBP,
-            ]
 
-        super().__init__(
-            name,
-            config=config,
-            supported_content_types=[ContentType.IMAGE],
-            supported_formats=supported_formats,
-        )
+@dataclass
+class ImageDescription:
+    """Natural language description of an image."""
+
+    text: str
+    confidence: float = 1.0
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class VisionError(Exception):
+    """Base exception for vision processing errors."""
+
+    pass
+
+
+class VisionProcessor(ABC):
+    """Base class for vision processors."""
 
     @abstractmethod
-    async def process(self, image_path: Union[str, Path], **kwargs: Any) -> Any:
+    async def process(
+        self, image_path: Union[str, Path], **kwargs: Any
+    ) -> Union[ImageFeatures, ImageDescription, List[Detection], ImageData]:
         """Process an image.
 
         Args:
@@ -187,97 +68,168 @@ class VisionProcessor(MultimodalProcessor):
             **kwargs: Additional processor-specific parameters
 
         Returns:
-            Processed image data
+            Processing result
 
         Raises:
             VisionError: If processing fails
         """
         pass
 
-    async def process_batch(
-        self, image_paths: List[Union[str, Path]], **kwargs: Any
-    ) -> List[Any]:
-        """Process multiple images in batch.
+
+class ImageLoader:
+    """Utility for loading and preprocessing images."""
+
+    @staticmethod
+    def load(image_path: Union[str, Path]) -> ImageData:
+        """Load an image from file.
 
         Args:
-            image_paths: List of paths to images
-            **kwargs: Additional processor-specific parameters
+            image_path: Path to the image
 
         Returns:
-            List of processed image data
+            Loaded image data
 
         Raises:
-            VisionError: If processing fails
+            VisionError: If image loading fails
         """
-        results = []
-        for path in image_paths:
-            results.append(await self.process(path, **kwargs))
-        return results
+        try:
+            import numpy as np
+            from PIL import Image
 
+            image_path = Path(image_path)
+            img = Image.open(image_path)
 
-class VisionProvider(MultimodalProvider):
-    """Base class for vision service providers."""
+            # Convert to RGB if needed
+            if img.mode != "RGB":
+                img = img.convert("RGB")
 
-    def __init__(
-        self,
-        name: str,
-        config: Optional[Dict[str, Any]] = None,
-        supported_formats: Optional[List[DataFormat]] = None,
-    ) -> None:
-        """Initialize vision provider.
+            # Convert to numpy array
+            data = np.array(img)
+
+            return ImageData(
+                data=data,
+                width=img.width,
+                height=img.height,
+                channels=3,
+                mode="RGB",
+                metadata={"path": str(image_path)},
+            )
+        except ImportError:
+            raise VisionError("PIL and numpy are required for image loading")
+        except Exception as e:
+            raise VisionError(f"Failed to load image: {str(e)}")
+
+    @staticmethod
+    def resize(image: ImageData, width: int, height: int) -> ImageData:
+        """Resize an image.
 
         Args:
-            name: Provider name
-            config: Optional configuration
-            supported_formats: List of supported image formats
-        """
-        if supported_formats is None:
-            supported_formats = [
-                DataFormat.JPEG,
-                DataFormat.PNG,
-                DataFormat.GIF,
-                DataFormat.WEBP,
-            ]
-
-        super().__init__(
-            name,
-            config=config,
-            supported_content_types=[ContentType.IMAGE],
-            supported_formats=supported_formats,
-        )
-
-    @abstractmethod
-    async def initialize(self) -> None:
-        """Initialize the provider.
-
-        Raises:
-            VisionError: If initialization fails
-        """
-        pass
-
-    @abstractmethod
-    async def shutdown(self) -> None:
-        """Shutdown the provider.
-
-        Raises:
-            VisionError: If shutdown fails
-        """
-        pass
-
-    async def save_image(
-        self, image: Any, path: Union[str, Path], format: Optional[DataFormat] = None
-    ) -> Path:
-        """Save image data to file.
-
-        Args:
-            image: Image data to save
-            path: Output file path
-            format: Optional output format
+            image: Image data
+            width: Target width
+            height: Target height
 
         Returns:
-            Path to saved file
+            Resized image data
 
         Raises:
-            VisionError: If saving fails
+            VisionError: If resizing fails
         """
-        raise NotImplementedError("save_image method must be implemented by subclasses")
+        try:
+            import numpy as np
+            from PIL import Image
+
+            # Convert to PIL Image
+            pil_image = Image.fromarray(image.data)
+
+            # Resize
+            resized = pil_image.resize((width, height))
+
+            # Convert back to numpy array
+            data = np.array(resized)
+
+            return ImageData(
+                data=data,
+                width=width,
+                height=height,
+                channels=image.channels,
+                mode=image.mode,
+                metadata=image.metadata,
+            )
+        except ImportError:
+            raise VisionError("PIL and numpy are required for image resizing")
+        except Exception as e:
+            raise VisionError(f"Failed to resize image: {str(e)}")
+
+    @staticmethod
+    def normalize(image: ImageData) -> ImageData:
+        """Normalize image pixel values to [0, 1].
+
+        Args:
+            image: Image data
+
+        Returns:
+            Normalized image data
+
+        Raises:
+            VisionError: If normalization fails
+        """
+        try:
+            import numpy as np
+
+            # Normalize to [0, 1]
+            normalized_data = image.data.astype(np.float32) / 255.0
+
+            return ImageData(
+                data=normalized_data,
+                width=image.width,
+                height=image.height,
+                channels=image.channels,
+                mode=image.mode,
+                metadata=image.metadata,
+            )
+        except ImportError:
+            raise VisionError("Numpy is required for image normalization")
+        except Exception as e:
+            raise VisionError(f"Failed to normalize image: {str(e)}")
+
+    @staticmethod
+    def to_tensor(image: ImageData) -> Any:
+        """Convert image to tensor format for ML models.
+
+        Args:
+            image: Image data
+
+        Returns:
+            Tensor representation of the image
+
+        Raises:
+            VisionError: If conversion fails
+        """
+        try:
+            import numpy as np
+
+            # Ensure image is normalized
+            if image.data.dtype != np.float32:
+                image = ImageLoader.normalize(image)
+
+            # Transpose to channel-first format (C, H, W) for PyTorch
+            tensor_data = np.transpose(image.data, (2, 0, 1))
+
+            return tensor_data
+        except ImportError:
+            raise VisionError("Numpy is required for tensor conversion")
+        except Exception as e:
+            raise VisionError(f"Failed to convert image to tensor: {str(e)}")
+
+
+# Re-export ImageData for convenience
+__all__ = [
+    "BoundingBox",
+    "Detection",
+    "ImageFeatures",
+    "ImageDescription",
+    "VisionError",
+    "VisionProcessor",
+    "ImageLoader",
+    "ImageData",
+]

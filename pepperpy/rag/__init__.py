@@ -1,136 +1,94 @@
-"""RAG (Retrieval Augmented Generation) package."""
+"""RAG (Retrieval Augmented Generation) module.
 
-from .base import (
-    RagComponent,
-    RagPipeline,
-)
-from .config import (
-    AugmentationConfig,
+This module provides a modular framework for building RAG applications with clear
+separation between indexing, retrieval, and generation components.
+"""
+
+# Core components
+from pepperpy.rag.base import RagComponent, RagPipeline
+from pepperpy.rag.config import (
     ChunkingConfig,
     EmbeddingConfig,
+    GenerationConfig,
     IndexConfig,
     RagConfig,
     RetrievalConfig,
+    create_default_config,
 )
-from .defaults import register_default_components
-from .embedding import (
-    DocumentEmbedder,
-    Embedder,
-    MultiModalEmbedder,
-    TextEmbedder,
+from pepperpy.rag.factory import RagPipelineFactory
+
+# Generation components
+from pepperpy.rag.generation import (
+    ContextAwareGenerator,
+    GenerationManager,
+    Generator,
+    PromptGenerator,
 )
-from .factory import RagPipelineFactory
-from .indexing import (
-    HybridIndexer,
-    Indexer,
-    TextIndexer,
-    VectorIndexer,
-)
-from .optimization import (
-    # Compression
-    DimensionalityReducer,
-    # Pruning
-    DiversityPruner,
-    QualityPruner,
-    QuantizationCompressor,
-    RedundancyPruner,
-    VectorCompressor,
-    VectorPruner,
-)
-from .pipeline import StandardRagPipeline
-from .preprocessing import (
-    # Augmentation
-    Augmenter,
-    # Chunking
+
+# Indexing components
+from pepperpy.rag.indexing import (
     Chunker,
-    ContextAugmenter,
-    ParagraphChunker,
-    QueryAugmenter,
-    ResultAugmenter,
-    SentenceChunker,
-    TextChunker,
-    TokenChunker,
+    DocumentIndexer,
+    Embedder,
+    Indexer,
+    IndexingManager,
 )
-from .registry import registry
-from .retrieval_system import (
-    HybridRetriever,
+from pepperpy.rag.pipeline import StandardRagPipeline
+from pepperpy.rag.registry import RagRegistry, rag_registry
+
+# Retrieval components
+from pepperpy.rag.retrieval import (
+    RetrievalManager,
     Retriever,
-    TextRetriever,
-    VectorRetriever,
+    SimilarityRetriever,
 )
-from .types import (
+from pepperpy.rag.types import (
     Chunk,
-    ChunkType,
     Document,
     Embedding,
+    RagComponentType,
     RagContext,
     RagResponse,
     SearchQuery,
     SearchResult,
 )
 
-# Register default components
-register_default_components()
-
 __all__ = [
-    # Base interfaces
+    # Core components
     "RagComponent",
     "RagPipeline",
-    "Chunker",
-    "Embedder",
-    "Indexer",
-    "Retriever",
-    "Augmenter",
-    # Configuration
     "RagConfig",
     "ChunkingConfig",
     "EmbeddingConfig",
     "IndexConfig",
     "RetrievalConfig",
-    "AugmentationConfig",
-    # Pipeline
-    "StandardRagPipeline",
+    "GenerationConfig",
+    "create_default_config",
     "RagPipelineFactory",
-    # Registry
-    "registry",
-    # Types
-    "ChunkType",
-    "Chunk",
+    "StandardRagPipeline",
+    "RagRegistry",
+    "rag_registry",
+    "RagComponentType",
     "Document",
+    "Chunk",
     "Embedding",
     "SearchQuery",
     "SearchResult",
     "RagContext",
     "RagResponse",
-    # Chunker implementations
-    "TextChunker",
-    "TokenChunker",
-    "SentenceChunker",
-    "ParagraphChunker",
-    # Embedder implementations
-    "TextEmbedder",
-    "DocumentEmbedder",
-    "MultiModalEmbedder",
-    # Indexer implementations
-    "VectorIndexer",
-    "TextIndexer",
-    "HybridIndexer",
-    # Retriever implementations
-    "VectorRetriever",
-    "TextRetriever",
-    "HybridRetriever",
-    # Augmenter implementations
-    "QueryAugmenter",
-    "ResultAugmenter",
-    "ContextAugmenter",
-    # Optimization implementations
-    # Compression
-    "DimensionalityReducer",
-    "VectorCompressor",
-    "QuantizationCompressor",
-    # Pruning
-    "RedundancyPruner",
-    "QualityPruner",
-    "DiversityPruner",
-    "VectorPruner",
+    # Indexing components
+    "Chunker",
+    "DocumentIndexer",
+    "Embedder",
+    "Indexer",
+    "IndexingManager",
+    # Retrieval components
+    "Retriever",
+    "RetrievalManager",
+    "SimilarityRetriever",
+    # Generation components
+    "Generator",
+    "PromptGenerator",
+    "ContextAwareGenerator",
+    "GenerationManager",
 ]

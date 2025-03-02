@@ -7,7 +7,7 @@ from pepperpy.providers.vision.base import VisionError, VisionProvider
 
 
 class GoogleVisionProvider(VisionProvider):
-    """Google Cloud Vision provider implementation."""
+    """Provider implementation for Google Cloud Vision capabilities."""
 
     def __init__(
         self,

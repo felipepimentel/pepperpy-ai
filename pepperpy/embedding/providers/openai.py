@@ -8,7 +8,7 @@ from pepperpy.embedding.base import BaseEmbedding, EmbeddingError
 
 
 class OpenAIEmbeddingProvider(BaseEmbedding):
-    """OpenAI embedding provider implementation."""
+    """Provider implementation for OpenAI embeddings."""
 
     def __init__(
         self,

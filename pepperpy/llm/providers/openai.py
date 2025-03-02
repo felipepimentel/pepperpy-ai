@@ -1,4 +1,4 @@
-"""OpenAI provider implementation.
+"""Provider implementation for OpenAI language models.
 
 This module provides integration with OpenAI's API, supporting both chat completion
 and streaming capabilities.
@@ -43,7 +43,7 @@ class OpenAIConfig(LLMConfig):
 
 
 class OpenAIProvider(LLMProvider):
-    """OpenAI provider implementation."""
+    """Provider implementation for OpenAI language models."""
 
     def __init__(self, config: OpenAIConfig) -> None:
         """Initialize the provider.

@@ -8,7 +8,7 @@ from pepperpy.memory.providers.base import MemoryProvider
 
 
 class PostgresMemoryProvider(MemoryProvider):
-    """PostgreSQL-based memory provider implementation."""
+    """Provider implementation for PostgreSQL-based memory storage."""
 
     def __init__(
         self,

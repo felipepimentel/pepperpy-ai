@@ -7,7 +7,7 @@ This module implements specific resource providers:
 - Process providers (local processes, remote processes)
 """
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Dict, List, Optional
 
 from pepperpy.core.common.base import Lifecycle
 from pepperpy.core.common.types import ComponentState

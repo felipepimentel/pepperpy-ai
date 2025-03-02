@@ -1,319 +1,119 @@
 """Adapter registry module.
 
-This module provides a centralized registry for managing adapters and factories.
-It implements a singleton pattern and provides thread-safe operations.
+This module provides a registry for adapter plugins and adapter classes.
 """
 
-import asyncio
-import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Type
 
-from pepperpy.adapters.base import AdapterFactory, BaseAdapter
-from pepperpy.adapters.types import (
-    AdapterConfig,
-    AdapterMetadata,
-    AdapterSpec,
-    AdapterState,
-)
-from pepperpy.core.errors import AdapterError
-from pepperpy.core.registry import (
-    ComponentMetadata,
-    Registry,
-    get_registry,
-)
+from pepperpy.adapters.types import AdapterType
+from pepperpy.core.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
-class AdapterRegistry(Registry[BaseAdapter]):
-    """Registry for adapters and factories.
+class AdapterRegistry:
+    """Registry for adapter plugins and adapter classes."""
 
-    This class manages adapter registration, creation, and lifecycle.
-    It provides thread-safe operations and maintains adapter metadata.
-    """
+    _instance = None
+    _adapters: Dict[str, Type["BaseAdapter"]] = {}
+    _plugins: Dict[str, Dict[str, Any]] = {}
 
-    _instance: Optional["AdapterRegistry"] = None
-    _lock = asyncio.Lock()
-
-    def __init__(self) -> None:
-        """Initialize registry."""
-        super().__init__(BaseAdapter)
-        self._factories: Dict[str, AdapterFactory] = {}
-        self._adapter_metadata: Dict[str, AdapterMetadata] = {}
-        self._specs: Dict[str, AdapterSpec] = {}
-
-    @classmethod
-    def get_instance(cls) -> "AdapterRegistry":
-        """Get singleton instance."""
+    def __new__(cls):
+        """Ensure singleton instance."""
         if cls._instance is None:
-            cls._instance = cls()
-            # Register with the global registry manager
-            try:
-                registry_manager = get_registry()
-                registry_manager.register_registry("adapters", cls._instance)
-            except Exception as e:
-                logger.warning(f"Failed to register with global registry: {e}")
+            cls._instance = super(AdapterRegistry, cls).__new__(cls)
         return cls._instance
 
-    async def register_adapter(
-        self,
-        adapter: BaseAdapter,
-        metadata: Optional[AdapterMetadata] = None,
+    def register_adapter(
+        self, adapter_id: str, adapter_class: Type["BaseAdapter"]
     ) -> None:
-        """Register adapter with optional metadata.
+        """Register an adapter class with the registry.
 
         Args:
-            adapter: Adapter instance to register
-            metadata: Optional adapter metadata
-
-        Raises:
-            AdapterError: If adapter registration fails
+            adapter_id: Unique identifier for the adapter
+            adapter_class: The adapter class to register
         """
-        async with self._lock:
-            try:
-                name = adapter.name
+        if adapter_id in self._adapters:
+            logger.warning(f"Adapter {adapter_id} already registered, overwriting")
 
-                # Create component metadata
-                component_metadata = ComponentMetadata(
-                    name=name,
-                    description=getattr(adapter, "description", ""),
-                    version=adapter.version,
-                    properties={
-                        "type": str(adapter.type),
-                        "state": str(adapter.state),
-                    },
-                )
+        self._adapters[adapter_id] = adapter_class
+        logger.debug(f"Registered adapter: {adapter_id}")
 
-                # Register with unified registry
-                self.register(adapter, component_metadata)
-
-                # Store adapter-specific metadata
-                if metadata:
-                    self._adapter_metadata[name] = metadata
-
-                logger.info(
-                    f"Registered adapter: {name}",
-                    extra={
-                        "adapter": name,
-                        "type": str(adapter.type),
-                        "version": adapter.version,
-                    },
-                )
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to register adapter: {e}",
-                    extra={"adapter": adapter.name},
-                    exc_info=True,
-                )
-                raise AdapterError(f"Failed to register adapter: {e}") from e
-
-    async def register_factory(
-        self,
-        name: str,
-        factory: AdapterFactory,
-        spec: AdapterSpec,
-    ) -> None:
-        """Register adapter factory with specification.
+    def register_plugin(self, plugin_id: str, plugin_info: Dict[str, Any]) -> None:
+        """Register an adapter plugin with the registry.
 
         Args:
-            name: Factory name
-            factory: Factory instance
-            spec: Adapter specification
-
-        Raises:
-            AdapterError: If factory registration fails
+            plugin_id: Unique identifier for the plugin
+            plugin_info: Plugin metadata and configuration
         """
-        async with self._lock:
-            try:
-                if name in self._factories:
-                    raise AdapterError(f"Factory '{name}' already registered")
+        if plugin_id in self._plugins:
+            logger.warning(f"Plugin {plugin_id} already registered, overwriting")
 
-                self._factories[name] = factory
-                self._specs[name] = spec
+        self._plugins[plugin_id] = plugin_info
+        logger.debug(f"Registered adapter plugin: {plugin_id}")
 
-                logger.info(
-                    f"Registered factory: {name}",
-                    extra={
-                        "factory": name,
-                        "type": str(spec.type),
-                        "version": spec.version,
-                    },
-                )
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to register factory: {e}",
-                    extra={"factory": name},
-                    exc_info=True,
-                )
-                raise AdapterError(f"Failed to register factory: {e}") from e
-
-    async def get_adapter(
-        self,
-        name: str,
-        initialize: bool = True,
-    ) -> Optional[BaseAdapter]:
-        """Get registered adapter by name.
+    def get_adapter(self, adapter_id: str) -> Optional[Type["BaseAdapter"]]:
+        """Get an adapter class by ID.
 
         Args:
-            name: Adapter name
-            initialize: Whether to initialize adapter if not initialized
+            adapter_id: Unique identifier for the adapter
 
         Returns:
-            Optional[BaseAdapter]: Adapter instance if found
-
-        Raises:
-            AdapterError: If adapter initialization fails
+            The adapter class if found, None otherwise
         """
-        async with self._lock:
-            try:
-                adapter = self.get(name)
-                if initialize and adapter.state == AdapterState.CREATED:
-                    try:
-                        await adapter.initialize()
+        return self._adapters.get(adapter_id)
 
-                        # Update metadata
-                        metadata = self.get_metadata(name)
-                        metadata.properties["state"] = str(adapter.state)
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to initialize adapter: {e}",
-                            extra={"adapter": name},
-                            exc_info=True,
-                        )
-                        raise AdapterError(f"Failed to initialize adapter: {e}") from e
-                return adapter
-            except Exception as e:
-                if "not found" in str(e).lower():
-                    return None
-                raise AdapterError(f"Error getting adapter: {e}") from e
+    def get_adapters(self) -> Dict[str, Type["BaseAdapter"]]:
+        """Get all registered adapter classes.
 
-    async def create_adapter(
-        self,
-        factory_name: str,
-        config: AdapterConfig,
-        initialize: bool = True,
-    ) -> BaseAdapter:
-        """Create and register new adapter instance.
+        Returns:
+            Dictionary mapping adapter IDs to adapter classes
+        """
+        return self._adapters.copy()
+
+    def get_plugin(self, plugin_id: str) -> Optional[Dict[str, Any]]:
+        """Get an adapter plugin by ID.
 
         Args:
-            factory_name: Factory name
-            config: Adapter configuration
-            initialize: Whether to initialize adapter
+            plugin_id: Unique identifier for the plugin
 
         Returns:
-            BaseAdapter: Created adapter instance
-
-        Raises:
-            AdapterError: If adapter creation fails
+            Plugin information if found, None otherwise
         """
-        async with self._lock:
-            try:
-                factory = self._factories.get(factory_name)
-                if not factory:
-                    raise AdapterError(f"Factory '{factory_name}' not found")
+        return self._plugins.get(plugin_id)
 
-                spec = self._specs.get(factory_name)
-                if not spec:
-                    raise AdapterError(f"Specification for '{factory_name}' not found")
+    def get_plugins(self) -> Dict[str, Dict[str, Any]]:
+        """Get all registered adapter plugins.
 
-                # Validate configuration against spec
-                if spec.validation and spec.validation.config_schema:
-                    try:
-                        spec.validation.config_schema.validate(config)
-                    except Exception as e:
-                        raise AdapterError(f"Invalid configuration: {e}")
+        Returns:
+            Dictionary mapping plugin IDs to plugin information
+        """
+        return self._plugins.copy()
 
-                # Create adapter instance
-                adapter = await factory.create(config)
-                if initialize:
-                    await adapter.initialize()
-
-                # Register adapter
-                await self.register_adapter(adapter)
-
-                return adapter
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to create adapter: {e}",
-                    extra={"factory": factory_name},
-                    exc_info=True,
-                )
-                raise AdapterError(f"Failed to create adapter: {e}") from e
-
-    async def remove_adapter(self, name: str, cleanup: bool = True) -> None:
-        """Remove registered adapter.
+    def get_adapters_by_type(
+        self, adapter_type: AdapterType
+    ) -> Dict[str, Type["BaseAdapter"]]:
+        """Get all adapters of a specific type.
 
         Args:
-            name: Adapter name
-            cleanup: Whether to cleanup adapter resources
-
-        Raises:
-            AdapterError: If adapter removal fails
-        """
-        async with self._lock:
-            try:
-                adapter = None
-                try:
-                    adapter = self.get(name)
-                except Exception:
-                    return
-
-                if adapter:
-                    if cleanup:
-                        await adapter.cleanup()
-                    self.unregister(name)
-                    self._adapter_metadata.pop(name, None)
-                    logger.info(f"Removed adapter: {name}")
-
-            except Exception as e:
-                logger.error(
-                    f"Failed to remove adapter: {e}",
-                    extra={"adapter": name},
-                    exc_info=True,
-                )
-                raise AdapterError(f"Failed to remove adapter: {e}") from e
-
-    async def get_adapter_metadata(self, name: str) -> Optional[AdapterMetadata]:
-        """Get adapter-specific metadata.
-
-        Args:
-            name: Adapter name
+            adapter_type: The type of adapter to filter by
 
         Returns:
-            Optional[AdapterMetadata]: Adapter metadata if found
+            Dictionary mapping adapter IDs to adapter classes
         """
-        async with self._lock:
-            return self._adapter_metadata.get(name)
+        return {
+            adapter_id: adapter_class
+            for adapter_id, adapter_class in self._adapters.items()
+            if hasattr(adapter_class, "adapter_type")
+            and adapter_class.adapter_type == adapter_type
+        }
 
-    async def get_spec(self, name: str) -> Optional[AdapterSpec]:
-        """Get factory specification.
+    def clear(self) -> None:
+        """Clear all registered adapters and plugins."""
+        self._adapters.clear()
+        self._plugins.clear()
+        logger.debug("Cleared adapter registry")
 
-        Args:
-            name: Factory name
 
-        Returns:
-            Optional[AdapterSpec]: Factory specification if found
-        """
-        async with self._lock:
-            return self._specs.get(name)
-
-    async def list_adapters(self) -> Dict[str, ComponentMetadata]:
-        """List registered adapters with metadata.
-
-        Returns:
-            Dict[str, ComponentMetadata]: Dictionary of adapter metadata
-        """
-        async with self._lock:
-            return self.list_metadata()
-
-    async def list_factories(self) -> Dict[str, AdapterSpec]:
-        """List registered factories with specifications.
-
-        Returns:
-            Dict[str, AdapterSpec]: Dictionary of factory specifications
-        """
-        async with self._lock:
-            return self._specs.copy()
+# Circular import prevention
+from pepperpy.adapters.base import BaseAdapter

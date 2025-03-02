@@ -1,5 +1,5 @@
 """
-Public Interfaces Package
+Public Interfaces Package for the PepperPy framework
 
 This package provides stable public interfaces for the PepperPy framework.
 These interfaces are guaranteed to be backward compatible across minor versions.

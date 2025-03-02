@@ -7,7 +7,7 @@ from pepperpy.storage.base import StorageError, StorageProvider
 
 
 class GCPStorageProvider(StorageProvider):
-    """Google Cloud Storage provider implementation."""
+    """Provider implementation for Google Cloud Storage services."""
 
     def __init__(
         self,

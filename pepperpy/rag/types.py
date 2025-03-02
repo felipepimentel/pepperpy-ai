@@ -1,93 +1,95 @@
-"""Core data types for the RAG system."""
+"""Type definitions for the RAG system.
 
-from dataclasses import dataclass, field
-from datetime import datetime
-from enum import Enum
+This module defines the core data types for the RAG system.
+"""
+
+from enum import Enum, auto
 from typing import Any, Dict, List
 
-
-class ChunkType(Enum):
-    """Types of document chunks."""
-
-    TEXT = "text"
-    CODE = "code"
-    TABLE = "table"
-    LIST = "list"
-    EQUATION = "equation"
-    IMAGE = "image"
-    CUSTOM = "custom"
+from pydantic import BaseModel, Field
 
 
-@dataclass
-class Chunk:
-    """Represents a chunk of content with metadata."""
+class RagComponentType(Enum):
+    """Types of RAG components."""
+
+    CUSTOM = auto()
+    PIPELINE = auto()
+
+    # Indexing components
+    CHUNKER = auto()
+    EMBEDDER = auto()
+    INDEXER = auto()
+    DOCUMENT_INDEXER = auto()
+    INDEXING_MANAGER = auto()
+
+    # Retrieval components
+    RETRIEVER = auto()
+    SIMILARITY_RETRIEVER = auto()
+    HYBRID_RETRIEVER = auto()
+    RETRIEVAL_MANAGER = auto()
+
+    # Generation components
+    GENERATOR = auto()
+    PROMPT_GENERATOR = auto()
+    CONTEXT_AWARE_GENERATOR = auto()
+    GENERATION_MANAGER = auto()
+
+
+class Document(BaseModel):
+    """A document to be indexed and retrieved."""
 
     id: str
     content: str
-    type: ChunkType
-    start_idx: int
-    end_idx: int
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class Document:
-    """Represents a document in the RAG system."""
+class Chunk(BaseModel):
+    """A chunk of content from a document."""
 
     id: str
     content: str
-    chunks: List[Chunk]
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
-    updated_at: datetime = field(default_factory=datetime.now)
+    document_id: str
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class Embedding:
-    """Represents an embedding vector with metadata."""
+class Embedding(BaseModel):
+    """An embedding vector for a chunk."""
 
     id: str
     vector: List[float]
     chunk_id: str
-    model: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class SearchQuery:
-    """Represents a search query with parameters."""
+class SearchQuery(BaseModel):
+    """A search query for the RAG system."""
 
-    text: str
-    filters: Dict[str, Any] = field(default_factory=dict)
+    query: str
+    filters: Dict[str, Any] = Field(default_factory=dict)
     top_k: int = 5
-    threshold: float = 0.0
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class SearchResult:
-    """Represents a search result with relevance score."""
+class SearchResult(BaseModel):
+    """A search result from the RAG system."""
 
     chunk: Chunk
     score: float
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class RagContext:
-    """Context for RAG operations including configuration and state."""
+class RagContext(BaseModel):
+    """Context for RAG operations."""
 
-    query: str
-    results: List[SearchResult]
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    config: Dict[str, Any] = field(default_factory=dict)
+    query: SearchQuery
+    results: List[SearchResult] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
-@dataclass
-class RagResponse:
-    """Response from the RAG system including generated content and context."""
+class RagResponse(BaseModel):
+    """Response from the RAG system."""
 
-    content: str
+    query: SearchQuery
+    response: str
     context: RagContext
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    created_at: datetime = field(default_factory=datetime.now)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
