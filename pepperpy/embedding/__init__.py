@@ -1,50 +1,32 @@
-"""Embedding module for vector representations.
+"""Embedding module for PepperPy.
 
-This module provides functionality for converting text and documents into
-vector embeddings for use in various applications such as RAG, semantic search,
-and clustering.
+This module provides embedding capabilities for text and documents.
 """
 
-from .base import BaseEmbedding, EmbeddingError
-from .factory import create_embedding
-from .rag import (
+# Re-export public interfaces
+# Import internal implementations
+from pepperpy.embedding.base import BaseEmbedding
+from pepperpy.embedding.factory import create_embedding
+from pepperpy.embedding.public import (
+    CachedEmbedder,
     DocumentEmbedder,
     Embedder,
+    EmbeddingProvider,
     SentenceEmbedder,
     TextEmbedder,
 )
-from .registry import (
-    get_embedding_class,
-    get_embedding_registry,
-    list_embeddings,
-    register_embedding,
-)
-from .types import (
-    EmbeddingConfig,
-    EmbeddingDimension,
-    EmbeddingResult,
-    EmbeddingType,
-)
+from pepperpy.embedding.types import EmbeddingType
 
 __all__ = [
-    # Base classes
-    "BaseEmbedding",
-    "EmbeddingError",
-    # Factory
-    "create_embedding",
-    # Registry
-    "register_embedding",
-    "get_embedding_class",
-    "list_embeddings",
-    "get_embedding_registry",
-    # Types
-    "EmbeddingType",
-    "EmbeddingDimension",
-    "EmbeddingConfig",
-    "EmbeddingResult",
-    # RAG embedders
+    # Public interfaces
     "Embedder",
     "TextEmbedder",
     "DocumentEmbedder",
     "SentenceEmbedder",
+    "EmbeddingProvider",
+    "CachedEmbedder",
+    # Implementation classes
+    "BaseEmbedding",
+    "create_embedding",
+    "EmbeddingType",
 ]

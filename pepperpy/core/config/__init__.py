@@ -1,11 +1,19 @@
-"""Environment-specific configuration management."""
+"""Configuration management for PepperPy.
 
-from typing import Type
+This module provides configuration management capabilities for the framework.
+"""
 
-from pepperpy.core.common.config.base import BaseConfig
-from pepperpy.core.common.config.environments.development import DevelopmentConfig
-from pepperpy.core.common.config.environments.production import ProductionConfig
-from pepperpy.core.common.config.environments.test import TestConfig
+# Re-export public interfaces
+# Import internal implementations
+from pepperpy.core.config.base import BaseConfig
+from pepperpy.core.config.development import DevelopmentConfig
+from pepperpy.core.config.production import ProductionConfig
+from pepperpy.core.config.public import (
+    ConfigManager,
+    ConfigProvider,
+    ConfigSection,
+)
+from pepperpy.core.config.test import TestConfig
 
 
 def get_config(environment: str) -> type[BaseConfig]:
@@ -36,6 +44,11 @@ def get_config(environment: str) -> type[BaseConfig]:
 
 
 __all__ = [
+    # Public interfaces
+    "ConfigManager",
+    "ConfigProvider",
+    "ConfigSection",
+    # Implementation classes
     "DevelopmentConfig",
     "ProductionConfig",
     "TestConfig",

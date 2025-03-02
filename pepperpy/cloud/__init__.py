@@ -10,13 +10,21 @@ It supports:
 - Data transfer and synchronization
 """
 
-# Re-export from providers.cloud for backward compatibility
-from pepperpy.cloud.base import CloudProvider, CloudProviderConfig
-from pepperpy.providers.cloud import *
+# Re-export public interfaces
+from pepperpy.cloud.public import (
+    CloudProvider,
+    CloudProviderConfig,
+    CloudService,
+)
+
+# Import internal implementations
 from pepperpy.storage.providers.cloud import CloudStorageProvider
 
 __all__ = [
+    # Public interfaces
     "CloudProvider",
     "CloudProviderConfig",
+    "CloudService",
+    # Implementation classes
     "CloudStorageProvider",
 ]
