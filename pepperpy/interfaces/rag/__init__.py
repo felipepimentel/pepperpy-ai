@@ -10,34 +10,25 @@ Core Components:
     RAGFactory: Factory for creating RAG pipelines
 
 Retrieval:
-    RetrievalSystem: Base class for retrieval systems
-    VectorRetrieval: Vector-based retrieval implementation
+    Retriever: Base class for retrieval systems
+    VectorRetriever: Vector-based retrieval implementation
+    Document: Represents a document in the retrieval system
+    SearchResult: Result from a retrieval operation
+    SearchQuery: Query for retrieval operations
 
 Processing:
     Preprocessor: Base class for preprocessing components
     Optimizer: Base class for optimization components
 """
 
-# Import public classes and functions from the implementation
-from pepperpy.rag.base import RAGPipeline
-from pepperpy.rag.config import RAGConfig
-from pepperpy.rag.factory import RAGFactory
-from pepperpy.rag.indexing import IndexingSystem
-from pepperpy.rag.processors.optimization import Optimizer
-from pepperpy.rag.processors.preprocessing import Preprocessor
-from pepperpy.rag.retrieval.system import RetrievalSystem, VectorRetrieval
+# Import retriever interfaces
+from .retriever import Document, Retriever, SearchQuery, SearchResult, VectorRetriever
 
 __all__ = [
-    # Core
-    "RAGPipeline",
-    "RAGConfig",
-    "RAGFactory",
     # Retrieval
-    "RetrievalSystem",
-    "VectorRetrieval",
-    # Processing
-    "Preprocessor",
-    "Optimizer",
-    # Indexing
-    "IndexingSystem",
-] 
+    "Retriever",
+    "VectorRetriever",
+    "Document",
+    "SearchQuery",
+    "SearchResult",
+]
