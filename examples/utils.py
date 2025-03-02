@@ -12,7 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.common.base import ComponentBase
+from pepperpy.core.base import ComponentBase
 from pepperpy.core.metrics import Counter, Histogram
 
 # Configure logging

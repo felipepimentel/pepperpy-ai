@@ -6,7 +6,6 @@ This module provides the public interface for memory capabilities.
 
 from typing import Any, Dict, List, Optional
 
-from pepperpy.capabilities import CapabilityType
 from pepperpy.capabilities.base import BaseCapability, CapabilityConfig
 
 

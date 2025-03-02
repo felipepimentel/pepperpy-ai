@@ -6,6 +6,7 @@ This module defines the base class for LLM (Large Language Model) providers.
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
+from pepperpy.llm.base import LLMProvider as BaseLLMProvider
 from pepperpy.llm.providers.base.types import (
     ChatMessage,
     CompletionOptions,
@@ -15,7 +16,11 @@ from pepperpy.llm.providers.base.types import (
 
 
 class LLMProviderBase(ABC):
-    """Base class for LLM providers."""
+    """Base class for LLM providers.
+    
+    This class provides a compatibility layer between the new provider interface
+    and the existing LLM provider interface in pepperpy/llm/base.py.
+    """
 
     @abstractmethod
     def generate(
@@ -24,15 +29,15 @@ class LLMProviderBase(ABC):
         options: Optional[CompletionOptions] = None,
         **kwargs,
     ) -> LLMResponse:
-        """Generate text completion.
+        """Generate text from a prompt.
 
         Args:
-            prompt: Text prompt for completion
-            options: Completion options
-            **kwargs: Additional parameters for the provider
+            prompt: The prompt to generate text from
+            options: Optional completion options
+            **kwargs: Additional provider-specific parameters
 
         Returns:
-            LLMResponse: Generated completion response
+            LLMResponse: The generated text and metadata
         """
         pass
 
@@ -43,24 +48,24 @@ class LLMProviderBase(ABC):
         options: Optional[CompletionOptions] = None,
         **kwargs,
     ) -> LLMResponse:
-        """Generate chat completion.
+        """Generate a response from a chat conversation.
 
         Args:
             messages: List of chat messages
-            options: Completion options
-            **kwargs: Additional parameters for the provider
+            options: Optional completion options
+            **kwargs: Additional provider-specific parameters
 
         Returns:
-            LLMResponse: Generated chat response
+            LLMResponse: The generated response and metadata
         """
         pass
 
     @abstractmethod
     def get_models(self) -> List[str]:
-        """Get list of available models.
+        """Get a list of available models.
 
         Returns:
-            List[str]: List of model names
+            List[str]: List of model identifiers
         """
         pass
 
@@ -73,8 +78,5 @@ class LLMProviderBase(ABC):
 
         Returns:
             ModelParameters: Model parameters
-
-        Raises:
-            ValueError: If model is not found
         """
         pass

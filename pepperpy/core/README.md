@@ -1,121 +1,74 @@
-# PepperPy Core Module
+# Core Module Structure
 
-The core module provides fundamental functionality for the PepperPy framework, including base classes, utilities, and the component metadata system.
+## Overview
 
-## Component Metadata System
+The `core` module provides the foundational components and utilities for the PepperPy framework. It is organized into several submodules, each with a specific purpose.
 
-The component metadata system allows components to self-describe and be discovered by the Hub. This enables:
+## Structure
 
-- **Component Discovery**: Automatically find and register components in modules
-- **Component Registry**: Maintain a central registry of available components
-- **Component Categorization**: Organize components by category and tags
-- **Component Documentation**: Provide rich metadata about components
+- **base**: Base classes and interfaces for components and providers
+  - `BaseComponent`: Abstract base class for all components
+  - `BaseProvider`: Base class for all providers
+  - `BaseManager`: Generic manager for components
+  - `Lifecycle`: Base class for components with lifecycle management
+  - `ComponentConfig`: Configuration for components
+  - `ComponentCallback`: Protocol for component callbacks
 
-### Key Features
+- **common**: Common utilities and shared components
+  - `utils`: Utility functions for common operations
+  - `types`: Core types and enumerations
 
-- **Decorator-based**: Simple `@component` decorator to add metadata to component classes
-- **Categorization**: Components are organized by category (audio, image, text, etc.)
-- **Tagging**: Components can be tagged for easier discovery
-- **Registry**: Global registry for component lookup
-- **Discovery**: Automatic discovery of components in modules
+- **validation**: Validation utilities and schemas
+  - `ValidationError`: Base exception for validation errors
+  - `Validator`: Base class for all validators
+  - `SchemaDefinition`: Schema definition for validation
+  - `ValidationManager`: Manager for validation
 
-### Usage Example
+- **types**: Core type definitions
+  - `JsonDict`, `JsonList`: Type aliases for JSON data
+  - `PathLike`: Type alias for path-like objects
+  - `Version`: Version representation
+
+- **registry**: Component registry system
+  - `Registry`: Registry for components
+  - `ComponentMetadata`: Metadata for components
+
+## Recent Improvements
+
+1. **Consolidated Validation**: Moved validation functionality from `core/common/validation` to `core/validation` to eliminate duplication.
+
+2. **Consolidated Base Classes**: Merged functionality from `core/common/base.py` and `core/base/common.py` into `core/base/__init__.py` to provide a unified base component system.
+
+3. **Removed Empty Files**: Removed empty or unused utility files (`validation.py`, `formatting.py`, `system.py`, `io.py`, `data_manipulation.py`) from `core/common/utils` and additional empty files (`client.py`, `factory.py`, `recovery.py`, `models.py`, `lazy.py`, `optional.py`) from various locations.
+
+4. **Consistent Naming**: Ensured consistent naming across modules.
+
+5. **Reduced Redundancy**: Eliminated overlapping functionality between modules.
+
+## Usage Guidelines
+
+- Import base classes from `pepperpy.core.base`
+- Import validation utilities from `pepperpy.core.validation`
+- Import common utilities from `pepperpy.core.common.utils`
+- Import type definitions from `pepperpy.core.types`
+
+## Example
 
 ```python
-from pepperpy.core.base.common import BaseComponent
-from pepperpy.core.metadata import ComponentCategory, component, register_component
+from pepperpy.core.base import BaseComponent, Lifecycle
+from pepperpy.core.validation import Validator
+from pepperpy.core.types import JsonDict
 
-@component(
-    name="my_text_processor",
-    description="A text processor that does something useful",
-    category=ComponentCategory.TEXT,
-    input=["text"],
-    output=["text"],
-    tags=["nlp", "processing"],
-)
-class MyTextProcessor(BaseComponent):
-    def __init__(self, name="text_processor"):
-        super().__init__(name=name)
+class MyComponent(BaseComponent, Lifecycle):
+    def __init__(self, name: str):
+        super().__init__(name)
+        # Component implementation
+    
+    async def _initialize(self) -> None:
+        # Initialize resources
+        pass
         
-    def process(self, text):
-        # Process text
-        return text
-
-# Register the component
-register_component(MyTextProcessor)
+    async def _cleanup(self) -> None:
+        # Clean up resources
+        pass
 ```
-
-### Component Discovery
-
-You can discover components in a module:
-
-```python
-from pepperpy.core.metadata import discover_components
-
-# Discover components in the current module
-components = discover_components(__name__)
-```
-
-### Component Lookup
-
-You can look up components by name, category, or tag:
-
-```python
-from pepperpy.core.metadata import get_component, get_components_by_category, get_components_by_tag
-
-# Get a component by name
-text_processor = get_component("my_text_processor")
-
-# Get components by category
-text_components = get_components_by_category(ComponentCategory.TEXT)
-
-# Get components by tag
-nlp_components = get_components_by_tag("nlp")
-```
-
-### Component Metadata
-
-You can access component metadata:
-
-```python
-from pepperpy.core.metadata import get_metadata
-
-# Get metadata for a component
-metadata = get_metadata(MyTextProcessor)
-print(metadata.description)
-print(metadata.category)
-print(metadata.tags)
-
-# Convert metadata to dictionary
-metadata_dict = metadata.to_dict()
-```
-
-## Base Components
-
-The core module also provides base classes for components:
-
-- **BaseComponent**: The root class for all components
-- **BaseProcessor**: Base class for processors
-- **BaseModel**: Base class for models
-
-## Utilities
-
-The core module includes various utilities:
-
-- **Configuration**: Utilities for component configuration
-- **Logging**: Logging utilities
-- **Error Handling**: Error handling utilities
-- **Type Definitions**: Common type definitions
-
-## Integration with Hub
-
-The metadata system is designed to integrate with the PepperPy Hub, allowing:
-
-- **Component Publishing**: Publish components to the Hub
-- **Component Discovery**: Discover components from the Hub
-- **Component Installation**: Install components from the Hub
-- **Component Updates**: Update components from the Hub
-
-## Examples
-
-See the `examples` directory for more examples of using the core module. 

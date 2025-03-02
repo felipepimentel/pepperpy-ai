@@ -10,10 +10,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, cast
 from uuid import UUID, uuid4
 
-from pepperpy.core.common.base import BaseAgent, Metadata
+from pepperpy.core.base import BaseAgent, Metadata
 from pepperpy.core.errors import ConfigurationError, ValidationError
 from pepperpy.core.logging import get_logger
-from pepperpy.core.common.types import (
+from pepperpy.core.types import (
     Message,
     MessageContent,
     MessageType,

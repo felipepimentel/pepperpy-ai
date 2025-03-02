@@ -8,14 +8,12 @@ It includes:
 - Core types and enumerations
 - Utility functions for common operations
 - Registry system for component management
-- Validation utilities
 - Versioning and compatibility management
 """
 
-from pepperpy.core.common.types import *
+from pepperpy.core.types import *
 from pepperpy.core.common.utils import *
-from pepperpy.core.common.validation import *
-from pepperpy.core.common.versioning import *
+from pepperpy.core.versioning import *
 from pepperpy.core.errors import *
 
 __version__ = "0.1.0"

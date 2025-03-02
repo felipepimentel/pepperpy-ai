@@ -7,8 +7,8 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
-from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.common.types import ComponentState
+from pepperpy.core.base import Lifecycle
+from pepperpy.core.types import ComponentState
 
 
 class WorkflowStep(BaseModel):

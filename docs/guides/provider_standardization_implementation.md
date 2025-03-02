@@ -74,9 +74,9 @@ Update documentation and examples to use the new import paths:
   from pepperpy.providers.llm.openai import OpenAIProvider
   ```
 
-- For public API imports, use the interfaces package:
+- For public API imports, use the domain's public interfaces:
   ```python
-  from pepperpy.interfaces.providers import OpenAIProvider
+  from pepperpy.llm.providers import OpenAIProvider
   ```
 
 ### 6. Creating New Providers

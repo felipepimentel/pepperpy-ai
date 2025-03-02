@@ -52,12 +52,12 @@ REORGANIZATION_MAPPINGS = [
 
 # Define directories to create for public interfaces
 PUBLIC_INTERFACE_DIRS = [
-    "pepperpy/interfaces/core",
-    "pepperpy/interfaces/capabilities",
-    "pepperpy/interfaces/workflows",
-    "pepperpy/interfaces/embeddings",
-    "pepperpy/interfaces/llm",
-    "pepperpy/interfaces/providers",
+    "pepperpy/core/public",
+    "pepperpy/capabilities/public",
+    "pepperpy/workflows/public",
+    "pepperpy/embedding/public",
+    "pepperpy/llm/public",
+    "pepperpy/providers/public",
 ]
 
 

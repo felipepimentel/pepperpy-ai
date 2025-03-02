@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 import psutil
 
-from pepperpy.core.common.types import ComponentState
+from pepperpy.core.types import ComponentState
 from pepperpy.hub.manager import HubManager
 from pepperpy.observability.metrics.manager import MetricsManager
 

@@ -23,7 +23,7 @@ A provider in PepperPy is an implementation of a specific interface that deliver
 Each domain has one or more interfaces that define the contract that providers must implement:
 
 ```python
-# pepperpy/interfaces/storage.py
+# pepperpy/storage/public.py
 from abc import ABC, abstractmethod
 from typing import Any, BinaryIO, List, Optional, Union
 
@@ -46,8 +46,8 @@ class StorageProvider(ABC):
 Providers implement the interface for a specific service or technology:
 
 ```python
-# pepperpy/providers/storage/local_provider.py
-from pepperpy.interfaces.storage import StorageProvider
+# pepperpy/storage/providers/local.py
+from pepperpy.storage import StorageProvider
 
 class LocalStorageProvider(StorageProvider):
     """Local filesystem implementation of the storage provider interface."""
@@ -149,7 +149,7 @@ Example:
 
 ```python
 # Custom LLM provider
-from pepperpy.interfaces.llm import LLMProvider
+from pepperpy.llm import LLMProvider
 from pepperpy.core.registry import register_provider
 
 class MyCustomLLMProvider(LLMProvider):
@@ -181,8 +181,8 @@ register_provider("llm", "my-custom", MyCustomLLMProvider)
 Providers can implement additional capabilities beyond the base interface:
 
 ```python
-from pepperpy.interfaces.llm import LLMProvider
-from pepperpy.interfaces.capabilities import StreamingCapable
+from pepperpy.llm import LLMProvider
+from pepperpy.capabilities import StreamingCapable
 
 class StreamingLLMProvider(LLMProvider, StreamingCapable):
     """LLM provider with streaming capability."""

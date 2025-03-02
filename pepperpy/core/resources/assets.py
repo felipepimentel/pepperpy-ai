@@ -11,11 +11,11 @@ from typing import Any, Dict, List, Optional, Set, Union
 
 from pydantic import Field
 
-from pepperpy.core.common.base import ComponentBase
+from pepperpy.core.base import ComponentBase
 from pepperpy.core.errors import AssetError
 from pepperpy.core.metrics import Counter, Histogram
 from pepperpy.core.common.resources import Resource, ResourceManager, ResourceMetadata
-from pepperpy.core.common.types import ResourceType
+from pepperpy.core.types import ResourceType
 
 # Configure logging
 logger = logging.getLogger(__name__)

@@ -29,11 +29,16 @@ Supported providers:
 
 from typing import Dict, List, Optional, Union
 
-from .base import (
+from pepperpy.multimodal.audio.providers.transcription.base import (
     TranscriptionError,
     TranscriptionProvider,
+    TranscriptionProviderProtocol,
     TranscriptionResult,
     TranscriptionSegment,
+    get_transcription_provider_class,
+    get_transcription_registry,
+    list_transcription_providers,
+    register_transcription_provider,
 )
 
 __version__ = "0.1.0"
@@ -42,4 +47,9 @@ __all__ = [
     "TranscriptionError",
     "TranscriptionResult",
     "TranscriptionSegment",
+    "TranscriptionProviderProtocol",
+    "register_transcription_provider",
+    "get_transcription_provider_class",
+    "list_transcription_providers",
+    "get_transcription_registry",
 ]

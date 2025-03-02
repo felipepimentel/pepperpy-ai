@@ -30,7 +30,7 @@ from pepperpy.content.base import (
 from pepperpy.content.loaders import TextContent
 from pepperpy.content.processors import TextProcessor
 from pepperpy.content.storage import LocalContentStorage
-from pepperpy.core.common.base import BaseComponent, Metadata
+from pepperpy.core.base import BaseComponent, Metadata
 from pepperpy.core.common.errors import ContentError, PepperpyError
 from pepperpy.core.common.logging import get_logger
 

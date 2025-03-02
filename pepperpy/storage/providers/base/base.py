@@ -4,7 +4,7 @@ This module defines the base class for all storage providers.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 from pepperpy.storage.providers.base.types import StorageProviderType
 

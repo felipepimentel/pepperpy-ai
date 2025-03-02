@@ -581,7 +581,9 @@ by external code that depends on PepperPy.
 ## Usage
 
 ```python
-from pepperpy.interfaces import LLMProvider, RAGProvider, Agent
+from pepperpy.llm import LLMProvider
+from pepperpy.rag import RAGPipeline
+from pepperpy.agents import Agent
 ```
 
 ## Interface Stability

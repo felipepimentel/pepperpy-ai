@@ -25,19 +25,16 @@ __all__ = [
     # Base
     "BaseComponent",
     "BaseProvider",
-    
     # Registry
     "Registry",
     "RegistryComponent",
     "ComponentMetadata",
     "get_registry",
-    
     # Types
     "JsonDict",
     "JsonList",
     "PathLike",
     "Version",
-    
     # Validation
     "ValidationError",
     "Validator",

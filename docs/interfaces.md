@@ -19,7 +19,7 @@ PepperPy provides a set of well-defined public interfaces that serve as the cont
 The LLM interfaces define the contract for language model providers:
 
 ```python
-# pepperpy/interfaces/llm.py
+# pepperpy/llm/public.py
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Iterator
 
@@ -45,7 +45,7 @@ class StreamingLLMProvider(LLMProvider):
 The Storage interfaces define the contract for storage providers:
 
 ```python
-# pepperpy/interfaces/storage.py
+# pepperpy/storage/public.py
 from abc import ABC, abstractmethod
 from typing import Any, BinaryIO, List, Optional, Union
 
@@ -68,7 +68,7 @@ class StorageProvider(ABC):
 The Cloud interfaces define the contract for cloud service providers:
 
 ```python
-# pepperpy/interfaces/cloud.py
+# pepperpy/cloud/public.py
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -86,7 +86,7 @@ class CloudProvider(ABC):
 ### Embedding Interfaces
 
 ```python
-# pepperpy/interfaces/embeddings/base.py
+# pepperpy/embedding/public.py
 from abc import ABC, abstractmethod
 from typing import List, Union
 
@@ -102,7 +102,7 @@ class EmbeddingProvider(ABC):
 ### RAG Interfaces
 
 ```python
-# pepperpy/interfaces/rag/base.py
+# pepperpy/rag/public.py
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -123,7 +123,7 @@ class RAGProvider(ABC):
 ### Agent Interfaces
 
 ```python
-# pepperpy/interfaces/agents/base.py
+# pepperpy/agents/public.py
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -141,7 +141,7 @@ class Agent(ABC):
 Capability interfaces define additional capabilities that providers can implement:
 
 ```python
-# pepperpy/interfaces/capabilities/streaming.py
+# pepperpy/capabilities/public.py
 from abc import ABC, abstractmethod
 from typing import Iterator
 
@@ -199,7 +199,7 @@ class OldInterface(ABC):
 Users can extend interfaces to add custom functionality:
 
 ```python
-from pepperpy.interfaces.llm import LLMProvider
+from pepperpy.llm import LLMProvider
 
 class CustomLLMProvider(LLMProvider):
     """Custom LLM provider with additional functionality."""
@@ -219,8 +219,8 @@ class CustomLLMProvider(LLMProvider):
 Interfaces can be composed to create more complex interfaces:
 
 ```python
-from pepperpy.interfaces.llm import LLMProvider
-from pepperpy.interfaces.capabilities import StreamingCapable
+from pepperpy.llm import LLMProvider
+from pepperpy.capabilities import StreamingCapable
 
 class AdvancedLLMProvider(LLMProvider, StreamingCapable):
     """Advanced LLM provider with streaming capability."""

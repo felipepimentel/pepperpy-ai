@@ -6,7 +6,7 @@ Define the data types and enumerations used in the workflow module.
 from enum import Enum, auto
 from typing import Any, Dict, Protocol, TypeVar
 
-from pepperpy.core.common.types.base import BaseComponent
+from pepperpy.core.types.base import BaseComponent
 
 from .base import BaseWorkflow
 

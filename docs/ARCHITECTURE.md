@@ -69,7 +69,7 @@ The `interfaces` module defines the contract that providers must implement. Each
 
 Example:
 ```python
-# pepperpy/interfaces/llm.py
+# pepperpy/llm/public.py
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
@@ -84,23 +84,15 @@ class LLMProvider(ABC):
 
 ### Providers
 
-The `providers` module contains implementations of the interfaces defined in the `interfaces` module. Each provider implements the interface for a specific service or technology.
+The `providers` module contains implementations of the interfaces defined in the domain-specific modules. Each provider implements the interface for a specific service or technology.
 
 Example:
 ```python
-# pepperpy/providers/llm/openai_provider.py
-from pepperpy.interfaces.llm import LLMProvider
+# pepperpy/llm/providers/openai.py
+from pepperpy.llm import LLMProvider
 
 class OpenAIProvider(LLMProvider):
     """OpenAI implementation of the LLM provider interface."""
-    
-    def __init__(self, api_key: str, model: str = "gpt-3.5-turbo"):
-        self.api_key = api_key
-        self.model = model
-        
-    def generate(self, prompt: str, **kwargs) -> str:
-        # Implementation details...
-        pass
 ```
 
 ### Core Components

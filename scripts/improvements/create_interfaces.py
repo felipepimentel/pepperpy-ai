@@ -586,7 +586,7 @@ def generate_public_api_doc(
             "To ensure compatibility with future versions of PepperPy, follow these guidelines:\n\n"
         )
         f.write(
-            "1. **Use only public interfaces**: Import only from the `pepperpy.interfaces` package.\n"
+            "1. **Use only public interfaces**: Import only from the domain-specific modules (e.g., `pepperpy.llm`, `pepperpy.storage`).\n"
         )
         f.write(
             "2. **Don't rely on implementation details**: Avoid accessing internal modules or attributes.\n"

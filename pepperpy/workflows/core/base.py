@@ -11,14 +11,14 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol, Union
 from uuid import UUID, uuid4
 
-from pepperpy.core.common.base import (
+from pepperpy.core.base import (
     ComponentCallback,
     ComponentConfig,
     ComponentState,
 )
 from pepperpy.core.types.enums import ComponentState
 from pepperpy.core.errors import StateError, WorkflowError
-from pepperpy.core.common.types import WorkflowID
+from pepperpy.core.types import WorkflowID
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 
