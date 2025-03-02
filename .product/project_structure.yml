@@ -378,10 +378,10 @@ structure:
             - manager.py: Lifecycle manager module
             - types.py: Core lifecycle types module
           logging:
-            description: Module initialization
+            description: Structured logging system for PepperPy core
             files:
-            - __init__.py: Module initialization and exports
-            - base.py: Base module
+            - __init__.py: Structured logging system for PepperPy core
+            - base.py: Base interfaces and classes for the PepperPy logging system
           plugins:
             description: Plugin system for PepperPy
             modules:
@@ -589,7 +589,7 @@ structure:
                 description: Anthropic LLM provider
                 files:
                 - __init__.py: Anthropic LLM provider
-                - provider.py: Anthropic LLM provider implementation
+                - anthropic_provider.py: Anthropic Provider module
               base:
                 description: Base module for LLM providers
                 files:
@@ -602,25 +602,21 @@ structure:
                 files:
                 - __init__.py: Gemini LLM provider
                 - gemini_provider.py: Gemini LLM provider implementation
-                - provider.py: Gemini LLM provider implementation
               openai:
                 description: OpenAI LLM provider
                 files:
                 - __init__.py: OpenAI LLM provider
                 - openai_provider.py: OpenAI LLM provider implementation
-                - provider.py: OpenAI LLM provider implementation
               openrouter:
                 description: OpenRouter LLM provider
                 files:
                 - __init__.py: OpenRouter LLM provider
                 - openrouter_provider.py: OpenRouter LLM provider implementation
-                - provider.py: OpenRouter LLM provider implementation
               perplexity:
                 description: Perplexity LLM provider
                 files:
                 - __init__.py: Perplexity LLM provider
                 - perplexity_provider.py: Perplexity Provider module
-                - provider.py: Perplexity LLM provider implementation
             files:
             - __init__.py: Provider implementations for LLM capabilities
         files:
@@ -852,15 +848,22 @@ structure:
             description: Storage providers for pepperpy
             modules:
               base:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
+                - base.py: Base module
+                - registry.py: Registry module
+                - types.py: Types module
               cloud:
                 description: Cloud storage provider
                 files:
                 - __init__.py: Cloud storage provider
+                - provider.py: Provider module
               local:
                 description: Local storage provider
                 files:
                 - __init__.py: Local storage provider
+                - provider.py: Provider module
               sql:
                 description: SQL storage provider
                 files:
@@ -878,11 +881,31 @@ structure:
             modules:
               providers:
                 description: Provider implementations for generation components
+                modules:
+                  anthropic:
+                    description: Anthropic provider for generation
+                    files:
+                    - __init__.py: Anthropic provider for generation
+                    - anthropic_provider.py: Anthropic provider implementation
+                  base:
+                    description: Base module for generation providers
+                    files:
+                    - __init__.py: Base module for generation providers
+                    - base.py: Base class for generation providers
+                    - registry.py: Registry for generation providers
+                    - types.py: Types for generation providers
+                  llama:
+                    description: Llama provider for generation
+                    files:
+                    - __init__.py: Llama provider for generation
+                    - llama_provider.py: Llama provider implementation
+                  openai:
+                    description: OpenAI provider for generation
+                    files:
+                    - __init__.py: OpenAI provider for generation
+                    - openai_provider.py: OpenAI provider implementation
                 files:
                 - __init__.py: Provider implementations for generation components
-                - anthropic.py: Anthropic module
-                - llama.py: Llama module
-                - openai.py: Openai module
             files:
             - __init__.py: Generation components for the RAG system
             - base.py: Base classes for the generation components of the RAG system
@@ -891,10 +914,26 @@ structure:
             modules:
               providers:
                 description: Provider implementations for indexing components
+                modules:
+                  base:
+                    description: Base module for indexing providers
+                    files:
+                    - __init__.py: Base module for indexing providers
+                    - base.py: Base class for indexing providers
+                    - registry.py: Registry for indexing providers
+                    - types.py: Types for indexing providers
+                  chroma:
+                    description: Chroma provider for indexing
+                    files:
+                    - __init__.py: Chroma provider for indexing
+                    - chroma_provider.py: Chroma provider implementation
+                  faiss:
+                    description: FAISS provider for indexing
+                    files:
+                    - __init__.py: FAISS provider for indexing
+                    - faiss_provider.py: FAISS provider implementation
                 files:
                 - __init__.py: Provider implementations for indexing components
-                - chroma.py: Chroma module
-                - faiss.py: Faiss module
             files:
             - __init__.py: Indexing components for the RAG system
             - base.py: Base classes for the indexing components of the RAG system
@@ -927,7 +966,10 @@ structure:
                     description: Module initialization
                     files:
                     - __init__.py: Module initialization and exports
+                    - base.py: Base module
                     - provider.py: Provider module
+                    - registry.py: Registry module
+                    - types.py: Types module
                 files:
                 - __init__.py: Module initialization and exports
                 - base.py: Base module

@@ -14,6 +14,11 @@ Provider Categories:
 """
 
 # Re-export provider interfaces
+from pepperpy.interfaces.llm import LLMProvider
+from pepperpy.interfaces.providers.embedding import (
+    EmbeddingProvider,
+    OpenAIEmbeddingProvider,
+)
 from pepperpy.interfaces.storage import StorageError, StorageProvider
 
 
@@ -73,4 +78,9 @@ __all__ = [
     # Storage interfaces
     "StorageError",
     "StorageProvider",
+    # LLM interfaces
+    "LLMProvider",
+    # Embedding interfaces
+    "EmbeddingProvider",
+    "OpenAIEmbeddingProvider",
 ]

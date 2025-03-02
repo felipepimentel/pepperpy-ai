@@ -10,10 +10,18 @@ Classes:
 """
 
 # Import public classes and functions from the implementation
-from pepperpy.embedding.providers.base import EmbeddingProvider
+from pepperpy.embedding.providers.base.types import (
+    EmbeddingProvider,
+    EmbeddingResponse,
+    ModelParameters,
+)
 from pepperpy.embedding.providers.openai import OpenAIEmbeddingProvider
 
 __all__ = [
+    # Core interfaces
     "EmbeddingProvider",
+    "EmbeddingResponse",
+    "ModelParameters",
+    # Provider implementations
     "OpenAIEmbeddingProvider",
 ]
