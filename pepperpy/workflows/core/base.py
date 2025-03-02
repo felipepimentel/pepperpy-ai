@@ -18,7 +18,6 @@ from pepperpy.core.base import (
 )
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
-from pepperpy.core.types.enums import ComponentState
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 
@@ -247,7 +246,7 @@ class BaseWorkflow(ABC):
             self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self.workflow_id), e)
-            raise WorkflowError(f"Failed to initialize workflow: {e}")
+            raise WorkflowError(f"Failed to initialize workflow: {e}") from e
 
     async def execute(self, **kwargs: Any) -> Any:
         """Execute workflow's main functionality.
@@ -382,7 +381,7 @@ class BaseWorkflow(ABC):
             self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self.workflow_id), e)
-            raise WorkflowError(f"Failed to clean up workflow: {e}")
+            raise WorkflowError(f"Failed to clean up workflow: {e}") from e
 
     @abstractmethod
     async def _initialize(self) -> None:

@@ -151,7 +151,7 @@ class CommandGroup(Command):
         self._commands: Dict[str, Command] = {}
         self._aliases: Dict[str, str] = {}
 
-    def add_command(
+    def add_command()
         self, command: Command, aliases: Optional[List[str]] = None
     ) -> None:
         """Add a command to the group.
@@ -164,7 +164,7 @@ class CommandGroup(Command):
             CLIError: If command name conflicts
         """
         if command.name in self._commands:
-            raise CLIError(
+            raise CLIError()
                 f"Command {command.name} already exists in group {self.name}"
             )
 
@@ -214,7 +214,7 @@ class CommandGroup(Command):
             CLIError: If subcommand not found or execution fails
         """
         if not context.args:
-            return CommandResult(
+            return CommandResult()
                 success=False,
                 message=f"Missing subcommand for {self.name}",
                 error={"type": "missing_subcommand"},
@@ -224,10 +224,10 @@ class CommandGroup(Command):
         subcommand = self.get_command(subcommand_name)
 
         if not subcommand:
-            return CommandResult(
+            return CommandResult()
                 success=False,
                 message=f"Unknown subcommand: {subcommand_name}",
-                error={
+                error={}
                     "type": "unknown_subcommand",
                     "name": subcommand_name,
                     "available": list(self._commands.keys()),
@@ -235,7 +235,7 @@ class CommandGroup(Command):
             )
 
         # Update context for subcommand
-        subcontext = CommandContext(
+        subcontext = CommandContext()
             args=context.args[1:],
             options=context.options,
             env=context.env,
@@ -250,9 +250,9 @@ class CommandGroup(Command):
         except CLIError:
             raise
         except Exception as e:
-            raise CLIError(
-                f"Failed to execute {subcommand.name}: {e}",
-                details={
+            raise CLIError( from e)
+            f"Failed to execute {subcommand.name}: {e}",
+                details={}
                     "command": subcommand.name,
                     "error": str(e),
                     "error_type": type(e).__name__,

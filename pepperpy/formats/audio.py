@@ -11,7 +11,6 @@ from typing import Any, Dict, Optional
 
 try:
     import numpy as np
-    from numpy.typing import NDArray
 
     NUMPY_AVAILABLE = True
 except ImportError:

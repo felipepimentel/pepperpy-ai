@@ -34,8 +34,8 @@ class SecureConfigProvider(ConfigProvider):
             from cryptography.hazmat.primitives import hashes
             from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
         except ImportError:
-            raise ImportError(
-                "cryptography package is required for SecureConfigProvider. "
+            raise ImportError( from None)
+            "cryptography package is required for SecureConfigProvider. "
                 "Install it with: pip install cryptography"
             )
 
@@ -45,7 +45,7 @@ class SecureConfigProvider(ConfigProvider):
         try:
             # Generate encryption key from password
             salt = b"pepperpy_secure_config"  # Constant salt for key derivation
-            kdf = PBKDF2HMAC(
+            kdf = PBKDF2HMAC()
                 algorithm=hashes.SHA256(),
                 length=32,
                 salt=salt,
@@ -54,7 +54,7 @@ class SecureConfigProvider(ConfigProvider):
             key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
             self._fernet = Fernet(key)
         except Exception as e:
-            raise ConfigEncryptionError(f"Failed to setup encryption: {e}")
+            raise ConfigEncryptionError(f"Failed to setup encryption: {e}") from e
 
         self._ensure_file_exists()
         self.load()
@@ -72,7 +72,7 @@ class SecureConfigProvider(ConfigProvider):
             encrypted = self._fernet.encrypt(serialized.encode())
             return base64.urlsafe_b64encode(encrypted).decode()
         except Exception as e:
-            raise ConfigEncryptionError(f"Failed to encrypt value: {e}")
+            raise ConfigEncryptionError(f"Failed to encrypt value: {e}") from e
 
     def _decrypt_value(self, encrypted: str) -> ConfigValue:
         """Decrypt a configuration value."""
@@ -81,7 +81,7 @@ class SecureConfigProvider(ConfigProvider):
             decrypted = self._fernet.decrypt(encrypted_bytes)
             return cast(ConfigValue, json.loads(decrypted.decode()))
         except Exception as e:
-            raise ConfigEncryptionError(f"Failed to decrypt value: {e}")
+            raise ConfigEncryptionError(f"Failed to decrypt value: {e}") from e
 
     def get(self, key: str) -> Optional[ConfigValue]:
         """Retrieve a configuration value by key."""
@@ -136,7 +136,7 @@ class SecureConfigProvider(ConfigProvider):
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2, sort_keys=True)
         except OSError as e:
-            raise ConfigEncryptionError(f"Failed to save configuration: {e}")
+            raise ConfigEncryptionError(f"Failed to save configuration: {e}") from e
 
     def exists(self, key: str) -> bool:
         """Check if a configuration key exists."""
@@ -144,7 +144,7 @@ class SecureConfigProvider(ConfigProvider):
 
     def get_namespace(self, namespace: str) -> Dict[str, ConfigValue]:
         """Get all configuration values under a namespace."""
-        encrypted_values = {
+        encrypted_values = {}
             k: v for k, v in self._config.items() if k.startswith(f"{namespace}.")
         }
         return {k: self._decrypt_value(v) for k, v in encrypted_values.items()}

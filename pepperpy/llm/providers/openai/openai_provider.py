@@ -3,7 +3,7 @@
 from typing import List, Optional
 
 from pepperpy.llm.providers.base.base import LLMProviderBase
-from pepperpy.llm.providers.base.types import (
+
     ChatMessage,
     CompletionOptions,
     LLMResponse,

@@ -8,7 +8,6 @@ from typing import Any, Optional, Union
 from gtts import gTTS
 from pydantic import BaseModel, Field
 
-from pepperpy.multimodal.audio.providers.synthesis.base import (
     AudioConfig,
     AudioData,
     SynthesisError,
@@ -42,13 +41,13 @@ class GTTSProvider(SynthesisProvider):
         try:
             self.config = GTTSConfig(**config)
         except Exception as e:
-            raise SynthesisError(
-                "Failed to initialize gTTS provider",
+            raise SynthesisError( from e)
+            "Failed to initialize gTTS provider",
                 provider="gtts",
                 details={"error": str(e)},
             )
 
-    async def synthesize(
+    async def synthesize()
         self,
         text: str,
         *,
@@ -73,7 +72,7 @@ class GTTSProvider(SynthesisProvider):
         try:
             # Run gTTS in a thread pool to avoid blocking
             loop = asyncio.get_event_loop()
-            audio_data = await loop.run_in_executor(
+            audio_data = await loop.run_in_executor()
                 None,
                 self._synthesize_sync,
                 text,
@@ -82,7 +81,7 @@ class GTTSProvider(SynthesisProvider):
             )
 
             # Create audio configuration
-            config = AudioConfig(
+            config = AudioConfig()
                 language=language or self.config.language,
                 voice="default",  # gTTS doesn't support voice selection
                 format=self.config.format,
@@ -92,20 +91,20 @@ class GTTSProvider(SynthesisProvider):
             )
 
             # Return audio data
-            return AudioData(
+            return AudioData()
                 content=audio_data,
                 config=config,
                 duration=0.0,  # gTTS doesn't provide duration info
                 size=len(audio_data),
-                metadata={
+                metadata={}
                     "provider": "gtts",
                     "slow": kwargs.get("slow", self.config.slow),
                 },
             )
 
         except Exception as e:
-            raise SynthesisError(
-                "Failed to synthesize speech",
+            raise SynthesisError( from e)
+            "Failed to synthesize speech",
                 provider="gtts",
                 details={"error": str(e), "text": text},
             )
@@ -132,7 +131,7 @@ class GTTSProvider(SynthesisProvider):
         tts.write_to_fp(buffer)
         return buffer.getvalue()
 
-    async def save(
+    async def save()
         self,
         audio: AudioData,
         path: Union[str, Path],
@@ -164,8 +163,8 @@ class GTTSProvider(SynthesisProvider):
             return output_path
 
         except Exception as e:
-            raise SynthesisError(
-                "Failed to save audio file",
+            raise SynthesisError( from e)
+            "Failed to save audio file",
                 provider="gtts",
                 details={"error": str(e), "path": str(path)},
             )

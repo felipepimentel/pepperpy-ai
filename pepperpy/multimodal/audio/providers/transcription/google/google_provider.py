@@ -3,7 +3,6 @@
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from pepperpy.multimodal.audio.providers.transcription.base import (
     TranscriptionError,
     TranscriptionProvider,
 )
@@ -12,7 +11,7 @@ from pepperpy.multimodal.audio.providers.transcription.base import (
 class GoogleTranscriptionProvider(TranscriptionProvider):
     """Provider implementation for Google Cloud Speech-to-Text capabilities."""
 
-    def __init__(
+    def __init__()
         self,
         credentials: Optional[Dict[str, str]] = None,
         project_id: Optional[str] = None,
@@ -32,8 +31,8 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         try:
             from google.cloud import speech
         except ImportError:
-            raise ImportError(
-                "google-cloud-speech package is required for GoogleTranscriptionProvider. "
+            raise ImportError( from None)
+            "google-cloud-speech package is required for GoogleTranscriptionProvider. "
                 "Install it with: pip install google-cloud-speech"
             )
 
@@ -42,16 +41,16 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         try:
             self.client = speech.SpeechClient(
                 credentials=credentials,
-                project=project_id,
+                project=project_id
             )
         except Exception as e:
-            raise TranscriptionError(f"Failed to initialize Google Cloud client: {e}")
+            raise TranscriptionError(f"Failed to initialize Google Cloud client: {e}") from e
 
     def transcribe(
         self,
         audio: Union[str, Path, bytes],
         language: Optional[str] = None,
-        **kwargs,
+        **kwargs
     ) -> str:
         """Transcribe audio using Google Cloud Speech-to-Text.
 
@@ -86,13 +85,13 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
             config = speech.RecognitionConfig(
                 language_code=language or "en-US",
                 **self.kwargs,
-                **kwargs,
+                **kwargs
             )
 
             # Transcribe audio
             response = self.client.recognize(
                 config=config,
-                audio=audio_input,
+                audio=audio_input
             )
 
             # Combine all transcripts
@@ -105,13 +104,13 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
             return text
 
         except Exception as e:
-            raise TranscriptionError(f"Failed to transcribe audio: {e}")
+            raise TranscriptionError(f"Failed to transcribe audio: {e}") from e
 
     def transcribe_with_timestamps(
         self,
         audio: Union[str, Path, bytes],
         language: Optional[str] = None,
-        **kwargs,
+        **kwargs
     ) -> List[Dict[str, Union[str, float]]]:
         """Transcribe audio with timestamps using Google Cloud Speech-to-Text.
 
@@ -143,7 +142,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
             audio_input = speech.RecognitionAudio(content=content)
 
             # Prepare config with word time offsets
-            config = speech.RecognitionConfig(
+            config = speech.RecognitionConfig()
                 language_code=language or "en-US",
                 enable_word_time_offsets=True,
                 **self.kwargs,
@@ -153,7 +152,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
             # Transcribe audio
             response = self.client.recognize(
                 config=config,
-                audio=audio_input,
+                audio=audio_input
             )
 
             # Extract segments with timestamps
@@ -165,7 +164,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                         current_segment = {
                             "text": "",
                             "start": words[0].start_time.total_seconds(),
-                            "end": words[-1].end_time.total_seconds(),
+                            "end": words[-1].end_time.total_seconds()
                         }
                         for word in words:
                             current_segment["text"] += f" {word.word}"
@@ -175,7 +174,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
             return segments
 
         except Exception as e:
-            raise TranscriptionError(f"Failed to transcribe audio: {e}")
+            raise TranscriptionError(f"Failed to transcribe audio: {e}") from e
 
     def get_supported_languages(self) -> List[str]:
         """Get list of supported language codes.

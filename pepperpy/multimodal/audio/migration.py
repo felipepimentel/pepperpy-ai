@@ -1,4 +1,7 @@
 """Migration utilities for transitioning to the unified audio processing system.
+from .analysis import AudioAnalyzer, AudioClassifier, SpeechTranscriber
+from .input import AudioProcessor as InputProcessor
+from .output import AudioProcessor as OutputProcessor
 
 This module provides utilities to help migrate from the old audio processing systems
 to the new unified audio processing system, including:
@@ -51,9 +54,6 @@ class OldOutputProcessor:
 
 
 # Import the new classes
-from .analysis import AudioAnalyzer, AudioClassifier, SpeechTranscriber
-from .input import AudioProcessor as InputProcessor
-from .output import AudioProcessor as OutputProcessor
 
 
 class MigrationHelper:

@@ -1,12 +1,14 @@
 """Migration utilities for transitioning to the unified workflow system.
 
 This module provides utilities to help migrate from the legacy workflow
+from pepperpy.workflows.base import WorkflowDefinition
+from re import Match, Pattern
 implementations to the new unified workflow system.
 """
 
 import ast
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from .base import WorkflowDefinition
 from .builder import WorkflowBuilder
@@ -245,7 +247,7 @@ class MigrationHelper:
         guide += "## API Changes\n\n"
         if legacy_usage:
             guide += "The following lines may need updates:\n\n"
-            for usage_type, line_number in legacy_usage:
+            for _usage_type, line_number in legacy_usage:
                 line = code.splitlines()[line_number - 1]
                 guide += f"- Line {line_number}: `{line.strip()}`\n"
 

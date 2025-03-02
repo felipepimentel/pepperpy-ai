@@ -1,4 +1,7 @@
 """Tool commands for the Pepperpy CLI.
+import click
+from rich.console import Console
+from rich.table import Table
 
 This module provides commands for:
 - Creating tools
@@ -39,7 +42,7 @@ def create(name: str, tool_type: str, config: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
@@ -59,7 +62,7 @@ def run(name: str, input: str, config: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
@@ -82,7 +85,7 @@ def config(name: str, key: str, value: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
@@ -96,7 +99,7 @@ def list() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 """Tool commands for the Pepperpy CLI.
@@ -108,9 +111,6 @@ This module provides commands for managing tools:
 - Monitoring tool activity
 """
 
-import click
-from rich.console import Console
-from rich.table import Table
 
 console = Console()
 
@@ -124,7 +124,6 @@ def tool() -> None:
 @click.argument("name")
 @click.option("--type", help="Tool type")
 @click.option("--config", type=click.Path(exists=True), help="Tool configuration file")
-def create(name: str, type: str, config: str) -> None:
     """Create a new tool.
 
     NAME: Name of the tool to create
@@ -137,7 +136,7 @@ def create(name: str, type: str, config: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
@@ -158,13 +157,12 @@ def delete(name: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
 @click.option("--type", help="Filter by tool type")
 @click.option("--status", help="Filter by status")
-def list(type: str, status: str) -> None:
     """List available tools."""
     try:
         # TODO: Implement tool listing
@@ -188,7 +186,7 @@ def list(type: str, status: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
@@ -196,7 +194,6 @@ def list(type: str, status: str) -> None:
 @click.argument("operation")
 @click.option("--input", type=click.Path(exists=True), help="Input file")
 @click.option("--output", type=click.Path(), help="Output file")
-def run(name: str, operation: str, input: str, output: str) -> None:
     """Run a tool operation.
 
     NAME: Name of the tool
@@ -211,7 +208,7 @@ def run(name: str, operation: str, input: str, output: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @tool.command()
@@ -235,4 +232,4 @@ def info(name: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e

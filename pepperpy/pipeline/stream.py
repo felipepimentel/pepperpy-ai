@@ -116,7 +116,7 @@ class StreamProcessor(Lifecycle, Generic[T, U]):
             self._logger.error(f"Error queueing item: {e}", exc_info=True)
             if self._metrics:
                 self._processing_errors.inc()
-            raise ProcessingError(f"Failed to queue item: {e}")
+            raise ProcessingError(f"Failed to queue item: {e}") from e
 
     async def _process_stream(self) -> None:
         """Background task for processing queued items."""

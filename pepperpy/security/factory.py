@@ -41,4 +41,6 @@ def create_security_provider(
         # Create provider instance
         return provider_class(**provider_config)
     except Exception as e:
-        raise SecurityError(f"Failed to create security provider '{provider}': {e}")
+        raise SecurityError(
+            f"Failed to create security provider '{provider}': {e}"
+        ) from e

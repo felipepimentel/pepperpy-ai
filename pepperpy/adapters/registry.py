@@ -1,4 +1,5 @@
 """Adapter registry module.
+from pepperpy.adapters.base import BaseAdapter
 
 This module provides a registry for adapter plugins and adapter classes.
 """
@@ -116,4 +117,3 @@ class AdapterRegistry:
 
 
 # Circular import prevention
-from pepperpy.adapters.base import BaseAdapter

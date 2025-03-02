@@ -69,7 +69,7 @@ class Sandbox(Lifecycle):
             logger.info("Sandbox initialized")
 
         except Exception as e:
-            raise SecurityError(f"Failed to initialize sandbox: {e}")
+            raise SecurityError(f"Failed to initialize sandbox: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up sandbox resources."""
@@ -168,7 +168,7 @@ class Sandbox(Lifecycle):
                     await process.wait()
                 except Exception:
                     pass
-                raise SecurityError("Code execution timed out")
+                raise SecurityError("Code execution timed out") from None
 
             finally:
                 # Clean up temp file
@@ -177,4 +177,4 @@ class Sandbox(Lifecycle):
         except SecurityError:
             raise
         except Exception as e:
-            raise SecurityError(f"Failed to execute code: {e}")
+            raise SecurityError(f"Failed to execute code: {e}") from e

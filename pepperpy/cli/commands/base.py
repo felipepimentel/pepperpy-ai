@@ -50,12 +50,12 @@ class BaseCommand(abc.ABC):
                 console.print(f"[red]Error:[/red] {str(e)}")
                 if hasattr(e, "recovery_hint") and e.recovery_hint:
                     console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-                raise click.Abort()
+                raise click.Abort() from e
             except Exception as e:
                 console.print(f"[red]Unexpected error:[/red] {str(e)}")
                 if ctx.obj and ctx.obj.get("debug"):
                     console.print_exception()
-                raise click.Abort()
+                raise click.Abort() from e
 
         # Add parameters
         for param in cls.get_parameters():

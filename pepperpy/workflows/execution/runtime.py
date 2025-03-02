@@ -102,7 +102,7 @@ class WorkflowEngine(ComponentBase):
 
         except Exception as e:
             logger.error("Failed to initialize workflow engine: %s", str(e))
-            raise WorkflowError(f"Failed to initialize workflow engine: {e}")
+            raise WorkflowError(f"Failed to initialize workflow engine: {e}") from e
 
     async def _cleanup(self) -> None:
         """Clean up workflow engine resources."""
@@ -129,7 +129,7 @@ class WorkflowEngine(ComponentBase):
 
         except Exception as e:
             logger.error("Failed to clean up workflow engine: %s", str(e))
-            raise WorkflowError(f"Failed to clean up workflow engine: {e}")
+            raise WorkflowError(f"Failed to clean up workflow engine: {e}") from e
 
     async def _execute(self, **kwargs: Any) -> Any:
         """Execute workflow engine functionality.

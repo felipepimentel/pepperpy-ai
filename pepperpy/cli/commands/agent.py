@@ -19,7 +19,7 @@ logger = get_logger(__name__)
 console = Console()
 
 
-async def create_agent(
+async def create_agent()
     name: str,
     agent_type: str,
     description: str | None = None,
@@ -41,14 +41,14 @@ async def create_agent(
     """
     try:
         # Create agent configuration
-        config = AgentConfig(
+        config = AgentConfig()
             name=name,
             description=description or f"{agent_type.title()} agent",
             parameters=parameters or {},
         )
 
         # Create agent instance
-        agent = BaseAgent(
+        agent = BaseAgent()
             name=name,
             version="0.1.0",
             config=config,
@@ -61,9 +61,9 @@ async def create_agent(
         return agent_id
 
     except Exception as e:
-        raise PepperpyError(
-            message=f"Failed to create agent: {e}",
-            details={
+        raise PepperpyError( from e)
+        message=f"Failed to create agent: {e}",
+            details={}
                 "name": name,
                 "type": agent_type,
                 "description": description,
@@ -72,7 +72,7 @@ async def create_agent(
         )
 
 
-async def list_agents(
+async def list_agents()
     agent_type: str | None = None,
     status: str | None = None,
 ) -> list[dict[str, str]]:
@@ -93,9 +93,9 @@ async def list_agents(
         registry = AgentRegistry()
 
         # List agents with filters
-        agents = await registry.list(
-            filters=(
-                {
+        agents = await registry.list()
+            filters=()
+                {}
                     "type": agent_type,
                     "status": status,
                 }
@@ -107,8 +107,8 @@ async def list_agents(
         # Format agent information
         result = []
         for agent in agents:
-            result.append(
-                {
+            result.append()
+                {}
                     "id": agent.id,
                     "name": agent.name,
                     "type": agent.type,
@@ -120,9 +120,9 @@ async def list_agents(
         return result
 
     except Exception as e:
-        raise PepperpyError(
-            message=f"Failed to list agents: {e}",
-            details={
+        raise PepperpyError( from e)
+        message=f"Failed to list agents: {e}",
+            details={}
                 "type": agent_type,
                 "status": status,
             },
@@ -137,7 +137,7 @@ def display_agents(agents: list[dict[str, str]]) -> None:
         agents: List of agent information
     """
     # Create table
-    table = Table(
+    table = Table()
         title="Available Agents",
         show_header=True,
         header_style="bold magenta",
@@ -152,7 +152,7 @@ def display_agents(agents: list[dict[str, str]]) -> None:
 
     # Add rows
     for agent in agents:
-        table.add_row(
+        table.add_row()
             agent["id"],
             agent["name"],
             agent["type"],
@@ -181,14 +181,14 @@ async def delete_agent(agent_id: str) -> None:
         await registry.delete(agent_id)
 
     except Exception as e:
-        raise PepperpyError(
-            message=f"Failed to delete agent: {e}",
+        raise PepperpyError( from e)
+        message=f"Failed to delete agent: {e}",
             details={"agent_id": agent_id},
             recovery_hint="Check agent ID and try again",
         )
 
 
-async def update_agent(
+async def update_agent()
     agent_id: str,
     name: str | None = None,
     description: str | None = None,
@@ -212,7 +212,7 @@ async def update_agent(
         # Get current agent
         agent = await registry.get(agent_id)
         if not agent:
-            raise PepperpyError(
+            raise PepperpyError()
                 message=f"Agent not found: {agent_id}",
                 details={"agent_id": agent_id},
                 recovery_hint="Check agent ID and try again",
@@ -233,9 +233,9 @@ async def update_agent(
     except PepperpyError:
         raise
     except Exception as e:
-        raise PepperpyError(
-            message=f"Failed to update agent: {e}",
-            details={
+        raise PepperpyError( from e)
+        message=f"Failed to update agent: {e}",
+            details={}
                 "agent_id": agent_id,
                 "name": name,
                 "description": description,
@@ -281,7 +281,7 @@ def create(name: str, type: str, config: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent.command()
@@ -302,7 +302,7 @@ def delete(name: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @agent.command()
@@ -316,4 +316,4 @@ def list() -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e

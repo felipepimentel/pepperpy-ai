@@ -69,7 +69,7 @@ class ResourceLifecycle(Lifecycle):
             logger.info("Resource lifecycle initialized")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize lifecycle: {e}")
+            raise ValidationError(f"Failed to initialize lifecycle: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up lifecycle."""
@@ -88,7 +88,7 @@ class ResourceLifecycle(Lifecycle):
             logger.info("Resource lifecycle cleaned up")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up lifecycle: {e}")
+            raise ValidationError(f"Failed to clean up lifecycle: {e}") from e
 
     def register_pool(self, pool: ResourcePool) -> None:
         """Register resource pool.

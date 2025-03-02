@@ -9,7 +9,7 @@ from pepperpy.storage.base import StorageError, StorageProvider
 class GCPStorageProvider(StorageProvider):
     """Provider implementation for Google Cloud Storage services."""
 
-    def __init__(
+    def __init__()
         self,
         bucket_name: str,
         project_id: str,
@@ -30,8 +30,8 @@ class GCPStorageProvider(StorageProvider):
         try:
             from google.cloud import storage
         except ImportError:
-            raise ImportError(
-                "google-cloud-storage package is required for GCPStorageProvider. "
+            raise ImportError( from None)
+            "google-cloud-storage package is required for GCPStorageProvider. "
                 "Install it with: pip install google-cloud-storage"
             )
 
@@ -40,13 +40,13 @@ class GCPStorageProvider(StorageProvider):
         self.base_path = base_path or ""
 
         try:
-            self.client = storage.Client(
+            self.client = storage.Client()
                 project=project_id,
                 credentials=credentials,
             )
             self.bucket = self.client.bucket(bucket_name)
         except Exception as e:
-            raise StorageError(f"Failed to initialize GCP storage: {e}")
+            raise StorageError(f"Failed to initialize GCP storage: {e}") from e
 
     def _get_full_path(self, path: Union[str, Path]) -> str:
         """Get full path including base path.
@@ -79,7 +79,7 @@ class GCPStorageProvider(StorageProvider):
             else:
                 blob.upload_from_string(data, content_type="application/octet-stream")
         except Exception as e:
-            raise StorageError(f"Failed to store data in GCS: {e}")
+            raise StorageError(f"Failed to store data in GCS: {e}") from e
 
     def retrieve(self, path: Union[str, Path]) -> bytes:
         """Retrieve data from GCS.
@@ -136,7 +136,7 @@ class GCPStorageProvider(StorageProvider):
             blob = self.bucket.blob(self._get_full_path(path))
             return blob.exists()
         except Exception as e:
-            raise StorageError(f"Failed to check existence in GCS: {e}")
+            raise StorageError(f"Failed to check existence in GCS: {e}") from e
 
     def list_files(self, path: Optional[Union[str, Path]] = None) -> List[str]:
         """List files in GCS.
@@ -155,7 +155,7 @@ class GCPStorageProvider(StorageProvider):
             blobs = self.bucket.list_blobs(prefix=prefix)
             return [blob.name for blob in blobs]
         except Exception as e:
-            raise StorageError(f"Failed to list files in GCS: {e}")
+            raise StorageError(f"Failed to list files in GCS: {e}") from e
 
     def get_url(self, path: Union[str, Path], expires_in: Optional[int] = None) -> str:
         """Get signed URL for accessing file in GCS.
@@ -172,9 +172,9 @@ class GCPStorageProvider(StorageProvider):
         """
         try:
             blob = self.bucket.blob(self._get_full_path(path))
-            return blob.generate_signed_url(
+            return blob.generate_signed_url()
                 expiration=expires_in or 3600,
                 method="GET",
             )
         except Exception as e:
-            raise StorageError(f"Failed to generate signed URL: {e}")
+            raise StorageError(f"Failed to generate signed URL: {e}") from e

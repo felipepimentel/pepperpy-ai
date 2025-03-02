@@ -457,7 +457,7 @@ class DictUtils:
                         and isinstance(result[key], dict)
                         and isinstance(value, dict)
                     ):
-                        # Type ignore is needed because mypy can't infer that both are dicts
+                        # Type ignore is needed because mypy can't infer that both are dicts  # noqa: E501
                         result[key] = cast(
                             V,
                             DictUtils.merge(

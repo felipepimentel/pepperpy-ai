@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from pepperpy.core.common.providers.unified import BaseProvider, ProviderConfig
 from pepperpy.core.metrics import MetricsManager
 
-    """Language model message.
+ """Language model message.
 
     Attributes:
         role: Message role (system, user, assistant)
@@ -49,7 +49,7 @@ class LLMProvider(BaseProvider):
         self.metrics = MetricsManager()
 
     @abstractmethod
-    async def process_message(
+    async def process_message()
         self,
         message: LLMMessage,
     ) -> LLMResponse | AsyncGenerator[LLMResponse, None]:
@@ -64,7 +64,7 @@ class LLMProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def embed(
+    async def embed()
         self,
         text: str,
         *,
@@ -86,7 +86,7 @@ class LLMProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def generate(
+    async def generate()
         self,
         messages: list[LLMMessage],
         **kwargs: Any,
@@ -135,7 +135,7 @@ class LLMProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def process_message(
+    async def process_message()
         self,
         message: ProviderMessage,
     ) -> ProviderResponse | AsyncGenerator[ProviderResponse, None]:
@@ -153,7 +153,7 @@ class LLMProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def embed(
+    async def embed()
         self,
         text: str,
         *,
@@ -178,7 +178,7 @@ class LLMProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def generate(
+    async def generate()
         self,
         messages: list[LLMMessage],
         **kwargs: Any,

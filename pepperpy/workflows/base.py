@@ -1,4 +1,7 @@
 """Base interfaces for workflows
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Set, Tuple
+from ..core.base.common import BaseComponent
 
 Define the base interfaces and classes for the workflow system,
 including definition, execution and management of workflows.
@@ -8,10 +11,11 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, Union
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
 from uuid import UUID, uuid4
 
 from pepperpy.core.base import (
+    ComponentBase,
     ComponentCallback,
     ComponentConfig,
     ComponentState,
@@ -34,7 +38,7 @@ class WorkflowState(str, Enum):
 
 
 @dataclass
-class WorkflowStep:
+class WorkflowStepConfig:
     """Workflow step definition."""
 
     name: str
@@ -93,7 +97,7 @@ class WorkflowCallback(ComponentCallback, Protocol):
         ...
 
 
-class WorkflowStep(ABC):
+class AbstractWorkflowStep(ABC):
     """Abstract base class for workflow steps."""
 
     def __init__(self, name: str) -> None:
@@ -114,7 +118,7 @@ class WorkflowStep(ABC):
         pass
 
 
-class WorkflowDefinition(ABC):
+class AbstractWorkflowDefinition(ABC):
     """Abstract base class for workflow definitions."""
 
     def __init__(self, name: str) -> None:
@@ -124,9 +128,9 @@ class WorkflowDefinition(ABC):
             name: Workflow name
         """
         self.name = name
-        self._steps: List[WorkflowStep] = []
+        self._steps: List[AbstractWorkflowStep] = []
 
-    def add_step(self, step: WorkflowStep) -> None:
+    def add_step(self, step: AbstractWorkflowStep) -> None:
         """Add a step to the workflow.
 
         Args:
@@ -134,7 +138,7 @@ class WorkflowDefinition(ABC):
         """
         self._steps.append(step)
 
-    def get_steps(self) -> List[WorkflowStep]:
+    def get_steps(self) -> List[AbstractWorkflowStep]:
         """Get workflow steps.
 
         Returns:
@@ -157,6 +161,9 @@ class BaseWorkflow(ABC):
             definition: Workflow definition
             workflow_id: Optional workflow ID
         """
+        self._callback = None
+        self._metrics = {}
+        self._metrics_manager = None  # Will be initialized later
         self.definition = definition
         self.workflow_id = workflow_id or UUID(str(uuid4()))
         self._results: Dict[str, Any] = {}
@@ -247,7 +254,7 @@ class BaseWorkflow(ABC):
             self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self.workflow_id), e)
-            raise WorkflowError(f"Failed to initialize workflow: {e}")
+            raise WorkflowError(f"Failed to initialize workflow: {e}") from e
 
     async def execute(self, **kwargs: Any) -> Any:
         """Execute workflow's main functionality.
@@ -307,7 +314,7 @@ class BaseWorkflow(ABC):
                 await self._callback.on_error(str(self.workflow_id), e)
             raise WorkflowError(f"Failed to execute workflow: {e}")
 
-    async def execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
+    async def execute_step(self, step: AbstractWorkflowStep, **kwargs: Any) -> Any:
         """Execute a single workflow step.
 
         Args:
@@ -382,7 +389,7 @@ class BaseWorkflow(ABC):
             self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self.workflow_id), e)
-            raise WorkflowError(f"Failed to clean up workflow: {e}")
+            raise WorkflowError(f"Failed to clean up workflow: {e}") from e
 
     @abstractmethod
     async def _initialize(self) -> None:
@@ -409,7 +416,7 @@ class BaseWorkflow(ABC):
         pass
 
     @abstractmethod
-    async def _execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
+    async def _execute_step(self, step: AbstractWorkflowStep, **kwargs: Any) -> Any:
         """Execute step implementation.
 
         This method should be implemented by subclasses to perform
@@ -454,7 +461,8 @@ class BaseWorkflow(ABC):
         ...
 
 
-# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base.py during consolidation
+# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base.py during consolidation  # noqa: E501
+
 """Base classes and interfaces for the unified workflow system.
 
 This module provides the core abstractions for the workflow system:
@@ -463,10 +471,7 @@ This module provides the core abstractions for the workflow system:
 - BaseWorkflow: Base implementation of a workflow
 """
 
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
 
-from ..core.base.common import BaseComponent
 
 
 @dataclass
@@ -512,7 +517,7 @@ class WorkflowDefinition:
         self.steps: Dict[str, WorkflowStep] = {}
         self.metadata: Dict[str, Any] = {}
 
-    def add_step(self, step: WorkflowStep) -> None:
+    def add_step(self, step: AbstractWorkflowStep) -> None:
         """Add a step to the workflow.
 
         Args:
@@ -596,7 +601,6 @@ class WorkflowDefinition:
         return errors
 
 
-class BaseWorkflow(BaseComponent):
     """Base implementation of a workflow."""
 
     def __init__(self, definition: WorkflowDefinition) -> None:
@@ -703,7 +707,7 @@ class BaseWorkflow(BaseComponent):
         # Reverse to get correct order
         return list(reversed(order))
 
-    async def _execute_step(self, step: WorkflowStep, context: Dict[str, Any]) -> Any:
+    async def _execute_step(self, step: AbstractWorkflowStep, context: Dict[str, Any]) -> Any:
         """Execute a single step.
 
         Args:

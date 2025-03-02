@@ -1,12 +1,12 @@
-"""Context filter for logging.
+"""Logging filters package.
 
-This module provides a context filter that filters log records based on
-their context values.
+This module provides filters for logging records based on
+their context values and log levels.
 """
 
-from typing import Any
+from typing import Any, Dict, Set
 
-from pepperpy.monitoring.logging.base import LogRecord
+from pepperpy.observability.logging.base import LogLevel, LogRecord
 
 
 class ContextFilter:
@@ -35,30 +35,6 @@ class ContextFilter:
         return True
 
 
-# Export public API
-__all__ = ["ContextFilter"]
-"""Logging filters package.
-
-This package provides filters for filtering log records based on various criteria.
-"""
-
-from pepperpy.monitoring.logging.filters.context import ContextFilter
-from pepperpy.monitoring.logging.filters.level import LevelFilter
-
-# Export public API
-__all__ = [
-    "ContextFilter",
-    "LevelFilter",
-]
-"""Level filter for logging.
-
-This module provides a level filter that filters log records based on
-their log level.
-"""
-
-from pepperpy.monitoring.logging.base import LogLevel, LogRecord
-
-
 class LevelFilter:
     """Level log filter."""
 
@@ -83,4 +59,7 @@ class LevelFilter:
 
 
 # Export public API
-__all__ = ["LevelFilter"]
+__all__ = [
+    "ContextFilter",
+    "LevelFilter",
+]

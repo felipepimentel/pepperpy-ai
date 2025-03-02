@@ -4,7 +4,6 @@ This module provides resource pool implementations for managing resources.
 """
 
 import asyncio
-import logging
 from typing import Callable, Dict, Generic, Optional, TypeVar
 
 from pepperpy.core.base import Lifecycle
@@ -16,8 +15,6 @@ from pepperpy.resources.types import Resource
 
 # Type variables
 T = TypeVar("T", bound=Resource)
-
-logger = logging.getLogger(__name__)
 
 
 class ResourcePool(Lifecycle, Generic[T]):
@@ -98,7 +95,7 @@ class ResourcePool(Lifecycle, Generic[T]):
             )
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize pool: {e}")
+            raise ValidationError(f"Failed to initialize pool: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up pool."""
@@ -115,7 +112,7 @@ class ResourcePool(Lifecycle, Generic[T]):
             logger.info(f"Resource pool cleaned up: {self.name}")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up pool: {e}")
+            raise ValidationError(f"Failed to clean up pool: {e}") from e
 
     async def _initialize_pool(self) -> None:
         """Initialize pool with minimum resources."""

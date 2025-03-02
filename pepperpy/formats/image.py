@@ -11,8 +11,6 @@ This module provides format handlers for image formats:
 from typing import Any, Dict, Optional, Tuple
 
 try:
-    import numpy as np
-    from numpy.typing import NDArray
 
     NUMPY_AVAILABLE = True
 except ImportError:

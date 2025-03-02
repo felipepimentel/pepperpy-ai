@@ -56,7 +56,7 @@ class CSVProcessor:
             )
             return list(reader)
         except Exception as e:
-            raise ProcessingError(f"CSV parsing failed: {str(e)}")
+            raise ProcessingError(f"CSV parsing failed: {str(e)}") from e
 
     def format(self, data: List[Dict[str, Any]]) -> str:
         """Format data as CSV.
@@ -87,7 +87,7 @@ class CSVProcessor:
             writer.writerows(data)
             return output.getvalue()
         except Exception as e:
-            raise ProcessingError(f"CSV formatting failed: {str(e)}")
+            raise ProcessingError(f"CSV formatting failed: {str(e)}") from e
 
     def validate(self, content: str) -> List[str]:
         """Validate CSV content.

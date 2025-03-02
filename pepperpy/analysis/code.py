@@ -1,4 +1,5 @@
 """Code analysis functionality for PepperPy.
+from pepperpy.core.metrics import MetricsCollector
 
 This module provides functionality for analyzing code structure, quality,
 and patterns within PepperPy, as well as code transformation capabilities.
@@ -8,11 +9,20 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import n  # TODO: Verificar se este é o import correto
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+)
 
 from pepperpy.core.common.errors.base import PepperError
 
-\n# Definindo a classe ProcessingError localmente para evitar erros de importação
+
+n  # Definindo a classe ProcessingError localmente para evitar erros de importação
+
+
 class ProcessingError(PepperError):
     """Error raised when processing fails."""
 
@@ -23,7 +33,6 @@ class ProcessingError(PepperError):
     ) -> None:
         """Initialize the error."""
         super().__init__(message, details=details if details is not None else {})
-from pepperpy.core.metrics import MetricsCollector
 
 
 class CodeAnalysisType(Enum):

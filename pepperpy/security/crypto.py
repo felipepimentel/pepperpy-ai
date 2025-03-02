@@ -93,7 +93,7 @@ class KeyManager(BaseManager):
         try:
             key = self._keys[key_id]
         except KeyError:
-            raise KeyError(f"Key {key_id} not found")
+            raise KeyError(f"Key {key_id} not found") from None
 
         if key.is_expired():
             raise KeyError(f"Key {key_id} has expired")
@@ -178,7 +178,7 @@ class CryptoManager(BaseManager):
         try:
             return self._get_fernet().encrypt(data)
         except Exception as e:
-            raise EncryptionError(f"Failed to encrypt data: {e}")
+            raise EncryptionError(f"Failed to encrypt data: {e}") from e
 
     def decrypt(self, encrypted_data: bytes) -> bytes:
         """Decrypt data using the active key.
@@ -195,7 +195,7 @@ class CryptoManager(BaseManager):
         try:
             return self._get_fernet().decrypt(encrypted_data)
         except Exception as e:
-            raise DecryptionError(f"Failed to decrypt data: {e}")
+            raise DecryptionError(f"Failed to decrypt data: {e}") from e
 
     def derive_key(self, password: str, salt: bytes | None = None) -> bytes:
         """Derive a key from a password using PBKDF2.

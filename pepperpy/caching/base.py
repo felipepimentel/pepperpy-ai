@@ -123,7 +123,7 @@ class PickleSerializer(Serializer):
         try:
             return pickle.dumps(value)
         except Exception as e:
-            raise SerializationError(f"Failed to serialize value: {e}")
+            raise SerializationError(f"Failed to serialize value: {e}") from e
 
     def deserialize(self, data: bytes) -> Any:
         """Deserialize using pickle.
@@ -140,7 +140,7 @@ class PickleSerializer(Serializer):
         try:
             return pickle.loads(data)
         except Exception as e:
-            raise SerializationError(f"Failed to deserialize value: {e}")
+            raise SerializationError(f"Failed to deserialize value: {e}") from e
 
 
 class CachePolicyType(Enum):

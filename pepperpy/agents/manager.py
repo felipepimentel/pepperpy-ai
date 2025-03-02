@@ -51,7 +51,7 @@ class AgentManager:
             self._providers[name] = instance
             logger.info("Registered agent provider", extra={"provider": name})
         except Exception as e:
-            raise ConfigurationError(f"Failed to initialize provider: {e}")
+            raise ConfigurationError(f"Failed to initialize provider: {e}") from e
 
     async def create_agent(
         self,
@@ -86,7 +86,7 @@ class AgentManager:
             )
             return agent_id
         except Exception as e:
-            raise AgentError(f"Failed to create agent: {e}")
+            raise AgentError(f"Failed to create agent: {e}") from e
 
     async def execute_agent(
         self,
@@ -125,7 +125,7 @@ class AgentManager:
             )
             return response
         except Exception as e:
-            raise AgentError(f"Failed to execute agent: {e}")
+            raise AgentError(f"Failed to execute agent: {e}") from e
 
     async def create_chain(
         self,
@@ -162,7 +162,7 @@ class AgentManager:
             )
             return config.id
         except Exception as e:
-            raise ChainError(f"Failed to create chain: {e}")
+            raise ChainError(f"Failed to create chain: {e}") from e
 
     async def execute_chain(
         self,
@@ -199,7 +199,7 @@ class AgentManager:
             )
             return result
         except Exception as e:
-            raise ChainError(f"Failed to execute chain: {e}")
+            raise ChainError(f"Failed to execute chain: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up all providers and chains."""

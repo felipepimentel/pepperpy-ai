@@ -700,7 +700,6 @@ class KeyValueStore(Protocol[K_contra, V_co]):
 
 
 @runtime_checkable
-class Lifecycle(Protocol):
     """Protocol for components with lifecycle management."""
 
     async def initialize(self) -> None:

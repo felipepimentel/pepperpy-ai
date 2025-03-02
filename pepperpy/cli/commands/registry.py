@@ -1,4 +1,6 @@
 """Registry commands for the Pepperpy CLI.
+import click
+from rich.console import Console
 
 This module provides commands for:
 - Managing providers
@@ -62,7 +64,7 @@ def register_provider(name: str, provider_type: str, capability: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @provider.command()
@@ -80,7 +82,7 @@ def unregister_provider(name: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @provider.command()
@@ -99,7 +101,7 @@ def list_providers() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @registry.group()
@@ -135,7 +137,7 @@ def register_capability(name: str, version: str, framework: str, agent_id: str) 
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @capability.command()
@@ -163,7 +165,7 @@ def unregister_capability(name: str, version: str, agent_id: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @capability.command()
@@ -199,7 +201,7 @@ def list_capabilities(agent_id: Optional[str] = None) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @registry.command()
@@ -213,7 +215,7 @@ def validate() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @registry.command()
@@ -231,7 +233,7 @@ def cleanup(force: bool) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 """Registry commands for the Pepperpy CLI.
@@ -242,8 +244,6 @@ This module provides commands for managing the component registry:
 - Managing component configurations
 """
 
-import click
-from rich.console import Console
 
 console = Console()
 
@@ -271,7 +271,7 @@ def register(component_type: str, name: str, config: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @registry.command()
@@ -294,7 +294,7 @@ def unregister(component_type: str, name: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @registry.command()
@@ -318,7 +318,7 @@ def list(component_type: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @registry.command()
@@ -340,4 +340,4 @@ def info(component_type: str, name: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e

@@ -61,7 +61,7 @@ class WorkflowExecutor:
         except Exception as e:
             if self._callback:
                 await self._callback.on_error(str(workflow_id), e)
-            raise ExecutionError(f"Workflow execution failed: {e}")
+            raise ExecutionError(f"Workflow execution failed: {e}") from e
 
         finally:
             # Cleanup
@@ -98,7 +98,7 @@ class WorkflowExecutor:
             return result
 
         except Exception as e:
-            raise ExecutionError(f"Step {step.name} execution failed: {e}")
+            raise ExecutionError(f"Step {step.name} execution failed: {e}") from e
 
     def get_active_workflows(self) -> List[BaseWorkflow]:
         """Get list of active workflows.

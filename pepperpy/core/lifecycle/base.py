@@ -17,7 +17,8 @@ from pepperpy.core.common.lifecycle.errors import (
     StateError,
     StopError,
 )
-from pepperpy.core.common.lifecycle.types import (
+from pepperpy.core.common.lifecycle.types import (  # TODO: Verificar se este é o import correto
+    ALLOWED_TRANSITIONS,
     LifecycleConfig,
     LifecycleContext,
     LifecycleEvent,
@@ -25,6 +26,9 @@ from pepperpy.core.common.lifecycle.types import (
     LifecycleMetrics,
     LifecycleState,
     LifecycleTransition,
+    from,
+    import,
+    typing,
 )
 
 

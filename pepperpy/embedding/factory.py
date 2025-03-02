@@ -35,4 +35,6 @@ def create_embedding(
         # Create provider instance
         return provider_class(**provider_config)
     except Exception as e:
-        raise EmbeddingError(f"Failed to create embedding provider '{provider}': {e}")
+        raise EmbeddingError(
+            f"Failed to create embedding provider '{provider}': {e}"
+        ) from e

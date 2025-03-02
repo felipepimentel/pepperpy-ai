@@ -143,7 +143,7 @@ class ReasoningEngine:
                 self.belief_system.add_belief(belief)
                 updated_beliefs.append(belief)
             else:
-                # Handle conflicts (in practice, you would implement conflict resolution)
+                # Handle conflicts (in practice, you would implement conflict resolution)  # noqa: E501
                 pass
 
         return updated_beliefs

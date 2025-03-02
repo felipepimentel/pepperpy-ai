@@ -177,7 +177,7 @@ class CustomMetric(BaseMetric):
             value = self.compute_fn(data)
             return MetricResult(type=MetricType.CUSTOM, value=value)
         except Exception as e:
-            raise ValueError(f"Error computing custom metric: {str(e)}")
+            raise ValueError(f"Error computing custom metric: {str(e)}") from e
 
 
 class MetricAggregator:

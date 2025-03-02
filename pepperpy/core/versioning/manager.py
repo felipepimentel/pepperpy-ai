@@ -1,8 +1,6 @@
 """Version migration manager."""
 
 
-
-
 class MigrationManager:
     """Manager for version migrations."""
 

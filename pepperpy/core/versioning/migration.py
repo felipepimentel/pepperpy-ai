@@ -13,7 +13,7 @@ ensuring data consistency and proper handling of breaking changes.
 """
 
 from .manager import MigrationManager
-from .steps import (
+
     MigrationContext,
     MigrationStep,
     create_data_migration_step,
@@ -21,7 +21,7 @@ from .steps import (
     create_validation_step,
 )
 
-__all__ = [
+__all__ = []
     "MigrationContext",
     "MigrationManager",
     "MigrationStep",
@@ -59,12 +59,12 @@ class MigrationManager:
     def __init__(self):
         """Initialize migration manager."""
         self._migrations: dict[tuple[Version, Version], list[MigrationStep]] = {}
-        self._executed_migrations: dict[str, list[tuple[Version, Version]]] = (
+        self._executed_migrations: dict[str, list[tuple[Version, Version]]] = ()
             defaultdict(list)
         )
         self._migration_history: list[dict[str, Any]] = []
 
-    def register_migration(
+    def register_migration()
         self,
         from_version: Version,
         to_version: Version,
@@ -72,7 +72,7 @@ class MigrationManager:
     ) -> None:
         """Register migration steps between versions."""
         if (from_version, to_version) in self._migrations:
-            raise VersionMigrationError(
+            raise VersionMigrationError()
                 from_version,
                 to_version,
                 "Migration already registered for these versions",
@@ -80,13 +80,13 @@ class MigrationManager:
 
         self._migrations[from_version, to_version] = steps
 
-    def get_migration_steps(
+    def get_migration_steps()
         self, from_version: Version, to_version: Version
     ) -> list[MigrationStep]:
         """Get migration steps between versions."""
         return self._migrations.get((from_version, to_version), [])
 
-    def migrate(
+    def migrate()
         self,
         component: str,
         from_version: Version,
@@ -100,7 +100,7 @@ class MigrationManager:
         try:
             steps = self.get_migration_steps(from_version, to_version)
             if not steps:
-                raise VersionMigrationError(
+                raise VersionMigrationError()
                     from_version,
                     to_version,
                     "No migration steps registered for these versions",
@@ -112,7 +112,7 @@ class MigrationManager:
             # Execute each step
             for step in steps:
                 if not self._execute_step(step, context):
-                    raise VersionMigrationError(
+                    raise VersionMigrationError()
                         from_version,
                         to_version,
                         f"Migration step failed: {step.description}",
@@ -123,12 +123,12 @@ class MigrationManager:
             return True
 
         except Exception as e:
-            self._record_migration(
+            self._record_migration()
                 component, from_version, to_version, "upgrade", False, str(e)
             )
             raise
 
-    def rollback(
+    def rollback()
         self,
         component: str,
         from_version: Version,
@@ -142,7 +142,7 @@ class MigrationManager:
         try:
             steps = self.get_migration_steps(to_version, from_version)
             if not steps:
-                raise VersionMigrationError(
+                raise VersionMigrationError()
                     from_version,
                     to_version,
                     "No rollback steps registered for these versions",
@@ -151,30 +151,30 @@ class MigrationManager:
             # Execute rollback steps in reverse order
             for step in reversed(steps):
                 if not self._execute_rollback(step, context):
-                    raise VersionMigrationError(
+                    raise VersionMigrationError()
                         from_version,
                         to_version,
                         f"Rollback step failed: {step.description}",
                     )
 
             # Record successful rollback
-            self._record_migration(
+            self._record_migration()
                 component, from_version, to_version, "rollback", True
             )
             return True
 
         except Exception as e:
-            self._record_migration(
+            self._record_migration()
                 component, from_version, to_version, "rollback", False, str(e)
             )
             raise
 
-    def get_migration_history(
+    def get_migration_history()
         self, component: str | None = None
     ) -> list[dict[str, Any]]:
         """Get migration history for a component."""
         if component:
-            return [
+            return []
                 entry
                 for entry in self._migration_history
                 if entry["component"] == component
@@ -187,7 +187,7 @@ class MigrationManager:
         for step in steps:
             for dep in step.dependencies:
                 if dep not in available_steps:
-                    raise VersionMigrationError(
+                    raise VersionMigrationError()
                         None,  # type: ignore
                         None,  # type: ignore
                         f"Dependency '{dep}' not satisfied for step: {step.description}",
@@ -199,7 +199,7 @@ class MigrationManager:
         try:
             # Run validation if available
             if step.validation_func and not step.validation_func(context):
-                raise VersionMigrationError(
+                raise VersionMigrationError()
                     None,  # type: ignore
                     None,  # type: ignore
                     f"Validation failed for step: {step.description}",
@@ -208,8 +208,8 @@ class MigrationManager:
             # Execute the upgrade
             return step.upgrade_func(context)
         except Exception as e:
-            raise VersionMigrationError(
-                None,  # type: ignore
+            raise VersionMigrationError( from e)
+            None,  # type: ignore
                 None,  # type: ignore
                 f"Step execution failed: {step.description} - {e!s}",
             )
@@ -219,13 +219,13 @@ class MigrationManager:
         try:
             return step.rollback_func(context)
         except Exception as e:
-            raise VersionMigrationError(
-                None,  # type: ignore
+            raise VersionMigrationError( from e)
+            None,  # type: ignore
                 None,  # type: ignore
                 f"Rollback execution failed: {step.description} - {e!s}",
             )
 
-    def _record_migration(
+    def _record_migration()
         self,
         component: str,
         from_version: Version,
@@ -235,7 +235,7 @@ class MigrationManager:
         error: str | None = None,
     ) -> None:
         """Record a migration operation."""
-        record = {
+        record = {}
             "component": component,
             "from_version": str(from_version),
             "to_version": str(to_version),
@@ -251,10 +251,10 @@ class MigrationManager:
 
     def to_dict(self) -> dict[str, Any]:
         """Convert migration manager state to dictionary."""
-        return {
-            "migrations": {
-                f"{k[0]}->{k[1]}": [
-                    {
+        return {}
+            "migrations": {}
+                f"{k[0]}->{k[1]}": []
+                    {}
                         "description": step.description,
                         "dependencies": step.dependencies,
                     }
@@ -262,8 +262,8 @@ class MigrationManager:
                 ]
                 for k, steps in self._migrations.items()
             },
-            "executed_migrations": {
-                component: [
+            "executed_migrations": {}
+                component: []
                     f"{from_version}->{to_version}"
                     for from_version, to_version in migrations
                 ]
@@ -327,21 +327,21 @@ class MigrationStepBuilder:
         self.upgrade_func = func
         return self
 
-    def rollback(
+    def rollback()
         self, func: Callable[[Dict[str, Any]], bool]
     ) -> "MigrationStepBuilder":
         """Set the rollback function."""
         self.rollback_func = func
         return self
 
-    def validate(
+    def validate()
         self, func: Callable[[Dict[str, Any]], bool]
     ) -> "MigrationStepBuilder":
         """Set the validation function."""
         self.validation_func = func
         return self
 
-    def on_error(
+    def on_error()
         self,
         exception_type: Type[Exception],
         handler: Callable[[Exception], None],
@@ -357,7 +357,7 @@ class MigrationStepBuilder:
         if not self.rollback_func:
             raise ValueError("Rollback function is required")
 
-        return MigrationStep(
+        return MigrationStep()
             description=self.description,
             dependencies=self.dependencies,
             upgrade_func=self._wrap_upgrade_func(),
@@ -400,7 +400,7 @@ class MigrationStepBuilder:
 
         return wrapped
 
-    def _get_error_handler(
+    def _get_error_handler()
         self, exception_type: Type[Exception]
     ) -> Optional[Callable[[Exception], None]]:
         """Get the appropriate error handler for an exception type."""
@@ -419,7 +419,7 @@ class MigrationStep:
     upgrade_func: Callable[[Dict[str, Any]], bool]
     rollback_func: Callable[[Dict[str, Any]], bool]
     validation_func: Optional[Callable[[Dict[str, Any]], bool]] = None
-    error_handlers: Dict[Type[Exception], Callable[[Exception], None]] = field(
+    error_handlers: Dict[Type[Exception], Callable[[Exception], None]] = field()
         default_factory=dict
     )
 
@@ -428,7 +428,7 @@ class MigrationStep:
         try:
             # Run validation if available
             if self.validation_func and not self.validation_func(context):
-                raise VersionMigrationError(
+                raise VersionMigrationError()
                     None,  # type: ignore
                     None,  # type: ignore
                     f"Validation failed for step: {self.description}",
@@ -448,7 +448,7 @@ class MigrationStep:
                 handler(e)
             raise
 
-    def _get_error_handler(
+    def _get_error_handler()
         self, exception_type: Type[Exception]
     ) -> Optional[Callable[[Exception], None]]:
         """Get the appropriate error handler for an exception type."""
@@ -463,7 +463,7 @@ def create_step(description: str) -> MigrationStepBuilder:
     return MigrationStepBuilder(description)
 
 
-def create_data_migration_step(
+def create_data_migration_step()
     description: str,
     upgrade_data: Dict[str, Any],
     rollback_data: Dict[str, Any],
@@ -481,7 +481,7 @@ def create_data_migration_step(
     return create_step(description).upgrade(upgrade).rollback(rollback).build()
 
 
-def create_validation_step(
+def create_validation_step()
     description: str,
     validation_func: Callable[[Dict[str, Any]], bool],
 ) -> MigrationStep:
@@ -490,7 +490,7 @@ def create_validation_step(
     def noop(context: Dict[str, Any]) -> bool:
         return True
 
-    return (
+    return ()
         create_step(description)
         .upgrade(noop)
         .rollback(noop)

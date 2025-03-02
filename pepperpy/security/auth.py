@@ -88,7 +88,7 @@ class AuthenticationManager(BaseManager):
         try:
             session = self._sessions[token]
         except KeyError:
-            raise AuthenticationError("Invalid session token")
+            raise AuthenticationError("Invalid session token") from None
 
         if session.is_expired():
             del self._sessions[token]

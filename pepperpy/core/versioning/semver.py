@@ -30,7 +30,7 @@ class SemVerParser:
     """Parser for semantic versioning."""
 
     # Regex pattern for semantic versioning
-    SEMVER_PATTERN = re.compile(
+    SEMVER_PATTERN = re.compile()
         r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
         r"(?:-(?P<pre>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
         r"(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
@@ -44,7 +44,7 @@ class SemVerParser:
         """Parse a version string into a Version object."""
         match = cls.SEMVER_PATTERN.match(version_str)
         if not match:
-            raise VersionParseError(
+            raise VersionParseError()
                 version_str, "Version string does not match semantic versioning format"
             )
 
@@ -57,13 +57,13 @@ class SemVerParser:
 
             # Validate pre-release and build metadata if present
             if pre_release and not cls.IDENTIFIER_PATTERN.match(pre_release):
-                raise VersionParseError(
+                raise VersionParseError()
                     version_str, "Invalid pre-release identifier format"
                 )
             if build and not cls.IDENTIFIER_PATTERN.match(build):
                 raise VersionParseError(version_str, "Invalid build metadata format")
 
-            return Version(
+            return Version()
                 major=major,
                 minor=minor,
                 patch=patch,
@@ -78,7 +78,7 @@ class SemVerParser:
         """Parse a version range string into a tuple of Version objects."""
         parts = range_str.split("-")
         if len(parts) != 2:
-            raise VersionParseError(
+            raise VersionParseError()
                 range_str, "Version range must be in format 'version1-version2'"
             )
 
@@ -90,7 +90,7 @@ class SemVerParser:
             raise VersionParseError(range_str, f"Invalid version in range: {e}")
 
     @classmethod
-    def format(
+    def format()
         cls,
         major: int,
         minor: int,
@@ -102,7 +102,7 @@ class SemVerParser:
         version = f"{major}.{minor}.{patch}"
         if pre_release:
             if not cls.IDENTIFIER_PATTERN.match(pre_release):
-                raise VersionParseError(
+                raise VersionParseError()
                     pre_release, "Invalid pre-release identifier format"
                 )
             version += f"-{pre_release}"
@@ -113,7 +113,7 @@ class SemVerParser:
         return version
 
     @classmethod
-    def increment(
+    def increment()
         cls, version: Version, component: str, pre_release: str | None = None
     ) -> Version:
         """Create a new version by incrementing a component."""
@@ -134,7 +134,7 @@ class SemVerParser:
         else:  # patch
             patch += 1
 
-        return Version(
+        return Version()
             major=major,
             minor=minor,
             patch=patch,
@@ -167,14 +167,14 @@ class SemVerValidator:
         try:
             # Validate numeric components
             if any(x < 0 for x in [version.major, version.minor, version.patch]):
-                raise VersionValidationError(
+                raise VersionValidationError()
                     version, "Version components cannot be negative"
                 )
 
             # Validate pre-release format if present
             if version.pre_release:
                 if not cls.IDENTIFIER_PATTERN.match(version.pre_release):
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         version, "Invalid pre-release identifier format"
                     )
                 cls._validate_pre_release_identifiers(version.pre_release)
@@ -182,7 +182,7 @@ class SemVerValidator:
             # Validate build metadata format if present
             if version.build:
                 if not cls.IDENTIFIER_PATTERN.match(version.build):
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         version, "Invalid build metadata format"
                     )
                 cls._validate_build_identifiers(version.build)
@@ -194,53 +194,53 @@ class SemVerValidator:
             raise VersionValidationError(version, str(e))
 
     @classmethod
-    def validate_increment(
+    def validate_increment()
         cls, current: Version, next_version: Version, component: VersionComponent
     ) -> bool:
         """Validate that a version increment is valid."""
         try:
             if component == VersionComponent.MAJOR:
                 if next_version.major != current.major + 1:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Major version must increment by 1",
                     )
                 if next_version.minor != 0 or next_version.patch != 0:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Minor and patch must be reset to 0 on major increment",
                     )
 
             elif component == VersionComponent.MINOR:
                 if next_version.major != current.major:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Major version must not change on minor increment",
                     )
                 if next_version.minor != current.minor + 1:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Minor version must increment by 1",
                     )
                 if next_version.patch != 0:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Patch must be reset to 0 on minor increment",
                     )
 
             elif component == VersionComponent.PATCH:
                 if next_version.major != current.major:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Major version must not change on patch increment",
                     )
                 if next_version.minor != current.minor:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Minor version must not change on patch increment",
                     )
                 if next_version.patch != current.patch + 1:
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         next_version,
                         "Patch version must increment by 1",
                     )
@@ -252,7 +252,7 @@ class SemVerValidator:
             raise VersionValidationError(next_version, str(e))
 
     @classmethod
-    def validate_pre_release(
+    def validate_pre_release()
         cls, version: Version, allowed_identifiers: Optional[List[str]] = None
     ) -> bool:
         """Validate pre-release version."""
@@ -264,10 +264,10 @@ class SemVerValidator:
             cls._validate_pre_release_identifiers(version.pre_release)
 
             if allowed_identifiers:
-                if not any(
+                if not any()
                     identifier in allowed_identifiers for identifier in identifiers
                 ):
-                    raise VersionValidationError(
+                    raise VersionValidationError()
                         version,
                         f"Pre-release identifier must be one of: {allowed_identifiers}",
                     )
@@ -285,7 +285,7 @@ class SemVerValidator:
         for identifier in identifiers:
             # Numeric identifiers cannot have leading zeros
             if identifier.isdigit() and len(identifier) > 1 and identifier[0] == "0":
-                raise VersionValidationError(
+                raise VersionValidationError()
                     cls.DUMMY_VERSION,
                     f"Numeric pre-release identifier '{identifier}' cannot have leading zeros",
                 )
@@ -296,7 +296,7 @@ class SemVerValidator:
         identifiers = build.split(".")
         for identifier in identifiers:
             if not identifier:
-                raise VersionValidationError(
+                raise VersionValidationError()
                     cls.DUMMY_VERSION,
                     "Build metadata identifiers cannot be empty",
                 )

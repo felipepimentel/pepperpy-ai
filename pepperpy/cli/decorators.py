@@ -30,7 +30,7 @@ class CommandDecorator(Command):
     - Error handling and logging
     """
 
-    def __init__(
+    def __init__()
         self,
         name: str,
         description: str,
@@ -105,9 +105,9 @@ class CommandDecorator(Command):
         except CLIError:
             raise
         except Exception as e:
-            raise CLIError(
-                f"Command execution failed: {e}",
-                details={
+            raise CLIError( from e)
+            f"Command execution failed: {e}",
+                details={}
                     "command": self.name,
                     "error": str(e),
                     "error_type": type(e).__name__,
@@ -160,7 +160,7 @@ class CommandDecorator(Command):
             return CommandResult(success=success, message=message)
 
         if isinstance(result, bool):
-            return CommandResult(
+            return CommandResult()
                 success=result,
                 message="Command succeeded" if result else "Command failed",
             )
@@ -174,7 +174,7 @@ class CommandDecorator(Command):
         return CommandResult(success=True, message="Command succeeded")
 
 
-def command(
+def command()
     name: str,
     description: str,
     group: str = "default",
@@ -198,7 +198,7 @@ def command(
         def hello(name: str) -> str:
             return f"Hello, {name}!"
     """
-    return CommandDecorator(
+    return CommandDecorator()
         name=name,
         description=description,
         group=group,

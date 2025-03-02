@@ -1,4 +1,9 @@
 """Configuration commands for the Pepperpy CLI.
+import json
+from pathlib import Path
+from typing import Optional
+import click
+from rich.console import Console
 
 This module provides commands for:
 - Managing global configuration
@@ -39,7 +44,7 @@ def set(key: str, value: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
@@ -57,7 +62,7 @@ def get(key: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
@@ -75,7 +80,7 @@ def list() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
@@ -89,7 +94,7 @@ def init() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
@@ -103,7 +108,7 @@ def validate() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
@@ -121,7 +126,7 @@ def reset(force: bool) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 """Configuration commands for the Pepperpy CLI.
@@ -132,12 +137,7 @@ This module provides commands for managing configuration:
 - Validating configuration
 """
 
-import json
-from pathlib import Path
-from typing import Optional
 
-import click
-from rich.console import Console
 
 console = Console()
 
@@ -150,7 +150,6 @@ def config() -> None:
 @config.command()
 @click.argument("key")
 @click.argument("value")
-def set(key: str, value: str) -> None:
     """Set a configuration value.
 
     KEY: Configuration key
@@ -164,12 +163,11 @@ def set(key: str, value: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
 @click.argument("key")
-def get(key: str) -> None:
     """Get a configuration value.
 
     KEY: Configuration key
@@ -182,7 +180,7 @@ def get(key: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
@@ -211,11 +209,10 @@ def show(output: Optional[str] = None) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @config.command()
-def validate() -> None:
     """Validate current configuration."""
     try:
         # TODO: Implement config validation
@@ -225,4 +222,4 @@ def validate() -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e

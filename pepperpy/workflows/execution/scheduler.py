@@ -7,8 +7,10 @@ It handles workflow timing, retries, and error handling.
 import asyncio
 import logging
 import random
+from asyncio import Lock, Task
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from logging import getLogger
 from typing import Any, Dict, List, Optional, Set, Union
 from uuid import UUID
 
@@ -123,7 +125,7 @@ class WorkflowScheduler(ComponentBase):
 
         except Exception as e:
             logger.error("Failed to initialize workflow scheduler: %s", str(e))
-            raise WorkflowError(f"Failed to initialize workflow scheduler: {e}")
+            raise WorkflowError(f"Failed to initialize workflow scheduler: {e}") from e
 
     async def _cleanup(self) -> None:
         """Clean up workflow scheduler resources."""
@@ -144,7 +146,7 @@ class WorkflowScheduler(ComponentBase):
 
         except Exception as e:
             logger.error("Failed to clean up workflow scheduler: %s", str(e))
-            raise WorkflowError(f"Failed to clean up workflow scheduler: {e}")
+            raise WorkflowError(f"Failed to clean up workflow scheduler: {e}") from e
 
     async def _execute(self, **kwargs: Any) -> Any:
         """Execute workflow scheduler functionality.
@@ -273,7 +275,7 @@ class WorkflowScheduler(ComponentBase):
             try:
                 # Check for workflows to execute
                 now = datetime.utcnow()
-                for workflow_id, scheduled in list(self._scheduled_workflows.items()):
+                for _workflow_id, scheduled in list(self._scheduled_workflows.items()):
                     if scheduled.schedule_time <= now:
                         # Execute workflow
                         await self._execute_workflow(scheduled)

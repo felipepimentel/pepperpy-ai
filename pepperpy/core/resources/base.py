@@ -19,25 +19,27 @@ from pepperpy.core.errors import ResourceError, ValidationError
 from pepperpy.core.metrics import Counter, Histogram
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
-from pepperpy.resources.types import (
+from pepperpy.resources.types import (  # TODO: Verificar se este é o import correto
     Asset,
     AssetMetadata,
     AssetState,
     AssetType,
     Resource,
     ResourceMetadata,
+    ResourcePool,
     ResourceState,
     ResourceType,
+    from,
+    import,
+    typing,
 )
 
-# Configure logging
 logger = logging.getLogger(__name__)
 
 # Type variables
 T = TypeVar("T", bound="Resource")
 P = TypeVar("P", bound="ResourcePool")
 M = TypeVar("M", bound="ResourceManager")
-
 
 class ResourceType(enum.Enum):
     """Resource type enumeration."""
@@ -50,7 +52,6 @@ class ResourceType(enum.Enum):
     ASSET = "asset"
     CUSTOM = "custom"
 
-
 class ResourceState(enum.Enum):
     """Resource state enumeration."""
 
@@ -61,7 +62,6 @@ class ResourceState(enum.Enum):
     DELETED = "deleted"
 
 
-@dataclass
 class ResourceMetadata:
     """Resource metadata class."""
 
@@ -78,7 +78,6 @@ class ResourceMetadata:
     tags: set[str] = field(default_factory=set)
     dependencies: set[str] = field(default_factory=set)
     custom: dict[str, Any] = field(default_factory=dict)
-
 
 class Resource(Protocol):
     """Resource protocol.
@@ -293,7 +292,7 @@ class ResourceManager(Lifecycle):
             self._state = ComponentState.READY
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize resource manager: {e}")
+            raise ValidationError(f"Failed to initialize resource manager: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up resource manager."""
@@ -304,7 +303,7 @@ class ResourceManager(Lifecycle):
             self._state = ComponentState.CLEANED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up resource manager: {e}")
+            raise ValidationError(f"Failed to clean up resource manager: {e}") from e
 
     def add_pool(self, pool: ResourcePool) -> None:
         """Add resource pool.
@@ -391,7 +390,7 @@ class ResourcePool(Lifecycle, Generic[T]):
             self._state = ComponentState.READY
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize pool: {e}")
+            raise ValidationError(f"Failed to initialize pool: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up pool."""
@@ -401,7 +400,7 @@ class ResourcePool(Lifecycle, Generic[T]):
             self._state = ComponentState.CLEANED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up pool: {e}")
+            raise ValidationError(f"Failed to clean up pool: {e}") from e
 
     async def _initialize_pool(self) -> None:
         """Initialize pool implementation."""

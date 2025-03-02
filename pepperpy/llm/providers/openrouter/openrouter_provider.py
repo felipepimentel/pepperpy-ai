@@ -3,7 +3,7 @@
 from typing import List, Optional
 
 from pepperpy.llm.providers.base.base import LLMProviderBase
-from pepperpy.llm.providers.base.types import (
+
     ChatMessage,
     CompletionOptions,
     LLMResponse,
@@ -14,7 +14,7 @@ from pepperpy.llm.providers.base.types import (
 class OpenRouterProvider(LLMProviderBase):
     """Provider implementation for OpenRouter LLMs."""
 
-    def __init__(
+    def __init__()
         self,
         api_key: str,
         **kwargs,
@@ -36,18 +36,18 @@ class OpenRouterProvider(LLMProviderBase):
             try:
                 from openai import OpenAI
 
-                self._client = OpenAI(
+                self._client = OpenAI()
                     api_key=self.api_key,
                     base_url="https://openrouter.ai/api/v1",
                 )
             except ImportError:
-                raise ImportError(
-                    "openai package is required for OpenRouterProvider. "
+                raise ImportError( from None)
+                "openai package is required for OpenRouterProvider. "
                     "Install it with: pip install openai"
                 )
         return self._client
 
-    def generate(
+    def generate()
         self,
         prompt: str,
         options: Optional[CompletionOptions] = None,
@@ -66,12 +66,12 @@ class OpenRouterProvider(LLMProviderBase):
         options = options or CompletionOptions(model="openai/gpt-3.5-turbo")
 
         # Placeholder implementation
-        return LLMResponse(
+        return LLMResponse()
             text="This is a placeholder response from OpenRouter provider.",
             model=options.model,
         )
 
-    def chat(
+    def chat()
         self,
         messages: List[ChatMessage],
         options: Optional[CompletionOptions] = None,
@@ -90,7 +90,7 @@ class OpenRouterProvider(LLMProviderBase):
         options = options or CompletionOptions(model="openai/gpt-3.5-turbo")
 
         # Placeholder implementation
-        return LLMResponse(
+        return LLMResponse()
             text="This is a placeholder response from OpenRouter chat provider.",
             model=options.model,
         )
@@ -101,7 +101,7 @@ class OpenRouterProvider(LLMProviderBase):
         Returns:
             List[str]: List of model names
         """
-        return [
+        return []
             "openai/gpt-4",
             "openai/gpt-3.5-turbo",
             "anthropic/claude-3-opus",
@@ -124,57 +124,57 @@ class OpenRouterProvider(LLMProviderBase):
         Raises:
             ValueError: If model is not found
         """
-        models = {
-            "openai/gpt-4": ModelParameters(
+        models = {}
+            "openai/gpt-4": ModelParameters()
                 model="openai/gpt-4",
                 context_window=8192,
                 max_output_tokens=4096,
                 supports_functions=True,
                 supports_vision=False,
             ),
-            "openai/gpt-3.5-turbo": ModelParameters(
+            "openai/gpt-3.5-turbo": ModelParameters()
                 model="openai/gpt-3.5-turbo",
                 context_window=16385,
                 max_output_tokens=4096,
                 supports_functions=True,
                 supports_vision=False,
             ),
-            "anthropic/claude-3-opus": ModelParameters(
+            "anthropic/claude-3-opus": ModelParameters()
                 model="anthropic/claude-3-opus",
                 context_window=200000,
                 max_output_tokens=4096,
                 supports_functions=True,
                 supports_vision=True,
             ),
-            "anthropic/claude-3-sonnet": ModelParameters(
+            "anthropic/claude-3-sonnet": ModelParameters()
                 model="anthropic/claude-3-sonnet",
                 context_window=200000,
                 max_output_tokens=4096,
                 supports_functions=True,
                 supports_vision=True,
             ),
-            "anthropic/claude-3-haiku": ModelParameters(
+            "anthropic/claude-3-haiku": ModelParameters()
                 model="anthropic/claude-3-haiku",
                 context_window=200000,
                 max_output_tokens=4096,
                 supports_functions=True,
                 supports_vision=True,
             ),
-            "google/gemini-pro": ModelParameters(
+            "google/gemini-pro": ModelParameters()
                 model="google/gemini-pro",
                 context_window=32768,
                 max_output_tokens=8192,
                 supports_functions=False,
                 supports_vision=False,
             ),
-            "meta-llama/llama-3-70b-instruct": ModelParameters(
+            "meta-llama/llama-3-70b-instruct": ModelParameters()
                 model="meta-llama/llama-3-70b-instruct",
                 context_window=8192,
                 max_output_tokens=4096,
                 supports_functions=False,
                 supports_vision=False,
             ),
-            "mistralai/mistral-large": ModelParameters(
+            "mistralai/mistral-large": ModelParameters()
                 model="mistralai/mistral-large",
                 context_window=32768,
                 max_output_tokens=8192,

@@ -5,11 +5,14 @@ relevant documents based on queries.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.base import Lifecycle
+from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.embedding.rag import Embedder, TextEmbedder
+from pepperpy.rag.embeddings.base import Embedder, TextEmbedder
 from pepperpy.rag.indexing import Indexer, VectorIndexer
+from pepperpy.rag.indexing.base import Indexer, VectorIndexer
 
 
 class Retriever(Lifecycle, ABC):
@@ -147,7 +150,8 @@ class HybridRetriever(Retriever):
             List of dictionaries containing document metadata and scores
         """
         vector_results = await self.vector_retriever.retrieve(query, k)
-        text_results = await self.text_retriever.retrieve(query, k)
+        # TODO: Implement hybrid search result merging
+        # text_results = await self.text_retriever.retrieve(query, k)
 
         # TODO: Implement hybrid search result merging
         return vector_results

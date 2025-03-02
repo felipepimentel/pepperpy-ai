@@ -10,7 +10,7 @@ from typing import Any, Union
 from pepperpy.multimodal.synthesis.base import AudioConfig as BaseAudioConfig
 from pepperpy.multimodal.synthesis.base import AudioData as BaseAudioData
 from pepperpy.multimodal.synthesis.base import SynthesisError as BaseSynthesisError
-from pepperpy.multimodal.synthesis.base import (
+
     SynthesisProvider as BaseSynthesisProvider,
 )
 
@@ -54,7 +54,7 @@ class SynthesisProvider(BaseSynthesisProvider):
 class BaseSynthesisProvider(SynthesisProvider):
     """Base implementation of synthesis provider with common functionality."""
 
-    async def save(
+    async def save()
         self,
         audio: AudioData,
         path: Union[str, Path],
@@ -86,7 +86,7 @@ class BaseSynthesisProvider(SynthesisProvider):
             return output_path
 
         except Exception as e:
-            raise SynthesisError(
-                "Failed to save audio file",
+            raise SynthesisError( from e)
+            "Failed to save audio file",
                 details={"error": str(e), "path": str(path)},
             )

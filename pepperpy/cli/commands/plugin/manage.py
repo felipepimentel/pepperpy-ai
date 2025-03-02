@@ -76,7 +76,7 @@ def list():
         console.print(f"[red]Error:[/red] {str(e)}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @plugin.command()
@@ -133,7 +133,7 @@ def info(plugin_id):
         console.print(f"[red]Error:[/red] {str(e)}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @plugin.command()
@@ -160,7 +160,7 @@ def enable(plugin_id):
         console.print(f"[red]Error:[/red] {str(e)}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @plugin.command()
@@ -187,7 +187,7 @@ def disable(plugin_id):
         console.print(f"[red]Error:[/red] {str(e)}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @plugin.command()
@@ -205,7 +205,7 @@ def install(plugin_path):
         console.print(f"[red]Error:[/red] {str(e)}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @plugin.command()
@@ -224,4 +224,4 @@ def uninstall(plugin_id, force):
         console.print(f"[red]Error:[/red] {str(e)}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e

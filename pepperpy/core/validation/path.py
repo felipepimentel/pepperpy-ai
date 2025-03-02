@@ -10,7 +10,7 @@ from .base import ValidationError, Validator
 class PathValidator(Validator):
     """Validator for file system paths."""
 
-    def __init__(
+    def __init__()
         self,
         must_exist: bool = True,
         file_only: bool = False,
@@ -58,38 +58,38 @@ class PathValidator(Validator):
             path = Path(path)
 
             if self.must_exist and not path.exists():
-                raise ValidationError(
+                raise ValidationError()
                     f"Path does not exist: {path}",
                     {"path": str(path), "error": "not_found"},
                 )
 
             if path.exists():
                 if self.file_only and not path.is_file():
-                    raise ValidationError(
+                    raise ValidationError()
                         f"Path is not a file: {path}",
                         {"path": str(path), "error": "not_file"},
                     )
 
                 if self.dir_only and not path.is_dir():
-                    raise ValidationError(
+                    raise ValidationError()
                         f"Path is not a directory: {path}",
                         {"path": str(path), "error": "not_directory"},
                     )
 
                 if self.readable and not os.access(path, os.R_OK):
-                    raise ValidationError(
+                    raise ValidationError()
                         f"Path is not readable: {path}",
                         {"path": str(path), "error": "not_readable"},
                     )
 
                 if self.writable and not os.access(path, os.W_OK):
-                    raise ValidationError(
+                    raise ValidationError()
                         f"Path is not writable: {path}",
                         {"path": str(path), "error": "not_writable"},
                     )
 
                 if self.executable and not os.access(path, os.X_OK):
-                    raise ValidationError(
+                    raise ValidationError()
                         f"Path is not executable: {path}",
                         {"path": str(path), "error": "not_executable"},
                     )
@@ -99,12 +99,12 @@ class PathValidator(Validator):
         except ValidationError:
             raise
         except Exception as e:
-            raise ValidationError(
-                f"Invalid path: {e}", {"path": str(path), "error": "invalid_path"}
+            raise ValidationError( from e)
+            f"Invalid path: {e}", {"path": str(path), "error": "invalid_path"}
             )
 
 
-def validate_path(
+def validate_path()
     path: Union[str, Path],
     must_exist: bool = True,
     file_only: bool = False,
@@ -130,7 +130,7 @@ def validate_path(
     Raises:
         ValidationError: If path is invalid with details about why
     """
-    validator = PathValidator(
+    validator = PathValidator()
         must_exist=must_exist,
         file_only=file_only,
         dir_only=dir_only,

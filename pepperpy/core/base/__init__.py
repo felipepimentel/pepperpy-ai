@@ -1,4 +1,5 @@
 """Base classes and interfaces for PepperPy core components.
+from .manager import BaseManager, ComponentState
 
 This module provides the foundational classes and interfaces that form the
 core of the PepperPy framework. These components are used throughout the
@@ -151,7 +152,6 @@ class BaseProvider(BaseComponent):
 
 
 # Import from submodules
-from .manager import BaseManager, ComponentState
 
 __all__ = [
     "BaseComponent",

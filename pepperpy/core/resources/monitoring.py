@@ -60,7 +60,7 @@ class ResourceMonitor(Lifecycle):
             logger.info("Resource monitor initialized")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize monitor: {e}")
+            raise ValidationError(f"Failed to initialize monitor: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up monitor."""
@@ -76,7 +76,7 @@ class ResourceMonitor(Lifecycle):
             logger.info("Resource monitor cleaned up")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up monitor: {e}")
+            raise ValidationError(f"Failed to clean up monitor: {e}") from e
 
     def register_resource(self, resource: Resource) -> None:
         """Register resource for monitoring.

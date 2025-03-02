@@ -4,19 +4,12 @@ This package provides various logging formatters for structured logging output
 in different formats like JSON.
 """
 
-from pepperpy.monitoring.logging.formatters.json import JsonFormatter
-
-__all__ = ["JsonFormatter"]
-"""JSON formatter for structured logging.
-
-This module provides a JSON formatter for structured logging output.
-"""
-
 import json
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from typing import Any
+from logging import LogRecord
+from typing import Any, Callable, Dict, Optional
 
 from pepperpy.core.common.models import BaseModel, Field
 

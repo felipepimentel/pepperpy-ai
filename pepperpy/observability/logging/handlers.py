@@ -1,30 +1,19 @@
-"""Logging handlers for different destinations
+"""Logging handlers for different destinations.
 
 Implementation of logging handlers that support different destinations such as
 files, streams, and other output mechanisms.
 """
 
-"""@file: file.py
-@purpose: File log handler implementation
-@component: Core/Logging
-@created: 2024-02-25
-@task: TASK-007-R020
-@status: completed
-"""
-
-"""File handler for logging.
-
-This module provides a file handler that writes log records to files
-with support for rotation and compression.
-"""
-
 import asyncio
 import gzip
 import os
+from asyncio import Lock
+from os import path
+from typing import Any, Dict, Optional
 
 from pepperpy.core.errors import ValidationError
-from pepperpy.monitoring.logging.base import LogHandler, LogRecord
-from pepperpy.monitoring.logging.formatters.json import JsonFormatter
+from pepperpy.observability.logging.base import LogHandler, LogRecord
+from pepperpy.observability.logging.formatters import JsonFormatter
 
 
 class FileHandler(LogHandler):
@@ -67,7 +56,7 @@ class FileHandler(LogHandler):
             # Open file
             self._file = open(self.filename, "a", encoding="utf-8")
         except Exception as e:
-            raise ValidationError(f"Failed to initialize file handler: {e}")
+            raise ValidationError(f"Failed to initialize file handler: {e}") from e
 
     async def _cleanup_handler(self) -> None:
         """Clean up file handler."""
@@ -97,7 +86,7 @@ class FileHandler(LogHandler):
                 self._file.flush()
 
         except Exception as e:
-            raise ValidationError(f"Failed to handle log record: {e}")
+            raise ValidationError(f"Failed to handle log record: {e}") from e
 
     def _should_rotate(self) -> bool:
         """Check if file should be rotated.
@@ -146,24 +135,8 @@ class FileHandler(LogHandler):
             self._file = open(self.filename, "a", encoding="utf-8")
 
         except Exception as e:
-            raise ValidationError(f"Failed to rotate log files: {e}")
+            raise ValidationError(f"Failed to rotate log files: {e}") from e
 
 
 # Export public API
 __all__ = ["FileHandler"]
-"""Logging handlers package.
-
-This package provides handlers for handling log records in various ways.
-"""
-
-from pepperpy.monitoring.logging.handlers.file import FileHandler
-
-# Export public API
-__all__ = ["FileHandler"]
-"""@file: stream.py
-@purpose: Stream log handler implementation
-@component: Core/Logging
-@created: 2024-02-25
-@task: TASK-007-R020
-@status: completed
-"""

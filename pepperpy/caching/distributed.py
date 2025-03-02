@@ -17,7 +17,7 @@ from .base import BackendError, CacheBackend, Serializer, T
 class DistributedCache(CacheBackend[T]):
     """Base class for distributed cache implementations."""
 
-    def __init__(
+    def __init__()
         self,
         serializer: Optional[Serializer] = None,
         namespace: str = "",
@@ -48,7 +48,7 @@ class DistributedCache(CacheBackend[T]):
 class RedisCache(DistributedCache[T]):
     """Redis-based distributed cache implementation."""
 
-    def __init__(
+    def __init__()
         self,
         host: str = "localhost",
         port: int = 6379,
@@ -82,7 +82,7 @@ class RedisCache(DistributedCache[T]):
         try:
             import redis
 
-            self._client = redis.Redis(
+            self._client = redis.Redis()
                 host=host,
                 port=port,
                 db=db,
@@ -96,12 +96,12 @@ class RedisCache(DistributedCache[T]):
             self._client.ping()
 
         except ImportError:
-            raise ImportError(
-                "Redis package is required for RedisCache. "
+            raise ImportError( from None)
+            "Redis package is required for RedisCache. "
                 "Install it with: pip install redis"
             )
         except Exception as e:
-            raise BackendError(f"Failed to connect to Redis: {e}")
+            raise BackendError(f"Failed to connect to Redis: {e}") from e
 
     async def get(self, key: str) -> Optional[T]:
         """Get a value from Redis cache.
@@ -127,7 +127,7 @@ class RedisCache(DistributedCache[T]):
         except Exception as e:
             raise BackendError(f"Failed to get value from Redis: {e}")
 
-    async def set(
+    async def set()
         self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
     ) -> None:
         """Set a value in Redis cache.
@@ -153,7 +153,7 @@ class RedisCache(DistributedCache[T]):
                 self._client.set(namespaced_key, serialized)
 
         except Exception as e:
-            raise BackendError(f"Failed to set value in Redis: {e}")
+            raise BackendError(f"Failed to set value in Redis: {e}") from e
 
     async def delete(self, key: str) -> bool:
         """Delete a value from Redis cache.
@@ -192,7 +192,7 @@ class RedisCache(DistributedCache[T]):
                 self._client.flushdb()
 
         except Exception as e:
-            raise BackendError(f"Failed to clear Redis cache: {e}")
+            raise BackendError(f"Failed to clear Redis cache: {e}") from e
 
     async def contains(self, key: str) -> bool:
         """Check if key exists in Redis cache.
@@ -211,7 +211,7 @@ class RedisCache(DistributedCache[T]):
             return bool(self._client.exists(namespaced_key))
 
         except Exception as e:
-            raise BackendError(f"Failed to check key existence in Redis: {e}")
+            raise BackendError(f"Failed to check key existence in Redis: {e}") from e
 
     async def publish(self, channel: str, message: Any) -> int:
         """Publish a message to a Redis channel.
@@ -233,8 +233,8 @@ class RedisCache(DistributedCache[T]):
             else:
                 # For complex objects, use the serializer
                 serialized = self.serializer.serialize(message)
-                json_message = json.dumps(
-                    {
+                json_message = json.dumps()
+                    {}
                         "_serialized": True,
                         "data": serialized.hex(),
                     }
@@ -244,7 +244,7 @@ class RedisCache(DistributedCache[T]):
             return self._client.publish(channel, json_message)
 
         except Exception as e:
-            raise BackendError(f"Failed to publish message to Redis: {e}")
+            raise BackendError(f"Failed to publish message to Redis: {e}") from e
 
     def subscribe(self, *channels: str):
         """Subscribe to Redis channels.
@@ -264,7 +264,7 @@ class RedisCache(DistributedCache[T]):
             return pubsub
 
         except Exception as e:
-            raise BackendError(f"Failed to subscribe to Redis channels: {e}")
+            raise BackendError(f"Failed to subscribe to Redis channels: {e}") from e
 
     async def increment(self, key: str, amount: int = 1) -> int:
         """Increment a value in Redis.
@@ -284,7 +284,7 @@ class RedisCache(DistributedCache[T]):
             return self._client.incrby(namespaced_key, amount)
 
         except Exception as e:
-            raise BackendError(f"Failed to increment value in Redis: {e}")
+            raise BackendError(f"Failed to increment value in Redis: {e}") from e
 
     async def expire(self, key: str, ttl: Union[int, timedelta]) -> bool:
         """Set expiration for a key.
@@ -308,7 +308,7 @@ class RedisCache(DistributedCache[T]):
             return bool(self._client.expire(namespaced_key, ttl))
 
         except Exception as e:
-            raise BackendError(f"Failed to set expiration in Redis: {e}")
+            raise BackendError(f"Failed to set expiration in Redis: {e}") from e
 
     async def get_ttl(self, key: str) -> Optional[int]:
         """Get remaining time-to-live for a key.

@@ -18,7 +18,6 @@ from typing import Any, ClassVar, TypeVar
 
 try:
     from pydantic import BaseModel, Field, SecretStr, validator
-    from pydantic_settings import BaseSettings, SettingsConfigDict
 except ImportError:
     raise ImportError(
         "pydantic is required for configuration management. "

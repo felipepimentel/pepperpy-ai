@@ -168,7 +168,7 @@ class LogHandler(Lifecycle):
             self._state = ComponentState.READY
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize handler: {e}")
+            raise ValidationError(f"Failed to initialize handler: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up handler."""
@@ -180,7 +180,7 @@ class LogHandler(Lifecycle):
             self._state = ComponentState.CLEANED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up handler: {e}")
+            raise ValidationError(f"Failed to clean up handler: {e}") from e
 
     async def _process_logs(self) -> None:
         """Process logs from queue."""
@@ -221,7 +221,7 @@ class LogManager(Lifecycle):
             self._state = ComponentState.READY
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize manager: {e}")
+            raise ValidationError(f"Failed to initialize manager: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up manager."""
@@ -232,7 +232,7 @@ class LogManager(Lifecycle):
             self._state = ComponentState.CLEANED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up manager: {e}")
+            raise ValidationError(f"Failed to clean up manager: {e}") from e
 
     def add_handler(self, name: str, handler: LogHandler) -> None:
         """Add log handler.

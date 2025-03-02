@@ -4,6 +4,7 @@ import io
 from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel, Field
+from pydantic.dataclasses import dataclass
 from pydub import AudioSegment
 
 from pepperpy.multimodal.synthesis.base import AudioData, AudioProcessor, SynthesisError
@@ -44,7 +45,7 @@ class AudioEffectsProcessor(AudioProcessor):
             raise SynthesisError(
                 "Failed to initialize audio effects processor",
                 details={"error": str(e)},
-            )
+            ) from e
 
     async def process(
         self,
@@ -140,4 +141,4 @@ class AudioEffectsProcessor(AudioProcessor):
             raise SynthesisError(
                 "Failed to process audio",
                 details={"error": str(e)},
-            )
+            ) from e

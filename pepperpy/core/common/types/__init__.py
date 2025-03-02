@@ -74,7 +74,7 @@ class Version:
             minor = int(parts[1])
             patch = int(parts[2])
         except ValueError:
-            raise ValueError(f"Invalid version format: {version_str}")
+            raise ValueError(f"Invalid version format: {version_str}") from None
 
         return cls(
             major=major,

@@ -139,7 +139,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
             self._logger.error(f"Error processing batch: {e}", exc_info=True)
             if self._metrics:
                 self._processing_errors.inc()
-            raise ProcessingError(f"Failed to process batch: {e}")
+            raise ProcessingError(f"Failed to process batch: {e}") from e
 
     def _split_batch(self, items: list[DataItem[T]]) -> list[list[DataItem[T]]]:
         """Split items into optimal batch sizes.

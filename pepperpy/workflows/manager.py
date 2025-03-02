@@ -88,7 +88,7 @@ class WorkflowManager(Lifecycle):
             await workflow.initialize()
             return workflow
         except Exception as e:
-            raise WorkflowError(f"Failed to create workflow {name}: {e}")
+            raise WorkflowError(f"Failed to create workflow {name}: {e}") from e
 
     async def _initialize(self) -> None:
         """Initialize workflow manager."""

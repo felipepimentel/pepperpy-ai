@@ -213,7 +213,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
         except Exception as e:
             self._logger.error(f"Batch processing failed: {e}", exc_info=True)
             self._processing_errors.inc()
-            raise ProcessingError(f"Batch processing failed: {e}")
+            raise ProcessingError(f"Batch processing failed: {e}") from e
 
     async def process_stream(
         self, stream: AsyncIterator[DataItem[T]]
@@ -247,7 +247,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
         except Exception as e:
             self._logger.error(f"Stream processing failed: {e}", exc_info=True)
             self._processing_errors.inc()
-            raise ProcessingError(f"Stream processing failed: {e}")
+            raise ProcessingError(f"Stream processing failed: {e}") from e
 
     async def _initialize(self) -> None:
         """Initialize the processor."""
@@ -375,7 +375,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
         except Exception as e:
             self._logger.error(f"Pipeline batch processing failed: {e}", exc_info=True)
             self._processing_errors.inc()
-            raise ProcessingError(f"Pipeline batch processing failed: {e}")
+            raise ProcessingError(f"Pipeline batch processing failed: {e}") from e
 
     async def process_stream(
         self, stream: AsyncIterator[DataItem[T]]
@@ -396,7 +396,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
         except Exception as e:
             self._logger.error(f"Pipeline stream processing failed: {e}", exc_info=True)
             self._processing_errors.inc()
-            raise ProcessingError(f"Pipeline stream processing failed: {e}")
+            raise ProcessingError(f"Pipeline stream processing failed: {e}") from e
 
     async def _initialize(self) -> None:
         """Initialize the pipeline."""

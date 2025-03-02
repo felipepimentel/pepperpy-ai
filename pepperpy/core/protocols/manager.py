@@ -67,7 +67,7 @@ class ProtocolManager(Lifecycle):
         except Exception as e:
             self._state = ComponentState.ERROR
             self._logger.error(f"Failed to initialize protocol manager: {e}")
-            raise RuntimeError(f"Failed to initialize protocol manager: {e}")
+            raise RuntimeError(f"Failed to initialize protocol manager: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up protocol manager.
@@ -88,7 +88,7 @@ class ProtocolManager(Lifecycle):
             self._logger.info("Protocol manager cleaned up")
         except Exception as e:
             self._logger.error(f"Failed to clean up protocol manager: {e}")
-            raise RuntimeError(f"Failed to clean up protocol manager: {e}")
+            raise RuntimeError(f"Failed to clean up protocol manager: {e}") from e
 
     def register_protocol(
         self,

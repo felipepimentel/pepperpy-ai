@@ -1,0 +1,63 @@
+Analisando erros de lint...
+
+================================================================================
+RELATÓRIO DE ERROS DE LINT - Total: 249
+================================================================================
+
+ERROS POR CATEGORIA:
+--------------------------------------------------------------------------------
+E - Estilo e formatação: 45
+F - Flake8 (imports, variáveis): 70
+
+ERROS POR CÓDIGO:
+--------------------------------------------------------------------------------
+E402 - Import não está no topo do arquivo - Mova para o topo (Qtd: 43, Prioridade: 3, Auto-corrigível: ✗)
+F811 - Redefinido mas não utilizado - Remova a redefinição (Qtd: 30, Prioridade: 3, Auto-corrigível: ✗)
+F821 - Nome indefinido - Corrija o nome ou importe (Qtd: 16, Prioridade: 1, Auto-corrigível: ✗)
+F403 - Import * usado - Importe explicitamente (Qtd: 11, Prioridade: 2, Auto-corrigível: ✗)
+F405 - Uso de variável indefinida com import * - Importe explicitamente (Qtd: 7, Prioridade: 2, Auto-corrigível: ✗)
+F841 - Variável local não utilizada - Remova ou use _ (Qtd: 6, Prioridade: 4, Auto-corrigível: ✓)
+E721 - Comparação de tipo com isinstance - Use isinstance() (Qtd: 1, Prioridade: 3, Auto-corrigível: ✗)
+E722 - Except genérico - Especifique a exceção (Qtd: 1, Prioridade: 1, Auto-corrigível: ✗)
+
+TOP 10 ARQUIVOS COM MAIS ERROS:
+--------------------------------------------------------------------------------
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/cli/commands/agent.py: 20 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/cli/commands/hub.py: 19 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/core/common/utils/__init__.py: 14 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/multimodal/audio/providers/synthesis/google_tts.py: 14 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py: 10 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/cli/registry.py: 10 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/core/versioning/migration.py: 10 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/multimodal/synthesis/processors/effects.py: 9 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/cli/commands/config.py: 8 erros
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/cli/commands/workflow.py: 8 erros
+
+ERROS POR PRIORIDADE:
+--------------------------------------------------------------------------------
+Prioridade 1 - CRÍTICA - Corrigir imediatamente: 17 erros
+Prioridade 2 - ALTA - Corrigir em breve: 18 erros
+Prioridade 3 - MÉDIA - Corrigir quando possível: 74 erros
+Prioridade 4 - BAIXA - Pode ser ignorado temporariamente: 6 erros
+
+Erros que podem ser corrigidos automaticamente: 6 (2.4%)
+
+RECOMENDAÇÕES:
+--------------------------------------------------------------------------------
+1. Execute 'ruff check pepperpy/ --fix' para corrigir automaticamente os erros possíveis
+2. Priorize a correção de erros com prioridade 1 e 2
+3. Para erros de linha muito longa (E501), considere usar black para formatação
+4. Para imports não utilizados (F401), remova-os ou adicione '# noqa: F401' se necessário
+5. Para imports com * (F403/F405), substitua por imports explícitos
+6. Considere adicionar exceções específicas no pyproject.toml para casos especiais
+
+Erros exportados para lint_errors_report.csv
+
+================================================================================
+PRÓXIMOS PASSOS SUGERIDOS:
+================================================================================
+1. Corrija os erros auto-fixáveis: ruff check pepperpy/ --fix
+2. Atualize o pyproject.toml para ignorar erros específicos se necessário
+3. Crie um plano para corrigir os erros restantes por prioridade
+4. Considere adicionar verificações de lint ao CI/CD para evitar novos erros
+================================================================================

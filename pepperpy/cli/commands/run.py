@@ -80,7 +80,7 @@ def agent(
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -135,7 +135,7 @@ def workflow(
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -195,7 +195,7 @@ def tool(tool_name: str, input: str, config: str, timeout: int) -> None:
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -230,7 +230,7 @@ def task(task_file: str, is_async: bool, output: Optional[str]) -> None:
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -264,7 +264,7 @@ def experiment(experiment_file: str, name: Optional[str], tags: Optional[str]) -
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -285,7 +285,7 @@ def logs(run_id: str) -> None:
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -306,7 +306,7 @@ def stop(run_id: str) -> None:
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @run.command()
@@ -346,4 +346,4 @@ def list(type: Optional[str], status: Optional[str], tag: Optional[str]) -> None
         format_error(str(e))
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e

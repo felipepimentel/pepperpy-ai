@@ -1,4 +1,7 @@
 """Hub commands for the Pepperpy CLI.
+from typing import Optional
+import click
+from rich.console import Console
 
 This module provides commands for:
 - Publishing artifacts to the Hub
@@ -10,7 +13,12 @@ This module provides commands for:
 import asyncio
 import json
 from pathlib import Path
-from typing import Optional, Set
+from typing import LocalHubStorage  # TODO: Verificar se este é o import correto
+from typing import MarketplaceClient  # TODO: Verificar se este é o import correto
+from typing import (
+    Optional,
+    Set,
+)
 
 import click
 from rich.console import Console
@@ -130,7 +138,7 @@ def publish(
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -168,7 +176,7 @@ def install(artifact_id: str, version: Optional[str] = None) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -241,7 +249,7 @@ def search(
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -282,7 +290,7 @@ def info(artifact_id: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -311,7 +319,7 @@ def delete(artifact_id: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -346,7 +354,7 @@ def list() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 """Hub commands for the Pepperpy CLI.
@@ -358,10 +366,6 @@ This module provides commands for:
 - Searching the marketplace
 """
 
-from typing import Optional
-
-import click
-from rich.console import Console
 
 # Configure rich console
 console = Console()
@@ -374,7 +378,6 @@ def hub() -> None:
 
 
 @hub.command()
-@click.argument("artifact_path", type=click.Path(exists=True))
 @click.option("--public/--private", default=False, help="Make artifact public")
 def publish(artifact_path: str, public: bool) -> None:
     """Publish an artifact to the Hub.
@@ -405,11 +408,10 @@ def publish(artifact_path: str, public: bool) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
-@click.argument("artifact_id")
 @click.option("--version", help="Specific version to install")
 def install(artifact_id: str, version: Optional[str] = None) -> None:
     """Install an artifact from the Hub.
@@ -440,14 +442,13 @@ def install(artifact_id: str, version: Optional[str] = None) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
 @click.option("--query", help="Search query")
 @click.option("--type", "artifact_type", help="Filter by artifact type")
 @click.option("--tags", help="Filter by tags (comma-separated)")
-@click.option("--page", type=int, default=1, help="Page number")
 @click.option("--per-page", type=int, default=20, help="Results per page")
 def search(
     query: Optional[str] = None,
@@ -507,7 +508,7 @@ def search(
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -542,7 +543,7 @@ def inspect(artifact_id: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
@@ -582,11 +583,10 @@ def update(artifact_id: str, metadata_file: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @hub.command()
-@click.argument("artifact_id")
 @click.option("--force", is_flag=True, help="Force deletion without confirmation")
 def delete(artifact_id: str, force: bool = False) -> None:
     """Delete an artifact from the Hub.
@@ -616,4 +616,4 @@ def delete(artifact_id: str, force: bool = False) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e

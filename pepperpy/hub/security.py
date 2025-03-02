@@ -57,7 +57,7 @@ class HubSecurityManager(BaseSecurityManager):
             )
 
         except Exception as e:
-            raise SecurityError(f"Failed to initialize hub security: {e}")
+            raise SecurityError(f"Failed to initialize hub security: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up security manager.
@@ -73,7 +73,7 @@ class HubSecurityManager(BaseSecurityManager):
                 logger.info("Hub security manager cleaned up")
 
         except Exception as e:
-            raise SecurityError(f"Failed to clean up hub security: {e}")
+            raise SecurityError(f"Failed to clean up hub security: {e}") from e
 
     async def validate_signature(self, manifest_path: Path) -> None:
         """Validate the signature of a manifest file.
@@ -110,7 +110,7 @@ class HubSecurityManager(BaseSecurityManager):
         except SecurityError:
             raise
         except Exception as e:
-            raise SecurityError(f"Failed to validate manifest signature: {e}")
+            raise SecurityError(f"Failed to validate manifest signature: {e}") from e
 
     async def check_artifact_access(
         self,
@@ -156,7 +156,7 @@ class HubSecurityManager(BaseSecurityManager):
             return False
 
         except Exception as e:
-            raise SecurityError(f"Failed to check artifact access: {e}")
+            raise SecurityError(f"Failed to check artifact access: {e}") from e
 
     async def _load_security_data(self) -> None:
         """Load security data from disk."""
@@ -174,7 +174,7 @@ class HubSecurityManager(BaseSecurityManager):
                     # Process token data...
 
         except Exception as e:
-            raise SecurityError(f"Failed to load security data: {e}")
+            raise SecurityError(f"Failed to load security data: {e}") from e
 
     async def _save_security_data(self) -> None:
         """Save security data to disk."""
@@ -192,4 +192,4 @@ class HubSecurityManager(BaseSecurityManager):
                     json.dump(token_data, f, indent=2)
 
         except Exception as e:
-            raise SecurityError(f"Failed to save security data: {e}")
+            raise SecurityError(f"Failed to save security data: {e}") from e

@@ -73,7 +73,7 @@ def validate_uri(data: str) -> bool:
     try:
         result = urlparse(str(data))
         return all([result.scheme, result.netloc])
-    except:
+    except Exception:
         return False
 
 

@@ -98,7 +98,7 @@ class ValidationMiddleware(ProtocolMiddleware):
             return await next_middleware(data)
         except Exception as e:
             self._logger.error(f"Validation failed: {e}")
-            raise ValueError(f"Validation failed: {e}")
+            raise ValueError(f"Validation failed: {e}") from e
 
 
 class LoggingMiddleware(ProtocolMiddleware):
@@ -232,7 +232,7 @@ class TransformationMiddleware(ProtocolMiddleware):
             return await next_middleware(data)
         except Exception as e:
             self._logger.error(f"Transformation failed: {e}")
-            raise ValueError(f"Transformation failed: {e}")
+            raise ValueError(f"Transformation failed: {e}") from e
 
 
 # Export public API

@@ -67,7 +67,7 @@ class FileConfigProvider(ConfigProvider):
             with open(self.file_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=2, sort_keys=True)
         except OSError as e:
-            raise RuntimeError(f"Failed to save configuration: {e}")
+            raise RuntimeError(f"Failed to save configuration: {e}") from e
 
     def exists(self, key: str) -> bool:
         """Check if a configuration key exists."""

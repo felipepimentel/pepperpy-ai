@@ -4,7 +4,6 @@ This module provides automatic cleanup functionality for resources.
 """
 
 import asyncio
-import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import Any
@@ -14,8 +13,6 @@ from pepperpy.core.errors import ValidationError
 from pepperpy.core.types import ComponentState
 from pepperpy.monitoring import logger
 from pepperpy.resources.types import Resource
-
-logger = logging.getLogger(__name__)
 
 
 class CleanupScheduler(Lifecycle):
@@ -51,7 +48,7 @@ class CleanupScheduler(Lifecycle):
             logger.info("Cleanup scheduler initialized")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to initialize scheduler: {e}")
+            raise ValidationError(f"Failed to initialize scheduler: {e}") from e
 
     async def cleanup(self) -> None:
         """Clean up scheduler."""
@@ -67,7 +64,7 @@ class CleanupScheduler(Lifecycle):
             logger.info("Cleanup scheduler cleaned up")
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise ValidationError(f"Failed to clean up scheduler: {e}")
+            raise ValidationError(f"Failed to clean up scheduler: {e}") from e
 
     async def schedule(
         self,

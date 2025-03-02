@@ -46,7 +46,7 @@ class CompatibilityChecker:
 
             return True
         except Exception as e:
-            raise VersionCompatibilityError(version1, version2, str(e))
+            raise VersionCompatibilityError(version1, version2, str(e)) from e
 
     def register_breaking_change(
         self, from_version: Version, to_version: Version, change: VersionChange

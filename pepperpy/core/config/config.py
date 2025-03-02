@@ -35,7 +35,7 @@ def validate_path(path: str | Path, must_exist: bool = True) -> Path:
             raise ValidationError("path", str(path), "Path does not exist")
         return path_obj
     except Exception as e:
-        raise ValidationError("path", str(path), str(e))
+        raise ValidationError("path", str(path), str(e)) from e
 
 
 def load_config(config_path: str | Path) -> dict[str, Any]:
@@ -55,11 +55,11 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
         with path_obj.open() as f:
             return json.load(f)
     except ValidationError as e:
-        raise ConfigError(str(config_path), str(e))
+        raise ConfigError(str(config_path), str(e)) from e
     except json.JSONDecodeError as e:
-        raise ConfigError(str(config_path), f"Invalid JSON: {e!s}")
+        raise ConfigError(str(config_path), f"Invalid JSON: {e!s}") from e
     except Exception as e:
-        raise ConfigError(str(config_path), str(e))
+        raise ConfigError(str(config_path), str(e)) from e
 
 
 def save_config(config: dict[str, Any], config_path: str | Path) -> None:
@@ -77,7 +77,7 @@ def save_config(config: dict[str, Any], config_path: str | Path) -> None:
         with path_obj.open("w") as f:
             json.dump(config, f, indent=2)
     except Exception as e:
-        raise ConfigError(str(config_path), f"Failed to save config: {e!s}")
+        raise ConfigError(str(config_path), f"Failed to save config: {e!s}") from e
 
 
 def get_config_dir() -> Path:

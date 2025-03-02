@@ -115,9 +115,9 @@ class ImageLoader:
                 metadata={"path": str(image_path)},
             )
         except ImportError:
-            raise VisionError("PIL and numpy are required for image loading")
+            raise VisionError("PIL and numpy are required for image loading") from None
         except Exception as e:
-            raise VisionError(f"Failed to load image: {str(e)}")
+            raise VisionError(f"Failed to load image: {str(e)}") from e
 
     @staticmethod
     def resize(image: ImageData, width: int, height: int) -> ImageData:
@@ -156,9 +156,9 @@ class ImageLoader:
                 metadata=image.metadata,
             )
         except ImportError:
-            raise VisionError("PIL and numpy are required for image resizing")
+            raise VisionError("PIL and numpy are required for image resizing") from None
         except Exception as e:
-            raise VisionError(f"Failed to resize image: {str(e)}")
+            raise VisionError(f"Failed to resize image: {str(e)}") from e
 
     @staticmethod
     def normalize(image: ImageData) -> ImageData:
@@ -188,9 +188,9 @@ class ImageLoader:
                 metadata=image.metadata,
             )
         except ImportError:
-            raise VisionError("Numpy is required for image normalization")
+            raise VisionError("Numpy is required for image normalization") from None
         except Exception as e:
-            raise VisionError(f"Failed to normalize image: {str(e)}")
+            raise VisionError(f"Failed to normalize image: {str(e)}") from e
 
     @staticmethod
     def to_tensor(image: ImageData) -> Any:
@@ -217,9 +217,9 @@ class ImageLoader:
 
             return tensor_data
         except ImportError:
-            raise VisionError("Numpy is required for tensor conversion")
+            raise VisionError("Numpy is required for tensor conversion") from None
         except Exception as e:
-            raise VisionError(f"Failed to convert image to tensor: {str(e)}")
+            raise VisionError(f"Failed to convert image to tensor: {str(e)}") from e
 
 
 # Re-export ImageData for convenience

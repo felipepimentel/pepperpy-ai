@@ -1,4 +1,10 @@
 """Workflow commands for the Pepperpy CLI.
+import asyncio
+import json
+from pathlib import Path
+from typing import Optional
+import click
+from rich.console import Console
 
 This module provides commands for:
 - Creating workflows
@@ -43,7 +49,7 @@ def create(name: str, template: str, config: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -63,7 +69,7 @@ def run(name: str, input: str, config: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -86,7 +92,7 @@ def config(name: str, key: str, value: str) -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -100,7 +106,7 @@ def list() -> None:
         console.print(f"[red]Error:[/red] {str(e)}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 """Workflow commands for the Pepperpy CLI.
@@ -112,13 +118,7 @@ This module provides commands for managing workflows:
 - Validating workflow definitions
 """
 
-import asyncio
-import json
-from pathlib import Path
-from typing import Optional
 
-import click
-from rich.console import Console
 
 console = Console()
 
@@ -183,7 +183,7 @@ def deploy(
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -192,7 +192,6 @@ def deploy(
     "--input", "input_file", type=click.Path(exists=True), help="Input file (JSON)"
 )
 @click.option("--async", "is_async", is_flag=True, help="Run asynchronously")
-def run(
     workflow_id: str, input_file: Optional[str] = None, is_async: bool = False
 ) -> None:
     """Run a workflow.
@@ -223,7 +222,7 @@ def run(
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -274,7 +273,7 @@ def status(run_id: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -304,7 +303,7 @@ def logs(run_id: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -338,7 +337,7 @@ def stop(run_id: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
@@ -375,12 +374,11 @@ def delete(workflow_id: str) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
 
 
 @workflow.command()
 @click.option("--state", type=click.Choice([s.name for s in WorkflowState]))
-def list(state: Optional[str] = None) -> None:
     """List workflows."""
     try:
         # Initialize workflow engine
@@ -415,4 +413,4 @@ def list(state: Optional[str] = None) -> None:
         console.print(f"[red]Error: {e.message}[/red]")
         if e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
-        raise click.Abort()
+        raise click.Abort() from e
