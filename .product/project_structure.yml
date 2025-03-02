@@ -26,9 +26,13 @@ structure:
             description: ''
             modules:
               autogen:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
               langchain:
-                description: ''
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
         files:
         - __init__.py: Adapters for integration with third-party frameworks and libraries
         - base.py: Base adapter module
@@ -91,17 +95,6 @@ structure:
             - interactive.py: Interactive agent module for the Pepperpy framework
             - task_assistant.py: Task Assistant Agent implementation
             - workflow_agent.py: Workflow agent module for the Pepperpy framework
-          providers:
-            description: Agent providers for PepperPy agents module
-            files:
-            - __init__.py: Agent providers for PepperPy agents module
-            - base.py: Base provider implementation for agents
-            - client.py: Configuration error for providers
-            - domain.py: Domain models and errors for the provider system
-            - engine.py: Provider engine for managing language model providers
-            - factory.py: Factory for creating providers in the Pepperpy framework
-            - manager.py: Provider manager for handling multiple providers
-            - types.py: Type definitions for providers
         files:
         - __init__.py: Agent module for PepperPy
         - base.py: Base interfaces for the agents module
@@ -131,7 +124,6 @@ structure:
             system
         - local.py: Local module
         - memory.py: Memory cache implementation
-        - memory_cache.py: Memory Cache module
         - migration.py: Migration utilities for transitioning to the unified caching
             system
         - policy.py: Cache policies for performance optimization
@@ -387,7 +379,9 @@ structure:
             - manager.py: Lifecycle manager module
             - types.py: Core lifecycle types module
           logging:
-            description: ''
+            description: Module initialization
+            files:
+            - __init__.py: Module initialization and exports
           plugins:
             description: Plugin system for PepperPy
             modules:
@@ -469,9 +463,14 @@ structure:
                 description: Base module for embedding providers
                 files:
                 - __init__.py: Base module for embedding providers
-                - base.py: Base module
-                - registry.py: Registry module
-                - types.py: Types module
+                - base.py: Base class for embedding providers
+                - registry.py: Registry for embedding providers
+                - types.py: Type definitions for embedding providers
+              openai:
+                description: OpenAI embedding provider
+                files:
+                - __init__.py: OpenAI embedding provider
+                - provider.py: OpenAI embedding provider implementation
             files:
             - __init__.py: Provider implementations for embedding capabilities
             - base.py: Base interfaces and exceptions for embedding providers
@@ -586,17 +585,42 @@ structure:
         description: LLM (Language Model) providers for the Pepperpy framework
         modules:
           providers:
-            description: Module initialization
+            description: Provider implementations for LLM capabilities
             modules:
-              base:
-                description: Module initialization
+              anthropic:
+                description: Anthropic LLM provider
                 files:
-                - __init__.py: Module initialization and exports
-                - base.py: Base module
-                - registry.py: Registry module
-                - types.py: Types module
+                - __init__.py: Anthropic LLM provider
+                - provider.py: Anthropic LLM provider implementation
+              base:
+                description: Base module for LLM providers
+                files:
+                - __init__.py: Base module for LLM providers
+                - base.py: Base class for LLM providers
+                - registry.py: Registry for LLM providers
+                - types.py: Type definitions for LLM providers
+              gemini:
+                description: Gemini LLM provider
+                files:
+                - __init__.py: Gemini LLM provider
+                - provider.py: Gemini LLM provider implementation
+              openai:
+                description: OpenAI LLM provider
+                files:
+                - __init__.py: OpenAI LLM provider
+                - provider.py: OpenAI LLM provider implementation
+              openrouter:
+                description: OpenRouter LLM provider
+                files:
+                - __init__.py: OpenRouter LLM provider
+                - provider.py: OpenRouter LLM provider implementation
+              perplexity:
+                description: Perplexity LLM provider
+                files:
+                - __init__.py: Perplexity LLM provider
+                - provider.py: Perplexity LLM provider implementation
             files:
-            - __init__.py: Module initialization and exports
+            - __init__.py: Provider implementations for LLM capabilities
             - anthropic.py: Provider implementation for Anthropic language models
             - gemini.py: Gemini module
             - openai.py: Provider implementation for OpenAI language models
@@ -641,7 +665,6 @@ structure:
                     - base.py: Base classes for audio synthesis providers
                     - google_tts.py: Google Text-to-Speech provider for synthesis
                         capability
-                    - openai.py: OpenAI provider for speech synthesis capability
                   transcription:
                     description: Audio transcription providers
                     files:
@@ -747,9 +770,18 @@ structure:
         modules:
           providers:
             description: Optimization providers package
+            modules:
+              base:
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
+                - base.py: Base module
+                - registry.py: Registry module
+                - types.py: Types module
             files:
             - __init__.py: Optimization providers package
             - base.py: Base interfaces for optimization providers
+            - registry.py: Registry module
         files:
         - __init__.py: Optimization package for resource efficiency
         - base.py: Core interfaces for optimization components
@@ -782,7 +814,7 @@ structure:
             - domain.py: Domain module
             - engine.py: Engine module
             - factory.py: Factory module
-            - manager.py: Manager module
+            - manager.py: Agent manager for coordinating agent creation and execution
             - types.py: Types module
           audio:
             description: Audio processing providers
@@ -795,6 +827,20 @@ structure:
                 - openai.py: OpenAI provider for speech synthesis capability
             files:
             - __init__.py: Audio processing providers
+          memory:
+            description: Memory providers for pepperpy
+            files:
+            - __init__.py: Memory providers for pepperpy
+            - base.py: Base memory provider module
+            - postgres.py: PostgreSQL-based memory provider implementation
+            - redis.py: Redis memory provider module
+          storage:
+            description: Storage providers for pepperpy
+            files:
+            - __init__.py: Storage providers for pepperpy
+            - cloud.py: Cloud storage provider implementation
+            - local.py: Local filesystem storage provider implementation
+            - sql.py: SQL storage provider functionality
         files:
         - __init__.py: Provider implementations for PepperPy framework capabilities
       rag:
@@ -807,6 +853,9 @@ structure:
                 description: Provider implementations for generation components
                 files:
                 - __init__.py: Provider implementations for generation components
+                - anthropic.py: Anthropic module
+                - llama.py: Llama module
+                - openai.py: Openai module
             files:
             - __init__.py: Generation components for the RAG system
             - base.py: Base classes for the generation components of the RAG system
@@ -817,6 +866,8 @@ structure:
                 description: Provider implementations for indexing components
                 files:
                 - __init__.py: Provider implementations for indexing components
+                - chroma.py: Chroma module
+                - faiss.py: Faiss module
             files:
             - __init__.py: Indexing components for the RAG system
             - base.py: Base classes for the indexing components of the RAG system
@@ -828,6 +879,14 @@ structure:
             - preprocessing.py: RAG preprocessing implementations
           providers:
             description: Provider implementations for RAG capabilities
+            modules:
+              base:
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
+                - base.py: Base module
+                - registry.py: Registry module
+                - types.py: Types module
             files:
             - __init__.py: Provider implementations for RAG capabilities
             - base.py: Base interfaces for RAG providers
@@ -872,6 +931,14 @@ structure:
                 attacks
           providers:
             description: Security providers package
+            modules:
+              base:
+                description: Module initialization
+                files:
+                - __init__.py: Module initialization and exports
+                - base.py: Base module
+                - registry.py: Registry module
+                - types.py: Types module
             files:
             - __init__.py: Security providers package
             - base.py: Base interfaces for security providers
@@ -887,9 +954,9 @@ structure:
         description: Storage System for PepperPy
         modules:
           providers:
-            description: Storage providers for PepperPy storage module
+            description: Provider implementations for storage capabilities
             files:
-            - __init__.py: Storage providers for PepperPy storage module
+            - __init__.py: Provider implementations for storage capabilities
             - cloud.py: Cloud storage provider implementation
             - local.py: Local filesystem storage provider implementation
             - sql.py: SQL storage provider functionality
