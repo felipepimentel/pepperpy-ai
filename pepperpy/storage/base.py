@@ -1,23 +1,31 @@
 """Base interfaces and exceptions for storage providers.
 
-This module re-exports the storage interfaces from pepperpy.interfaces.storage
-and provides additional types and utilities for storage implementations.
+This module provides base classes and utilities for storage implementations.
 """
-
-# Import the base interfaces
-from pepperpy.interfaces.storage import StorageError, StorageProvider
-
 
 # Define StorageMetadata type
 class StorageMetadata(dict):
     """Metadata for storage items."""
-
     pass
 
 
-# Re-export the interfaces
-__all__ = ["StorageError", "StorageProvider", "StorageMetadata"]
+class StorageError(Exception):
+    """Base exception for storage errors."""
+    pass
 
-# Note: The actual implementation of StorageProvider should be in the
-# provider-specific modules that inherit from the interface defined in
-# pepperpy.interfaces.storage.
+
+# Define a base storage class
+class BaseStorage:
+    """Base class for storage implementations."""
+    
+    def __init__(self, name: str):
+        """Initialize storage.
+        
+        Args:
+            name: Storage name
+        """
+        self.name = name
+
+
+# Export the interfaces
+__all__ = ["StorageError", "StorageMetadata", "BaseStorage"]

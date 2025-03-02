@@ -1,112 +1,43 @@
-"""Domain-specific capabilities of the PepperPy framework"""
+"""Capabilities module for PepperPy.
 
-
-
-# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/core/capabilities/__init__.py during consolidation
-"""Capabilities module for the Pepperpy framework.
-
-This module provides functionality for managing AI capabilities:
-- Base capability interface
-- Capability configuration
-- Common capability types
+This module provides various capabilities that can be used by agents and other components.
 """
 
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional
-from uuid import UUID
 
-from pydantic import BaseModel, Field
+# Import internal implementations
+from pepperpy.capabilities.base import BaseCapability, CapabilityConfig
 
-from pepperpy.core.common.extensions import Extension, ExtensionMetadata
-from pepperpy.core.common.events import EventBus
+# Re-export public interfaces
+from pepperpy.capabilities.public import (
+    TaskCapability,
+    TaskRegistry,
+    TaskScheduler,
+)
 
 
 class CapabilityType(Enum):
-    """Types of capabilities."""
+    """Types of capabilities supported by the system."""
 
     MEMORY = auto()
     STORAGE = auto()
     TASK = auto()
-    CHAT = auto()
-    CALENDAR = auto()
-    NOTE = auto()
+    STREAMING = auto()
+    LOGGING = auto()
+    METRICS = auto()
+    TRACING = auto()
+    SECURITY = auto()
+    NETWORKING = auto()
+    SCHEDULING = auto()
 
 
-class CapabilityMetadata(ExtensionMetadata):
-    """Metadata for capabilities.
-
-    Attributes:
-        capability_type: Type of capability
-        capability_name: Name of the capability
-        version: Version of the capability
-        tags: Capability tags
-        properties: Additional properties
-    """
-
-    capability_type: CapabilityType
-    capability_name: str
-    version: str
-    tags: List[str] = Field(default_factory=list)
-    properties: Dict[str, Any] = Field(default_factory=dict)
-
-
-class BaseCapability(Extension):
-    """Base class for AI capabilities.
-
-    This class defines the interface that all capabilities must implement.
-    """
-
-    def __init__(
-        self,
-        metadata: CapabilityMetadata,
-        event_bus: Optional[EventBus] = None,
-    ) -> None:
-        """Initialize capability.
-
-        Args:
-            metadata: Capability metadata
-            event_bus: Optional event bus for capability events
-        """
-        super().__init__(
-            name=metadata.capability_name,
-            version=metadata.version,
-            event_bus=event_bus,
-        )
-        self._capability_metadata = metadata
-
-    @property
-    def metadata(self) -> ExtensionMetadata:
-        """Get extension metadata."""
-        return super().metadata
-
-    @property
-    def capability_metadata(self) -> CapabilityMetadata:
-        """Get capability metadata.
-
-        Returns:
-            Capability metadata
-        """
-        return self._capability_metadata
-
-    async def _initialize(self) -> None:
-        """Initialize capability resources."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up capability resources."""
-        pass
-
-    async def execute(self, operation: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute capability operation.
-
-        Args:
-            operation: Operation to execute
-            params: Operation parameters
-
-        Returns:
-            Operation result
-
-        Raises:
-            NotImplementedError: If not implemented by subclass
-        """
-        raise NotImplementedError("Capability must implement execute method")
+__all__ = [
+    # Public interfaces
+    "TaskCapability",
+    "TaskRegistry",
+    "TaskScheduler",
+    # Implementation classes
+    "BaseCapability",
+    "CapabilityConfig",
+    "CapabilityType",
+]

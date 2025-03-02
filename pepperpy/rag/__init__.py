@@ -4,6 +4,18 @@ This module provides a modular framework for building RAG applications with clea
 separation between indexing, retrieval, and generation components.
 """
 
+# Re-export public interfaces
+from pepperpy.rag.public import (
+    Document,
+    RAGConfig,
+    RAGFactory,
+    RAGPipeline,
+    Retriever,
+    SearchQuery,
+    SearchResult,
+    VectorRetriever,
+)
+
 # Core components
 from pepperpy.rag.base import RagComponent, RagPipeline
 from pepperpy.rag.config import (
@@ -39,21 +51,31 @@ from pepperpy.rag.registry import RagRegistry, rag_registry
 # Retrieval components
 from pepperpy.rag.retrieval import (
     RetrievalManager,
-    Retriever,
+    Retriever as InternalRetriever,
     SimilarityRetriever,
 )
 from pepperpy.rag.types import (
     Chunk,
-    Document,
+    Document as InternalDocument,
     Embedding,
     RagComponentType,
     RagContext,
     RagResponse,
-    SearchQuery,
-    SearchResult,
+    SearchQuery as InternalSearchQuery,
+    SearchResult as InternalSearchResult,
 )
 
 __all__ = [
+    # Public interfaces
+    "Document",
+    "Retriever",
+    "SearchQuery",
+    "SearchResult",
+    "VectorRetriever",
+    "RAGPipeline",
+    "RAGConfig",
+    "RAGFactory",
+    
     # Core components
     "RagComponent",
     "RagPipeline",
@@ -69,11 +91,11 @@ __all__ = [
     "RagRegistry",
     "rag_registry",
     "RagComponentType",
-    "Document",
+    "InternalDocument",
     "Chunk",
     "Embedding",
-    "SearchQuery",
-    "SearchResult",
+    "InternalSearchQuery",
+    "InternalSearchResult",
     "RagContext",
     "RagResponse",
     # Indexing components
@@ -83,7 +105,7 @@ __all__ = [
     "Indexer",
     "IndexingManager",
     # Retrieval components
-    "Retriever",
+    "InternalRetriever",
     "RetrievalManager",
     "SimilarityRetriever",
     # Generation components

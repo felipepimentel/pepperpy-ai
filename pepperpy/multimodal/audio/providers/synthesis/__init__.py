@@ -28,12 +28,17 @@ Supported providers:
 
 from typing import Dict, List, Optional, Union
 
-from .base import (
+from pepperpy.multimodal.audio.providers.synthesis.base import (
     AudioConfig,
     AudioData,
     BaseSynthesisProvider,
     SynthesisError,
     SynthesisProvider,
+    SynthesisProviderProtocol,
+    get_synthesis_provider_class,
+    get_synthesis_registry,
+    list_synthesis_providers,
+    register_synthesis_provider,
 )
 
 __version__ = "0.1.0"
@@ -43,4 +48,9 @@ __all__ = [
     "SynthesisError",
     "AudioConfig",
     "AudioData",
+    "SynthesisProviderProtocol",
+    "register_synthesis_provider",
+    "get_synthesis_provider_class",
+    "list_synthesis_providers",
+    "get_synthesis_registry",
 ]

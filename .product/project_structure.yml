@@ -756,16 +756,16 @@ structure:
             description: Optimization providers package
             modules:
               base:
-                description: Module initialization
+                description: Base module for optimization providers
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: Base module for optimization providers
                 - base.py: Base module
                 - registry.py: Registry module
                 - types.py: Types module
               token:
-                description: Module initialization
+                description: Token optimization provider for resource efficiency
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: Token optimization provider for resource efficiency
                 - provider.py: Provider module
             files:
             - __init__.py: Optimization providers package
@@ -826,21 +826,21 @@ structure:
             description: Memory providers for pepperpy
             modules:
               base:
-                description: Module initialization
+                description: Base module for memory providers
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: Base module for memory providers
                 - base.py: Base module
                 - registry.py: Registry module
                 - types.py: Types module
               postgres:
-                description: Module initialization
+                description: PostgreSQL memory provider implementation
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: PostgreSQL memory provider implementation
                 - provider.py: Provider module
               redis:
-                description: Module initialization
+                description: Redis memory provider implementation
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: Redis memory provider implementation
                 - provider.py: Provider module
             files:
             - __init__.py: Memory providers for pepperpy
@@ -848,22 +848,22 @@ structure:
             description: Storage providers for pepperpy
             modules:
               base:
-                description: Module initialization
+                description: Base module for storage providers
                 files:
-                - __init__.py: Module initialization and exports
-                - base.py: Base module
-                - registry.py: Registry module
-                - types.py: Types module
+                - __init__.py: Base module for storage providers
+                - base.py: Base storage provider
+                - registry.py: Storage provider registry
+                - types.py: Storage provider types
               cloud:
                 description: Cloud storage provider
                 files:
                 - __init__.py: Cloud storage provider
-                - provider.py: Provider module
+                - provider.py: Cloud storage provider implementation
               local:
                 description: Local storage provider
                 files:
                 - __init__.py: Local storage provider
-                - provider.py: Provider module
+                - provider.py: Local storage provider implementation
               sql:
                 description: SQL storage provider
                 files:
@@ -963,9 +963,9 @@ structure:
                 description: Module initialization
                 modules:
                   vector_db:
-                    description: Module initialization
+                    description: Vector database provider for RAG retrieval
                     files:
-                    - __init__.py: Module initialization and exports
+                    - __init__.py: Vector database provider for RAG retrieval
                     - base.py: Base module
                     - provider.py: Provider module
                     - registry.py: Registry module
@@ -1007,7 +1007,7 @@ structure:
             - prompt_protection.py: Module for protecting against prompt injection
                 attacks
           providers:
-            description: Module initialization
+            description: Provider implementations for security capabilities
             modules:
               base:
                 description: Module initialization
@@ -1017,14 +1017,14 @@ structure:
                 - registry.py: Registry module
                 - types.py: Type definitions for security providers
               content_filter:
-                description: Module initialization
+                description: Content filtering provider for security
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: Content filtering provider for security
                 - provider.py: Provider module
               oauth:
-                description: Module initialization
+                description: OAuth authentication provider for security
                 files:
-                - __init__.py: Module initialization and exports
+                - __init__.py: OAuth authentication provider for security
                 - provider.py: Provider module
               prompt_protection:
                 description: Module initialization
@@ -1032,7 +1032,7 @@ structure:
                 - __init__.py: Module initialization and exports
                 - provider.py: Provider module
             files:
-            - __init__.py: Module initialization and exports
+            - __init__.py: Provider implementations for security capabilities
         files:
         - __init__.py: Security package for PepperPy
         - auth.py: Authentication and authorization functionality

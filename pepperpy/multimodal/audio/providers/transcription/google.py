@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-from pepperpy.providers.audio.transcription.base import (
+from pepperpy.multimodal.audio.providers.transcription.base import (
     TranscriptionError,
     TranscriptionProvider,
 )

@@ -13,7 +13,7 @@ It supports:
 # Re-export from providers.cloud for backward compatibility
 from pepperpy.cloud.base import CloudProvider, CloudProviderConfig
 from pepperpy.providers.cloud import *
-from pepperpy.providers.storage.cloud import CloudStorageProvider
+from pepperpy.storage.providers.cloud import CloudStorageProvider
 
 __all__ = [
     "CloudProvider",

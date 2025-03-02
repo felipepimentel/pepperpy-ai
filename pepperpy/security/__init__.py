@@ -8,16 +8,20 @@ This package provides security-related functionality including:
 - Content filtering and prompt protection
 """
 
-from .audit import (
+# Re-export public interfaces
+from pepperpy.security.public import (
     AuditEvent,
-    AuditEventSeverity,
-    AuditEventType,
     AuditLogger,
+    Authenticator,
+    AuthProvider,
+    ContentFilter,
+    PromptProtection,
 )
+
+# Internal implementations
 from .content import (
     # Content filtering
     ContentCategory,
-    ContentFilter,
     ContentGuard,
     ContentPolicy,
     ContentRule,
@@ -34,17 +38,19 @@ from .content import (
 )
 
 __all__ = [
-    # Audit
-    "AuditEvent",
-    "AuditEventType",
-    "AuditEventSeverity",
+    # Public interfaces
+    "AuthProvider",
+    "Authenticator",
+    "ContentFilter",
+    "PromptProtection",
     "AuditLogger",
+    "AuditEvent",
+    # Internal implementations
     # Content filtering
     "ContentCategory",
     "ContentRule",
     "FilterMatch",
     "FilterResult",
-    "ContentFilter",
     "PersonalInfoDetector",
     "ContentPolicy",
     "ContentGuard",

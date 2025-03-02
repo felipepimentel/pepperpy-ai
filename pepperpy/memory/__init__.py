@@ -1,16 +1,26 @@
-"""Memory storage and retrieval system for agents."""
+"""Memory module for PepperPy.
 
-from .base import Memory, MemoryConfig
-from .errors import MemoryError, MemoryKeyError
-from .manager import MemoryManager
-from .types import MemoryEntry, MemoryType
+This module provides memory capabilities for storing and retrieving data.
+"""
+
+# Re-export public interfaces
+# Import internal implementations
+from pepperpy.memory.base import ContextualMemory, MemoryInterface, VectorMemory
+from pepperpy.memory.in_memory import SimpleMemory
+from pepperpy.memory.public import (
+    ConversationMemory,
+    MemoryCapability,
+    WorkingMemory,
+)
 
 __all__ = [
-    "Memory",
-    "MemoryConfig",
-    "MemoryManager",
-    "MemoryEntry",
-    "MemoryType",
-    "MemoryError",
-    "MemoryKeyError",
+    # Public interfaces
+    "MemoryCapability",
+    "ConversationMemory",
+    "WorkingMemory",
+    # Implementation classes
+    "MemoryInterface",
+    "ContextualMemory",
+    "VectorMemory",
+    "SimpleMemory",
 ]

@@ -1,21 +1,25 @@
-"""Storage System for PepperPy
+"""Storage module for PepperPy.
 
-This module provides a unified storage system for the PepperPy framework,
-supporting various storage backends including:
-- Local filesystem
-- Cloud storage (AWS S3, Google Cloud Storage, etc.)
-- SQL databases
-- NoSQL databases
-
-It provides a consistent interface for storing and retrieving data
-regardless of the underlying storage technology.
+This module provides storage capabilities for saving and loading data.
 """
 
-# Re-export from providers.storage for backward compatibility
-from pepperpy.providers.storage import *
-from pepperpy.storage.base import StorageError, StorageProvider
+# Re-export public interfaces
+from pepperpy.storage.public import (
+    FileStorage,
+    ObjectStorage,
+    StorageCapability,
+)
+
+# Import internal implementations
+from pepperpy.storage.base import BaseStorage, StorageError, StorageMetadata
 
 __all__ = [
-    "StorageProvider",
+    # Public interfaces
+    "StorageCapability",
+    "FileStorage",
+    "ObjectStorage",
+    # Implementation classes
+    "BaseStorage",
     "StorageError",
+    "StorageMetadata",
 ]
