@@ -49,4 +49,3 @@ class BaseEmbeddingProvider(ABC):
             List[str]: List of model names
         """
         pass
-

@@ -19,170 +19,69 @@ class OpenRouterProvider(BaseLLMProvider):
         api_key: str,
         **kwargs,
     ):
-        """Initialize OpenRouter provider.
+        """Initialize the OpenRouter provider.
 
         Args:
             api_key: OpenRouter API key
-            **kwargs: Additional parameters to pass to OpenRouter
+            **kwargs: Additional arguments
         """
+        super().__init__(**kwargs)
         self.api_key = api_key
-        self.kwargs = kwargs
-        self._client = None
 
-    @property
-    def client(self):
-        """Get OpenRouter client."""
-        if self._client is None:
-            try:
-                from openai import OpenAI
-                self._client = OpenAI(
-                    api_key=self.api_key,
-                    base_url="https://openrouter.ai/api/v1",
-                )
-            except ImportError:
-                raise ImportError(
-                    "openai package is required for OpenRouterProvider. "
-                    "Install it with: pip install openai"
-                )
-        return self._client
-
-    def generate(
-        self,
-        prompt: str,
-        options: Optional[CompletionOptions] = None,
-        **kwargs,
-    ) -> LLMResponse:
-        """Generate text completion.
-
-        Args:
-            prompt: Text prompt for completion
-            options: Completion options
-            **kwargs: Additional parameters for the provider
-
-        Returns:
-            LLMResponse: Generated completion response
-        """
-        options = options or CompletionOptions(model="openai/gpt-3.5-turbo")
-        
-        # Placeholder implementation
-        return LLMResponse(
-            text="This is a placeholder response from OpenRouter provider.",
-            model=options.model,
-        )
-
-    def chat(
+    async def complete(
         self,
         messages: List[ChatMessage],
+        model: str,
         options: Optional[CompletionOptions] = None,
-        **kwargs,
+        parameters: Optional[ModelParameters] = None,
     ) -> LLMResponse:
-        """Generate chat completion.
+        """Generate a completion for the given messages.
 
         Args:
             messages: List of chat messages
+            model: Model to use
             options: Completion options
-            **kwargs: Additional parameters for the provider
+            parameters: Model parameters
 
         Returns:
-            LLMResponse: Generated chat response
+            LLM response
         """
-        options = options or CompletionOptions(model="openai/gpt-3.5-turbo")
-        
         # Placeholder implementation
         return LLMResponse(
-            text="This is a placeholder response from OpenRouter chat provider.",
-            model=options.model,
+            text="This is a placeholder response from the OpenRouter provider.",
+            model=model,
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
         )
 
-    def get_models(self) -> List[str]:
-        """Get list of available models.
-
-        Returns:
-            List[str]: List of model names
-        """
-        return [
-            "openai/gpt-4",
-            "openai/gpt-3.5-turbo",
-            "anthropic/claude-3-opus",
-            "anthropic/claude-3-sonnet",
-            "anthropic/claude-3-haiku",
-            "google/gemini-pro",
-            "meta-llama/llama-3-70b-instruct",
-            "mistralai/mistral-large",
-        ]
-
-    def get_model_parameters(self, model_name: str) -> ModelParameters:
-        """Get parameters for a specific model.
+    async def stream_complete(
+        self,
+        messages: List[ChatMessage],
+        model: str,
+        options: Optional[CompletionOptions] = None,
+        parameters: Optional[ModelParameters] = None,
+    ):
+        """Stream a completion for the given messages.
 
         Args:
-            model_name: Name of the model
+            messages: List of chat messages
+            model: Model to use
+            options: Completion options
+            parameters: Model parameters
 
-        Returns:
-            ModelParameters: Model parameters
-
-        Raises:
-            ValueError: If model is not found
+        Yields:
+            LLM response chunks
         """
-        models = {
-            "openai/gpt-4": ModelParameters(
-                model="openai/gpt-4",
-                context_window=8192,
-                max_output_tokens=4096,
-                supports_functions=True,
-                supports_vision=False,
-            ),
-            "openai/gpt-3.5-turbo": ModelParameters(
-                model="openai/gpt-3.5-turbo",
-                context_window=16385,
-                max_output_tokens=4096,
-                supports_functions=True,
-                supports_vision=False,
-            ),
-            "anthropic/claude-3-opus": ModelParameters(
-                model="anthropic/claude-3-opus",
-                context_window=200000,
-                max_output_tokens=4096,
-                supports_functions=True,
-                supports_vision=True,
-            ),
-            "anthropic/claude-3-sonnet": ModelParameters(
-                model="anthropic/claude-3-sonnet",
-                context_window=200000,
-                max_output_tokens=4096,
-                supports_functions=True,
-                supports_vision=True,
-            ),
-            "anthropic/claude-3-haiku": ModelParameters(
-                model="anthropic/claude-3-haiku",
-                context_window=200000,
-                max_output_tokens=4096,
-                supports_functions=True,
-                supports_vision=True,
-            ),
-            "google/gemini-pro": ModelParameters(
-                model="google/gemini-pro",
-                context_window=32768,
-                max_output_tokens=8192,
-                supports_functions=False,
-                supports_vision=False,
-            ),
-            "meta-llama/llama-3-70b-instruct": ModelParameters(
-                model="meta-llama/llama-3-70b-instruct",
-                context_window=8192,
-                max_output_tokens=4096,
-                supports_functions=False,
-                supports_vision=False,
-            ),
-            "mistralai/mistral-large": ModelParameters(
-                model="mistralai/mistral-large",
-                context_window=32768,
-                max_output_tokens=8192,
-                supports_functions=False,
-                supports_vision=False,
-            ),
-        }
-        
-        if model_name not in models:
-            raise ValueError(f"Model '{model_name}' not found")
-        
-        return models[model_name]
+        # Placeholder implementation
+        yield LLMResponse(
+            text="This is a placeholder response from the OpenRouter provider.",
+            model=model,
+            usage={
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            },
+        )

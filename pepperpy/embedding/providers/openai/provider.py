@@ -1,11 +1,8 @@
 """OpenAI embedding provider implementation."""
 
-from typing import List, Union
+from typing import Any, Dict, List, Optional, Union
 
-import numpy as np
-
-from pepperpy.embedding.base import EmbeddingError
-from pepperpy.embedding.providers.base.base import BaseEmbeddingProvider
+from pepperpy.embedding.providers.base import BaseEmbeddingProvider, EmbeddingResponse
 
 
 class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
@@ -13,99 +10,113 @@ class OpenAIEmbeddingProvider(BaseEmbeddingProvider):
 
     def __init__(
         self,
-        api_key: str,
-        model: str = "text-embedding-3-small",
-        **kwargs,
+        api_key: Optional[str] = None,
+        model: str = "text-embedding-ada-002",
+        **kwargs: Any,
     ):
         """Initialize OpenAI embedding provider.
 
         Args:
-            api_key: OpenAI API key
-            model: Model to use for embeddings
-            **kwargs: Additional parameters to pass to OpenAI
-
-        Raises:
-            ImportError: If openai package is not installed
-            EmbeddingError: If initialization fails
+            api_key: OpenAI API key (uses env var if None)
+            model: Embedding model name
+            **kwargs: Additional provider options
         """
-        try:
-            from openai import OpenAI
-        except ImportError:
-            raise ImportError(
-                "openai package is required for OpenAIEmbeddingProvider. "
-                "Install it with: pip install openai"
-            )
-
+        super().__init__(**kwargs)
+        self.api_key = api_key
         self.model = model
-        self.kwargs = kwargs
+        self._client = None
 
-        try:
-            self.client = OpenAI(api_key=api_key)
-        except Exception as e:
-            raise EmbeddingError(f"Failed to initialize OpenAI client: {e}")
+    @property
+    def client(self):
+        """Get or create OpenAI client.
 
-    def embed(
-        self,
-        text: Union[str, List[str]],
-        **kwargs,
-    ) -> Union[np.ndarray, List[np.ndarray]]:
+        Returns:
+            OpenAI client
+        """
+        if self._client is None:
+            try:
+                from openai import OpenAI
+                self._client = OpenAI(api_key=self.api_key)
+            except ImportError:
+                raise ImportError(
+                    "OpenAI package is required to use OpenAIEmbeddingProvider. "
+                    "Install it with `pip install openai`."
+                )
+        return self._client
+
+    def embed(self, texts: Union[str, List[str]]) -> EmbeddingResponse:
         """Generate embeddings for text.
 
         Args:
-            text: Text or list of texts to generate embeddings for
-            **kwargs: Additional parameters to pass to OpenAI
+            texts: Text or list of texts to embed
 
         Returns:
-            Union[np.ndarray, List[np.ndarray]]: Embedding vector(s)
+            Embedding response with vectors
 
         Raises:
-            EmbeddingError: If embedding generation fails
+            ValueError: If embedding generation fails
         """
-        try:
-            # Handle single text vs list of texts
-            texts = [text] if isinstance(text, str) else text
+        if isinstance(texts, str):
+            texts = [texts]
 
-            # Get embeddings from OpenAI
+        try:
             response = self.client.embeddings.create(
                 model=self.model,
                 input=texts,
-                **self.kwargs,
-                **kwargs,
             )
-
-            # Convert to numpy arrays
-            embeddings = [
-                np.array(data.embedding, dtype=np.float32) for data in response.data
-            ]
-
-            # Return single array for single input, list for multiple inputs
-            return embeddings[0] if isinstance(text, str) else embeddings
-
+            
+            # Extract embeddings from response
+            embeddings = [item.embedding for item in response.data]
+            
+            return EmbeddingResponse(
+                embeddings=embeddings,
+                model=self.model,
+                provider="openai",
+                usage={
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                },
+            )
         except Exception as e:
-            raise EmbeddingError(f"Failed to generate embeddings: {e}")
+            raise ValueError(f"Failed to generate embeddings: {e}")
 
-    def get_dimension(self) -> int:
-        """Get embedding dimension.
+    def get_dimensions(self) -> int:
+        """Get dimensions for the embedding model.
 
         Returns:
-            int: Embedding dimension
+            Number of dimensions
+
+        Raises:
+            ValueError: If dimensions cannot be determined
         """
-        # Dimensions for different OpenAI models
+        # Common OpenAI model dimensions
         dimensions = {
+            "text-embedding-ada-002": 1536,
             "text-embedding-3-small": 1536,
             "text-embedding-3-large": 3072,
-            "text-embedding-ada-002": 1536,
         }
-        return dimensions.get(self.model, 1536)  # Default to 1536 if model unknown
+        
+        if self.model in dimensions:
+            return dimensions[self.model]
+        
+        # If model not in known dimensions, try to get dimensions from a sample embedding
+        try:
+            response = self.embed("Sample text")
+            if response.embeddings and len(response.embeddings) > 0:
+                return len(response.embeddings[0])
+        except Exception:
+            pass
+            
+        raise ValueError(f"Could not determine dimensions for model {self.model}")
 
-    def get_models(self) -> List[str]:
-        """Get list of available embedding models.
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the embedding model.
 
         Returns:
-            List[str]: List of model names
+            Dictionary with model information
         """
-        return [
-            "text-embedding-3-small",
-            "text-embedding-3-large",
-            "text-embedding-ada-002",  # Legacy model
-        ]
+        return {
+            "name": self.model,
+            "provider": "openai",
+            "dimensions": self.get_dimensions(),
+        }

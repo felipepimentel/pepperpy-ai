@@ -20,7 +20,6 @@ including:
   - Digital avatars
 
 Supported providers:
-- OpenAI (DALL-E, TTS)
 - Stability AI
 - Midjourney
 - ElevenLabs

@@ -11,6 +11,11 @@ from .base import (
     Indexer,
     IndexingManager,
 )
+from pepperpy.rag.indexing import (
+    HybridIndexer,
+    TextIndexer,
+    VectorIndexer,
+)
 
 __all__ = [
     "Chunker",
@@ -18,4 +23,7 @@ __all__ = [
     "Embedder",
     "Indexer",
     "IndexingManager",
+    "HybridIndexer",
+    "TextIndexer",
+    "VectorIndexer",
 ]

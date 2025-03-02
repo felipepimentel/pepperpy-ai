@@ -5,12 +5,10 @@ This module provides centralized management of metrics collection and reporting.
 
 from typing import Dict, Optional
 
-from pepperpy.core.common.base import Lifecycle
-from pepperpy.core.common.types.enums import ComponentState
 from pepperpy.core.metrics import MetricsCollector, MetricsRegistry
 
 
-class MetricsManager(Lifecycle):
+class MetricsManager:
     """Manager for metrics collection and reporting."""
 
     def __init__(self, config: Optional[Dict] = None):
@@ -19,9 +17,9 @@ class MetricsManager(Lifecycle):
         Args:
             config: Optional configuration dictionary
         """
-        super().__init__()
         self.config = config or {}
         self._registry = MetricsRegistry()
+        self._state = "INITIALIZED"
 
     async def initialize(self) -> None:
         """Initialize the metrics system."""
@@ -31,9 +29,9 @@ class MetricsManager(Lifecycle):
             if not system_collector:
                 self._registry.register_collector("system", MetricsCollector())
 
-            self._state = ComponentState.READY
+            self._state = "READY"
         except Exception as e:
-            self._state = ComponentState.ERROR
+            self._state = "ERROR"
             raise RuntimeError(f"Failed to initialize metrics manager: {str(e)}") from e
 
     async def cleanup(self) -> None:
@@ -45,9 +43,9 @@ class MetricsManager(Lifecycle):
                 if collector:
                     collector.clear_metrics()
 
-            self._state = ComponentState.CLEANED
+            self._state = "CLEANED"
         except Exception as e:
-            self._state = ComponentState.ERROR
+            self._state = "ERROR"
             raise RuntimeError(f"Failed to cleanup metrics manager: {str(e)}") from e
 
     def get_registry(self) -> MetricsRegistry:

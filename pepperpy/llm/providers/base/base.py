@@ -14,7 +14,7 @@ from pepperpy.llm.providers.base.types import (
 )
 
 
-class BaseLLMProvider(ABC):
+class LLMProviderBase(ABC):
     """Base class for LLM providers."""
 
     @abstractmethod

@@ -7,8 +7,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.common.utils.json import JsonUtils
-from pepperpy.core.common.utils.yaml import YamlUtils
+from pepperpy.formats.json import JsonUtils
+from pepperpy.formats.yaml import YamlUtils
 
 
 class ConfigUtils:
@@ -20,10 +20,10 @@ class ConfigUtils:
 
         Args:
             path: File path
-            format: File format (json, yaml)
+            format: File format (json, yaml, or None to auto-detect)
 
         Returns:
-            Configuration dictionary
+            Configuration data as dictionary
         """
         path = Path(path)
         if format is None:
