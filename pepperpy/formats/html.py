@@ -85,11 +85,13 @@ class HTMLProcessor:
             soup = self.parse(content)
             links = []
             for link in soup.find_all("a", href=True):
-                links.append({
-                    "text": link.get_text(strip=True),
-                    "href": link["href"],
-                    "title": link.get("title", ""),
-                })
+                links.append(
+                    {
+                        "text": link.get_text(strip=True),
+                        "href": link["href"],
+                        "title": link.get("title", ""),
+                    }
+                )
             return links
         except Exception as e:
             raise ProcessingError(f"HTML link extraction failed: {str(e)}")

@@ -6,11 +6,9 @@ This module provides functionality to discover, load, and manage CLI plugins.
 import importlib
 import importlib.util
 import inspect
-import logging
-import os
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple
 
 import click
 
@@ -47,7 +45,7 @@ class PluginRegistry:
         """
         if plugin_id in self._plugins:
             logger.warning(f"Plugin {plugin_id} already registered, overwriting")
-        
+
         self._plugins[plugin_id] = plugin_info
         self._commands[plugin_id] = []
         logger.debug(f"Registered plugin: {plugin_id}")
@@ -61,7 +59,7 @@ class PluginRegistry:
         """
         if plugin_id not in self._plugins:
             raise ValueError(f"Plugin {plugin_id} not registered")
-        
+
         self._commands[plugin_id].append(command)
         logger.debug(f"Registered command {command.name} from plugin {plugin_id}")
 
@@ -116,7 +114,7 @@ def discover_plugins() -> List[Tuple[str, Path]]:
         for item in plugin_dir.iterdir():
             if not item.is_dir():
                 continue
-                
+
             # Check if this is a valid plugin directory
             if (item / "cli.py").exists() or (item / "cli" / "__init__.py").exists():
                 plugin_id = item.name
@@ -140,13 +138,12 @@ def load_plugin(plugin_id: str, plugin_path: Path) -> Optional[PluginInfo]:
         # Try loading as a module
         if (plugin_path / "cli.py").exists():
             spec = importlib.util.spec_from_file_location(
-                f"pepperpy_plugin_{plugin_id}", 
-                plugin_path / "cli.py"
+                f"pepperpy_plugin_{plugin_id}", plugin_path / "cli.py"
             )
             if spec is None or spec.loader is None:
                 logger.error(f"Failed to load plugin {plugin_id}: invalid spec")
                 return None
-                
+
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
         else:
@@ -170,7 +167,9 @@ def load_plugin(plugin_id: str, plugin_path: Path) -> Optional[PluginInfo]:
 
         # Register commands
         for name, obj in inspect.getmembers(module):
-            if isinstance(obj, (click.Command, click.Group)) and not name.startswith("_"):
+            if isinstance(obj, (click.Command, click.Group)) and not name.startswith(
+                "_"
+            ):
                 registry.register_command(plugin_id, obj)
 
         return plugin_info
@@ -204,4 +203,4 @@ def get_plugin_commands() -> Dict[str, List[PluginCommandType]]:
         Dictionary of plugin_id to list of commands
     """
     registry = PluginRegistry()
-    return registry.get_commands() 
+    return registry.get_commands()

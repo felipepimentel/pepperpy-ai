@@ -19,7 +19,7 @@ class Environment:
     @classmethod
     def get_current(cls) -> str:
         """Get the current environment.
-        
+
         Returns:
             str: Current environment name
         """
@@ -35,10 +35,10 @@ class Environment:
     @classmethod
     def set_current(cls, env: str) -> None:
         """Set the current environment.
-        
+
         Args:
             env: Environment name to set
-            
+
         Raises:
             ValueError: If the environment name is invalid
         """
@@ -68,7 +68,7 @@ class Environment:
     @classmethod
     def register(cls, env: str) -> None:
         """Register a new environment.
-        
+
         Args:
             env: Environment name to register
         """
@@ -77,10 +77,10 @@ class Environment:
     @classmethod
     def unregister(cls, env: str) -> None:
         """Unregister an environment.
-        
+
         Args:
             env: Environment name to unregister
-            
+
         Raises:
             ValueError: If trying to unregister a built-in environment
         """
@@ -91,7 +91,7 @@ class Environment:
     @classmethod
     def list_environments(cls) -> set[str]:
         """List all registered environments.
-        
+
         Returns:
             set[str]: Set of registered environment names
         """

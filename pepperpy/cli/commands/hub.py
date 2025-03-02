@@ -224,9 +224,11 @@ def search(
                 artifact["type"],
                 artifact["version"],
                 artifact["author"],
-                artifact["description"][:50] + "..."
-                if len(artifact["description"]) > 50
-                else artifact["description"],
+                (
+                    artifact["description"][:50] + "..."
+                    if len(artifact["description"]) > 50
+                    else artifact["description"]
+                ),
             )
 
         console.print(table)
@@ -345,6 +347,8 @@ def list() -> None:
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort()
+
+
 """Hub commands for the Pepperpy CLI.
 
 This module provides commands for:
@@ -354,18 +358,10 @@ This module provides commands for:
 - Searching the marketplace
 """
 
-import asyncio
-import json
-from pathlib import Path
 from typing import Optional
 
 import click
 from rich.console import Console
-from rich.table import Table
-
-from pepperpy.core.errors import PepperpyError
-from pepperpy.hub.marketplace import MarketplaceConfig
-from pepperpy.hub.security import SecurityManager
 
 # Configure rich console
 console = Console()

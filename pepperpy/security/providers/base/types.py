@@ -4,7 +4,7 @@ This module defines common types used by security providers.
 """
 
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 
 class SecuritySeverity(Enum):

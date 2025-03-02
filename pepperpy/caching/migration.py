@@ -91,10 +91,12 @@ class MigrationHelper:
                 "pepperpy.rag.vector.optimization.caching"
             )
             if hasattr(vector_module, "VectorCache"):
-                old_caches.append((
-                    "pepperpy.rag.vector.optimization.caching.VectorCache",
-                    vector_module.VectorCache,
-                ))
+                old_caches.append(
+                    (
+                        "pepperpy.rag.vector.optimization.caching.VectorCache",
+                        vector_module.VectorCache,
+                    )
+                )
         except (ImportError, AttributeError):
             pass
 

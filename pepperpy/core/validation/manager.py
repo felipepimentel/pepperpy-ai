@@ -5,7 +5,7 @@ This module provides functionality for managing and validating schemas.
 
 import logging
 import time
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional
 
 from .base import ValidationError, Validator
 

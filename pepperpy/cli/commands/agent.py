@@ -94,24 +94,28 @@ async def list_agents(
 
         # List agents with filters
         agents = await registry.list(
-            filters={
-                "type": agent_type,
-                "status": status,
-            }
-            if agent_type or status
-            else None
+            filters=(
+                {
+                    "type": agent_type,
+                    "status": status,
+                }
+                if agent_type or status
+                else None
+            )
         )
 
         # Format agent information
         result = []
         for agent in agents:
-            result.append({
-                "id": agent.id,
-                "name": agent.name,
-                "type": agent.type,
-                "status": agent.status,
-                "description": agent.description,
-            })
+            result.append(
+                {
+                    "id": agent.id,
+                    "name": agent.name,
+                    "type": agent.type,
+                    "status": agent.status,
+                    "description": agent.description,
+                }
+            )
 
         return result
 
@@ -238,6 +242,8 @@ async def update_agent(
             },
             recovery_hint="Check agent configuration and try again",
         )
+
+
 """Agent commands for the Pepperpy CLI.
 
 This module provides commands for managing agents:
@@ -249,8 +255,6 @@ This module provides commands for managing agents:
 
 import click
 from rich.console import Console
-
-from pepperpy.core.errors import PepperpyError
 
 console = Console()
 

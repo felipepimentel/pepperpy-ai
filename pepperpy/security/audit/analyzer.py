@@ -83,24 +83,28 @@ class AuditAnalyzer:
             # Check event frequency
             event_count = len(user_events_list)
             if event_count > thresholds.get("max_events_per_user", 1000):
-                anomalies.append({
-                    "type": "high_event_frequency",
-                    "user_id": user_id,
-                    "count": event_count,
-                    "threshold": thresholds["max_events_per_user"],
-                })
+                anomalies.append(
+                    {
+                        "type": "high_event_frequency",
+                        "user_id": user_id,
+                        "count": event_count,
+                        "threshold": thresholds["max_events_per_user"],
+                    }
+                )
 
             # Check severity patterns
             critical_events = [
                 e for e in user_events_list if e.severity.value == "critical"
             ]
             if len(critical_events) > thresholds.get("max_critical_events", 5):
-                anomalies.append({
-                    "type": "high_severity_pattern",
-                    "user_id": user_id,
-                    "count": len(critical_events),
-                    "threshold": thresholds["max_critical_events"],
-                })
+                anomalies.append(
+                    {
+                        "type": "high_severity_pattern",
+                        "user_id": user_id,
+                        "count": len(critical_events),
+                        "threshold": thresholds["max_critical_events"],
+                    }
+                )
 
             # Check for rapid resource access
             if len(user_events_list) >= 2:
@@ -110,15 +114,17 @@ class AuditAnalyzer:
                         sorted_events[i + 1].timestamp - sorted_events[i].timestamp
                     ).total_seconds()
                     if time_diff < thresholds.get("min_event_interval", 1.0):
-                        anomalies.append({
-                            "type": "rapid_events",
-                            "user_id": user_id,
-                            "interval": time_diff,
-                            "threshold": thresholds["min_event_interval"],
-                            "events": [
-                                sorted_events[i].event_type.value,
-                                sorted_events[i + 1].event_type.value,
-                            ],
-                        })
+                        anomalies.append(
+                            {
+                                "type": "rapid_events",
+                                "user_id": user_id,
+                                "interval": time_diff,
+                                "threshold": thresholds["min_event_interval"],
+                                "events": [
+                                    sorted_events[i].event_type.value,
+                                    sorted_events[i + 1].event_type.value,
+                                ],
+                            }
+                        )
 
         return anomalies

@@ -4,14 +4,15 @@ This module provides functionality for monitoring runtime metrics and performanc
 of PepperPy components and operations.
 """
 
-from typing import Dict, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 
 @dataclass
 class RuntimeMetrics:
     """Container for runtime metrics."""
+
     start_time: datetime
     end_time: Optional[datetime] = None
     memory_usage: float = 0.0

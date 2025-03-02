@@ -16,7 +16,9 @@ class StorageProviderRegistry:
 
     @classmethod
     def register(
-        cls, provider_type: StorageProviderType, provider_class: Type[BaseStorageProvider]
+        cls,
+        provider_type: StorageProviderType,
+        provider_class: Type[BaseStorageProvider],
     ) -> None:
         """Register a storage provider.
 
@@ -27,7 +29,9 @@ class StorageProviderRegistry:
         cls._providers[provider_type] = provider_class
 
     @classmethod
-    def get_provider(cls, provider_type: StorageProviderType) -> Type[BaseStorageProvider]:
+    def get_provider(
+        cls, provider_type: StorageProviderType
+    ) -> Type[BaseStorageProvider]:
         """Get a storage provider by type.
 
         Args:
@@ -51,4 +55,3 @@ class StorageProviderRegistry:
             Dict[StorageProviderType, Type[BaseStorageProvider]]: A dictionary of provider types to provider classes.
         """
         return cls._providers.copy()
-

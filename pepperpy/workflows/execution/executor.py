@@ -6,8 +6,8 @@ including parallelism, error handling, and monitoring.
 
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.types.enums import WorkflowID
 from pepperpy.core.errors import ExecutionError
+from pepperpy.core.types.enums import WorkflowID
 
 from ..core.base import BaseWorkflow, WorkflowStep
 from ..core.types import WorkflowCallback

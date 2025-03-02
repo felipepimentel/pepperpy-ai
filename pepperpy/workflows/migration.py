@@ -67,20 +67,24 @@ class MigrationHelper:
                 for name in node.names:
                     if name.name in MigrationHelper.IMPORT_MAPPING:
                         line = code.splitlines()[node.lineno - 1]
-                        legacy_imports.append((
-                            name.name,
-                            name.asname or name.name,
-                            line,
-                        ))
+                        legacy_imports.append(
+                            (
+                                name.name,
+                                name.asname or name.name,
+                                line,
+                            )
+                        )
             elif isinstance(node, ast.ImportFrom):
                 if node.module in MigrationHelper.IMPORT_MAPPING:
                     line = code.splitlines()[node.lineno - 1]
                     for name in node.names:
-                        legacy_imports.append((
-                            f"{node.module}.{name.name}",
-                            name.asname or name.name,
-                            line,
-                        ))
+                        legacy_imports.append(
+                            (
+                                f"{node.module}.{name.name}",
+                                name.asname or name.name,
+                                line,
+                            )
+                        )
 
         return legacy_imports
 

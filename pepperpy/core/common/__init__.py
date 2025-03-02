@@ -11,9 +11,9 @@ It includes:
 - Versioning and compatibility management
 """
 
-from pepperpy.core.types import *
 from pepperpy.core.common.utils import *
-from pepperpy.core.versioning import *
 from pepperpy.core.errors import *
+from pepperpy.core.types import *
+from pepperpy.core.versioning import *
 
 __version__ = "0.1.0"

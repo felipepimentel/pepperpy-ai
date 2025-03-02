@@ -3,15 +3,13 @@
 This module defines the base interfaces and classes for agents in the PepperPy framework.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
-from uuid import UUID
-import logging
 
 from pepperpy.core.base import ComponentConfig, Lifecycle
 from pepperpy.core.metrics import MetricsManager
-from pepperpy.core.types.base import BaseComponent
 from pepperpy.core.types.enums import AgentID, AgentState
 
 

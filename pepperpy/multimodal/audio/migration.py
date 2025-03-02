@@ -99,21 +99,21 @@ class MigrationHelper:
             )
         elif isinstance(old_processor, OldAudioAnalyzer):
             return AudioAnalyzer(
-                processor=MigrationHelper.get_equivalent_processor(
-                    old_processor.processor
-                )
-                if old_processor.processor
-                else None,
-                transcriber=MigrationHelper.get_equivalent_processor(
-                    old_processor.transcriber
-                )
-                if old_processor.transcriber
-                else None,
-                classifier=MigrationHelper.get_equivalent_processor(
-                    old_processor.classifier
-                )
-                if old_processor.classifier
-                else None,
+                processor=(
+                    MigrationHelper.get_equivalent_processor(old_processor.processor)
+                    if old_processor.processor
+                    else None
+                ),
+                transcriber=(
+                    MigrationHelper.get_equivalent_processor(old_processor.transcriber)
+                    if old_processor.transcriber
+                    else None
+                ),
+                classifier=(
+                    MigrationHelper.get_equivalent_processor(old_processor.classifier)
+                    if old_processor.classifier
+                    else None
+                ),
             )
         elif isinstance(old_processor, OldSpeechTranscriber):
             return SpeechTranscriber()

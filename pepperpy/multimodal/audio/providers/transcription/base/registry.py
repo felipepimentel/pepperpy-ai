@@ -6,7 +6,9 @@ This module provides a registry for audio transcription providers.
 from typing import Dict, List, Type
 
 from pepperpy.core.logging import get_logger
-from pepperpy.multimodal.audio.providers.transcription.base.base import TranscriptionProvider
+from pepperpy.multimodal.audio.providers.transcription.base.base import (
+    TranscriptionProvider,
+)
 
 logger = get_logger(__name__)
 
@@ -59,4 +61,4 @@ def get_transcription_registry() -> Dict[str, Type[TranscriptionProvider]]:
     Returns:
         Copy of the transcription provider registry
     """
-    return _TRANSCRIPTION_REGISTRY.copy() 
+    return _TRANSCRIPTION_REGISTRY.copy()

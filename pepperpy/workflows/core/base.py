@@ -16,9 +16,9 @@ from pepperpy.core.base import (
     ComponentConfig,
     ComponentState,
 )
-from pepperpy.core.types.enums import ComponentState
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
+from pepperpy.core.types.enums import ComponentState
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 
@@ -193,20 +193,20 @@ class BaseWorkflow(ABC):
         """Initialize workflow resources."""
         try:
             # Initialize metrics
-            self._metrics[
-                "execution_count"
-            ] = await self._metrics_manager.create_counter(
-                name=f"workflow_{self.definition.name}_executions_total",
-                description=f"Total number of executions for workflow {self.definition.name}",
-                labels={"status": "success"},
+            self._metrics["execution_count"] = (
+                await self._metrics_manager.create_counter(
+                    name=f"workflow_{self.definition.name}_executions_total",
+                    description=f"Total number of executions for workflow {self.definition.name}",
+                    labels={"status": "success"},
+                )
             )
-            self._metrics[
-                "execution_time"
-            ] = await self._metrics_manager.create_histogram(
-                name=f"workflow_{self.definition.name}_execution_seconds",
-                description=f"Execution time in seconds for workflow {self.definition.name}",
-                labels={"status": "success"},
-                buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+            self._metrics["execution_time"] = (
+                await self._metrics_manager.create_histogram(
+                    name=f"workflow_{self.definition.name}_execution_seconds",
+                    description=f"Execution time in seconds for workflow {self.definition.name}",
+                    labels={"status": "success"},
+                    buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+                )
             )
             self._metrics["step_count"] = await self._metrics_manager.create_counter(
                 name=f"workflow_{self.definition.name}_steps_total",
@@ -222,20 +222,20 @@ class BaseWorkflow(ABC):
 
             # Initialize step metrics
             for step in self.steps:
-                self._step_metrics[
-                    f"{step.name}_count"
-                ] = await self._metrics_manager.create_counter(
-                    name=f"{self.definition.name}_step_{step.name}_total",
-                    description=f"Total number of executions for step {step.name}",
-                    labels={"status": "success"},
+                self._step_metrics[f"{step.name}_count"] = (
+                    await self._metrics_manager.create_counter(
+                        name=f"{self.definition.name}_step_{step.name}_total",
+                        description=f"Total number of executions for step {step.name}",
+                        labels={"status": "success"},
+                    )
                 )
-                self._step_metrics[
-                    f"{step.name}_time"
-                ] = await self._metrics_manager.create_histogram(
-                    name=f"{self.definition.name}_step_{step.name}_seconds",
-                    description=f"Execution time in seconds for step {step.name}",
-                    labels={"status": "success"},
-                    buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+                self._step_metrics[f"{step.name}_time"] = (
+                    await self._metrics_manager.create_histogram(
+                        name=f"{self.definition.name}_step_{step.name}_seconds",
+                        description=f"Execution time in seconds for step {step.name}",
+                        labels={"status": "success"},
+                        buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
+                    )
                 )
 
             # Initialize workflow

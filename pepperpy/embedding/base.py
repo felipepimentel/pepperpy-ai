@@ -14,6 +14,7 @@ class EmbeddingError(Exception):
 
 class BaseEmbedding(ABC):
     """Base class for embedding components."""
+
     @abstractmethod
     def embed(
         self,
@@ -33,6 +34,7 @@ class BaseEmbedding(ABC):
             EmbeddingError: If embedding generation fails
         """
         pass
+
     @abstractmethod
     def get_dimension(self) -> int:
         """Get embedding dimension.
@@ -50,6 +52,7 @@ class BaseEmbedding(ABC):
             List[str]: List of model names
         """
         pass
+
     def batch_embed(
         self,
         texts: List[str],

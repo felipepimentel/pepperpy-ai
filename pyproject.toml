@@ -92,5 +92,7 @@ check_untyped_defs = true
 [tool.ruff]
 line-length = 88
 target-version = "py39"
+
+[tool.ruff.lint]
 select = ["E", "F", "B", "I"]
 ignore = []

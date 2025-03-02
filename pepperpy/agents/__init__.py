@@ -17,19 +17,6 @@ from .implementations import (
     WorkflowAgent,
     WorkflowAgentConfig,
 )
-
-# Import workflows subpackage
-from .workflows import (
-    BaseWorkflow,
-    WorkflowCallback,
-    WorkflowConfig,
-    WorkflowDefinition,
-    WorkflowPriority,
-    WorkflowRegistry,
-    WorkflowStatus,
-    WorkflowStep,
-)
-
 from .providers import (
     BaseProvider,
     ProviderCapability,
@@ -43,6 +30,18 @@ from .providers import (
     ProviderMetadata,
     ProviderResponse,
     ProviderState,
+)
+
+# Import workflows subpackage
+from .workflows import (
+    BaseWorkflow,
+    WorkflowCallback,
+    WorkflowConfig,
+    WorkflowDefinition,
+    WorkflowPriority,
+    WorkflowRegistry,
+    WorkflowStatus,
+    WorkflowStep,
 )
 
 __all__ = [

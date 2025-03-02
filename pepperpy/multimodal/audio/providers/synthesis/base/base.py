@@ -7,15 +7,9 @@ the general multimodal synthesis framework.
 from pathlib import Path
 from typing import Any, Union
 
-from pepperpy.multimodal.synthesis.base import (
-    AudioConfig as BaseAudioConfig,
-)
-from pepperpy.multimodal.synthesis.base import (
-    AudioData as BaseAudioData,
-)
-from pepperpy.multimodal.synthesis.base import (
-    SynthesisError as BaseSynthesisError,
-)
+from pepperpy.multimodal.synthesis.base import AudioConfig as BaseAudioConfig
+from pepperpy.multimodal.synthesis.base import AudioData as BaseAudioData
+from pepperpy.multimodal.synthesis.base import SynthesisError as BaseSynthesisError
 from pepperpy.multimodal.synthesis.base import (
     SynthesisProvider as BaseSynthesisProvider,
 )

@@ -13,7 +13,7 @@ consistent version handling across the framework.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, List, Optional
 
 
 class Version(ABC):

@@ -28,15 +28,11 @@ Core Components:
    - Shared tools
 """
 
-from pepperpy.core import *  # noqa
-
-# from pepperpy.integrations import *  # noqa
-# from pepperpy.utils import *  # noqa
-
 # Providers are now distributed by domain
 # The following imports are for backward compatibility
 from pepperpy.agents.providers import *
 from pepperpy.cloud.providers import *
+from pepperpy.core import *  # noqa
 from pepperpy.core.config.providers import *
 from pepperpy.embedding.providers import *
 from pepperpy.llm.providers import *
@@ -44,6 +40,10 @@ from pepperpy.memory.providers import *
 from pepperpy.multimodal.audio.providers import *
 from pepperpy.multimodal.vision.providers import *
 from pepperpy.storage.providers import *
+
+# from pepperpy.integrations import *  # noqa
+# from pepperpy.utils import *  # noqa
+
 
 # The centralized providers module has been removed
 # Please use the domain-specific providers instead

@@ -5,7 +5,11 @@ coordinating multiple analyzers and aggregating their results.
 """
 
 from pepperpy.core.common.analysis.analyzers import ComplexityAnalyzer, SecurityAnalyzer
-from pepperpy.core.common.analysis.types import AnalysisLevel, AnalysisResult, CodeAnalyzer
+from pepperpy.core.common.analysis.types import (
+    AnalysisLevel,
+    AnalysisResult,
+    CodeAnalyzer,
+)
 from pepperpy.observability import MetricsManager
 
 

@@ -19,8 +19,7 @@ from pepperpy.security.public import (
 )
 
 # Internal implementations
-from .content import (
-    # Content filtering
+from .content import (  # Content filtering; Prompt protection
     ContentCategory,
     ContentGuard,
     ContentPolicy,
@@ -33,7 +32,6 @@ from .content import (
     PromptGuard,
     PromptSanitizer,
     PromptValidator,
-    # Prompt protection
     ThreatLevel,
 )
 

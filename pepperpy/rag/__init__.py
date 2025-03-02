@@ -4,18 +4,6 @@ This module provides a modular framework for building RAG applications with clea
 separation between indexing, retrieval, and generation components.
 """
 
-# Re-export public interfaces
-from pepperpy.rag.public import (
-    Document,
-    RAGConfig,
-    RAGFactory,
-    RAGPipeline,
-    Retriever,
-    SearchQuery,
-    SearchResult,
-    VectorRetriever,
-)
-
 # Core components
 from pepperpy.rag.base import RagComponent, RagPipeline
 from pepperpy.rag.config import (
@@ -46,24 +34,36 @@ from pepperpy.rag.indexing import (
     IndexingManager,
 )
 from pepperpy.rag.pipeline import StandardRagPipeline
+
+# Re-export public interfaces
+from pepperpy.rag.public import (
+    Document,
+    RAGConfig,
+    RAGFactory,
+    RAGPipeline,
+    Retriever,
+    SearchQuery,
+    SearchResult,
+    VectorRetriever,
+)
 from pepperpy.rag.registry import RagRegistry, rag_registry
 
 # Retrieval components
 from pepperpy.rag.retrieval import (
     RetrievalManager,
-    Retriever as InternalRetriever,
     SimilarityRetriever,
 )
+from pepperpy.rag.retrieval import Retriever as InternalRetriever
 from pepperpy.rag.types import (
     Chunk,
-    Document as InternalDocument,
     Embedding,
     RagComponentType,
     RagContext,
     RagResponse,
-    SearchQuery as InternalSearchQuery,
-    SearchResult as InternalSearchResult,
 )
+from pepperpy.rag.types import Document as InternalDocument
+from pepperpy.rag.types import SearchQuery as InternalSearchQuery
+from pepperpy.rag.types import SearchResult as InternalSearchResult
 
 __all__ = [
     # Public interfaces
@@ -75,7 +75,6 @@ __all__ = [
     "RAGPipeline",
     "RAGConfig",
     "RAGFactory",
-    
     # Core components
     "RagComponent",
     "RagPipeline",

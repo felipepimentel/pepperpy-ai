@@ -5,7 +5,7 @@ This module provides functionality to manage plugin configurations.
 
 import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pepperpy.core.logging import get_logger
 
@@ -134,4 +134,4 @@ def disable_plugin(plugin_id: str) -> bool:
     """
     config = load_plugin_config(plugin_id)
     config["enabled"] = False
-    return save_plugin_config(plugin_id, config) 
+    return save_plugin_config(plugin_id, config)

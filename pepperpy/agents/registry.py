@@ -13,13 +13,13 @@ from pepperpy.agents.implementations.workflow_agent import (
     WorkflowAgentConfig,
 )
 from pepperpy.agents.interactive import InteractiveAgent, InteractiveAgentConfig
+from pepperpy.core.errors import AgentError
 from pepperpy.core.logging import get_logger
 from pepperpy.core.registry import (
     ComponentMetadata,
     Registry,
     get_registry,
 )
-from pepperpy.core.errors import AgentError
 
 # Configure logging
 logger = get_logger(__name__)

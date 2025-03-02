@@ -8,9 +8,12 @@ This module provides tools for optimizing API requests through batching:
 """
 
 # Import directly from the modules that were previously in the batching directory
-from pepperpy.optimization.base import Batch, BatchProcessor
-from pepperpy.optimization.base import BatchManager
-from pepperpy.optimization.base import BatchScheduler
+from pepperpy.optimization.base import (
+    Batch,
+    BatchManager,
+    BatchProcessor,
+    BatchScheduler,
+)
 
 __all__ = [
     "Batch",

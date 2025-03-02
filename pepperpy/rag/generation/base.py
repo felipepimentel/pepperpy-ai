@@ -72,10 +72,12 @@ class PromptGenerator(Generator):
         query = context.query.query
 
         # Format context from search results
-        context_str = "\n\n".join([
-            f"[{i + 1}] {result.chunk.content}"
-            for i, result in enumerate(context.results)
-        ])
+        context_str = "\n\n".join(
+            [
+                f"[{i + 1}] {result.chunk.content}"
+                for i, result in enumerate(context.results)
+            ]
+        )
 
         return self.prompt_template.format(query=query, context=context_str)
 

@@ -43,9 +43,9 @@ class RagRegistry:
             )
 
         self._components[component.component_id] = component
-        self._component_types[component.component_type][component.component_id] = (
-            component
-        )
+        self._component_types[component.component_type][
+            component.component_id
+        ] = component
 
         logger.debug(
             f"Registered {component.component_type.name} component: {component.name} "

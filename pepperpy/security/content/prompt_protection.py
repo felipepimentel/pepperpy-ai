@@ -215,16 +215,16 @@ class PromptGuard:
         return {
             "is_valid": is_valid,
             "is_suspicious": detection.is_suspicious,
-            "threat_level": detection.threat_level.value
-            if detection.threat_level
-            else None,
+            "threat_level": (
+                detection.threat_level.value if detection.threat_level else None
+            ),
             "sanitized_text": detection.sanitized_text,
             "matches": detection.matches,
             "metadata": {
                 "original_length": len(text),
-                "sanitized_length": len(detection.sanitized_text)
-                if detection.sanitized_text
-                else None,
+                "sanitized_length": (
+                    len(detection.sanitized_text) if detection.sanitized_text else None
+                ),
                 "validation": {
                     "max_length": self.validator.max_length,
                     "allowed_patterns": len(self.validator.allowed_patterns),

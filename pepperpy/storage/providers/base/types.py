@@ -13,4 +13,3 @@ class StorageProviderType(Enum):
     CLOUD = auto()
     SQL = auto()
     MEMORY = auto()
-

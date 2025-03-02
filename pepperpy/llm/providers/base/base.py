@@ -6,7 +6,6 @@ This module defines the base class for LLM (Large Language Model) providers.
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from pepperpy.llm.base import LLMProvider as BaseLLMProvider
 from pepperpy.llm.providers.base.types import (
     ChatMessage,
     CompletionOptions,
@@ -17,7 +16,7 @@ from pepperpy.llm.providers.base.types import (
 
 class LLMProviderBase(ABC):
     """Base class for LLM providers.
-    
+
     This class provides a compatibility layer between the new provider interface
     and the existing LLM provider interface in pepperpy/llm/base.py.
     """

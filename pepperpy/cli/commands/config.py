@@ -122,6 +122,8 @@ def reset(force: bool) -> None:
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort()
+
+
 """Configuration commands for the Pepperpy CLI.
 
 This module provides commands for managing configuration:
@@ -136,8 +138,6 @@ from typing import Optional
 
 import click
 from rich.console import Console
-
-from pepperpy.core.errors import PepperpyError
 
 console = Console()
 

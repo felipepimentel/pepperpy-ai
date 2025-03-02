@@ -51,19 +51,23 @@ class MigrationHelper:
                 if isinstance(node, ast.Import):
                     for name in node.names:
                         if name.name.startswith("pepperpy.content"):
-                            legacy_imports.append((
-                                name.name,
-                                name.name,
-                                name.asname or name.name,
-                            ))
+                            legacy_imports.append(
+                                (
+                                    name.name,
+                                    name.name,
+                                    name.asname or name.name,
+                                )
+                            )
                 elif isinstance(node, ast.ImportFrom):
                     if node.module and node.module.startswith("pepperpy.content"):
                         for name in node.names:
-                            legacy_imports.append((
-                                node.module,
-                                name.name,
-                                name.asname or name.name,
-                            ))
+                            legacy_imports.append(
+                                (
+                                    node.module,
+                                    name.name,
+                                    name.asname or name.name,
+                                )
+                            )
         except SyntaxError:
             # If code can't be parsed, return empty list
             pass

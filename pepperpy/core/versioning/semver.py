@@ -148,8 +148,8 @@ Semantic versioning validation functionality.
 import re
 from typing import List, Optional
 
-from ..types import Version, VersionComponent
 from ..errors import VersionValidationError
+from ..types import Version, VersionComponent
 
 
 class SemVerValidator:

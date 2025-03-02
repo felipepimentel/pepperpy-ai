@@ -85,12 +85,14 @@ class WorkflowEngine(ComponentBase):
                 labels={"status": "retry"},
             )
 
-            self._metrics.update({
-                "workflow_count": workflow_count,
-                "workflow_execution_time": workflow_execution_time,
-                "workflow_queue_time": workflow_queue_time,
-                "workflow_retry_count": workflow_retry_count,
-            })
+            self._metrics.update(
+                {
+                    "workflow_count": workflow_count,
+                    "workflow_execution_time": workflow_execution_time,
+                    "workflow_queue_time": workflow_queue_time,
+                    "workflow_retry_count": workflow_retry_count,
+                }
+            )
 
             # Start scheduler
             if isinstance(self.config, WorkflowEngineConfig):
@@ -331,13 +333,15 @@ class WorkflowEngine(ComponentBase):
         """
         result = []
         for workflow_id, workflow in self._workflows.items():
-            result.append({
-                "id": str(workflow_id),
-                "type": workflow.__class__.__name__,
-                "state": workflow.state,
-                "active": workflow_id in self._active_workflows,
-                "scheduled": workflow_id in self._scheduled_workflows,
-            })
+            result.append(
+                {
+                    "id": str(workflow_id),
+                    "type": workflow.__class__.__name__,
+                    "state": workflow.state,
+                    "active": workflow_id in self._active_workflows,
+                    "scheduled": workflow_id in self._scheduled_workflows,
+                }
+            )
         return result
 
     def list_workflow_types(self) -> List[str]:

@@ -220,10 +220,7 @@ class ResourcePool(Lifecycle, Generic[T]):
             utilization = len(self._in_use) / total
 
             # Scale up if needed
-            if (
-                utilization >= self._scale_up_threshold
-                and total < self._max_size
-            ):
+            if utilization >= self._scale_up_threshold and total < self._max_size:
                 try:
                     resource = self._factory()
                     await resource.load()

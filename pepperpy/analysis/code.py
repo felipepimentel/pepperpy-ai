@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from pepperpy.core.common.errors.base import PepperError
+
 \n# Definindo a classe ProcessingError localmente para evitar erros de importação
 class ProcessingError(PepperError):
     """Error raised when processing fails."""

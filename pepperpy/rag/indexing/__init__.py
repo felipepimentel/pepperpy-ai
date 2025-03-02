@@ -4,17 +4,18 @@ This module provides components for document indexing, including chunking,
 embedding, and vector indexing.
 """
 
+from pepperpy.rag.indexing import (
+    HybridIndexer,
+    TextIndexer,
+    VectorIndexer,
+)
+
 from .base import (
     Chunker,
     DocumentIndexer,
     Embedder,
     Indexer,
     IndexingManager,
-)
-from pepperpy.rag.indexing import (
-    HybridIndexer,
-    TextIndexer,
-    VectorIndexer,
 )
 
 __all__ = [

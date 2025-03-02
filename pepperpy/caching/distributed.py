@@ -233,10 +233,12 @@ class RedisCache(DistributedCache[T]):
             else:
                 # For complex objects, use the serializer
                 serialized = self.serializer.serialize(message)
-                json_message = json.dumps({
-                    "_serialized": True,
-                    "data": serialized.hex(),
-                })
+                json_message = json.dumps(
+                    {
+                        "_serialized": True,
+                        "data": serialized.hex(),
+                    }
+                )
 
             # Publish to channel
             return self._client.publish(channel, json_message)

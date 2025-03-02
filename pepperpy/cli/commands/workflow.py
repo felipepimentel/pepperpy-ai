@@ -167,12 +167,14 @@ def deploy(
 
         # Log deployment
         asyncio.run(
-            audit_logger.log({
-                "event_type": "workflow.deploy",
-                "workflow_id": workflow_id,
-                "name": definition["name"],
-                "source_file": str(workflow_path),
-            })
+            audit_logger.log(
+                {
+                    "event_type": "workflow.deploy",
+                    "workflow_id": workflow_id,
+                    "name": definition["name"],
+                    "source_file": str(workflow_path),
+                }
+            )
         )
 
         console.print(f"Successfully deployed workflow: {workflow_id}")
@@ -322,10 +324,12 @@ def stop(run_id: str) -> None:
 
         # Log stop event
         asyncio.run(
-            audit_logger.log({
-                "event_type": "workflow.stop",
-                "run_id": run_id,
-            })
+            audit_logger.log(
+                {
+                    "event_type": "workflow.stop",
+                    "run_id": run_id,
+                }
+            )
         )
 
         console.print(f"Successfully stopped workflow run: {run_id}")
@@ -357,10 +361,12 @@ def delete(workflow_id: str) -> None:
 
         # Log deletion
         asyncio.run(
-            audit_logger.log({
-                "event_type": "workflow.delete",
-                "workflow_id": workflow_id,
-            })
+            audit_logger.log(
+                {
+                    "event_type": "workflow.delete",
+                    "workflow_id": workflow_id,
+                }
+            )
         )
 
         console.print(f"Successfully deleted workflow: {workflow_id}")

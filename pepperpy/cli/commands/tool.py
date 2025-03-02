@@ -97,6 +97,8 @@ def list() -> None:
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort()
+
+
 """Tool commands for the Pepperpy CLI.
 
 This module provides commands for managing tools:
@@ -109,8 +111,6 @@ This module provides commands for managing tools:
 import click
 from rich.console import Console
 from rich.table import Table
-
-from pepperpy.core.errors import PepperpyError
 
 console = Console()
 

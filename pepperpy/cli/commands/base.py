@@ -4,7 +4,7 @@ This module provides base classes and utilities for implementing CLI commands.
 """
 
 import abc
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, cast
+from typing import Any, Callable, List, Type, TypeVar, cast
 
 import click
 from rich.console import Console
@@ -30,7 +30,7 @@ class BaseCommand(abc.ABC):
 
     name: str
     help: str
-    
+
     @classmethod
     def as_click_command(cls: Type[T]) -> click.Command:
         """Convert this command to a Click command.
@@ -38,6 +38,7 @@ class BaseCommand(abc.ABC):
         Returns:
             Click command
         """
+
         @click.command(name=cls.name, help=cls.help)
         @click.pass_context
         def command(ctx: click.Context, **kwargs: Any) -> Any:
@@ -55,13 +56,13 @@ class BaseCommand(abc.ABC):
                 if ctx.obj and ctx.obj.get("debug"):
                     console.print_exception()
                 raise click.Abort()
-                
+
         # Add parameters
         for param in cls.get_parameters():
             command = param(command)
-            
+
         return cast(click.Command, command)
-    
+
     @classmethod
     def get_parameters(cls) -> List[Callable[[CommandCallback], CommandCallback]]:
         """Get command parameters.
@@ -70,7 +71,7 @@ class BaseCommand(abc.ABC):
             List of Click parameter decorators
         """
         return []
-    
+
     @abc.abstractmethod
     def execute(self, **kwargs: Any) -> Any:
         """Execute the command.
@@ -94,7 +95,7 @@ class BaseCommandGroup(abc.ABC):
     name: str
     help: str
     commands: List[Type[BaseCommand]] = []
-    
+
     @classmethod
     def as_click_group(cls) -> click.Group:
         """Convert this command group to a Click group.
@@ -102,6 +103,7 @@ class BaseCommandGroup(abc.ABC):
         Returns:
             Click group
         """
+
         @click.group(name=cls.name, help=cls.help)
         @click.pass_context
         def group(ctx: click.Context, **kwargs: Any) -> None:
@@ -110,9 +112,9 @@ class BaseCommandGroup(abc.ABC):
             if not ctx.obj:
                 ctx.obj = {}
             ctx.obj.update(kwargs)
-                
+
         # Add commands
         for command_cls in cls.commands:
             group.add_command(command_cls.as_click_command())
-            
-        return cast(click.Group, group) 
+
+        return cast(click.Group, group)

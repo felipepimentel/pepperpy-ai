@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from pepperpy.core.common.providers.unified import BaseProvider, ProviderConfig
 from pepperpy.core.metrics import MetricsManager
+
     """Language model message.
 
     Attributes:

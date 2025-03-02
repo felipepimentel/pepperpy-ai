@@ -101,9 +101,9 @@ class JsonFormatter(logging.Formatter):
             logger=record.name,
             message=record.getMessage(),
             context=context,
-            exception=self.formatException(record.exc_info)
-            if record.exc_info
-            else None,
+            exception=(
+                self.formatException(record.exc_info) if record.exc_info else None
+            ),
         )
 
         # Convert to JSON

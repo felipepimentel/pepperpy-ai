@@ -58,13 +58,15 @@ class SystemMonitor:
         return {
             "cpu_times": self._process.cpu_times()._asdict(),
             "memory_info": self._process.memory_info()._asdict(),
-            "io_counters": self._process.io_counters()._asdict()
-            if hasattr(self._process, "io_counters")
-            else {},
+            "io_counters": (
+                self._process.io_counters()._asdict()
+                if hasattr(self._process, "io_counters")
+                else {}
+            ),
             "num_threads": self._process.num_threads(),
-            "num_fds": self._process.num_fds()
-            if hasattr(self._process, "num_fds")
-            else None,
+            "num_fds": (
+                self._process.num_fds() if hasattr(self._process, "num_fds") else None
+            ),
             "context_switches": self._process.num_ctx_switches()._asdict(),
         }
 
@@ -73,8 +75,10 @@ class SystemMonitor:
         if not self._last_metrics:
             return False
 
-        return any([
-            self._last_metrics.cpu_percent > 90,
-            self._last_metrics.memory_percent > 90,
-            self._last_metrics.disk_usage_percent > 95,
-        ])
+        return any(
+            [
+                self._last_metrics.cpu_percent > 90,
+                self._last_metrics.memory_percent > 90,
+                self._last_metrics.disk_usage_percent > 95,
+            ]
+        )

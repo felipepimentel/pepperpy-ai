@@ -134,10 +134,12 @@ class AudioProcessor(BaseAudioProcessor):
         else:
             # Simple energy-based segmentation using numpy
             window_size = self._config.get("window_size", 1024)
-            energy = np.array([
-                np.sum(audio[i : i + window_size] ** 2)
-                for i in range(0, len(audio), window_size)
-            ])
+            energy = np.array(
+                [
+                    np.sum(audio[i : i + window_size] ** 2)
+                    for i in range(0, len(audio), window_size)
+                ]
+            )
             threshold = np.mean(energy) * self._config.get("energy_threshold", 2.0)
             mask = energy > threshold
             return audio

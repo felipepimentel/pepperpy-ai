@@ -132,9 +132,9 @@ class ReasoningEngine:
                 statement=conclusion.statement,
                 confidence=conclusion.confidence,
                 evidence=[*conclusion.premises, conclusion],
-                last_updated=context.get("timestamp", time.time())
-                if context
-                else time.time(),
+                last_updated=(
+                    context.get("timestamp", time.time()) if context else time.time()
+                ),
             )
 
             # Check for conflicts

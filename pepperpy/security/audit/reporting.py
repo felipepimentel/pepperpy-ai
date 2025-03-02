@@ -56,15 +56,17 @@ class AuditReport:
 
             # Track critical events
             if event.severity == AuditEventSeverity.CRITICAL:
-                summary["critical_events"].append({
-                    "event_type": event_type,
-                    "timestamp": event.timestamp.isoformat(),
-                    "user_id": event.user_id,
-                    "resource_id": event.resource_id,
-                    "action": event.action,
-                    "status": event.status,
-                    "details": event.details,
-                })
+                summary["critical_events"].append(
+                    {
+                        "event_type": event_type,
+                        "timestamp": event.timestamp.isoformat(),
+                        "user_id": event.user_id,
+                        "resource_id": event.resource_id,
+                        "action": event.action,
+                        "status": event.status,
+                        "details": event.details,
+                    }
+                )
 
             # Track unique users and resources
             if event.user_id:

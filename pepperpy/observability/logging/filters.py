@@ -84,7 +84,3 @@ class LevelFilter:
 
 # Export public API
 __all__ = ["LevelFilter"]
-
-
-
-

@@ -11,8 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar
 
-from pepperpy.core.errors import ProcessingError, ValidationError
 from pepperpy.core.common.lifecycle import Lifecycle
+from pepperpy.core.errors import ProcessingError, ValidationError
 from pepperpy.core.metrics import MetricsCollector
 
 T = TypeVar("T")  # Input type

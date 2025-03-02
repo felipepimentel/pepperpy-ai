@@ -112,4 +112,4 @@ class TranscriptionProvider(ABC):
         Returns:
             List of format extensions
         """
-        return [] 
+        return []

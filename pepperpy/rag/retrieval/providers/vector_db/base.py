@@ -19,11 +19,7 @@ class VectorDBRetriever(Retriever, ABC):
     """
 
     @abstractmethod
-    async def retrieve(
-        self, 
-        query: SearchQuery, 
-        **kwargs
-    ) -> List[SearchResult]:
+    async def retrieve(self, query: SearchQuery, **kwargs) -> List[SearchResult]:
         """Retrieve documents from the vector database based on the query.
 
         Args:

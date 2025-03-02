@@ -272,4 +272,3 @@ class DiversityPruner(VectorPruner):
 
         # Return pruned vectors and indices
         return vectors[keep_idx], keep_idx
- 

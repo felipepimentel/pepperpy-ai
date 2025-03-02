@@ -119,7 +119,7 @@ class WorkflowFactory:
                 action=step_data["action"],
                 parameters=step_data.get("parameters", {}),
             )
-            
+
             # Add step to definition
             definition.add_step(step)
 

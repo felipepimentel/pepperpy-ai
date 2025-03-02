@@ -106,12 +106,14 @@ class WorkflowScheduler(ComponentBase):
                 labels={"status": "error"},
             )
 
-            self._metrics.update({
-                "workflow_count": workflow_count,
-                "workflow_execution_time": workflow_execution_time,
-                "workflow_retry_count": workflow_retry_count,
-                "workflow_error_count": workflow_error_count,
-            })
+            self._metrics.update(
+                {
+                    "workflow_count": workflow_count,
+                    "workflow_execution_time": workflow_execution_time,
+                    "workflow_retry_count": workflow_retry_count,
+                    "workflow_error_count": workflow_error_count,
+                }
+            )
 
             # Start scheduler
             if isinstance(self.config, WorkflowSchedulerConfig):
@@ -249,13 +251,17 @@ class WorkflowScheduler(ComponentBase):
         """
         result = []
         for workflow_id, scheduled in self._scheduled_workflows.items():
-            result.append({
-                "id": str(workflow_id),
-                "schedule_time": scheduled.schedule_time.isoformat(),
-                "retry_count": scheduled.retry_count,
-                "active": workflow_id in self._active_workflows,
-                "error": str(scheduled.last_error) if scheduled.last_error else None,
-            })
+            result.append(
+                {
+                    "id": str(workflow_id),
+                    "schedule_time": scheduled.schedule_time.isoformat(),
+                    "retry_count": scheduled.retry_count,
+                    "active": workflow_id in self._active_workflows,
+                    "error": (
+                        str(scheduled.last_error) if scheduled.last_error else None
+                    ),
+                }
+            )
         return result
 
     async def _run_scheduler(self) -> None:

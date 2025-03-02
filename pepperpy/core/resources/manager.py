@@ -307,23 +307,23 @@ class ResourceManager(Lifecycle):
         """
         metrics = {
             "total_resources": len(self._resources),
-            "allocated_resources": len([
-                r for r in self._resources.values() if r.is_allocated()
-            ]),
-            "in_use_resources": len([
-                r for r in self._resources.values() if r.is_in_use()
-            ]),
+            "allocated_resources": len(
+                [r for r in self._resources.values() if r.is_allocated()]
+            ),
+            "in_use_resources": len(
+                [r for r in self._resources.values() if r.is_in_use()]
+            ),
         }
 
         # Add metrics by type
         for resource_type in self._resource_types:
             resources = self.get_resources_by_type(resource_type)
             metrics[f"{resource_type}_total"] = len(resources)
-            metrics[f"{resource_type}_allocated"] = len([
-                r for r in resources if r.is_allocated()
-            ])
-            metrics[f"{resource_type}_in_use"] = len([
-                r for r in resources if r.is_in_use()
-            ])
+            metrics[f"{resource_type}_allocated"] = len(
+                [r for r in resources if r.is_allocated()]
+            )
+            metrics[f"{resource_type}_in_use"] = len(
+                [r for r in resources if r.is_in_use()]
+            )
 
         return metrics

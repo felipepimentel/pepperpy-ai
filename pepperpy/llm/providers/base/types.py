@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Protocol, Union
 
 class MessageRole(str, Enum):
     """Role of a chat message."""
-    
+
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
@@ -21,7 +21,7 @@ class MessageRole(str, Enum):
 @dataclass
 class ChatMessage:
     """Chat message for LLM providers."""
-    
+
     role: MessageRole
     content: str
     name: Optional[str] = None
@@ -32,7 +32,7 @@ class ChatMessage:
 @dataclass
 class CompletionOptions:
     """Options for text completion."""
-    
+
     model: str
     temperature: float = 0.7
     max_tokens: Optional[int] = None
@@ -47,7 +47,7 @@ class CompletionOptions:
 @dataclass
 class LLMResponse:
     """Response from LLM provider."""
-    
+
     text: str
     model: str
     finish_reason: Optional[str] = None
@@ -58,7 +58,7 @@ class LLMResponse:
 @dataclass
 class ModelParameters:
     """Parameters for LLM models."""
-    
+
     model: str
     context_window: int
     max_output_tokens: int
@@ -69,7 +69,7 @@ class ModelParameters:
 
 class LLMProvider(Protocol):
     """Protocol defining the interface for LLM providers."""
-    
+
     def generate(
         self,
         prompt: str,
@@ -78,7 +78,7 @@ class LLMProvider(Protocol):
     ) -> LLMResponse:
         """Generate text completion."""
         ...
-    
+
     def chat(
         self,
         messages: List[ChatMessage],
@@ -87,11 +87,11 @@ class LLMProvider(Protocol):
     ) -> LLMResponse:
         """Generate chat completion."""
         ...
-    
+
     def get_models(self) -> List[str]:
         """Get list of available models."""
         ...
-    
+
     def get_model_parameters(self, model_name: str) -> ModelParameters:
         """Get parameters for a specific model."""
         ...

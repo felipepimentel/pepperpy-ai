@@ -9,7 +9,11 @@ import random
 from typing import Dict, List
 
 from pepperpy.core.common.monitoring.logging import get_logger
-from pepperpy.core.common.workflows.actions import Action, ActionContext, action_registry
+from pepperpy.core.common.workflows.actions import (
+    Action,
+    ActionContext,
+    action_registry,
+)
 
 
 class HelloWorldAction(Action):
