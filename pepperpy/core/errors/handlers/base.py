@@ -12,6 +12,7 @@ Example:
     >>> error = ValidationError("Invalid input")
     >>> registry.handle(error)
     True
+
 """
 
 import logging
@@ -36,6 +37,7 @@ class ErrorHandler(ABC):
 
         Returns:
             Any: The result of handling the error
+
         """
         raise NotImplementedError
 
@@ -51,6 +53,7 @@ class DefaultErrorHandler(ErrorHandler):
 
         Returns:
             Any: The result of handling the error
+
         """
         if isinstance(error, PepperError):
             # Handle framework errors
@@ -72,6 +75,7 @@ class ChainedErrorHandler(ErrorHandler):
 
         Args:
             handlers: List of handlers to chain together
+
         """
         self.handlers = handlers or []
 
@@ -80,6 +84,7 @@ class ChainedErrorHandler(ErrorHandler):
 
         Args:
             handler: The handler to add
+
         """
         self.handlers.append(handler)
 
@@ -94,6 +99,7 @@ class ChainedErrorHandler(ErrorHandler):
 
         Raises:
             Exception: If no handler can handle the error
+
         """
         for handler in self.handlers:
             try:
@@ -118,6 +124,7 @@ class ErrorMiddleware:
         Args:
             handler: The error handler to use
             error_types: List of error types to handle
+
         """
         self.handler = handler or DefaultErrorHandler()
         self.error_types = error_types or [Exception]
@@ -130,6 +137,7 @@ class ErrorMiddleware:
 
         Returns:
             Callable: The wrapped function
+
         """
 
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -156,6 +164,7 @@ class ErrorHandlerRegistry:
         >>> error = ValidationError("Invalid input")
         >>> registry.handle(error)
         True
+
     """
 
     def __init__(self) -> None:
@@ -173,6 +182,7 @@ class ErrorHandlerRegistry:
             >>> registry = ErrorHandlerRegistry()
             >>> handler = MyHandler()
             >>> registry.register(ValidationError, handler)
+
         """
         if error_type not in self._handlers:
             self._handlers[error_type] = []
@@ -187,6 +197,7 @@ class ErrorHandlerRegistry:
 
         Example:
             >>> registry.unregister(ValidationError, handler)
+
         """
         if error_type in self._handlers:
             self._handlers[error_type].remove(handler)
@@ -208,6 +219,7 @@ class ErrorHandlerRegistry:
             >>> handlers = registry.get_handlers(ValidationError)
             >>> len(handlers)
             1
+
         """
         handlers = []
         for t in error_type.__mro__:
@@ -228,6 +240,7 @@ class ErrorHandlerRegistry:
             >>> error = ValidationError("Invalid input")
             >>> registry.handle(error)
             True
+
         """
         handlers = self.get_handlers(type(error))
         for handler in handlers:

@@ -22,6 +22,7 @@ class AuditReport:
 
         Returns:
             Dictionary containing the summary report
+
         """
         if not events:
             return {}
@@ -65,7 +66,7 @@ class AuditReport:
                         "action": event.action,
                         "status": event.status,
                         "details": event.details,
-                    }
+                    },
                 )
 
             # Track unique users and resources
@@ -89,6 +90,7 @@ class AuditReport:
 
         Returns:
             Dictionary containing the compliance report
+
         """
         report = {
             "authentication_events": [],
@@ -124,7 +126,7 @@ class AuditReport:
 
     @staticmethod
     def generate_user_report(
-        events: List[AuditEvent], user_id: Optional[str] = None
+        events: List[AuditEvent], user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Generate a user activity report.
 
@@ -134,6 +136,7 @@ class AuditReport:
 
         Returns:
             Dictionary containing the user activity report
+
         """
         if user_id:
             events = [e for e in events if e.user_id == user_id]
@@ -169,7 +172,7 @@ class AuditReport:
             if not user_stats[
                 "latest_activity"
             ] or event.timestamp > datetime.fromisoformat(
-                user_stats["latest_activity"]
+                user_stats["latest_activity"],
             ):
                 user_stats["latest_activity"] = event.timestamp.isoformat()
 

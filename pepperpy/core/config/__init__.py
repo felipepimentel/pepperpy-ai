@@ -27,6 +27,7 @@ def get_config(environment: str) -> type[BaseConfig]:
 
     Raises:
         ValueError: If environment is invalid
+
     """
     configs = {
         "development": DevelopmentConfig,
@@ -37,7 +38,7 @@ def get_config(environment: str) -> type[BaseConfig]:
     if environment not in configs:
         raise ValueError(
             f"Invalid environment: {environment}. "
-            f"Must be one of: {', '.join(configs.keys())}"
+            f"Must be one of: {', '.join(configs.keys())}",
         )
 
     return configs[environment]

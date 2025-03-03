@@ -27,12 +27,11 @@ class ValidatorFactory:
 
         if validator_type == "content":
             return cls._create_content_validator(config)
-        elif validator_type == "data":
+        if validator_type == "data":
             return cls._create_data_validator(config)
-        elif validator_type == "schema":
+        if validator_type == "schema":
             return cls._create_schema_validator(config)
-        else:
-            raise ValueError(f"Unknown validator type: {validator_type}")
+        raise ValueError(f"Unknown validator type: {validator_type}")
 
     @classmethod
     def _create_content_validator(cls, config: Dict[str, Any]) -> ContentValidator:

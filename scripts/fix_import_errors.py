@@ -11,7 +11,7 @@ from typing import Dict, List
 
 def read_file(file_path: str) -> str:
     """Read file content."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -30,6 +30,7 @@ def fix_imports_in_file(file_path: str, imports_to_add: Dict[str, List[str]]) ->
 
     Returns:
         True if file was modified, False otherwise
+
     """
     if not os.path.exists(file_path):
         print(f"File not found: {file_path}")
@@ -53,7 +54,7 @@ def fix_imports_in_file(file_path: str, imports_to_add: Dict[str, List[str]]) ->
             for symbol in symbols:
                 symbol_pattern = re.escape(symbol)
                 symbol_match = re.search(
-                    rf"from\s+{import_pattern}\s+import.*{symbol_pattern}", content
+                    rf"from\s+{import_pattern}\s+import.*{symbol_pattern}", content,
                 )
 
                 if not symbol_match:

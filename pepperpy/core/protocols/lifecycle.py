@@ -23,6 +23,7 @@ class Lifecycle(ABC):
         ...     async def cleanup(self) -> None:
         ...         # Cleanup resources
         ...         pass
+
     """
 
     @abstractmethod
@@ -37,8 +38,8 @@ class Lifecycle(ABC):
             ConfigurationError: If initialization fails due to configuration
             StateError: If component is in invalid state
             ResourceError: If resource allocation fails
+
         """
-        pass
 
     @abstractmethod
     async def cleanup(self) -> None:
@@ -50,8 +51,8 @@ class Lifecycle(ABC):
         Raises:
             StateError: If component is in invalid state
             ResourceError: If resource cleanup fails
+
         """
-        pass
 
 
 class LifecycleHook(Protocol):
@@ -76,6 +77,7 @@ class LifecycleHook(Protocol):
         ...
         ...     async def on_error(self, component: Lifecycle, error: Exception) -> None:
         ...         print(f"Error in {component}: {error}")
+
     """
 
     async def pre_initialize(self, component: Lifecycle) -> None:
@@ -83,6 +85,7 @@ class LifecycleHook(Protocol):
 
         Args:
             component: Component being initialized
+
         """
         ...
 
@@ -91,6 +94,7 @@ class LifecycleHook(Protocol):
 
         Args:
             component: Component that was initialized
+
         """
         ...
 
@@ -99,6 +103,7 @@ class LifecycleHook(Protocol):
 
         Args:
             component: Component being cleaned up
+
         """
         ...
 
@@ -107,6 +112,7 @@ class LifecycleHook(Protocol):
 
         Args:
             component: Component that was cleaned up
+
         """
         ...
 
@@ -116,6 +122,7 @@ class LifecycleHook(Protocol):
         Args:
             component: Component that failed
             error: Error that occurred
+
         """
         ...
 

@@ -40,6 +40,7 @@ class ResourcePool(Lifecycle, Generic[T]):
             max_size: Maximum pool size
             scale_up_threshold: Utilization threshold for scaling up
             scale_down_threshold: Utilization threshold for scaling down
+
         """
         super().__init__()
         self.name = name
@@ -154,6 +155,7 @@ class ResourcePool(Lifecycle, Generic[T]):
 
         Raises:
             ValidationError: If no resources available and wait=False
+
         """
         start_time = asyncio.get_event_loop().time()
         try:
@@ -185,6 +187,7 @@ class ResourcePool(Lifecycle, Generic[T]):
 
         Raises:
             ValidationError: If resource not found or not in use
+
         """
         async with self._lock:
             if resource.id not in self._resources:

@@ -20,14 +20,14 @@ from .semver import SemVer, compare_versions, parse_version
 from .tracking import VersionHistory, VersionTracker
 
 __all__ = [
-    "SemVer",
-    "parse_version",
-    "compare_versions",
     "CompatibilityChecker",
-    "VersionRange",
     "MigrationManager",
     "MigrationPath",
-    "VersionTracker",
-    "VersionHistory",
     "SchemaEvolution",
+    "SemVer",
+    "VersionHistory",
+    "VersionRange",
+    "VersionTracker",
+    "compare_versions",
+    "parse_version",
 ]

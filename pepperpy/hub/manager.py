@@ -20,6 +20,7 @@ class HubManager(Lifecycle):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -40,7 +41,7 @@ class HubManager(Lifecycle):
         except Exception as e:
             self._state = ComponentState.ERROR
             logger.error(f"Failed to initialize hub: {e}")
-            raise RuntimeError(f"Failed to initialize hub manager: {str(e)}") from e
+            raise RuntimeError(f"Failed to initialize hub manager: {e!s}") from e
 
     async def cleanup(self) -> None:
         """Clean up the hub system."""
@@ -59,7 +60,7 @@ class HubManager(Lifecycle):
         except Exception as e:
             self._state = ComponentState.ERROR
             logger.error(f"Failed to cleanup hub: {e}")
-            raise RuntimeError(f"Failed to cleanup hub manager: {str(e)}") from e
+            raise RuntimeError(f"Failed to cleanup hub manager: {e!s}") from e
 
     def register_component(self, component_id: str, component: Any) -> None:
         """Register a component with the hub.
@@ -67,6 +68,7 @@ class HubManager(Lifecycle):
         Args:
             component_id: Unique identifier for the component
             component: The component instance to register
+
         """
         if component_id in self._components:
             raise ValueError(f"Component {component_id} is already registered")
@@ -81,15 +83,14 @@ class HubManager(Lifecycle):
 
         Returns:
             The component instance if found, None otherwise
+
         """
         return self._components.get(component_id)
 
     def _initialize_core_components(self) -> None:
         """Initialize core system components."""
         # This would initialize essential components that should always be present
-        pass
 
     async def _load_plugins(self) -> None:
         """Load and initialize plugins."""
         # This would handle dynamic loading of plugins based on configuration
-        pass

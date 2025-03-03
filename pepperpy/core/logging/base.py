@@ -34,8 +34,8 @@ class LogHandler(ABC):
 
         Args:
             record: The log record to handle
+
         """
-        pass
 
 
 class ConsoleLogHandler(LogHandler):
@@ -46,6 +46,7 @@ class ConsoleLogHandler(LogHandler):
 
         Args:
             record: The log record to handle
+
         """
         timestamp = record.get("timestamp", datetime.now().isoformat())
         level = record.get("level", "INFO")
@@ -72,8 +73,8 @@ class Logger(ABC):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
-        pass
 
     @abstractmethod
     def info(self, message: str, **context: Any) -> None:
@@ -82,8 +83,8 @@ class Logger(ABC):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
-        pass
 
     @abstractmethod
     def warning(self, message: str, **context: Any) -> None:
@@ -92,8 +93,8 @@ class Logger(ABC):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
-        pass
 
     @abstractmethod
     def error(self, message: str, **context: Any) -> None:
@@ -102,8 +103,8 @@ class Logger(ABC):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
-        pass
 
     @abstractmethod
     def critical(self, message: str, **context: Any) -> None:
@@ -112,8 +113,8 @@ class Logger(ABC):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
-        pass
 
 
 class StructuredLogger(Logger):
@@ -135,6 +136,7 @@ class StructuredLogger(Logger):
             name: The name of the logger
             level: The minimum log level to process
             handlers: List of handlers to process log records
+
         """
         self.name = name
         self.level = level
@@ -147,6 +149,7 @@ class StructuredLogger(Logger):
             level: The log level
             message: The log message
             **context: Additional context data
+
         """
         if level < self.level:
             return
@@ -168,6 +171,7 @@ class StructuredLogger(Logger):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
         self._log(LogLevel.DEBUG, message, **context)
 
@@ -177,6 +181,7 @@ class StructuredLogger(Logger):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
         self._log(LogLevel.INFO, message, **context)
 
@@ -186,6 +191,7 @@ class StructuredLogger(Logger):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
         self._log(LogLevel.WARNING, message, **context)
 
@@ -195,6 +201,7 @@ class StructuredLogger(Logger):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
         self._log(LogLevel.ERROR, message, **context)
 
@@ -204,6 +211,7 @@ class StructuredLogger(Logger):
         Args:
             message: The message to log
             **context: Additional context data to include in the log
+
         """
         self._log(LogLevel.CRITICAL, message, **context)
 
@@ -223,6 +231,7 @@ def get_logger(name: str) -> Logger:
 
     Returns:
         A logger instance
+
     """
     if name not in _loggers:
         _loggers[name] = StructuredLogger(name)
@@ -238,6 +247,7 @@ def configure_logging(
     Args:
         level: The minimum log level to process
         handlers: List of handlers to process log records
+
     """
     # Convert string or int level to LogLevel enum if needed
     if isinstance(level, str):

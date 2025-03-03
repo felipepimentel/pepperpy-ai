@@ -27,15 +27,15 @@ class Generator(RagComponent):
 
         Returns:
             The generated response
+
         """
-        pass
 
 
 class PromptGenerator(Generator):
     """Generator that uses prompt templates to generate responses."""
 
     def __init__(
-        self, component_id: str, name: str, prompt_template: str, description: str = ""
+        self, component_id: str, name: str, prompt_template: str, description: str = "",
     ):
         """Initialize the prompt generator.
 
@@ -44,6 +44,7 @@ class PromptGenerator(Generator):
             name: Human-readable name for the component
             prompt_template: The prompt template to use for generation
             description: Description of the component's functionality
+
         """
         super().__init__(component_id, name, description)
         self.prompt_template = prompt_template
@@ -66,6 +67,7 @@ class PromptGenerator(Generator):
 
         Returns:
             The formatted prompt
+
         """
         # This is a simple implementation that can be overridden by subclasses
         # to provide more sophisticated prompt formatting
@@ -76,7 +78,7 @@ class PromptGenerator(Generator):
             [
                 f"[{i + 1}] {result.chunk.content}"
                 for i, result in enumerate(context.results)
-            ]
+            ],
         )
 
         return self.prompt_template.format(query=query, context=context_str)
@@ -95,8 +97,8 @@ class ContextAwareGenerator(Generator):
 
         Returns:
             The generated response text
+
         """
-        pass
 
     async def generate(self, context: RagContext) -> RagResponse:
         """Generate a response from the given context.
@@ -106,6 +108,7 @@ class ContextAwareGenerator(Generator):
 
         Returns:
             The generated response
+
         """
         query = context.query.query
         context_chunks = [result.chunk.content for result in context.results]
@@ -127,6 +130,7 @@ class GenerationManager(RagComponent):
             component_id: Unique identifier for the component
             name: Human-readable name for the component
             description: Description of the component's functionality
+
         """
         super().__init__(component_id, name, description)
         self.generators: Dict[str, Generator] = {}
@@ -138,6 +142,7 @@ class GenerationManager(RagComponent):
         Args:
             generator: The generator to add
             set_as_default: Whether to set this generator as the default
+
         """
         self.generators[generator.component_id] = generator
         logger.debug(f"Added generator {generator.name} to manager {self.name}")
@@ -154,6 +159,7 @@ class GenerationManager(RagComponent):
 
         Returns:
             The generator if found, None otherwise
+
         """
         return self.generators.get(generator_id)
 
@@ -172,7 +178,7 @@ class GenerationManager(RagComponent):
         await super().cleanup()
 
     async def generate(
-        self, context: RagContext, generator_id: Optional[str] = None
+        self, context: RagContext, generator_id: Optional[str] = None,
     ) -> RagResponse:
         """Generate a response using the specified generator or the default.
 
@@ -182,6 +188,7 @@ class GenerationManager(RagComponent):
 
         Returns:
             The generated response
+
         """
         if generator_id is None:
             if self.default_generator is None:

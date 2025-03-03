@@ -28,15 +28,15 @@ class Retriever(RagComponent):
 
         Returns:
             A list of search results
+
         """
-        pass
 
 
 class SimilarityRetriever(Retriever):
     """Retriever that uses vector similarity to find relevant chunks."""
 
     def __init__(
-        self, component_id: str, name: str, indexer: Indexer, description: str = ""
+        self, component_id: str, name: str, indexer: Indexer, description: str = "",
     ):
         """Initialize the similarity retriever.
 
@@ -45,6 +45,7 @@ class SimilarityRetriever(Retriever):
             name: Human-readable name for the component
             indexer: The indexer to use for retrieval
             description: Description of the component's functionality
+
         """
         super().__init__(component_id, name, description)
         self.indexer = indexer
@@ -74,6 +75,7 @@ class RetrievalManager(RagComponent):
             component_id: Unique identifier for the component
             name: Human-readable name for the component
             description: Description of the component's functionality
+
         """
         super().__init__(component_id, name, description)
         self.retrievers: Dict[str, Retriever] = {}
@@ -85,6 +87,7 @@ class RetrievalManager(RagComponent):
         Args:
             retriever: The retriever to add
             set_as_default: Whether to set this retriever as the default
+
         """
         self.retrievers[retriever.component_id] = retriever
         logger.debug(f"Added retriever {retriever.name} to manager {self.name}")
@@ -101,6 +104,7 @@ class RetrievalManager(RagComponent):
 
         Returns:
             The retriever if found, None otherwise
+
         """
         return self.retrievers.get(retriever_id)
 
@@ -119,7 +123,7 @@ class RetrievalManager(RagComponent):
         await super().cleanup()
 
     async def retrieve(
-        self, query: SearchQuery, retriever_id: Optional[str] = None
+        self, query: SearchQuery, retriever_id: Optional[str] = None,
     ) -> RagContext:
         """Retrieve relevant chunks using the specified retriever or the default.
 
@@ -129,6 +133,7 @@ class RetrievalManager(RagComponent):
 
         Returns:
             A RAG context containing the query and search results
+
         """
         if retriever_id is None:
             if self.default_retriever is None:

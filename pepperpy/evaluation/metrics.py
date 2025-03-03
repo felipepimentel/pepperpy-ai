@@ -177,7 +177,7 @@ class CustomMetric(BaseMetric):
             value = self.compute_fn(data)
             return MetricResult(type=MetricType.CUSTOM, value=value)
         except Exception as e:
-            raise ValueError(f"Error computing custom metric: {str(e)}") from e
+            raise ValueError(f"Error computing custom metric: {e!s}") from e
 
 
 class MetricAggregator:
@@ -205,6 +205,6 @@ class MetricAggregator:
                 results[metric.name] = result
                 weighted_sum += result.value * metric.weight
             except ValueError as e:
-                print(f"Warning: Could not compute metric {metric.name}: {str(e)}")
+                print(f"Warning: Could not compute metric {metric.name}: {e!s}")
 
         return EvaluationResult(metrics=results, aggregate_score=weighted_sum)

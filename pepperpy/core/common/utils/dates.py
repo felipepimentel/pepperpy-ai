@@ -23,6 +23,7 @@ class DateUtils:
 
         Returns:
             Current datetime
+
         """
         tz = tz or DateUtils.DEFAULT_TIMEZONE
         return datetime.now(tz)
@@ -36,12 +37,13 @@ class DateUtils:
 
         Returns:
             Current date at midnight
+
         """
         return DateUtils.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
 
     @staticmethod
     def parse_date(
-        date_str: str, format: Optional[str] = None, tz: Optional[timezone] = None
+        date_str: str, format: Optional[str] = None, tz: Optional[timezone] = None,
     ) -> datetime:
         """Parse date string.
 
@@ -52,6 +54,7 @@ class DateUtils:
 
         Returns:
             Parsed datetime
+
         """
         format = format or DateUtils.DEFAULT_DATE_FORMAT
         dt = datetime.strptime(date_str, format)
@@ -61,7 +64,7 @@ class DateUtils:
 
     @staticmethod
     def format_date(
-        dt: datetime, format: Optional[str] = None, tz: Optional[timezone] = None
+        dt: datetime, format: Optional[str] = None, tz: Optional[timezone] = None,
     ) -> str:
         """Format datetime.
 
@@ -72,6 +75,7 @@ class DateUtils:
 
         Returns:
             Formatted date string
+
         """
         format = format or DateUtils.DEFAULT_DATE_FORMAT
         if tz and dt.tzinfo != tz:
@@ -88,6 +92,7 @@ class DateUtils:
 
         Returns:
             New datetime
+
         """
         return dt + timedelta(days=days)
 
@@ -101,6 +106,7 @@ class DateUtils:
 
         Returns:
             New datetime
+
         """
         return dt + timedelta(hours=hours)
 
@@ -114,6 +120,7 @@ class DateUtils:
 
         Returns:
             New datetime
+
         """
         return dt + timedelta(minutes=minutes)
 
@@ -127,6 +134,7 @@ class DateUtils:
 
         Returns:
             Number of days
+
         """
         return (end - start).days
 
@@ -139,6 +147,7 @@ class DateUtils:
 
         Returns:
             True if weekend
+
         """
         return dt.weekday() >= 5
 
@@ -151,6 +160,7 @@ class DateUtils:
 
         Returns:
             True if business day
+
         """
         return not DateUtils.is_weekend(dt)
 
@@ -163,6 +173,7 @@ class DateUtils:
 
         Returns:
             First day of month
+
         """
         return dt.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
@@ -175,6 +186,7 @@ class DateUtils:
 
         Returns:
             Last day of month
+
         """
         next_month = dt.replace(day=28) + timedelta(days=4)
         return next_month.replace(day=1) - timedelta(days=1)
@@ -185,11 +197,12 @@ class DateUtils:
 
         Returns:
             Current UTC datetime
+
         """
         return datetime.now(timezone.utc)
 
     @staticmethod
-    def from_timestamp(timestamp: Union[int, float]) -> datetime:
+    def from_timestamp(timestamp: float) -> datetime:
         """Convert timestamp to datetime.
 
         Args:
@@ -197,5 +210,6 @@ class DateUtils:
 
         Returns:
             Datetime object
+
         """
         return datetime.fromtimestamp(timestamp, timezone.utc)

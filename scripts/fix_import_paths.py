@@ -66,7 +66,7 @@ class ImportMapper:
     def _extract_symbols_from_file(self, file_path: Path, module_path: str) -> None:
         """Extrai classes, funções e variáveis de um arquivo Python."""
         try:
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 content = f.read()
 
             try:
@@ -128,7 +128,7 @@ class ImportMapper:
                     self.import_errors[file_path].append(error)
 
                 print(
-                    f"Encontrados {len(errors)} erros de importação em {len(self.import_errors)} arquivos"
+                    f"Encontrados {len(errors)} erros de importação em {len(self.import_errors)} arquivos",
                 )
             else:
                 print("Nenhum erro de importação encontrado!")
@@ -163,7 +163,7 @@ class ImportMapper:
                 if file.endswith(".py"):
                     file_path = os.path.join(root, file)
                     try:
-                        with open(file_path, "r", encoding="utf-8") as f:
+                        with open(file_path, encoding="utf-8") as f:
                             content = f.read()
 
                         # Verificar cada padrão
@@ -183,7 +183,7 @@ class ImportMapper:
 
         if self.import_errors:
             print(
-                f"Encontrados padrões de importação antigos em {len(self.import_errors)} arquivos"
+                f"Encontrados padrões de importação antigos em {len(self.import_errors)} arquivos",
             )
 
     def build_migration_map(self) -> None:
@@ -221,7 +221,7 @@ class ImportMapper:
                 # para evitar referências de grupo inválidas
                 pattern_to_match = new_pattern.replace(f"{PACKAGE_NAME}.", "")
                 pattern_to_match = pattern_to_match.replace("\\1", "\\\\w+").replace(
-                    "\\2", "\\\\w+"
+                    "\\2", "\\\\w+",
                 )
 
                 match = re.match(pattern_to_match, short_path)
@@ -499,7 +499,7 @@ class ImportMapper:
                 continue
 
             try:
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     content = f.read()
 
                 # Skip if file is empty
@@ -519,11 +519,10 @@ class ImportMapper:
                     # Add after the last import statement
                     import_section_end = 0
                     for match in re.finditer(
-                        r"^(?:import|from)\s+\w+", content, re.MULTILINE
+                        r"^(?:import|from)\s+\w+", content, re.MULTILINE,
                     ):
                         end_of_line = content.find("\n", match.start())
-                        if end_of_line > import_section_end:
-                            import_section_end = end_of_line
+                        import_section_end = max(import_section_end, end_of_line)
 
                     if import_section_end > 0:
                         content = (
@@ -551,7 +550,7 @@ class ImportMapper:
 
         try:
             # Read the file content
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 content = f.read()
 
             # Skip if file is empty
@@ -674,7 +673,7 @@ class ImportMapper:
                     candidates = self.find_correct_import(symbol)
                     if candidates:
                         best_candidate = max(
-                            candidates, key=lambda x: len(x.split("."))
+                            candidates, key=lambda x: len(x.split(".")),
                         )
                         imports_to_add.add(f"from {best_candidate} import {symbol}")
 
@@ -772,7 +771,7 @@ class ImportMapper:
 
         try:
             # Read the file content
-            with open(file_path, "r") as f:
+            with open(file_path) as f:
                 content = f.read()
 
             # Skip if file is empty

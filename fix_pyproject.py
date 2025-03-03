@@ -48,7 +48,7 @@ files_to_ignore = [
 ]
 
 # Ler o arquivo original
-with open("pyproject.toml.bak", "r") as f:
+with open("pyproject.toml.bak") as f:
     content = f.read()
 
 # Encontrar a seção [tool.ruff.lint.per-file-ignores]
@@ -85,5 +85,5 @@ if match:
     print("Arquivo pyproject.toml.new criado com sucesso!")
 else:
     print(
-        "Não foi possível encontrar a seção [tool.ruff.lint.per-file-ignores] no arquivo."
+        "Não foi possível encontrar a seção [tool.ruff.lint.per-file-ignores] no arquivo.",
     )

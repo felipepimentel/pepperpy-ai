@@ -20,11 +20,12 @@ def register_storage_provider(name: str, provider: Type[StorageProvider]) -> Non
     Args:
         name: Provider name
         provider: Provider class
+
     """
     STORAGE_PROVIDERS[name] = provider
 
 
 __all__ = [
-    "register_storage_provider",
     "STORAGE_PROVIDERS",
+    "register_storage_provider",
 ]

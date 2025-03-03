@@ -116,7 +116,6 @@ class MultimodalFusion:
         feature_weights: Optional[Dict[str, float]] = None,
     ) -> FusionResult:
         """Perform comprehensive multimodal fusion."""
-
         # Fuse features if available
         fused_features = None
         if image_features or audio_features:

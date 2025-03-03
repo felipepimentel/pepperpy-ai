@@ -18,11 +18,9 @@ class KnowledgeBaseProvider(RagProvider):
 
     async def initialize(self) -> None:
         """Initialize the knowledge base provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the knowledge base provider."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -30,6 +28,7 @@ class KnowledgeBaseProvider(RagProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_type": ProviderType.KNOWLEDGE_BASE,

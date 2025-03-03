@@ -47,7 +47,6 @@ class Action(ABC):
             Exception: If action execution fails
 
         """
-        pass
 
 
 class ActionRegistry(Lifecycle):

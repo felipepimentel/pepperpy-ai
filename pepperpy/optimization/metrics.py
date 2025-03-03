@@ -6,8 +6,8 @@ from pepperpy.optimization.base import Metric, MetricType
 from pepperpy.optimization.profiler import MetricsAnalyzer, MetricsCollector
 
 __all__ = [
-    "MetricsCollector",
-    "MetricsAnalyzer",
     "Metric",
     "MetricType",
+    "MetricsAnalyzer",
+    "MetricsCollector",
 ]

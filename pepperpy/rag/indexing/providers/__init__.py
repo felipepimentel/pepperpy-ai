@@ -23,10 +23,10 @@ __all__ = [
     "ChromaProvider",
     "FAISSProvider",
     "IndexingProvider",
-    "register_indexing_provider",
-    "get_indexing_provider",
-    "list_indexing_providers",
     "IndexingProviderType",
     "IndexingRequest",
     "IndexingResponse",
+    "get_indexing_provider",
+    "list_indexing_providers",
+    "register_indexing_provider",
 ]

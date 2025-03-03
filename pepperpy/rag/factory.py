@@ -29,6 +29,7 @@ class RagPipelineFactory:
 
         Returns:
             The created pipeline
+
         """
         logger.info(f"Creating RAG pipeline: {config.name}")
 
@@ -65,6 +66,7 @@ class RagPipelineFactory:
 
         Returns:
             The created indexing manager
+
         """
         logger.debug("Creating indexing manager")
 
@@ -102,6 +104,7 @@ class RagPipelineFactory:
 
         Returns:
             The created retrieval manager
+
         """
         logger.debug("Creating retrieval manager")
 
@@ -142,6 +145,7 @@ class RagPipelineFactory:
 
         Returns:
             The created generation manager
+
         """
         logger.debug("Creating generation manager")
 

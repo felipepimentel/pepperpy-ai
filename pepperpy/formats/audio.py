@@ -38,6 +38,7 @@ class AudioData:
             channels: Number of channels
             bit_depth: Bit depth
             metadata: Optional metadata
+
         """
         self.samples = samples
         self.sample_rate = sample_rate
@@ -51,10 +52,11 @@ class AudioData:
 
         Returns:
             Duration in seconds
+
         """
         if NUMPY_AVAILABLE and isinstance(self.samples, np.ndarray):
             return len(self.samples) / self.sample_rate / self.channels
-        elif isinstance(self.samples, bytes):
+        if isinstance(self.samples, bytes):
             # Approximate duration based on bit depth and channels
             bytes_per_sample = self.bit_depth // 8
             return (
@@ -72,6 +74,7 @@ class WAVFormat(FormatHandler[AudioData]):
 
         Returns:
             MIME type string
+
         """
         return "audio/wav"
 
@@ -81,6 +84,7 @@ class WAVFormat(FormatHandler[AudioData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["wav", "wave"]
 
@@ -95,6 +99,7 @@ class WAVFormat(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             # This is a simplified implementation
@@ -110,7 +115,7 @@ class WAVFormat(FormatHandler[AudioData]):
                     )
                     + data.samples
                 )
-            elif NUMPY_AVAILABLE and isinstance(data.samples, np.ndarray):
+            if NUMPY_AVAILABLE and isinstance(data.samples, np.ndarray):
                 # Convert numpy array to bytes
                 if data.samples.dtype == np.float32 or data.samples.dtype == np.float64:
                     # Convert float to int
@@ -130,10 +135,9 @@ class WAVFormat(FormatHandler[AudioData]):
                     )
                     + samples_bytes
                 )
-            else:
-                raise FormatError("Unsupported sample format")
+            raise FormatError("Unsupported sample format")
         except Exception as e:
-            raise FormatError(f"Failed to serialize WAV: {str(e)}") from e
+            raise FormatError(f"Failed to serialize WAV: {e!s}") from e
 
     def deserialize(self, data: bytes) -> AudioData:
         """Deserialize bytes to AudioData.
@@ -146,6 +150,7 @@ class WAVFormat(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             # This is a simplified implementation
@@ -183,11 +188,11 @@ class WAVFormat(FormatHandler[AudioData]):
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to deserialize WAV: {str(e)}")
+                e = FormatError(f"Failed to deserialize WAV: {e!s}")
             raise e
 
     def _create_wav_header(
-        self, sample_rate: int, channels: int, bit_depth: int, data_size: int
+        self, sample_rate: int, channels: int, bit_depth: int, data_size: int,
     ) -> bytes:
         """Create a WAV header.
 
@@ -199,6 +204,7 @@ class WAVFormat(FormatHandler[AudioData]):
 
         Returns:
             WAV header as bytes
+
         """
         # Simplified WAV header creation
         header = bytearray()
@@ -214,7 +220,7 @@ class WAVFormat(FormatHandler[AudioData]):
         header.extend(sample_rate.to_bytes(4, byteorder="little"))  # Sample rate
         bytes_per_second = sample_rate * channels * (bit_depth // 8)
         header.extend(
-            bytes_per_second.to_bytes(4, byteorder="little")
+            bytes_per_second.to_bytes(4, byteorder="little"),
         )  # Bytes per second
         block_align = channels * (bit_depth // 8)
         header.extend(block_align.to_bytes(2, byteorder="little"))  # Block align
@@ -234,6 +240,7 @@ class MP3Format(FormatHandler[AudioData]):
 
         Returns:
             MIME type string
+
         """
         return "audio/mp3"
 
@@ -243,6 +250,7 @@ class MP3Format(FormatHandler[AudioData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["mp3"]
 
@@ -257,6 +265,7 @@ class MP3Format(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or lameenc
@@ -273,6 +282,7 @@ class MP3Format(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or lameenc
@@ -288,6 +298,7 @@ class FLACFormat(FormatHandler[AudioData]):
 
         Returns:
             MIME type string
+
         """
         return "audio/flac"
 
@@ -297,6 +308,7 @@ class FLACFormat(FormatHandler[AudioData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["flac"]
 
@@ -311,6 +323,7 @@ class FLACFormat(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or soundfile
@@ -327,6 +340,7 @@ class FLACFormat(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or soundfile
@@ -342,6 +356,7 @@ class OGGFormat(FormatHandler[AudioData]):
 
         Returns:
             MIME type string
+
         """
         return "audio/ogg"
 
@@ -351,6 +366,7 @@ class OGGFormat(FormatHandler[AudioData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["ogg"]
 
@@ -365,6 +381,7 @@ class OGGFormat(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or soundfile
@@ -381,6 +398,7 @@ class OGGFormat(FormatHandler[AudioData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or soundfile

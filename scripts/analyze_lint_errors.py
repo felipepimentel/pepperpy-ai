@@ -149,13 +149,13 @@ def generate_error_report(errors: List[Dict[str, Any]]) -> None:
     print("\nERROS POR CÓDIGO:")
     print(f"{'-' * 80}")
     for code, code_errors in sorted(
-        errors_by_code.items(), key=lambda x: len(x[1]), reverse=True
+        errors_by_code.items(), key=lambda x: len(x[1]), reverse=True,
     ):
         description = ERROR_DESCRIPTIONS.get(code, "Sem descrição")
         fixable = "✓" if code in AUTO_FIXABLE else "✗"
         priority = ERROR_PRIORITIES.get(code, 9)
         print(
-            f"{code} - {description} (Qtd: {len(code_errors)}, Prioridade: {priority}, Auto-corrigível: {fixable})"
+            f"{code} - {description} (Qtd: {len(code_errors)}, Prioridade: {priority}, Auto-corrigível: {fixable})",
         )
 
     # Top 10 arquivos com mais erros
@@ -163,7 +163,7 @@ def generate_error_report(errors: List[Dict[str, Any]]) -> None:
     print("\nTOP 10 ARQUIVOS COM MAIS ERROS:")
     print(f"{'-' * 80}")
     for filename, file_errors in sorted(
-        errors_by_file.items(), key=lambda x: len(x[1]), reverse=True
+        errors_by_file.items(), key=lambda x: len(x[1]), reverse=True,
     )[:10]:
         print(f"{filename}: {len(file_errors)} erros")
 
@@ -180,31 +180,31 @@ def generate_error_report(errors: List[Dict[str, Any]]) -> None:
             5: "MUITO BAIXA - Considerar ignorar",
         }.get(priority, "DESCONHECIDA")
         print(
-            f"Prioridade {priority} - {priority_label}: {error_priorities[priority]} erros"
+            f"Prioridade {priority} - {priority_label}: {error_priorities[priority]} erros",
         )
 
     # Erros auto-corrigíveis
     auto_fixable_count = sum(len(errors_by_code.get(code, [])) for code in AUTO_FIXABLE)
     print(
-        f"\nErros que podem ser corrigidos automaticamente: {auto_fixable_count} ({auto_fixable_count / len(errors) * 100:.1f}%)"
+        f"\nErros que podem ser corrigidos automaticamente: {auto_fixable_count} ({auto_fixable_count / len(errors) * 100:.1f}%)",
     )
 
     # Recomendações
     print("\nRECOMENDAÇÕES:")
     print(f"{'-' * 80}")
     print(
-        "1. Execute 'ruff check pepperpy/ --fix' para corrigir automaticamente os erros possíveis"
+        "1. Execute 'ruff check pepperpy/ --fix' para corrigir automaticamente os erros possíveis",
     )
     print("2. Priorize a correção de erros com prioridade 1 e 2")
     print(
-        "3. Para erros de linha muito longa (E501), considere usar black para formatação"
+        "3. Para erros de linha muito longa (E501), considere usar black para formatação",
     )
     print(
-        "4. Para imports não utilizados (F401), remova-os ou adicione '# noqa: F401' se necessário"
+        "4. Para imports não utilizados (F401), remova-os ou adicione '# noqa: F401' se necessário",
     )
     print("5. Para imports com * (F403/F405), substitua por imports explícitos")
     print(
-        "6. Considere adicionar exceções específicas no pyproject.toml para casos especiais"
+        "6. Considere adicionar exceções específicas no pyproject.toml para casos especiais",
     )
 
 
@@ -222,7 +222,7 @@ def export_errors_to_file(errors: List[Dict[str, Any]], output_file: str) -> Non
                 priority = ERROR_PRIORITIES.get(code, 9)
                 auto_fixable = "Sim" if code in AUTO_FIXABLE else "Não"
                 f.write(
-                    f"{filename},{line},{column},{code},{message},{priority},{auto_fixable}\n"
+                    f"{filename},{line},{column},{code},{message},{priority},{auto_fixable}\n",
                 )
         print(f"\nErros exportados para {output_file}")
     except Exception as e:
@@ -252,7 +252,7 @@ def main():
     print("2. Atualize o pyproject.toml para ignorar erros específicos se necessário")
     print("3. Crie um plano para corrigir os erros restantes por prioridade")
     print(
-        "4. Considere adicionar verificações de lint ao CI/CD para evitar novos erros"
+        "4. Considere adicionar verificações de lint ao CI/CD para evitar novos erros",
     )
     print(f"{'=' * 80}")
 

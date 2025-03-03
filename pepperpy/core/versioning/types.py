@@ -36,19 +36,19 @@ VersionMetadata = NewType("VersionMetadata", Dict[str, str])
 # Version constraints
 VersionConstraintType = NewType("VersionConstraintType", str)
 VersionConstraintDict = NewType(
-    "VersionConstraintDict", Dict[str, Union[str, List[str]]]
+    "VersionConstraintDict", Dict[str, Union[str, List[str]]],
 )
 
 # Export all types
 __all__ = [
-    "VersionNumber",
-    "VersionString",
+    "VersionComparisonResult",
+    "VersionConstraintDict",
+    "VersionConstraintType",
     "VersionDict",
+    "VersionIdentifier",
+    "VersionMetadata",
+    "VersionNumber",
     "VersionRange",
     "VersionRequirement",
-    "VersionIdentifier",
-    "VersionComparisonResult",
-    "VersionMetadata",
-    "VersionConstraintType",
-    "VersionConstraintDict",
+    "VersionString",
 ]

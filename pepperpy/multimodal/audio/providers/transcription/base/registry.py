@@ -17,13 +17,14 @@ _TRANSCRIPTION_REGISTRY: Dict[str, Type[TranscriptionProvider]] = {}
 
 
 def register_transcription_provider(
-    name: str, provider_class: Type[TranscriptionProvider]
+    name: str, provider_class: Type[TranscriptionProvider],
 ) -> None:
     """Register a transcription provider class.
 
     Args:
         name: Name of the transcription provider
         provider_class: Provider class to register
+
     """
     _TRANSCRIPTION_REGISTRY[name] = provider_class
     logger.debug(f"Registered transcription provider: {name}")
@@ -40,6 +41,7 @@ def get_transcription_provider_class(name: str) -> Type[TranscriptionProvider]:
 
     Raises:
         ValueError: If the transcription provider is not found
+
     """
     if name not in _TRANSCRIPTION_REGISTRY:
         raise ValueError(f"Transcription provider '{name}' not found in registry")
@@ -51,6 +53,7 @@ def list_transcription_providers() -> List[str]:
 
     Returns:
         List of transcription provider names
+
     """
     return list(_TRANSCRIPTION_REGISTRY.keys())
 
@@ -60,5 +63,6 @@ def get_transcription_registry() -> Dict[str, Type[TranscriptionProvider]]:
 
     Returns:
         Copy of the transcription provider registry
+
     """
     return _TRANSCRIPTION_REGISTRY.copy()

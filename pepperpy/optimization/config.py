@@ -101,7 +101,7 @@ class RouteConfig(BaseModel):
         description="Cost per token for this route",
     )
     priority: int = Field(
-        default=0, description="Route priority (higher = more preferred)"
+        default=0, description="Route priority (higher = more preferred)",
     )
     capabilities: List[str] = Field(
         default_factory=list,

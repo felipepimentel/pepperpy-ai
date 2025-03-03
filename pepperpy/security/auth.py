@@ -15,13 +15,11 @@ from pepperpy.core.types import UserId
 class AuthenticationError(Exception):
     """Raised when authentication fails."""
 
-    pass
 
 
 class AuthorizationError(Exception):
     """Raised when authorization fails."""
 
-    pass
 
 
 @dataclass
@@ -47,6 +45,7 @@ class AuthenticationManager(BaseManager):
 
         Args:
             session_timeout: How long sessions should last before expiring
+
         """
         self._sessions: dict[str, Session] = {}
         self._session_timeout = session_timeout
@@ -63,6 +62,7 @@ class AuthenticationManager(BaseManager):
 
         Raises:
             AuthenticationError: If authentication fails
+
         """
         session = Session(
             user_id=user_id,
@@ -84,6 +84,7 @@ class AuthenticationManager(BaseManager):
 
         Raises:
             AuthenticationError: If the token is invalid or expired
+
         """
         try:
             session = self._sessions[token]
@@ -101,6 +102,7 @@ class AuthenticationManager(BaseManager):
 
         Args:
             token: The session token to revoke
+
         """
         self._sessions.pop(token, None)
 
@@ -124,6 +126,7 @@ class AuthorizationManager(BaseManager):
         Args:
             role: The role name
             permissions: Set of permissions granted by the role
+
         """
         self._role_permissions[role] = permissions
 
@@ -136,6 +139,7 @@ class AuthorizationManager(BaseManager):
 
         Raises:
             AuthorizationError: If the role doesn't exist
+
         """
         if role not in self._role_permissions:
             raise AuthorizationError(f"Role {role} does not exist")
@@ -153,6 +157,7 @@ class AuthorizationManager(BaseManager):
 
         Returns:
             True if the user has the permission, False otherwise
+
         """
         user_roles = self._user_roles.get(user_id, set())
         for role in user_roles:
@@ -168,6 +173,7 @@ class AuthorizationManager(BaseManager):
 
         Returns:
             Set of all permissions granted to the user
+
         """
         permissions = set()
         user_roles = self._user_roles.get(user_id, set())

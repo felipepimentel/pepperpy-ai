@@ -38,6 +38,7 @@ class ValidationManager:
 
         Raises:
             ValidationError: If validator registration fails
+
         """
         try:
             if name in self._validators:
@@ -70,6 +71,7 @@ class ValidationManager:
 
         Raises:
             ValidationError: If validator not found or validation fails
+
         """
         try:
             validator = self._validators.get(name)
@@ -100,6 +102,7 @@ class ValidationManager:
 
         Returns:
             Validator instance or None if not found
+
         """
         return self._validators.get(name)
 
@@ -108,6 +111,7 @@ class ValidationManager:
 
         Returns:
             List of validator names
+
         """
         return list(self._validators.keys())
 

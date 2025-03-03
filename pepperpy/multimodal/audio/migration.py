@@ -28,7 +28,6 @@ class OldAudioAnalyzer:
 class OldAudioClassifier:
     """Placeholder for old AudioClassifier class."""
 
-    pass
 
 
 class OldInputProcessor:
@@ -42,7 +41,6 @@ class OldInputProcessor:
 class OldSpeechTranscriber:
     """Placeholder for old SpeechTranscriber class."""
 
-    pass
 
 
 class OldOutputProcessor:
@@ -65,6 +63,7 @@ class MigrationHelper:
 
         Returns:
             List of (module_path, class) tuples for old processor implementations
+
         """
         old_processors = [
             ("pepperpy.multimodal.audio.AudioProcessor", OldInputProcessor),
@@ -86,18 +85,19 @@ class MigrationHelper:
 
         Returns:
             Equivalent new processor instance
+
         """
         if isinstance(old_processor, OldInputProcessor):
             return InputProcessor(
                 name=getattr(old_processor, "name", "migrated_input_processor"),
                 config=getattr(old_processor, "_config", {}),
             )
-        elif isinstance(old_processor, OldOutputProcessor):
+        if isinstance(old_processor, OldOutputProcessor):
             return OutputProcessor(
                 name=getattr(old_processor, "name", "migrated_output_processor"),
                 config=getattr(old_processor, "_config", {}),
             )
-        elif isinstance(old_processor, OldAudioAnalyzer):
+        if isinstance(old_processor, OldAudioAnalyzer):
             return AudioAnalyzer(
                 processor=(
                     MigrationHelper.get_equivalent_processor(old_processor.processor)
@@ -115,17 +115,16 @@ class MigrationHelper:
                     else None
                 ),
             )
-        elif isinstance(old_processor, OldSpeechTranscriber):
+        if isinstance(old_processor, OldSpeechTranscriber):
             return SpeechTranscriber()
-        elif isinstance(old_processor, OldAudioClassifier):
+        if isinstance(old_processor, OldAudioClassifier):
             return AudioClassifier()
-        else:
-            # Default to input processor
-            return InputProcessor(name="migrated_processor")
+        # Default to input processor
+        return InputProcessor(name="migrated_processor")
 
     @staticmethod
     def generate_migration_code(
-        old_processor_var: str, new_processor_type: str, module_path: str = ""
+        old_processor_var: str, new_processor_type: str, module_path: str = "",
     ) -> str:
         """Generate code for migrating from old processor to new processor.
 
@@ -136,6 +135,7 @@ class MigrationHelper:
 
         Returns:
             Python code for migration
+
         """
         imports = f"from pepperpy.capabilities.audio import {new_processor_type}"
         if module_path:
@@ -212,6 +212,7 @@ def map_imports(source_code: str) -> str:
 
     Returns:
         Updated source code
+
     """
     import_mappings = {
         "from pepperpy.multimodal.audio import AudioProcessor": "from pepperpy.capabilities.audio import InputProcessor",

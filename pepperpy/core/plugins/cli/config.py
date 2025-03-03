@@ -23,6 +23,7 @@ def get_plugin_config_path(plugin_id: str) -> Path:
 
     Returns:
         Path to the plugin configuration file
+
     """
     return Path.home() / ".pepperpy" / "config" / "plugins" / f"{plugin_id}.json"
 
@@ -35,6 +36,7 @@ def load_plugin_config(plugin_id: str) -> PluginConfig:
 
     Returns:
         Plugin configuration dictionary
+
     """
     config_path = get_plugin_config_path(plugin_id)
     if not config_path.exists():
@@ -42,7 +44,7 @@ def load_plugin_config(plugin_id: str) -> PluginConfig:
         return {}
 
     try:
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             return json.load(f)
     except Exception as e:
         logger.error(f"Failed to load configuration for plugin {plugin_id}: {e}")
@@ -58,6 +60,7 @@ def save_plugin_config(plugin_id: str, config: PluginConfig) -> bool:
 
     Returns:
         True if successful, False otherwise
+
     """
     config_path = get_plugin_config_path(plugin_id)
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -76,6 +79,7 @@ def get_enabled_plugins() -> List[str]:
 
     Returns:
         List of plugin identifiers
+
     """
     config_dir = Path.home() / ".pepperpy" / "config" / "plugins"
     if not config_dir.exists():
@@ -85,7 +89,7 @@ def get_enabled_plugins() -> List[str]:
     for config_file in config_dir.glob("*.json"):
         plugin_id = config_file.stem
         try:
-            with open(config_file, "r") as f:
+            with open(config_file) as f:
                 config = json.load(f)
                 if config.get("enabled", True):
                     enabled_plugins.append(plugin_id)
@@ -104,6 +108,7 @@ def is_plugin_enabled(plugin_id: str) -> bool:
 
     Returns:
         True if the plugin is enabled, False otherwise
+
     """
     config = load_plugin_config(plugin_id)
     return config.get("enabled", True)
@@ -117,6 +122,7 @@ def enable_plugin(plugin_id: str) -> bool:
 
     Returns:
         True if successful, False otherwise
+
     """
     config = load_plugin_config(plugin_id)
     config["enabled"] = True
@@ -131,6 +137,7 @@ def disable_plugin(plugin_id: str) -> bool:
 
     Returns:
         True if successful, False otherwise
+
     """
     config = load_plugin_config(plugin_id)
     config["enabled"] = False

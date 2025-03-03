@@ -15,7 +15,7 @@ def run_ruff_check() -> List[Dict[str, Any]]:
         result = subprocess.run(
             ["ruff", "check", "pepperpy/", "--format=json", "--select=F401,F811"],
             capture_output=True,
-            text=True,
+            text=True, check=False,
         )
         if result.stdout:
             return json.loads(result.stdout)
@@ -44,7 +44,7 @@ def fix_unused_imports(file_path: str, errors: List[Dict[str, Any]]) -> int:
         return 0
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             content = f.read()
 
         lines = content.split("\n")

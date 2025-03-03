@@ -22,6 +22,7 @@ class Retriever(Lifecycle, ABC):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -36,21 +37,22 @@ class Retriever(Lifecycle, ABC):
 
         Returns:
             List of dictionaries containing document metadata and scores
+
         """
-        pass
 
 
 class VectorRetriever(Retriever):
     """Retriever using vector similarity search."""
 
     def __init__(
-        self, embedder: Optional[Embedder] = None, indexer: Optional[Indexer] = None
+        self, embedder: Optional[Embedder] = None, indexer: Optional[Indexer] = None,
     ):
         """Initialize vector retriever.
 
         Args:
             embedder: Optional embedder instance
             indexer: Optional indexer instance
+
         """
         super().__init__()
         self.embedder = embedder or TextEmbedder()
@@ -75,6 +77,7 @@ class VectorRetriever(Retriever):
 
         Returns:
             List of dictionaries containing document metadata and scores
+
         """
         query_embedding = await self.embedder.embed(query)
         return await self.indexer.search(query_embedding, k)
@@ -88,6 +91,7 @@ class TextRetriever(Retriever):
 
         Args:
             indexer: Optional indexer instance
+
         """
         super().__init__()
         self.indexer = indexer or VectorIndexer()
@@ -109,6 +113,7 @@ class TextRetriever(Retriever):
 
         Returns:
             List of dictionaries containing document metadata and scores
+
         """
         # TODO: Implement text-based retrieval
         return []
@@ -122,6 +127,7 @@ class HybridRetriever(Retriever):
 
         Args:
             vector_weight: Weight for vector search scores (0-1)
+
         """
         super().__init__()
         self.vector_weight = vector_weight
@@ -147,6 +153,7 @@ class HybridRetriever(Retriever):
 
         Returns:
             List of dictionaries containing document metadata and scores
+
         """
         vector_results = await self.vector_retriever.retrieve(query, k)
         # TODO: Implement hybrid search result merging

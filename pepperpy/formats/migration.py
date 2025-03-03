@@ -76,6 +76,7 @@ class MigrationHelper:
 
         Returns:
             List of old format class names found in the code
+
         """
         old_formats = []
 
@@ -122,6 +123,7 @@ class MigrationHelper:
 
         Returns:
             Name of the equivalent new format handler, or None if not found
+
         """
         return cls.OLD_TO_NEW_MAPPING.get(old_format)
 
@@ -134,6 +136,7 @@ class MigrationHelper:
 
         Returns:
             New import path, or None if not found
+
         """
         return cls.IMPORT_MAPPING.get(old_import)
 
@@ -146,6 +149,7 @@ class MigrationHelper:
 
         Returns:
             Migrated code using the new unified format handling system
+
         """
         # This is a simplified implementation
         # A real implementation would parse the AST and transform it
@@ -160,13 +164,13 @@ class MigrationHelper:
                 new_code,
             )
             new_code = re.sub(
-                r"import\s+" + re.escape(old_import), f"import {new_import}", new_code
+                r"import\s+" + re.escape(old_import), f"import {new_import}", new_code,
             )
 
         # Replace class names
         for old_format, new_format in cls.OLD_TO_NEW_MAPPING.items():
             new_code = re.sub(
-                r"\b" + re.escape(old_format) + r"\b", new_format, new_code
+                r"\b" + re.escape(old_format) + r"\b", new_format, new_code,
             )
 
         # Replace method names
@@ -188,6 +192,7 @@ class MigrationHelper:
 
         Returns:
             Migration guide as a string
+
         """
         if old_formats is None:
             old_formats = list(cls.OLD_TO_NEW_MAPPING.keys())
@@ -228,7 +233,7 @@ class MigrationHelper:
         # Add import mappings
         for old_import, new_import in cls.IMPORT_MAPPING.items():
             guide.append(
-                f"- `from {old_import} import ...` → `from {new_import} import ...`"
+                f"- `from {old_import} import ...` → `from {new_import} import ...`",
             )
 
         guide.extend(
@@ -267,7 +272,7 @@ class MigrationHelper:
                 "# Get a format handler by MIME type",
                 "json_format = get_format_by_mime_type('application/json')",
                 "```",
-            ]
+            ],
         )
 
         return "\n".join(guide)
@@ -281,13 +286,14 @@ def detect_old_formats_in_file(file_path: str) -> List[str]:
 
     Returns:
         List of old format class names found in the file
+
     """
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             code = f.read()
         return MigrationHelper.detect_old_formats(code)
     except Exception as e:
-        print(f"Error analyzing {file_path}: {str(e)}")
+        print(f"Error analyzing {file_path}: {e!s}")
         return []
 
 
@@ -299,6 +305,7 @@ def generate_migration_report(directory_path: str) -> Dict[str, List[str]]:
 
     Returns:
         Dictionary mapping file paths to lists of old format classes found
+
     """
     import os
 
@@ -320,6 +327,7 @@ def print_migration_report(report: Dict[str, List[str]]) -> None:
 
     Args:
         report: Dictionary mapping file paths to lists of old format classes found
+
     """
     if not report:
         print("No files requiring migration were found.")
@@ -339,5 +347,5 @@ def print_migration_report(report: Dict[str, List[str]]) -> None:
 
     print()
     print(
-        "For detailed migration instructions, use MigrationHelper.print_migration_guide()"
+        "For detailed migration instructions, use MigrationHelper.print_migration_guide()",
     )

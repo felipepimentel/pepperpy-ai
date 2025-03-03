@@ -72,6 +72,7 @@ class AudioProcessor(BaseAudioProcessor):
         Args:
             name: Processor name
             config: Optional configuration
+
         """
         super().__init__(name, config)
 
@@ -83,6 +84,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Processed audio array
+
         """
         # Apply input processing
         result = audio
@@ -106,6 +108,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Denoised audio array
+
         """
         if not NUMPY_AVAILABLE:
             # Simple noise reduction for non-numpy arrays
@@ -113,11 +116,10 @@ class AudioProcessor(BaseAudioProcessor):
             if not audio:
                 return audio
             return [x if abs(x) > threshold else 0 for x in audio]
-        else:
-            # Simple noise reduction using numpy
-            threshold = self._config.get("noise_threshold", 0.1)
-            mask = np.abs(audio) > threshold
-            return audio * mask
+        # Simple noise reduction using numpy
+        threshold = self._config.get("noise_threshold", 0.1)
+        mask = np.abs(audio) > threshold
+        return audio * mask
 
     def _segment(self, audio: Any) -> Any:
         """Segment audio into speech regions.
@@ -127,24 +129,24 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Segmented audio array
+
         """
         if not NUMPY_AVAILABLE:
             # Simple placeholder implementation for non-numpy arrays
             return audio
-        else:
-            # Simple energy-based segmentation using numpy
-            window_size = self._config.get("window_size", 1024)
-            energy = np.array(
-                [
-                    np.sum(audio[i : i + window_size] ** 2)
-                    for i in range(0, len(audio), window_size)
-                ]
-            )
-            # threshold will be used in future implementation
-            _ = np.mean(energy) * self._config.get("energy_threshold", 2.0)
-            # Calculate mask but don't use it yet - will be used in future implementation
-            # mask = energy > threshold
-            return audio
+        # Simple energy-based segmentation using numpy
+        window_size = self._config.get("window_size", 1024)
+        energy = np.array(
+            [
+                np.sum(audio[i : i + window_size] ** 2)
+                for i in range(0, len(audio), window_size)
+            ],
+        )
+        # threshold will be used in future implementation
+        _ = np.mean(energy) * self._config.get("energy_threshold", 2.0)
+        # Calculate mask but don't use it yet - will be used in future implementation
+        # mask = energy > threshold
+        return audio
 
     async def process_audio(self, audio_path: Union[str, Path]) -> AudioFeatures:
         """Process an audio file and extract features.
@@ -154,6 +156,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Extracted audio features
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -177,7 +180,7 @@ class AudioProcessor(BaseAudioProcessor):
         )
 
     async def process_batch(
-        self, audio_paths: List[Union[str, Path]]
+        self, audio_paths: List[Union[str, Path]],
     ) -> List[AudioFeatures]:
         """Process multiple audio files in batch.
 
@@ -186,6 +189,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             List of extracted audio features
+
         """
         results = []
         for path in audio_paths:
@@ -205,11 +209,12 @@ class SpeechTranscriber:
 
         Returns:
             List of transcription segments
+
         """
         raise NotImplementedError
 
     async def transcribe_batch(
-        self, audio_paths: List[Union[str, Path]]
+        self, audio_paths: List[Union[str, Path]],
     ) -> List[List[Transcription]]:
         """Transcribe speech in multiple audio files.
 
@@ -218,6 +223,7 @@ class SpeechTranscriber:
 
         Returns:
             List of transcription results for each file
+
         """
         raise NotImplementedError
 
@@ -241,11 +247,12 @@ class AudioClassifier:
 
         Returns:
             List of classification results
+
         """
         raise NotImplementedError
 
     async def classify_batch(
-        self, audio_paths: List[Union[str, Path]]
+        self, audio_paths: List[Union[str, Path]],
     ) -> List[List[Classification]]:
         """Classify multiple audio files.
 
@@ -254,6 +261,7 @@ class AudioClassifier:
 
         Returns:
             List of classification results for each file
+
         """
         raise NotImplementedError
 
@@ -273,6 +281,7 @@ class AudioAnalyzer:
             processor: Optional audio processor for feature extraction
             transcriber: Optional speech transcriber
             classifier: Optional audio classifier
+
         """
         self.processor = processor
         self.transcriber = transcriber
@@ -294,6 +303,7 @@ class AudioAnalyzer:
 
         Returns:
             Combined analysis results
+
         """
         features = (
             await self.processor.process_audio(audio_path) if self.processor else None

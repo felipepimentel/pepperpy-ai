@@ -79,7 +79,7 @@ class Planner:
     """Base class for plan generation and management."""
 
     async def create_plan(
-        self, goal: str, context: Optional[Dict[str, Any]] = None
+        self, goal: str, context: Optional[Dict[str, Any]] = None,
     ) -> Plan:
         """Generate a plan to achieve the specified goal."""
         raise NotImplementedError
@@ -97,13 +97,13 @@ class PlanExecutor:
     """Base class for plan execution and monitoring."""
 
     async def execute_step(
-        self, step: PlanStep, context: Optional[Dict[str, Any]] = None
+        self, step: PlanStep, context: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """Execute a single plan step."""
         raise NotImplementedError
 
     async def execute_plan(
-        self, plan: Plan, context: Optional[Dict[str, Any]] = None
+        self, plan: Plan, context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Execute an entire plan."""
         while not plan.is_completed() and not plan.is_failed():
@@ -129,14 +129,14 @@ class PlanManager:
         self.executor = executor
 
     async def plan_and_execute(
-        self, goal: str, context: Optional[Dict[str, Any]] = None
+        self, goal: str, context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Create and execute a plan for the given goal."""
         plan = await self.planner.create_plan(goal, context)
         return await self.executor.execute_plan(plan, context)
 
     async def replan_and_continue(
-        self, plan: Plan, feedback: Dict[str, Any]
+        self, plan: Plan, feedback: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Refine a plan based on feedback and continue execution."""
         refined_plan = await self.planner.refine_plan(plan, feedback)

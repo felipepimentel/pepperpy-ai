@@ -188,7 +188,7 @@ class OperationProfiler(OptimizationComponent):
                 success=success,
                 error=error,
                 metadata=metadata or {},
-            )
+            ),
         )
 
         # Trim history if needed
@@ -196,7 +196,7 @@ class OperationProfiler(OptimizationComponent):
             self._operations = self._operations[-self._max_history :]
 
     def get_operation_history(
-        self, operation: Optional[str] = None
+        self, operation: Optional[str] = None,
     ) -> List[OperationMetrics]:
         """Get operation history, optionally filtered by operation type."""
         if operation:

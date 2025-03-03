@@ -11,7 +11,7 @@ from pepperpy.llm.providers.base.base import LLMProviderBase
 
 class OpenAIProvider(LLMProviderBase):
     """Provider implementation for OpenAI LLMs."""
-    
+
     def __init__(
         self,
         api_key: str,
@@ -24,13 +24,14 @@ class OpenAIProvider(LLMProviderBase):
             api_key: OpenAI API key
             organization: Optional OpenAI organization ID
             **kwargs: Additional configuration parameters
+
         """
         super().__init__()
         self.api_key = api_key
         self.organization = organization
         self._client = None
         self._kwargs = kwargs
-    
+
     @property
     def client(self):
         """Get or initialize the OpenAI client."""
@@ -44,10 +45,10 @@ class OpenAIProvider(LLMProviderBase):
             except ImportError:
                 raise ImportError(
                     "openai package is required for OpenAIProvider. "
-                    "Install it with: pip install openai"
+                    "Install it with: pip install openai",
                 ) from None
         return self._client
-    
+
     def generate(
         self,
         prompt: str,
@@ -63,15 +64,16 @@ class OpenAIProvider(LLMProviderBase):
             
         Returns:
             LLMResponse object with the generated text
+
         """
         options = options or CompletionOptions()
-        
+
         # Placeholder implementation
         return LLMResponse(
             text="This is a placeholder response from OpenAI provider.",
             model=options.model,
         )
-    
+
     def chat(
         self,
         messages: List[ChatMessage],
@@ -87,20 +89,22 @@ class OpenAIProvider(LLMProviderBase):
             
         Returns:
             LLMResponse object with the generated text
+
         """
         options = options or CompletionOptions()
-        
+
         # Placeholder implementation
         return LLMResponse(
             text="This is a placeholder response from OpenAI chat provider.",
             model=options.model,
         )
-    
+
     def get_models(self) -> List[str]:
         """Get list of available models.
         
         Returns:
             List of model identifiers
+
         """
         return [
             "gpt-4",
@@ -108,7 +112,7 @@ class OpenAIProvider(LLMProviderBase):
             "gpt-3.5-turbo",
             "text-embedding-ada-002",
         ]
-    
+
     def get_model_parameters(self, model_name: str) -> ModelParameters:
         """Get parameters for a specific model.
         
@@ -120,6 +124,7 @@ class OpenAIProvider(LLMProviderBase):
             
         Raises:
             ValueError: If the model is not found
+
         """
         models = {
             "gpt-4": ModelParameters(
@@ -151,8 +156,8 @@ class OpenAIProvider(LLMProviderBase):
                 supports_vision=False,
             ),
         }
-        
+
         if model_name not in models:
             raise ValueError(f"Model '{model_name}' not found")
-        
+
         return models[model_name]

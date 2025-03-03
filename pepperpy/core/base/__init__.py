@@ -65,7 +65,6 @@ class Lifecycle(ABC):
         This method should be implemented by subclasses to perform
         component-specific initialization.
         """
-        pass
 
     @abstractmethod
     async def _cleanup(self) -> None:
@@ -74,7 +73,6 @@ class Lifecycle(ABC):
         This method should be implemented by subclasses to perform
         component-specific cleanup.
         """
-        pass
 
 
 class BaseComponent(ABC):
@@ -90,6 +88,7 @@ class BaseComponent(ABC):
         Args:
             name: Component name
             **kwargs: Additional configuration parameters
+
         """
         self._name = name
         self.config = kwargs
@@ -101,6 +100,7 @@ class BaseComponent(ABC):
 
         Returns:
             Component name
+
         """
         return self._name
 
@@ -110,6 +110,7 @@ class BaseComponent(ABC):
         Args:
             key: Metadata key
             value: Metadata value
+
         """
         self._metadata[key] = value
 
@@ -122,6 +123,7 @@ class BaseComponent(ABC):
 
         Returns:
             Metadata value or default
+
         """
         return self._metadata.get(key, default)
 
@@ -133,13 +135,13 @@ class BaseComponent(ABC):
 
         Returns:
             True if key exists
+
         """
         return key in self._metadata
 
     @abstractmethod
     def initialize(self):
         """Initialize the component. Must be implemented by subclasses."""
-        pass
 
 
 class BaseProvider(BaseComponent):
@@ -148,17 +150,16 @@ class BaseProvider(BaseComponent):
     @abstractmethod
     def validate(self):
         """Validate the provider configuration. Must be implemented by subclasses."""
-        pass
 
 
 # Import from submodules
 
 __all__ = [
     "BaseComponent",
-    "BaseProvider",
     "BaseManager",
-    "ComponentState",
-    "ComponentConfig",
+    "BaseProvider",
     "ComponentCallback",
+    "ComponentConfig",
+    "ComponentState",
     "Lifecycle",
 ]

@@ -45,6 +45,7 @@ class VectorData:
             dimensions: Number of dimensions per vector
             count: Number of vectors
             metadata: Optional metadata
+
         """
         self.vectors = vectors
         self.dimensions = dimensions
@@ -57,6 +58,7 @@ class VectorData:
 
         Returns:
             Tuple of (count, dimensions)
+
         """
         return (self.count, self.dimensions)
 
@@ -70,6 +72,7 @@ class NumpyFormat(FormatHandler[VectorData]):
 
         Returns:
             MIME type string
+
         """
         return "application/x-numpy-array"
 
@@ -79,6 +82,7 @@ class NumpyFormat(FormatHandler[VectorData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["npy"]
 
@@ -93,6 +97,7 @@ class NumpyFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If serialization fails or NumPy is not available
+
         """
         if not NUMPY_AVAILABLE:
             raise FormatError("NumPy is required for NumpyFormat")
@@ -111,7 +116,7 @@ class NumpyFormat(FormatHandler[VectorData]):
             np.save(buffer, array)
             return buffer.getvalue()
         except Exception as e:
-            raise FormatError(f"Failed to serialize NumPy array: {str(e)}") from e
+            raise FormatError(f"Failed to serialize NumPy array: {e!s}") from e
 
     def deserialize(self, data: bytes) -> VectorData:
         """Deserialize bytes to VectorData.
@@ -124,6 +129,7 @@ class NumpyFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If deserialization fails or NumPy is not available
+
         """
         if not NUMPY_AVAILABLE:
             raise FormatError("NumPy is required for NumpyFormat")
@@ -148,7 +154,7 @@ class NumpyFormat(FormatHandler[VectorData]):
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to deserialize NumPy array: {str(e)}")
+                e = FormatError(f"Failed to deserialize NumPy array: {e!s}")
             raise e
 
 
@@ -161,6 +167,7 @@ class JSONVectorFormat(FormatHandler[VectorData]):
 
         Returns:
             MIME type string
+
         """
         return "application/json"
 
@@ -170,6 +177,7 @@ class JSONVectorFormat(FormatHandler[VectorData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["json"]
 
@@ -184,6 +192,7 @@ class JSONVectorFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             # Convert numpy array to list if needed
@@ -203,7 +212,7 @@ class JSONVectorFormat(FormatHandler[VectorData]):
             # Serialize to JSON bytes
             return json.dumps(json_data).encode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to serialize to JSON: {str(e)}") from e
+            raise FormatError(f"Failed to serialize to JSON: {e!s}") from e
 
     def deserialize(self, data: bytes) -> VectorData:
         """Deserialize bytes to VectorData.
@@ -216,6 +225,7 @@ class JSONVectorFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             # Parse JSON
@@ -238,7 +248,7 @@ class JSONVectorFormat(FormatHandler[VectorData]):
                 metadata=metadata,
             )
         except Exception as e:
-            raise FormatError(f"Failed to deserialize from JSON: {str(e)}") from e
+            raise FormatError(f"Failed to deserialize from JSON: {e!s}") from e
 
 
 class BinaryVectorFormat(FormatHandler[VectorData]):
@@ -264,6 +274,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
 
         Returns:
             MIME type string
+
         """
         return "application/x-binary-vector"
 
@@ -273,6 +284,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["bvec"]
 
@@ -287,6 +299,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             # Determine data type and convert if needed
@@ -338,7 +351,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
             # Combine all parts
             return header + metadata_json + vector_data
         except Exception as e:
-            raise FormatError(f"Failed to serialize to binary format: {str(e)}") from e
+            raise FormatError(f"Failed to serialize to binary format: {e!s}") from e
 
     def deserialize(self, data: bytes) -> VectorData:
         """Deserialize bytes to VectorData.
@@ -351,6 +364,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             # Check minimum length
@@ -372,7 +386,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
             # Check version
             if version > self.VERSION:
                 raise FormatError(
-                    f"Unsupported binary vector format version: {version}"
+                    f"Unsupported binary vector format version: {version}",
                 )
 
             # Parse metadata
@@ -380,7 +394,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
             metadata_end = metadata_start + metadata_length
             if metadata_end > len(data):
                 raise FormatError(
-                    "Invalid binary vector data: metadata length exceeds data size"
+                    "Invalid binary vector data: metadata length exceeds data size",
                 )
 
             metadata_json = data[metadata_start:metadata_end]
@@ -408,7 +422,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
                 expected_size = count * dimensions * item_size
                 if len(vector_data) != expected_size:
                     raise FormatError(
-                        f"Invalid binary vector data: expected {expected_size} bytes, got {len(vector_data)}"
+                        f"Invalid binary vector data: expected {expected_size} bytes, got {len(vector_data)}",
                     )
 
                 # Parse as list of lists
@@ -419,19 +433,19 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
                         offset = (i * dimensions + j) * item_size
                         if data_type == 0:  # float32
                             value = struct.unpack(
-                                "f", vector_data[offset : offset + 4]
+                                "f", vector_data[offset : offset + 4],
                             )[0]
                         elif data_type == 1:  # float64
                             value = struct.unpack(
-                                "d", vector_data[offset : offset + 8]
+                                "d", vector_data[offset : offset + 8],
                             )[0]
                         elif data_type == 2:  # int32
                             value = struct.unpack(
-                                "i", vector_data[offset : offset + 4]
+                                "i", vector_data[offset : offset + 4],
                             )[0]
                         elif data_type == 3:  # int64
                             value = struct.unpack(
-                                "q", vector_data[offset : offset + 8]
+                                "q", vector_data[offset : offset + 8],
                             )[0]
                         vector.append(value)
                     vectors.append(vector)
@@ -444,7 +458,7 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to deserialize from binary format: {str(e)}")
+                e = FormatError(f"Failed to deserialize from binary format: {e!s}")
             raise e
 
 
@@ -457,6 +471,7 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
         Returns:
             MIME type string
+
         """
         return "application/x-faiss-index"
 
@@ -466,6 +481,7 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["faiss"]
 
@@ -480,6 +496,7 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If serialization fails or FAISS is not available
+
         """
         if not FAISS_AVAILABLE:
             raise FormatError("FAISS is required for FaissIndexFormat")
@@ -507,11 +524,11 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
             buffer = io.BytesIO()
             faiss.write_index(
-                index, faiss.PyCallbackIOWriter(lambda x: buffer.write(x))
+                index, faiss.PyCallbackIOWriter(lambda x: buffer.write(x)),
             )
             return buffer.getvalue()
         except Exception as e:
-            raise FormatError(f"Failed to serialize FAISS index: {str(e)}") from e
+            raise FormatError(f"Failed to serialize FAISS index: {e!s}") from e
 
     def deserialize(self, data: bytes) -> VectorData:
         """Deserialize bytes to VectorData.
@@ -524,6 +541,7 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
         Raises:
             FormatError: If deserialization fails or FAISS is not available
+
         """
         if not FAISS_AVAILABLE:
             raise FormatError("FAISS is required for FaissIndexFormat")
@@ -537,7 +555,7 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
             buffer = io.BytesIO(data)
             index = faiss.read_index(
-                faiss.PyCallbackIOReader(lambda size: buffer.read(size))
+                faiss.PyCallbackIOReader(lambda size: buffer.read(size)),
             )
 
             # Extract dimensions
@@ -561,5 +579,5 @@ class FaissIndexFormat(FormatHandler[VectorData]):
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to deserialize FAISS index: {str(e)}")
+                e = FormatError(f"Failed to deserialize FAISS index: {e!s}")
             raise e

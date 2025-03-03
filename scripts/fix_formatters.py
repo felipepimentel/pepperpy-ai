@@ -14,7 +14,7 @@ def fix_formatters_py():
         return False
 
     # Ler o conteúdo original
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         content = f.read()
 
     # Reescrever o arquivo completamente

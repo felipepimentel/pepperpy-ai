@@ -31,7 +31,6 @@ logger = get_logger(__name__)
 @click.group()
 def plugin():
     """Manage Pepperpy plugins."""
-    pass
 
 
 @plugin.command()
@@ -73,7 +72,7 @@ def list():
         console.print(table)
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -108,7 +107,7 @@ def info(plugin_id):
         console.print(f"ID: {plugin_id}")
         console.print(f"Version: {plugin_info.get('version', 'unknown')}")
         console.print(
-            f"Status: {'Enabled' if is_plugin_enabled(plugin_id) else 'Disabled'}"
+            f"Status: {'Enabled' if is_plugin_enabled(plugin_id) else 'Disabled'}",
         )
         console.print(f"Path: {plugin_path}")
         console.print(f"Description: {plugin_info.get('description', '')}")
@@ -130,7 +129,7 @@ def info(plugin_id):
                     console.print(f"  {key}: {value}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -157,7 +156,7 @@ def enable(plugin_id):
             console.print(f"[red]Failed to enable plugin {plugin_id}[/red]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -184,7 +183,7 @@ def disable(plugin_id):
             console.print(f"[red]Failed to disable plugin {plugin_id}[/red]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -202,7 +201,7 @@ def install(plugin_path):
         console.print("[yellow]Plugin installation not implemented yet[/yellow]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -221,7 +220,7 @@ def uninstall(plugin_id, force):
         console.print("[yellow]Plugin uninstallation not implemented yet[/yellow]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e

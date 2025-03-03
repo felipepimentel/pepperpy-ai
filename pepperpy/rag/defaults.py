@@ -55,7 +55,7 @@ def register_default_components():
 
     # Register specialized retrievers
     registry.register_retriever(
-        "qa_retriever", ReRankingRetriever
+        "qa_retriever", ReRankingRetriever,
     )  # With re-ranking for QA
     registry.register_retriever("kb_retriever", HybridRetriever)  # For knowledge bases
 
@@ -67,6 +67,6 @@ def register_default_components():
 
     # Register specialized augmenters
     registry.register_augmenter(
-        "qa_augmenter", MultiStageAugmenter
+        "qa_augmenter", MultiStageAugmenter,
     )  # Multi-stage for QA
     registry.register_augmenter("kb_augmenter", HybridAugmenter)  # For knowledge bases

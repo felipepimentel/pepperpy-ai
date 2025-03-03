@@ -24,8 +24,8 @@ class CachePolicy(ABC):
 
         Returns:
             True if value should be cached
+
         """
-        pass
 
     @abstractmethod
     def should_evict(self, key: str, value: Any) -> bool:
@@ -37,8 +37,8 @@ class CachePolicy(ABC):
 
         Returns:
             True if value should be evicted
+
         """
-        pass
 
 
 class TTLPolicy(CachePolicy):
@@ -49,6 +49,7 @@ class TTLPolicy(CachePolicy):
 
         Args:
             ttl: Time to live in seconds
+
         """
         self.ttl = ttl
         self._timestamps: Dict[str, datetime] = {}
@@ -62,6 +63,7 @@ class TTLPolicy(CachePolicy):
 
         Returns:
             True if value should be cached
+
         """
         self._timestamps[key] = datetime.now()
         return True
@@ -75,6 +77,7 @@ class TTLPolicy(CachePolicy):
 
         Returns:
             True if value should be evicted
+
         """
         if key not in self._timestamps:
             return True
@@ -91,6 +94,7 @@ class SizePolicy(CachePolicy):
 
         Args:
             max_size: Maximum number of items to cache
+
         """
         self.max_size = max_size
         self._size = 0
@@ -104,6 +108,7 @@ class SizePolicy(CachePolicy):
 
         Returns:
             True if value should be cached
+
         """
         return self._size < self.max_size
 
@@ -116,6 +121,7 @@ class SizePolicy(CachePolicy):
 
         Returns:
             True if value should be evicted
+
         """
         return self._size >= self.max_size
 
@@ -128,6 +134,7 @@ class CompositePolicy(CachePolicy):
 
         Args:
             policies: List of policies to combine
+
         """
         self.policies = policies
 
@@ -140,6 +147,7 @@ class CompositePolicy(CachePolicy):
 
         Returns:
             True if all policies allow caching
+
         """
         return all(p.should_cache(key, value) for p in self.policies)
 
@@ -152,5 +160,6 @@ class CompositePolicy(CachePolicy):
 
         Returns:
             True if any policy requires eviction
+
         """
         return any(p.should_evict(key, value) for p in self.policies)

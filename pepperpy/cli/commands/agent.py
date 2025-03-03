@@ -24,7 +24,6 @@ console = Console()
 @click.group()
 def agent() -> None:
     """Manage Pepperpy agents."""
-    pass
 
 
 @agent.command()
@@ -38,13 +37,13 @@ def create(name: str, type: str, config: str) -> None:
         console.print(f"Creating agent: {name} of type {type}")
         if config:
             console.print(f"Using configuration from: {config}")
-        
+
         # Log creation
         console.print("[green]Agent created successfully![/green]")
-    
+
     except PepperpyError as e:
         console.print(f"[red]Error: {e.message}[/red]")
-        if hasattr(e, 'recovery_hint') and e.recovery_hint:
+        if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
         raise click.Abort() from e
 
@@ -56,13 +55,13 @@ def delete(name: str) -> None:
     try:
         # TODO: Implement agent deletion
         console.print(f"Deleting agent: {name}")
-        
+
         # Log deletion
         console.print("[green]Agent deleted successfully![/green]")
-    
+
     except PepperpyError as e:
         console.print(f"[red]Error: {e.message}[/red]")
-        if hasattr(e, 'recovery_hint') and e.recovery_hint:
+        if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
         raise click.Abort() from e
 
@@ -78,22 +77,22 @@ def list() -> None:
                 "name": "Test Agent 1",
                 "type": "assistant",
                 "status": "active",
-                "description": "A test agent"
+                "description": "A test agent",
             },
             {
                 "id": "agent2",
                 "name": "Test Agent 2",
                 "type": "tool",
                 "status": "inactive",
-                "description": "Another test agent"
-            }
+                "description": "Another test agent",
+            },
         ]
-        
+
         display_agents(agents)
-    
+
     except PepperpyError as e:
         console.print(f"[red]Error: {e.message}[/red]")
-        if hasattr(e, 'recovery_hint') and e.recovery_hint:
+        if hasattr(e, "recovery_hint") and e.recovery_hint:
             console.print(f"[yellow]Hint: {e.recovery_hint}[/yellow]")
         raise click.Abort() from e
 
@@ -104,16 +103,16 @@ def display_agents(agents: List[Dict[str, str]]) -> None:
     table = Table(
         title="Available Agents",
         show_header=True,
-        header_style="bold magenta"
+        header_style="bold magenta",
     )
-    
+
     # Add columns
     table.add_column("ID", style="dim")
     table.add_column("Name")
     table.add_column("Type")
     table.add_column("Status")
     table.add_column("Description")
-    
+
     # Add rows
     for agent in agents:
         table.add_row(
@@ -121,9 +120,9 @@ def display_agents(agents: List[Dict[str, str]]) -> None:
             agent["name"],
             agent["type"],
             agent["status"],
-            agent["description"]
+            agent["description"],
         )
-    
+
     # Display table
     console.print(table)
 
@@ -133,26 +132,26 @@ async def delete_agent(agent_id: str) -> None:
     try:
         # TODO: Implement agent deletion
         print(f"Deleting agent: {agent_id}")
-        
+
         # Log deletion
         print("Agent deleted successfully!")
-    
+
     except Exception as e:
         raise PepperpyError(
             message=f"Failed to delete agent: {e}",
             details={"agent_id": agent_id},
-            recovery_hint="Check agent ID and try again"
+            recovery_hint="Check agent ID and try again",
         ) from e
 
 
-async def update_agent(agent_id: str, name: Optional[str] = None, 
-                      description: Optional[str] = None, 
+async def update_agent(agent_id: str, name: Optional[str] = None,
+                      description: Optional[str] = None,
                       parameters: Optional[Dict[str, Any]] = None) -> None:
     """Update an agent."""
     try:
         # TODO: Implement agent update
         print(f"Updating agent: {agent_id}")
-        
+
         updates = {}
         if name:
             updates["name"] = name
@@ -160,15 +159,15 @@ async def update_agent(agent_id: str, name: Optional[str] = None,
             updates["description"] = description
         if parameters:
             updates["parameters"] = parameters
-        
+
         print(f"Updates: {updates}")
-        
+
         # Log update
         print("Agent updated successfully!")
-    
+
     except Exception as e:
         raise PepperpyError(
             message=f"Failed to update agent: {e}",
             details={"agent_id": agent_id},
-            recovery_hint="Check agent ID and try again"
+            recovery_hint="Check agent ID and try again",
         ) from e

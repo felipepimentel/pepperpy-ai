@@ -53,6 +53,7 @@ class SchemaVersion(VersionedObject):
 
         Returns:
             True if data is valid
+
         """
         # Basic implementation - should be overridden in subclasses
         return True
@@ -71,8 +72,8 @@ class SchemaMigrator(ABC):
 
         Returns:
             True if migration is possible
+
         """
-        pass
 
     @abstractmethod
     def migrate(self, data: Any, source: SchemaVersion, target: SchemaVersion) -> Any:
@@ -88,8 +89,8 @@ class SchemaMigrator(ABC):
 
         Raises:
             MigrationError: If migration fails
+
         """
-        pass
 
 
 class SchemaValidator(ABC):
@@ -105,8 +106,8 @@ class SchemaValidator(ABC):
 
         Returns:
             True if data is valid
+
         """
-        pass
 
     @abstractmethod
     def get_validation_errors(self, data: Any, schema: SchemaVersion) -> List[str]:
@@ -118,8 +119,8 @@ class SchemaValidator(ABC):
 
         Returns:
             List of validation error messages
+
         """
-        pass
 
 
 class SchemaRegistry:
@@ -134,6 +135,7 @@ class SchemaRegistry:
 
         Args:
             schema: Schema to register
+
         """
         self._schemas[str(schema.version)] = schema
 
@@ -142,6 +144,7 @@ class SchemaRegistry:
 
         Args:
             migrator: Migrator to register
+
         """
         self._migrators.append(migrator)
 
@@ -153,12 +156,13 @@ class SchemaRegistry:
 
         Returns:
             Schema or None if not found
+
         """
         version_str = str(version)
         return self._schemas.get(version_str)
 
     def find_migrator(
-        self, source: SchemaVersion, target: SchemaVersion
+        self, source: SchemaVersion, target: SchemaVersion,
     ) -> Optional[SchemaMigrator]:
         """Find migrator for source and target schemas.
 
@@ -168,6 +172,7 @@ class SchemaRegistry:
 
         Returns:
             Migrator or None if not found
+
         """
         for migrator in self._migrators:
             if migrator.can_migrate(source, target):
@@ -192,6 +197,7 @@ class SchemaEvolution:
 
         Args:
             validator: Validator to use
+
         """
         self._validator = validator
 
@@ -213,6 +219,7 @@ class SchemaEvolution:
 
         Raises:
             MigrationError: If migration fails
+
         """
         source_schema = self._registry.get_schema(source_version)
         target_schema = self._registry.get_schema(target_version)
@@ -253,7 +260,7 @@ class SchemaEvolution:
 
         # Validate migrated data if validator is available
         if self._validator and not self._validator.validate(
-            migrated_data, target_schema
+            migrated_data, target_schema,
         ):
             errors = self._validator.get_validation_errors(migrated_data, target_schema)
             raise MigrationError(

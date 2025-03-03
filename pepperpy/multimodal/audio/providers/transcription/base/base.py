@@ -44,6 +44,7 @@ class TranscriptionError(Exception):
             message: Error message
             provider: Provider name
             details: Additional error details
+
         """
         self.provider = provider
         self.details = details or {}
@@ -72,8 +73,8 @@ class TranscriptionProvider(ABC):
 
         Raises:
             TranscriptionError: If transcription fails
+
         """
-        pass
 
     def transcribe_with_timestamps(
         self,
@@ -93,9 +94,10 @@ class TranscriptionProvider(ABC):
 
         Raises:
             TranscriptionError: If transcription fails
+
         """
         raise NotImplementedError(
-            "This provider does not support transcription with timestamps"
+            "This provider does not support transcription with timestamps",
         )
 
     def get_supported_languages(self) -> List[str]:
@@ -103,6 +105,7 @@ class TranscriptionProvider(ABC):
 
         Returns:
             List of language codes
+
         """
         return []
 
@@ -111,5 +114,6 @@ class TranscriptionProvider(ABC):
 
         Returns:
             List of format extensions
+
         """
         return []

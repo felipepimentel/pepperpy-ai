@@ -56,8 +56,8 @@ class DataValidator(ABC, Generic[T]):
 
         Returns:
             List of validation errors (empty if valid)
+
         """
-        pass
 
 
 class DataTransformer(ABC, Generic[T, U]):
@@ -75,8 +75,8 @@ class DataTransformer(ABC, Generic[T, U]):
 
         Raises:
             ProcessingError: If transformation fails
+
         """
-        pass
 
 
 class DataProcessor(Lifecycle, Generic[T, U]):
@@ -107,6 +107,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
             metrics: Optional metrics collector
             batch_size: Batch processing size
             processing_timeout: Processing timeout in seconds
+
         """
         super().__init__()
         self.name = name
@@ -119,10 +120,10 @@ class DataProcessor(Lifecycle, Generic[T, U]):
 
         # Initialize metrics
         self._processed_items = self._metrics.counter(
-            "processor_items_total", labels={"processor": name}
+            "processor_items_total", labels={"processor": name},
         )
         self._processing_errors = self._metrics.counter(
-            "processor_errors_total", labels={"processor": name}
+            "processor_errors_total", labels={"processor": name},
         )
         self._processing_time = self._metrics.histogram(
             "processor_time_seconds",
@@ -130,7 +131,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
             labels={"processor": name},
         )
         self._batch_size_metric = self._metrics.gauge(
-            "processor_batch_size", labels={"processor": name}
+            "processor_batch_size", labels={"processor": name},
         )
 
     async def process_item(self, item: DataItem[T]) -> ProcessingResult[U]:
@@ -145,6 +146,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
         Raises:
             ValidationError: If validation fails
             ProcessingError: If processing fails
+
         """
         start_time = datetime.now()
         errors: List[str] = []
@@ -193,7 +195,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
             )
 
     async def process_batch(
-        self, items: List[DataItem[T]]
+        self, items: List[DataItem[T]],
     ) -> List[ProcessingResult[U]]:
         """Process a batch of data items.
 
@@ -202,6 +204,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
 
         Returns:
             List of processing results
+
         """
         self._batch_size_metric.set(len(items))
 
@@ -216,7 +219,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
             raise ProcessingError(f"Batch processing failed: {e}") from e
 
     async def process_stream(
-        self, stream: AsyncIterator[DataItem[T]]
+        self, stream: AsyncIterator[DataItem[T]],
     ) -> AsyncIterator[ProcessingResult[U]]:
         """Process a stream of data items.
 
@@ -225,6 +228,7 @@ class DataProcessor(Lifecycle, Generic[T, U]):
 
         Yields:
             Processing results
+
         """
         batch: List[DataItem[T]] = []
 
@@ -251,11 +255,9 @@ class DataProcessor(Lifecycle, Generic[T, U]):
 
     async def _initialize(self) -> None:
         """Initialize the processor."""
-        pass
 
     async def _cleanup(self) -> None:
         """Clean up processor resources."""
-        pass
 
 
 class Pipeline(Lifecycle, Generic[T, U]):
@@ -277,6 +279,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
             name: Pipeline name
             processors: List of data processors
             metrics: Optional metrics collector
+
         """
         super().__init__()
         self.name = name
@@ -286,10 +289,10 @@ class Pipeline(Lifecycle, Generic[T, U]):
 
         # Initialize metrics
         self._processed_items = self._metrics.counter(
-            "pipeline_items_total", labels={"pipeline": name}
+            "pipeline_items_total", labels={"pipeline": name},
         )
         self._processing_errors = self._metrics.counter(
-            "pipeline_errors_total", labels={"pipeline": name}
+            "pipeline_errors_total", labels={"pipeline": name},
         )
         self._processing_time = self._metrics.histogram(
             "pipeline_time_seconds",
@@ -308,6 +311,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
 
         Raises:
             ProcessingError: If pipeline processing fails
+
         """
         start_time = datetime.now()
         current_item = item
@@ -357,7 +361,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
             )
 
     async def process_batch(
-        self, items: List[DataItem[T]]
+        self, items: List[DataItem[T]],
     ) -> List[ProcessingResult[U]]:
         """Process a batch of data items through the pipeline.
 
@@ -366,6 +370,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
 
         Returns:
             List of processing results
+
         """
         tasks = [asyncio.create_task(self.process(item)) for item in items]
 
@@ -378,7 +383,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
             raise ProcessingError(f"Pipeline batch processing failed: {e}") from e
 
     async def process_stream(
-        self, stream: AsyncIterator[DataItem[T]]
+        self, stream: AsyncIterator[DataItem[T]],
     ) -> AsyncIterator[ProcessingResult[U]]:
         """Process a stream of data items through the pipeline.
 
@@ -387,6 +392,7 @@ class Pipeline(Lifecycle, Generic[T, U]):
 
         Yields:
             Processing results
+
         """
         try:
             async for item in stream:

@@ -31,6 +31,7 @@ class AuthProvider:
 
         Args:
             name: Provider name
+
         """
         self.name = name
 
@@ -43,6 +44,7 @@ class Authenticator:
 
         Args:
             provider: Authentication provider
+
         """
         self.provider = provider
 
@@ -56,6 +58,7 @@ class ContentFilter:
 
         Args:
             name: Filter name
+
         """
         self.name = name
 
@@ -68,6 +71,7 @@ class PromptProtection:
 
         Args:
             filters: Content filters to use
+
         """
         self.filters = filters or set()
 
@@ -90,6 +94,7 @@ class AuditLogger:
 
         Args:
             name: Logger name
+
         """
         self.name = name
 
@@ -98,8 +103,8 @@ class AuditLogger:
 
         Args:
             event: Event to log
+
         """
-        pass
 
 
 __all__ = [

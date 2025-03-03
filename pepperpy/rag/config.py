@@ -89,6 +89,7 @@ def create_default_config(
 
     Returns:
         A default RAG configuration
+
     """
     return RagConfig(
         id=pipeline_id,

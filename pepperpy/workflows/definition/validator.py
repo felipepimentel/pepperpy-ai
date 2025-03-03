@@ -11,7 +11,6 @@ from ..core.base import BaseWorkflow, WorkflowDefinition, WorkflowStep
 class ValidationError(Exception):
     """Raised when workflow validation fails."""
 
-    pass
 
 
 class WorkflowValidator:
@@ -26,6 +25,7 @@ class WorkflowValidator:
 
         Returns:
             List of validation errors, empty if valid
+
         """
         errors = []
 
@@ -52,6 +52,7 @@ class WorkflowValidator:
 
         Returns:
             List of validation errors, empty if valid
+
         """
         errors = []
 
@@ -72,6 +73,7 @@ class WorkflowValidator:
 
         Returns:
             List of validation errors, empty if valid
+
         """
         errors = []
 

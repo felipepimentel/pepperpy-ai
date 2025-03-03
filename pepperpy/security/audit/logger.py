@@ -23,7 +23,7 @@ audit_log_dir.mkdir(parents=True, exist_ok=True)
 audit_file = audit_log_dir / "audit.log"
 audit_handler = logging.FileHandler(audit_file)
 audit_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"),
 )
 logger.addHandler(audit_handler)
 
@@ -48,6 +48,7 @@ class AuditLogger:
                 Additional fields are allowed.
             level: Log level (default: INFO)
             user: Optional user identifier
+
         """
         # Add metadata
         event["timestamp"] = event.get("timestamp", datetime.utcnow().isoformat())

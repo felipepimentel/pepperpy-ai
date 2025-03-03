@@ -80,5 +80,5 @@ class SystemMonitor:
                 self._last_metrics.cpu_percent > 90,
                 self._last_metrics.memory_percent > 90,
                 self._last_metrics.disk_usage_percent > 95,
-            ]
+            ],
         )

@@ -21,7 +21,6 @@ class EventListener(ABC):
     @abstractmethod
     async def handle_event(self, event: Event) -> None:
         """Handle an incoming event."""
-        pass
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EventListener):
@@ -38,7 +37,6 @@ class EventFilter(ABC):
     @abstractmethod
     def matches(self, event: Event) -> bool:
         """Check if an event matches this filter."""
-        pass
 
 
 class EventTypeFilter(EventFilter):
@@ -142,12 +140,12 @@ def create_event_bus() -> EventBus:
 
 # Export all types
 __all__ = [
-    "Event",
-    "EventListener",
     "AsyncEventListener",
-    "EventFilter",
-    "EventTypeFilter",
-    "EventSourceFilter",
+    "Event",
     "EventBus",
+    "EventFilter",
+    "EventListener",
+    "EventSourceFilter",
+    "EventTypeFilter",
     "create_event_bus",
 ]

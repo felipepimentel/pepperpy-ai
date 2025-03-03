@@ -8,13 +8,11 @@ This module provides base classes and utilities for storage implementations.
 class StorageMetadata(dict):
     """Metadata for storage items."""
 
-    pass
 
 
 class StorageError(Exception):
     """Base exception for storage errors."""
 
-    pass
 
 
 # Define a base storage class
@@ -26,9 +24,10 @@ class BaseStorage:
 
         Args:
             name: Storage name
+
         """
         self.name = name
 
 
 # Export the interfaces
-__all__ = ["StorageError", "StorageMetadata", "BaseStorage"]
+__all__ = ["BaseStorage", "StorageError", "StorageMetadata"]

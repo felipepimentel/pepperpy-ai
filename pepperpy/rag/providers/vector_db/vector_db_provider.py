@@ -18,11 +18,9 @@ class VectorDBProvider(RagProvider):
 
     async def initialize(self) -> None:
         """Initialize the vector database provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the vector database provider."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -30,6 +28,7 @@ class VectorDBProvider(RagProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_type": ProviderType.VECTOR_DB,

@@ -9,13 +9,14 @@ _SECURITY_REGISTRY: Dict[str, Type[SecurityManager]] = {}
 
 
 def register_security_provider(
-    name: str, provider_class: Type[SecurityManager]
+    name: str, provider_class: Type[SecurityManager],
 ) -> None:
     """Register a security provider class.
 
     Args:
         name: Name of the security provider
         provider_class: Security provider class
+
     """
     _SECURITY_REGISTRY[name] = provider_class
 
@@ -31,6 +32,7 @@ def get_security_provider_class(name: str) -> Type[SecurityManager]:
 
     Raises:
         ValueError: If security provider is not found
+
     """
     if name not in _SECURITY_REGISTRY:
         raise ValueError(f"Security provider '{name}' not found in registry")
@@ -42,6 +44,7 @@ def list_security_providers() -> List[str]:
 
     Returns:
         List[str]: List of security provider names
+
     """
     return list(_SECURITY_REGISTRY.keys())
 
@@ -51,5 +54,6 @@ def get_security_registry() -> Dict[str, Type[SecurityManager]]:
 
     Returns:
         Dict[str, Type[SecurityManager]]: Copy of the security provider registry
+
     """
     return _SECURITY_REGISTRY.copy()

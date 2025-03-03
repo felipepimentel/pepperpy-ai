@@ -35,13 +35,14 @@ class SynthesisError(MultimodalError):
             provider: Optional provider name that caused the error
             voice: Optional voice that caused the error
             details: Optional additional details
+
         """
         all_details = details or {}
         if voice:
             all_details["voice"] = voice
 
         super().__init__(
-            message, component=component, provider=provider, details=all_details
+            message, component=component, provider=provider, details=all_details,
         )
         self.voice = voice
 
@@ -68,7 +69,7 @@ class AudioData(BaseModel):
     duration: float = Field(description="Audio duration in seconds")
     size: int = Field(description="Audio size in bytes")
     metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
+        default_factory=dict, description="Additional metadata",
     )
 
 
@@ -87,6 +88,7 @@ class SynthesisProvider(MultimodalProvider):
             name: Provider name
             config: Optional configuration
             supported_formats: List of supported formats
+
         """
         if supported_formats is None:
             supported_formats = [
@@ -109,8 +111,8 @@ class SynthesisProvider(MultimodalProvider):
 
         Raises:
             SynthesisError: If initialization fails
+
         """
-        pass
 
     @abstractmethod
     async def shutdown(self) -> None:
@@ -118,8 +120,8 @@ class SynthesisProvider(MultimodalProvider):
 
         Raises:
             SynthesisError: If shutdown fails
+
         """
-        pass
 
     @abstractmethod
     async def synthesize(
@@ -143,8 +145,8 @@ class SynthesisProvider(MultimodalProvider):
 
         Raises:
             SynthesisError: If synthesis fails
+
         """
-        pass
 
     @abstractmethod
     async def save(
@@ -165,8 +167,8 @@ class SynthesisProvider(MultimodalProvider):
 
         Raises:
             SynthesisError: If saving fails
+
         """
-        pass
 
 
 class SynthesisProcessor(MultimodalProcessor):
@@ -184,6 +186,7 @@ class SynthesisProcessor(MultimodalProcessor):
             name: Processor name
             config: Optional configuration
             supported_formats: List of supported formats
+
         """
         if supported_formats is None:
             supported_formats = [
@@ -217,5 +220,5 @@ class SynthesisProcessor(MultimodalProcessor):
 
         Raises:
             SynthesisError: If processing fails
+
         """
-        pass

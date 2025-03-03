@@ -30,6 +30,7 @@ class CacheEntry:
         Args:
             resource: Cached resource
             ttl: Time to live in seconds
+
         """
         self.resource = resource
         self.created_at = datetime.utcnow()
@@ -64,6 +65,7 @@ class ResourceCache:
         Args:
             max_size: Maximum number of entries
             default_ttl: Default time to live in seconds
+
         """
         self._entries: Dict[str, CacheEntry] = {}
         self._max_size = max_size
@@ -83,6 +85,7 @@ class ResourceCache:
 
         Returns:
             Optional[BaseResource]: Cached resource if found and not expired
+
         """
         async with self._lock:
             entry = self._entries.get(resource_id)
@@ -109,6 +112,7 @@ class ResourceCache:
 
         Raises:
             ResourceError: If cache is full
+
         """
         async with self._lock:
             # Check if cache is full
@@ -135,6 +139,7 @@ class ResourceCache:
 
         Args:
             resource_id: Resource ID
+
         """
         async with self._lock:
             if resource_id in self._entries:
@@ -186,6 +191,7 @@ class CachedResource(BaseResource):
             resource: Resource to cache
             cache: Resource cache
             ttl: Time to live in seconds
+
         """
         super().__init__(
             resource.id,

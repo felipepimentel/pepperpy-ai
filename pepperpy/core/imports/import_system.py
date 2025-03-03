@@ -36,6 +36,7 @@ class ImportMetadata:
             dependencies: Optional module dependencies
             import_time: Optional import time in seconds
             memory_usage: Optional memory usage in bytes
+
         """
         self.name = name
         self.path = path
@@ -59,6 +60,7 @@ class ImportCache:
             max_size: Optional maximum cache size in bytes
             max_entries: Optional maximum number of cache entries
             ttl: Optional cache time-to-live in seconds
+
         """
         self._cache: dict[str, Any] = {}
         self._metadata: dict[str, ImportMetadata] = {}
@@ -76,6 +78,7 @@ class ImportCache:
 
         Returns:
             Optional[Any]: Cached module or None if not found
+
         """
         if name in self._cache:
             self._hits += 1
@@ -95,6 +98,7 @@ class ImportCache:
             name: Module name
             module: Module instance
             metadata: Optional module metadata
+
         """
         if self._max_entries and len(self._cache) >= self._max_entries:
             # Remove oldest entry
@@ -111,6 +115,7 @@ class ImportCache:
 
         Args:
             name: Module name
+
         """
         self._cache.pop(name, None)
         self._metadata.pop(name, None)
@@ -127,6 +132,7 @@ class ImportCache:
 
         Returns:
             Dict[str, Any]: Cache statistics
+
         """
         return {
             "total_entries": len(self._cache),
@@ -164,6 +170,7 @@ class ImportOptimizer(BaseComponent):
             max_cache_entries: Optional maximum number of cache entries
             cache_ttl: Optional cache time-to-live in seconds
             max_retries: Maximum number of import retry attempts
+
         """
         super().__init__(name)
         self._cache = ImportCache(
@@ -194,6 +201,7 @@ class ImportOptimizer(BaseComponent):
 
         Raises:
             CircularDependencyError: If circular dependency is detected
+
         """
         if module in self._import_stack:
             # Get the circular dependency chain
@@ -216,6 +224,7 @@ class ImportOptimizer(BaseComponent):
 
         Returns:
             Optional[importlib.machinery.ModuleSpec]: Module specification
+
         """
         # Check if module is already cached
         cached_module = self._cache.get(fullname)
@@ -260,6 +269,7 @@ class ImportOptimizer(BaseComponent):
 
         Raises:
             ImportError: If module cannot be imported
+
         """
         name = module.__name__
         spec = module.__spec__
@@ -312,7 +322,7 @@ class ImportOptimizer(BaseComponent):
             if self._error_count[name] >= self._max_retries:
                 self._error_count.pop(name, None)
                 raise ImportError(
-                    f"Failed to import {name} after {self._max_retries} attempts: {e}"
+                    f"Failed to import {name} after {self._max_retries} attempts: {e}",
                 ) from e
             raise ImportError(f"Failed to import {name}: {e}") from e
 
@@ -321,6 +331,7 @@ class ImportOptimizer(BaseComponent):
 
         Returns:
             Dict[str, Any]: Import profiles
+
         """
         return {
             "dependency_graph": self._dependency_graph,
@@ -339,6 +350,7 @@ class ImportOptimizer(BaseComponent):
 
         Raises:
             ImportError: If module cannot be reloaded
+
         """
         # Invalidate module and dependencies
         self._cache.invalidate(name)
@@ -354,6 +366,7 @@ class ImportOptimizer(BaseComponent):
 
         Args:
             name: Module name to invalidate
+
         """
         self._cache.invalidate(name)
 
@@ -373,6 +386,7 @@ def get_optimizer() -> ImportOptimizer:
 
     Returns:
         ImportOptimizer: Global optimizer instance
+
     """
     global _optimizer
     if _optimizer is None:

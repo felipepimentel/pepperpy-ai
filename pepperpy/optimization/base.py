@@ -67,7 +67,6 @@ class BaseOptimizer(ABC):
 
         This method must be implemented by subclasses.
         """
-        pass
 
 
 class Batcher(BaseOptimizer):
@@ -79,6 +78,7 @@ class Batcher(BaseOptimizer):
 
         Returns:
             Batch ID
+
         """
         raise NotImplementedError
 
@@ -131,6 +131,7 @@ class TokenManager(BaseOptimizer):
 
         Returns:
             True if tokens were successfully used, False if insufficient
+
         """
         raise NotImplementedError
 
@@ -149,6 +150,7 @@ class Router(BaseOptimizer):
 
         Returns:
             Route identifier
+
         """
         raise NotImplementedError
 

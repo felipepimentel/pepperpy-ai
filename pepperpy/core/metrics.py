@@ -37,7 +37,7 @@ class Metric(ABC):
     """Base class for all metrics."""
 
     def __init__(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
+        self, name: str, description: str, labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize metric.
 
@@ -45,6 +45,7 @@ class Metric(ABC):
             name: Metric name
             description: Metric description
             labels: Optional metric labels
+
         """
         self.name = name
         self.description = description
@@ -59,11 +60,11 @@ class Metric(ABC):
         Args:
             value: Metric value
             labels: Optional additional labels
+
         """
-        pass
 
     def create_record(
-        self, value: float, labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None,
     ) -> MetricRecord:
         """Create a metric record.
 
@@ -73,6 +74,7 @@ class Metric(ABC):
 
         Returns:
             Metric record
+
         """
         combined_labels = self.labels.copy()
         if labels:
@@ -91,7 +93,7 @@ class Counter(Metric):
     """Counter metric that can only increase."""
 
     def __init__(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
+        self, name: str, description: str, labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize counter.
 
@@ -99,13 +101,14 @@ class Counter(Metric):
             name: Counter name
             description: Counter description
             labels: Optional counter labels
+
         """
         super().__init__(name, description, labels)
         self._value = 0.0
         self.type = MetricType.COUNTER
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Increment counter.
 
@@ -115,6 +118,7 @@ class Counter(Metric):
 
         Raises:
             ValueError: If value is negative
+
         """
         if value < 0:
             raise ValueError("Counter value cannot be negative")
@@ -127,7 +131,7 @@ class Gauge(Metric):
     """Gauge metric that can go up and down."""
 
     def __init__(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None
+        self, name: str, description: str, labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize gauge.
 
@@ -135,19 +139,21 @@ class Gauge(Metric):
             name: Gauge name
             description: Gauge description
             labels: Optional gauge labels
+
         """
         super().__init__(name, description, labels)
         self._value = 0.0
         self.type = MetricType.GAUGE
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Set gauge value.
 
         Args:
             value: New gauge value
             labels: Optional additional labels
+
         """
         self._value = value
         self._logger.debug(f"Gauge {self.name} set to {value}")
@@ -170,6 +176,7 @@ class Histogram(Metric):
             description: Histogram description
             buckets: Optional bucket boundaries
             labels: Optional histogram labels
+
         """
         super().__init__(name, description, labels)
         self.buckets = buckets or [
@@ -189,13 +196,14 @@ class Histogram(Metric):
         self.type = MetricType.HISTOGRAM
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Record a value in the histogram.
 
         Args:
             value: Value to record
             labels: Optional additional labels
+
         """
         self._values.append(value)
         self._logger.debug(f"Histogram {self.name} recorded value {value}")
@@ -218,6 +226,7 @@ class Summary(Metric):
             description: Summary description
             quantiles: Optional quantiles to track
             labels: Optional summary labels
+
         """
         super().__init__(name, description, labels)
         self.quantiles = quantiles or [0.5, 0.9, 0.95, 0.99]
@@ -225,13 +234,14 @@ class Summary(Metric):
         self.type = MetricType.SUMMARY
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None
+        self, value: float, labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Record a value in the summary.
 
         Args:
             value: Value to record
             labels: Optional additional labels
+
         """
         self._values.append(value)
         self._logger.debug(f"Summary {self.name} recorded value {value}")
@@ -250,6 +260,7 @@ class MetricsCollector:
 
         Args:
             metric: Metric to register
+
         """
         self._registered_metrics[metric.name] = metric
 
@@ -258,13 +269,14 @@ class MetricsCollector:
 
         Args:
             metric_record: Metric record to store
+
         """
         if metric_record.name not in self._metrics:
             self._metrics[metric_record.name] = []
         self._metrics[metric_record.name].append(metric_record)
 
     async def record(
-        self, name: str, value: float, labels: Optional[Dict[str, str]] = None
+        self, name: str, value: float, labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Record a value for a registered metric.
 
@@ -275,6 +287,7 @@ class MetricsCollector:
 
         Raises:
             ValueError: If metric is not registered
+
         """
         if name not in self._registered_metrics:
             raise ValueError(f"Metric '{name}' is not registered")
@@ -291,6 +304,7 @@ class MetricsCollector:
 
         Returns:
             List of metric records
+
         """
         return self._metrics.get(name, [])
 
@@ -302,6 +316,7 @@ class MetricsCollector:
 
         Returns:
             Most recent metric record, or None if not found
+
         """
         metrics = self._metrics.get(name, [])
         if not metrics:
@@ -313,6 +328,7 @@ class MetricsCollector:
 
         Returns:
             Dictionary of metric names to lists of metric records
+
         """
         return self._metrics.copy()
 
@@ -335,6 +351,7 @@ class MetricsRegistry:
         Args:
             name: Collector name
             collector: Metrics collector
+
         """
         self._collectors[name] = collector
 
@@ -346,17 +363,19 @@ class MetricsRegistry:
 
         Returns:
             Metrics collector, or None if not found
+
         """
         return self._collectors.get(name)
 
     def record_metric(
-        self, metric_record: MetricRecord, collector_name: Optional[str] = None
+        self, metric_record: MetricRecord, collector_name: Optional[str] = None,
     ) -> None:
         """Record a metric using the specified collector.
 
         Args:
             metric_record: Metric record to store
             collector_name: Optional name of the collector to use
+
         """
         if collector_name:
             collector = self.get_collector(collector_name)
@@ -372,9 +391,10 @@ class MetricsRegistry:
 
         Returns:
             Dictionary of collector names to dictionaries of metric names to lists of metric records
+
         """
         result: Dict[str, Dict[str, List[MetricRecord]]] = {
-            "default": self._default_collector.get_all_metrics()
+            "default": self._default_collector.get_all_metrics(),
         }
         for name, collector in self._collectors.items():
             result[name] = collector.get_all_metrics()

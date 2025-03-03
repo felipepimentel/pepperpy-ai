@@ -29,19 +29,16 @@ T = TypeVar("T")
 class RegistryError(Exception):
     """Base exception for registry errors."""
 
-    pass
 
 
 class ComponentNotFoundError(RegistryError):
     """Exception raised when a component is not found."""
 
-    pass
 
 
 class ComponentDuplicateError(RegistryError):
     """Exception raised when a component is already registered."""
 
-    pass
 
 
 @dataclass
@@ -67,7 +64,6 @@ class RegistryComponent(ABC):
     @abstractmethod
     def name(self) -> str:
         """Get component name."""
-        pass
 
     @property
     def metadata(self) -> ComponentMetadata:
@@ -87,6 +83,7 @@ class Registry(Generic[T]):
 
         Args:
             component_type: Type of components managed by this registry
+
         """
         self._component_type = component_type
         self._components: Dict[str, T] = {}
@@ -94,7 +91,7 @@ class Registry(Generic[T]):
         self._metadata: Dict[str, ComponentMetadata] = {}
 
     def register(
-        self, component: T, metadata: Optional[ComponentMetadata] = None
+        self, component: T, metadata: Optional[ComponentMetadata] = None,
     ) -> None:
         """Register a component instance.
 
@@ -105,10 +102,11 @@ class Registry(Generic[T]):
         Raises:
             ComponentDuplicateError: If component already registered
             TypeError: If component is not of the expected type
+
         """
         if not isinstance(component, self._component_type):
             raise TypeError(
-                f"Component must be an instance of {self._component_type.__name__}"
+                f"Component must be an instance of {self._component_type.__name__}",
             )
 
         name = getattr(component, "name", str(id(component)))
@@ -118,7 +116,7 @@ class Registry(Generic[T]):
 
         self._components[name] = component
         self._metadata[name] = metadata or getattr(
-            component, "metadata", ComponentMetadata(name=name)
+            component, "metadata", ComponentMetadata(name=name),
         )
 
         logger.debug(f"Registered component: {name}")
@@ -139,10 +137,11 @@ class Registry(Generic[T]):
         Raises:
             ComponentDuplicateError: If component type already registered
             TypeError: If component type is not a subclass of the expected type
+
         """
         if not issubclass(component_type, self._component_type):
             raise TypeError(
-                f"Component type must be a subclass of {self._component_type.__name__}"
+                f"Component type must be a subclass of {self._component_type.__name__}",
             )
 
         if name in self._component_types:
@@ -161,6 +160,7 @@ class Registry(Generic[T]):
 
         Raises:
             ComponentNotFoundError: If component not found
+
         """
         if name in self._components:
             del self._components[name]
@@ -184,6 +184,7 @@ class Registry(Generic[T]):
 
         Raises:
             ComponentNotFoundError: If component not found
+
         """
         if name not in self._components:
             raise ComponentNotFoundError(f"Component '{name}' not found")
@@ -201,6 +202,7 @@ class Registry(Generic[T]):
 
         Raises:
             ComponentNotFoundError: If component type not found
+
         """
         if name not in self._component_types:
             raise ComponentNotFoundError(f"Component type '{name}' not found")
@@ -220,6 +222,7 @@ class Registry(Generic[T]):
 
         Raises:
             ComponentNotFoundError: If component type not found
+
         """
         component_type = self.get_type(type_name)
         return component_type(*args, **kwargs)
@@ -235,6 +238,7 @@ class Registry(Generic[T]):
 
         Raises:
             ComponentNotFoundError: If component not found
+
         """
         if name not in self._metadata:
             raise ComponentNotFoundError(f"Component '{name}' not found")
@@ -246,6 +250,7 @@ class Registry(Generic[T]):
 
         Returns:
             Dictionary mapping component names to instances
+
         """
         return self._components.copy()
 
@@ -254,6 +259,7 @@ class Registry(Generic[T]):
 
         Returns:
             Dictionary mapping component type names to types
+
         """
         return self._component_types.copy()
 
@@ -262,6 +268,7 @@ class Registry(Generic[T]):
 
         Returns:
             Dictionary mapping component names to metadata
+
         """
         return self._metadata.copy()
 
@@ -295,6 +302,7 @@ class RegistryManager:
 
         Raises:
             ComponentDuplicateError: If registry already registered
+
         """
         if name in self._registries:
             raise ComponentDuplicateError(f"Registry '{name}' already registered")
@@ -310,6 +318,7 @@ class RegistryManager:
 
         Raises:
             ComponentNotFoundError: If registry not found
+
         """
         if name not in self._registries:
             raise ComponentNotFoundError(f"Registry '{name}' not found")
@@ -328,6 +337,7 @@ class RegistryManager:
 
         Raises:
             ComponentNotFoundError: If registry not found
+
         """
         if name not in self._registries:
             raise ComponentNotFoundError(f"Registry '{name}' not found")
@@ -339,6 +349,7 @@ class RegistryManager:
 
         Returns:
             Dictionary mapping registry names to instances
+
         """
         return self._registries.copy()
 
@@ -348,6 +359,7 @@ def get_registry() -> RegistryManager:
 
     Returns:
         Registry manager instance
+
     """
     return RegistryManager.get_instance()
 
@@ -364,6 +376,7 @@ def auto_register(registry: Registry[Any], module: Any) -> List[str]:
 
     Returns:
         List of registered component names
+
     """
     registered = []
     component_type = registry._component_type

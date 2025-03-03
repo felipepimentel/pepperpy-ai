@@ -51,6 +51,7 @@ class Component(HubArtifact):
             description: Component description
             metadata: Additional metadata
             component_id: Component ID (generated if not provided)
+
         """
         super().__init__(str(component_id or uuid4()), metadata)
         self.name = name
@@ -64,6 +65,7 @@ class Component(HubArtifact):
 
         Returns:
             True if valid, False otherwise
+
         """
         return bool(self.name and self.version and self.type)
 
@@ -72,6 +74,7 @@ class Component(HubArtifact):
 
         Returns:
             Serialized component data
+
         """
         return {
             "id": str(self.id),
@@ -91,6 +94,7 @@ class Component(HubArtifact):
 
         Returns:
             Component instance
+
         """
         return cls(
             name=data["name"],
@@ -124,6 +128,7 @@ class ComponentRegistry:
 
         Raises:
             ValueError: If component is invalid or already registered
+
         """
         # Validate component
         if not component.name:
@@ -141,7 +146,7 @@ class ComponentRegistry:
             existing = self._components_by_name[component.type.value][component.name]
             if existing.version == component.version:
                 raise ValueError(
-                    f"Component {component.name} v{component.version} already registered"
+                    f"Component {component.name} v{component.version} already registered",
                 )
 
         # Generate ID if not provided
@@ -166,6 +171,7 @@ class ComponentRegistry:
 
         Raises:
             ValueError: If component is not registered
+
         """
         if component_id not in self._components:
             raise ValueError(f"Component {component_id} not registered")
@@ -187,11 +193,12 @@ class ComponentRegistry:
 
         Returns:
             Component or None if not found
+
         """
         return self._components.get(component_id)
 
     def get_by_name(
-        self, name: str, component_type: ComponentType
+        self, name: str, component_type: ComponentType,
     ) -> Optional[Component]:
         """Get a component by name and type.
 
@@ -201,13 +208,14 @@ class ComponentRegistry:
 
         Returns:
             Component or None if not found
+
         """
         if component_type.value not in self._components_by_name:
             return None
         return self._components_by_name[component_type.value].get(name)
 
     def get_all(
-        self, component_type: Optional[ComponentType] = None
+        self, component_type: Optional[ComponentType] = None,
     ) -> List[Component]:
         """Get all registered components.
 
@@ -216,6 +224,7 @@ class ComponentRegistry:
 
         Returns:
             List of components
+
         """
         if component_type is None:
             return list(self._components.values())
@@ -234,6 +243,7 @@ class ComponentRegistry:
 
         Returns:
             List of components of the specified type
+
         """
         result = []
         for component in self._components.values():
@@ -254,6 +264,7 @@ def register_component(component: Component) -> UUID:
 
     Returns:
         Component ID
+
     """
     return _registry.register(component)
 
@@ -263,6 +274,7 @@ def unregister_component(component_id: UUID) -> None:
 
     Args:
         component_id: Component ID
+
     """
     _registry.unregister(component_id)
 
@@ -275,12 +287,13 @@ def get_component(component_id: UUID) -> Optional[Component]:
 
     Returns:
         Component or None if not found
+
     """
     return _registry.get(component_id)
 
 
 def get_component_by_name(
-    name: str, component_type: ComponentType
+    name: str, component_type: ComponentType,
 ) -> Optional[Component]:
     """Get a component by name and type.
 
@@ -290,6 +303,7 @@ def get_component_by_name(
 
     Returns:
         Component or None if not found
+
     """
     return _registry.get_by_name(name, component_type)
 
@@ -304,6 +318,7 @@ def get_all_components(
 
     Returns:
         List of components
+
     """
     return _registry.get_all(component_type)
 
@@ -316,6 +331,7 @@ def get_components_by_type(component_type: Type[T]) -> List[T]:
 
     Returns:
         List of components of the specified type
+
     """
     return _registry.get_by_type(component_type)
 
@@ -323,12 +339,12 @@ def get_components_by_type(component_type: Type[T]) -> List[T]:
 # Export public API
 __all__ = [
     "Component",
-    "ComponentType",
     "ComponentRegistry",
-    "register_component",
-    "unregister_component",
+    "ComponentType",
+    "get_all_components",
     "get_component",
     "get_component_by_name",
-    "get_all_components",
     "get_components_by_type",
+    "register_component",
+    "unregister_component",
 ]

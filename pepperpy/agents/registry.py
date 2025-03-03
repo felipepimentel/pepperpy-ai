@@ -69,6 +69,7 @@ class AgentRegistry(Registry[BaseAgent]):
 
         Raises:
             AgentError: If agent type is already registered
+
         """
         try:
             metadata = ComponentMetadata(
@@ -97,6 +98,7 @@ class AgentRegistry(Registry[BaseAgent]):
 
         Raises:
             AgentError: If agent type is not registered
+
         """
         try:
             agent_class = self.get_type(agent_type)
@@ -109,7 +111,7 @@ class AgentRegistry(Registry[BaseAgent]):
                     agent_config = config_class(**config)
                 except Exception as e:
                     raise AgentError(
-                        f"Invalid configuration for {agent_type}: {e}"
+                        f"Invalid configuration for {agent_type}: {e}",
                     ) from e
 
             # Create agent instance
@@ -122,6 +124,7 @@ class AgentRegistry(Registry[BaseAgent]):
 
         Returns:
             Dictionary of configuration types
+
         """
         return self._config_types.copy()
 
@@ -135,6 +138,7 @@ def get_agent_registry() -> AgentRegistry:
 
     Returns:
         Agent registry instance
+
     """
     global _registry
     if _registry is None:

@@ -16,6 +16,7 @@ class ErrorNode:
 
         Args:
             error_type: The error type this node represents
+
         """
         self.error_type = error_type
         self.parent: ErrorNode | None = None
@@ -26,6 +27,7 @@ class ErrorNode:
 
         Args:
             child: The child node to add
+
         """
         child.parent = self
         self.children.append(child)
@@ -38,6 +40,7 @@ class ErrorNode:
 
         Returns:
             bool: True if this node is an ancestor of other
+
         """
         current = other.parent
         while current is not None:
@@ -60,6 +63,7 @@ class ErrorHierarchy:
 
         Args:
             error_type: The error type to add
+
         """
         if error_type in self._nodes:
             return
@@ -83,6 +87,7 @@ class ErrorHierarchy:
 
         Returns:
             Set of ancestor error types
+
         """
         if error_type not in self._nodes:
             return set()
@@ -102,6 +107,7 @@ class ErrorHierarchy:
 
         Returns:
             Set of descendant error types
+
         """
         if error_type not in self._nodes:
             return set()

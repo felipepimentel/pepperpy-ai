@@ -11,6 +11,7 @@ class PepperpyError(Exception):
 
         Args:
             message: The error message
+
         """
         super().__init__(message)
         self.message = message
@@ -25,6 +26,7 @@ class ValidationError(PepperpyError):
         Args:
             message: The error message
             details: Optional error details
+
         """
         super().__init__(message)
         self.details = details or {}
@@ -39,6 +41,7 @@ class ConfigError(PepperpyError):
         Args:
             message: The error message
             config_path: Optional configuration path
+
         """
         super().__init__(message)
         self.config_path = config_path
@@ -53,6 +56,7 @@ class WorkflowError(PepperpyError):
         Args:
             message: The error message
             workflow_id: Optional workflow ID
+
         """
         if workflow_id:
             super().__init__(f"Workflow error ({workflow_id}): {message}")
@@ -71,6 +75,7 @@ class ComponentError(PepperpyError):
         Args:
             message: The error message
             component_id: Optional component ID
+
         """
         if component_id:
             super().__init__(f"Component error ({component_id}): {message}")
@@ -89,6 +94,7 @@ class StateError(PepperpyError):
         Args:
             message: The error message
             state: Optional state information
+
         """
         if state:
             super().__init__(f"State error ({state}): {message}")
@@ -99,10 +105,10 @@ class StateError(PepperpyError):
 
 
 __all__ = [
-    "PepperpyError",
-    "ValidationError",
-    "ConfigError",
-    "WorkflowError",
     "ComponentError",
+    "ConfigError",
+    "PepperpyError",
     "StateError",
+    "ValidationError",
+    "WorkflowError",
 ]

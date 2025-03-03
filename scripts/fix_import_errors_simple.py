@@ -10,7 +10,7 @@ import sys
 
 def read_file(file_path):
     """Read file content."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -36,7 +36,7 @@ except ImportError:
 """
         # Adicionar após as importações do sistema
         import_section = re.search(
-            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
         )
         if import_section:
             pos = import_section.start()
@@ -75,7 +75,7 @@ except ImportError:
 """
         # Adicionar após as importações do sistema
         import_section = re.search(
-            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
         )
         if import_section:
             pos = import_section.start()
@@ -106,7 +106,7 @@ except ImportError:
 """
         # Adicionar após as importações do sistema
         import_section = re.search(
-            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
         )
         if import_section:
             pos = import_section.start()
@@ -134,7 +134,7 @@ except ImportError:
 """
         # Adicionar após as importações do sistema
         import_section = re.search(
-            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+            r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
         )
         if import_section:
             pos = import_section.start()

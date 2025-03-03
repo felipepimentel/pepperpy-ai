@@ -593,7 +593,7 @@ def fix_audio_input():
     create_backup(file_path)
 
     # Read the file
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         content = f.read()
 
     # Fix the unused variable by removing the assignment or using it

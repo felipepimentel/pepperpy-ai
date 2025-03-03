@@ -29,16 +29,15 @@ def fix_semver_syntax():
 
         for pattern, replacement in patterns:
             content = re.sub(
-                pattern, replacement, content, flags=re.MULTILINE | re.DOTALL
+                pattern, replacement, content, flags=re.MULTILINE | re.DOTALL,
             )
 
         if content != original_content:
             file_path.write_text(content)
             print(f"Fixed syntax errors in {file_path}")
             return True
-        else:
-            print(f"No changes needed in {file_path}")
-            return False
+        print(f"No changes needed in {file_path}")
+        return False
     except Exception as e:
         print(f"Error fixing {file_path}: {e}")
         return False

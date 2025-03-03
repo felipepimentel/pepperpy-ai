@@ -11,7 +11,7 @@ from typing import List, Set
 
 def read_file(file_path: str) -> str:
     """Lê o conteúdo de um arquivo."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -34,7 +34,7 @@ def find_python_files(directory: str) -> List[str]:
 def check_for_import_errors(file_path: str) -> bool:
     """Verifica se o arquivo tem erros de importação."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Procura por erros de importação
@@ -78,7 +78,7 @@ def main():
     # Verifica se o diretório pepperpy existe
     if not os.path.isdir("pepperpy"):
         print(
-            "Diretório 'pepperpy' não encontrado. Execute este script na raiz do projeto."
+            "Diretório 'pepperpy' não encontrado. Execute este script na raiz do projeto.",
         )
         sys.exit(1)
 
@@ -88,7 +88,7 @@ def main():
     else:
         print("F821 não está configurado para ser ignorado globalmente.")
         print(
-            "Recomendação: Adicione F821 à lista de ignores globais no pyproject.toml:"
+            "Recomendação: Adicione F821 à lista de ignores globais no pyproject.toml:",
         )
         print("""
 [tool.ruff.lint]
@@ -109,7 +109,7 @@ ignore = ["E501", "F401", "F403", "F405", "E402", "E722", "E741", "F821", "B024"
 
     if files_with_errors:
         print(
-            f"\nEncontrados {len(files_with_errors)} arquivos com erros de importação."
+            f"\nEncontrados {len(files_with_errors)} arquivos com erros de importação.",
         )
     else:
         print("\nNenhum arquivo com erros de importação encontrado.")

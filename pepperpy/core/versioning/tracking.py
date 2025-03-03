@@ -33,7 +33,7 @@ class DependencyTracker:
         self._versions[component] = version
 
     def register_dependency(
-        self, component: str, dependency: VersionDependency
+        self, component: str, dependency: VersionDependency,
     ) -> None:
         """Register a dependency for a component."""
         self._dependencies[component].append(dependency)
@@ -137,7 +137,7 @@ class DependencyTracker:
         return order
 
     def _check_version_compatibility(
-        self, version: Version, dependency: VersionDependency
+        self, version: Version, dependency: VersionDependency,
     ) -> bool:
         """Check if a version satisfies a dependency."""
         if dependency.compatibility_range:

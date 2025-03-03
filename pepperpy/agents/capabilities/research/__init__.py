@@ -24,6 +24,7 @@ class ResearchCapability:
 
         Args:
             provider: The research provider to use
+
         """
         self.provider = provider
 
@@ -36,6 +37,7 @@ class ResearchCapability:
 
         Returns:
             A research result containing the search results
+
         """
         return self.provider.search(query, max_results)
 
@@ -48,6 +50,7 @@ class ResearchCapability:
 
         Returns:
             A summary of the content
+
         """
         return self.provider.summarize(content, max_length)
 
@@ -60,13 +63,14 @@ class ResearchCapability:
 
         Returns:
             Extracted information according to the schema
+
         """
         return self.provider.extract_information(content, schema)
 
 
 __all__ = [
-    "ResearchCapability",
     "BaseResearchProvider",
+    "ResearchCapability",
     "ResearchResult",
     "Source",
     "SourceType",

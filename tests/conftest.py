@@ -68,6 +68,7 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
 
     Returns:
         Event loop instance
+
     """
     policy = asyncio.get_event_loop_policy()
     loop = policy.new_event_loop()
@@ -81,6 +82,7 @@ async def test_config() -> dict[str, Any]:
 
     Returns:
         Test configuration dictionary
+
     """
     return {
         "test_mode": True,
@@ -95,6 +97,7 @@ async def test_security_context() -> AsyncGenerator[SecurityContext, None]:
 
     Yields:
         Security context for testing
+
     """
     context = SecurityContext(
         level=SecurityLevel.HIGH,

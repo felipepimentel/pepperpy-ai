@@ -28,6 +28,7 @@ class TranscriptionProvider(Protocol):
 
         Raises:
             TranscriptionError: If transcription fails
+
         """
         ...
 
@@ -49,6 +50,7 @@ class TranscriptionProvider(Protocol):
 
         Raises:
             TranscriptionError: If transcription fails
+
         """
         ...
 
@@ -57,6 +59,7 @@ class TranscriptionProvider(Protocol):
 
         Returns:
             List of language codes
+
         """
         ...
 
@@ -65,5 +68,6 @@ class TranscriptionProvider(Protocol):
 
         Returns:
             List of format extensions
+
         """
         ...

@@ -18,13 +18,14 @@ _generation_providers: Dict[str, "GenerationProvider"] = {}
 
 
 def register_generation_provider(
-    provider_id: str, provider: "GenerationProvider"
+    provider_id: str, provider: "GenerationProvider",
 ) -> None:
     """Register a generation provider.
 
     Args:
         provider_id: Unique identifier for the provider
         provider: The provider to register
+
     """
     if provider_id in _generation_providers:
         logger.warning(f"Generation provider already registered with ID: {provider_id}")
@@ -44,6 +45,7 @@ def get_generation_provider(provider_id: str) -> "GenerationProvider":
 
     Raises:
         ValueError: If the provider is not found
+
     """
     provider = _generation_providers.get(provider_id)
     if provider is None:
@@ -57,5 +59,6 @@ def list_generation_providers() -> List[str]:
 
     Returns:
         A list of provider IDs
+
     """
     return list(_generation_providers.keys())

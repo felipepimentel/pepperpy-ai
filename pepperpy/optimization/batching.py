@@ -17,7 +17,7 @@ from pepperpy.optimization.base import (
 
 __all__ = [
     "Batch",
-    "BatchProcessor",
     "BatchManager",
+    "BatchProcessor",
     "BatchScheduler",
 ]

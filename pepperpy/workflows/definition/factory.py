@@ -22,6 +22,7 @@ class WorkflowFactory:
         Args:
             name: Type name
             workflow_type: Workflow class
+
         """
         self._workflow_types[name] = workflow_type
 
@@ -43,6 +44,7 @@ class WorkflowFactory:
 
         Raises:
             ValueError: If workflow type not registered
+
         """
         if workflow_type not in self._workflow_types:
             raise ValueError(f"Unknown workflow type: {workflow_type}")

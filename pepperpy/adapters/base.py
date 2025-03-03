@@ -26,6 +26,7 @@ class BaseAdapter(ABC):
             adapter_id: Unique identifier for the adapter
             name: Human-readable name for the adapter
             description: Description of the adapter's functionality
+
         """
         self.adapter_id = adapter_id
         self.name = name
@@ -54,6 +55,7 @@ class BaseAdapter(ABC):
 
         Args:
             config: Configuration dictionary
+
         """
         self.config.update(config)
 
@@ -68,6 +70,7 @@ class BaseAdapter(ABC):
 
         Returns:
             A new instance of the adapter
+
         """
         return cls(adapter_id, name, **kwargs)
 
@@ -80,6 +83,7 @@ class AdapterFactory(ABC):
 
         Args:
             adapter_type: Type of adapters this factory creates
+
         """
         self.adapter_type = adapter_type
 
@@ -92,5 +96,5 @@ class AdapterFactory(ABC):
 
         Returns:
             A new adapter instance
+
         """
-        pass

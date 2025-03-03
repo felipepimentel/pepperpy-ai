@@ -32,6 +32,7 @@ class PlainTextFormat(FormatHandler[str]):
 
         Returns:
             MIME type string
+
         """
         return "text/plain"
 
@@ -41,6 +42,7 @@ class PlainTextFormat(FormatHandler[str]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["txt", "text"]
 
@@ -55,11 +57,12 @@ class PlainTextFormat(FormatHandler[str]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             return data.encode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to serialize text: {str(e)}") from e
+            raise FormatError(f"Failed to serialize text: {e!s}") from e
 
     def deserialize(self, data: bytes) -> str:
         """Deserialize bytes to string.
@@ -72,11 +75,12 @@ class PlainTextFormat(FormatHandler[str]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             return data.decode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to deserialize text: {str(e)}") from e
+            raise FormatError(f"Failed to deserialize text: {e!s}") from e
 
 
 class MarkdownFormat(FormatHandler[str]):
@@ -88,6 +92,7 @@ class MarkdownFormat(FormatHandler[str]):
 
         Returns:
             MIME type string
+
         """
         return "text/markdown"
 
@@ -97,6 +102,7 @@ class MarkdownFormat(FormatHandler[str]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["md", "markdown"]
 
@@ -111,11 +117,12 @@ class MarkdownFormat(FormatHandler[str]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             return data.encode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to serialize Markdown: {str(e)}") from e
+            raise FormatError(f"Failed to serialize Markdown: {e!s}") from e
 
     def deserialize(self, data: bytes) -> str:
         """Deserialize bytes to Markdown.
@@ -128,11 +135,12 @@ class MarkdownFormat(FormatHandler[str]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             return data.decode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to deserialize Markdown: {str(e)}") from e
+            raise FormatError(f"Failed to deserialize Markdown: {e!s}") from e
 
 
 class JSONFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
@@ -144,6 +152,7 @@ class JSONFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Returns:
             MIME type string
+
         """
         return "application/json"
 
@@ -153,6 +162,7 @@ class JSONFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["json"]
 
@@ -167,11 +177,12 @@ class JSONFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to serialize JSON: {str(e)}") from e
+            raise FormatError(f"Failed to serialize JSON: {e!s}") from e
 
     def deserialize(self, data: bytes) -> Union[Dict[str, Any], List[Any]]:
         """Deserialize bytes to JSON.
@@ -184,11 +195,12 @@ class JSONFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             return json.loads(data.decode("utf-8"))
         except Exception as e:
-            raise FormatError(f"Failed to deserialize JSON: {str(e)}") from e
+            raise FormatError(f"Failed to deserialize JSON: {e!s}") from e
 
 
 class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
@@ -200,6 +212,7 @@ class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Returns:
             MIME type string
+
         """
         return "application/yaml"
 
@@ -209,6 +222,7 @@ class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["yaml", "yml"]
 
@@ -223,6 +237,7 @@ class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         if not YAML_AVAILABLE:
             raise FormatError("YAML support requires PyYAML package")
@@ -230,7 +245,7 @@ class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
         try:
             return yaml.dump(data, default_flow_style=False).encode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to serialize YAML: {str(e)}") from e
+            raise FormatError(f"Failed to serialize YAML: {e!s}") from e
 
     def deserialize(self, data: bytes) -> Union[Dict[str, Any], List[Any]]:
         """Deserialize bytes to YAML.
@@ -243,6 +258,7 @@ class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         if not YAML_AVAILABLE:
             raise FormatError("YAML support requires PyYAML package")
@@ -250,7 +266,7 @@ class YAMLFormat(FormatHandler[Union[Dict[str, Any], List[Any]]]):
         try:
             return yaml.safe_load(data.decode("utf-8"))
         except Exception as e:
-            raise FormatError(f"Failed to deserialize YAML: {str(e)}") from e
+            raise FormatError(f"Failed to deserialize YAML: {e!s}") from e
 
 
 class XMLFormat(FormatHandler[ET.Element]):
@@ -262,6 +278,7 @@ class XMLFormat(FormatHandler[ET.Element]):
 
         Returns:
             MIME type string
+
         """
         return "application/xml"
 
@@ -271,6 +288,7 @@ class XMLFormat(FormatHandler[ET.Element]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["xml"]
 
@@ -285,6 +303,7 @@ class XMLFormat(FormatHandler[ET.Element]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             xml_str = ET.tostring(data, encoding="utf-8")
@@ -293,7 +312,7 @@ class XMLFormat(FormatHandler[ET.Element]):
             pretty_xml = dom.toprettyxml(indent="  ")
             return pretty_xml.encode("utf-8")
         except Exception as e:
-            raise FormatError(f"Failed to serialize XML: {str(e)}") from e
+            raise FormatError(f"Failed to serialize XML: {e!s}") from e
 
     def deserialize(self, data: bytes) -> ET.Element:
         """Deserialize bytes to XML.
@@ -306,8 +325,9 @@ class XMLFormat(FormatHandler[ET.Element]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             return ET.fromstring(data.decode("utf-8"))
         except Exception as e:
-            raise FormatError(f"Failed to deserialize XML: {str(e)}") from e
+            raise FormatError(f"Failed to deserialize XML: {e!s}") from e

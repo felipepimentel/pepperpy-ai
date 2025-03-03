@@ -31,6 +31,7 @@ class AnalysisMetrics(Lifecycle):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -45,7 +46,7 @@ class AnalysisMetrics(Lifecycle):
         except Exception as e:
             self._state = ComponentState.ERROR
             raise RuntimeError(
-                f"Failed to initialize analysis metrics: {str(e)}"
+                f"Failed to initialize analysis metrics: {e!s}",
             ) from e
 
     async def cleanup(self) -> None:
@@ -55,13 +56,14 @@ class AnalysisMetrics(Lifecycle):
             self._state = ComponentState.UNREGISTERED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise RuntimeError(f"Failed to cleanup analysis metrics: {str(e)}") from e
+            raise RuntimeError(f"Failed to cleanup analysis metrics: {e!s}") from e
 
     def record_metric(self, metric: AnalysisMetric) -> None:
         """Record a new analysis metric.
 
         Args:
             metric: The metric to record
+
         """
         if metric.name not in self._metrics:
             self._metrics[metric.name] = []
@@ -75,6 +77,7 @@ class AnalysisMetrics(Lifecycle):
 
         Returns:
             List of recorded metric values
+
         """
         return self._metrics.get(name, []).copy()
 
@@ -86,6 +89,7 @@ class AnalysisMetrics(Lifecycle):
 
         Returns:
             Most recent metric value if available
+
         """
         metrics = self._metrics.get(name, [])
         return metrics[-1] if metrics else None
@@ -95,6 +99,7 @@ class AnalysisMetrics(Lifecycle):
 
         Returns:
             Dictionary mapping metric names to their recorded values
+
         """
         return {name: metrics.copy() for name, metrics in self._metrics.items()}
 

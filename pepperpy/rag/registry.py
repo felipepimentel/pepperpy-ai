@@ -36,10 +36,11 @@ class RagRegistry:
 
         Raises:
             ValueError: If a component with the same ID is already registered
+
         """
         if component.component_id in self._components:
             raise ValueError(
-                f"Component already registered with ID: {component.component_id}"
+                f"Component already registered with ID: {component.component_id}",
             )
 
         self._components[component.component_id] = component
@@ -49,7 +50,7 @@ class RagRegistry:
 
         logger.debug(
             f"Registered {component.component_type.name} component: {component.name} "
-            f"(ID: {component.component_id})"
+            f"(ID: {component.component_id})",
         )
 
     def get(self, component_id: str) -> Optional[RagComponent]:
@@ -60,11 +61,12 @@ class RagRegistry:
 
         Returns:
             The component if found, None otherwise
+
         """
         return self._components.get(component_id)
 
     def get_by_type(
-        self, component_type: RagComponentType, component_id: str
+        self, component_type: RagComponentType, component_id: str,
     ) -> Optional[RagComponent]:
         """Get a component by type and ID.
 
@@ -74,6 +76,7 @@ class RagRegistry:
 
         Returns:
             The component if found, None otherwise
+
         """
         return self._component_types[component_type].get(component_id)
 
@@ -82,11 +85,12 @@ class RagRegistry:
 
         Returns:
             A dictionary of component IDs to components
+
         """
         return self._components.copy()
 
     def get_all_by_type(
-        self, component_type: RagComponentType
+        self, component_type: RagComponentType,
     ) -> Dict[str, RagComponent]:
         """Get all components of a specific type.
 
@@ -95,6 +99,7 @@ class RagRegistry:
 
         Returns:
             A dictionary of component IDs to components
+
         """
         return self._component_types[component_type].copy()
 
@@ -106,6 +111,7 @@ class RagRegistry:
 
         Returns:
             The indexer if found, None otherwise
+
         """
         component = self.get_by_type(RagComponentType.DOCUMENT_INDEXER, component_id)
         if component is None:
@@ -120,6 +126,7 @@ class RagRegistry:
 
         Returns:
             The retriever if found, None otherwise
+
         """
         component = self.get_by_type(RagComponentType.RETRIEVER, component_id)
         if component is None:
@@ -134,6 +141,7 @@ class RagRegistry:
 
         Returns:
             The generator if found, None otherwise
+
         """
         component = self.get_by_type(RagComponentType.GENERATOR, component_id)
         if component is None:

@@ -8,7 +8,7 @@ import re
 
 def read_file(file_path: str) -> str:
     """Read file content."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -86,11 +86,11 @@ def fix_google_provider_syntax() -> None:
 
     # Fix the return statements in get_supported_languages and get_supported_formats
     content = re.sub(
-        r"return \[\]\s+\"af-ZA\",", 'return [\n            "af-ZA",', content
+        r"return \[\]\s+\"af-ZA\",", 'return [\n            "af-ZA",', content,
     )
 
     content = re.sub(
-        r"return \[\]\s+\"flac\",", 'return [\n            "flac",', content
+        r"return \[\]\s+\"flac\",", 'return [\n            "flac",', content,
     )
 
     # Write the fixed content

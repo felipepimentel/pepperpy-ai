@@ -24,6 +24,7 @@ class ReasoningCapability:
 
         Args:
             provider: The reasoning provider to use
+
         """
         self.provider = provider
 
@@ -36,6 +37,7 @@ class ReasoningCapability:
 
         Returns:
             A reasoning result containing the analysis
+
         """
         return self.provider.analyze(context, question)
 
@@ -48,6 +50,7 @@ class ReasoningCapability:
 
         Returns:
             Evaluation metrics for the hypothesis
+
         """
         return self.provider.evaluate_hypothesis(hypothesis, evidence)
 
@@ -60,13 +63,14 @@ class ReasoningCapability:
 
         Returns:
             A list of alternative solutions or explanations
+
         """
         return self.provider.generate_alternatives(scenario, constraints)
 
 
 __all__ = [
-    "ReasoningCapability",
     "BaseReasoningProvider",
+    "ReasoningCapability",
     "ReasoningResult",
     "ReasoningStep",
     "ReasoningType",

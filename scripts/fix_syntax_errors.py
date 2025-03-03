@@ -21,7 +21,7 @@ FILES_TO_FIX = {
                 r'raise CLIError\(\s+from\s+e\)\s+f"([^"]+)",\s+details=({[^}]+}),\s+\)',
                 r'raise CLIError(f"\1", details=\2) from e',
             ),
-        ]
+        ],
     },
     "pepperpy/cloud/providers/gcp.py": {
         "patterns": [
@@ -42,7 +42,7 @@ FILES_TO_FIX = {
                 r'return blob\.generate_signed_url\(\)\s+expiration=([^,]+),\s+method="GET",\s+\)',
                 r'return blob.generate_signed_url(expiration=\1, method="GET")',
             ),
-        ]
+        ],
     },
     "pepperpy/core/config/providers/secure.py": {
         "patterns": [
@@ -61,7 +61,7 @@ FILES_TO_FIX = {
                 r'encrypted_values = {}\s+k: v for k, v in self\._config\.items\(\) if k\.startswith\(f"{([^}]+)}\."\)\s+}',
                 r'encrypted_values = {k: v for k, v in self._config.items() if k.startswith(f"{\1}.")}',
             ),
-        ]
+        ],
     },
     "pepperpy/core/lifecycle/base.py": {
         "patterns": [
@@ -70,7 +70,7 @@ FILES_TO_FIX = {
                 r"LifecycleTransition,\s+from,\s+import,\s+typing,\s+\)",
                 r"LifecycleTransition\n)",
             ),
-        ]
+        ],
     },
     "pepperpy/core/protocols/base.py": {
         "patterns": [
@@ -79,13 +79,13 @@ FILES_TO_FIX = {
                 r'@runtime_checkable\s+"""Protocol for components with lifecycle management."""',
                 r'@runtime_checkable\nclass LifecycleProtocol(Protocol):\n    """Protocol for components with lifecycle management."""',
             ),
-        ]
+        ],
     },
     "pepperpy/core/resources/base.py": {
         "patterns": [
             # Fix import statement
             (r"ResourceType,\s+from,\s+import,\s+typing,\s+\)", r"ResourceType\n)"),
-        ]
+        ],
     },
 }
 
@@ -113,16 +113,15 @@ def fix_syntax_errors(file_path: str, patterns: List[Tuple[str, str]]) -> bool:
 
         for pattern, replacement in patterns:
             content = re.sub(
-                pattern, replacement, content, flags=re.MULTILINE | re.DOTALL
+                pattern, replacement, content, flags=re.MULTILINE | re.DOTALL,
             )
 
         if content != original_content:
             path.write_text(content)
             print(f"Fixed syntax errors in {file_path}")
             return True
-        else:
-            print(f"No changes needed in {file_path}")
-            return False
+        print(f"No changes needed in {file_path}")
+        return False
     except Exception as e:
         print(f"Error fixing {file_path}: {e}")
         return False
@@ -151,20 +150,18 @@ def fix_b904_errors(file_path: str) -> bool:
 
             if exception_var:
                 return f"{except_block}raise {raise_type}({raise_args}) from {exception_var}"
-            else:
-                return f"{except_block}raise {raise_type}({raise_args}) from None"
+            return f"{except_block}raise {raise_type}({raise_args}) from None"
 
         content = re.sub(
-            pattern, replace_raise, content, flags=re.MULTILINE | re.DOTALL
+            pattern, replace_raise, content, flags=re.MULTILINE | re.DOTALL,
         )
 
         if content != original_content:
             path.write_text(content)
             print(f"Fixed B904 errors in {file_path}")
             return True
-        else:
-            print(f"No B904 errors found in {file_path}")
-            return False
+        print(f"No B904 errors found in {file_path}")
+        return False
     except Exception as e:
         print(f"Error fixing B904 errors in {file_path}: {e}")
         return False

@@ -71,7 +71,7 @@ def validate_pattern(data: str, pattern: str) -> bool:
 
 # Data validation functions
 def validate_range(
-    data: Union[int, float], range_spec: Dict[str, Union[int, float]]
+    data: float, range_spec: Dict[str, Union[int, float]],
 ) -> bool:
     """Validate numeric range."""
     min_val = range_spec.get("min")

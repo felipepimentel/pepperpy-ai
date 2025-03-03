@@ -39,14 +39,15 @@ def fix_imports_in_file(file_path: Path) -> bool:
         
     Returns:
         True if changes were made, False otherwise
+
     """
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
-            
+
         original_lines = lines.copy()
         modified = False
-        
+
         for i, line in enumerate(lines):
             for old_import, new_import in IMPORT_MAPPINGS.items():
                 # Check if the line starts with the old import pattern
@@ -57,14 +58,14 @@ def fix_imports_in_file(file_path: Path) -> bool:
                         lines[i] = new_line
                         modified = True
                         break
-        
+
         # If content changed, write it back
         if modified:
             print(f"Fixing imports in {file_path}")
             with open(file_path, "w", encoding="utf-8") as f:
                 f.writelines(lines)
             return True
-        
+
         return False
     except Exception as e:
         print(f"Error fixing imports in {file_path}: {e}")
@@ -78,6 +79,7 @@ def find_python_files(directory: Path) -> List[Path]:
         
     Returns:
         List of paths to Python files
+
     """
     python_files = []
     for root, _, files in os.walk(directory):
@@ -90,16 +92,16 @@ def main():
     """Main function."""
     # Get the project root directory
     project_root = Path(__file__).parent.parent
-    
+
     # Find all Python files
     python_files = find_python_files(project_root)
-    
+
     # Fix imports in each file
     fixed_count = 0
     for file_path in python_files:
         if fix_imports_in_file(file_path):
             fixed_count += 1
-    
+
     print(f"Fixed imports in {fixed_count} files")
 
 if __name__ == "__main__":

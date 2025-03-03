@@ -57,7 +57,7 @@ class BaseBenchmark:
 
     def load_cases_from_json(self, json_path: str):
         """Load test cases from a JSON file."""
-        with open(json_path, "r") as f:
+        with open(json_path) as f:
             data = json.load(f)
             for case_data in data.get("cases", []):
                 case = BenchmarkCase(
@@ -86,7 +86,7 @@ class BaseBenchmark:
                         score=0.0,
                         duration_ms=0.0,
                         error=str(e),
-                    )
+                    ),
                 )
         return results
 
@@ -137,13 +137,13 @@ class TaskCompletionBenchmark(BaseBenchmark):
         return output == expected
 
     def _check_constraints(
-        self, output: Any, constraints: Dict[str, Any]
+        self, output: Any, constraints: Dict[str, Any],
     ) -> List[float]:
         """Check constraint violations and return penalties."""
         penalties = []
 
         if "max_time" in constraints and constraints["max_time"] < output.get(
-            "time", 0
+            "time", 0,
         ):
             penalties.append(0.2)
 

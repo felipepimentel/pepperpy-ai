@@ -20,6 +20,7 @@ class FileUtils:
 
         Returns:
             Path object for directory
+
         """
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
@@ -27,7 +28,7 @@ class FileUtils:
 
     @staticmethod
     def list_files(
-        path: Union[str, Path], pattern: str = "*", recursive: bool = False
+        path: Union[str, Path], pattern: str = "*", recursive: bool = False,
     ) -> List[Path]:
         """List files in directory.
 
@@ -38,6 +39,7 @@ class FileUtils:
 
         Returns:
             List of file paths
+
         """
         path = Path(path)
         if recursive:
@@ -46,7 +48,7 @@ class FileUtils:
 
     @staticmethod
     def copy_file(
-        src: Union[str, Path], dst: Union[str, Path], overwrite: bool = False
+        src: Union[str, Path], dst: Union[str, Path], overwrite: bool = False,
     ) -> Path:
         """Copy file.
 
@@ -57,6 +59,7 @@ class FileUtils:
 
         Returns:
             Path object for destination
+
         """
         src = Path(src)
         dst = Path(dst)
@@ -69,7 +72,7 @@ class FileUtils:
 
     @staticmethod
     def move_file(
-        src: Union[str, Path], dst: Union[str, Path], overwrite: bool = False
+        src: Union[str, Path], dst: Union[str, Path], overwrite: bool = False,
     ) -> Path:
         """Move file.
 
@@ -80,6 +83,7 @@ class FileUtils:
 
         Returns:
             Path object for destination
+
         """
         src = Path(src)
         dst = Path(dst)
@@ -96,6 +100,7 @@ class FileUtils:
 
         Args:
             path: File path
+
         """
         path = Path(path)
         if path.exists():
@@ -110,6 +115,7 @@ class FileUtils:
 
         Returns:
             File size in bytes
+
         """
         return Path(path).stat().st_size
 
@@ -122,6 +128,7 @@ class FileUtils:
 
         Returns:
             Modification time as timestamp
+
         """
         return Path(path).stat().st_mtime
 
@@ -135,12 +142,13 @@ class FileUtils:
 
         Returns:
             File contents as string
+
         """
         return Path(path).read_text(encoding=encoding)
 
     @staticmethod
     def write_text(
-        path: Union[str, Path], content: str, encoding: str = "utf-8"
+        path: Union[str, Path], content: str, encoding: str = "utf-8",
     ) -> None:
         """Write text file.
 
@@ -148,6 +156,7 @@ class FileUtils:
             path: File path
             content: File contents
             encoding: File encoding
+
         """
         FileUtils.ensure_dir(Path(path).parent)
         Path(path).write_text(content, encoding=encoding)
@@ -161,6 +170,7 @@ class FileUtils:
 
         Returns:
             File contents as bytes
+
         """
         return Path(path).read_bytes()
 
@@ -171,6 +181,7 @@ class FileUtils:
         Args:
             path: File path
             content: File contents
+
         """
         FileUtils.ensure_dir(Path(path).parent)
         Path(path).write_bytes(content)

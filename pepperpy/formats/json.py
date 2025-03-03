@@ -25,6 +25,7 @@ class JsonUtils:
 
         Returns:
             JSON data as dictionary
+
         """
         return JsonFormatter.load(path)
 
@@ -36,6 +37,7 @@ class JsonUtils:
             data: Dictionary to save
             path: File path
             indent: JSON indentation
+
         """
         formatter = JsonFormatter(indent=indent)
         formatter.format_to_file(data, str(path))
@@ -49,6 +51,7 @@ class JsonUtils:
 
         Returns:
             JSON data as dictionary
+
         """
         return JsonFormatter.parse(text)
 
@@ -62,6 +65,7 @@ class JsonUtils:
 
         Returns:
             JSON string
+
         """
         formatter = JsonFormatter(indent=indent)
         return formatter.format(data)
@@ -76,12 +80,13 @@ class JsonUtils:
 
         Returns:
             Merged dictionary
+
         """
         return JsonFormatter.merge(base, override)
 
     @staticmethod
     def get_value(
-        data: Dict[str, Any], path: str, default: Any = None, separator: str = "."
+        data: Dict[str, Any], path: str, default: Any = None, separator: str = ".",
     ) -> Any:
         """Get value from nested JSON using path.
 
@@ -93,12 +98,13 @@ class JsonUtils:
 
         Returns:
             Value at path or default
+
         """
         return JsonFormatter.get_value(data, path, default, separator)
 
     @staticmethod
     def set_value(
-        data: Dict[str, Any], path: str, value: Any, separator: str = "."
+        data: Dict[str, Any], path: str, value: Any, separator: str = ".",
     ) -> None:
         """Set value in nested JSON using path.
 
@@ -107,9 +113,10 @@ class JsonUtils:
             path: Path to value (e.g. "user.address.city")
             value: Value to set
             separator: Path separator
+
         """
         JsonFormatter.set_value(data, path, value, separator)
 
 
 # Re-export JsonFormatter for direct use
-__all__ = ["JsonUtils", "JsonFormatter"]
+__all__ = ["JsonFormatter", "JsonUtils"]

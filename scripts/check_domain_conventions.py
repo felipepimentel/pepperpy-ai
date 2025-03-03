@@ -27,6 +27,7 @@ def check_domain(domain_path: Path) -> Tuple[List[str], List[str]]:
 
     Returns:
         Tuple contendo a lista de arquivos obrigatórios faltantes e a lista de arquivos existentes
+
     """
     if not domain_path.exists() or not domain_path.is_dir():
         print(f"Erro: O diretório do domínio '{domain_path}' não existe.")
@@ -51,6 +52,7 @@ def check_all_domains(base_dir: Path) -> Dict[str, Tuple[List[str], List[str]]]:
 
     Returns:
         Dicionário com os resultados da verificação para cada domínio
+
     """
     results = {}
 
@@ -69,7 +71,7 @@ def check_all_domains(base_dir: Path) -> Dict[str, Tuple[List[str], List[str]]]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Verifica a conformidade de um domínio com as convenções de arquivos."
+        description="Verifica a conformidade de um domínio com as convenções de arquivos.",
     )
     parser.add_argument("--domain", help="Nome do domínio a ser verificado")
     parser.add_argument("--all", action="store_true", help="Verifica todos os domínios")
@@ -94,11 +96,11 @@ def main():
 
         if not missing_files:
             print(
-                "✅ O domínio está em conformidade com todas as convenções de arquivos obrigatórios."
+                "✅ O domínio está em conformidade com todas as convenções de arquivos obrigatórios.",
             )
         else:
             print(
-                "❌ O domínio não está em conformidade com as convenções de arquivos."
+                "❌ O domínio não está em conformidade com as convenções de arquivos.",
             )
             print(f"Arquivos obrigatórios faltantes ({len(missing_files)}):")
             for file in missing_files:
@@ -139,10 +141,10 @@ def main():
         print("\nResumo da verificação:")
         print(f"Total de domínios: {len(results)}")
         print(
-            f"Domínios conformes: {len(conforming)} ({len(conforming) / len(results) * 100:.1f}%)"
+            f"Domínios conformes: {len(conforming)} ({len(conforming) / len(results) * 100:.1f}%)",
         )
         print(
-            f"Domínios não conformes: {len(non_conforming)} ({len(non_conforming) / len(results) * 100:.1f}%)"
+            f"Domínios não conformes: {len(non_conforming)} ({len(non_conforming) / len(results) * 100:.1f}%)",
         )
 
         if non_conforming:

@@ -30,7 +30,6 @@ from .vector import VectorCache
 class OldCacheBackend:
     """Placeholder for old cache backend."""
 
-    pass
 
 
 class OldMemoryCache(OldCacheBackend):
@@ -51,7 +50,6 @@ class OldRedisCache(OldCacheBackend):
 class OldDistributedCache:
     """Placeholder for old distributed cache."""
 
-    pass
 
 
 class LocalCache:
@@ -74,6 +72,7 @@ class MigrationHelper:
 
         Returns:
             List of (module_path, class) tuples for old cache implementations
+
         """
         old_caches = [
             ("pepperpy.memory.cache.MemoryCache", OldMemoryCache),
@@ -88,7 +87,7 @@ class MigrationHelper:
         # Try to import vector cache if it exists
         try:
             vector_module = importlib.import_module(
-                "pepperpy.rag.vector.optimization.caching"
+                "pepperpy.rag.vector.optimization.caching",
             )
             if hasattr(vector_module, "VectorCache"):
                 old_caches.append((
@@ -115,6 +114,7 @@ class MigrationHelper:
 
         Returns:
             Dictionary mapping keys to migration success status
+
         """
         results = {}
 
@@ -255,34 +255,33 @@ class MigrationHelper:
 
         Returns:
             Equivalent new cache instance
+
         """
         if isinstance(old_cache, OldMemoryCache):
             return MemoryCache()
-        elif isinstance(old_cache, OldRedisCache):
+        if isinstance(old_cache, OldRedisCache):
             # Extract connection parameters
             host = getattr(old_cache, "_host", "localhost")
             port = getattr(old_cache, "_port", 6379)
             db = getattr(old_cache, "_db", 0)
             return RedisCache(host=host, port=port, db=db)
-        elif isinstance(old_cache, LocalCache):
+        if isinstance(old_cache, LocalCache):
             max_size = getattr(old_cache, "_max_size", 100)
             return MemoryCache(max_size=max_size)
-        elif isinstance(old_cache, OldDistributedCache):
+        if isinstance(old_cache, OldDistributedCache):
             # Create a Redis cache as a concrete implementation
             # instead of the abstract DistributedCache
             return RedisCache()
-        else:
-            # Try to determine if it's a vector cache
-            class_name = old_cache.__class__.__name__
-            if "vector" in class_name.lower():
-                return VectorCache()
-            else:
-                # Default to memory cache
-                return MemoryCache()
+        # Try to determine if it's a vector cache
+        class_name = old_cache.__class__.__name__
+        if "vector" in class_name.lower():
+            return VectorCache()
+        # Default to memory cache
+        return MemoryCache()
 
     @staticmethod
     def generate_migration_code(
-        old_cache_var: str, new_cache_type: str, module_path: str = ""
+        old_cache_var: str, new_cache_type: str, module_path: str = "",
     ) -> str:
         """Generate code for migrating from old cache to new cache.
 
@@ -293,6 +292,7 @@ class MigrationHelper:
 
         Returns:
             Python code for migration
+
         """
         imports = f"from pepperpy.caching import {new_cache_type}, MigrationHelper"
         if module_path:
@@ -377,6 +377,7 @@ async def migrate_all_caches() -> Dict[str, Dict[str, bool]]:
 
     Returns:
         Nested dictionary of migration results
+
     """
     helper = MigrationHelper()
     old_caches = helper.detect_old_caches()

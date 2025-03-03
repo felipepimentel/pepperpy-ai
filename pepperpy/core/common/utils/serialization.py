@@ -47,14 +47,15 @@ class SerializationUtils:
 
         Returns:
             JSON-compatible object
+
         """
         if isinstance(obj, datetime):
             return DateUtils.format_date(obj, DateUtils.DEFAULT_DATETIME_FORMAT)
-        elif isinstance(obj, Decimal):
+        if isinstance(obj, Decimal):
             return str(obj)
-        elif hasattr(obj, "to_dict"):
+        if hasattr(obj, "to_dict"):
             return obj.to_dict()
-        elif hasattr(obj, "dict"):
+        if hasattr(obj, "dict"):
             return obj.dict()
         return str(obj)
 
@@ -71,6 +72,7 @@ class XmlUtils:
 
         Returns:
             Parsed XML element
+
         """
         return ET.parse(path).getroot()
 
@@ -88,6 +90,7 @@ class XmlUtils:
             path: File path
             encoding: File encoding
             pretty: Whether to format output
+
         """
         tree = ET.ElementTree(element)
         if pretty:
@@ -109,6 +112,7 @@ class XmlUtils:
 
         Returns:
             XML string
+
         """
         if pretty:
             xml_str = ET.tostring(element, encoding=encoding)
@@ -125,6 +129,7 @@ class XmlUtils:
 
         Returns:
             Parsed XML element
+
         """
         return ET.fromstring(data)
 
@@ -137,6 +142,7 @@ class XmlUtils:
 
         Returns:
             Dictionary representation or text content
+
         """
         result: Dict[str, Any] = {}
 
@@ -174,6 +180,7 @@ class XmlUtils:
 
         Returns:
             XML element
+
         """
         root = ET.Element(root_tag)
 
@@ -183,27 +190,26 @@ class XmlUtils:
                     parent.set(key[1:], str(value))
                 elif key == "#text":
                     parent.text = str(value)
-                else:
-                    if isinstance(value, list):
-                        for item in value:
-                            child = ET.SubElement(parent, key)
-                            if isinstance(item, dict):
-                                _add_dict(child, item)
-                            else:
-                                child.text = str(item)
-                    else:
+                elif isinstance(value, list):
+                    for item in value:
                         child = ET.SubElement(parent, key)
-                        if isinstance(value, dict):
-                            _add_dict(child, value)
+                        if isinstance(item, dict):
+                            _add_dict(child, item)
                         else:
-                            child.text = str(value)
+                            child.text = str(item)
+                else:
+                    child = ET.SubElement(parent, key)
+                    if isinstance(value, dict):
+                        _add_dict(child, value)
+                    else:
+                        child.text = str(value)
 
         _add_dict(root, data)
         return root
 
     @staticmethod
     def find(
-        element: ET.Element, xpath: str, namespaces: Optional[Dict[str, str]] = None
+        element: ET.Element, xpath: str, namespaces: Optional[Dict[str, str]] = None,
     ) -> Optional[ET.Element]:
         """Find first element matching XPath.
 
@@ -214,12 +220,13 @@ class XmlUtils:
 
         Returns:
             Matching element or None
+
         """
         return element.find(xpath, namespaces)
 
     @staticmethod
     def find_all(
-        element: ET.Element, xpath: str, namespaces: Optional[Dict[str, str]] = None
+        element: ET.Element, xpath: str, namespaces: Optional[Dict[str, str]] = None,
     ) -> List[ET.Element]:
         """Find all elements matching XPath.
 
@@ -230,6 +237,7 @@ class XmlUtils:
 
         Returns:
             List of matching elements
+
         """
         return element.findall(xpath, namespaces)
 
@@ -250,6 +258,7 @@ class XmlUtils:
 
         Returns:
             Text content or default
+
         """
         found = element.find(xpath, namespaces)
         return found.text.strip() if found is not None and found.text else default
@@ -273,6 +282,7 @@ class XmlUtils:
 
         Returns:
             Attribute value or default
+
         """
         found = element.find(xpath, namespaces)
         return found.get(attr, default) if found is not None else default
@@ -316,14 +326,14 @@ class CsvUtils:
 
         Returns:
             List of dictionaries (with header) or list of lists (without header)
+
         """
-        with open(path, "r", encoding="utf-8", newline="") as f:
+        with open(path, encoding="utf-8", newline="") as f:
             if has_header:
                 reader = csv.DictReader(f, delimiter=delimiter, quotechar=quotechar)
                 return list(reader)
-            else:
-                reader = csv.reader(f, delimiter=delimiter, quotechar=quotechar)
-                return list(reader)
+            reader = csv.reader(f, delimiter=delimiter, quotechar=quotechar)
+            return list(reader)
 
     @staticmethod
     def save(
@@ -341,6 +351,7 @@ class CsvUtils:
             delimiter: Field delimiter
             quotechar: Quote character
             header: Header row (required for list of lists)
+
         """
         with open(path, "w", encoding="utf-8", newline="") as f:
             if data and isinstance(data[0], dict):
@@ -384,6 +395,7 @@ class CsvUtils:
 
         Returns:
             CSV string
+
         """
         import io
 
@@ -416,18 +428,18 @@ class CsvUtils:
     @overload
     @staticmethod
     def loads(
-        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True
+        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True,
     ) -> List[Dict[str, str]]: ...
 
     @overload
     @staticmethod
     def loads(
-        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = False
+        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = False,
     ) -> List[List[str]]: ...
 
     @staticmethod
     def loads(
-        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True
+        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True,
     ) -> Union[List[Dict[str, str]], List[List[str]]]:
         """Parse CSV string.
 
@@ -439,6 +451,7 @@ class CsvUtils:
 
         Returns:
             List of dictionaries (with header) or list of lists (without header)
+
         """
         import io
 
@@ -446,9 +459,8 @@ class CsvUtils:
         if has_header:
             reader = csv.DictReader(f, delimiter=delimiter, quotechar=quotechar)
             return list(reader)
-        else:
-            reader = csv.reader(f, delimiter=delimiter, quotechar=quotechar)
-            return list(reader)
+        reader = csv.reader(f, delimiter=delimiter, quotechar=quotechar)
+        return list(reader)
 
     @staticmethod
     def to_json(
@@ -463,14 +475,14 @@ class CsvUtils:
 
         Returns:
             JSON data (list of dictionaries)
+
         """
         if data and isinstance(data[0], dict):
             return cast(List[Dict[str, Any]], data)
-        else:
-            list_data = cast(List[List[Any]], data)
-            if not header:
-                raise ValueError("Header is required for list of lists")
-            return [dict(zip(header, row)) for row in list_data]
+        list_data = cast(List[List[Any]], data)
+        if not header:
+            raise ValueError("Header is required for list of lists")
+        return [dict(zip(header, row)) for row in list_data]
 
     @staticmethod
     def from_json(data: List[Dict[str, Any]]) -> tuple[List[str], List[List[Any]]]:
@@ -481,6 +493,7 @@ class CsvUtils:
 
         Returns:
             Tuple of (header, rows)
+
         """
         if not data:
             return [], []
@@ -491,9 +504,9 @@ class CsvUtils:
 
 # Export all types
 __all__ = [
-    "SerializationUtils",
-    "JsonUtils",
-    "YamlUtils",
-    "XmlUtils",
     "CsvUtils",
+    "JsonUtils",
+    "SerializationUtils",
+    "XmlUtils",
+    "YamlUtils",
 ]

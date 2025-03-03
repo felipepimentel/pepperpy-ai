@@ -36,6 +36,7 @@ class GenerationProvider(Generator, ABC):
             provider_type: The type of provider
             description: Description of the component's functionality
             config: Configuration for the provider
+
         """
         super().__init__(component_id, name, description)
         self.provider_type = provider_type
@@ -50,8 +51,8 @@ class GenerationProvider(Generator, ABC):
 
         Returns:
             The generated response
+
         """
-        pass
 
     async def initialize(self) -> None:
         """Initialize the provider."""

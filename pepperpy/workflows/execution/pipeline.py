@@ -32,6 +32,7 @@ class WorkflowProcessingError(Exception):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message)
         self.details = details or {}
@@ -45,13 +46,14 @@ class WorkflowProcessingResult(BaseModel):
         data: Processed data
         error: Optional error information
         metrics: Processing metrics
+
     """
 
     success: bool = Field(description="Whether processing was successful")
     data: Any = Field(description="Processed data")
     error: dict[str, Any] | None = Field(default=None, description="Error information")
     metrics: dict[str, Any] = Field(
-        default_factory=dict, description="Processing metrics"
+        default_factory=dict, description="Processing metrics",
     )
 
 
@@ -124,6 +126,7 @@ class WorkflowPipeline(Lifecycle, Generic[T]):
 
         Args:
             duration: Processing duration in seconds
+
         """
         if self._latency_histogram:
             await self._latency_histogram.observe(duration)
@@ -133,6 +136,7 @@ class WorkflowPipeline(Lifecycle, Generic[T]):
 
         Args:
             processor: Processor to add
+
         """
         self._processors.append(processor)
 
@@ -141,6 +145,7 @@ class WorkflowPipeline(Lifecycle, Generic[T]):
 
         Args:
             transformer: Transformer to add
+
         """
         self._transformers.append(transformer)
 
@@ -149,6 +154,7 @@ class WorkflowPipeline(Lifecycle, Generic[T]):
 
         Args:
             validator: Validator to add
+
         """
         self._validators.append(validator)
 
@@ -164,6 +170,7 @@ class WorkflowPipeline(Lifecycle, Generic[T]):
 
         Raises:
             WorkflowProcessingError: If processing fails
+
         """
         if self._state != ComponentState.READY:
             raise WorkflowProcessingError("Pipeline not running")

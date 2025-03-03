@@ -36,13 +36,13 @@ class ResourceMetricsCollector:
 
         # Resource count metrics
         self.total_resources = self._collector.gauge(
-            "resources_total", {"description": "Total number of resources"}
+            "resources_total", {"description": "Total number of resources"},
         )
         self.active_resources = self._collector.gauge(
-            "resources_active", {"description": "Number of active resources"}
+            "resources_active", {"description": "Number of active resources"},
         )
         self.failed_resources = self._collector.gauge(
-            "resources_failed", {"description": "Number of failed resources"}
+            "resources_failed", {"description": "Number of failed resources"},
         )
 
         # Resource state metrics
@@ -64,18 +64,18 @@ class ResourceMetricsCollector:
 
         # Resource usage metrics
         self.memory_usage = self._collector.gauge(
-            "resource_memory_bytes", {"description": "Resource memory usage in bytes"}
+            "resource_memory_bytes", {"description": "Resource memory usage in bytes"},
         )
         self.cpu_usage = self._collector.gauge(
-            "resource_cpu_percent", {"description": "Resource CPU usage percentage"}
+            "resource_cpu_percent", {"description": "Resource CPU usage percentage"},
         )
         self.disk_usage = self._collector.gauge(
-            "resource_disk_bytes", {"description": "Resource disk usage in bytes"}
+            "resource_disk_bytes", {"description": "Resource disk usage in bytes"},
         )
 
         # Resource health metrics
         self.health_score = self._collector.gauge(
-            "resource_health_score", {"description": "Resource health score (0-100)"}
+            "resource_health_score", {"description": "Resource health score (0-100)"},
         )
         self.last_error_time = self._collector.gauge(
             "resource_last_error_timestamp",
@@ -97,6 +97,7 @@ class ResourceMetricsCollector:
 
         Args:
             resource: Resource to track
+
         """
         try:
             # Update basic metrics
@@ -130,6 +131,7 @@ class ResourceMetricsCollector:
 
         Args:
             resource: Resource to update metrics for
+
         """
         labels = {"resource_id": resource.id, "resource_type": resource.type.value}
 
@@ -162,6 +164,7 @@ class ResourceMetricsCollector:
 
         Returns:
             Health score between 0 and 100
+
         """
         # Base score on resource state
         if resource.state == ResourceState.LOADED:
@@ -201,7 +204,7 @@ class ResourceMetricsCollector:
         return max(0, min(final_score, 100))
 
     def record_operation(
-        self, resource_id: str, operation: str, duration: float, success: bool = True
+        self, resource_id: str, operation: str, duration: float, success: bool = True,
     ) -> None:
         """Record a resource operation.
 
@@ -210,6 +213,7 @@ class ResourceMetricsCollector:
             operation: Name of the operation
             duration: Duration of the operation in seconds
             success: Whether the operation was successful
+
         """
         labels = {
             "resource_id": resource_id,
@@ -231,6 +235,7 @@ class ResourceMetricsCollector:
 
         Returns:
             ResourceMetrics object containing all metrics for the resource
+
         """
         metrics = {}
         labels = {"resource_id": resource_id}

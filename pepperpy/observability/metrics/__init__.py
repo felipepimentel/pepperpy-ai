@@ -23,8 +23,8 @@ __all__ = [
     "Histogram",
     "Metric",
     "MetricRecord",
+    "MetricType",
     "MetricsCollector",
     "MetricsRegistry",
-    "MetricType",
     "Summary",
 ]

@@ -18,6 +18,7 @@ class AWSProvider(CloudProvider):
 
         Args:
             config: Provider configuration
+
         """
         super().__init__(config)
 
@@ -26,6 +27,7 @@ class AWSProvider(CloudProvider):
 
         Raises:
             Exception: If initialization fails
+
         """
         self._initialized = True
 
@@ -34,6 +36,7 @@ class AWSProvider(CloudProvider):
 
         Raises:
             Exception: If cleanup fails
+
         """
         self._initialized = False
 
@@ -45,5 +48,6 @@ class AWSProvider(CloudProvider):
 
         Raises:
             Exception: If validation fails
+
         """
         return True

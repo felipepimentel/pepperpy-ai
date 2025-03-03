@@ -63,9 +63,8 @@ def run(name: str, operation: str, input: Optional[str] = None, output: Optional
             file_path.write_text(new_content)
             print(f"Erros de sintaxe corrigidos em {file_path}")
             return True
-        else:
-            print(f"Nenhuma alteração necessária em {file_path}")
-            return False
+        print(f"Nenhuma alteração necessária em {file_path}")
+        return False
 
     except Exception as e:
         print(f"Erro ao processar {file_path}: {e}")

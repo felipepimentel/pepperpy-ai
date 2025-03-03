@@ -32,6 +32,7 @@ class ComponentDiscovery:
 
         Returns:
             List of discovered components
+
         """
         try:
             module = importlib.import_module(module_name)
@@ -73,6 +74,7 @@ class ComponentDiscovery:
 
         Returns:
             List of discovered components
+
         """
         try:
             package = importlib.import_module(package_name)
@@ -95,7 +97,7 @@ class ComponentDiscovery:
         # Visit all submodules
         if hasattr(package, "__path__"):
             for _, name, is_pkg in pkgutil.iter_modules(
-                package.__path__, package.__name__ + "."
+                package.__path__, package.__name__ + ".",
             ):
                 visit_module(name)
                 if is_pkg:
@@ -112,6 +114,7 @@ class ComponentDiscovery:
 
         Returns:
             List of discovered components
+
         """
         if not os.path.exists(path):
             return []
@@ -129,12 +132,12 @@ class ComponentDiscovery:
                     if file.endswith(".py") and not file.startswith("_"):
                         module_path = os.path.join(root, file)
                         module_name = os.path.relpath(module_path, path).replace(
-                            os.path.sep, "."
+                            os.path.sep, ".",
                         )
                         module_name = module_name[:-3]  # Remove .py extension
 
                         components.extend(
-                            ComponentDiscovery.discover_in_module(module_name)
+                            ComponentDiscovery.discover_in_module(module_name),
                         )
         finally:
             # Restore original sys.path
@@ -148,6 +151,7 @@ class ComponentDiscovery:
 
         Returns:
             List of discovered components
+
         """
         components = []
 
@@ -169,6 +173,7 @@ def discover_components_in_module(module_name: str) -> List[Component]:
 
     Returns:
         List of discovered components
+
     """
     return ComponentDiscovery.discover_in_module(module_name)
 
@@ -181,6 +186,7 @@ def discover_components_in_package(package_name: str) -> List[Component]:
 
     Returns:
         List of discovered components
+
     """
     return ComponentDiscovery.discover_in_package(package_name)
 
@@ -193,6 +199,7 @@ def discover_components_in_path(path: str) -> List[Component]:
 
     Returns:
         List of discovered components
+
     """
     return ComponentDiscovery.discover_in_path(path)
 
@@ -202,6 +209,7 @@ def discover_local_components() -> List[Component]:
 
     Returns:
         List of discovered components
+
     """
     return ComponentDiscovery.discover_local()
 

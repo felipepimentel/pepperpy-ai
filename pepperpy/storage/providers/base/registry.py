@@ -25,12 +25,13 @@ class StorageProviderRegistry:
         Args:
             provider_type: The type of the provider.
             provider_class: The provider class.
+
         """
         cls._providers[provider_type] = provider_class
 
     @classmethod
     def get_provider(
-        cls, provider_type: StorageProviderType
+        cls, provider_type: StorageProviderType,
     ) -> Type[BaseStorageProvider]:
         """Get a storage provider by type.
 
@@ -42,6 +43,7 @@ class StorageProviderRegistry:
 
         Raises:
             KeyError: If the provider type is not registered.
+
         """
         if provider_type not in cls._providers:
             raise KeyError(f"Provider type {provider_type} not registered")
@@ -53,5 +55,6 @@ class StorageProviderRegistry:
 
         Returns:
             Dict[StorageProviderType, Type[BaseStorageProvider]]: A dictionary of provider types to provider classes.
+
         """
         return cls._providers.copy()

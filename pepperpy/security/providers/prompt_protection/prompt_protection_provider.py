@@ -16,15 +16,12 @@ class PromptProtectionProvider(BaseProvider):
 
     async def initialize(self) -> None:
         """Initialize the prompt protection provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the prompt protection provider."""
-        pass
 
     def validate(self):
         """Validate the provider configuration."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -32,6 +29,7 @@ class PromptProtectionProvider(BaseProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_id": "prompt_protection",

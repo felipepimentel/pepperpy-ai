@@ -27,6 +27,7 @@ class HelloWorldAction(Action):
 
         Returns:
             Dictionary with greeting message
+
         """
         name = context.inputs.get("name", "World")
         return {"message": f"Hello, {name}!"}
@@ -40,6 +41,7 @@ class DelayAction(Action):
 
         Args:
             context: Action execution context
+
         """
         delay = float(context.inputs.get("delay", 1.0))
         await asyncio.sleep(delay)
@@ -56,6 +58,7 @@ class RandomNumberAction(Action):
 
         Returns:
             Dictionary with random number
+
         """
         min_val = float(context.inputs.get("min", 0.0))
         max_val = float(context.inputs.get("max", 1.0))
@@ -73,6 +76,7 @@ class ListProcessorAction(Action):
 
         Returns:
             Dictionary with processed items
+
         """
         items = context.inputs.get("items", [])
         prefix = context.inputs.get("prefix", "")

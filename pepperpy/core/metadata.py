@@ -57,6 +57,7 @@ class ComponentMetadata:
 
         Returns:
             Dictionary representation of metadata
+
         """
         return {
             "name": self.name,
@@ -83,6 +84,7 @@ class ComponentMetadata:
 
         Returns:
             Component metadata
+
         """
         category = data.get("category", "other")
         if isinstance(category, str):
@@ -123,6 +125,7 @@ def _get_component_metadata(self: Any) -> ComponentMetadata:
 
     Returns:
         Component metadata
+
     """
     return getattr(self.__class__, METADATA_ATTR)
 
@@ -161,6 +164,7 @@ def component(
 
     Returns:
         Decorated component class
+
     """
 
     def decorator(cls: T) -> T:
@@ -228,6 +232,7 @@ def get_metadata(component_class: Type[BaseComponent]) -> Optional[ComponentMeta
 
     Returns:
         Component metadata or None if not found
+
     """
     return getattr(component_class, METADATA_ATTR, None)
 
@@ -251,11 +256,12 @@ class ComponentRegistry:
 
         Raises:
             ValueError: If component doesn't have metadata
+
         """
         metadata = get_metadata(component_class)
         if metadata is None:
             raise ValueError(
-                f"Component {component_class.__name__} doesn't have metadata"
+                f"Component {component_class.__name__} doesn't have metadata",
             )
 
         self._components[metadata.name] = component_class
@@ -277,11 +283,12 @@ class ComponentRegistry:
 
         Returns:
             Component class or None if not found
+
         """
         return self._components.get(name)
 
     def get_components_by_category(
-        self, category: ComponentCategory
+        self, category: ComponentCategory,
     ) -> List[Type[BaseComponent]]:
         """Get components by category.
 
@@ -290,6 +297,7 @@ class ComponentRegistry:
 
         Returns:
             List of component classes
+
         """
         return [self._components[name] for name in self._categories.get(category, [])]
 
@@ -301,6 +309,7 @@ class ComponentRegistry:
 
         Returns:
             List of component classes
+
         """
         return [self._components[name] for name in self._tags.get(tag, [])]
 
@@ -309,6 +318,7 @@ class ComponentRegistry:
 
         Returns:
             List of all component classes
+
         """
         return list(self._components.values())
 
@@ -320,6 +330,7 @@ class ComponentRegistry:
 
         Returns:
             Component metadata or None if not found
+
         """
         component_class = self._components.get(name)
         if not component_class:
@@ -332,6 +343,7 @@ class ComponentRegistry:
 
         Returns:
             Dictionary mapping component names to metadata
+
         """
         result: Dict[str, ComponentMetadata] = {}
         for name, component_class in self._components.items():
@@ -353,6 +365,7 @@ def register_component(component_class: Type[BaseComponent]) -> Type[BaseCompone
 
     Returns:
         The component class (for chaining)
+
     """
     registry.register(component_class)
     return component_class
@@ -366,6 +379,7 @@ def get_component(name: str) -> Optional[Type[BaseComponent]]:
 
     Returns:
         Component class or None if not found
+
     """
     return registry.get_component(name)
 
@@ -380,6 +394,7 @@ def get_components_by_category(
 
     Returns:
         List of component classes
+
     """
     return registry.get_components_by_category(category)
 
@@ -392,6 +407,7 @@ def get_components_by_tag(tag: str) -> List[Type[BaseComponent]]:
 
     Returns:
         List of component classes
+
     """
     return registry.get_components_by_tag(tag)
 
@@ -404,6 +420,7 @@ def discover_components(module: Any) -> List[Type[BaseComponent]]:
 
     Returns:
         List of discovered component classes
+
     """
     components = []
     for _name, obj in inspect.getmembers(module):

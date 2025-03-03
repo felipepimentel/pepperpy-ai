@@ -77,7 +77,7 @@ class BeliefSystem:
         return self.beliefs.get(statement)
 
     def get_conflicting_beliefs(
-        self, belief: Belief, threshold: float = 0.7
+        self, belief: Belief, threshold: float = 0.7,
     ) -> List[Belief]:
         """Find beliefs that might conflict with the given belief."""
         conflicts = []
@@ -143,7 +143,7 @@ class ReasoningEngine:
                 self.belief_system.add_belief(belief)
                 updated_beliefs.append(belief)
             else:
-                # Handle conflicts (in practice, you would implement conflict resolution)  # noqa: E501
+                # Handle conflicts (in practice, you would implement conflict resolution)
                 pass
 
         return updated_beliefs
@@ -165,21 +165,21 @@ class Explanation:
             parts.append("Conclusions:")
             for conclusion in self.conclusions:
                 parts.append(
-                    f"- {conclusion.statement} (confidence: {conclusion.confidence:.2f})"
+                    f"- {conclusion.statement} (confidence: {conclusion.confidence:.2f})",
                 )
                 parts.append(f"  Based on strategy: {conclusion.strategy.value}")
                 parts.append(f"  Explanation: {conclusion.explanation}")
                 parts.append("  Premises:")
                 for premise in conclusion.premises:
                     parts.append(
-                        f"    * {premise.statement} (confidence: {premise.confidence:.2f})"
+                        f"    * {premise.statement} (confidence: {premise.confidence:.2f})",
                     )
 
         if self.beliefs:
             parts.append("\nCurrent Beliefs:")
             for belief in self.beliefs:
                 parts.append(
-                    f"- {belief.statement} (confidence: {belief.confidence:.2f})"
+                    f"- {belief.statement} (confidence: {belief.confidence:.2f})",
                 )
 
         return "\n".join(parts)

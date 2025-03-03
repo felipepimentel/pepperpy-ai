@@ -37,6 +37,7 @@ class BaseCommand(abc.ABC):
 
         Returns:
             Click command
+
         """
 
         @click.command(name=cls.name, help=cls.help)
@@ -47,12 +48,12 @@ class BaseCommand(abc.ABC):
                 cmd = cls()
                 return cmd.execute(**kwargs)
             except PepperpyError as e:
-                console.print(f"[red]Error:[/red] {str(e)}")
+                console.print(f"[red]Error:[/red] {e!s}")
                 if hasattr(e, "recovery_hint") and e.recovery_hint:
                     console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
                 raise click.Abort() from e
             except Exception as e:
-                console.print(f"[red]Unexpected error:[/red] {str(e)}")
+                console.print(f"[red]Unexpected error:[/red] {e!s}")
                 if ctx.obj and ctx.obj.get("debug"):
                     console.print_exception()
                 raise click.Abort() from e
@@ -69,6 +70,7 @@ class BaseCommand(abc.ABC):
 
         Returns:
             List of Click parameter decorators
+
         """
         return []
 
@@ -81,8 +83,8 @@ class BaseCommand(abc.ABC):
 
         Returns:
             Command result
+
         """
-        pass
 
 
 class BaseCommandGroup(abc.ABC):
@@ -102,6 +104,7 @@ class BaseCommandGroup(abc.ABC):
 
         Returns:
             Click group
+
         """
 
         @click.group(name=cls.name, help=cls.help)

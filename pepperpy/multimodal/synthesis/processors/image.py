@@ -20,6 +20,7 @@ class ImageProcessor(BaseComponent):
         Args:
             name: Processor name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -32,6 +33,7 @@ class ImageProcessor(BaseComponent):
 
         Returns:
             Processed image array
+
         """
         # Apply configured transformations
         result = image
@@ -57,6 +59,7 @@ class ImageProcessor(BaseComponent):
 
         Returns:
             Resized image array
+
         """
         # Simple nearest neighbor resize
         h, w = size
@@ -77,6 +80,7 @@ class ImageProcessor(BaseComponent):
 
         Returns:
             Filtered image array
+
         """
         if filter_type == "blur":
             # Apply blur filter
@@ -90,7 +94,7 @@ class ImageProcessor(BaseComponent):
                     )
             return result
 
-        elif filter_type == "sharpen":
+        if filter_type == "sharpen":
             # Apply sharpen filter
             kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
             result = np.zeros_like(image)
@@ -112,6 +116,7 @@ class ImageProcessor(BaseComponent):
 
         Returns:
             Optimized image array
+
         """
         # Normalize to [0, 255] range
         if image.dtype != np.uint8:

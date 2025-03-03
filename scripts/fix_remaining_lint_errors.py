@@ -16,7 +16,7 @@ def run_ruff_check() -> List[Dict[str, Any]]:
         result = subprocess.run(
             ["ruff", "check", "pepperpy/", "--format=json"],
             capture_output=True,
-            text=True,
+            text=True, check=False,
         )
         if result.stdout:
             return json.loads(result.stdout)
@@ -62,7 +62,7 @@ def fix_unused_import(file_path: str, errors: List[Dict[str, Any]]) -> int:
         return 0
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             lines = f.readlines()
 
         fixed_count = 0
@@ -89,7 +89,7 @@ def fix_redefined_unused(file_path: str, errors: List[Dict[str, Any]]) -> int:
         return 0
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             lines = f.readlines()
 
         fixed_count = 0
@@ -116,7 +116,7 @@ def fix_unused_variable(file_path: str, errors: List[Dict[str, Any]]) -> int:
         return 0
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             content = f.read()
 
         fixed_count = 0
@@ -149,7 +149,7 @@ def fix_loop_variable(file_path: str, errors: List[Dict[str, Any]]) -> int:
         return 0
 
     try:
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             content = f.read()
 
         fixed_count = 0
@@ -239,7 +239,7 @@ def fix_all_remaining_errors() -> Dict[str, int]:
 def update_pyproject_toml() -> None:
     """Update pyproject.toml to ignore specific errors."""
     try:
-        with open("pyproject.toml", "r") as f:
+        with open("pyproject.toml") as f:
             content = f.read()
 
         # Add more files to ignore F821 (undefined names)

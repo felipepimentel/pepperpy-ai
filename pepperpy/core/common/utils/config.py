@@ -24,6 +24,7 @@ class ConfigUtils:
 
         Returns:
             Configuration data as dictionary
+
         """
         path = Path(path)
         if format is None:
@@ -31,14 +32,13 @@ class ConfigUtils:
 
         if format == "json":
             return JsonUtils.load(path)
-        elif format in ("yaml", "yml"):
+        if format in ("yaml", "yml"):
             return YamlUtils.load(path)
-        else:
-            raise ValueError(f"Unsupported format: {format}")
+        raise ValueError(f"Unsupported format: {format}")
 
     @staticmethod
     def save(
-        data: Dict[str, Any], path: Union[str, Path], format: Optional[str] = None
+        data: Dict[str, Any], path: Union[str, Path], format: Optional[str] = None,
     ) -> None:
         """Save configuration to file.
 
@@ -46,6 +46,7 @@ class ConfigUtils:
             data: Configuration dictionary
             path: File path
             format: File format (json, yaml)
+
         """
         path = Path(path)
         if format is None:
@@ -73,6 +74,7 @@ class ConfigUtils:
 
         Returns:
             Configuration file path or None
+
         """
         if search_paths is None:
             search_paths = [Path.cwd(), Path.home() / ".config", Path("/etc")]
@@ -102,6 +104,7 @@ class ConfigUtils:
 
         Returns:
             Dictionary of environment variables
+
         """
         result = {}
         for key, value in os.environ.items():
@@ -128,6 +131,7 @@ class ConfigUtils:
 
         Returns:
             Merged configuration
+
         """
         result: Dict[str, Any] = {}
 
@@ -142,7 +146,7 @@ class ConfigUtils:
                         and isinstance(value, dict)
                     ):
                         result[key] = ConfigUtils.merge_configs(
-                            result[key], value, deep=True
+                            result[key], value, deep=True,
                         )
                     else:
                         result[key] = value
@@ -151,7 +155,7 @@ class ConfigUtils:
 
     @staticmethod
     def get_nested(
-        config: Dict[str, Any], path: str, default: Any = None, separator: str = "."
+        config: Dict[str, Any], path: str, default: Any = None, separator: str = ".",
     ) -> Any:
         """Get nested configuration value.
 
@@ -163,6 +167,7 @@ class ConfigUtils:
 
         Returns:
             Configuration value
+
         """
         current = config
         for key in path.split(separator):
@@ -175,7 +180,7 @@ class ConfigUtils:
 
     @staticmethod
     def set_nested(
-        config: Dict[str, Any], path: str, value: Any, separator: str = "."
+        config: Dict[str, Any], path: str, value: Any, separator: str = ".",
     ) -> None:
         """Set nested configuration value.
 
@@ -184,6 +189,7 @@ class ConfigUtils:
             path: Value path
             value: Value to set
             separator: Path separator
+
         """
         keys = path.split(separator)
         current = config
@@ -197,7 +203,7 @@ class ConfigUtils:
 
     @staticmethod
     def flatten(
-        config: Dict[str, Any], parent_key: str = "", separator: str = "."
+        config: Dict[str, Any], parent_key: str = "", separator: str = ".",
     ) -> Dict[str, Any]:
         """Flatten nested configuration.
 
@@ -208,6 +214,7 @@ class ConfigUtils:
 
         Returns:
             Flattened configuration
+
         """
         items: List[tuple[str, Any]] = []
 
@@ -216,7 +223,7 @@ class ConfigUtils:
 
             if isinstance(value, dict):
                 items.extend(
-                    ConfigUtils.flatten(value, new_key, separator=separator).items()
+                    ConfigUtils.flatten(value, new_key, separator=separator).items(),
                 )
             else:
                 items.append((new_key, value))
@@ -233,6 +240,7 @@ class ConfigUtils:
 
         Returns:
             Nested configuration
+
         """
         result: Dict[str, Any] = {}
 

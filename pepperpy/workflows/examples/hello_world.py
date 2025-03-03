@@ -18,6 +18,7 @@ class HelloStep(WorkflowStep):
 
         Returns:
             Hello message
+
         """
         return "Hello"
 
@@ -30,6 +31,7 @@ class WorldStep(WorkflowStep):
 
         Returns:
             World message
+
         """
         return "World"
 

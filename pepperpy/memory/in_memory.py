@@ -42,6 +42,7 @@ class SimpleMemory(MemoryInterface[T]):
 
         Returns:
             List[Dict[str, Any]]: List of operations performed
+
         """
         return self._history.copy()
 
@@ -53,6 +54,7 @@ class SimpleMemory(MemoryInterface[T]):
 
         Returns:
             bool: True if key exists, False otherwise
+
         """
         return key in self._storage
 
@@ -61,5 +63,6 @@ class SimpleMemory(MemoryInterface[T]):
 
         Returns:
             List[str]: List of stored keys
+
         """
         return list(self._storage.keys())

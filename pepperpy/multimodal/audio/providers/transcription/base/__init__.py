@@ -20,13 +20,13 @@ from pepperpy.multimodal.audio.providers.transcription.base.types import (
 )
 
 __all__ = [
-    "TranscriptionProvider",
     "TranscriptionError",
+    "TranscriptionProvider",
+    "TranscriptionProviderProtocol",
     "TranscriptionResult",
     "TranscriptionSegment",
-    "TranscriptionProviderProtocol",
-    "register_transcription_provider",
     "get_transcription_provider_class",
-    "list_transcription_providers",
     "get_transcription_registry",
+    "list_transcription_providers",
+    "register_transcription_provider",
 ]

@@ -26,6 +26,7 @@ class StorageCapability:
 
         Args:
             name: Capability name
+
         """
         self.name = name
         self.file_storage = None
@@ -36,6 +37,7 @@ class StorageCapability:
 
         Args:
             file_storage: File storage provider
+
         """
         self.file_storage = file_storage
 
@@ -44,6 +46,7 @@ class StorageCapability:
 
         Args:
             object_storage: Object storage provider
+
         """
         self.object_storage = object_storage
 
@@ -59,6 +62,7 @@ class StorageCapability:
 
         Raises:
             ValueError: If file storage is not set
+
         """
         if not self.file_storage:
             raise ValueError("File storage not set")
@@ -75,6 +79,7 @@ class StorageCapability:
 
         Raises:
             ValueError: If file storage is not set
+
         """
         if not self.file_storage:
             raise ValueError("File storage not set")
@@ -92,6 +97,7 @@ class StorageCapability:
 
         Raises:
             ValueError: If object storage is not set
+
         """
         if not self.object_storage:
             raise ValueError("Object storage not set")
@@ -108,6 +114,7 @@ class StorageCapability:
 
         Raises:
             ValueError: If object storage is not set
+
         """
         if not self.object_storage:
             raise ValueError("Object storage not set")
@@ -126,6 +133,7 @@ class FileStorage(ABC):
 
         Args:
             name: Storage name
+
         """
         self.name = name
 
@@ -142,6 +150,7 @@ class FileStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement save method")
 
@@ -157,6 +166,7 @@ class FileStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement load method")
 
@@ -169,6 +179,7 @@ class FileStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement delete method")
 
@@ -184,6 +195,7 @@ class FileStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement list method")
 
@@ -200,6 +212,7 @@ class ObjectStorage(ABC):
 
         Args:
             name: Storage name
+
         """
         self.name = name
 
@@ -216,6 +229,7 @@ class ObjectStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement save method")
 
@@ -231,6 +245,7 @@ class ObjectStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement load method")
 
@@ -243,6 +258,7 @@ class ObjectStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement delete method")
 
@@ -258,13 +274,14 @@ class ObjectStorage(ABC):
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement list method")
 
 
 # Export public classes
 __all__ = [
-    "StorageCapability",
     "FileStorage",
     "ObjectStorage",
+    "StorageCapability",
 ]

@@ -37,9 +37,10 @@ class AnthropicProvider(GenerationProvider):
             model: Model to use for generation
             description: Description of the component's functionality
             config: Additional configuration for the provider
+
         """
         super().__init__(
-            component_id, name, GenerationProviderType.ANTHROPIC, description, config
+            component_id, name, GenerationProviderType.ANTHROPIC, description, config,
         )
         self.api_key = api_key
         self.model = model
@@ -52,6 +53,7 @@ class AnthropicProvider(GenerationProvider):
 
         Returns:
             The generated response
+
         """
         # Placeholder for actual implementation
         logger.info(f"Generating response with Anthropic model: {self.model}")

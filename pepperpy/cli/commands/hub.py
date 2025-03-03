@@ -11,13 +11,11 @@ from typing import Optional, Set
 class LocalHubStorage:
     """Local hub storage."""
 
-    pass
 
 
 class MarketplaceClient:
     """Marketplace client."""
 
-    pass
 
 
 # pip install click
@@ -80,13 +78,11 @@ class PepperpyError(Exception):
 class SecurityConfig:
     """Security configuration."""
 
-    pass
 
 
 class SecurityManager:
     """Security manager."""
 
-    pass
 
 
 # Configure rich console
@@ -96,7 +92,6 @@ console = Console()
 @click.group()
 def hub() -> None:
     """Manage Pepperpy Hub artifacts and marketplace."""
-    pass
 
 
 @hub.command()
@@ -184,17 +179,17 @@ def publish(
                 author=author or "",  # Make author optional
                 tags=set(tags) if tags else set(),
                 visibility=visibility,
-            )
+            ),
         )
 
         console.print(
-            f"[green]Successfully published artifact:[/green] {name}@{version}"
+            f"[green]Successfully published artifact:[/green] {name}@{version}",
         )
         console.print(f"Artifact ID: {artifact_id}")
         console.print(f"Marketplace ID: {marketplace_id}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -224,7 +219,7 @@ def install_artifact_cmd(artifact_id: str, version: Optional[str] = None) -> Non
             marketplace.install_artifact(
                 artifact_id=artifact_id,
                 version=version,
-            )
+            ),
         )
 
         console.print(f"[green]Successfully installed artifact:[/green] {artifact_id}")
@@ -232,7 +227,7 @@ def install_artifact_cmd(artifact_id: str, version: Optional[str] = None) -> Non
             console.print(f"Version: {version}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -274,7 +269,7 @@ def search(
                 tags=list(tags) if tags else None,
                 page=page,
                 per_page=per_page,
-            )
+            ),
         )
 
         # Display results
@@ -300,12 +295,12 @@ def search(
 
         console.print(table)
         console.print(
-            f"\nShowing {len(results['artifacts'])} of {results['total']} results"
+            f"\nShowing {len(results['artifacts'])} of {results['total']} results",
         )
         console.print(f"Page {page} of {results['total_pages']}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -346,7 +341,7 @@ def info(artifact_id: str) -> None:
         console.print(f"Updated: {details['updated_at']}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -375,7 +370,7 @@ def delete(artifact_id: str) -> None:
         console.print(f"[green]Successfully deleted artifact:[/green] {artifact_id}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -410,7 +405,7 @@ def list() -> None:
         console.print(table)
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -433,7 +428,6 @@ console = Console()
 @click.group()
 def hub() -> None:
     """Manage Pepperpy Hub artifacts and marketplace."""
-    pass
 
 
 @hub.command()
@@ -458,7 +452,7 @@ def publish_artifact(artifact_path: str, public: bool) -> None:
             marketplace.publish_artifact(
                 artifact=Path(artifact_path),
                 public=public,
-            )
+            ),
         )
 
         console.print(f"Successfully published artifact: {artifact_id}")
@@ -504,7 +498,7 @@ def search_artifacts(
                 tags=tag_list,
                 page=page,
                 per_page=per_page,
-            )
+            ),
         )
 
         # Display results
@@ -599,7 +593,7 @@ def update(artifact_id: str, metadata_file: str) -> None:
             marketplace.update_metadata(
                 artifact_id=artifact_id,
                 metadata=metadata,
-            )
+            ),
         )
 
         console.print(f"Successfully updated metadata for: {artifact_id}")

@@ -74,6 +74,7 @@ class ResourceProvider(Lifecycle):
 
         Returns:
             Resource if found, None otherwise
+
         """
         return self._resources.get(name)
 
@@ -82,6 +83,7 @@ class ResourceProvider(Lifecycle):
 
         Returns:
             List of all resources
+
         """
         return list(self._resources.values())
 
@@ -94,7 +96,7 @@ class MemoryProvider(ResourceProvider):
     """
 
     async def create_shared_memory(
-        self, name: str, size: int, persistent: bool = False
+        self, name: str, size: int, persistent: bool = False,
     ) -> MemoryResource:
         """Create shared memory resource.
 
@@ -105,6 +107,7 @@ class MemoryProvider(ResourceProvider):
 
         Returns:
             Shared memory resource
+
         """
         config = MemoryResourceConfig(
             name=name,
@@ -144,6 +147,7 @@ class FileProvider(ResourceProvider):
 
         Returns:
             Local file resource
+
         """
         config = FileResourceConfig(
             name=name,
@@ -167,7 +171,7 @@ class NetworkProvider(ResourceProvider):
     """
 
     async def create_tcp_connection(
-        self, name: str, host: str, port: int, size: int = 8192, timeout: float = 30.0
+        self, name: str, host: str, port: int, size: int = 8192, timeout: float = 30.0,
     ) -> NetworkResource:
         """Create TCP connection resource.
 
@@ -180,6 +184,7 @@ class NetworkProvider(ResourceProvider):
 
         Returns:
             TCP connection resource
+
         """
         config = NetworkResourceConfig(
             name=name,
@@ -223,6 +228,7 @@ class ProcessProvider(ResourceProvider):
 
         Returns:
             Local process resource
+
         """
         config = ProcessResourceConfig(
             name=name,

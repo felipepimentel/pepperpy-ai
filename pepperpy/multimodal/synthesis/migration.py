@@ -43,6 +43,7 @@ class MigrationHelper:
 
         Returns:
             List of tuples (import_path, imported_name, alias)
+
         """
         legacy_imports = []
         try:
@@ -56,7 +57,7 @@ class MigrationHelper:
                                     name.name,
                                     name.name,
                                     name.asname or name.name,
-                                )
+                                ),
                             )
                 elif isinstance(node, ast.ImportFrom):
                     if node.module and node.module.startswith("pepperpy.content"):
@@ -66,7 +67,7 @@ class MigrationHelper:
                                     node.module,
                                     name.name,
                                     name.asname or name.name,
-                                )
+                                ),
                             )
         except SyntaxError:
             # If code can't be parsed, return empty list
@@ -84,6 +85,7 @@ class MigrationHelper:
 
         Returns:
             Dictionary mapping old import statements to new ones
+
         """
         migration_map = {}
         for import_path, imported_name, alias in legacy_imports:
@@ -92,7 +94,7 @@ class MigrationHelper:
                 continue
 
             new_imported_name = MigrationHelper.CLASS_MAPPING.get(
-                imported_name, imported_name
+                imported_name, imported_name,
             )
 
             if import_path == imported_name:  # Direct import
@@ -121,6 +123,7 @@ class MigrationHelper:
 
         Returns:
             Migration guide as a string
+
         """
         legacy_imports = MigrationHelper.detect_legacy_imports(code)
         import_migrations = MigrationHelper.generate_import_migration(legacy_imports)
@@ -243,8 +246,9 @@ def migrate_code(file_path: str) -> str:
 
     Returns:
         Migrated code
+
     """
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         code = f.read()
 
     legacy_imports = MigrationHelper.detect_legacy_imports(code)

@@ -16,6 +16,7 @@ class FileConfigProvider(ConfigProvider):
 
         Args:
             file_path: Path to the configuration file
+
         """
         self.file_path = Path(file_path)
         self._config: Dict[str, ConfigValue] = {}
@@ -54,7 +55,7 @@ class FileConfigProvider(ConfigProvider):
         """Load all configuration values from file."""
         try:
             if self.file_path.exists():
-                with open(self.file_path, "r", encoding="utf-8") as f:
+                with open(self.file_path, encoding="utf-8") as f:
                     self._config = json.load(f)
         except (json.JSONDecodeError, OSError):
             # If file is corrupted or can't be read, start with empty config

@@ -16,6 +16,7 @@ class CLIError(PepperError):
         Args:
             message: The error message.
             recovery_hint: Optional hint for recovering from the error.
+
         """
         details = {"recovery_hint": recovery_hint} if recovery_hint else {}
         details["error_code"] = "CLI000"
@@ -26,7 +27,7 @@ class CommandError(CLIError):
     """Error raised when a command fails to execute."""
 
     def __init__(
-        self, command: str, reason: str, recovery_hint: str | None = None
+        self, command: str, reason: str, recovery_hint: str | None = None,
     ) -> None:
         """Initialize the command error.
 
@@ -34,6 +35,7 @@ class CommandError(CLIError):
             command: The command that failed.
             reason: The reason for the failure.
             recovery_hint: Optional hint for recovering from the error.
+
         """
         details = {
             "command": command,
@@ -53,7 +55,7 @@ class ConfigError(CLIError):
     """Error raised when there are issues with configuration files."""
 
     def __init__(
-        self, file_path: str, reason: str, recovery_hint: str | None = None
+        self, file_path: str, reason: str, recovery_hint: str | None = None,
     ) -> None:
         """Initialize the config error.
 
@@ -61,6 +63,7 @@ class ConfigError(CLIError):
             file_path: The path to the config file.
             reason: The reason for the failure.
             recovery_hint: Optional hint for recovering from the error.
+
         """
         details = {
             "file_path": file_path,
@@ -80,7 +83,7 @@ class ValidationError(CLIError):
     """Error raised when input validation fails."""
 
     def __init__(
-        self, field: str, reason: str, recovery_hint: str | None = None
+        self, field: str, reason: str, recovery_hint: str | None = None,
     ) -> None:
         """Initialize the validation error.
 
@@ -88,6 +91,7 @@ class ValidationError(CLIError):
             field: The field that failed validation.
             reason: The reason for the failure.
             recovery_hint: Optional hint for recovering from the error.
+
         """
         details = {
             "field": field,
@@ -119,6 +123,7 @@ class ExecutionError(CLIError):
             component_id: The ID of the component that failed.
             reason: The reason for the failure.
             recovery_hint: Optional hint for recovering from the error.
+
         """
         details = {
             "component_type": component_type,

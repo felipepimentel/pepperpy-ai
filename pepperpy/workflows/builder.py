@@ -17,6 +17,7 @@ class WorkflowBuilder:
 
         Args:
             name: Name of the workflow
+
         """
         self.definition = WorkflowDefinition(name)
         self.current_step_id: Optional[str] = None
@@ -41,6 +42,7 @@ class WorkflowBuilder:
 
         Raises:
             ValueError: If step ID already exists
+
         """
         step = WorkflowStep(
             id=step_id,
@@ -63,6 +65,7 @@ class WorkflowBuilder:
 
         Raises:
             ValueError: If no current step or dependency doesn't exist
+
         """
         if not self.current_step_id:
             raise ValueError("No current step to add dependencies to")
@@ -95,6 +98,7 @@ class WorkflowBuilder:
 
         Returns:
             Self for method chaining
+
         """
         if self.current_step_id:
             step = self.definition.get_step(self.current_step_id)
@@ -112,6 +116,7 @@ class WorkflowBuilder:
 
         Raises:
             ValueError: If workflow validation fails
+
         """
         errors = self.definition.validate()
         if errors:
@@ -127,6 +132,7 @@ class WorkflowStepBuilder:
 
         Args:
             workflow_builder: Parent workflow builder
+
         """
         self.workflow_builder = workflow_builder
 
@@ -147,6 +153,7 @@ class WorkflowStepBuilder:
 
         Returns:
             Self for method chaining
+
         """
         self.workflow_builder.add_step(step_id, name, action, parameters)
         return self
@@ -159,6 +166,7 @@ class WorkflowStepBuilder:
 
         Returns:
             Self for method chaining
+
         """
         self.workflow_builder.depends_on(step_id)
         return self
@@ -172,6 +180,7 @@ class WorkflowStepBuilder:
 
         Returns:
             Self for method chaining
+
         """
         self.workflow_builder.with_metadata(key, value)
         return self
@@ -181,5 +190,6 @@ class WorkflowStepBuilder:
 
         Returns:
             Parent workflow builder
+
         """
         return self.workflow_builder

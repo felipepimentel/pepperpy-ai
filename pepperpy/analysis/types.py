@@ -19,6 +19,7 @@ class AnalysisLevel(str, Enum):
         ERROR: Critical issues that must be fixed
         WARNING: Potential problems that should be reviewed
         INFO: Informational findings
+
     """
 
     ERROR = "error"
@@ -45,6 +46,7 @@ class AnalysisResult:
         ...     line=10,
         ...     details={"complexity": 15}
         ... )
+
     """
 
     level: AnalysisLevel
@@ -66,6 +68,7 @@ class CodeAnalyzer(ABC):
         ...     def analyze(self, code: str) -> List[AnalysisResult]:
         ...         # Implementation
         ...         pass
+
     """
 
     @abstractmethod
@@ -80,8 +83,8 @@ class CodeAnalyzer(ABC):
 
         Raises:
             SyntaxError: If code is invalid Python
+
         """
-        pass
 
     @abstractmethod
     def analyze_file(self, path: str) -> List[AnalysisResult]:
@@ -97,8 +100,8 @@ class CodeAnalyzer(ABC):
             FileNotFoundError: If file doesn't exist
             PermissionError: If file can't be read
             SyntaxError: If file contains invalid Python
+
         """
-        pass
 
     @abstractmethod
     def analyze_module(self, module: str) -> List[AnalysisResult]:
@@ -113,8 +116,8 @@ class CodeAnalyzer(ABC):
         Raises:
             ImportError: If module can't be imported
             SyntaxError: If module contains invalid Python
+
         """
-        pass
 
 
 class BaseVisitor(ast.NodeVisitor):
@@ -133,6 +136,7 @@ class BaseVisitor(ast.NodeVisitor):
         ...                     message="Use of eval() detected",
         ...                     node=node
         ...                 )
+
     """
 
     def __init__(self) -> None:
@@ -154,6 +158,7 @@ class BaseVisitor(ast.NodeVisitor):
             message: Finding description
             node: AST node where issue was found
             details: Additional context
+
         """
         self.results.append(
             AnalysisResult(
@@ -163,5 +168,5 @@ class BaseVisitor(ast.NodeVisitor):
                 line=getattr(node, "lineno", None),
                 column=getattr(node, "col_offset", None),
                 details=details,
-            )
+            ),
         )

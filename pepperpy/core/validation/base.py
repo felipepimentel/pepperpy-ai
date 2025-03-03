@@ -15,6 +15,7 @@ class ValidationError(Exception):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message)
         self.details = details or {}
@@ -32,8 +33,8 @@ class Validator(ABC):
 
         Returns:
             bool: True if value is valid, False otherwise
+
         """
-        pass
 
     def __call__(self, value: Any) -> bool:
         """Make validator callable.
@@ -43,5 +44,6 @@ class Validator(ABC):
 
         Returns:
             bool: True if value is valid, False otherwise
+
         """
         return self.validate(value)

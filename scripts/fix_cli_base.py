@@ -21,7 +21,7 @@ def fix_cli_base_py():
         # Corrigir o método execute_subcommand
         # Problema: Parênteses e indentação incorretos em CommandResult()
         pattern_execute_subcommand = re.compile(
-            r'if not subcommand:\s+return CommandResult\(\)\s+success=False,\s+message=f"Unknown subcommand: {subcommand_name}",\s+error=\{\}\s+"type": "unknown_subcommand",\s+"name": subcommand_name,\s+"available": list\(self\._commands\.keys\(\)\),\s+\},\s+\)'
+            r'if not subcommand:\s+return CommandResult\(\)\s+success=False,\s+message=f"Unknown subcommand: {subcommand_name}",\s+error=\{\}\s+"type": "unknown_subcommand",\s+"name": subcommand_name,\s+"available": list\(self\._commands\.keys\(\)\),\s+\},\s+\)',
         )
         replacement_execute_subcommand = (
             "if not subcommand:\n"
@@ -36,12 +36,12 @@ def fix_cli_base_py():
             "            )"
         )
         content = pattern_execute_subcommand.sub(
-            replacement_execute_subcommand, content
+            replacement_execute_subcommand, content,
         )
 
         # Corrigir o problema com CommandContext()
         pattern_subcontext = re.compile(
-            r"subcontext = CommandContext\(\)\s+args=context\.args\[1:\],\s+options=context\.options,\s+env=context\.env,\s+config=context\.config,\s+\)"
+            r"subcontext = CommandContext\(\)\s+args=context\.args\[1:\],\s+options=context\.options,\s+env=context\.env,\s+config=context\.config,\s+\)",
         )
         replacement_subcontext = (
             "subcontext = CommandContext(\n"
@@ -55,7 +55,7 @@ def fix_cli_base_py():
 
         # Corrigir o problema com CLIError
         pattern_cli_error = re.compile(
-            r'raise CLIError\( from e\)\s+f"Failed to execute {subcommand\.name}: {e}",\s+details=\{\}\s+"command": subcommand\.name,\s+"error": str\(e\),\s+"error_type": type\(e\).__name__,\s+\},\s+\)'
+            r'raise CLIError\( from e\)\s+f"Failed to execute {subcommand\.name}: {e}",\s+details=\{\}\s+"command": subcommand\.name,\s+"error": str\(e\),\s+"error_type": type\(e\).__name__,\s+\},\s+\)',
         )
         replacement_cli_error = (
             "raise CLIError(\n"

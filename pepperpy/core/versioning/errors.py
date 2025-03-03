@@ -78,7 +78,7 @@ class MigrationError(VersionError):
     """Raised when migration between versions fails."""
 
     def __init__(
-        self, source_version: Any, target_version: Any, reason: Optional[str] = None
+        self, source_version: Any, target_version: Any, reason: Optional[str] = None,
     ):
         self.source_version = source_version
         self.target_version = target_version
@@ -91,10 +91,10 @@ class MigrationError(VersionError):
 
 # Export all exceptions
 __all__ = [
-    "VersionError",
     "InvalidVersionError",
-    "VersionMismatchError",
-    "VersionConstraintError",
-    "VersionResolutionError",
     "MigrationError",
+    "VersionConstraintError",
+    "VersionError",
+    "VersionMismatchError",
+    "VersionResolutionError",
 ]

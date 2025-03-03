@@ -26,7 +26,7 @@ async def test_text_chunker_with_sample_text():
     chunker = TextChunker(chunk_size=50, overlap=10)
     await chunker.initialize()
 
-    with open(Path(__file__).parent / "data" / "sample1.txt", "r") as f:
+    with open(Path(__file__).parent / "data" / "sample1.txt") as f:
         text = f.read()
 
     chunks = await chunker.chunk(text)
@@ -82,7 +82,7 @@ async def test_paragraph_chunker():
     chunker = ParagraphChunker(max_paragraphs=2)
     await chunker.initialize()
 
-    with open(Path(__file__).parent / "data" / "sample2.txt", "r") as f:
+    with open(Path(__file__).parent / "data" / "sample2.txt") as f:
         text = f.read()
 
     chunks = await chunker.chunk(text)

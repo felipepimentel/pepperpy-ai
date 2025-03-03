@@ -33,7 +33,7 @@ class Registry(Generic[T]):
         self._metadata: Dict[ComponentID, Metadata] = {}
 
     def register(
-        self, component: T, metadata: Optional[Metadata] = None
+        self, component: T, metadata: Optional[Metadata] = None,
     ) -> ComponentID:
         """Register a component with optional metadata."""
         component_id = uuid4()
@@ -43,7 +43,7 @@ class Registry(Generic[T]):
 
         self._components[component_id] = component
         self._metadata[component_id] = metadata or Metadata(
-            id=component_id, name=getattr(component, "name", str(component_id))
+            id=component_id, name=getattr(component, "name", str(component_id)),
         )
 
         return component_id
@@ -67,7 +67,7 @@ class Registry(Generic[T]):
         """Get metadata for a component by ID."""
         if component_id not in self._metadata:
             raise NotFoundError(
-                f"Metadata for component with ID {component_id} not found"
+                f"Metadata for component with ID {component_id} not found",
             )
 
         return self._metadata[component_id]
@@ -87,7 +87,6 @@ class RegistryFactory(ABC, Generic[T]):
     @abstractmethod
     def create_registry(self) -> Registry[T]:
         """Create a new registry instance."""
-        pass
 
 
 class TypeRegistry(Registry[Any]):
@@ -164,7 +163,7 @@ def create_registry_manager() -> RegistryManager:
 __all__ = [
     "Registry",
     "RegistryFactory",
-    "TypeRegistry",
     "RegistryManager",
+    "TypeRegistry",
     "create_registry_manager",
 ]

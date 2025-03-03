@@ -40,6 +40,7 @@ class FileResource(BaseResource):
             content_type: Content type
             encoding: File encoding
             **kwargs: Additional metadata
+
         """
         super().__init__(id, ResourceType.FILE, **kwargs)
         self._path = Path(path)
@@ -68,7 +69,7 @@ class FileResource(BaseResource):
 
             if content_type in ["json"]:
                 async with asyncio.Lock():
-                    with open(self._path, "r", encoding=self._encoding) as f:
+                    with open(self._path, encoding=self._encoding) as f:
                         self._content = json.load(f)
             elif content_type in ["pickle", "pkl"]:
                 async with asyncio.Lock():
@@ -76,7 +77,7 @@ class FileResource(BaseResource):
                         self._content = pickle.load(f)
             else:
                 async with asyncio.Lock():
-                    with open(self._path, "r", encoding=self._encoding) as f:
+                    with open(self._path, encoding=self._encoding) as f:
                         self._content = f.read()
         except Exception as e:
             raise ResourceError(f"Failed to load file {self._path}: {e}") from e
@@ -121,11 +122,9 @@ class FileResource(BaseResource):
 
     async def _initialize(self) -> None:
         """Initialize resource."""
-        pass
 
     async def _execute(self) -> None:
         """Execute resource."""
-        pass
 
     async def _cleanup(self) -> None:
         """Clean up resource."""
@@ -152,6 +151,7 @@ class MemoryResource(BaseResource):
             content: Initial content
             content_type: Content type
             **kwargs: Additional metadata
+
         """
         super().__init__(id, ResourceType.MEMORY, **kwargs)
         self._content = content
@@ -171,12 +171,10 @@ class MemoryResource(BaseResource):
     async def _load(self) -> None:
         """Load resource from memory."""
         # Memory resources are already loaded
-        pass
 
     async def _save(self) -> None:
         """Save resource to memory."""
         # Memory resources are already saved
-        pass
 
     async def _delete(self) -> None:
         """Delete resource from memory."""
@@ -184,11 +182,9 @@ class MemoryResource(BaseResource):
 
     async def _initialize(self) -> None:
         """Initialize resource."""
-        pass
 
     async def _execute(self) -> None:
         """Execute resource."""
-        pass
 
     async def _cleanup(self) -> None:
         """Clean up resource."""
@@ -206,6 +202,7 @@ class ResourceStorage:
 
         Args:
             base_path: Base path for file resources
+
         """
         self._base_path = Path(base_path) if base_path else Path.cwd()
         self._memory_resources: Dict[str, MemoryResource] = {}
@@ -232,6 +229,7 @@ class ResourceStorage:
 
         Raises:
             ResourceError: If resource cannot be stored
+
         """
         async with self._lock:
             try:
@@ -259,6 +257,7 @@ class ResourceStorage:
 
         Returns:
             Optional[BaseResource]: Retrieved resource
+
         """
         resource = self._memory_resources.get(id) or self._file_resources.get(id)
         if resource and resource.state != resource.state.LOADED:
@@ -273,6 +272,7 @@ class ResourceStorage:
 
         Raises:
             ResourceError: If resource not found
+
         """
         async with self._lock:
             resource = self._memory_resources.get(id) or self._file_resources.get(id)

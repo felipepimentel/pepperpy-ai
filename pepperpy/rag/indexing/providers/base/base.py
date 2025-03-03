@@ -42,6 +42,7 @@ class IndexingProvider(DocumentIndexer, ABC):
             indexer: The indexer component to use
             description: Description of the component's functionality
             config: Configuration for the provider
+
         """
         super().__init__(component_id, name, chunker, embedder, indexer, description)
         self.provider_type = provider_type
@@ -56,8 +57,8 @@ class IndexingProvider(DocumentIndexer, ABC):
 
         Returns:
             The indexing response
+
         """
-        pass
 
     async def initialize(self) -> None:
         """Initialize the provider."""

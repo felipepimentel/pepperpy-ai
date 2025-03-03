@@ -50,6 +50,7 @@ class JsonFormatter(logging.Formatter):
 
         Returns:
             JSON string representation of the log record
+
         """
         # Extract exception info if present
         exception = None
@@ -77,13 +78,13 @@ class ColoredFormatter(logging.Formatter):
     """
 
     COLORS = {
-        "DEBUG": "[36m",  # Cyan
-        "INFO": "[32m",  # Green
-        "WARNING": "[33m",  # Yellow
-        "ERROR": "[31m",  # Red
-        "CRITICAL": "[41m[37m",  # White on Red background
+        "DEBUG": "\x1B[36m",  # Cyan
+        "INFO": "\x1B[32m",  # Green
+        "WARNING": "\x1B[33m",  # Yellow
+        "ERROR": "\x1B[31m",  # Red
+        "CRITICAL": "\x1B[41m\x1B[37m",  # White on Red background
     }
-    RESET = "[0m"
+    RESET = "\x1B[0m"
 
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record with colors.
@@ -93,6 +94,7 @@ class ColoredFormatter(logging.Formatter):
 
         Returns:
             Colored string representation of the log record
+
         """
         log_message = super().format(record)
         color = self.COLORS.get(record.levelname, self.RESET)

@@ -33,6 +33,7 @@ class WorkflowCache:
             backend: Cache backend (uses MemoryCache if None)
             namespace: Cache namespace
             default_ttl: Default TTL in seconds
+
         """
         self.backend = backend or MemoryCache()
         self.cache = Cache(backend=self.backend, namespace=namespace)
@@ -47,6 +48,7 @@ class WorkflowCache:
 
         Returns:
             Cache key
+
         """
         # Convert parameters to a stable string representation
         params_str = json.dumps(params, sort_keys=True)
@@ -54,7 +56,7 @@ class WorkflowCache:
         return hashlib.md5(key_data.encode()).hexdigest()
 
     async def get_step_result(
-        self, step: WorkflowStep, params: Dict[str, Any]
+        self, step: WorkflowStep, params: Dict[str, Any],
     ) -> Optional[Any]:
         """Get cached result for a workflow step.
 
@@ -64,6 +66,7 @@ class WorkflowCache:
 
         Returns:
             Cached result or None if not found
+
         """
         key = self._generate_key(step, params)
         if await self.cache.contains(key):
@@ -84,6 +87,7 @@ class WorkflowCache:
             params: Step parameters
             result: Step result
             ttl: Optional TTL (uses default if None)
+
         """
         key = self._generate_key(step, params)
         await self.cache.set(key, result, ttl=ttl or self.default_ttl)
@@ -94,6 +98,7 @@ class WorkflowCache:
         Args:
             step: Workflow step
             params: Step parameters
+
         """
         key = self._generate_key(step, params)
         await self.cache.delete(key)
@@ -103,6 +108,7 @@ class WorkflowCache:
 
         Args:
             workflow_id: Workflow ID
+
         """
         # This would require a more sophisticated implementation
         # with backend-specific prefix scanning capabilities

@@ -18,7 +18,6 @@ __all__ = ["cli"]
 @click.group()
 def cli() -> None:
     """Pepperpy CLI - A powerful framework for building AI applications."""
-    pass
 
 
 # Register command groups

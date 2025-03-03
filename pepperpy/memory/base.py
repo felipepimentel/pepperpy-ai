@@ -12,22 +12,18 @@ class MemoryInterface(ABC, Generic[T]):
     @abstractmethod
     def store(self, key: str, value: T) -> None:
         """Store a value in memory."""
-        pass
 
     @abstractmethod
     def retrieve(self, key: str) -> Optional[T]:
         """Retrieve a value from memory."""
-        pass
 
     @abstractmethod
     def delete(self, key: str) -> bool:
         """Delete a value from memory."""
-        pass
 
     @abstractmethod
     def clear(self) -> None:
         """Clear all values from memory."""
-        pass
 
 
 class ContextualMemory(MemoryInterface[Dict[str, Any]]):
@@ -75,7 +71,7 @@ class VectorMemory(MemoryInterface[Any]):
         """Store a vector."""
         if len(value) != self._dimension:
             raise ValueError(
-                f"Vector dimension mismatch. Expected {self._dimension}, got {len(value)}"
+                f"Vector dimension mismatch. Expected {self._dimension}, got {len(value)}",
             )
         self._vectors[key] = value
 
@@ -95,7 +91,7 @@ class VectorMemory(MemoryInterface[Any]):
         self._vectors.clear()
 
     def similarity_search(
-        self, query_vector: Any, top_k: int = 5
+        self, query_vector: Any, top_k: int = 5,
     ) -> List[tuple[str, float]]:
         """Search for similar vectors."""
         # Implementação básica - em produção, usar uma biblioteca de busca vetorial

@@ -56,6 +56,7 @@ class InteractiveAgent(BaseAgent):
 
         Args:
             config: Optional interactive agent configuration
+
         """
         super().__init__(config or InteractiveAgentConfig(name=self.__class__.__name__))
         self._conversations: Dict[str, Conversation] = {}
@@ -116,6 +117,7 @@ class InteractiveAgent(BaseAgent):
 
         Raises:
             AgentError: If conversation cannot be started
+
         """
         if conversation_type not in self.conversation_types:
             raise AgentError(f"Unsupported conversation type: {conversation_type}")
@@ -125,7 +127,7 @@ class InteractiveAgent(BaseAgent):
 
         # Create conversation
         conversation = Conversation(
-            metadata={"type": conversation_type, "start_time": datetime.utcnow()}
+            metadata={"type": conversation_type, "start_time": datetime.utcnow()},
         )
 
         # Add initial message if provided
@@ -148,6 +150,7 @@ class InteractiveAgent(BaseAgent):
 
         Raises:
             AgentError: If conversation cannot be ended
+
         """
         conversation = self._conversations.get(conversation_id)
         if not conversation:
@@ -196,6 +199,7 @@ class InteractiveAgent(BaseAgent):
 
         Raises:
             AgentError: If message processing fails
+
         """
         if not self.active_conversation:
             raise AgentError("No active conversation")
@@ -239,6 +243,7 @@ class InteractiveAgent(BaseAgent):
 
         Returns:
             Response message
+
         """
         # TODO: Implement general conversation handling
         return Message(
@@ -254,6 +259,7 @@ class InteractiveAgent(BaseAgent):
 
         Returns:
             Response message
+
         """
         # TODO: Implement task conversation handling
         return Message(
@@ -269,6 +275,7 @@ class InteractiveAgent(BaseAgent):
 
         Returns:
             Response message
+
         """
         # TODO: Implement code conversation handling
         return Message(

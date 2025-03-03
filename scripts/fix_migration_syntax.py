@@ -13,7 +13,7 @@ def create_backup(file_path):
     """Create a backup of the original file before making changes."""
     backup_dir = Path("backups") / "migration" / datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Create backup with original filename in the backup directory
     backup_path = backup_dir / Path(file_path).name
     shutil.copy2(file_path, backup_path)
@@ -24,14 +24,14 @@ def create_backup(file_path):
 def fix_migration():
     """Fix syntax errors in the migration.py file."""
     file_path = "pepperpy/core/versioning/migration.py"
-    
+
     if not os.path.exists(file_path):
         print(f"File {file_path} not found.")
         return False
-    
+
     # Create backup
     create_backup(file_path)
-    
+
     # Corrected content for migration.py
     corrected_content = '''"""
 Migration management functionality.
@@ -566,11 +566,11 @@ def create_validation_step(
         .build()
     )
 '''
-    
+
     # Write corrected content
     with open(file_path, "w") as f:
         f.write(corrected_content)
-    
+
     print(f"Fixed syntax errors in {file_path}")
     return True
 
@@ -578,7 +578,7 @@ def create_validation_step(
 def main():
     """Main function to fix syntax errors in the migration.py file."""
     print("Starting to fix syntax errors in migration.py...")
-    
+
     if fix_migration():
         print("\nSyntax errors in migration.py have been fixed.")
         print("A backup was created in the 'backups/migration/' directory.")
@@ -587,4 +587,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()

@@ -9,7 +9,6 @@ import numpy as np
 class EmbeddingError(Exception):
     """Base exception for embedding errors."""
 
-    pass
 
 
 class BaseEmbedding(ABC):
@@ -32,8 +31,8 @@ class BaseEmbedding(ABC):
 
         Raises:
             EmbeddingError: If embedding generation fails
+
         """
-        pass
 
     @abstractmethod
     def get_dimension(self) -> int:
@@ -41,8 +40,8 @@ class BaseEmbedding(ABC):
 
         Returns:
             int: Embedding dimension
+
         """
-        pass
 
     @abstractmethod
     def get_models(self) -> List[str]:
@@ -50,8 +49,8 @@ class BaseEmbedding(ABC):
 
         Returns:
             List[str]: List of model names
+
         """
-        pass
 
     def batch_embed(
         self,
@@ -71,6 +70,7 @@ class BaseEmbedding(ABC):
 
         Raises:
             EmbeddingError: If embedding generation fails
+
         """
         if not batch_size:
             return self.embed(texts, **kwargs)

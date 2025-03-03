@@ -49,6 +49,7 @@ class ModelInfo:
         context_window: Maximum context window size in tokens
         max_tokens: Maximum number of tokens in a response
         token_limit: Maximum number of tokens in a request
+
     """
 
     id: str
@@ -76,6 +77,7 @@ class ModelRegistry:
 
         Args:
             model: Model to register
+
         """
         self.models[model.id] = model
 
@@ -87,6 +89,7 @@ class ModelRegistry:
 
         Returns:
             Model info or None if not found
+
         """
         return self.models.get(model_id)
 
@@ -95,6 +98,7 @@ class ModelRegistry:
 
         Returns:
             List of registered models
+
         """
         return list(self.models.values())
 
@@ -108,6 +112,7 @@ class LLMMessage:
         content: Content of the message
         name: Optional name of the sender
         function_call: Optional function call information
+
     """
 
     role: str
@@ -126,6 +131,7 @@ class LLMResponse:
         usage: Token usage information
         finish_reason: Reason the generation finished
         created_at: Timestamp when the response was created
+
     """
 
     content: str
@@ -148,6 +154,7 @@ class LLMProvider:
 
         Args:
             name: Provider name
+
         """
         self.name = name
 
@@ -163,6 +170,7 @@ class LLMProvider:
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement generate method")
 
@@ -178,6 +186,7 @@ class LLMProvider:
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement chat method")
 
@@ -191,6 +200,7 @@ class ChatMessage:
         content: Content of the message
         timestamp: Timestamp when the message was created
         metadata: Additional metadata about the message
+
     """
 
     role: str
@@ -210,6 +220,7 @@ class ChatOptions:
         stop_sequences: Sequences that stop generation
         presence_penalty: Presence penalty for generation
         frequency_penalty: Frequency penalty for generation
+
     """
 
     model: str
@@ -233,6 +244,7 @@ class ChatSession:
         Args:
             provider: LLM provider to use
             options: Chat options
+
         """
         self.provider = provider
         self.options = options
@@ -243,6 +255,7 @@ class ChatSession:
 
         Args:
             message: Message to add
+
         """
         self.messages.append(message)
 
@@ -251,6 +264,7 @@ class ChatSession:
 
         Returns:
             Generated response message
+
         """
         # Convert ChatMessage to LLMMessage
         llm_messages = [
@@ -275,12 +289,12 @@ class ChatSession:
 
 # Export public classes
 __all__ = [
-    "LLMMessage",
-    "LLMProvider",
-    "LLMResponse",
     "ChatMessage",
     "ChatOptions",
     "ChatSession",
+    "LLMMessage",
+    "LLMProvider",
+    "LLMResponse",
     "ModelCapability",
     "ModelInfo",
     "ModelRegistry",

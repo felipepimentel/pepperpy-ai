@@ -41,6 +41,7 @@ class AgentFactory:
 
         Raises:
             AgentError: If agent creation fails
+
         """
         try:
             # Create agent using registry
@@ -80,6 +81,7 @@ class AgentFactory:
 
         Returns:
             Autonomous agent instance
+
         """
         config = {
             "name": name,
@@ -103,6 +105,7 @@ class AgentFactory:
 
         Returns:
             Interactive agent instance
+
         """
         config = {
             "name": name,
@@ -126,6 +129,7 @@ class AgentFactory:
 
         Returns:
             Workflow agent instance
+
         """
         config = {
             "name": name,
@@ -144,6 +148,7 @@ def get_agent_factory() -> AgentFactory:
 
     Returns:
         Agent factory instance
+
     """
     global _factory
     if _factory is None:

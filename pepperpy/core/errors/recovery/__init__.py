@@ -17,7 +17,7 @@ class ErrorRecoveryStrategy(ABC):
 
     @abstractmethod
     def recover(
-        self, error: Exception, operation: Callable[..., T], *args: Any, **kwargs: Any
+        self, error: Exception, operation: Callable[..., T], *args: Any, **kwargs: Any,
     ) -> T:
         """Attempt to recover from an error.
 
@@ -32,8 +32,8 @@ class ErrorRecoveryStrategy(ABC):
 
         Raises:
             Exception: If recovery fails
+
         """
-        pass
 
 
 class RetryStrategy(ErrorRecoveryStrategy):
@@ -45,12 +45,13 @@ class RetryStrategy(ErrorRecoveryStrategy):
         Args:
             max_attempts: Maximum number of retry attempts
             delay: Delay between attempts in seconds
+
         """
         self.max_attempts = max_attempts
         self.delay = delay
 
     def recover(
-        self, error: Exception, operation: Callable[..., T], *args: Any, **kwargs: Any
+        self, error: Exception, operation: Callable[..., T], *args: Any, **kwargs: Any,
     ) -> T:
         """Retry the operation up to max_attempts times.
 
@@ -65,6 +66,7 @@ class RetryStrategy(ErrorRecoveryStrategy):
 
         Raises:
             Exception: If all retries fail
+
         """
         import time
 
@@ -90,11 +92,12 @@ class FallbackStrategy(ErrorRecoveryStrategy):
 
         Args:
             fallback: Fallback value or function
+
         """
         self.fallback = fallback
 
     def recover(
-        self, error: Exception, operation: Callable[..., T], *args: Any, **kwargs: Any
+        self, error: Exception, operation: Callable[..., T], *args: Any, **kwargs: Any,
     ) -> T:
         """Return fallback value or execute fallback operation.
 
@@ -106,6 +109,7 @@ class FallbackStrategy(ErrorRecoveryStrategy):
 
         Returns:
             The fallback value or result
+
         """
         if callable(self.fallback):
             return self.fallback(*args, **kwargs)

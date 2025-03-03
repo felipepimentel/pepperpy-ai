@@ -46,6 +46,7 @@ class Lifecycle(ABC):
 
         Raises:
             StateError: If component is not in CREATED state
+
         """
         async with self._state_lock:
             if self._state != LifecycleState.CREATED:
@@ -67,7 +68,7 @@ class Lifecycle(ABC):
             except Exception as e:
                 self._state = LifecycleState.ERROR
                 self._logger.error(
-                    f"Failed to initialize component: {e}", exc_info=True
+                    f"Failed to initialize component: {e}", exc_info=True,
                 )
                 raise
 
@@ -79,6 +80,7 @@ class Lifecycle(ABC):
 
         Raises:
             StateError: If component is not in RUNNING state
+
         """
         async with self._state_lock:
             if self._state != LifecycleState.RUNNING:
@@ -110,7 +112,6 @@ class Lifecycle(ABC):
         This method should be overridden by subclasses to perform any
         necessary initialization steps.
         """
-        pass
 
     @abstractmethod
     async def _cleanup(self) -> None:
@@ -119,7 +120,6 @@ class Lifecycle(ABC):
         This method should be overridden by subclasses to perform any
         necessary cleanup steps.
         """
-        pass
 
     def is_running(self) -> bool:
         """Check if the component is in RUNNING state."""

@@ -39,6 +39,7 @@ class WorkflowCallback(Protocol):
 
         Args:
             workflow_id: Workflow ID
+
         """
         ...
 
@@ -55,6 +56,7 @@ class WorkflowCallback(Protocol):
 
         Args:
             workflow_id: Workflow ID
+
         """
         ...
 
@@ -64,6 +66,7 @@ class WorkflowCallback(Protocol):
         Args:
             workflow_id: Workflow ID
             error: Error that occurred
+
         """
         ...
 
@@ -73,6 +76,7 @@ class WorkflowCallback(Protocol):
         Args:
             workflow_id: Workflow ID
             step_name: Step name
+
         """
         ...
 
@@ -88,6 +92,7 @@ class WorkflowCallback(Protocol):
             workflow_id: Workflow ID
             step_name: Step name
             result: Step result
+
         """
         ...
 

@@ -30,6 +30,7 @@ class StandardRagPipeline(RagPipeline):
             component_id: Unique identifier for the pipeline
             name: Human-readable name for the pipeline
             description: Description of the pipeline's functionality
+
         """
         super().__init__(component_id, name, description)
         self._indexing_manager: Optional[IndexingManager] = None
@@ -45,6 +46,7 @@ class StandardRagPipeline(RagPipeline):
 
         Raises:
             ValueError: If the indexing manager is not set
+
         """
         if self._indexing_manager is None:
             raise ValueError("Indexing manager not set")
@@ -59,6 +61,7 @@ class StandardRagPipeline(RagPipeline):
 
         Raises:
             ValueError: If the retrieval manager is not set
+
         """
         if self._retrieval_manager is None:
             raise ValueError("Retrieval manager not set")
@@ -73,6 +76,7 @@ class StandardRagPipeline(RagPipeline):
 
         Raises:
             ValueError: If the generation manager is not set
+
         """
         if self._generation_manager is None:
             raise ValueError("Generation manager not set")
@@ -83,6 +87,7 @@ class StandardRagPipeline(RagPipeline):
 
         Args:
             component: The component to add
+
         """
         super().add_component(component)
 
@@ -102,6 +107,7 @@ class StandardRagPipeline(RagPipeline):
 
         Returns:
             The generated response
+
         """
         logger.info(f"Processing query: {query.query}")
 

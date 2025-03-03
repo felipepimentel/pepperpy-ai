@@ -18,11 +18,12 @@ def extract_imports(file_path: Path) -> List[str]:
 
     Returns:
         List of imported modules
+
     """
     imports = []
 
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Match 'import pepperpy.x.y' patterns
@@ -49,6 +50,7 @@ def build_dependency_graph(project_root: Path) -> Dict[str, Set[str]]:
 
     Returns:
         Dictionary mapping module names to sets of imported modules
+
     """
     graph: Dict[str, Set[str]] = {}
 
@@ -68,8 +70,7 @@ def build_dependency_graph(project_root: Path) -> Dict[str, Set[str]]:
                 module_name = str(rel_path).replace("/", ".").replace(".py", "")
 
                 # Special case for __init__.py
-                if module_name.endswith(".__init__"):
-                    module_name = module_name[:-9]
+                module_name = module_name.removesuffix(".__init__")
 
                 # Extract imports
                 imports = extract_imports(file_path)
@@ -92,6 +93,7 @@ def find_cycles(graph: Dict[str, Set[str]]) -> List[List[str]]:
 
     Returns:
         List of cycles, where each cycle is a list of module names
+
     """
     cycles: List[List[str]] = []
     visited: Set[str] = set()
@@ -134,6 +136,7 @@ def analyze_cycles(cycles: List[List[str]]) -> List[Tuple[List[str], str]]:
 
     Returns:
         List of tuples (cycle, description)
+
     """
     analyzed_cycles: List[Tuple[List[str], str]] = []
 

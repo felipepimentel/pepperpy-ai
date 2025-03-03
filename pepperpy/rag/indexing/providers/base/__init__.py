@@ -17,10 +17,10 @@ from pepperpy.rag.indexing.providers.base.types import (
 
 __all__ = [
     "IndexingProvider",
-    "register_indexing_provider",
-    "get_indexing_provider",
-    "list_indexing_providers",
     "IndexingProviderType",
     "IndexingRequest",
     "IndexingResponse",
+    "get_indexing_provider",
+    "list_indexing_providers",
+    "register_indexing_provider",
 ]

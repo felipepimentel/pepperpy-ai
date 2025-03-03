@@ -68,6 +68,7 @@ class LogLevel:
 
         Raises:
             ValidationError: If level is invalid
+
         """
         level_map = {
             "DEBUG": cls.DEBUG,
@@ -92,6 +93,7 @@ class LogLevel:
 
         Raises:
             ValidationError: If level is invalid
+
         """
         level_map = {
             cls.DEBUG: "DEBUG",
@@ -114,6 +116,7 @@ class LogRecord:
         message: Log message
         context: Log context
         exception: Exception if any
+
     """
 
     def __init__(
@@ -132,6 +135,7 @@ class LogRecord:
             message: Log message
             context: Optional log context
             exception: Optional exception
+
         """
         BaseModel, Field = get_model_imports()
         self.level = LogLevel.from_str(level) if isinstance(level, str) else level
@@ -199,6 +203,7 @@ class LogHandler(Lifecycle):
 
         Args:
             record: Log record to handle
+
         """
         raise NotImplementedError
 
@@ -243,6 +248,7 @@ class LogManager(Lifecycle):
 
         Raises:
             ValidationError: If handler already exists
+
         """
         if name in self._handlers:
             raise ValidationError(f"Handler already exists: {name}")
@@ -256,6 +262,7 @@ class LogManager(Lifecycle):
 
         Raises:
             ValidationError: If handler does not exist
+
         """
         if name not in self._handlers:
             raise ValidationError(f"Handler does not exist: {name}")
@@ -272,6 +279,7 @@ class LogManager(Lifecycle):
 
         Raises:
             ValidationError: If handler does not exist
+
         """
         if name not in self._handlers:
             raise ValidationError(f"Handler does not exist: {name}")
@@ -285,6 +293,7 @@ class LogManager(Lifecycle):
 
         Returns:
             True if handler exists, False otherwise
+
         """
         return name in self._handlers
 
@@ -293,5 +302,6 @@ class LogManager(Lifecycle):
 
         Returns:
             List of handlers
+
         """
         return list(self._handlers.values())

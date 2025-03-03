@@ -30,8 +30,8 @@ class Formatter(ABC):
 
         Returns:
             Formatted string representation
+
         """
-        pass
 
     @abstractmethod
     def format_to_file(self, data: Any, file_path: str) -> None:
@@ -40,8 +40,8 @@ class Formatter(ABC):
         Args:
             data: Data to format
             file_path: Path to output file
+
         """
-        pass
 
 
 class TextFormatter(Formatter):
@@ -55,6 +55,7 @@ class TextFormatter(Formatter):
 
         Returns:
             Text representation
+
         """
         return str(data)
 
@@ -64,6 +65,7 @@ class TextFormatter(Formatter):
         Args:
             data: Data to format as text
             file_path: Path to output file
+
         """
         with open(file_path, "w", encoding="utf-8") as f:
             f.write(self.format(data))
@@ -78,6 +80,7 @@ class JsonFormatter(Formatter):
         Args:
             indent: Number of spaces for indentation
             **kwargs: Additional arguments passed to json.dumps/json.dump
+
         """
         self.kwargs = {"indent": indent, "ensure_ascii": False, **kwargs}
 
@@ -89,6 +92,7 @@ class JsonFormatter(Formatter):
 
         Returns:
             JSON string representation
+
         """
         return json.dumps(data, **self.kwargs)
 
@@ -98,6 +102,7 @@ class JsonFormatter(Formatter):
         Args:
             data: Data to format as JSON
             file_path: Path to output file
+
         """
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, **self.kwargs)
@@ -111,9 +116,10 @@ class JsonFormatter(Formatter):
 
         Returns:
             JSON data as dictionary
+
         """
         path = Path(path)
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
 
     @staticmethod
@@ -125,6 +131,7 @@ class JsonFormatter(Formatter):
 
         Returns:
             JSON data as dictionary
+
         """
         return json.loads(text)
 
@@ -138,6 +145,7 @@ class JsonFormatter(Formatter):
 
         Returns:
             Merged dictionary
+
         """
         result = base.copy()
         for key, value in override.items():
@@ -153,7 +161,7 @@ class JsonFormatter(Formatter):
 
     @staticmethod
     def get_value(
-        data: Dict[str, Any], path: str, default: Any = None, separator: str = "."
+        data: Dict[str, Any], path: str, default: Any = None, separator: str = ".",
     ) -> Any:
         """Get value from nested JSON using path.
 
@@ -165,6 +173,7 @@ class JsonFormatter(Formatter):
 
         Returns:
             Value at path or default
+
         """
         current = data
         for key in path.split(separator):
@@ -175,7 +184,7 @@ class JsonFormatter(Formatter):
 
     @staticmethod
     def set_value(
-        data: Dict[str, Any], path: str, value: Any, separator: str = "."
+        data: Dict[str, Any], path: str, value: Any, separator: str = ".",
     ) -> None:
         """Set value in nested JSON using path.
 
@@ -184,6 +193,7 @@ class JsonFormatter(Formatter):
             path: Path to value (e.g. "user.address.city")
             value: Value to set
             separator: Path separator
+
         """
         keys = path.split(separator)
         current = data
@@ -205,6 +215,7 @@ class YamlFormatter(Formatter):
         Args:
             default_flow_style: YAML flow style setting
             **kwargs: Additional arguments passed to yaml.dump
+
         """
         self.kwargs = {"default_flow_style": default_flow_style, **kwargs}
         self._ensure_yaml_available()
@@ -215,11 +226,12 @@ class YamlFormatter(Formatter):
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         if not YAML_AVAILABLE:
             raise ImportError(
                 "PyYAML is required for YAML operations. "
-                "Install it with: pip install pyyaml"
+                "Install it with: pip install pyyaml",
             )
 
     def format(self, data: Any) -> str:
@@ -230,6 +242,7 @@ class YamlFormatter(Formatter):
 
         Returns:
             YAML string representation
+
         """
         self._ensure_yaml_available()
         return yaml.dump(data, **self.kwargs)
@@ -240,6 +253,7 @@ class YamlFormatter(Formatter):
         Args:
             data: Data to format as YAML
             file_path: Path to output file
+
         """
         self._ensure_yaml_available()
         with open(file_path, "w", encoding="utf-8") as f:
@@ -257,10 +271,11 @@ class YamlFormatter(Formatter):
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         YamlFormatter._ensure_yaml_available()
         path = Path(path)
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return yaml.safe_load(f)
 
     @staticmethod
@@ -275,6 +290,7 @@ class YamlFormatter(Formatter):
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         YamlFormatter._ensure_yaml_available()
         return yaml.safe_load(text)
@@ -292,6 +308,7 @@ class YamlFormatter(Formatter):
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         YamlFormatter._ensure_yaml_available()
         return yaml.dump(data, default_flow_style=default_flow_style)
@@ -306,6 +323,7 @@ class YamlFormatter(Formatter):
 
         Returns:
             Merged dictionary
+
         """
         result = base.copy()
         for key, value in override.items():
@@ -329,6 +347,7 @@ class XmlFormatter(Formatter):
         Args:
             encoding: Output encoding
             **kwargs: Additional arguments passed to ElementTree.write
+
         """
         self.encoding = encoding
         self.kwargs = kwargs
@@ -341,6 +360,7 @@ class XmlFormatter(Formatter):
 
         Returns:
             XML string representation
+
         """
         return ET.tostring(data, encoding=self.encoding, **self.kwargs).decode("utf-8")
 
@@ -350,6 +370,7 @@ class XmlFormatter(Formatter):
         Args:
             data: XML element to format
             file_path: Path to output file
+
         """
         tree = ET.ElementTree(data)
         tree.write(file_path, encoding=self.encoding, **self.kwargs)

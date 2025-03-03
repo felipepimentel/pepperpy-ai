@@ -17,6 +17,7 @@ class TextProcessor(BaseComponent):
         Args:
             name: Processor name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -29,6 +30,7 @@ class TextProcessor(BaseComponent):
 
         Returns:
             Processed text
+
         """
         # Apply configured transformations
         result = text
@@ -52,6 +54,7 @@ class TextProcessor(BaseComponent):
 
         Returns:
             Normalized text
+
         """
         # Remove extra whitespace
         text = " ".join(text.split())
@@ -71,6 +74,7 @@ class TextProcessor(BaseComponent):
 
         Returns:
             Formatted text
+
         """
         # Apply basic formatting
         text = text.capitalize()
@@ -95,6 +99,7 @@ class TextProcessor(BaseComponent):
 
         Returns:
             Styled text
+
         """
         if style == "formal":
             # Add formal language patterns

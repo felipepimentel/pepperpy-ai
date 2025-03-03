@@ -51,7 +51,6 @@ class ImageDescription:
 class VisionError(Exception):
     """Base exception for vision processing errors."""
 
-    pass
 
 
 class VisionProcessor(ABC):
@@ -59,7 +58,7 @@ class VisionProcessor(ABC):
 
     @abstractmethod
     async def process(
-        self, image_path: Union[str, Path], **kwargs: Any
+        self, image_path: Union[str, Path], **kwargs: Any,
     ) -> Union[ImageFeatures, ImageDescription, List[Detection], ImageData]:
         """Process an image.
 
@@ -72,8 +71,8 @@ class VisionProcessor(ABC):
 
         Raises:
             VisionError: If processing fails
+
         """
-        pass
 
 
 class ImageLoader:
@@ -91,6 +90,7 @@ class ImageLoader:
 
         Raises:
             VisionError: If image loading fails
+
         """
         try:
             import numpy as np
@@ -117,7 +117,7 @@ class ImageLoader:
         except ImportError:
             raise VisionError("PIL and numpy are required for image loading") from None
         except Exception as e:
-            raise VisionError(f"Failed to load image: {str(e)}") from e
+            raise VisionError(f"Failed to load image: {e!s}") from e
 
     @staticmethod
     def resize(image: ImageData, width: int, height: int) -> ImageData:
@@ -133,6 +133,7 @@ class ImageLoader:
 
         Raises:
             VisionError: If resizing fails
+
         """
         try:
             import numpy as np
@@ -158,7 +159,7 @@ class ImageLoader:
         except ImportError:
             raise VisionError("PIL and numpy are required for image resizing") from None
         except Exception as e:
-            raise VisionError(f"Failed to resize image: {str(e)}") from e
+            raise VisionError(f"Failed to resize image: {e!s}") from e
 
     @staticmethod
     def normalize(image: ImageData) -> ImageData:
@@ -172,6 +173,7 @@ class ImageLoader:
 
         Raises:
             VisionError: If normalization fails
+
         """
         try:
             import numpy as np
@@ -190,7 +192,7 @@ class ImageLoader:
         except ImportError:
             raise VisionError("Numpy is required for image normalization") from None
         except Exception as e:
-            raise VisionError(f"Failed to normalize image: {str(e)}") from e
+            raise VisionError(f"Failed to normalize image: {e!s}") from e
 
     @staticmethod
     def to_tensor(image: ImageData) -> Any:
@@ -204,6 +206,7 @@ class ImageLoader:
 
         Raises:
             VisionError: If conversion fails
+
         """
         try:
             import numpy as np
@@ -219,17 +222,17 @@ class ImageLoader:
         except ImportError:
             raise VisionError("Numpy is required for tensor conversion") from None
         except Exception as e:
-            raise VisionError(f"Failed to convert image to tensor: {str(e)}") from e
+            raise VisionError(f"Failed to convert image to tensor: {e!s}") from e
 
 
 # Re-export ImageData for convenience
 __all__ = [
     "BoundingBox",
     "Detection",
-    "ImageFeatures",
+    "ImageData",
     "ImageDescription",
+    "ImageFeatures",
+    "ImageLoader",
     "VisionError",
     "VisionProcessor",
-    "ImageLoader",
-    "ImageData",
 ]

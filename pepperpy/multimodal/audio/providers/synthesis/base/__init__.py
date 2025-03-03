@@ -27,8 +27,8 @@ __all__ = [
     "SynthesisError",
     "SynthesisProvider",
     "SynthesisProviderProtocol",
-    "register_synthesis_provider",
     "get_synthesis_provider_class",
-    "list_synthesis_providers",
     "get_synthesis_registry",
+    "list_synthesis_providers",
+    "register_synthesis_provider",
 ]

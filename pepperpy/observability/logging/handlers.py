@@ -34,6 +34,7 @@ class FileHandler(LogHandler):
             backup_count: Number of backup files to keep
             compress: Whether to compress backup files
             indent: Optional JSON indentation
+
         """
         super().__init__(name)
         self.filename = filename
@@ -65,6 +66,7 @@ class FileHandler(LogHandler):
 
         Args:
             record: Log record to handle
+
         """
         if not self._file:
             return
@@ -90,6 +92,7 @@ class FileHandler(LogHandler):
 
         Returns:
             True if file should be rotated
+
         """
         if not self._file:
             return False

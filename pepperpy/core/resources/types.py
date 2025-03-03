@@ -62,6 +62,7 @@ class Resource(Protocol):
 
         Returns:
             str: Resource ID
+
         """
         ...
 
@@ -71,6 +72,7 @@ class Resource(Protocol):
 
         Returns:
             ResourceType: Resource type
+
         """
         ...
 
@@ -80,6 +82,7 @@ class Resource(Protocol):
 
         Returns:
             ResourceState: Resource state
+
         """
         ...
 
@@ -89,6 +92,7 @@ class Resource(Protocol):
 
         Returns:
             ResourceMetadata: Resource metadata
+
         """
         ...
 
@@ -156,6 +160,7 @@ class Asset(Protocol):
 
         Returns:
             str: Asset ID
+
         """
         ...
 
@@ -165,6 +170,7 @@ class Asset(Protocol):
 
         Returns:
             AssetType: Asset type
+
         """
         ...
 
@@ -174,6 +180,7 @@ class Asset(Protocol):
 
         Returns:
             AssetState: Asset state
+
         """
         ...
 
@@ -183,6 +190,7 @@ class Asset(Protocol):
 
         Returns:
             AssetMetadata: Asset metadata
+
         """
         ...
 

@@ -70,7 +70,6 @@ console = Console()
 @click.group()
 def config() -> None:
     """Manage Pepperpy configuration."""
-    pass
 
 
 @config.command()
@@ -87,7 +86,7 @@ def set_value_cmd(key: str, value: str) -> None:
         console.print(f"[green]Set config:[/green] {key}={value}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -105,7 +104,7 @@ def get_value_cmd(key: str) -> None:
         console.print(f"[green]Config value:[/green] {key}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -123,7 +122,7 @@ def list() -> None:
         console.print(table)
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -137,7 +136,7 @@ def init() -> None:
         console.print("[green]Initialized default configuration[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -151,7 +150,7 @@ def validate_conf_cmd() -> None:
         console.print("[green]Configuration is valid[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -169,7 +168,7 @@ def reset(force: bool) -> None:
         console.print("[green]Reset configuration to defaults[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e

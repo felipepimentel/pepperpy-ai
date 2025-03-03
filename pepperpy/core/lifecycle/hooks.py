@@ -22,6 +22,7 @@ class LoggingHook(LifecycleHook):
             component_id: Component identifier
             event: Event name
             **kwargs: Additional event data
+
         """
         logger.info(f"{component_id}: Starting {event}")
 
@@ -32,11 +33,12 @@ class LoggingHook(LifecycleHook):
             component_id: Component identifier
             event: Event name
             **kwargs: Additional event data
+
         """
         logger.info(f"{component_id}: Completed {event}")
 
     def on_error(
-        self, component_id: str, event: str, error: Exception, **kwargs: Any
+        self, component_id: str, event: str, error: Exception, **kwargs: Any,
     ) -> None:
         """Log error in lifecycle event.
 
@@ -45,6 +47,7 @@ class LoggingHook(LifecycleHook):
             event: Event name
             error: Error that occurred
             **kwargs: Additional event data
+
         """
         logger.error(f"{component_id}: Error in {event}: {error}")
 
@@ -63,6 +66,7 @@ class MetricsHook(LifecycleHook):
         Args:
             component_id: Component identifier
             event: Event name
+
         """
         counter_key = f"{component_id}_{event}"
         if counter_key not in self._counters:
@@ -87,11 +91,12 @@ class MetricsHook(LifecycleHook):
             component_id: Component identifier
             event: Event name
             **kwargs: Additional event data
+
         """
         self._ensure_metrics(component_id, event)
         counter_key = f"{component_id}_{event}"
         self._counters[counter_key].inc(
-            labels={"component_id": component_id, "event": event, "state": "start"}
+            labels={"component_id": component_id, "event": event, "state": "start"},
         )
 
     def on_complete(
@@ -108,22 +113,23 @@ class MetricsHook(LifecycleHook):
             event: Event name
             duration: Optional duration of event
             **kwargs: Additional event data
+
         """
         self._ensure_metrics(component_id, event)
         counter_key = f"{component_id}_{event}"
         histogram_key = f"{component_id}_{event}"
 
         self._counters[counter_key].inc(
-            labels={"component_id": component_id, "event": event, "state": "complete"}
+            labels={"component_id": component_id, "event": event, "state": "complete"},
         )
 
         if duration is not None:
             self._histograms[histogram_key].observe(
-                duration, labels={"component_id": component_id, "event": event}
+                duration, labels={"component_id": component_id, "event": event},
             )
 
     def on_error(
-        self, component_id: str, event: str, error: Exception, **kwargs: Any
+        self, component_id: str, event: str, error: Exception, **kwargs: Any,
     ) -> None:
         """Record error in lifecycle event.
 
@@ -132,6 +138,7 @@ class MetricsHook(LifecycleHook):
             event: Event name
             error: Error that occurred
             **kwargs: Additional event data
+
         """
         self._ensure_metrics(component_id, event)
         counter_key = f"{component_id}_{event}"
@@ -141,5 +148,5 @@ class MetricsHook(LifecycleHook):
                 "event": event,
                 "state": "error",
                 "error": str(error),
-            }
+            },
         )

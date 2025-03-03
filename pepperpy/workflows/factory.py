@@ -23,6 +23,7 @@ class WorkflowRegistry:
         Args:
             action: Action identifier
             workflow_class: Workflow class to register
+
         """
         self._workflows[action] = workflow_class
 
@@ -34,6 +35,7 @@ class WorkflowRegistry:
 
         Returns:
             Workflow class if registered, None otherwise
+
         """
         return self._workflows.get(action)
 
@@ -47,13 +49,14 @@ class WorkflowFactory:
         self._default_workflow_class: Type[BaseWorkflow] = BaseWorkflow
 
     def register_workflow(
-        self, action: str, workflow_class: Type[BaseWorkflow]
+        self, action: str, workflow_class: Type[BaseWorkflow],
     ) -> None:
         """Register a workflow implementation.
 
         Args:
             action: Action identifier
             workflow_class: Workflow class to register
+
         """
         self.registry.register(action, workflow_class)
 
@@ -62,6 +65,7 @@ class WorkflowFactory:
 
         Args:
             workflow_class: Default workflow class
+
         """
         self._default_workflow_class = workflow_class
 
@@ -73,6 +77,7 @@ class WorkflowFactory:
 
         Returns:
             Workflow instance
+
         """
         # Check if there's a specific workflow class for this definition
         workflow_type = definition.metadata.get("workflow_type")
@@ -95,6 +100,7 @@ class WorkflowFactory:
 
         Raises:
             ValueError: If data is invalid
+
         """
         if "name" not in data:
             raise ValueError("Workflow definition must have a name")
@@ -136,7 +142,7 @@ class WorkflowFactory:
         return self.create(definition)
 
     def load_from_module(
-        self, module_path: str, attr_name: str = "workflow"
+        self, module_path: str, attr_name: str = "workflow",
     ) -> BaseWorkflow:
         """Load a workflow from a Python module.
 
@@ -151,18 +157,18 @@ class WorkflowFactory:
             ImportError: If module cannot be imported
             AttributeError: If attribute does not exist
             TypeError: If attribute is not a WorkflowDefinition or BaseWorkflow
+
         """
         module = importlib.import_module(module_path)
         attr = getattr(module, attr_name)
 
         if isinstance(attr, WorkflowDefinition):
             return self.create(attr)
-        elif isinstance(attr, BaseWorkflow):
+        if isinstance(attr, BaseWorkflow):
             return attr
-        else:
-            raise TypeError(
-                f"Expected WorkflowDefinition or BaseWorkflow, got {type(attr).__name__}"
-            )
+        raise TypeError(
+            f"Expected WorkflowDefinition or BaseWorkflow, got {type(attr).__name__}",
+        )
 
 
 # Global factory instance

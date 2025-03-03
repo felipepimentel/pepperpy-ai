@@ -11,7 +11,6 @@ from uuid import UUID, uuid4
 class ComponentID(UUID):
     """Component identifier type."""
 
-    pass
 
 
 Metadata = Dict[str, Any]
@@ -26,6 +25,7 @@ class BaseComponent(ABC):
         Args:
             name: Component name
             id: Optional component ID (auto-generated if not provided)
+
         """
         self._id = id or uuid4()
         self._name = name
@@ -52,6 +52,7 @@ class BaseComponent(ABC):
         Args:
             key: Metadata key
             value: Metadata value
+
         """
         self._metadata[key] = value
 
@@ -63,6 +64,7 @@ class BaseComponent(ABC):
 
         Returns:
             Metadata value if found, None otherwise
+
         """
         return self._metadata.get(key)
 
@@ -72,4 +74,3 @@ class BaseComponent(ABC):
 
         This method must be implemented by subclasses.
         """
-        pass

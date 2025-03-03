@@ -33,6 +33,7 @@ class Document:
         id: Unique identifier for the document
         content: The content of the document
         metadata: Additional metadata about the document
+
     """
 
     id: str
@@ -48,6 +49,7 @@ class SearchQuery:
         query: The query text
         top_k: Number of results to return
         filters: Metadata filters to apply
+
     """
 
     query: str
@@ -63,6 +65,7 @@ class SearchResult:
         document: The retrieved document
         score: Relevance score for the document
         metadata: Additional metadata about the result
+
     """
 
     document: Document
@@ -84,6 +87,7 @@ class Retriever:
         Args:
             name: Human-readable name for the retriever
             description: Description of the retriever's functionality
+
         """
         self.name = name
         self.description = description
@@ -99,6 +103,7 @@ class Retriever:
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement search method")
 
@@ -110,6 +115,7 @@ class Retriever:
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement add_documents method")
 
@@ -121,6 +127,7 @@ class Retriever:
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement delete_documents method")
 
@@ -146,6 +153,7 @@ class VectorRetriever(Retriever):
             embedding_provider: Provider for generating embeddings
             vector_store: Storage for vector embeddings
             description: Description of the retriever's functionality
+
         """
         super().__init__(name, description)
         self.embedding_provider = embedding_provider
@@ -159,6 +167,7 @@ class VectorRetriever(Retriever):
 
         Returns:
             List of search results
+
         """
         # Convert string query to SearchQuery if needed
         if isinstance(query, str):
@@ -192,6 +201,7 @@ class VectorRetriever(Retriever):
 
         Args:
             documents: The documents to add
+
         """
         # Generate embeddings for the documents
         embeddings = []
@@ -209,7 +219,7 @@ class VectorRetriever(Retriever):
                     "embedding": embedding,
                 }
                 for doc, embedding in zip(documents, embeddings)
-            ]
+            ],
         )
 
     async def delete_documents(self, document_ids: List[str]) -> None:
@@ -217,6 +227,7 @@ class VectorRetriever(Retriever):
 
         Args:
             document_ids: The IDs of the documents to delete
+
         """
         await self.vector_store.delete(document_ids)
 
@@ -229,6 +240,7 @@ class RAGPipeline:
 
         Args:
             name: Pipeline name
+
         """
         self.name = name
 
@@ -241,6 +253,7 @@ class RAGConfig:
 
         Args:
             retriever: Retriever to use
+
         """
         self.retriever = retriever
 
@@ -257,6 +270,7 @@ class RAGFactory:
 
         Returns:
             Configured RAG pipeline
+
         """
         return RAGPipeline(name=f"rag-{config.retriever.name}")
 

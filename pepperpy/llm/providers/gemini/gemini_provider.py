@@ -11,7 +11,7 @@ from pepperpy.llm.providers.base.base import LLMProviderBase
 
 class GeminiProvider(LLMProviderBase):
     """Provider implementation for Google's Gemini LLMs."""
-    
+
     def __init__(
         self,
         api_key: str,
@@ -22,12 +22,13 @@ class GeminiProvider(LLMProviderBase):
         Args:
             api_key: Google API key for Gemini
             **kwargs: Additional configuration parameters
+
         """
         super().__init__()
         self.api_key = api_key
         self._client = None
         self._kwargs = kwargs
-    
+
     @property
     def client(self):
         """Get or initialize the Gemini client."""
@@ -39,10 +40,10 @@ class GeminiProvider(LLMProviderBase):
             except ImportError:
                 raise ImportError(
                     "google-generativeai package is required for GeminiProvider. "
-                    "Install it with: pip install google-generativeai"
+                    "Install it with: pip install google-generativeai",
                 ) from None
         return self._client
-    
+
     def generate(
         self,
         prompt: str,
@@ -58,15 +59,16 @@ class GeminiProvider(LLMProviderBase):
             
         Returns:
             LLMResponse object with the generated text
+
         """
         options = options or CompletionOptions()
-        
+
         # Placeholder implementation
         return LLMResponse(
             text="This is a placeholder response from Gemini provider.",
             model=options.model,
         )
-    
+
     def chat(
         self,
         messages: List[ChatMessage],
@@ -82,20 +84,22 @@ class GeminiProvider(LLMProviderBase):
             
         Returns:
             LLMResponse object with the generated text
+
         """
         options = options or CompletionOptions()
-        
+
         # Placeholder implementation
         return LLMResponse(
             text="This is a placeholder response from Gemini chat provider.",
             model=options.model,
         )
-    
+
     def get_models(self) -> List[str]:
         """Get list of available models.
         
         Returns:
             List of model identifiers
+
         """
         return [
             "gemini-1.5-pro",
@@ -103,7 +107,7 @@ class GeminiProvider(LLMProviderBase):
             "gemini-1.0-pro",
             "gemini-1.0-pro-vision",
         ]
-    
+
     def get_model_parameters(self, model_name: str) -> ModelParameters:
         """Get parameters for a specific model.
         
@@ -115,6 +119,7 @@ class GeminiProvider(LLMProviderBase):
             
         Raises:
             ValueError: If the model is not found
+
         """
         models = {
             "gemini-1.5-pro": ModelParameters(
@@ -146,8 +151,8 @@ class GeminiProvider(LLMProviderBase):
                 supports_vision=True,
             ),
         }
-        
+
         if model_name not in models:
             raise ValueError(f"Model '{model_name}' not found")
-        
+
         return models[model_name]

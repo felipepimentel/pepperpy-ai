@@ -22,13 +22,14 @@ class Environment:
 
         Returns:
             str: Current environment name
+
         """
         if cls._current is None:
             cls._current = os.getenv("PEPPERPY_ENV", ENV_DEVELOPMENT)
             if cls._current not in cls._environments:
                 raise ValueError(
                     f"Invalid environment: {cls._current}. "
-                    f"Must be one of: {', '.join(sorted(cls._environments))}"
+                    f"Must be one of: {', '.join(sorted(cls._environments))}",
                 )
         return cls._current
 
@@ -41,11 +42,12 @@ class Environment:
 
         Raises:
             ValueError: If the environment name is invalid
+
         """
         if env not in cls._environments:
             raise ValueError(
                 f"Invalid environment: {env}. "
-                f"Must be one of: {', '.join(sorted(cls._environments))}"
+                f"Must be one of: {', '.join(sorted(cls._environments))}",
             )
         cls._current = env
         os.environ["PEPPERPY_ENV"] = env
@@ -71,6 +73,7 @@ class Environment:
 
         Args:
             env: Environment name to register
+
         """
         cls._environments.add(env)
 
@@ -83,6 +86,7 @@ class Environment:
 
         Raises:
             ValueError: If trying to unregister a built-in environment
+
         """
         if env in {ENV_DEVELOPMENT, ENV_PRODUCTION, ENV_TEST}:
             raise ValueError(f"Cannot unregister built-in environment: {env}")
@@ -94,5 +98,6 @@ class Environment:
 
         Returns:
             set[str]: Set of registered environment names
+
         """
         return cls._environments.copy()

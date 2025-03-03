@@ -44,6 +44,7 @@ class StreamProcessor(Lifecycle, Generic[T, U]):
             buffer_size: Maximum items in buffer
             batch_size: Items to process in batch
             metrics: Optional metrics collector
+
         """
         super().__init__()
         self.name = name
@@ -57,10 +58,10 @@ class StreamProcessor(Lifecycle, Generic[T, U]):
         # Initialize metrics
         if metrics:
             self._processed_items = metrics.counter(
-                f"{name}_processed_items", {"processor": name}
+                f"{name}_processed_items", {"processor": name},
             )
             self._processing_errors = metrics.counter(
-                f"{name}_processing_errors", {"processor": name}
+                f"{name}_processing_errors", {"processor": name},
             )
             self._processing_time = metrics.histogram(
                 f"{name}_processing_time",
@@ -103,6 +104,7 @@ class StreamProcessor(Lifecycle, Generic[T, U]):
         Raises:
             ProcessingError: If processing fails
             StateError: If processor is not running
+
         """
         if not self.is_running():
             raise ProcessingError("Processor is not running")
@@ -163,6 +165,7 @@ class StreamProcessor(Lifecycle, Generic[T, U]):
 
         Returns:
             Dictionary of metric values
+
         """
         if not self._metrics:
             return {}

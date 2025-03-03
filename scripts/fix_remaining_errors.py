@@ -31,7 +31,7 @@ def fix_agent_py():
 
     # Corrigir erro de sintaxe no final do arquivo
     content = re.sub(
-        r"raise click\.Abort\(\) from e\s+", "raise click.Abort() from e\n", content
+        r"raise click\.Abort\(\) from e\s+", "raise click.Abort() from e\n", content,
     )
 
     file_path.write_text(content)
@@ -64,11 +64,11 @@ def fix_config_py():
     )
 
     content = re.sub(
-        r"def get\(key: str\) -> None:", "def get_config(key: str) -> None:", content
+        r"def get\(key: str\) -> None:", "def get_config(key: str) -> None:", content,
     )
 
     content = re.sub(
-        r"def validate\(\) -> None:", "def validate_config() -> None:", content
+        r"def validate\(\) -> None:", "def validate_config() -> None:", content,
     )
 
     file_path.write_text(content)
@@ -115,7 +115,7 @@ def fix_run_py():
 
     # Corrigir variável não utilizada
     content = re.sub(
-        r"definition = \{\}", "# definition = {}  # Variável não utilizada", content
+        r"definition = \{\}", "# definition = {}  # Variável não utilizada", content,
     )
 
     file_path.write_text(content)
@@ -232,7 +232,7 @@ def fix_formatters_py():
 
     # Corrigir indentação inesperada
     content = re.sub(
-        r'"""\s+\s+timestamp: datetime', '"""\n\n    timestamp: datetime', content
+        r'"""\s+\s+timestamp: datetime', '"""\n\n    timestamp: datetime', content,
     )
 
     # Corrigir erro de sintaxe na definição de classe
@@ -395,7 +395,7 @@ def fix_versioning_migration_py():
     # Adicionar import datetime
     if "import datetime" not in content:
         content = re.sub(
-            r"import logging\s+", "import logging\nimport datetime\n", content
+            r"import logging\s+", "import logging\nimport datetime\n", content,
         )
 
     file_path.write_text(content)

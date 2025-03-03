@@ -22,25 +22,21 @@ K = TypeVar("K", str, int, bytes)
 class CacheError(Exception):
     """Base exception for cache-related errors."""
 
-    pass
 
 
 class SerializationError(CacheError):
     """Error during value serialization/deserialization."""
 
-    pass
 
 
 class BackendError(CacheError):
     """Error in cache backend operation."""
 
-    pass
 
 
 class PolicyError(CacheError):
     """Error in cache policy operation."""
 
-    pass
 
 
 @dataclass
@@ -60,6 +56,7 @@ class CacheEntry(Generic[T]):
 
         Returns:
             True if expired, False otherwise
+
         """
         if self.expires_at is None:
             return False
@@ -86,8 +83,8 @@ class Serializer(ABC):
 
         Raises:
             SerializationError: If serialization fails
+
         """
-        pass
 
     @abstractmethod
     def deserialize(self, data: bytes) -> Any:
@@ -101,8 +98,8 @@ class Serializer(ABC):
 
         Raises:
             SerializationError: If deserialization fails
+
         """
-        pass
 
 
 class PickleSerializer(Serializer):
@@ -119,6 +116,7 @@ class PickleSerializer(Serializer):
 
         Raises:
             SerializationError: If serialization fails
+
         """
         try:
             return pickle.dumps(value)
@@ -136,6 +134,7 @@ class PickleSerializer(Serializer):
 
         Raises:
             SerializationError: If deserialization fails
+
         """
         try:
             return pickle.loads(data)
@@ -164,12 +163,12 @@ class CachePolicy(ABC):
 
         Returns:
             Policy type enum value
+
         """
-        pass
 
     @abstractmethod
     def select_entries_to_evict(
-        self, entries: Dict[str, CacheEntry], count: int = 1
+        self, entries: Dict[str, CacheEntry], count: int = 1,
     ) -> List[str]:
         """Select entries to evict based on policy.
 
@@ -182,8 +181,8 @@ class CachePolicy(ABC):
 
         Raises:
             PolicyError: If selection fails
+
         """
-        pass
 
 
 class CacheBackend(ABC, Generic[T]):
@@ -194,6 +193,7 @@ class CacheBackend(ABC, Generic[T]):
 
         Args:
             serializer: Optional serializer for values
+
         """
         self.serializer = serializer or PickleSerializer()
 
@@ -209,12 +209,12 @@ class CacheBackend(ABC, Generic[T]):
 
         Raises:
             BackendError: If retrieval fails
+
         """
-        pass
 
     @abstractmethod
     async def set(
-        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
+        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None,
     ) -> None:
         """Set a value in cache.
 
@@ -225,8 +225,8 @@ class CacheBackend(ABC, Generic[T]):
 
         Raises:
             BackendError: If storage fails
+
         """
-        pass
 
     @abstractmethod
     async def delete(self, key: str) -> bool:
@@ -240,8 +240,8 @@ class CacheBackend(ABC, Generic[T]):
 
         Raises:
             BackendError: If deletion fails
+
         """
-        pass
 
     @abstractmethod
     async def clear(self) -> None:
@@ -249,8 +249,8 @@ class CacheBackend(ABC, Generic[T]):
 
         Raises:
             BackendError: If clearing fails
+
         """
-        pass
 
     @abstractmethod
     async def contains(self, key: str) -> bool:
@@ -264,8 +264,8 @@ class CacheBackend(ABC, Generic[T]):
 
         Raises:
             BackendError: If check fails
+
         """
-        pass
 
     def _convert_ttl(self, ttl: Optional[Union[int, timedelta]]) -> Optional[datetime]:
         """Convert TTL to expiration datetime.
@@ -275,6 +275,7 @@ class CacheBackend(ABC, Generic[T]):
 
         Returns:
             Expiration datetime or None if no TTL
+
         """
         if ttl is None:
             return None
@@ -298,6 +299,7 @@ class Cache(Generic[T]):
             backend: Cache storage backend
             policy: Optional eviction policy
             namespace: Optional namespace for keys
+
         """
         self.backend = backend
         self.policy = policy
@@ -311,6 +313,7 @@ class Cache(Generic[T]):
 
         Returns:
             Namespaced key
+
         """
         if not self.namespace:
             return key
@@ -324,11 +327,12 @@ class Cache(Generic[T]):
 
         Returns:
             Cached value if found and not expired, None otherwise
+
         """
         return await self.backend.get(self._make_key(key))
 
     async def set(
-        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
+        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None,
     ) -> None:
         """Set a value in cache.
 
@@ -336,6 +340,7 @@ class Cache(Generic[T]):
             key: Cache key
             value: Value to cache
             ttl: Optional time-to-live (seconds or timedelta)
+
         """
         await self.backend.set(self._make_key(key), value, ttl)
 
@@ -347,6 +352,7 @@ class Cache(Generic[T]):
 
         Returns:
             True if deleted, False if not found
+
         """
         return await self.backend.delete(self._make_key(key))
 
@@ -362,5 +368,6 @@ class Cache(Generic[T]):
 
         Returns:
             True if exists, False otherwise
+
         """
         return await self.backend.contains(self._make_key(key))

@@ -85,6 +85,7 @@ class CachedEmbedder:
             embedder: Base embedder implementation
             cache: Optional vector cache (creates a new one if None)
             cache_ttl: Cache TTL in seconds
+
         """
         self.embedder = embedder
         self.cache = cache or VectorCache()
@@ -98,6 +99,7 @@ class CachedEmbedder:
 
         Returns:
             List of embedding vectors
+
         """
         # Handle single text vs list of texts
         texts = [text] if isinstance(text, str) else text

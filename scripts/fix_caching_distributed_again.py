@@ -20,7 +20,7 @@ def fix_caching_distributed_py():
 
         # Corrigir o método set
         pattern_set = re.compile(
-            r"async def set\(\)\s+self, key: str, value: T, ttl: Optional\[Union\[int, timedelta\]\] = None\s+\) -> None:"
+            r"async def set\(\)\s+self, key: str, value: T, ttl: Optional\[Union\[int, timedelta\]\] = None\s+\) -> None:",
         )
         replacement_set = (
             "async def set(\n"
@@ -31,7 +31,7 @@ def fix_caching_distributed_py():
 
         # Corrigir o método json.dumps()
         pattern_json_dumps = re.compile(
-            r'json_message = json\.dumps\(\)\s+\{\}\s+"_serialized": True,\s+"data": serialized\.hex\(\),\s+\},\s+\)'
+            r'json_message = json\.dumps\(\)\s+\{\}\s+"_serialized": True,\s+"data": serialized\.hex\(\),\s+\},\s+\)',
         )
         replacement_json_dumps = (
             "json_message = json.dumps({\n"
@@ -43,7 +43,7 @@ def fix_caching_distributed_py():
 
         # Corrigir o bloco try/except
         pattern_try_except = re.compile(
-            r'try:\s+# Serialize message if needed\s+if isinstance\(message, \(dict, list\)\):\s+json_message = json\.dumps\(message\)\s+elif hasattr\(message, "__bytes__"\):\s+serialized = self\.serializer\.serialize\(message\)\s+json_message = json\.dumps\(\)\s+\{\}\s+"_serialized": True,\s+"data": serialized\.hex\(\),\s+\},\s+\)\s+# Publish to channel\s+return self\._client\.publish\(channel, json_message\)\s+except Exception as e:'
+            r'try:\s+# Serialize message if needed\s+if isinstance\(message, \(dict, list\)\):\s+json_message = json\.dumps\(message\)\s+elif hasattr\(message, "__bytes__"\):\s+serialized = self\.serializer\.serialize\(message\)\s+json_message = json\.dumps\(\)\s+\{\}\s+"_serialized": True,\s+"data": serialized\.hex\(\),\s+\},\s+\)\s+# Publish to channel\s+return self\._client\.publish\(channel, json_message\)\s+except Exception as e:',
         )
         replacement_try_except = (
             "try:\n"

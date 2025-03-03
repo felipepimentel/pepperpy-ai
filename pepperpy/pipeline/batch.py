@@ -45,6 +45,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
             max_batch_size: Maximum items per batch
             parallel_batches: Number of parallel batches
             metrics: Optional metrics collector
+
         """
         super().__init__()
         self.name = name
@@ -58,13 +59,13 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
         # Initialize metrics
         if metrics:
             self._processed_batches = metrics.counter(
-                f"{name}_processed_batches", {"processor": name}
+                f"{name}_processed_batches", {"processor": name},
             )
             self._processed_items = metrics.counter(
-                f"{name}_processed_items", {"processor": name}
+                f"{name}_processed_items", {"processor": name},
             )
             self._processing_errors = metrics.counter(
-                f"{name}_processing_errors", {"processor": name}
+                f"{name}_processing_errors", {"processor": name},
             )
             self._processing_time = metrics.histogram(
                 f"{name}_processing_time",
@@ -72,7 +73,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
                 {"processor": name},
             )
             self._batch_size = metrics.histogram(
-                f"{name}_batch_size", [10, 50, 100, 500, 1000], {"processor": name}
+                f"{name}_batch_size", [10, 50, 100, 500, 1000], {"processor": name},
             )
 
     async def _initialize(self) -> None:
@@ -89,7 +90,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
         await self._processor.stop()
 
     async def process_batch(
-        self, items: list[DataItem[T]]
+        self, items: list[DataItem[T]],
     ) -> list[ProcessingResult[U]]:
         """Process a batch of items.
 
@@ -102,6 +103,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
         Raises:
             ProcessingError: If processing fails
             StateError: If processor is not running
+
         """
         if not self.is_running():
             raise ProcessingError("Processor is not running")
@@ -149,6 +151,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
 
         Returns:
             List of batches
+
         """
         if len(items) <= self._max_batch_size:
             return [items]
@@ -165,6 +168,7 @@ class BatchProcessor(Lifecycle, Generic[T, U]):
 
         Returns:
             Dictionary of metric values
+
         """
         if not self._metrics:
             return {}

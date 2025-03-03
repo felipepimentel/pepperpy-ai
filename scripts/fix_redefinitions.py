@@ -48,7 +48,7 @@ def fix_redefinitions(file_path, errors):
             elif error["code"] == "B007":  # Variável de controle de loop não utilizada
                 # Extrair o nome da variável da mensagem de erro
                 var_match = re.search(
-                    r"Loop control variable `(\w+)`", error["message"]
+                    r"Loop control variable `(\w+)`", error["message"],
                 )
                 if var_match:
                     var_name = var_match.group(1)
@@ -75,7 +75,7 @@ def parse_ruff_output(output):
     errors = []
 
     print(
-        f"Analisando saída do ruff:\n{output[:500]}..."
+        f"Analisando saída do ruff:\n{output[:500]}...",
     )  # Mostrar parte da saída para debug
 
     for line in output.splitlines():
@@ -105,7 +105,7 @@ def main():
         result = subprocess.run(
             ["ruff", "check", "pepperpy/", "--select=F811,F841,B007"],
             capture_output=True,
-            text=True,
+            text=True, check=False,
         )
 
         if result.returncode != 0:

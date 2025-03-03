@@ -21,8 +21,8 @@ from .checks import (
 # Export public API
 __all__ = [
     "HealthCheck",
-    "HealthChecker",
     "HealthCheckResult",
+    "HealthChecker",
     "HealthStatus",
     "SystemHealthCheck",
 ]

@@ -34,6 +34,7 @@ class SandboxConfig:
             max_cpu_time: Maximum CPU time in seconds
             max_processes: Maximum number of processes
             allowed_modules: Set of allowed Python modules
+
         """
         self.max_memory = max_memory
         self.max_cpu_time = max_cpu_time
@@ -56,6 +57,7 @@ class Sandbox(Lifecycle):
 
         Args:
             config: Optional sandbox configuration
+
         """
         super().__init__()
         self.config = config or SandboxConfig()
@@ -122,6 +124,7 @@ class Sandbox(Lifecycle):
 
         Raises:
             SecurityError: If execution fails or times out
+
         """
         try:
             # Create temp file for code

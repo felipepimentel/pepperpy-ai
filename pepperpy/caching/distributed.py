@@ -27,6 +27,7 @@ class DistributedCache(CacheBackend[T]):
         Args:
             serializer: Optional serializer for values
             namespace: Optional namespace for keys
+
         """
         super().__init__(serializer)
         self.namespace = namespace
@@ -39,6 +40,7 @@ class DistributedCache(CacheBackend[T]):
 
         Returns:
             Namespaced key
+
         """
         if not self.namespace:
             return key
@@ -76,6 +78,7 @@ class RedisCache(DistributedCache[T]):
         Raises:
             ImportError: If Redis package is not installed
             BackendError: If connection fails
+
         """
         super().__init__(serializer, namespace)
 
@@ -98,7 +101,7 @@ class RedisCache(DistributedCache[T]):
         except ImportError:
             raise ImportError(
                 "Redis package is required for RedisCache. "
-                "Install it with 'pip install redis'."
+                "Install it with 'pip install redis'.",
             ) from None
         except Exception as e:
             raise BackendError(f"Failed to connect to Redis: {e}") from e
@@ -114,6 +117,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If retrieval fails
+
         """
         try:
             namespaced_key = self._make_key(key)
@@ -128,7 +132,7 @@ class RedisCache(DistributedCache[T]):
             raise BackendError(f"Failed to get value from Redis: {e}") from e
 
     async def set(
-        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None
+        self, key: str, value: T, ttl: Optional[Union[int, timedelta]] = None,
     ) -> None:
         """Set a value in Redis cache.
 
@@ -139,6 +143,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If storage fails
+
         """
         try:
             namespaced_key = self._make_key(key)
@@ -166,6 +171,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If deletion fails
+
         """
         try:
             namespaced_key = self._make_key(key)
@@ -179,6 +185,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If clearing fails
+
         """
         try:
             if self.namespace:
@@ -205,6 +212,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If check fails
+
         """
         try:
             namespaced_key = self._make_key(key)
@@ -225,6 +233,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If publishing fails
+
         """
         try:
             # Serialize message to JSON
@@ -255,6 +264,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If subscription fails
+
         """
         try:
             pubsub = self._client.pubsub()
@@ -276,6 +286,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If increment fails
+
         """
         try:
             namespaced_key = self._make_key(key)
@@ -296,6 +307,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If setting expiration fails
+
         """
         try:
             namespaced_key = self._make_key(key)
@@ -319,6 +331,7 @@ class RedisCache(DistributedCache[T]):
 
         Raises:
             BackendError: If getting TTL fails
+
         """
         try:
             namespaced_key = self._make_key(key)

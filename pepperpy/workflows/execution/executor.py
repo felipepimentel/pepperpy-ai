@@ -21,6 +21,7 @@ class WorkflowExecutor:
 
         Args:
             callback: Optional workflow callback
+
         """
         self._callback = callback
         self._active_workflows: Dict[WorkflowID, BaseWorkflow] = {}
@@ -37,6 +38,7 @@ class WorkflowExecutor:
 
         Raises:
             ExecutionError: If execution fails
+
         """
         workflow_id = workflow.workflow_id
         self._active_workflows[workflow_id] = workflow
@@ -80,6 +82,7 @@ class WorkflowExecutor:
 
         Raises:
             ExecutionError: If step execution fails
+
         """
         try:
             # Start step
@@ -92,7 +95,7 @@ class WorkflowExecutor:
             # Complete step
             if self._callback:
                 await self._callback.on_step_complete(
-                    str(workflow_id), step.name, result
+                    str(workflow_id), step.name, result,
                 )
 
             return result
@@ -105,6 +108,7 @@ class WorkflowExecutor:
 
         Returns:
             List of active workflow instances
+
         """
         return list(self._active_workflows.values())
 
@@ -116,5 +120,6 @@ class WorkflowExecutor:
 
         Returns:
             Workflow results if available
+
         """
         return self._results.get(workflow_id)

@@ -29,14 +29,15 @@ class ResourceManagerConfig(BaseModel):
         max_resources: Maximum number of resources
         cleanup_interval: Resource cleanup interval in seconds
         metrics_enabled: Whether metrics are enabled
+
     """
 
     max_resources: int = Field(default=1000, description="Maximum number of resources")
     cleanup_interval: float = Field(
-        default=60.0, description="Resource cleanup interval in seconds"
+        default=60.0, description="Resource cleanup interval in seconds",
     )
     metrics_enabled: bool = Field(
-        default=True, description="Whether metrics are enabled"
+        default=True, description="Whether metrics are enabled",
     )
 
 
@@ -54,6 +55,7 @@ class ResourceManager(Lifecycle):
 
         Args:
             config: Optional resource manager configuration
+
         """
         super().__init__()
         self.config = config or ResourceManagerConfig()
@@ -76,6 +78,7 @@ class ResourceManager(Lifecycle):
 
         Returns:
             ResourceManager instance
+
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -145,11 +148,12 @@ class ResourceManager(Lifecycle):
 
         Args:
             resource_type: Resource type to register
+
         """
         self._resource_types[resource_type.__name__] = resource_type
 
     async def allocate(
-        self, resource_type: str, name: str | None = None, **kwargs: Any
+        self, resource_type: str, name: str | None = None, **kwargs: Any,
     ) -> Resource:
         """Allocate resource.
 
@@ -164,6 +168,7 @@ class ResourceManager(Lifecycle):
         Raises:
             ValueError: If resource type not registered
             RuntimeError: If maximum resources reached
+
         """
         async with self._lock:
             # Check resource type
@@ -212,6 +217,7 @@ class ResourceManager(Lifecycle):
 
         Args:
             resource: Resource to release
+
         """
         async with self._lock:
             if resource.name not in self._resources:
@@ -242,6 +248,7 @@ class ResourceManager(Lifecycle):
 
         Returns:
             Resource if found, None otherwise
+
         """
         return self._resources.get(name)
 
@@ -253,6 +260,7 @@ class ResourceManager(Lifecycle):
 
         Returns:
             List of resources of specified type
+
         """
         return [r for r in self._resources.values() if r.type == resource_type]
 
@@ -261,6 +269,7 @@ class ResourceManager(Lifecycle):
 
         Returns:
             List of all resources
+
         """
         return list(self._resources.values())
 
@@ -304,14 +313,15 @@ class ResourceManager(Lifecycle):
 
         Returns:
             Dictionary containing resource metrics
+
         """
         metrics = {
             "total_resources": len(self._resources),
             "allocated_resources": len(
-                [r for r in self._resources.values() if r.is_allocated()]
+                [r for r in self._resources.values() if r.is_allocated()],
             ),
             "in_use_resources": len(
-                [r for r in self._resources.values() if r.is_in_use()]
+                [r for r in self._resources.values() if r.is_in_use()],
             ),
         }
 
@@ -320,10 +330,10 @@ class ResourceManager(Lifecycle):
             resources = self.get_resources_by_type(resource_type)
             metrics[f"{resource_type}_total"] = len(resources)
             metrics[f"{resource_type}_allocated"] = len(
-                [r for r in resources if r.is_allocated()]
+                [r for r in resources if r.is_allocated()],
             )
             metrics[f"{resource_type}_in_use"] = len(
-                [r for r in resources if r.is_in_use()]
+                [r for r in resources if r.is_in_use()],
             )
 
         return metrics

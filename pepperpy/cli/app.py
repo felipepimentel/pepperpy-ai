@@ -95,7 +95,6 @@ def cli(ctx: CLIContext, verbose: bool, debug: bool, config: Optional[str] = Non
 @cli.group()
 def agent():
     """Agent management commands."""
-    pass
 
 
 @agent.command()
@@ -121,6 +120,7 @@ def create(ctx: CLIContext, name: str, type: str, description: Optional[str] = N
         name: Name of the agent
         type: Type of agent (assistant, worker, supervisor)
         description: Optional agent description
+
     """
     console.print(f"Creating {type} agent: {name}")
     if description:
@@ -142,6 +142,7 @@ def list_agents(ctx: CLIContext, type: Optional[str] = None):
 
     Args:
         type: Optional agent type filter
+
     """
     console.print("Listing agents")
     if type:
@@ -152,7 +153,6 @@ def list_agents(ctx: CLIContext, type: Optional[str] = None):
 @cli.group()
 def workflow():
     """Workflow management commands."""
-    pass
 
 
 @workflow.command()
@@ -170,6 +170,7 @@ def deploy(ctx: CLIContext, path: str, env: Optional[str] = None):
     Args:
         path: Path to workflow file
         env: Optional deployment environment
+
     """
     console.print(f"Deploying workflow: {path}")
     if env:
@@ -191,6 +192,7 @@ def list_workflows(ctx: CLIContext, status: Optional[str] = None):
 
     Args:
         status: Optional status filter
+
     """
     console.print("Listing workflows")
     if status:
@@ -201,7 +203,6 @@ def list_workflows(ctx: CLIContext, status: Optional[str] = None):
 @cli.group()
 def hub():
     """Hub management commands."""
-    pass
 
 
 @hub.command()
@@ -221,6 +222,7 @@ def publish(ctx: CLIContext, path: str, visibility: str):
     Args:
         path: Path to artifact
         visibility: Artifact visibility
+
     """
     console.print(f"Publishing artifact: {path}")
     console.print(f"Visibility: {visibility}")
@@ -242,6 +244,7 @@ def install(ctx: CLIContext, artifact_id: str, version: Optional[str] = None):
     Args:
         artifact_id: ID of the artifact to install
         version: Optional specific version
+
     """
     console.print(f"Installing artifact: {artifact_id}")
     if version:
@@ -252,7 +255,6 @@ def install(ctx: CLIContext, artifact_id: str, version: Optional[str] = None):
 @cli.group()
 def config():
     """Configuration management commands."""
-    pass
 
 
 @config.command()
@@ -266,6 +268,7 @@ def set(ctx: CLIContext, key: str, value: str):
     Args:
         key: Configuration key
         value: Configuration value
+
     """
     console.print(f"Setting config {key} = {value}")
     # TODO: Implement config setting
@@ -280,6 +283,7 @@ def get(ctx: CLIContext, key: str):
 
     Args:
         key: Configuration key
+
     """
     console.print(f"Getting config value for: {key}")
     # TODO: Implement config getting

@@ -33,13 +33,14 @@ class ResourceLifecycle(Lifecycle):
             monitor_interval: Monitor interval in seconds
             max_age: Maximum resource age in seconds
             max_retries: Maximum retry attempts
+
         """
         super().__init__()
         self._state = ComponentState.CREATED
         self._resources: dict[str, Resource] = {}
         self._pools: dict[str, ResourcePool] = {}
         self._hooks: dict[
-            str, list[Callable[[Resource], Coroutine[Any, Any, None]]]
+            str, list[Callable[[Resource], Coroutine[Any, Any, None]]],
         ] = {}
 
         # Initialize components
@@ -98,6 +99,7 @@ class ResourceLifecycle(Lifecycle):
 
         Raises:
             ValidationError: If pool already exists
+
         """
         if pool.name in self._pools:
             raise ValidationError(f"Pool already exists: {pool.name}")
@@ -111,6 +113,7 @@ class ResourceLifecycle(Lifecycle):
 
         Raises:
             ValidationError: If pool not found
+
         """
         if name not in self._pools:
             raise ValidationError(f"Pool not found: {name}")
@@ -126,6 +129,7 @@ class ResourceLifecycle(Lifecycle):
         Args:
             event: Lifecycle event
             hook: Hook function
+
         """
         if event not in self._hooks:
             self._hooks[event] = []
@@ -141,6 +145,7 @@ class ResourceLifecycle(Lifecycle):
         Args:
             event: Lifecycle event
             hook: Hook function
+
         """
         if event in self._hooks:
             self._hooks[event].remove(hook)
@@ -152,6 +157,7 @@ class ResourceLifecycle(Lifecycle):
 
         Args:
             resource: Resource to register
+
         """
         self._resources[resource.id] = resource
         self._cleaner.register_resource(resource)
@@ -163,6 +169,7 @@ class ResourceLifecycle(Lifecycle):
 
         Args:
             resource_id: Resource ID
+
         """
         if resource_id in self._resources:
             resource = self._resources[resource_id]
@@ -183,6 +190,7 @@ class ResourceLifecycle(Lifecycle):
 
         Raises:
             ValidationError: If pool not found
+
         """
         if pool_name not in self._pools:
             raise ValidationError(f"Pool not found: {pool_name}")
@@ -199,6 +207,7 @@ class ResourceLifecycle(Lifecycle):
 
         Raises:
             ValidationError: If pool not found
+
         """
         if pool_name not in self._pools:
             raise ValidationError(f"Pool not found: {pool_name}")
@@ -213,6 +222,7 @@ class ResourceLifecycle(Lifecycle):
         Args:
             event: Lifecycle event
             resource: Resource instance
+
         """
         if event in self._hooks:
             for hook in self._hooks[event]:
@@ -237,6 +247,7 @@ class ResourceLifecycle(Lifecycle):
             - state_counts: Resource state counts
             - pool_stats: Pool statistics
             - resource_stats: Resource statistics
+
         """
         metrics = self._monitor.get_metrics()
         pool_stats = {

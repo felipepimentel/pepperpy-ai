@@ -20,6 +20,7 @@ class AudioGenerator(BaseComponent):
         Args:
             name: Generator name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -33,6 +34,7 @@ class AudioGenerator(BaseComponent):
 
         Returns:
             Generated audio data as bytes
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -53,6 +55,7 @@ class ImageGenerator(BaseComponent):
         Args:
             name: Generator name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -66,6 +69,7 @@ class ImageGenerator(BaseComponent):
 
         Returns:
             Generated image data as bytes
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -86,6 +90,7 @@ class TextGenerator(BaseComponent):
         Args:
             name: Generator name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -99,6 +104,7 @@ class TextGenerator(BaseComponent):
 
         Returns:
             Generated text
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:

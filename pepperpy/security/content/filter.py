@@ -66,7 +66,7 @@ class ContentFilter:
                 description="Common profanity",
                 severity=3,
                 action="redact",
-            )
+            ),
         )
 
         # Personal information rules
@@ -80,7 +80,7 @@ class ContentFilter:
                 description="Personal identifiable information",
                 severity=8,
                 action="redact",
-            )
+            ),
         )
 
         # Add more default rules for other categories
@@ -91,7 +91,7 @@ class ContentFilter:
                 description="Hate speech terms",
                 severity=9,
                 action="block",
-            )
+            ),
         )
 
         self.rules.append(
@@ -101,7 +101,7 @@ class ContentFilter:
                 description="Sexually explicit content",
                 severity=7,
                 action="block",
-            )
+            ),
         )
 
     def add_rule(self, rule: ContentRule):
@@ -120,7 +120,7 @@ class ContentFilter:
                             text=match.group(),
                             span=match.span(),
                             replacement=self._get_replacement(rule, match.group()),
-                        )
+                        ),
                     )
         return matches
 

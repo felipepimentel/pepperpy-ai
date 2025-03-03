@@ -38,6 +38,7 @@ class CommandRegistry:
 
         Returns:
             CommandRegistry instance
+
         """
         if cls._instance is None:
             cls._instance = cls()
@@ -58,6 +59,7 @@ class CommandRegistry:
 
         Raises:
             CLIError: If group not found or command conflicts
+
         """
         # Get or create group
         group = self._get_or_create_group(group_name)
@@ -100,6 +102,7 @@ class CommandRegistry:
 
         Raises:
             CLIError: If group conflicts or parent not found
+
         """
         try:
             # Check if group exists
@@ -132,6 +135,7 @@ class CommandRegistry:
 
         Returns:
             Command or group if found, None otherwise
+
         """
         parts = command_path.split()
         current: CommandLike = self._root
@@ -155,6 +159,7 @@ class CommandRegistry:
 
         Returns:
             List of completion suggestions
+
         """
         suggestions = []
         parts = prefix.split()
@@ -188,6 +193,7 @@ class CommandRegistry:
 
         Returns:
             Help text
+
         """
         if not command_path:
             return self._root.get_help()
@@ -209,6 +215,7 @@ class CommandRegistry:
 
         Raises:
             CLIError: If group not found
+
         """
         if name not in self._groups:
             raise CLIError(f"Group not found: {name}", details={"available": list(self._groups.keys())})
@@ -222,6 +229,7 @@ class CommandRegistry:
 
         Returns:
             Command group
+
         """
         if name not in self._groups:
             self.register_group(name, f"Commands for {name}")

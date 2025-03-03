@@ -31,6 +31,7 @@ def register_component(registry_name: str, component_name: Optional[str] = None)
 
     Returns:
         Decorator function
+
     """
 
     def decorator(cls: Type[T]) -> Type[T]:
@@ -41,6 +42,7 @@ def register_component(registry_name: str, component_name: Optional[str] = None)
 
         Returns:
             Original component class
+
         """
         # Store registration info in the global store
         _registry_info_store[cls] = {
@@ -85,6 +87,7 @@ def initialize_registry_system() -> Dict[str, Registry[Any]]:
 
     Returns:
         Dictionary of registered registries
+
     """
     # Get registry manager
     registry_manager = get_registry()

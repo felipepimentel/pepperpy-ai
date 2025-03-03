@@ -45,6 +45,7 @@ class ChainConfig(BaseModel):
         description: Chain description
         parameters: Chain parameters
         metadata: Additional metadata
+
     """
 
     id: UUID
@@ -63,6 +64,7 @@ class ChainStep(BaseModel):
         input: Input messages
         output: Output messages
         metadata: Additional metadata
+
     """
 
     step_id: str
@@ -79,6 +81,7 @@ class ChainResult(BaseModel):
         chain_id: Chain ID
         steps: List of execution steps
         metadata: Additional metadata
+
     """
 
     chain_id: UUID
@@ -102,6 +105,7 @@ class Chain:
         Args:
             config: Chain configuration
             **kwargs: Additional chain-specific parameters
+
         """
         self._config = config
         self._steps: list[ChainStep] = []
@@ -132,5 +136,6 @@ class Chain:
 
         Raises:
             ChainError: If execution fails
+
         """
         raise NotImplementedError("Chain must implement execute method")

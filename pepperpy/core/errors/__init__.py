@@ -45,16 +45,16 @@ from .base import (
 
 __version__ = "0.1.0"
 __all__ = [
-    "PepperError",
-    "ValidationError",
     "ConfigError",
+    "PepperError",
     "StateError",
-    "WorkflowError",
+    "ValidationError",
     "VersionCompatibilityError",
+    "VersionDependencyError",
     "VersionMigrationError",
     "VersionParseError",
     "VersionValidationError",
-    "VersionDependencyError",
+    "WorkflowError",
 ]
 
 
@@ -67,6 +67,7 @@ class PepperPyError(Exception):
         Args:
             message: Error message
             *args: Additional arguments
+
         """
         super().__init__(message, *args)
         self.message = message
@@ -75,16 +76,13 @@ class PepperPyError(Exception):
 class ExecutionError(PepperPyError):
     """Raised when workflow execution fails."""
 
-    pass
 
 
 class DuplicateError(PepperPyError):
     """Raised when attempting to register a duplicate item."""
 
-    pass
 
 
 class NotFoundError(PepperPyError):
     """Raised when an item is not found."""
 
-    pass

@@ -18,11 +18,9 @@ class SearchEngineProvider(RagProvider):
 
     async def initialize(self) -> None:
         """Initialize the search engine provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the search engine provider."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -30,6 +28,7 @@ class SearchEngineProvider(RagProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_type": ProviderType.SEARCH_ENGINE,

@@ -58,7 +58,7 @@ def group_errors_by_file_and_code(
 ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:
     """Agrupa os erros por arquivo e código."""
     grouped: Dict[str, Dict[str, List[Dict[str, Any]]]] = defaultdict(
-        lambda: defaultdict(list)
+        lambda: defaultdict(list),
     )
     for error in errors:
         filename = error.get("filename")
@@ -71,7 +71,7 @@ def group_errors_by_file_and_code(
 def fix_raise_without_from(file_path: str, errors: List[Dict[str, Any]]) -> int:
     """Corrige erros B904 (raise sem from em blocos except)."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         fixed_count = 0
@@ -112,7 +112,7 @@ def fix_raise_without_from(file_path: str, errors: List[Dict[str, Any]]) -> int:
 def fix_unused_import(file_path: str, errors: List[Dict[str, Any]]) -> int:
     """Corrige erros F401 (imports não utilizados)."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             content = f.read()
 
         lines = content.split("\n")
@@ -125,7 +125,7 @@ def fix_unused_import(file_path: str, errors: List[Dict[str, Any]]) -> int:
             if 0 <= line_num < len(lines):
                 # Verifica se é um arquivo __init__.py
                 if file_path.endswith("__init__.py"):
-                    # Em __init__.py, adicionamos # noqa: F401 em vez de remover
+                    # Em __init__.py, adicionamos
                     if "# noqa" not in lines[line_num]:
                         lines[line_num] += "  # noqa: F401"
                         fixed_count += 1
@@ -151,7 +151,7 @@ def fix_unused_import(file_path: str, errors: List[Dict[str, Any]]) -> int:
 def fix_line_too_long(file_path: str, errors: List[Dict[str, Any]]) -> int:
     """Corrige erros E501 (linhas muito longas) apenas para comentários."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
 
         fixed_count = 0
@@ -162,7 +162,7 @@ def fix_line_too_long(file_path: str, errors: List[Dict[str, Any]]) -> int:
                 # Verifica se é um comentário
                 if "#" in line and '"""' not in line and "'''" not in line:
                     comment_pos = line.find("#")
-                    # Adiciona # noqa: E501 ao final do comentário
+                    # Adiciona
                     if "# noqa" not in line[comment_pos:]:
                         lines[line_num] = line.rstrip() + "  # noqa: E501\n"
                         fixed_count += 1
@@ -203,7 +203,7 @@ def update_pyproject_toml() -> None:
             print(f"Arquivo {pyproject_path} não encontrado.")
             return
 
-        with open(pyproject_path, "r", encoding="utf-8") as f:
+        with open(pyproject_path, encoding="utf-8") as f:
             content = f.read()
 
         # Verifica se já existe uma seção per-file-ignores
@@ -237,7 +237,7 @@ def update_pyproject_toml() -> None:
             f.write(content)
 
         print(
-            "Arquivo pyproject.toml atualizado com regras de ignorar erros específicos."
+            "Arquivo pyproject.toml atualizado com regras de ignorar erros específicos.",
         )
     except Exception as e:
         print(f"Erro ao atualizar pyproject.toml: {e}")
@@ -270,7 +270,7 @@ def main():
     if errors_after:
         print(f"Restam {len(errors_after)} erros após todas as correções.")
         print(
-            "Execute 'python scripts/analyze_lint_errors.py' para analisar os erros restantes."
+            "Execute 'python scripts/analyze_lint_errors.py' para analisar os erros restantes.",
         )
     else:
         print("Todos os erros foram corrigidos!")

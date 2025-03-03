@@ -46,6 +46,7 @@ class CommandDecorator(Command):
             group: Command group name
             aliases: Optional command aliases
             options: Optional command options
+
         """
         super().__init__(name, description)
         self.group = group
@@ -61,6 +62,7 @@ class CommandDecorator(Command):
 
         Returns:
             Decorated function
+
         """
         self.func = func
 
@@ -85,6 +87,7 @@ class CommandDecorator(Command):
 
         Raises:
             CLIError: If execution fails
+
         """
         if not self.func:
             raise CLIError("Command function not set")
@@ -122,6 +125,7 @@ class CommandDecorator(Command):
 
         Returns:
             Function kwargs
+
         """
         kwargs = {}
 
@@ -151,6 +155,7 @@ class CommandDecorator(Command):
 
         Returns:
             Command result
+
         """
         if isinstance(result, CommandResult):
             return result
@@ -197,6 +202,7 @@ def command(
         @command("hello", "Say hello", group="greetings")
         def hello(name: str) -> str:
             return f"Hello, {name}!"
+
     """
     return CommandDecorator(
         name=name,

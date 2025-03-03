@@ -32,6 +32,7 @@ class CSVProcessor:
         Args:
             delimiter: CSV delimiter character
             quotechar: CSV quote character
+
         """
         self.delimiter = delimiter
         self.quotechar = quotechar
@@ -47,6 +48,7 @@ class CSVProcessor:
 
         Raises:
             ProcessingError: If parsing fails
+
         """
         try:
             reader = csv.DictReader(
@@ -56,7 +58,7 @@ class CSVProcessor:
             )
             return list(reader)
         except Exception as e:
-            raise ProcessingError(f"CSV parsing failed: {str(e)}") from e
+            raise ProcessingError(f"CSV parsing failed: {e!s}") from e
 
     def format(self, data: List[Dict[str, Any]]) -> str:
         """Format data as CSV.
@@ -69,6 +71,7 @@ class CSVProcessor:
 
         Raises:
             ProcessingError: If formatting fails
+
         """
         if not data:
             return ""
@@ -87,7 +90,7 @@ class CSVProcessor:
             writer.writerows(data)
             return output.getvalue()
         except Exception as e:
-            raise ProcessingError(f"CSV formatting failed: {str(e)}") from e
+            raise ProcessingError(f"CSV formatting failed: {e!s}") from e
 
     def validate(self, content: str) -> List[str]:
         """Validate CSV content.
@@ -97,6 +100,7 @@ class CSVProcessor:
 
         Returns:
             List of validation errors
+
         """
         errors = []
 
@@ -123,10 +127,10 @@ class CSVProcessor:
                 for i, row in enumerate(rows[1:], 2):
                     if len(row) != header_length:
                         errors.append(
-                            f"Row {i} has {len(row)} columns, expected {header_length}"
+                            f"Row {i} has {len(row)} columns, expected {header_length}",
                         )
 
         except Exception as e:
-            errors.append(f"CSV validation failed: {str(e)}")
+            errors.append(f"CSV validation failed: {e!s}")
 
         return errors

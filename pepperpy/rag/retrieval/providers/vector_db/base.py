@@ -28,5 +28,5 @@ class VectorDBRetriever(Retriever, ABC):
 
         Returns:
             A list of search results
+
         """
-        pass

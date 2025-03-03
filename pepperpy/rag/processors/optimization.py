@@ -28,6 +28,7 @@ class VectorCompressor:
 
         Returns:
             Compressed vectors
+
         """
         raise NotImplementedError
 
@@ -39,6 +40,7 @@ class VectorCompressor:
 
         Returns:
             Original vectors
+
         """
         raise NotImplementedError
 
@@ -51,6 +53,7 @@ class DimensionalityReducer(VectorCompressor):
 
         Args:
             n_components: Number of components to keep
+
         """
         self.n_components = n_components
         self._components: Optional[NDArray] = None
@@ -64,6 +67,7 @@ class DimensionalityReducer(VectorCompressor):
 
         Returns:
             Compressed vectors (n_vectors, n_components)
+
         """
         if self._components is None:
             # Fit PCA
@@ -84,6 +88,7 @@ class DimensionalityReducer(VectorCompressor):
 
         Returns:
             Reconstructed vectors (n_vectors, n_dimensions)
+
         """
         if self._components is None or self._mean is None:
             raise RuntimeError("Compressor not fitted")
@@ -100,6 +105,7 @@ class QuantizationCompressor(VectorCompressor):
 
         Args:
             bits: Number of bits per dimension
+
         """
         self.bits = bits
         self._min: Optional[NDArray] = None
@@ -114,6 +120,7 @@ class QuantizationCompressor(VectorCompressor):
 
         Returns:
             Quantized vectors
+
         """
         if self._min is None:
             # Compute scaling factors
@@ -133,6 +140,7 @@ class QuantizationCompressor(VectorCompressor):
 
         Returns:
             Reconstructed vectors
+
         """
         if self._min is None or self._max is None or self._scale is None:
             raise RuntimeError("Compressor not fitted")
@@ -157,6 +165,7 @@ class VectorPruner:
 
         Returns:
             Tuple of (pruned_vectors, kept_indices)
+
         """
         raise NotImplementedError
 
@@ -169,6 +178,7 @@ class QualityPruner(VectorPruner):
 
         Args:
             threshold: Score threshold for pruning
+
         """
         self.threshold = threshold
 
@@ -181,6 +191,7 @@ class QualityPruner(VectorPruner):
 
         Returns:
             Tuple of (pruned_vectors, kept_indices)
+
         """
         # Find indices to keep
         keep_idx = np.where(scores >= self.threshold)[0]
@@ -197,6 +208,7 @@ class RedundancyPruner(VectorPruner):
 
         Args:
             k: Number of vectors to keep
+
         """
         self.k = k
 
@@ -209,6 +221,7 @@ class RedundancyPruner(VectorPruner):
 
         Returns:
             Tuple of (pruned_vectors, kept_indices)
+
         """
         # Get indices of top K scores
         top_k_idx = np.argsort(scores)[-self.k :]
@@ -225,6 +238,7 @@ class DiversityPruner(VectorPruner):
 
         Args:
             similarity_threshold: Threshold for considering vectors similar
+
         """
         self.similarity_threshold = similarity_threshold
 
@@ -237,6 +251,7 @@ class DiversityPruner(VectorPruner):
 
         Returns:
             Tuple of (pruned_vectors, kept_indices)
+
         """
         # Normalize vectors for cosine similarity
         normalized = vectors / np.linalg.norm(vectors, axis=1, keepdims=True)

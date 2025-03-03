@@ -27,7 +27,7 @@ class CompatibilityChecker:
         self._compatibility_matrix: dict[str, dict[str, bool]] = {}
 
     def check_compatibility(
-        self, version1: Version, version2: Version, strict: bool = False
+        self, version1: Version, version2: Version, strict: bool = False,
     ) -> bool:
         """Check if two versions are compatible."""
         try:
@@ -49,7 +49,7 @@ class CompatibilityChecker:
             raise VersionCompatibilityError(version1, version2, str(e)) from e
 
     def register_breaking_change(
-        self, from_version: Version, to_version: Version, change: VersionChange
+        self, from_version: Version, to_version: Version, change: VersionChange,
     ) -> None:
         """Register a breaking change between versions."""
         if (from_version, to_version) not in self._breaking_changes:
@@ -57,7 +57,7 @@ class CompatibilityChecker:
         self._breaking_changes[from_version, to_version].append(change)
 
     def get_breaking_changes(
-        self, from_version: Version, to_version: Version
+        self, from_version: Version, to_version: Version,
     ) -> list[VersionChange]:
         """Get breaking changes between versions."""
         return self._breaking_changes.get((from_version, to_version), [])
@@ -80,7 +80,7 @@ class CompatibilityChecker:
         return None
 
     def analyze_upgrade_path(
-        self, from_version: Version, to_version: Version
+        self, from_version: Version, to_version: Version,
     ) -> list[VersionChange]:
         """Analyze the upgrade path between versions."""
         changes: list[VersionChange] = []
@@ -92,7 +92,7 @@ class CompatibilityChecker:
                     type=VersionChangeType.MAJOR,
                     description=f"Major version upgrade from {from_version.major} to {to_version.major}",
                     breaking=True,
-                )
+                ),
             )
 
         # Minor version changes
@@ -105,7 +105,7 @@ class CompatibilityChecker:
                     type=VersionChangeType.MINOR,
                     description=f"Minor version upgrade from {from_version.minor} to {to_version.minor}",
                     breaking=False,
-                )
+                ),
             )
 
         # Patch version changes
@@ -119,7 +119,7 @@ class CompatibilityChecker:
                     type=VersionChangeType.PATCH,
                     description=f"Patch version upgrade from {from_version.patch} to {to_version.patch}",
                     breaking=False,
-                )
+                ),
             )
 
         # Pre-release changes
@@ -129,7 +129,7 @@ class CompatibilityChecker:
                     type=VersionChangeType.PRE_RELEASE,
                     description=f"Pre-release change from {from_version.pre_release or 'none'} to {to_version.pre_release or 'none'}",
                     breaking=False,
-                )
+                ),
             )
 
         # Add any registered breaking changes

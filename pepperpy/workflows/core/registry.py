@@ -38,6 +38,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Raises:
             DuplicateError: If workflow already registered
+
         """
         workflow_id = workflow.workflow_id
 
@@ -62,6 +63,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Raises:
             DuplicateError: If definition already registered
+
         """
         if definition.name in self._definitions:
             raise DuplicateError(f"Definition {definition.name} already registered")
@@ -79,6 +81,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Raises:
             NotFoundError: If workflow not found
+
         """
         try:
             return self.get(str(workflow_id))
@@ -96,6 +99,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Raises:
             NotFoundError: If definition not found
+
         """
         if name not in self._definitions:
             raise NotFoundError(f"Definition {name} not found")
@@ -113,6 +117,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Raises:
             NotFoundError: If workflow not found
+
         """
         if workflow_id not in self._status:
             raise NotFoundError(f"Workflow {workflow_id} not found")
@@ -128,6 +133,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Raises:
             NotFoundError: If workflow not found
+
         """
         if workflow_id not in self._status:
             raise NotFoundError(f"Workflow {workflow_id} not found")
@@ -146,6 +152,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Returns:
             List of workflow instances
+
         """
         return list(self.list_components().values())
 
@@ -154,6 +161,7 @@ class WorkflowRegistry(Registry[BaseWorkflow]):
 
         Returns:
             List of workflow definitions
+
         """
         return list(self._definitions.values())
 

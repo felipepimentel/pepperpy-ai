@@ -45,8 +45,8 @@ class ProtocolMiddleware(ABC):
 
         Raises:
             ValueError: If data processing fails
+
         """
-        pass
 
 
 class ValidationMiddleware(ProtocolMiddleware):
@@ -61,6 +61,7 @@ class ValidationMiddleware(ProtocolMiddleware):
 
         Args:
             schema: Optional validation schema
+
         """
         super().__init__()
         self._schema = schema
@@ -81,6 +82,7 @@ class ValidationMiddleware(ProtocolMiddleware):
 
         Raises:
             ValueError: If validation fails
+
         """
         try:
             # Basic validation
@@ -121,6 +123,7 @@ class LoggingMiddleware(ProtocolMiddleware):
 
         Returns:
             Any: Processed data
+
         """
         start_time = datetime.utcnow()
         try:
@@ -154,6 +157,7 @@ class MetricsMiddleware(ProtocolMiddleware):
 
         Returns:
             Any: Processed data
+
         """
         start_time = datetime.utcnow()
         try:
@@ -203,6 +207,7 @@ class TransformationMiddleware(ProtocolMiddleware):
 
         Args:
             transform_fn: Optional transformation function
+
         """
         super().__init__()
         self._transform_fn = transform_fn
@@ -223,6 +228,7 @@ class TransformationMiddleware(ProtocolMiddleware):
 
         Raises:
             ValueError: If transformation fails
+
         """
         try:
             # Apply transformation if provided
@@ -237,9 +243,9 @@ class TransformationMiddleware(ProtocolMiddleware):
 
 # Export public API
 __all__ = [
-    "ProtocolMiddleware",
-    "ValidationMiddleware",
     "LoggingMiddleware",
     "MetricsMiddleware",
+    "ProtocolMiddleware",
     "TransformationMiddleware",
+    "ValidationMiddleware",
 ]

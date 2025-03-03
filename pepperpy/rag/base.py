@@ -26,6 +26,7 @@ class RagComponent(ABC):
             component_id: Unique identifier for the component
             name: Human-readable name for the component
             description: Description of the component's functionality
+
         """
         self.component_id = component_id
         self.name = name
@@ -56,6 +57,7 @@ class RagComponent(ABC):
 
         Args:
             config: Configuration dictionary
+
         """
         self.config.update(config)
         logger.debug(f"Updated configuration for component: {self.name}")
@@ -71,6 +73,7 @@ class RagComponent(ABC):
 
         Returns:
             A new instance of the component
+
         """
         return cls(component_id, name, **kwargs)
 
@@ -91,6 +94,7 @@ class RagPipeline(RagComponent):
             component_id: Unique identifier for the pipeline
             name: Human-readable name for the pipeline
             description: Description of the pipeline's functionality
+
         """
         super().__init__(component_id, name, description)
         self.components: Dict[str, RagComponent] = {}
@@ -100,6 +104,7 @@ class RagPipeline(RagComponent):
 
         Args:
             component: The component to add
+
         """
         self.components[component.component_id] = component
         logger.debug(f"Added component {component.name} to pipeline {self.name}")
@@ -112,6 +117,7 @@ class RagPipeline(RagComponent):
 
         Returns:
             The component if found, None otherwise
+
         """
         return self.components.get(component_id)
 
@@ -124,8 +130,8 @@ class RagPipeline(RagComponent):
 
         Returns:
             The generated response
+
         """
-        pass
 
     async def initialize(self) -> None:
         """Initialize all components in the pipeline."""

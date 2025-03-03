@@ -9,7 +9,7 @@ try:
 except ImportError:
     print("Pydantic not installed. Install with: pip install pydantic")
     BaseModel = object
-    
+
     def Field(*args, **kwargs):
         def decorator(x):
             return x
@@ -34,14 +34,14 @@ class AudioEffectsConfig(BaseModel):
     normalize: bool = Field(default=True, description="Normalize audio volume")
     target_db: float = Field(default=-20.0, description="Target dB for normalization")
     fade_in: Optional[float] = Field(
-        default=None, description="Fade in duration in seconds"
+        default=None, description="Fade in duration in seconds",
     )
     fade_out: Optional[float] = Field(
-        default=None, description="Fade out duration in seconds"
+        default=None, description="Fade out duration in seconds",
     )
     speed: float = Field(default=1.0, description="Playback speed multiplier (0.5-2.0)")
     pitch: float = Field(
-        default=0.0, description="Pitch shift in semitones (-12 to 12)"
+        default=0.0, description="Pitch shift in semitones (-12 to 12)",
     )
 
 
@@ -56,6 +56,7 @@ class AudioEffectsProcessor(AudioProcessor):
 
         Raises:
             SynthesisError: If configuration is invalid
+
         """
         try:
             self.config = AudioEffectsConfig(**config)
@@ -81,6 +82,7 @@ class AudioEffectsProcessor(AudioProcessor):
 
         Raises:
             SynthesisError: If processing fails
+
         """
         try:
             # Convert single item to list for uniform processing
@@ -114,8 +116,8 @@ class AudioEffectsProcessor(AudioProcessor):
                         segment.raw_data,
                         overrides={
                             "frame_rate": int(
-                                segment.frame_rate * (2 ** (self.config.pitch / 12))
-                            )
+                                segment.frame_rate * (2 ** (self.config.pitch / 12)),
+                            ),
                         },
                     )
 

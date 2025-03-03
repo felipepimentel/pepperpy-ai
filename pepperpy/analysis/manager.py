@@ -24,6 +24,7 @@ class CodeAnalysisManager:
         >>> manager.register_analyzer("security", SecurityAnalyzer())
         >>> results = await manager.analyze_code("eval('1 + 1')")
         >>> assert results["SecurityAnalyzer"][0].level == AnalysisLevel.ERROR
+
     """
 
     def __init__(self) -> None:
@@ -39,7 +40,7 @@ class CodeAnalysisManager:
         self.register_analyzer("complexity", ComplexityAnalyzer())
 
     def register_analyzer(
-        self, name: str, analyzer: CodeAnalyzer, replace: bool = False
+        self, name: str, analyzer: CodeAnalyzer, replace: bool = False,
     ) -> None:
         """Register a code analyzer.
 
@@ -50,6 +51,7 @@ class CodeAnalysisManager:
 
         Raises:
             ValueError: If analyzer exists and replace is False
+
         """
         if name in self._analyzers and not replace:
             raise ValueError(f"Analyzer {name} already registered")
@@ -63,6 +65,7 @@ class CodeAnalysisManager:
 
         Raises:
             KeyError: If analyzer doesn't exist
+
         """
         if name not in self._analyzers:
             raise KeyError(f"Analyzer {name} not registered")
@@ -79,13 +82,14 @@ class CodeAnalysisManager:
 
         Raises:
             KeyError: If analyzer doesn't exist
+
         """
         if name not in self._analyzers:
             raise KeyError(f"Analyzer {name} not registered")
         return self._analyzers[name]
 
     async def analyze_code(
-        self, code: str, analyzers: list[str] | None = None
+        self, code: str, analyzers: list[str] | None = None,
     ) -> dict[str, list[AnalysisResult]]:
         """Analyze code with selected analyzers.
 
@@ -99,6 +103,7 @@ class CodeAnalysisManager:
 
         Raises:
             KeyError: If any requested analyzer doesn't exist
+
         """
         results = {}
         selected_analyzers = (
@@ -118,13 +123,13 @@ class CodeAnalysisManager:
                         level=AnalysisLevel.ERROR,
                         message=f"Analysis failed: {e}",
                         details={"error": str(e)},
-                    )
+                    ),
                 ]
 
         return results
 
     async def analyze_file(
-        self, path: str, analyzers: list[str] | None = None
+        self, path: str, analyzers: list[str] | None = None,
     ) -> dict[str, list[AnalysisResult]]:
         """Analyze a file with selected analyzers.
 
@@ -140,6 +145,7 @@ class CodeAnalysisManager:
             FileNotFoundError: If file doesn't exist
             PermissionError: If file can't be read
             KeyError: If any requested analyzer doesn't exist
+
         """
         results = {}
         selected_analyzers = (
@@ -159,13 +165,13 @@ class CodeAnalysisManager:
                         level=AnalysisLevel.ERROR,
                         message=f"Analysis failed: {e}",
                         details={"error": str(e)},
-                    )
+                    ),
                 ]
 
         return results
 
     async def analyze_module(
-        self, module: str, analyzers: list[str] | None = None
+        self, module: str, analyzers: list[str] | None = None,
     ) -> dict[str, list[AnalysisResult]]:
         """Analyze a module with selected analyzers.
 
@@ -180,6 +186,7 @@ class CodeAnalysisManager:
         Raises:
             ImportError: If module can't be imported
             KeyError: If any requested analyzer doesn't exist
+
         """
         results = {}
         selected_analyzers = (
@@ -199,7 +206,7 @@ class CodeAnalysisManager:
                         level=AnalysisLevel.ERROR,
                         message=f"Analysis failed: {e}",
                         details={"error": str(e)},
-                    )
+                    ),
                 ]
 
         return results

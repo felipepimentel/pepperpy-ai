@@ -15,7 +15,7 @@ def fix_caching_distributed_py():
         print(f"Arquivo {file_path} não encontrado.")
         return
 
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         content = file.read()
 
     # Corrigir parêntese extra na inicialização do Redis

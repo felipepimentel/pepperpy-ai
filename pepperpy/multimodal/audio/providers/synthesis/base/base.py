@@ -37,7 +37,6 @@ class AudioData(BaseAudioData):
 class SynthesisError(BaseSynthesisError):
     """Error raised during audio synthesis."""
 
-    pass
 
 
 class SynthesisProvider(BaseSynthesisProvider):
@@ -61,21 +60,22 @@ class SynthesisProvider(BaseSynthesisProvider):
 
         Raises:
             SynthesisError: If saving fails
+
         """
         try:
             # Convert to Path
             path_obj = Path(path)
-            
+
             # Create directory if it doesn't exist
             if not path_obj.parent.exists():
                 path_obj.parent.mkdir(parents=True)
-            
+
             # Write audio data to file
             with open(path_obj, "wb") as f:
                 f.write(audio.content)
-            
+
             return path_obj
-            
+
         except Exception as e:
             raise SynthesisError(
                 "Failed to save audio file",

@@ -31,6 +31,7 @@ class HubSecurityManager(BaseSecurityManager):
 
         Args:
             root_dir: Root directory for security data
+
         """
         super().__init__()
         self.root_dir = root_dir
@@ -53,7 +54,7 @@ class HubSecurityManager(BaseSecurityManager):
 
             self._active = True
             logger.info(
-                "Hub security manager initialized", extra={"path": str(self.root_dir)}
+                "Hub security manager initialized", extra={"path": str(self.root_dir)},
             )
 
         except Exception as e:
@@ -83,6 +84,7 @@ class HubSecurityManager(BaseSecurityManager):
 
         Raises:
             SecurityError: If validation fails
+
         """
         try:
             # Load manifest and signature
@@ -104,7 +106,7 @@ class HubSecurityManager(BaseSecurityManager):
                 raise SecurityError(f"Invalid signature for {manifest_path}")
 
             logger.info(
-                "Validated manifest signature", extra={"manifest": str(manifest_path)}
+                "Validated manifest signature", extra={"manifest": str(manifest_path)},
             )
 
         except SecurityError:
@@ -128,6 +130,7 @@ class HubSecurityManager(BaseSecurityManager):
 
         Raises:
             SecurityError: If check fails
+
         """
         try:
             # Get artifact metadata

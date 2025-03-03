@@ -11,7 +11,7 @@ from typing import List, Tuple
 def run_command(command: List[str]) -> Tuple[int, str, str]:
     """Run a command and return exit code, stdout, and stderr."""
     process = subprocess.Popen(
-        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
     stdout, stderr = process.communicate()
     return process.returncode, stdout, stderr

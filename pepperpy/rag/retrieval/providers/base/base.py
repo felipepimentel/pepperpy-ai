@@ -23,7 +23,6 @@ class RetrievalProvider(RagComponent, ABC):
         This method should establish any necessary connections and
         prepare the provider for use.
         """
-        pass
 
     @abstractmethod
     async def cleanup(self) -> None:
@@ -31,7 +30,6 @@ class RetrievalProvider(RagComponent, ABC):
 
         This method should release any resources held by the provider.
         """
-        pass
 
     @property
     @abstractmethod
@@ -40,5 +38,5 @@ class RetrievalProvider(RagComponent, ABC):
 
         Returns:
             A dictionary containing information about the provider
+
         """
-        pass

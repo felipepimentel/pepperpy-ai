@@ -36,6 +36,7 @@ class AutonomousAgent(BaseAgent):
 
         Args:
             config: Optional autonomous agent configuration
+
         """
         super().__init__(config or AutonomousAgentConfig(name=self.__class__.__name__))
         self._active_tasks: Dict[str, Any] = {}
@@ -79,6 +80,7 @@ class AutonomousAgent(BaseAgent):
 
         Raises:
             AgentError: If task execution fails
+
         """
         if task_type not in self.task_types:
             raise AgentError(f"Unsupported task type: {task_type}")
@@ -91,12 +93,11 @@ class AutonomousAgent(BaseAgent):
             # Execute task based on type
             if task_type == "text_processing":
                 return await self._process_text(**kwargs)
-            elif task_type == "data_analysis":
+            if task_type == "data_analysis":
                 return await self._analyze_data(**kwargs)
-            elif task_type == "code_generation":
+            if task_type == "code_generation":
                 return await self._generate_code(**kwargs)
-            else:
-                raise AgentError(f"Task type not implemented: {task_type}")
+            raise AgentError(f"Task type not implemented: {task_type}")
 
         except Exception as e:
             raise AgentError(f"Failed to execute {task_type} task: {e}") from e
@@ -110,6 +111,7 @@ class AutonomousAgent(BaseAgent):
 
         Returns:
             Processed text
+
         """
         # TODO: Implement text processing
         return text
@@ -123,6 +125,7 @@ class AutonomousAgent(BaseAgent):
 
         Returns:
             Analysis results
+
         """
         # TODO: Implement data analysis
         return {"data": data}
@@ -136,6 +139,7 @@ class AutonomousAgent(BaseAgent):
 
         Returns:
             Generated code
+
         """
         # TODO: Implement code generation
         return "# TODO: Generated code"

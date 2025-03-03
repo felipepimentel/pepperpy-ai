@@ -35,6 +35,7 @@ class VectorCache(CacheBackend[NDArray]):
             max_size: Maximum number of vectors to cache
             cleanup_interval: Interval in seconds for expired entry cleanup
             similarity_threshold: Threshold for similarity-based retrieval
+
         """
         super().__init__()
         self._max_size = max_size
@@ -86,6 +87,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Args:
             key: Cache key
+
         """
         self._vectors.pop(key, None)
         self._metadata.pop(key, None)
@@ -100,6 +102,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             True if expired, False otherwise
+
         """
         expires_at = self._expiration.get(key)
         if expires_at is None:
@@ -114,6 +117,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             Vector if found and not expired, None otherwise
+
         """
         async with self._lock:
             if key not in self._vectors:
@@ -129,7 +133,7 @@ class VectorCache(CacheBackend[NDArray]):
             return self._vectors[key]
 
     async def set(
-        self, key: str, value: NDArray, ttl: Optional[Union[int, timedelta]] = None
+        self, key: str, value: NDArray, ttl: Optional[Union[int, timedelta]] = None,
     ) -> None:
         """Set a vector in cache.
 
@@ -137,6 +141,7 @@ class VectorCache(CacheBackend[NDArray]):
             key: Cache key
             value: Vector to cache
             ttl: Optional time-to-live (seconds or timedelta)
+
         """
         async with self._lock:
             # Check if we need to evict entries
@@ -163,6 +168,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             True if deleted, False if not found
+
         """
         async with self._lock:
             if key in self._vectors:
@@ -186,6 +192,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             True if exists and not expired, False otherwise
+
         """
         async with self._lock:
             if key not in self._vectors:
@@ -215,6 +222,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             True if metadata was set, False if key not found
+
         """
         async with self._lock:
             if key not in self._vectors:
@@ -235,6 +243,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             Metadata dictionary if found, None otherwise
+
         """
         async with self._lock:
             if key not in self._vectors:
@@ -247,7 +256,7 @@ class VectorCache(CacheBackend[NDArray]):
             return self._metadata.get(key)
 
     async def find_similar(
-        self, vector: NDArray, top_k: int = 5
+        self, vector: NDArray, top_k: int = 5,
     ) -> List[Tuple[str, float]]:
         """Find similar vectors in cache.
 
@@ -257,6 +266,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             List of (key, similarity) tuples
+
         """
         async with self._lock:
             if not self._vectors:
@@ -293,7 +303,7 @@ class VectorCache(CacheBackend[NDArray]):
             return similarities[:top_k]
 
     async def get_similar(
-        self, vector: NDArray, threshold: Optional[float] = None
+        self, vector: NDArray, threshold: Optional[float] = None,
     ) -> Optional[Tuple[str, NDArray]]:
         """Get most similar vector above threshold.
 
@@ -303,6 +313,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             Tuple of (key, vector) if found, None otherwise
+
         """
         if threshold is None:
             threshold = self._similarity_threshold
@@ -327,6 +338,7 @@ class VectorCache(CacheBackend[NDArray]):
         Args:
             vectors: Dictionary of key-vector pairs
             ttl: Optional time-to-live (seconds or timedelta)
+
         """
         async with self._lock:
             # Convert TTL to expiration datetime
@@ -367,6 +379,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             Dictionary of key-vector pairs for found keys
+
         """
         async with self._lock:
             result = {}
@@ -394,6 +407,7 @@ class VectorCache(CacheBackend[NDArray]):
 
         Returns:
             Number of vectors in cache
+
         """
         return len(self._vectors)
 

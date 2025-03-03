@@ -42,6 +42,7 @@ class AgentManager:
 
         Raises:
             ConfigurationError: If provider already registered
+
         """
         if name in self._providers:
             raise ConfigurationError(f"Provider {name} already registered")
@@ -70,6 +71,7 @@ class AgentManager:
         Raises:
             ConfigurationError: If provider not found
             AgentError: If creation fails
+
         """
         if config.provider not in self._providers:
             raise ConfigurationError(f"Provider {config.provider} not found")
@@ -109,6 +111,7 @@ class AgentManager:
         Raises:
             ConfigurationError: If provider not found
             AgentError: If execution fails
+
         """
         if provider_name not in self._providers:
             raise ConfigurationError(f"Provider {provider_name} not found")
@@ -146,6 +149,7 @@ class AgentManager:
         Raises:
             ConfigurationError: If chain already exists
             ChainError: If creation fails
+
         """
         if config.id in self._chains:
             raise ConfigurationError(f"Chain {config.id} already exists")
@@ -183,6 +187,7 @@ class AgentManager:
         Raises:
             ConfigurationError: If chain not found
             ChainError: If execution fails
+
         """
         if chain_id not in self._chains:
             raise ConfigurationError(f"Chain {chain_id} not found")

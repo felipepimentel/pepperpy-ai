@@ -28,6 +28,7 @@ class ProviderConfig(BaseModel):
         id: Unique provider identifier
         type: Provider type identifier
         config: Provider-specific configuration
+
     """
 
     id: UUID = Field(default_factory=uuid4)
@@ -47,6 +48,7 @@ class ProviderCapability(Capability, ABC):
 
         Args:
             config: Provider configuration
+
         """
         super().__init__()
         self.id = config.id
@@ -69,8 +71,8 @@ class ProviderCapability(Capability, ABC):
         Raises:
             ProviderError: If message processing fails
             ConfigurationError: If provider is not initialized
+
         """
-        pass
 
     @abstractmethod
     async def validate(self) -> None:
@@ -78,8 +80,8 @@ class ProviderCapability(Capability, ABC):
 
         Raises:
             ConfigurationError: If validation fails
+
         """
-        pass
 
     @abstractmethod
     async def get_info(self) -> Dict[str, Any]:
@@ -87,5 +89,5 @@ class ProviderCapability(Capability, ABC):
 
         Returns:
             Dictionary containing provider information
+
         """
-        pass

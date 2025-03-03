@@ -37,9 +37,10 @@ class OpenAIProvider(GenerationProvider):
             model: Model to use for generation
             description: Description of the component's functionality
             config: Additional configuration for the provider
+
         """
         super().__init__(
-            component_id, name, GenerationProviderType.OPENAI, description, config
+            component_id, name, GenerationProviderType.OPENAI, description, config,
         )
         self.api_key = api_key
         self.model = model
@@ -52,6 +53,7 @@ class OpenAIProvider(GenerationProvider):
 
         Returns:
             The generated response
+
         """
         # Placeholder for actual implementation
         logger.info(f"Generating response with OpenAI model: {self.model}")

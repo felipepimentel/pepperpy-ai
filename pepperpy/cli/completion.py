@@ -19,6 +19,7 @@ def get_commands() -> List[str]:
 
     Returns:
         List of command names.
+
     """
     return [
         "agent",
@@ -36,6 +37,7 @@ def get_providers() -> List[str]:
 
     Returns:
         List of provider names.
+
     """
     # TODO: Implement provider listing
     return []
@@ -46,6 +48,7 @@ def get_capabilities() -> List[str]:
 
     Returns:
         List of capability names.
+
     """
     # TODO: Implement capability listing
     return []
@@ -56,6 +59,7 @@ def get_agents() -> List[str]:
 
     Returns:
         List of agent IDs.
+
     """
     # TODO: Implement agent listing
     return []
@@ -66,6 +70,7 @@ def get_workflows() -> List[str]:
 
     Returns:
         List of workflow IDs.
+
     """
     # TODO: Implement workflow listing
     return []
@@ -76,6 +81,7 @@ def get_tools() -> List[str]:
 
     Returns:
         List of tool names.
+
     """
     # TODO: Implement tool listing
     return []
@@ -89,6 +95,7 @@ def complete_command(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     return [CompletionItem(cmd) for cmd in get_commands() if cmd.startswith(incomplete)]
 
@@ -101,6 +108,7 @@ def complete_provider(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     return [
         CompletionItem(provider)
@@ -117,6 +125,7 @@ def complete_capability(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     return [
         CompletionItem(capability)
@@ -133,6 +142,7 @@ def complete_agent(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     return [
         CompletionItem(agent) for agent in get_agents() if agent.startswith(incomplete)
@@ -147,6 +157,7 @@ def complete_workflow(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     return [
         CompletionItem(workflow)
@@ -163,6 +174,7 @@ def complete_tool(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     return [CompletionItem(tool) for tool in get_tools() if tool.startswith(incomplete)]
 
@@ -175,6 +187,7 @@ def complete_path(incomplete: str) -> List[CompletionItem]:
 
     Returns:
         List of matching completion items.
+
     """
     if not incomplete:
         incomplete = "."

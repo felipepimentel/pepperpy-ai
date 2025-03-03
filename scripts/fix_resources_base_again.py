@@ -20,7 +20,7 @@ def fix_resources_base_py():
 
         # Corrigir a indentação da enumeração ResourceType
         pattern_resource_type = re.compile(
-            r'class ResourceType\(Enum\):\s+"""Resource type enumeration\."""\s+FILE = "file"\s+MEMORY = "memory"\s+NETWORK = "network"\s+DATABASE = "database"'
+            r'class ResourceType\(Enum\):\s+"""Resource type enumeration\."""\s+FILE = "file"\s+MEMORY = "memory"\s+NETWORK = "network"\s+DATABASE = "database"',
         )
         replacement_resource_type = (
             "class ResourceType(Enum):\n"
@@ -34,7 +34,7 @@ def fix_resources_base_py():
 
         # Corrigir a definição da classe BaseResource
         pattern_base_resource = re.compile(
-            r"class BaseResource\(ComponentBase, Resource\):"
+            r"class BaseResource\(ComponentBase, Resource\):",
         )
         replacement_base_resource = "class BaseResource(ComponentBase, Resource):"
         content = pattern_base_resource.sub(replacement_base_resource, content)

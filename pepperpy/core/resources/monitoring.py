@@ -26,6 +26,7 @@ class ResourceMonitor(Lifecycle):
 
         Args:
             monitor_interval: Monitor interval in seconds
+
         """
         super().__init__()
         self._monitor_interval = monitor_interval
@@ -83,6 +84,7 @@ class ResourceMonitor(Lifecycle):
 
         Args:
             resource: Resource to register
+
         """
         self._resources[resource.id] = resource
         self._resource_count.inc()
@@ -95,6 +97,7 @@ class ResourceMonitor(Lifecycle):
 
         Args:
             resource_id: Resource ID
+
         """
         if resource_id in self._resources:
             resource = self._resources[resource_id]
@@ -151,6 +154,7 @@ class ResourceMonitor(Lifecycle):
             - state_counts: Resource state counts
             - size_stats: Resource size statistics
             - age_stats: Resource age statistics
+
         """
         now = datetime.utcnow()
         state_counts = {state.value: 0 for state in ResourceState}

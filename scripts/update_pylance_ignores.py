@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Set
 
 def read_file(file_path: str) -> str:
     """Lê o conteúdo de um arquivo."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -103,10 +103,10 @@ def update_pyproject_toml_global_ignore() -> None:
                     # Adiciona F821 à lista de ignores
                     new_ignore_list = ignore_list.rstrip() + ', "F821"'
                     new_lint_content = lint_section.replace(
-                        ignore_match.group(0), f"ignore = [{new_ignore_list}]"
+                        ignore_match.group(0), f"ignore = [{new_ignore_list}]",
                     )
                     new_pyproject_content = pyproject_content.replace(
-                        lint_section_match.group(1), new_lint_content
+                        lint_section_match.group(1), new_lint_content,
                     )
                     write_file(pyproject_path, new_pyproject_content)
                     print("F821 adicionado à lista de ignores globais.")
@@ -144,7 +144,7 @@ def update_pyproject_toml_global_ignore() -> None:
 """
                 new_lint_content = lint_section + new_ignore
                 new_pyproject_content = pyproject_content.replace(
-                    lint_section_match.group(1), new_lint_content
+                    lint_section_match.group(1), new_lint_content,
                 )
                 write_file(pyproject_path, new_pyproject_content)
                 print("Lista de ignores globais criada com F821.")
@@ -213,7 +213,7 @@ def main():
     # Verifica se o diretório pepperpy existe
     if not os.path.isdir("pepperpy"):
         print(
-            "Diretório 'pepperpy' não encontrado. Execute este script na raiz do projeto."
+            "Diretório 'pepperpy' não encontrado. Execute este script na raiz do projeto.",
         )
         sys.exit(1)
 
@@ -234,7 +234,7 @@ def main():
     # Atualiza o pyproject.toml
     if files_with_errors:
         print(
-            f"Encontrados {len(files_with_errors)} arquivos com possíveis erros de importação."
+            f"Encontrados {len(files_with_errors)} arquivos com possíveis erros de importação.",
         )
         update_pyproject_toml_global_ignore()
     else:

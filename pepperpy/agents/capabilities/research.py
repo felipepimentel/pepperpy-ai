@@ -488,12 +488,11 @@ class ResearchAssistant(BaseAgent):
 
             if action == "analyze":
                 return await self.analyze_topic(content["topic"])
-            elif action == "find_sources":
+            if action == "find_sources":
                 return await self.find_sources(content["query"])
-            elif action == "synthesize":
+            if action == "synthesize":
                 return await self.synthesize(content["sources"])
-            else:
-                raise ConfigurationError(f"Unknown action: {action}")
+            raise ConfigurationError(f"Unknown action: {action}")
         except Exception as e:
             self._logger.error(f"Message processing failed: {e}")
             return Response(

@@ -29,6 +29,7 @@ def find_stubs(project_root: Path) -> Dict[str, bool]:
 
     Returns:
         Dictionary mapping module paths to boolean indicating if stub exists
+
     """
     stubs_status = {path: False for path in MOVED_MODULES}
 
@@ -37,13 +38,13 @@ def find_stubs(project_root: Path) -> Dict[str, bool]:
 
         # Check if it's a directory with __init__.py
         if path.is_dir() and (path / "__init__.py").exists():
-            with open(path / "__init__.py", "r", encoding="utf-8") as f:
+            with open(path / "__init__.py", encoding="utf-8") as f:
                 content = f.read()
                 if "Compatibility stub" in content:
                     stubs_status[original_path] = True
         # Check if it's a file
         elif path.is_file():
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
                 if "Compatibility stub" in content:
                     stubs_status[original_path] = True
@@ -52,7 +53,7 @@ def find_stubs(project_root: Path) -> Dict[str, bool]:
 
 
 def check_stub_imports(
-    project_root: Path, stubs_status: Dict[str, bool]
+    project_root: Path, stubs_status: Dict[str, bool],
 ) -> Dict[str, bool]:
     """Check if stubs correctly import from new locations.
 
@@ -62,6 +63,7 @@ def check_stub_imports(
 
     Returns:
         Dictionary mapping module paths to boolean indicating if imports are correct
+
     """
     imports_status = {path: False for path in stubs_status if stubs_status[path]}
 
@@ -84,12 +86,12 @@ def check_stub_imports(
 
         # Check if the stub has the correct import
         if path.is_dir() and (path / "__init__.py").exists():
-            with open(path / "__init__.py", "r", encoding="utf-8") as f:
+            with open(path / "__init__.py", encoding="utf-8") as f:
                 content = f.read()
                 if expected_import in content or "import *" in content:
                     imports_status[original_path] = True
         elif path.is_file():
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 content = f.read()
                 if expected_import in content or "import *" in content:
                     imports_status[original_path] = True
@@ -133,10 +135,10 @@ def main():
     print("-" * 50)
     print(f"Total modules moved: {total_modules}")
     print(
-        f"Existing stubs: {existing_stubs}/{total_modules} ({existing_stubs / total_modules * 100:.1f}%)"
+        f"Existing stubs: {existing_stubs}/{total_modules} ({existing_stubs / total_modules * 100:.1f}%)",
     )
     print(
-        f"Correct imports: {correct_imports}/{existing_stubs} ({correct_imports / existing_stubs * 100 if existing_stubs else 0:.1f}%)"
+        f"Correct imports: {correct_imports}/{existing_stubs} ({correct_imports / existing_stubs * 100 if existing_stubs else 0:.1f}%)",
     )
 
     # Overall result
@@ -144,7 +146,7 @@ def main():
         print("\n✅ All modules have correct compatibility stubs")
     else:
         print(
-            "\n❌ Some modules are missing compatibility stubs or have incorrect imports"
+            "\n❌ Some modules are missing compatibility stubs or have incorrect imports",
         )
 
     print("\nAnalysis complete.")

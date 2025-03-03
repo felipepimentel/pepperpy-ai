@@ -27,13 +27,14 @@ class AdapterRegistry:
         return cls._instance
 
     def register_adapter(
-        self, adapter_id: str, adapter_class: Type[BaseAdapter]
+        self, adapter_id: str, adapter_class: Type[BaseAdapter],
     ) -> None:
         """Register an adapter class with the registry.
 
         Args:
             adapter_id: Unique identifier for the adapter
             adapter_class: The adapter class to register
+
         """
         if adapter_id in self._adapters:
             logger.warning(f"Adapter {adapter_id} already registered, overwriting")
@@ -47,6 +48,7 @@ class AdapterRegistry:
         Args:
             plugin_id: Unique identifier for the plugin
             plugin_info: Plugin metadata and configuration
+
         """
         if plugin_id in self._plugins:
             logger.warning(f"Plugin {plugin_id} already registered, overwriting")
@@ -62,6 +64,7 @@ class AdapterRegistry:
 
         Returns:
             The adapter class if found, None otherwise
+
         """
         return self._adapters.get(adapter_id)
 
@@ -70,6 +73,7 @@ class AdapterRegistry:
 
         Returns:
             Dictionary mapping adapter IDs to adapter classes
+
         """
         return self._adapters.copy()
 
@@ -81,6 +85,7 @@ class AdapterRegistry:
 
         Returns:
             Plugin information if found, None otherwise
+
         """
         return self._plugins.get(plugin_id)
 
@@ -89,11 +94,12 @@ class AdapterRegistry:
 
         Returns:
             Dictionary mapping plugin IDs to plugin information
+
         """
         return self._plugins.copy()
 
     def get_adapters_by_type(
-        self, adapter_type: AdapterType
+        self, adapter_type: AdapterType,
     ) -> Dict[str, Type[BaseAdapter]]:
         """Get all adapters of a specific type.
 
@@ -102,6 +108,7 @@ class AdapterRegistry:
 
         Returns:
             Dictionary mapping adapter IDs to adapter classes
+
         """
         return {
             adapter_id: adapter_class

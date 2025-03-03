@@ -10,26 +10,22 @@ class HubInterface(ABC):
     @abstractmethod
     def get_artifact(self, artifact_id: str) -> Any:
         """Retrieve an artifact from the hub."""
-        pass
 
     @abstractmethod
     def store_artifact(
-        self, artifact: Any, metadata: Optional[Dict[str, Any]] = None
+        self, artifact: Any, metadata: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Store an artifact in the hub."""
-        pass
 
     @abstractmethod
     def list_artifacts(
-        self, filter_criteria: Optional[Dict[str, Any]] = None
+        self, filter_criteria: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """List artifacts matching the given criteria."""
-        pass
 
     @abstractmethod
     def delete_artifact(self, artifact_id: str) -> bool:
         """Delete an artifact from the hub."""
-        pass
 
 
 class HubArtifact(ABC):
@@ -42,15 +38,12 @@ class HubArtifact(ABC):
     @abstractmethod
     def validate(self) -> bool:
         """Validate the artifact."""
-        pass
 
     @abstractmethod
     def serialize(self) -> Dict[str, Any]:
         """Serialize the artifact for storage."""
-        pass
 
     @classmethod
     @abstractmethod
     def deserialize(cls, data: Dict[str, Any]) -> "HubArtifact":
         """Deserialize the artifact from storage."""
-        pass

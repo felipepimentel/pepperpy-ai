@@ -26,13 +26,14 @@ class VectorDBRegistry:
         return cls._instance
 
     def register(
-        self, db_type: VectorDBType, provider_class: Type[VectorDBRetriever]
+        self, db_type: VectorDBType, provider_class: Type[VectorDBRetriever],
     ) -> None:
         """Register a vector database provider.
 
         Args:
             db_type: The type of vector database
             provider_class: The provider class to register
+
         """
         self._providers[db_type] = provider_class
         logger.info(f"Registered vector database provider for {db_type.name}")
@@ -45,6 +46,7 @@ class VectorDBRegistry:
 
         Returns:
             The provider class if registered, None otherwise
+
         """
         return self._providers.get(db_type)
 
@@ -53,6 +55,7 @@ class VectorDBRegistry:
 
         Returns:
             A dictionary of registered providers
+
         """
         return self._providers.copy()
 

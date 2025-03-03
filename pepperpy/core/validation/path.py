@@ -46,6 +46,7 @@ class PathValidator:
 
         Raises:
             ValidationError: If path does not meet constraints
+
         """
         try:
             # Convert to Path object
@@ -110,8 +111,8 @@ class PathValidator:
             raise
         except Exception as e:
             raise ValidationError(
-                f"Invalid path: {e}", 
-                {"path": str(path), "error": "invalid_path"}
+                f"Invalid path: {e}",
+                {"path": str(path), "error": "invalid_path"},
             ) from e
 
 
@@ -142,6 +143,7 @@ def validate_path(
 
     Raises:
         ValidationError: If path does not meet constraints
+
     """
     validator = PathValidator(
         must_exist=must_exist,

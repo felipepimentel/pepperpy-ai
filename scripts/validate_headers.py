@@ -33,6 +33,7 @@ def parse_header(content: str) -> dict[str, str]:
 
     Returns:
         Dictionary of field names to values
+
     """
     fields: dict[str, str] = {}
     header_match = re.search(r'"""(.*?)"""', content, re.DOTALL)
@@ -57,6 +58,7 @@ def _check_required_fields(fields: dict[str, str]) -> ErrorList:
 
     Returns:
         List of error messages
+
     """
     errors: ErrorList = []
     for field in REQUIRED_FIELDS:
@@ -76,6 +78,7 @@ def _validate_filename(file_path: Path, fields: dict[str, str]) -> ErrorList:
 
     Returns:
         List of error messages
+
     """
     errors: ErrorList = []
     if "file" in fields and fields["file"] != file_path.name:
@@ -91,6 +94,7 @@ def _validate_date(fields: dict[str, str]) -> ErrorList:
 
     Returns:
         List of error messages
+
     """
     errors: ErrorList = []
     if "created" in fields:
@@ -107,6 +111,7 @@ def _validate_status(fields: dict[str, str]) -> ErrorList:
 
     Returns:
         List of error messages
+
     """
     errors: ErrorList = []
     if "status" in fields:
@@ -123,6 +128,7 @@ def _validate_task(fields: dict[str, str]) -> ErrorList:
 
     Returns:
         List of error messages
+
     """
     errors: ErrorList = []
     if "task" in fields:
@@ -140,6 +146,7 @@ def validate_header(file_path: Path, fields: dict[str, str]) -> ErrorList:
 
     Returns:
         List of error messages
+
     """
     errors: ErrorList = []
 
@@ -161,6 +168,7 @@ def should_check_file(path: Path) -> bool:
 
     Returns:
         True if file should be checked, False otherwise
+
     """
     if not path.is_file():
         return False
@@ -189,6 +197,7 @@ def check_files(root_dir: Path) -> ValidationResult:
 
     Returns:
         List of (path, errors) tuples
+
     """
     issues: ValidationResult = []
 

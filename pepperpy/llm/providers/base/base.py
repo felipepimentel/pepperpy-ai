@@ -37,8 +37,8 @@ class LLMProviderBase(ABC):
 
         Returns:
             LLMResponse: The generated text and metadata
+
         """
-        pass
 
     @abstractmethod
     def chat(
@@ -56,8 +56,8 @@ class LLMProviderBase(ABC):
 
         Returns:
             LLMResponse: The generated response and metadata
+
         """
-        pass
 
     @abstractmethod
     def get_models(self) -> List[str]:
@@ -65,8 +65,8 @@ class LLMProviderBase(ABC):
 
         Returns:
             List[str]: List of model identifiers
+
         """
-        pass
 
     @abstractmethod
     def get_model_parameters(self, model_name: str) -> ModelParameters:
@@ -77,5 +77,5 @@ class LLMProviderBase(ABC):
 
         Returns:
             ModelParameters: Model parameters
+
         """
-        pass

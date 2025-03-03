@@ -29,7 +29,6 @@ console = Console()
 @click.group()
 def workflow() -> None:
     """Manage Pepperpy workflows."""
-    pass
 
 
 @workflow.command()
@@ -46,7 +45,7 @@ def create(name: str, template: str, config: str) -> None:
         console.print(f"[green]Created workflow:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -66,7 +65,7 @@ def run(name: str, input: str, config: str) -> None:
         console.print(f"[green]Running workflow:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -89,7 +88,7 @@ def config(name: str, key: str, value: str) -> None:
             console.print(f"[green]Config value:[/green] {key}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -103,7 +102,7 @@ def list() -> None:
         console.print("[green]Available workflows:[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -173,8 +172,8 @@ def deploy(
                     "workflow_id": workflow_id,
                     "name": definition["name"],
                     "source_file": str(workflow_path),
-                }
-            )
+                },
+            ),
         )
 
         console.print(f"Successfully deployed workflow: {workflow_id}")
@@ -189,7 +188,7 @@ def deploy(
 @workflow.command()
 @click.argument("workflow_id")
 @click.option(
-    "--input", "input_file", type=click.Path(exists=True), help="Input file (JSON)"
+    "--input", "input_file", type=click.Path(exists=True), help="Input file (JSON)",
 )
 @click.option("--async", "is_async", is_flag=True, help="Run asynchronously")
 def run_workflow(workflow_id: str, input_file: Optional[str] = None, is_async: bool = False) -> None:
@@ -326,8 +325,8 @@ def stop(run_id: str) -> None:
                 {
                     "event_type": "workflow.stop",
                     "run_id": run_id,
-                }
-            )
+                },
+            ),
         )
 
         console.print(f"Successfully stopped workflow run: {run_id}")
@@ -363,8 +362,8 @@ def delete(workflow_id: str) -> None:
                 {
                     "event_type": "workflow.delete",
                     "workflow_id": workflow_id,
-                }
-            )
+                },
+            ),
         )
 
         console.print(f"Successfully deleted workflow: {workflow_id}")
@@ -387,7 +386,7 @@ def list_workflows(state: Optional[str] = None) -> None:
 
         # Get workflows
         workflows = asyncio.run(
-            engine.list_workflows(state=WorkflowState[state] if state else None)
+            engine.list_workflows(state=WorkflowState[state] if state else None),
         )
 
         # Display workflows

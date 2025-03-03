@@ -20,6 +20,7 @@ class AudioOptimizer(BaseComponent):
         Args:
             name: Optimizer name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -33,6 +34,7 @@ class AudioOptimizer(BaseComponent):
 
         Returns:
             Optimized audio data
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -53,6 +55,7 @@ class ImageOptimizer(BaseComponent):
         Args:
             name: Optimizer name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -66,6 +69,7 @@ class ImageOptimizer(BaseComponent):
 
         Returns:
             Optimized image data
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -86,6 +90,7 @@ class TextOptimizer(BaseComponent):
         Args:
             name: Optimizer name
             config: Optional configuration
+
         """
         super().__init__(name)
         self._config = config or {}
@@ -99,6 +104,7 @@ class TextOptimizer(BaseComponent):
 
         Returns:
             Optimized text
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:

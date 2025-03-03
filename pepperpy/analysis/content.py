@@ -73,6 +73,7 @@ class ContentAnalyzer:
 
         Args:
             config: Optional configuration dictionary
+
         """
         self.config = config or {}
         self._results: List[ContentAnalysisResult] = []
@@ -94,9 +95,10 @@ class ContentAnalyzer:
 
         Returns:
             Analysis results
+
         """
         result = ContentAnalysisResult(
-            content_type=content_type, analysis_type=analysis_type, metadata=kwargs
+            content_type=content_type, analysis_type=analysis_type, metadata=kwargs,
         )
 
         try:
@@ -117,7 +119,7 @@ class ContentAnalyzer:
                     value=str(e),
                     confidence=1.0,
                     metadata={"error_type": type(e).__name__},
-                )
+                ),
             )
 
         self._results.append(result)
@@ -139,7 +141,6 @@ class ContentAnalyzer:
     ) -> None:
         """Analyze text content."""
         # Implementation would analyze text based on analysis type
-        pass
 
     def _analyze_code(
         self,
@@ -149,7 +150,6 @@ class ContentAnalyzer:
     ) -> None:
         """Analyze code content."""
         # Implementation would analyze code based on analysis type
-        pass
 
     def _analyze_data(
         self,
@@ -159,7 +159,6 @@ class ContentAnalyzer:
     ) -> None:
         """Analyze structured data content."""
         # Implementation would analyze data based on analysis type
-        pass
 
     def _analyze_media(
         self,
@@ -169,7 +168,6 @@ class ContentAnalyzer:
     ) -> None:
         """Analyze media content."""
         # Implementation would analyze media based on analysis type
-        pass
 
     def _analyze_mixed(
         self,
@@ -179,4 +177,3 @@ class ContentAnalyzer:
     ) -> None:
         """Analyze mixed content types."""
         # Implementation would analyze mixed content based on analysis type
-        pass

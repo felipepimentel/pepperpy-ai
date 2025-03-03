@@ -34,6 +34,7 @@ class IndexingRequest:
             chunks: Chunks to index
             collection_name: Name of the collection to index into
             options: Additional provider-specific options
+
         """
         self.documents = documents or []
         self.chunks = chunks or []
@@ -58,6 +59,7 @@ class IndexingResponse:
             document_ids: IDs of the indexed documents
             chunk_ids: IDs of the indexed chunks
             metadata: Additional metadata about the indexing
+
         """
         self.success = success
         self.document_ids = document_ids or []

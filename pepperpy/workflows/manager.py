@@ -25,13 +25,14 @@ class WorkflowManager(Lifecycle):
         self._logger = logger
 
     def register_workflow(
-        self, name: str, workflow_class: Type[WorkflowDefinition]
+        self, name: str, workflow_class: Type[WorkflowDefinition],
     ) -> None:
         """Register a workflow type.
 
         Args:
             name: Workflow type name
             workflow_class: Workflow class to register
+
         """
         if name in self._workflows:
             raise WorkflowError(f"Workflow type {name} already registered")
@@ -50,6 +51,7 @@ class WorkflowManager(Lifecycle):
 
         Raises:
             WorkflowError: If workflow type not found
+
         """
         if name not in self._workflows:
             raise WorkflowError(f"Workflow type {name} not found")
@@ -61,11 +63,12 @@ class WorkflowManager(Lifecycle):
 
         Returns:
             List of workflow type names
+
         """
         return list(self._workflows.keys())
 
     async def create_workflow(
-        self, name: str, config: Optional[BaseModel] = None
+        self, name: str, config: Optional[BaseModel] = None,
     ) -> WorkflowDefinition:
         """Create a workflow instance.
 
@@ -78,6 +81,7 @@ class WorkflowManager(Lifecycle):
 
         Raises:
             WorkflowError: If workflow creation fails
+
         """
         workflow_class = self.get_workflow_class(name)
 

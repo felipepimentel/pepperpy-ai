@@ -12,7 +12,7 @@ from pathlib import Path
 
 def read_file(file_path: str) -> str:
     """Lê o conteúdo de um arquivo."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -188,7 +188,7 @@ def fix_cli_workflow():
         (
             r'@click\.option\("--async", "is_async", is_flag=True, help="Run asynchronously"\)\s+# def run\(workflow_id: str, input_file: Optional\[str\] = None, is_async: bool = False\) -> None:.*\s+("""Run a workflow\.)',
             r'@click.option("--async", "is_async", is_flag=True, help="Run asynchronously")\ndef run(workflow_id: str, input_file: Optional[str] = None, is_async: bool = False) -> None:\n    \1',
-        )
+        ),
     ]
 
     for pattern, replacement in patterns:

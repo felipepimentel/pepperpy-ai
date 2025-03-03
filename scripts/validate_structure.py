@@ -154,6 +154,7 @@ def validate_path_exists(path: Path, required: Dict) -> List[str]:
 
     Returns:
         List of validation errors
+
     """
     errors = []
 
@@ -170,17 +171,16 @@ def validate_path_exists(path: Path, required: Dict) -> List[str]:
             if not subpath.is_file():
                 errors.append(f"Missing file: {subpath}")
         # Otherwise it's a directory
+        elif not subpath.is_dir():
+            errors.append(f"Missing directory: {subpath}")
         else:
-            if not subpath.is_dir():
-                errors.append(f"Missing directory: {subpath}")
-            else:
-                errors.extend(validate_path_exists(subpath, subrequired))
+            errors.extend(validate_path_exists(subpath, subrequired))
 
     return errors
 
 
 def validate_naming_conventions(
-    path: Path, seen_files: Optional[Set[Path]] = None
+    path: Path, seen_files: Optional[Set[Path]] = None,
 ) -> List[str]:
     """Validate file naming conventions recursively.
 
@@ -190,6 +190,7 @@ def validate_naming_conventions(
 
     Returns:
         List of validation errors
+
     """
     import re
 
@@ -234,6 +235,7 @@ def main() -> int:
 
     Returns:
         Exit code (0 for success, 1 for failure)
+
     """
     print("Validating project structure...")
 
@@ -255,9 +257,8 @@ def main() -> int:
     if structure_errors or naming_errors:
         print("\nValidation failed!")
         return 1
-    else:
-        print("\nValidation successful!")
-        return 0
+    print("\nValidation successful!")
+    return 0
 
 
 if __name__ == "__main__":

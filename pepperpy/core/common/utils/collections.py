@@ -31,6 +31,7 @@ class StringUtils:
 
         Returns:
             True if string is None or empty
+
         """
         return text is None or text.strip() == ""
 
@@ -45,6 +46,7 @@ class StringUtils:
 
         Returns:
             Truncated string
+
         """
         if len(text) <= max_length:
             return text
@@ -59,6 +61,7 @@ class StringUtils:
 
         Returns:
             Slug string
+
         """
         text = text.lower()
         text = re.sub(r"[^\w\s-]", "", text)
@@ -74,6 +77,7 @@ class StringUtils:
 
         Returns:
             snake_case string
+
         """
         pattern = re.compile(r"(?<!^)(?=[A-Z])")
         return pattern.sub("_", text).lower()
@@ -87,6 +91,7 @@ class StringUtils:
 
         Returns:
             camelCase string
+
         """
         components = text.split("_")
         return components[0] + "".join(x.title() for x in components[1:])
@@ -100,6 +105,7 @@ class StringUtils:
 
         Returns:
             List of words
+
         """
         return [w for w in re.split(r"\W+", text) if w]
 
@@ -112,6 +118,7 @@ class StringUtils:
 
         Returns:
             Normalized string
+
         """
         return " ".join(text.split())
 
@@ -124,6 +131,7 @@ class StringUtils:
 
         Returns:
             String without accents
+
         """
         return "".join(
             c
@@ -140,6 +148,7 @@ class StringUtils:
 
         Returns:
             List of numbers
+
         """
         return re.findall(r"\d+", text)
 
@@ -152,6 +161,7 @@ class StringUtils:
 
         Returns:
             List of email addresses
+
         """
         pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
         return re.findall(pattern, text)
@@ -165,6 +175,7 @@ class StringUtils:
 
         Returns:
             List of URLs
+
         """
         pattern = (
             r"http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|"
@@ -186,6 +197,7 @@ class ListUtils:
 
         Returns:
             List of chunks
+
         """
         return [items[i : i + size] for i in range(0, len(items), size)]
 
@@ -199,12 +211,13 @@ class ListUtils:
 
         Returns:
             Flattened list
+
         """
         result = []
         for item in items:
             if isinstance(item, list) and (depth is None or depth > 0):
                 result.extend(
-                    ListUtils.flatten(item, None if depth is None else depth - 1)
+                    ListUtils.flatten(item, None if depth is None else depth - 1),
                 )
             else:
                 result.append(item)
@@ -219,6 +232,7 @@ class ListUtils:
 
         Returns:
             List without duplicates
+
         """
         return list(dict.fromkeys(items))
 
@@ -232,6 +246,7 @@ class ListUtils:
 
         Returns:
             Dictionary of grouped items
+
         """
         result: Dict[U, List[T]] = {}
         for item in items:
@@ -243,7 +258,7 @@ class ListUtils:
 
     @staticmethod
     def partition(
-        items: List[T], predicate: Callable[[T], bool]
+        items: List[T], predicate: Callable[[T], bool],
     ) -> tuple[List[T], List[T]]:
         """Split list into two parts based on predicate.
 
@@ -253,6 +268,7 @@ class ListUtils:
 
         Returns:
             Tuple of (matching, non-matching) items
+
         """
         matching = []
         non_matching = []
@@ -273,6 +289,7 @@ class ListUtils:
 
         Returns:
             Index of matching item or None
+
         """
         for i, item in enumerate(items):
             if predicate(item):
@@ -289,6 +306,7 @@ class ListUtils:
 
         Returns:
             Matching item or None
+
         """
         index = ListUtils.find_index(items, predicate)
         return items[index] if index is not None else None
@@ -303,6 +321,7 @@ class ListUtils:
 
         Returns:
             Number of matching items
+
         """
         return sum(1 for item in items if predicate(item))
 
@@ -316,6 +335,7 @@ class ListUtils:
 
         Returns:
             True if all items match
+
         """
         return all(predicate(item) for item in items)
 
@@ -329,6 +349,7 @@ class ListUtils:
 
         Returns:
             True if any item matches
+
         """
         return any(predicate(item) for item in items)
 
@@ -342,12 +363,13 @@ class ListUtils:
 
         Returns:
             List without matching items
+
         """
         return [item for item in items if not predicate(item)]
 
     @staticmethod
     def update_by(
-        items: List[T], predicate: Callable[[T], bool], update: Callable[[T], T]
+        items: List[T], predicate: Callable[[T], bool], update: Callable[[T], T],
     ) -> List[T]:
         """Update items matching predicate.
 
@@ -358,6 +380,7 @@ class ListUtils:
 
         Returns:
             List with updated items
+
         """
         return [update(item) if predicate(item) else item for item in items]
 
@@ -367,7 +390,7 @@ class DictUtils:
 
     @staticmethod
     def get_nested(
-        data: Dict[str, Any], path: str, default: Any = None, separator: str = "."
+        data: Dict[str, Any], path: str, default: Any = None, separator: str = ".",
     ) -> Any:
         """Get value from nested dictionary using dot notation.
 
@@ -379,6 +402,7 @@ class DictUtils:
 
         Returns:
             Value at path or default
+
         """
         keys = path.split(separator)
         current = data
@@ -394,7 +418,7 @@ class DictUtils:
 
     @staticmethod
     def set_nested(
-        data: Dict[str, Any], path: str, value: Any, separator: str = "."
+        data: Dict[str, Any], path: str, value: Any, separator: str = ".",
     ) -> None:
         """Set value in nested dictionary using dot notation.
 
@@ -403,6 +427,7 @@ class DictUtils:
             path: Path to value using dot notation
             value: Value to set
             separator: Path separator
+
         """
         keys = path.split(separator)
         current = data
@@ -422,6 +447,7 @@ class DictUtils:
             data: Dictionary to modify
             path: Path to value using dot notation
             separator: Path separator
+
         """
         keys = path.split(separator)
         current = data
@@ -444,6 +470,7 @@ class DictUtils:
 
         Returns:
             Merged dictionary
+
         """
         result: Dict[K, V] = {}
 
@@ -457,7 +484,7 @@ class DictUtils:
                         and isinstance(result[key], dict)
                         and isinstance(value, dict)
                     ):
-                        # Type ignore is needed because mypy can't infer that both are dicts  # noqa: E501
+                        # Type ignore is needed because mypy can't infer that both are dicts
                         result[key] = cast(
                             V,
                             DictUtils.merge(
@@ -473,7 +500,7 @@ class DictUtils:
 
     @staticmethod
     def flatten(
-        data: Dict[str, Any], parent_key: str = "", separator: str = "."
+        data: Dict[str, Any], parent_key: str = "", separator: str = ".",
     ) -> Dict[str, Any]:
         """Flatten nested dictionary.
 
@@ -484,6 +511,7 @@ class DictUtils:
 
         Returns:
             Flattened dictionary
+
         """
         items: List[tuple[str, Any]] = []
 
@@ -492,7 +520,7 @@ class DictUtils:
 
             if isinstance(value, dict):
                 items.extend(
-                    DictUtils.flatten(value, new_key, separator=separator).items()
+                    DictUtils.flatten(value, new_key, separator=separator).items(),
                 )
             else:
                 items.append((new_key, value))
@@ -509,6 +537,7 @@ class DictUtils:
 
         Returns:
             Nested dictionary
+
         """
         result: Dict[str, Any] = {}
 
@@ -519,7 +548,7 @@ class DictUtils:
 
     @staticmethod
     def filter_keys(
-        data: Dict[K, V], keys: List[K], include: bool = True
+        data: Dict[K, V], keys: List[K], include: bool = True,
     ) -> Dict[K, V]:
         """Filter dictionary by keys.
 
@@ -530,6 +559,7 @@ class DictUtils:
 
         Returns:
             Filtered dictionary
+
         """
         if include:
             return {k: v for k, v in data.items() if k in keys}
@@ -545,6 +575,7 @@ class DictUtils:
 
         Returns:
             Filtered dictionary
+
         """
         return {k: v for k, v in data.items() if predicate(v)}
 
@@ -558,13 +589,14 @@ class DictUtils:
 
         Returns:
             Mapped dictionary
+
         """
         return {k: func(v) for k, v in data.items()}
 
 
 # Export all types
 __all__ = [
-    "StringUtils",
-    "ListUtils",
     "DictUtils",
+    "ListUtils",
+    "StringUtils",
 ]

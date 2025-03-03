@@ -18,6 +18,6 @@ from pepperpy.cloud.providers.storage import CloudStorageProvider
 
 __all__ = [
     "AWSProvider",
-    "GCPStorageProvider",
     "CloudStorageProvider",
+    "GCPStorageProvider",
 ]

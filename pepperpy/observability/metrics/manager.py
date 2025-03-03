@@ -16,6 +16,7 @@ class MetricsManager:
 
         Args:
             config: Optional configuration dictionary
+
         """
         self.config = config or {}
         self._registry = MetricsRegistry()
@@ -32,7 +33,7 @@ class MetricsManager:
             self._state = "READY"
         except Exception as e:
             self._state = "ERROR"
-            raise RuntimeError(f"Failed to initialize metrics manager: {str(e)}") from e
+            raise RuntimeError(f"Failed to initialize metrics manager: {e!s}") from e
 
     async def cleanup(self) -> None:
         """Clean up the metrics system."""
@@ -46,13 +47,14 @@ class MetricsManager:
             self._state = "CLEANED"
         except Exception as e:
             self._state = "ERROR"
-            raise RuntimeError(f"Failed to cleanup metrics manager: {str(e)}") from e
+            raise RuntimeError(f"Failed to cleanup metrics manager: {e!s}") from e
 
     def get_registry(self) -> MetricsRegistry:
         """Get the metrics registry.
 
         Returns:
             Metrics registry
+
         """
         return self._registry
 
@@ -64,6 +66,7 @@ class MetricsManager:
 
         Returns:
             Metrics collector, or None if not found
+
         """
         return self._registry.get_collector(name)
 
@@ -73,6 +76,7 @@ class MetricsManager:
         Args:
             name: Collector name
             collector: Metrics collector
+
         """
         self._registry.register_collector(name, collector)
 
@@ -84,6 +88,7 @@ class MetricsManager:
 
         Returns:
             Dict containing the requested metrics
+
         """
         if collector_name:
             collector = self._registry.get_collector(collector_name)

@@ -19,11 +19,12 @@ def register_memory_provider(name: str, provider: Type[MemoryProvider]) -> None:
     Args:
         name: Provider name
         provider: Provider class
+
     """
     MEMORY_PROVIDERS[name] = provider
 
 
 __all__ = [
-    "register_memory_provider",
     "MEMORY_PROVIDERS",
+    "register_memory_provider",
 ]

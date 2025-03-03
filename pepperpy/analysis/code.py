@@ -88,6 +88,7 @@ class CodeAnalyzer:
 
         Args:
             config: Optional configuration dictionary
+
         """
         self.config = config or {}
         self._results: List[CodeAnalysisResult] = []
@@ -107,6 +108,7 @@ class CodeAnalyzer:
 
         Returns:
             Analysis results
+
         """
         result = CodeAnalysisResult(
             analysis_type=analysis_type,
@@ -129,10 +131,10 @@ class CodeAnalyzer:
                 CodeIssue(
                     type="error",
                     severity="critical",
-                    message=f"Analysis failed: {str(e)}",
+                    message=f"Analysis failed: {e!s}",
                     file=file_path or "<unknown>",
                     line=0,
-                )
+                ),
             )
 
         self._results.append(result)
@@ -149,27 +151,22 @@ class CodeAnalyzer:
     def _analyze_complexity(self, code: str, result: CodeAnalysisResult) -> None:
         """Analyze code complexity."""
         # Implementation would calculate cyclomatic complexity, etc.
-        pass
 
     def _analyze_quality(self, code: str, result: CodeAnalysisResult) -> None:
         """Analyze code quality."""
         # Implementation would check for code smells, etc.
-        pass
 
     def _analyze_security(self, code: str, result: CodeAnalysisResult) -> None:
         """Analyze code security."""
         # Implementation would check for security vulnerabilities
-        pass
 
     def _analyze_performance(self, code: str, result: CodeAnalysisResult) -> None:
         """Analyze code performance."""
         # Implementation would check for performance issues
-        pass
 
     def _analyze_style(self, code: str, result: CodeAnalysisResult) -> None:
         """Analyze code style."""
         # Implementation would check for style violations
-        pass
 
 
 # Classes migrated from pepperpy/transformers/code.py
@@ -201,12 +198,13 @@ class CodeTransformer:
         Args:
             language: Programming language to process
             metrics: Optional metrics collector
+
         """
         self.language = language
         self.metrics = metrics
 
     async def transform(
-        self, content: str, context: TransformContext
+        self, content: str, context: TransformContext,
     ) -> TransformResult:
         """Transform code content.
 
@@ -216,6 +214,7 @@ class CodeTransformer:
 
         Returns:
             Transform result containing transformed code
+
         """
         start_time = time.time()
 
@@ -253,7 +252,7 @@ class CodeTransformer:
                     error=str(e),
                 )
 
-            raise ProcessingError(f"Code transformation failed: {str(e)}") from e
+            raise ProcessingError(f"Code transformation failed: {e!s}") from e
 
     async def validate(self, content: str, context: TransformContext) -> List[str]:
         """Validate code content.
@@ -264,6 +263,7 @@ class CodeTransformer:
 
         Returns:
             List of validation errors
+
         """
         errors = []
 
@@ -278,7 +278,6 @@ class CodeTransformer:
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        pass
 
     async def _process_code(self, content: str, context: TransformContext) -> str:
         """Process code content.
@@ -289,6 +288,7 @@ class CodeTransformer:
 
         Returns:
             Processed code content
+
         """
         # Apply code transformations based on context
         if context.options.get("format", True):
@@ -310,6 +310,7 @@ class CodeTransformer:
 
         Returns:
             List of syntax errors
+
         """
         # TODO: Implement language-specific syntax validation
         return []
@@ -322,6 +323,7 @@ class CodeTransformer:
 
         Returns:
             Formatted code content
+
         """
         # TODO: Implement language-specific formatting
         return content
@@ -334,6 +336,7 @@ class CodeTransformer:
 
         Returns:
             Code content with comments removed
+
         """
         # TODO: Implement language-specific comment removal
         return content
@@ -346,12 +349,13 @@ class CodeTransformer:
 
         Returns:
             Minified code content
+
         """
         # TODO: Implement language-specific minification
         return content
 
     async def _record_metrics(
-        self, operation: str, success: bool, duration: float, **tags
+        self, operation: str, success: bool, duration: float, **tags,
     ) -> None:
         """Record metrics for the operation.
 
@@ -360,6 +364,7 @@ class CodeTransformer:
             success: Whether the operation was successful
             duration: Duration of the operation in seconds
             **tags: Additional tags for the metrics
+
         """
         if self.metrics:
             await self.metrics.record_operation(

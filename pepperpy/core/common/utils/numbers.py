@@ -21,6 +21,7 @@ class NumberUtils:
 
         Returns:
             Decimal number
+
         """
         if isinstance(value, Decimal):
             return value
@@ -28,7 +29,7 @@ class NumberUtils:
 
     @staticmethod
     def round_decimal(
-        value: Number, places: int = 2, rounding: str = ROUND_HALF_UP
+        value: Number, places: int = 2, rounding: str = ROUND_HALF_UP,
     ) -> Decimal:
         """Round decimal number.
 
@@ -39,13 +40,14 @@ class NumberUtils:
 
         Returns:
             Rounded decimal
+
         """
         value = NumberUtils.to_decimal(value)
         return value.quantize(Decimal("0." + "0" * places), rounding=rounding)
 
     @staticmethod
     def format_decimal(
-        value: Number, places: int = 2, thousands_sep: str = ".", decimal_sep: str = ","
+        value: Number, places: int = 2, thousands_sep: str = ".", decimal_sep: str = ",",
     ) -> str:
         """Format decimal number.
 
@@ -57,6 +59,7 @@ class NumberUtils:
 
         Returns:
             Formatted number string
+
         """
         value = NumberUtils.round_decimal(value, places)
         parts = str(value).split(".")
@@ -73,7 +76,7 @@ class NumberUtils:
 
     @staticmethod
     def format_percentage(
-        value: Number, places: int = 2, include_symbol: bool = True
+        value: Number, places: int = 2, include_symbol: bool = True,
     ) -> str:
         """Format percentage.
 
@@ -84,6 +87,7 @@ class NumberUtils:
 
         Returns:
             Formatted percentage string
+
         """
         value = NumberUtils.round_decimal(value * 100, places)
         return f"{value}%" if include_symbol else str(value)
@@ -107,9 +111,10 @@ class NumberUtils:
 
         Returns:
             Formatted currency string
+
         """
         formatted = NumberUtils.format_decimal(
-            value, places, thousands_sep, decimal_sep
+            value, places, thousands_sep, decimal_sep,
         )
         return f"{currency_symbol} {formatted}"
 
@@ -122,6 +127,7 @@ class NumberUtils:
 
         Returns:
             True if valid number
+
         """
         try:
             float(value)
@@ -131,7 +137,7 @@ class NumberUtils:
 
     @staticmethod
     def safe_divide(
-        numerator: Number, denominator: Number, default: Number = 0
+        numerator: Number, denominator: Number, default: Number = 0,
     ) -> Decimal:
         """Safe division with default value.
 
@@ -142,6 +148,7 @@ class NumberUtils:
 
         Returns:
             Division result or default value
+
         """
         try:
             num = NumberUtils.to_decimal(numerator)
@@ -161,12 +168,13 @@ class NumberUtils:
 
         Returns:
             Clamped number
+
         """
         return max(minimum, min(value, maximum))
 
     @staticmethod
     def is_between(
-        value: Number, minimum: Number, maximum: Number, inclusive: bool = True
+        value: Number, minimum: Number, maximum: Number, inclusive: bool = True,
     ) -> bool:
         """Check if number is between minimum and maximum.
 
@@ -178,6 +186,7 @@ class NumberUtils:
 
         Returns:
             True if between bounds
+
         """
         if inclusive:
             return minimum <= value <= maximum
@@ -193,6 +202,7 @@ class NumberUtils:
 
         Returns:
             Rounded number
+
         """
         value = NumberUtils.to_decimal(value)
         multiple = NumberUtils.to_decimal(multiple)

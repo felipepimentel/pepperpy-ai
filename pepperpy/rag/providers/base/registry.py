@@ -39,6 +39,7 @@ class ProviderRegistry:
             provider_type: The type of provider
             provider_id: The unique identifier for the provider
             provider_class: The provider class to register
+
         """
         if provider_type not in self._providers:
             self._providers[provider_type] = {}
@@ -47,7 +48,7 @@ class ProviderRegistry:
         logger.info(f"Registered {provider_type.name} provider: {provider_id}")
 
     def get(
-        self, provider_type: ProviderType, provider_id: str
+        self, provider_type: ProviderType, provider_id: str,
     ) -> Optional[Type[RagProvider]]:
         """Get a provider by type and ID.
 
@@ -57,6 +58,7 @@ class ProviderRegistry:
 
         Returns:
             The provider class if registered, None otherwise
+
         """
         if provider_type not in self._providers:
             return None
@@ -71,6 +73,7 @@ class ProviderRegistry:
 
         Returns:
             A dictionary of registered providers
+
         """
         if provider_type is not None:
             return self._providers.get(provider_type, {}).copy()

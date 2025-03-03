@@ -23,6 +23,7 @@ class Chunker(Lifecycle, ABC):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -36,8 +37,8 @@ class Chunker(Lifecycle, ABC):
 
         Returns:
             List of content chunks
+
         """
-        pass
 
 
 class TextChunker(Chunker):
@@ -49,6 +50,7 @@ class TextChunker(Chunker):
         Args:
             chunk_size: Maximum size of each chunk
             overlap: Number of characters to overlap between chunks
+
         """
         super().__init__()
         self.chunk_size = chunk_size
@@ -62,6 +64,7 @@ class TextChunker(Chunker):
 
         Returns:
             List of text chunks
+
         """
         chunks = []
         start = 0
@@ -90,6 +93,7 @@ class TokenChunker(Chunker):
         Args:
             max_tokens: Maximum number of tokens per chunk
             overlap_tokens: Number of tokens to overlap between chunks
+
         """
         super().__init__()
         self.max_tokens = max_tokens
@@ -103,6 +107,7 @@ class TokenChunker(Chunker):
 
         Returns:
             List of text chunks
+
         """
         # TODO: Implement token-based chunking
         return [content]
@@ -116,6 +121,7 @@ class SentenceChunker(Chunker):
 
         Args:
             max_sentences: Maximum number of sentences per chunk
+
         """
         super().__init__()
         self.max_sentences = max_sentences
@@ -128,6 +134,7 @@ class SentenceChunker(Chunker):
 
         Returns:
             List of text chunks
+
         """
         # TODO: Implement sentence-based chunking
         return [content]
@@ -141,6 +148,7 @@ class ParagraphChunker(Chunker):
 
         Args:
             max_paragraphs: Maximum number of paragraphs per chunk
+
         """
         super().__init__()
         self.max_paragraphs = max_paragraphs
@@ -153,6 +161,7 @@ class ParagraphChunker(Chunker):
 
         Returns:
             List of text chunks
+
         """
         # TODO: Implement paragraph-based chunking
         return [content]
@@ -171,6 +180,7 @@ class Augmenter(Lifecycle, ABC):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -184,8 +194,8 @@ class Augmenter(Lifecycle, ABC):
 
         Returns:
             Augmented content
+
         """
-        pass
 
 
 class QueryAugmenter(Augmenter):
@@ -199,6 +209,7 @@ class QueryAugmenter(Augmenter):
 
         Returns:
             Augmented query
+
         """
         # TODO: Implement query expansion
         return query
@@ -215,6 +226,7 @@ class ResultAugmenter(Augmenter):
 
         Returns:
             Augmented result
+
         """
         # TODO: Implement result enhancement
         return result
@@ -231,6 +243,7 @@ class ContextAugmenter(Augmenter):
 
         Returns:
             Augmented context
+
         """
         # TODO: Implement context enrichment
         return context

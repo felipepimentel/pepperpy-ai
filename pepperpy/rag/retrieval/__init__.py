@@ -10,7 +10,7 @@ from .base import (
 )
 
 __all__ = [
-    "Retriever",
     "RetrievalManager",
+    "Retriever",
     "SimilarityRetriever",
 ]

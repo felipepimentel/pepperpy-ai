@@ -26,7 +26,7 @@ def fix_agent_py():
 
     # Corrigir erro de sintaxe no final do arquivo
     content = re.sub(
-        r"raise click\.Abort\(\) from e\s*$", "raise click.Abort() from e\n", content
+        r"raise click\.Abort\(\) from e\s*$", "raise click.Abort() from e\n", content,
     )
 
     file_path.write_text(content)
@@ -65,7 +65,7 @@ def fix_config_py():
     )
 
     content = re.sub(
-        r"def validate_config\(\) -> None:", "def validate_conf() -> None:", content
+        r"def validate_config\(\) -> None:", "def validate_conf() -> None:", content,
     )
 
     file_path.write_text(content)
@@ -209,7 +209,7 @@ def fix_formatters_py():
 
     # Corrigir indentação inesperada
     content = re.sub(
-        r'"""\s+\s+timestamp: datetime', '"""\n\ntimestamp: datetime', content
+        r'"""\s+\s+timestamp: datetime', '"""\n\ntimestamp: datetime', content,
     )
 
     # Corrigir erro de sintaxe na definição de classe
@@ -263,7 +263,7 @@ def fix_llm_base_py():
 
     # Corrigir indentação
     content = re.sub(
-        r"pass\s+@abstractmethod", "    pass\n\n    @abstractmethod", content
+        r"pass\s+@abstractmethod", "    pass\n\n    @abstractmethod", content,
     )
 
     file_path.write_text(content)

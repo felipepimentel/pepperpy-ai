@@ -107,9 +107,9 @@ class VersionDependency:
 
 
 __all__ = [
-    "PathLike",
     "JsonDict",
     "JsonList",
+    "PathLike",
     "Version",
     "VersionChange",
     "VersionChangeType",

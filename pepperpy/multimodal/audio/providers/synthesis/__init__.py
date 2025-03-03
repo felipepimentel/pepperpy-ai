@@ -43,14 +43,14 @@ from pepperpy.multimodal.audio.providers.synthesis.base import (
 
 __version__ = "0.1.0"
 __all__ = [
-    "SynthesisProvider",
-    "BaseSynthesisProvider",
-    "SynthesisError",
     "AudioConfig",
     "AudioData",
+    "BaseSynthesisProvider",
+    "SynthesisError",
+    "SynthesisProvider",
     "SynthesisProviderProtocol",
-    "register_synthesis_provider",
     "get_synthesis_provider_class",
-    "list_synthesis_providers",
     "get_synthesis_registry",
+    "list_synthesis_providers",
+    "register_synthesis_provider",
 ]

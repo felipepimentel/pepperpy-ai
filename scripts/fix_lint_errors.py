@@ -18,7 +18,7 @@ from pathlib import Path
 
 def fix_b028_warnings_stacklevel(file_path):
     """Corrige erros B028 adicionando stacklevel=2 aos warnings.warn."""
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         content = file.read()
 
     # Padrão para encontrar warnings.warn sem stacklevel
@@ -28,9 +28,7 @@ def fix_b028_warnings_stacklevel(file_path):
     def add_stacklevel(match):
         warning_args = match.group(1)
         if "stacklevel" not in warning_args:
-            if warning_args.endswith(")"):
-                # Remove o parêntese final para adicionar o stacklevel
-                warning_args = warning_args[:-1]
+            warning_args = warning_args.removesuffix(")")
 
             # Verifica se o último caractere é uma aspas ou se há uma vírgula no final
             if (
@@ -39,8 +37,7 @@ def fix_b028_warnings_stacklevel(file_path):
                 or warning_args.endswith(")")
             ):
                 return f"warnings.warn({warning_args}, stacklevel=2)"
-            else:
-                return f"warnings.warn({warning_args}, stacklevel=2)"
+            return f"warnings.warn({warning_args}, stacklevel=2)"
         return match.group(0)
 
     # Substitui os warnings.warn sem stacklevel
@@ -55,7 +52,7 @@ def fix_b028_warnings_stacklevel(file_path):
 
 def fix_b018_useless_expression(file_path):
     """Corrige erros B018 removendo expressões inúteis."""
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         lines = file.readlines()
 
     # Procura por linhas que contêm apenas uma expressão sem atribuição
@@ -68,7 +65,7 @@ def fix_b018_useless_expression(file_path):
         ):
             # Substitui por um comentário
             modified_lines.append(
-                "# Definindo a classe ProcessingError localmente para evitar erros de importação\n"
+                "# Definindo a classe ProcessingError localmente para evitar erros de importação\n",
             )
         else:
             modified_lines.append(line)
@@ -82,7 +79,7 @@ def fix_b018_useless_expression(file_path):
 
 def fix_b027_empty_method_abstract(file_path):
     """Corrige erros B027 adicionando @abstractmethod a métodos vazios em classes abstratas."""
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         content = file.read()
 
     # Procura por métodos vazios em classes abstratas
@@ -108,7 +105,7 @@ def fix_b027_empty_method_abstract(file_path):
 
 def fix_b024_abstract_class_without_abstract_method(file_path):
     """Corrige erros B024 adicionando um método abstrato a classes abstratas sem métodos abstratos."""
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         content = file.read()
 
     # Padrão para encontrar classes abstratas sem métodos abstratos
@@ -143,7 +140,7 @@ def fix_b024_abstract_class_without_abstract_method(file_path):
 
 def fix_f811_redefined_while_unused(file_path):
     """Corrige erros F811 renomeando funções redefinidas não utilizadas."""
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         lines = file.readlines()
 
     # Procura por funções redefinidas
@@ -167,7 +164,7 @@ def fix_f811_redefined_while_unused(file_path):
         ):  # Segunda definição
             # Renomeia a função
             modified_lines.append(
-                line.replace("def validate_conf(", "def validate_conf_cmd(")
+                line.replace("def validate_conf(", "def validate_conf_cmd("),
             )
             in_redefined_function = True
         elif (
@@ -175,7 +172,7 @@ def fix_f811_redefined_while_unused(file_path):
         ):  # Segunda definição
             # Renomeia a função
             modified_lines.append(
-                line.replace("def install_artifact(", "def install_artifact_cmd(")
+                line.replace("def install_artifact(", "def install_artifact_cmd("),
             )
             in_redefined_function = True
         elif (
@@ -205,7 +202,7 @@ def fix_f811_redefined_while_unused(file_path):
 
 def fix_f841_unused_variable(file_path):
     """Corrige erros F841 removendo atribuições a variáveis não utilizadas."""
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         lines = file.readlines()
 
     # Procura por variáveis não utilizadas
@@ -215,7 +212,7 @@ def fix_f841_unused_variable(file_path):
         if "definition = {}  # Placeholder" in line:
             # Comenta a linha
             modified_lines.append(
-                "                # definition = {}  # Placeholder (variável não utilizada)\n"
+                "                # definition = {}  # Placeholder (variável não utilizada)\n",
             )
         else:
             modified_lines.append(line)
@@ -243,19 +240,19 @@ def main():
 
     # Corrige erros B024 (abstract-base-class-without-abstract-method)
     fix_b024_abstract_class_without_abstract_method(
-        base_dir / "pepperpy/core/types/base.py"
+        base_dir / "pepperpy/core/types/base.py",
     )
     fix_b024_abstract_class_without_abstract_method(
-        base_dir / "pepperpy/core/common/types/base.py"
+        base_dir / "pepperpy/core/common/types/base.py",
     )
     fix_b024_abstract_class_without_abstract_method(
-        base_dir / "pepperpy/optimization/base.py"
+        base_dir / "pepperpy/optimization/base.py",
     )
     fix_b024_abstract_class_without_abstract_method(
-        base_dir / "pepperpy/security/base.py"
+        base_dir / "pepperpy/security/base.py",
     )
     fix_b024_abstract_class_without_abstract_method(
-        base_dir / "pepperpy/workflows/core/base.py"
+        base_dir / "pepperpy/workflows/core/base.py",
     )
 
     # Corrige erros F811 (redefined-while-unused)

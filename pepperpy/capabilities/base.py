@@ -22,6 +22,7 @@ class CapabilityConfig(BaseModel):
         description: Capability description
         parameters: Capability parameters
         metadata: Additional metadata
+
     """
 
     name: str
@@ -48,6 +49,7 @@ class BaseCapability(Extension[CapabilityConfig]):
             name: Capability name
             version: Capability version
             config: Optional capability configuration
+
         """
         super().__init__(name, version, config)
 
@@ -56,6 +58,7 @@ class BaseCapability(Extension[CapabilityConfig]):
 
         Returns:
             List of capability identifiers
+
         """
         return [self.metadata.name]
 
@@ -64,13 +67,12 @@ class BaseCapability(Extension[CapabilityConfig]):
 
         Returns:
             List of dependency identifiers
+
         """
         return []
 
     async def _initialize(self) -> None:
         """Initialize capability resources."""
-        pass
 
     async def _cleanup(self) -> None:
         """Clean up capability resources."""
-        pass

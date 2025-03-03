@@ -7,7 +7,7 @@ from pepperpy.embedding.registry import get_embedding_class
 
 
 def create_embedding(
-    provider: str, config: Optional[Dict[str, Any]] = None, **kwargs
+    provider: str, config: Optional[Dict[str, Any]] = None, **kwargs,
 ) -> BaseEmbedding:
     """Create an embedding provider instance.
 
@@ -21,6 +21,7 @@ def create_embedding(
 
     Raises:
         EmbeddingError: If provider creation fails
+
     """
     try:
         # Get provider class from registry
@@ -36,5 +37,5 @@ def create_embedding(
         return provider_class(**provider_config)
     except Exception as e:
         raise EmbeddingError(
-            f"Failed to create embedding provider '{provider}': {e}"
+            f"Failed to create embedding provider '{provider}': {e}",
         ) from e

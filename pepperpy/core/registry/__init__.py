@@ -18,13 +18,13 @@ from pepperpy.core.registry.base import (
 )
 
 __all__ = [
+    "ComponentDuplicateError",
+    "ComponentMetadata",
+    "ComponentNotFoundError",
     "Registry",
     "RegistryComponent",
-    "ComponentMetadata",
     "RegistryError",
-    "ComponentNotFoundError",
-    "ComponentDuplicateError",
     "RegistryManager",
-    "get_registry",
     "auto_register",
+    "get_registry",
 ]

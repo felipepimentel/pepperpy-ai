@@ -35,9 +35,10 @@ class LlamaProvider(GenerationProvider):
             model_path: Path to the Llama model
             description: Description of the component's functionality
             config: Additional configuration for the provider
+
         """
         super().__init__(
-            component_id, name, GenerationProviderType.LLAMA, description, config
+            component_id, name, GenerationProviderType.LLAMA, description, config,
         )
         self.model_path = model_path
 
@@ -49,6 +50,7 @@ class LlamaProvider(GenerationProvider):
 
         Returns:
             The generated response
+
         """
         # Placeholder for actual implementation
         logger.info(f"Generating response with Llama model: {self.model_path}")

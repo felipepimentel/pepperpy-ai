@@ -26,7 +26,7 @@ class VersionMigrationError(Exception):
         super().__init__(
             f"Migration failed: {from_version} -> {to_version} - {message}"
             if from_version and to_version and message
-            else "Migration failed"
+            else "Migration failed",
         )
 
 
@@ -120,7 +120,7 @@ class MigrationManager:
         steps = self.get_migration_steps(component, from_version, to_version)
         if not steps:
             self._logger.warning(
-                f"No migration steps found for {component.value}: {migration_key}"
+                f"No migration steps found for {component.value}: {migration_key}",
             )
             return False
 
@@ -134,7 +134,7 @@ class MigrationManager:
                 "component": component.value,
                 "from_version": str(from_version),
                 "to_version": str(to_version),
-            }
+            },
         )
 
         # Execute each step
@@ -143,26 +143,26 @@ class MigrationManager:
         for step in steps:
             try:
                 self._logger.info(
-                    f"Executing migration step: {step.description} for {migration_key}"
+                    f"Executing migration step: {step.description} for {migration_key}",
                 )
                 if step.execute(context):
                     executed_steps.append(step.description)
                 else:
                     self._logger.warning(
-                        f"Migration step failed: {step.description} for {migration_key}"
+                        f"Migration step failed: {step.description} for {migration_key}",
                     )
                     success = False
                     break
             except Exception as e:
                 self._logger.error(
-                    f"Error executing migration step: {step.description} for {migration_key} - {e}"
+                    f"Error executing migration step: {step.description} for {migration_key} - {e}",
                 )
                 success = False
                 break
 
         # Record migration execution
         self._record_migration(
-            component, from_version, to_version, executed_steps, success
+            component, from_version, to_version, executed_steps, success,
         )
 
         return success
@@ -191,7 +191,7 @@ class MigrationManager:
         # Check if migration was executed
         if not self._was_migration_executed(component, from_version, to_version):
             self._logger.warning(
-                f"Migration was not executed, cannot rollback: {component.value} {migration_key}"
+                f"Migration was not executed, cannot rollback: {component.value} {migration_key}",
             )
             return False
 
@@ -199,7 +199,7 @@ class MigrationManager:
         steps = self.get_migration_steps(component, from_version, to_version)
         if not steps:
             self._logger.warning(
-                f"No migration steps found for rollback: {component.value} {migration_key}"
+                f"No migration steps found for rollback: {component.value} {migration_key}",
             )
             return False
 
@@ -214,7 +214,7 @@ class MigrationManager:
                 "from_version": str(from_version),
                 "to_version": str(to_version),
                 "operation": "rollback",
-            }
+            },
         )
 
         # Execute each step in reverse order
@@ -223,19 +223,19 @@ class MigrationManager:
         for step in reversed(steps):
             try:
                 self._logger.info(
-                    f"Rolling back migration step: {step.description} for {migration_key}"
+                    f"Rolling back migration step: {step.description} for {migration_key}",
                 )
                 if step.execute(context, operation="rollback"):
                     rolled_back_steps.append(step.description)
                 else:
                     self._logger.warning(
-                        f"Rollback step failed: {step.description} for {migration_key}"
+                        f"Rollback step failed: {step.description} for {migration_key}",
                     )
                     success = False
                     break
             except Exception as e:
                 self._logger.error(
-                    f"Error rolling back migration step: {step.description} for {migration_key} - {e}"
+                    f"Error rolling back migration step: {step.description} for {migration_key} - {e}",
                 )
                 success = False
                 break
@@ -278,11 +278,11 @@ class MigrationManager:
                 "steps": executed_steps,
                 "success": success,
                 "timestamp": datetime.now().isoformat(),
-            }
+            },
         )
 
     def _remove_migration_record(
-        self, component: VersionComponent, from_version: Version, to_version: Version
+        self, component: VersionComponent, from_version: Version, to_version: Version,
     ) -> None:
         """Remove a migration execution record."""
         # Create migration key
@@ -296,7 +296,7 @@ class MigrationManager:
             del self._executed_migrations[component][migration_key]
 
     def _was_migration_executed(
-        self, component: VersionComponent, from_version: Version, to_version: Version
+        self, component: VersionComponent, from_version: Version, to_version: Version,
     ) -> bool:
         """Check if a migration was executed."""
         # Create migration key
@@ -329,17 +329,17 @@ class MigrationManager:
     def from_dict(cls, data: dict[str, Any]) -> "MigrationManager":
         """Create migration manager from dictionary."""
         manager = cls()
-        
+
         # Load executed migrations
         executed_migrations = data.get("executed_migrations", {})
         for component_str, migrations in executed_migrations.items():
             component = VersionComponent(component_str)
             for migration_key, steps in migrations.items():
                 manager._executed_migrations[component][migration_key] = steps
-        
+
         # Load migration history
         manager._migration_history = data.get("migration_history", [])
-        
+
         return manager
 
 
@@ -366,21 +366,21 @@ class MigrationStepBuilder:
         return self
 
     def upgrade(
-        self, func: Callable[[Dict[str, Any]], bool]
+        self, func: Callable[[Dict[str, Any]], bool],
     ) -> "MigrationStepBuilder":
         """Set the upgrade function."""
         self.upgrade_func = func
         return self
 
     def rollback(
-        self, func: Callable[[Dict[str, Any]], bool]
+        self, func: Callable[[Dict[str, Any]], bool],
     ) -> "MigrationStepBuilder":
         """Set the rollback function."""
         self.rollback_func = func
         return self
 
     def validate(
-        self, func: Callable[[Dict[str, Any]], bool]
+        self, func: Callable[[Dict[str, Any]], bool],
     ) -> "MigrationStepBuilder":
         """Set the validation function."""
         self.validation_func = func
@@ -425,7 +425,7 @@ class MigrationStepBuilder:
         return wrapped
 
     def _get_error_handler(
-        self, exception_type: Type[Exception]
+        self, exception_type: Type[Exception],
     ) -> Optional[Callable[[Exception], None]]:
         """Get the appropriate error handler for an exception type."""
         for exc_type, handler in self.error_handlers.items():
@@ -444,7 +444,7 @@ class MigrationStep:
     rollback_func: Optional[Callable[[Dict[str, Any]], bool]] = None
     validation_func: Optional[Callable[[Dict[str, Any]], bool]] = None
     error_handlers: Dict[Type[Exception], Callable[[Exception], None]] = field(
-        default_factory=dict
+        default_factory=dict,
     )
 
     def execute(self, context: Dict[str, Any], operation: str = "upgrade") -> bool:
@@ -461,11 +461,10 @@ class MigrationStep:
             # Execute the operation
             if operation == "upgrade":
                 return self.upgrade_func(context)
-            elif operation == "rollback":
+            if operation == "rollback":
                 if self.rollback_func:
                     return self.rollback_func(context)
-                else:
-                    raise ValueError("No rollback function defined")
+                raise ValueError("No rollback function defined")
             else:
                 raise ValueError(f"Invalid operation: {operation}")
 
@@ -476,7 +475,7 @@ class MigrationStep:
             raise
 
     def _get_error_handler(
-        self, exception_type: Type[Exception]
+        self, exception_type: Type[Exception],
     ) -> Optional[Callable[[Exception], None]]:
         """Get the appropriate error handler for an exception type."""
         for exc_type, handler in self.error_handlers.items():

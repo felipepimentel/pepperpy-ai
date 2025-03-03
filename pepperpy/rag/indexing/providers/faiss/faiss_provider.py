@@ -42,6 +42,7 @@ class FAISSProvider(IndexingProvider):
             index_file_path: Path to save the FAISS index
             description: Description of the component's functionality
             config: Additional configuration for the provider
+
         """
         super().__init__(
             component_id,
@@ -63,10 +64,11 @@ class FAISSProvider(IndexingProvider):
 
         Returns:
             The indexing response
+
         """
         # Placeholder for actual implementation
         logger.info(
-            f"Processing indexing request for collection: {request.collection_name}"
+            f"Processing indexing request for collection: {request.collection_name}",
         )
 
         # Process documents if any

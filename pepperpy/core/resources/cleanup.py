@@ -28,6 +28,7 @@ class CleanupScheduler(Lifecycle):
         Args:
             default_ttl: Default time-to-live in seconds
             cleanup_interval: Cleanup check interval in seconds
+
         """
         super().__init__()
         self._default_ttl = default_ttl
@@ -78,6 +79,7 @@ class CleanupScheduler(Lifecycle):
             resource: Resource to schedule
             ttl: Time-to-live in seconds (uses default if None)
             cleanup_hook: Optional cleanup hook function
+
         """
         async with self._lock:
             ttl = ttl or self._default_ttl
@@ -102,6 +104,7 @@ class CleanupScheduler(Lifecycle):
 
         Args:
             resource_id: Resource ID
+
         """
         async with self._lock:
             if resource_id in self._resources:

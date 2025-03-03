@@ -73,6 +73,7 @@ class PepperError(Exception):
             message: Error message
             details: Optional error details
             error_code: Optional error code
+
         """
         super().__init__(message)
         self.details = details or {}
@@ -85,6 +86,7 @@ class PepperError(Exception):
 
         Returns:
             Error message with details if available
+
         """
         if self.details:
             return f"{super().__str__()} - {self.details}"
@@ -149,6 +151,7 @@ class ComponentError(PepperError):
             message: Error message
             component_id: Optional component identifier
             details: Optional error details
+
         """
         error_details = {"component_id": component_id} if component_id else {}
         if details:
@@ -196,6 +199,7 @@ class ResourceError(PepperError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message, details=details, error_code="ERR005")
 
@@ -213,6 +217,7 @@ class RegistryError(PepperError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message, details=details, error_code="ERR008")
 
@@ -251,6 +256,7 @@ class CapabilityError(PepperError):
             message: Error message
             capability_type: Optional capability type
             details: Optional error details
+
         """
         error_details = {"capability_type": capability_type} if capability_type else {}
         if details:
@@ -570,6 +576,7 @@ class MemoryBackendError(PepperpyMemoryError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message, details=details)
 
@@ -642,6 +649,7 @@ class MemoryBackendNotFoundError(PepperpyMemoryError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message, details=details)
 
@@ -659,6 +667,7 @@ class MemoryBackendAlreadyExistsError(PepperpyMemoryError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message, details=details)
 
@@ -676,6 +685,7 @@ class MemoryBackendInvalidError(PepperpyMemoryError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message, details=details)
 
@@ -683,7 +693,6 @@ class MemoryBackendInvalidError(PepperpyMemoryError):
 class StorageError(PepperError):
     """Error raised by storage operations."""
 
-    pass
 
 
 class ExtensionError(PepperError):
@@ -699,6 +708,7 @@ class ExtensionError(PepperError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         error_details = {"error_code": "ERR-106", **(details or {})}
         super().__init__(message, details=error_details)
@@ -707,7 +717,6 @@ class ExtensionError(PepperError):
 class HubError(PepperError):
     """Error raised by Hub operations."""
 
-    pass
 
 
 class ProcessingError(PepperError):
@@ -753,6 +762,7 @@ class CLIError(PepperError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message)
         self.details = details or {}
@@ -775,6 +785,7 @@ class AdapterError(PepperError):
         Args:
             message: Error message
             details: Optional error details
+
         """
         super().__init__(message)
         self.details = details or {}
@@ -791,6 +802,7 @@ class AssetError(Exception):
 
         Args:
             message: Error message
+
         """
         super().__init__(message)
 
@@ -838,7 +850,7 @@ class VersionCompatibilityError(PepperError):
     """Error raised when version compatibility check fails."""
 
     def __init__(
-        self, from_version, to_version, message: str, details: Optional[Dict] = None
+        self, from_version, to_version, message: str, details: Optional[Dict] = None,
     ):
         """Initialize version compatibility error.
 
@@ -847,6 +859,7 @@ class VersionCompatibilityError(PepperError):
             to_version: Target version
             message: Error message
             details: Optional error details
+
         """
         super().__init__(
             message=message,
@@ -863,7 +876,7 @@ class VersionMigrationError(PepperError):
     """Error raised when version migration fails."""
 
     def __init__(
-        self, from_version, to_version, message: str, details: Optional[Dict] = None
+        self, from_version, to_version, message: str, details: Optional[Dict] = None,
     ):
         """Initialize version migration error.
 
@@ -872,6 +885,7 @@ class VersionMigrationError(PepperError):
             to_version: Target version
             message: Error message
             details: Optional error details
+
         """
         super().__init__(
             message=message,
@@ -894,6 +908,7 @@ class VersionParseError(PepperError):
             version_str: Version string that failed to parse
             message: Error message
             details: Optional error details
+
         """
         super().__init__(
             message=message,
@@ -915,6 +930,7 @@ class VersionValidationError(PepperError):
             version: Version that failed validation
             message: Error message
             details: Optional error details
+
         """
         super().__init__(
             message=message,
@@ -930,7 +946,7 @@ class VersionDependencyError(PepperError):
     """Error raised when version dependency check fails."""
 
     def __init__(
-        self, version, dependency, message: str, details: Optional[Dict] = None
+        self, version, dependency, message: str, details: Optional[Dict] = None,
     ):
         """Initialize version dependency error.
 
@@ -939,6 +955,7 @@ class VersionDependencyError(PepperError):
             dependency: Dependency version
             message: Error message
             details: Optional error details
+
         """
         super().__init__(
             message=message,

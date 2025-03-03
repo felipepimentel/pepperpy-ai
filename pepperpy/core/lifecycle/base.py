@@ -41,6 +41,7 @@ class LifecycleComponent(ABC):
         context (LifecycleContext): Runtime context for the component
         hooks (list[LifecycleHook]): Registered lifecycle hooks
         metrics (LifecycleMetrics): Collected metrics about lifecycle events
+
     """
 
     def __init__(
@@ -53,6 +54,7 @@ class LifecycleComponent(ABC):
         Args:
             config: Optional configuration for the component
             context: Optional runtime context for the component
+
         """
         self.state = LifecycleState.UNINITIALIZED
         self.config = config or LifecycleConfig()
@@ -69,6 +71,7 @@ class LifecycleComponent(ABC):
 
         Args:
             hook: Hook to add
+
         """
         self.hooks.append(hook)
 
@@ -77,6 +80,7 @@ class LifecycleComponent(ABC):
 
         Args:
             hook: Hook to remove
+
         """
         if hook in self.hooks:
             self.hooks.remove(hook)
@@ -89,6 +93,7 @@ class LifecycleComponent(ABC):
 
         Raises:
             HookError: If a hook fails to execute
+
         """
         self.context.event = event
         self.context.timestamp = datetime.utcnow()
@@ -117,11 +122,12 @@ class LifecycleComponent(ABC):
 
         Raises:
             StateError: If transition is invalid
+
         """
         # Validate transition
         if target not in ALLOWED_TRANSITIONS.get(self.state, set()):
             raise StateError(
-                f"Invalid transition from {self.state} to {target} during {event} event"
+                f"Invalid transition from {self.state} to {target} during {event} event",
             )
 
         # Log transition
@@ -141,7 +147,7 @@ class LifecycleComponent(ABC):
                 event=event,
                 timestamp=self.context.timestamp,
                 metadata=self.context.metadata,
-            )
+            ),
         )
 
     @abstractmethod
@@ -153,10 +159,11 @@ class LifecycleComponent(ABC):
 
         Raises:
             InitializationError: If initialization fails
+
         """
         try:
             await self._transition(
-                LifecycleState.INITIALIZING, LifecycleEvent.INITIALIZE
+                LifecycleState.INITIALIZING, LifecycleEvent.INITIALIZE,
             )
             # Subclass initialization here
             await self._transition(LifecycleState.READY, LifecycleEvent.INITIALIZE)
@@ -174,6 +181,7 @@ class LifecycleComponent(ABC):
 
         Raises:
             StartError: If starting fails
+
         """
         try:
             await self._transition(LifecycleState.RUNNING, LifecycleEvent.START)
@@ -192,6 +200,7 @@ class LifecycleComponent(ABC):
 
         Raises:
             StopError: If stopping fails
+
         """
         try:
             await self._transition(LifecycleState.STOPPING, LifecycleEvent.STOP)
@@ -211,6 +220,7 @@ class LifecycleComponent(ABC):
 
         Raises:
             FinalizeError: If cleanup fails
+
         """
         try:
             await self._transition(LifecycleState.FINALIZING, LifecycleEvent.FINALIZE)
@@ -230,6 +240,7 @@ class LifecycleComponent(ABC):
 
         Raises:
             RetryError: If retry fails
+
         """
         try:
             await self._execute_hooks(LifecycleEvent.RETRY)

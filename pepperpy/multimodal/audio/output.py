@@ -52,6 +52,7 @@ class AudioProcessor(BaseAudioProcessor):
         Args:
             name: Processor name
             config: Optional configuration
+
         """
         super().__init__(name, config)
 
@@ -63,6 +64,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Processed audio array
+
         """
         # Apply configured transformations
         result = audio
@@ -87,6 +89,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Filtered audio array
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would apply the appropriate filter
@@ -116,6 +119,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Processed audio array
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would apply the appropriate effects
@@ -141,7 +145,7 @@ class AudioProcessor(BaseAudioProcessor):
         return result
 
     async def export_audio(
-        self, audio: Any, format: str = "wav", sample_rate: Optional[int] = None
+        self, audio: Any, format: str = "wav", sample_rate: Optional[int] = None,
     ) -> bytes:
         """Export audio to specified format.
 
@@ -152,6 +156,7 @@ class AudioProcessor(BaseAudioProcessor):
 
         Returns:
             Encoded audio data as bytes
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:

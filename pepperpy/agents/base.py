@@ -34,6 +34,7 @@ class AgentCapability(Protocol):
 
         Returns:
             Capability result
+
         """
         ...
 
@@ -46,6 +47,7 @@ class BaseAgent(Lifecycle, ABC):
 
         Args:
             config: Agent configuration
+
         """
         super().__init__()
         self.config = config
@@ -67,12 +69,10 @@ class BaseAgent(Lifecycle, ABC):
     @abstractmethod
     async def _initialize(self) -> None:
         """Initialize agent resources."""
-        pass
 
     @abstractmethod
     async def _cleanup(self) -> None:
         """Clean up agent resources."""
-        pass
 
     async def initialize(self) -> None:
         """Initialize agent."""
@@ -97,6 +97,7 @@ class BaseAgent(Lifecycle, ABC):
 
         Returns:
             Task result
+
         """
         ...
 
@@ -106,6 +107,7 @@ class BaseAgent(Lifecycle, ABC):
         Args:
             name: Capability name
             capability: Capability implementation
+
         """
         self._capabilities[name] = capability
 
@@ -117,6 +119,7 @@ class BaseAgent(Lifecycle, ABC):
 
         Returns:
             Capability implementation or None if not found
+
         """
         return self._capabilities.get(name)
 
@@ -125,5 +128,6 @@ class BaseAgent(Lifecycle, ABC):
 
         Returns:
             List of capability names
+
         """
         return list(self._capabilities.keys())

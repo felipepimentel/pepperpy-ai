@@ -46,6 +46,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             RuntimeError: If initialization fails
+
         """
         try:
             # Initialize metrics
@@ -77,6 +78,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             RuntimeError: If cleanup fails
+
         """
         try:
             # Clean up protocols
@@ -102,6 +104,7 @@ class ProtocolManager(Lifecycle):
         Raises:
             ValueError: If protocol is invalid
             RuntimeError: If registration fails
+
         """
         try:
             if not isinstance(protocol, BaseProtocol):
@@ -129,6 +132,7 @@ class ProtocolManager(Lifecycle):
         Raises:
             ValueError: If protocol not found
             RuntimeError: If unregistration fails
+
         """
         try:
             if protocol_id not in self._protocols:
@@ -156,6 +160,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             ValueError: If protocol not found or type mismatch
+
         """
         try:
             if protocol_id not in self._protocols:
@@ -164,7 +169,7 @@ class ProtocolManager(Lifecycle):
             protocol = self._protocols[protocol_id]
             if protocol_type and not isinstance(protocol, protocol_type):
                 raise ValueError(
-                    f"Protocol {protocol_id} is not of type {protocol_type}"
+                    f"Protocol {protocol_id} is not of type {protocol_type}",
                 )
 
             return protocol  # type: ignore
@@ -183,6 +188,7 @@ class ProtocolManager(Lifecycle):
 
         Returns:
             List of registered protocols
+
         """
         try:
             if protocol_type:
@@ -210,6 +216,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             ValueError: If creation fails
+
         """
         try:
             protocol_config = ProtocolConfig(
@@ -240,6 +247,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             ValueError: If creation fails
+
         """
         try:
             protocol_config = ProtocolConfig(
@@ -270,6 +278,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             ValueError: If creation fails
+
         """
         try:
             protocol_config = ProtocolConfig(
@@ -300,6 +309,7 @@ class ProtocolManager(Lifecycle):
 
         Raises:
             ValueError: If creation fails
+
         """
         try:
             protocol_config = ProtocolConfig(

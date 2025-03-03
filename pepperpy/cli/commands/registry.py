@@ -28,13 +28,11 @@ console = Console()
 @click.group()
 def registry() -> None:
     """Manage Pepperpy registries."""
-    pass
 
 
 @registry.group()
 def provider() -> None:
     """Manage provider registry."""
-    pass
 
 
 @provider.command()
@@ -61,7 +59,7 @@ def register_provider(name: str, provider_type: str, capability: str) -> None:
         console.print(f"[green]Registered provider:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -79,7 +77,7 @@ def unregister_provider(name: str) -> None:
         console.print(f"[green]Unregistered provider:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -98,7 +96,7 @@ def list_providers() -> None:
         console.print(table)
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -107,7 +105,6 @@ def list_providers() -> None:
 @registry.group()
 def capability() -> None:
     """Manage capability registry."""
-    pass
 
 
 @capability.command()
@@ -129,12 +126,12 @@ def register_capability(name: str, version: str, framework: str, agent_id: str) 
                 version=version,
                 framework=framework,
                 agent_id=UUID(agent_id),
-            )
+            ),
         )
         console.print(f"[green]Registered capability:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -157,12 +154,12 @@ def unregister_capability(name: str, version: str, agent_id: str) -> None:
                 capability_name=name,
                 version=version,
                 agent_id=UUID(agent_id),
-            )
+            ),
         )
         console.print(f"[green]Unregistered capability:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -198,7 +195,7 @@ def list_capabilities(agent_id: Optional[str] = None) -> None:
         console.print(table)
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -212,7 +209,7 @@ def validate() -> None:
         console.print("[green]Registry validation passed[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -230,7 +227,7 @@ def cleanup(force: bool) -> None:
         console.print("[green]Registry cleanup complete[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e

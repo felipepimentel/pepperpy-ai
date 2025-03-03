@@ -44,6 +44,7 @@ class WorkflowAgent(BaseAgent):
         Args:
             config: Optional workflow agent configuration
             workflow_manager: Optional workflow manager instance
+
         """
         super().__init__(config or WorkflowAgentConfig(name=self.__class__.__name__))
         self._active_steps: Dict[str, Any] = {}
@@ -66,7 +67,7 @@ class WorkflowAgent(BaseAgent):
         # Initialize step cache if enabled
         if isinstance(self.config, WorkflowAgentConfig) and self.config.use_cache:
             self._step_cache = WorkflowCache(
-                namespace=f"{self.config.name}_steps", default_ttl=self.config.cache_ttl
+                namespace=f"{self.config.name}_steps", default_ttl=self.config.cache_ttl,
             )
 
         # Initialize step metrics
@@ -95,6 +96,7 @@ class WorkflowAgent(BaseAgent):
 
         Raises:
             AgentError: If step execution fails
+
         """
         if step.action not in self.step_types:
             raise AgentError(f"Unsupported step type: {step.action}")
@@ -168,6 +170,7 @@ class WorkflowAgent(BaseAgent):
 
         Returns:
             Transformed data
+
         """
         # TODO: Implement data transformation
         return kwargs.get("data")
@@ -181,6 +184,7 @@ class WorkflowAgent(BaseAgent):
 
         Returns:
             Inference results
+
         """
         # TODO: Implement model inference
         return {"predictions": []}
@@ -194,6 +198,7 @@ class WorkflowAgent(BaseAgent):
 
         Returns:
             API response
+
         """
         # TODO: Implement API call
         return {"status": "success"}

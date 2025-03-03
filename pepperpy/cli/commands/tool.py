@@ -25,7 +25,6 @@ console = Console()
 @click.group()
 def tool() -> None:
     """Manage Pepperpy tools."""
-    pass
 
 
 @tool.command()
@@ -42,7 +41,7 @@ def create(name: str, tool_type: str, config: str) -> None:
         console.print(f"[green]Created tool:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -62,7 +61,7 @@ def run(name: str, input: str, config: str) -> None:
         console.print(f"[green]Running tool:[/green] {name}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -85,7 +84,7 @@ def config(name: str, key: str, value: str) -> None:
             console.print(f"[green]Config value:[/green] {key}")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e
@@ -99,7 +98,7 @@ def list() -> None:
         console.print("[green]Available tools:[/green]")
 
     except PepperpyError as e:
-        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"[red]Error:[/red] {e!s}")
         if e.recovery_hint:
             console.print(f"[yellow]Hint:[/yellow] {e.recovery_hint}")
         raise click.Abort() from e

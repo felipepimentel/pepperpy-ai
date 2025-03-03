@@ -26,6 +26,7 @@ class TraceProvider(ABC):
 
         Args:
             config: Optional provider configuration
+
         """
         self.config = config or {}
         self._exporter = None
@@ -36,6 +37,7 @@ class TraceProvider(ABC):
 
         Returns:
             SpanExporter: Configured span exporter
+
         """
         if not self._exporter:
             self._exporter = self._create_exporter()
@@ -47,8 +49,8 @@ class TraceProvider(ABC):
 
         Returns:
             SpanExporter: New span exporter
+
         """
-        pass
 
     async def shutdown(self) -> None:
         """Shut down the provider."""
@@ -64,6 +66,7 @@ class ConsoleTraceProvider(TraceProvider):
 
         Returns:
             SpanExporter: Console span exporter
+
         """
         return ConsoleSpanExporter()
 
@@ -76,6 +79,7 @@ class JaegerTraceProvider(TraceProvider):
 
         Returns:
             SpanExporter: Jaeger span exporter
+
         """
         return JaegerExporter(
             agent_host_name=self.config.get("host", "localhost"),
@@ -92,6 +96,7 @@ class ZipkinTraceProvider(TraceProvider):
 
         Returns:
             SpanExporter: Zipkin span exporter
+
         """
         return ZipkinExporter(
             endpoint=self.config.get("endpoint", "http://localhost:9411/api/v2/spans"),

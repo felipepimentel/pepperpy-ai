@@ -24,6 +24,7 @@ class ErrorReport:
 
         Returns:
             Dictionary representation of the report
+
         """
         return {
             "error_type": type(self.error).__name__,
@@ -42,6 +43,7 @@ class ErrorFormatter:
 
         Args:
             include_traceback: Whether to include traceback in reports
+
         """
         self.include_traceback = include_traceback
 
@@ -54,6 +56,7 @@ class ErrorFormatter:
 
         Returns:
             Formatted error report
+
         """
         import traceback
 
@@ -64,7 +67,7 @@ class ErrorFormatter:
 
         if self.include_traceback:
             report.traceback = "".join(
-                traceback.format_exception(type(error), error, error.__traceback__)
+                traceback.format_exception(type(error), error, error.__traceback__),
             )
 
         return report
@@ -78,6 +81,7 @@ class ErrorFormatter:
 
         Returns:
             JSON string representation
+
         """
         import json
 
@@ -93,6 +97,7 @@ class ErrorFormatter:
 
         Returns:
             Text representation
+
         """
         report = self.format_error(error, **context)
         lines = [

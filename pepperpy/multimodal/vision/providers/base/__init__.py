@@ -10,11 +10,11 @@ from pepperpy.multimodal.vision.providers.base.types import (
 )
 
 __all__ = [
-    "VisionProvider",
-    "VisionError",
-    "VisionProviderRegistry",
-    "VisionTaskType",
     "BoundingBox",
     "DetectedObject",
     "ImageInput",
+    "VisionError",
+    "VisionProvider",
+    "VisionProviderRegistry",
+    "VisionTaskType",
 ]

@@ -14,6 +14,7 @@ def register_embedding(name: str, embedding_class: Type[BaseEmbedding]) -> None:
     Args:
         name: Name of the embedding provider
         embedding_class: Embedding provider class
+
     """
     _EMBEDDING_REGISTRY[name] = embedding_class
 
@@ -29,6 +30,7 @@ def get_embedding_class(name: str) -> Type[BaseEmbedding]:
 
     Raises:
         ValueError: If embedding provider is not found
+
     """
     if name not in _EMBEDDING_REGISTRY:
         raise ValueError(f"Embedding provider '{name}' not found in registry")
@@ -40,6 +42,7 @@ def list_embeddings() -> List[str]:
 
     Returns:
         List[str]: List of embedding provider names
+
     """
     return list(_EMBEDDING_REGISTRY.keys())
 
@@ -49,5 +52,6 @@ def get_embedding_registry() -> Dict[str, Type[BaseEmbedding]]:
 
     Returns:
         Dict[str, Type[BaseEmbedding]]: Copy of the embedding provider registry
+
     """
     return _EMBEDDING_REGISTRY.copy()

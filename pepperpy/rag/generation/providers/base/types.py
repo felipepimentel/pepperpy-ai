@@ -39,6 +39,7 @@ class GenerationRequest:
             top_p: Top-p sampling parameter
             stop_sequences: Sequences that stop generation
             options: Additional provider-specific options
+
         """
         self.prompt = prompt
         self.context = context or []
@@ -64,6 +65,7 @@ class GenerationResponse:
             text: The generated text
             usage: Token usage information
             metadata: Additional metadata about the generation
+
         """
         self.text = text
         self.usage = usage or {}

@@ -17,10 +17,10 @@ from pepperpy.rag.generation.providers.base.types import (
 
 __all__ = [
     "GenerationProvider",
-    "register_generation_provider",
-    "get_generation_provider",
-    "list_generation_providers",
     "GenerationProviderType",
     "GenerationRequest",
     "GenerationResponse",
+    "get_generation_provider",
+    "list_generation_providers",
+    "register_generation_provider",
 ]

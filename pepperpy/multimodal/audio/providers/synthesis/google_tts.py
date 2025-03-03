@@ -38,6 +38,7 @@ class GTTSProvider(SynthesisProvider):
 
         Raises:
             SynthesisError: If configuration is invalid
+
         """
         try:
             self.config = GTTSConfig(**config)
@@ -69,6 +70,7 @@ class GTTSProvider(SynthesisProvider):
 
         Raises:
             SynthesisError: If synthesis fails
+
         """
         try:
             # Run gTTS in executor (blocking operation)
@@ -120,15 +122,16 @@ class GTTSProvider(SynthesisProvider):
 
         Returns:
             Audio data as bytes
+
         """
         # Create gTTS instance
         tts = gTTS(text=text, lang=language, slow=slow)
-        
+
         # Save to buffer
         buffer = io.BytesIO()
         tts.write_to_fp(buffer)
         buffer.seek(0)
-        
+
         return buffer.getvalue()
 
     async def save(
@@ -149,21 +152,22 @@ class GTTSProvider(SynthesisProvider):
 
         Raises:
             SynthesisError: If saving fails
+
         """
         try:
             # Convert to Path
             path_obj = Path(path)
-            
+
             # Create directory if it doesn't exist
             if not path_obj.parent.exists():
                 path_obj.parent.mkdir(parents=True)
-            
+
             # Write audio data to file
             with open(path_obj, "wb") as f:
                 f.write(audio.content)
-            
+
             return path_obj
-            
+
         except Exception as e:
             raise SynthesisError(
                 "Failed to save audio file",

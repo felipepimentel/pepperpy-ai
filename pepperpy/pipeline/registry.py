@@ -17,6 +17,7 @@ def register_pipeline(name: str, pipeline_class: Type[Pipeline]) -> None:
     Args:
         name: Name of the pipeline provider
         pipeline_class: Pipeline provider class
+
     """
     _PIPELINE_REGISTRY[name] = pipeline_class
 
@@ -32,6 +33,7 @@ def get_pipeline_class(name: str) -> Type[Pipeline]:
 
     Raises:
         ValueError: If pipeline provider is not found
+
     """
     if name not in _PIPELINE_REGISTRY:
         raise ValueError(f"Pipeline provider '{name}' not found in registry")
@@ -43,6 +45,7 @@ def list_pipelines() -> List[str]:
 
     Returns:
         List[str]: List of pipeline provider names
+
     """
     return list(_PIPELINE_REGISTRY.keys())
 
@@ -52,5 +55,6 @@ def get_pipeline_registry() -> Dict[str, Type[Pipeline]]:
 
     Returns:
         Dict[str, Type[Pipeline]]: Copy of the pipeline provider registry
+
     """
     return _PIPELINE_REGISTRY.copy()

@@ -32,7 +32,7 @@ Core Components:
 # The following imports are for backward compatibility
 from pepperpy.agents.providers import *
 from pepperpy.cloud.providers import *
-from pepperpy.core import *  # noqa
+from pepperpy.core import *
 from pepperpy.core.config.providers import *
 from pepperpy.embedding.providers import *
 from pepperpy.llm.providers import *

@@ -40,6 +40,7 @@ class ImageData:
             channels: Number of color channels
             mode: Color mode (e.g., "RGB", "RGBA", "L" for grayscale)
             metadata: Optional metadata
+
         """
         self.data = data
         self.width = width
@@ -54,6 +55,7 @@ class ImageData:
 
         Returns:
             Tuple of (height, width, channels)
+
         """
         return (self.height, self.width, self.channels)
 
@@ -63,6 +65,7 @@ class ImageData:
 
         Returns:
             Tuple of (width, height)
+
         """
         return (self.width, self.height)
 
@@ -76,6 +79,7 @@ class PNGFormat(FormatHandler[ImageData]):
 
         Returns:
             MIME type string
+
         """
         return "image/png"
 
@@ -85,6 +89,7 @@ class PNGFormat(FormatHandler[ImageData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["png"]
 
@@ -99,6 +104,7 @@ class PNGFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             # This is a simplified implementation
@@ -112,11 +118,11 @@ class PNGFormat(FormatHandler[ImageData]):
             # 2. Save to PNG format
             # 3. Return the bytes
             raise FormatError(
-                "PNG serialization requires additional libraries like PIL or OpenCV"
+                "PNG serialization requires additional libraries like PIL or OpenCV",
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to serialize PNG: {str(e)}")
+                e = FormatError(f"Failed to serialize PNG: {e!s}")
             raise e
 
     def deserialize(self, data: bytes) -> ImageData:
@@ -130,6 +136,7 @@ class PNGFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             # This is a simplified implementation
@@ -154,7 +161,7 @@ class PNGFormat(FormatHandler[ImageData]):
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to deserialize PNG: {str(e)}")
+                e = FormatError(f"Failed to deserialize PNG: {e!s}")
             raise e
 
 
@@ -167,6 +174,7 @@ class JPEGFormat(FormatHandler[ImageData]):
 
         Returns:
             MIME type string
+
         """
         return "image/jpeg"
 
@@ -176,6 +184,7 @@ class JPEGFormat(FormatHandler[ImageData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["jpg", "jpeg", "jpe"]
 
@@ -190,6 +199,7 @@ class JPEGFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         try:
             # This is a simplified implementation
@@ -203,11 +213,11 @@ class JPEGFormat(FormatHandler[ImageData]):
             # 2. Save to JPEG format with quality setting
             # 3. Return the bytes
             raise FormatError(
-                "JPEG serialization requires additional libraries like PIL or OpenCV"
+                "JPEG serialization requires additional libraries like PIL or OpenCV",
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to serialize JPEG: {str(e)}")
+                e = FormatError(f"Failed to serialize JPEG: {e!s}")
             raise e
 
     def deserialize(self, data: bytes) -> ImageData:
@@ -221,6 +231,7 @@ class JPEGFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         try:
             # This is a simplified implementation
@@ -245,7 +256,7 @@ class JPEGFormat(FormatHandler[ImageData]):
             )
         except Exception as e:
             if not isinstance(e, FormatError):
-                e = FormatError(f"Failed to deserialize JPEG: {str(e)}")
+                e = FormatError(f"Failed to deserialize JPEG: {e!s}")
             raise e
 
 
@@ -258,6 +269,7 @@ class GIFFormat(FormatHandler[ImageData]):
 
         Returns:
             MIME type string
+
         """
         return "image/gif"
 
@@ -267,6 +279,7 @@ class GIFFormat(FormatHandler[ImageData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["gif"]
 
@@ -281,6 +294,7 @@ class GIFFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL
@@ -297,6 +311,7 @@ class GIFFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL
@@ -312,6 +327,7 @@ class BMPFormat(FormatHandler[ImageData]):
 
         Returns:
             MIME type string
+
         """
         return "image/bmp"
 
@@ -321,6 +337,7 @@ class BMPFormat(FormatHandler[ImageData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["bmp"]
 
@@ -335,11 +352,12 @@ class BMPFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL or OpenCV
         raise FormatError(
-            "BMP serialization requires additional libraries like PIL or OpenCV"
+            "BMP serialization requires additional libraries like PIL or OpenCV",
         )
 
     def deserialize(self, data: bytes) -> ImageData:
@@ -353,11 +371,12 @@ class BMPFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL or OpenCV
         raise FormatError(
-            "BMP deserialization requires additional libraries like PIL or OpenCV"
+            "BMP deserialization requires additional libraries like PIL or OpenCV",
         )
 
 
@@ -370,6 +389,7 @@ class TIFFFormat(FormatHandler[ImageData]):
 
         Returns:
             MIME type string
+
         """
         return "image/tiff"
 
@@ -379,6 +399,7 @@ class TIFFFormat(FormatHandler[ImageData]):
 
         Returns:
             List of file extensions (without dot)
+
         """
         return ["tiff", "tif"]
 
@@ -393,6 +414,7 @@ class TIFFFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If serialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL
@@ -409,6 +431,7 @@ class TIFFFormat(FormatHandler[ImageData]):
 
         Raises:
             FormatError: If deserialization fails
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL

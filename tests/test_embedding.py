@@ -26,7 +26,7 @@ async def test_text_embedder_with_sample_text():
     embedder = TextEmbedder()
     await embedder.initialize()
 
-    with open(Path(__file__).parent / "data" / "sample1.txt", "r") as f:
+    with open(Path(__file__).parent / "data" / "sample1.txt") as f:
         text = f.read()
 
     embedding = await embedder.embed(text)
@@ -44,7 +44,7 @@ async def test_document_embedder():
     embedder = DocumentEmbedder()
     await embedder.initialize()
 
-    with open(Path(__file__).parent / "data" / "sample2.txt", "r") as f:
+    with open(Path(__file__).parent / "data" / "sample2.txt") as f:
         text = f.read()
 
     embedding = await embedder.embed(text)
@@ -88,7 +88,7 @@ async def test_embedder_batch_processing():
 
     texts = []
     for i in range(1, 4):
-        with open(Path(__file__).parent / "data" / f"sample{i}.txt", "r") as f:
+        with open(Path(__file__).parent / "data" / f"sample{i}.txt") as f:
             texts.append(f.read())
 
     for embedder in embedders:

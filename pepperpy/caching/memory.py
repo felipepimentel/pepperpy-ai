@@ -12,9 +12,9 @@ from pepperpy.caching.memory_cache import (
 )
 
 __all__ = [
-    "MemoryCache",
     "CacheBackend",
     "CacheEntry",
-    "Serializer",
+    "MemoryCache",
     "PickleSerializer",
+    "Serializer",
 ]

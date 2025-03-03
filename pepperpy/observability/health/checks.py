@@ -144,7 +144,7 @@ class SystemHealthCheck(HealthCheck):
                 status=HealthStatus.UNHEALTHY,
                 timestamp=datetime.now(),
                 details={"error": str(e)},
-                message=f"Health check failed: {str(e)}",
+                message=f"Health check failed: {e!s}",
             )
 
 
@@ -153,6 +153,7 @@ async def check_system() -> Dict:
 
     Returns:
         Dict: System health metrics
+
     """
     # Get system metrics
     cpu_percent = psutil.cpu_percent(interval=1)
@@ -173,6 +174,7 @@ async def check_components() -> Dict:
 
     Returns:
         Dict: Component health status
+
     """
     # Get component states
     hub = HubManager()
@@ -189,6 +191,7 @@ async def check_network() -> Dict:
 
     Returns:
         Dict: Network health status
+
     """
     # Check basic connectivity
     try:
@@ -231,6 +234,7 @@ async def check_storage() -> Dict:
 
     Returns:
         Dict: Storage health status
+
     """
     # Check temp directory
     temp_ok = os.access("/tmp", os.W_OK)

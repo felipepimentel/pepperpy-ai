@@ -24,6 +24,7 @@ class SynthesisProvider(Protocol):
 
         Raises:
             SynthesisError: If synthesis fails
+
         """
         ...
 
@@ -45,5 +46,6 @@ class SynthesisProvider(Protocol):
 
         Raises:
             SynthesisError: If saving fails
+
         """
         ...

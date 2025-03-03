@@ -23,6 +23,7 @@ class PlanningCapability:
 
         Args:
             provider: The planning provider to use
+
         """
         self.provider = provider
 
@@ -35,6 +36,7 @@ class PlanningCapability:
 
         Returns:
             A planning result containing the plan
+
         """
         return self.provider.create_plan(goal, constraints)
 
@@ -47,6 +49,7 @@ class PlanningCapability:
 
         Returns:
             A planning result containing the refined plan
+
         """
         return self.provider.refine_plan(plan_id, feedback)
 
@@ -58,14 +61,15 @@ class PlanningCapability:
 
         Returns:
             Evaluation metrics for the plan
+
         """
         return self.provider.evaluate_plan(plan_id)
 
 
 __all__ = [
-    "PlanningCapability",
     "BasePlanningProvider",
-    "PlanningResult",
     "PlanStatus",
     "PlanStep",
+    "PlanningCapability",
+    "PlanningResult",
 ]

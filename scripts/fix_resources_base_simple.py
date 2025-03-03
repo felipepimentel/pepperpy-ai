@@ -16,13 +16,13 @@ def fix_resources_base_py():
         return
 
     # Ler o conteúdo do arquivo
-    with open(file_path, "r", encoding="utf-8") as file:
+    with open(file_path, encoding="utf-8") as file:
         content = file.read()
 
     # Corrigir a indentação da enumeração ResourceType
     # Procurar por padrões como '    MEMORY = "memory"' e remover a indentação extra
     content = re.sub(
-        r'(\s+)(MEMORY|NETWORK|DATABASE|CACHE|ASSET|CUSTOM)\s+=\s+"', r'\2 = "', content
+        r'(\s+)(MEMORY|NETWORK|DATABASE|CACHE|ASSET|CUSTOM)\s+=\s+"', r'\2 = "', content,
     )
 
     # Corrigir a declaração da classe BaseResource

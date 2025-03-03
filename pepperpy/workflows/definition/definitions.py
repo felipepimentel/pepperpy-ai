@@ -17,10 +17,10 @@ class WorkflowStep(BaseModel):
     name: str = Field(description="Step name")
     type: str = Field(description="Step type")
     config: Dict[str, Any] = Field(
-        default_factory=dict, description="Step configuration"
+        default_factory=dict, description="Step configuration",
     )
     dependencies: List[str] = Field(
-        default_factory=list, description="Step dependencies"
+        default_factory=list, description="Step dependencies",
     )
     enabled: bool = Field(default=True, description="Whether the step is enabled")
 
@@ -32,11 +32,11 @@ class WorkflowConfig(BaseModel):
     description: Optional[str] = Field(default=None, description="Workflow description")
     version: str = Field(description="Workflow version")
     steps: List[WorkflowStep] = Field(
-        default_factory=list, description="Workflow steps"
+        default_factory=list, description="Workflow steps",
     )
     enabled: bool = Field(default=True, description="Whether the workflow is enabled")
     settings: Dict[str, Any] = Field(
-        default_factory=dict, description="Workflow settings"
+        default_factory=dict, description="Workflow settings",
     )
 
 
@@ -73,6 +73,7 @@ class WorkflowEngine(Lifecycle):
 
         Args:
             workflow: Workflow configuration
+
         """
         self._workflows[workflow.name] = workflow
 
@@ -81,6 +82,7 @@ class WorkflowEngine(Lifecycle):
 
         Args:
             name: Workflow name
+
         """
         if name in self._workflows:
             del self._workflows[name]
@@ -93,6 +95,7 @@ class WorkflowEngine(Lifecycle):
 
         Returns:
             Optional[WorkflowConfig]: Workflow configuration if found
+
         """
         return self._workflows.get(name)
 
@@ -101,5 +104,6 @@ class WorkflowEngine(Lifecycle):
 
         Returns:
             List[WorkflowConfig]: List of workflow configurations
+
         """
         return list(self._workflows.values())

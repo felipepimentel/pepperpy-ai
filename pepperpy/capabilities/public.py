@@ -42,6 +42,7 @@ class Task:
         completed_at: Timestamp when the task completed executing
         result: Result of the task execution
         error: Error that occurred during task execution
+
     """
 
     id: str
@@ -74,6 +75,7 @@ class TaskRegistry:
         Args:
             name: Task name
             function: Task function
+
         """
         self.tasks[name] = function
 
@@ -85,6 +87,7 @@ class TaskRegistry:
 
         Returns:
             Task function or None if not found
+
         """
         return self.tasks.get(name)
 
@@ -93,6 +96,7 @@ class TaskRegistry:
 
         Returns:
             List of registered task names
+
         """
         return list(self.tasks.keys())
 
@@ -117,11 +121,12 @@ class TaskScheduler:
         Args:
             name: Task name
             function: Task function
+
         """
         self.registry.register(name, function)
 
     async def schedule(
-        self, task_name: str, *args: Any, delay: Optional[int] = None, **kwargs: Any
+        self, task_name: str, *args: Any, delay: Optional[int] = None, **kwargs: Any,
     ) -> Task:
         """Schedule a task for execution.
 
@@ -136,6 +141,7 @@ class TaskScheduler:
 
         Raises:
             ValueError: If the task is not registered
+
         """
         function = self.registry.get(task_name)
         if not function:
@@ -160,6 +166,7 @@ class TaskScheduler:
 
         Returns:
             List of completed tasks
+
         """
         tasks_to_execute = self.pending_tasks.copy()
         self.pending_tasks.clear()
@@ -195,6 +202,7 @@ class TaskCapability:
 
         Args:
             name: Capability name
+
         """
         self.name = name
         self.scheduler = TaskScheduler()
@@ -205,11 +213,12 @@ class TaskCapability:
         Args:
             name: Task name
             function: Task function
+
         """
         self.scheduler.register_task(name, function)
 
     async def schedule_task(
-        self, task_name: str, *args: Any, delay: Optional[int] = None, **kwargs: Any
+        self, task_name: str, *args: Any, delay: Optional[int] = None, **kwargs: Any,
     ) -> Task:
         """Schedule a task for execution.
 
@@ -221,6 +230,7 @@ class TaskCapability:
 
         Returns:
             Scheduled task
+
         """
         return await self.scheduler.schedule(task_name, *args, delay=delay, **kwargs)
 
@@ -229,15 +239,16 @@ class TaskCapability:
 
         Returns:
             List of completed tasks
+
         """
         return await self.scheduler.execute_pending_tasks()
 
 
 # Export public classes
 __all__ = [
+    "Task",
     "TaskCapability",
     "TaskRegistry",
     "TaskScheduler",
-    "Task",
     "TaskStatus",
 ]

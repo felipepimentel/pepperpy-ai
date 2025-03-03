@@ -9,7 +9,7 @@ from .content import ContentAnalyzer
 from .metrics import AnalysisMetrics
 
 __all__ = [
+    "AnalysisMetrics",
     "CodeAnalyzer",
     "ContentAnalyzer",
-    "AnalysisMetrics",
 ]

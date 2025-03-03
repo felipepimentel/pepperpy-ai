@@ -23,6 +23,7 @@ class CommandContext:
         options: Command options
         env: Environment variables
         config: Configuration values
+
     """
 
     args: List[str]
@@ -40,6 +41,7 @@ class CommandResult:
         message: Output message
         data: Optional result data
         error: Optional error details
+
     """
 
     success: bool
@@ -65,10 +67,11 @@ class Command(ABC):
         Args:
             name: Command name
             description: Command description
+
         """
         self.name = name
         self.description = description
-        self._parent: Optional["CommandGroup"] = None
+        self._parent: Optional[CommandGroup] = None
 
     @property
     def parent(self) -> Optional["CommandGroup"]:
@@ -96,8 +99,8 @@ class Command(ABC):
 
         Raises:
             CLIError: If validation fails
+
         """
-        pass
 
     @abstractmethod
     async def execute(self, context: CommandContext) -> CommandResult:
@@ -111,14 +114,15 @@ class Command(ABC):
 
         Raises:
             CLIError: If execution fails
+
         """
-        pass
 
     def get_help(self) -> str:
         """Get command help text.
 
         Returns:
             Help text
+
         """
         return self.description
 
@@ -130,6 +134,7 @@ class Command(ABC):
 
         Returns:
             List of completion suggestions
+
         """
         return []
 
@@ -147,13 +152,14 @@ class CommandGroup(Command):
         Args:
             name: Group name
             description: Group description
+
         """
         super().__init__(name, description)
         self._commands: Dict[str, Command] = {}
         self._aliases: Dict[str, str] = {}
 
     def add_command(
-        self, command: Command, aliases: Optional[List[str]] = None
+        self, command: Command, aliases: Optional[List[str]] = None,
     ) -> None:
         """Add a command to the group.
 
@@ -163,10 +169,11 @@ class CommandGroup(Command):
 
         Raises:
             CLIError: If command name conflicts
+
         """
         if command.name in self._commands:
             raise CLIError(
-                f"Command {command.name} already exists in group {self.name}"
+                f"Command {command.name} already exists in group {self.name}",
             )
 
         command.parent = self
@@ -187,6 +194,7 @@ class CommandGroup(Command):
 
         Returns:
             Command if found, None otherwise
+
         """
         # Check aliases first
         if name in self._aliases:
@@ -199,6 +207,7 @@ class CommandGroup(Command):
 
         Returns:
             List of commands
+
         """
         return list(self._commands.values())
 
@@ -213,6 +222,7 @@ class CommandGroup(Command):
 
         Raises:
             CLIError: If subcommand not found or execution fails
+
         """
         if not context.args:
             return CommandResult(
@@ -265,6 +275,7 @@ class CommandGroup(Command):
 
         Returns:
             Help text including subcommands
+
         """
         lines = [self.description, "", "Available commands:"]
 
@@ -286,6 +297,7 @@ class CommandGroup(Command):
 
         Returns:
             List of completion suggestions
+
         """
         suggestions = []
 

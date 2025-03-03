@@ -38,6 +38,7 @@ class TracingManager(Lifecycle):
 
         Args:
             config: Optional tracing configuration
+
         """
         super().__init__()
         self.config = config or {}
@@ -62,7 +63,7 @@ class TracingManager(Lifecycle):
 
             # Configure sampling
             sampler = ParentBasedTraceIdRatio(
-                root_sampler=self.config.get("sampling_ratio", 1.0)
+                root_sampler=self.config.get("sampling_ratio", 1.0),
             )
             trace.set_tracer_provider(TracerProvider(sampler=sampler))
 
@@ -93,7 +94,7 @@ class TracingManager(Lifecycle):
             raise
 
     def start_span(
-        self, name: str, context: Optional[TraceContext] = None
+        self, name: str, context: Optional[TraceContext] = None,
     ) -> TraceContext:
         """Start a new span.
 
@@ -103,6 +104,7 @@ class TracingManager(Lifecycle):
 
         Returns:
             TraceContext: New trace context
+
         """
         parent_context = context.context if context else None
         span = self._tracer.start_span(name, context=parent_context)
@@ -114,6 +116,7 @@ class TracingManager(Lifecycle):
         Args:
             context: Trace context to end
             status: Optional status message
+
         """
         if status:
             context.span.set_status(Status(StatusCode.OK))

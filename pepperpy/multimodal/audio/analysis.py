@@ -54,6 +54,7 @@ class SpeechTranscriber:
 
         Returns:
             List of transcription segments
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -70,11 +71,11 @@ class SpeechTranscriber:
                 start_time=0.0,
                 end_time=5.0,
                 metadata={"source": str(audio_path)},
-            )
+            ),
         ]
 
     async def transcribe_batch(
-        self, audio_paths: List[Union[str, Path]]
+        self, audio_paths: List[Union[str, Path]],
     ) -> List[List[Transcription]]:
         """Transcribe speech in multiple audio files.
 
@@ -83,6 +84,7 @@ class SpeechTranscriber:
 
         Returns:
             List of transcription lists, one per audio file
+
         """
         results = []
         for path in audio_paths:
@@ -110,6 +112,7 @@ class AudioClassifier:
 
         Returns:
             List of classification results
+
         """
         # This is a placeholder implementation
         # In a real implementation, you would:
@@ -122,15 +125,15 @@ class AudioClassifier:
         # Placeholder implementation
         return [
             self.Classification(
-                label="speech", confidence=0.85, metadata={"source": str(audio_path)}
+                label="speech", confidence=0.85, metadata={"source": str(audio_path)},
             ),
             self.Classification(
-                label="music", confidence=0.15, metadata={"source": str(audio_path)}
+                label="music", confidence=0.15, metadata={"source": str(audio_path)},
             ),
         ]
 
     async def classify_batch(
-        self, audio_paths: List[Union[str, Path]]
+        self, audio_paths: List[Union[str, Path]],
     ) -> List[List[Classification]]:
         """Classify multiple audio files.
 
@@ -139,6 +142,7 @@ class AudioClassifier:
 
         Returns:
             List of classification lists, one per audio file
+
         """
         results = []
         for path in audio_paths:
@@ -162,6 +166,7 @@ class AudioAnalyzer:
             processor: Optional audio processor
             transcriber: Optional speech transcriber
             classifier: Optional audio classifier
+
         """
         self.processor = processor
         self.transcriber = transcriber
@@ -183,6 +188,7 @@ class AudioAnalyzer:
 
         Returns:
             Combined analysis results
+
         """
         features = (
             await self.processor.process_audio(audio_path) if self.processor else None

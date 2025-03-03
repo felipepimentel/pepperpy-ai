@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional, Union
 class VisionError(Exception):
     """Base exception for vision errors."""
 
-    pass
 
 
 class VisionProvider(ABC):
@@ -33,8 +32,8 @@ class VisionProvider(ABC):
 
         Raises:
             VisionError: If analysis fails
+
         """
-        pass
 
     @abstractmethod
     def detect_objects(
@@ -53,8 +52,8 @@ class VisionProvider(ABC):
 
         Raises:
             VisionError: If detection fails
+
         """
-        pass
 
     @abstractmethod
     def extract_text(
@@ -73,8 +72,8 @@ class VisionProvider(ABC):
 
         Raises:
             VisionError: If extraction fails
+
         """
-        pass
 
     @abstractmethod
     def get_supported_tasks(self) -> List[str]:
@@ -82,8 +81,8 @@ class VisionProvider(ABC):
 
         Returns:
             List[str]: List of task names
+
         """
-        pass
 
     @abstractmethod
     def get_supported_formats(self) -> List[str]:
@@ -91,5 +90,5 @@ class VisionProvider(ABC):
 
         Returns:
             List[str]: List of format extensions
+
         """
-        pass

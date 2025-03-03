@@ -36,6 +36,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
         config: Configuration dictionary
         _components: Dictionary of registered components
         _state: Current component state
+
     """
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
@@ -43,6 +44,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -57,6 +59,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Raises:
             RuntimeError: If initialization fails
+
         """
         try:
             # Initialize all components that implement Lifecycle
@@ -66,13 +69,13 @@ class BaseManager(Lifecycle, Generic[T], ABC):
                         await component.initialize()
                     except Exception as e:
                         raise RuntimeError(
-                            f"Failed to initialize component '{name}': {str(e)}"
+                            f"Failed to initialize component '{name}': {e!s}",
                         ) from e
 
             self._state = ComponentState.RUNNING
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise RuntimeError(f"Failed to initialize manager: {str(e)}") from e
+            raise RuntimeError(f"Failed to initialize manager: {e!s}") from e
 
     async def cleanup(self) -> None:
         """Clean up the manager and all registered components.
@@ -82,6 +85,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Raises:
             RuntimeError: If cleanup fails
+
         """
         try:
             # Clean up all components that implement Lifecycle
@@ -91,7 +95,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
                         await component.cleanup()
                     except Exception as e:
                         # Log error but continue cleanup
-                        print(f"Error cleaning up component '{name}': {str(e)}")
+                        print(f"Error cleaning up component '{name}': {e!s}")
 
             # Clear components
             self._components.clear()
@@ -99,7 +103,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
             self._state = ComponentState.UNREGISTERED
         except Exception as e:
             self._state = ComponentState.ERROR
-            raise RuntimeError(f"Failed to clean up manager: {str(e)}") from e
+            raise RuntimeError(f"Failed to clean up manager: {e!s}") from e
 
     def register(self, name: str, component: T) -> None:
         """Register a component with the manager.
@@ -110,6 +114,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Raises:
             ValueError: If a component with the same name is already registered
+
         """
         if name in self._components:
             raise ValueError(f"Component '{name}' is already registered")
@@ -124,6 +129,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Returns:
             The unregistered component, or None if not found
+
         """
         return self._components.pop(name, None)
 
@@ -135,6 +141,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Returns:
             The component, or None if not found
+
         """
         return self._components.get(name)
 
@@ -143,6 +150,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Returns:
             Dictionary of all registered components
+
         """
         return self._components.copy()
 
@@ -151,6 +159,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Returns:
             List of component names
+
         """
         return list(self._components.keys())
 
@@ -162,6 +171,7 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Returns:
             True if the component is registered, False otherwise
+
         """
         return name in self._components
 
@@ -178,5 +188,5 @@ class BaseManager(Lifecycle, Generic[T], ABC):
 
         Returns:
             New component instance
+
         """
-        pass

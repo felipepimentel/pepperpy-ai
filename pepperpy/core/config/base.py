@@ -21,8 +21,8 @@ try:
 except ImportError:
     raise ImportError(
         "pydantic is required for configuration management. "
-        "Install it with: poetry add pydantic pydantic-settings"
-    
+        "Install it with: poetry add pydantic pydantic-settings",
+
     ) from None
 
 from pepperpy.core.common.observability import ObservabilityManager
@@ -41,10 +41,10 @@ class ConfigModel(BaseModel):
 
     version: str = Field(default="1.0.0", description="Configuration version")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Creation timestamp"
+        default_factory=datetime.utcnow, description="Creation timestamp",
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Last update timestamp"
+        default_factory=datetime.utcnow, description="Last update timestamp",
     )
 
     class Config:
@@ -59,8 +59,8 @@ class ConfigModel(BaseModel):
                     "version": "1.0.0",
                     "created_at": "2024-03-19T00:00:00Z",
                     "updated_at": "2024-03-19T00:00:00Z",
-                }
-            ]
+                },
+            ],
         }
 
     @validator("updated_at", pre=True, always=True)
@@ -78,6 +78,7 @@ class ConfigModel(BaseModel):
 
         Returns:
             Configuration instance populated from environment variables.
+
         """
         env_prefix = prefix or cls.Config.env_prefix
         env_values = {}
@@ -94,6 +95,7 @@ class ConfigModel(BaseModel):
 
         Returns:
             JSON schema as a dictionary.
+
         """
         return self.model_json_schema()
 
@@ -105,6 +107,7 @@ class ConfigModel(BaseModel):
 
         Raises:
             ValidationError: If validation fails.
+
         """
         self.model_validate(self.dict())
         return True
@@ -117,6 +120,7 @@ class ConfigModel(BaseModel):
 
         Raises:
             ValueError: If migration path is not available.
+
         """
         if target_version == self.version:
             return
@@ -125,7 +129,7 @@ class ConfigModel(BaseModel):
         migration_path = self._get_migration_path(target_version)
         if not migration_path:
             raise ValueError(
-                f"No migration path from {self.version} to {target_version}"
+                f"No migration path from {self.version} to {target_version}",
             ) from None
 
         # Apply migrations
@@ -143,6 +147,7 @@ class ConfigModel(BaseModel):
 
         Returns:
             List of versions to apply in sequence.
+
         """
         # TODO: Implement migration path discovery
         return []
@@ -152,9 +157,9 @@ class ConfigModel(BaseModel):
 
         Args:
             version: Version to migrate to.
+
         """
         # TODO: Implement migration application
-        pass
 
 
 class ConfigProvider(ABC):
@@ -178,8 +183,8 @@ class ConfigProvider(ABC):
 
         Returns:
             Configuration value or None if not found
+
         """
-        pass
 
     @abstractmethod
     async def set(self, key: str, value: str) -> None:
@@ -188,8 +193,8 @@ class ConfigProvider(ABC):
         Args:
             key: Configuration key
             value: Configuration value
+
         """
-        pass
 
     @abstractmethod
     async def delete(self, key: str) -> None:
@@ -197,8 +202,8 @@ class ConfigProvider(ABC):
 
         Args:
             key: Configuration key
+
         """
-        pass
 
     @abstractmethod
     async def list(self, prefix: str = "") -> list[str]:
@@ -209,8 +214,8 @@ class ConfigProvider(ABC):
 
         Returns:
             List of configuration keys
+
         """
-        pass
 
 
 class ConfigManager:
@@ -231,6 +236,7 @@ class ConfigManager:
 
         Args:
             provider: Provider to add
+
         """
         self._providers.append(provider)
 
@@ -242,6 +248,7 @@ class ConfigManager:
 
         Returns:
             Configuration value or None if not found
+
         """
         start_time = datetime.now()
         value = None
@@ -287,6 +294,7 @@ class ConfigManager:
         Args:
             key: Configuration key
             value: Configuration value
+
         """
         start_time = datetime.now()
 
@@ -323,6 +331,7 @@ class ConfigManager:
 
         Args:
             key: Configuration key
+
         """
         start_time = datetime.now()
 
@@ -362,6 +371,7 @@ class ConfigManager:
 
         Returns:
             List of configuration keys
+
         """
         start_time = datetime.now()
         keys = set()
@@ -417,12 +427,12 @@ class BaseConfig(ConfigModel):
         description="Secret key for cryptographic operations",
     )
     allowed_hosts: list[str] = Field(
-        default=["localhost", "127.0.0.1"], description="List of allowed hosts"
+        default=["localhost", "127.0.0.1"], description="List of allowed hosts",
     )
 
     # Database settings
     database_url: str = Field(
-        default="sqlite+aiosqlite:///pepperpy.db", description="Database connection URL"
+        default="sqlite+aiosqlite:///pepperpy.db", description="Database connection URL",
     )
 
     # Redis settings
@@ -471,6 +481,7 @@ class BaseConfig(ConfigModel):
 
         Returns:
             Schema definition as a dictionary.
+
         """
         return self.SCHEMA_VERSIONS.get(self.version, {})
 
@@ -482,6 +493,7 @@ class BaseConfig(ConfigModel):
 
         Raises:
             ValueError: If version is not supported.
+
         """
         if self.version not in self.SCHEMA_VERSIONS:
             raise ValueError(f"Unsupported configuration version: {self.version}")
@@ -507,6 +519,7 @@ class BaseConfig(ConfigModel):
 
         Returns:
             ConfigT: Configuration instance
+
         """
         kwargs = {}
         if env_file:
@@ -521,6 +534,7 @@ class BaseConfig(ConfigModel):
 
         Returns:
             Optional[str]: The secret value if found
+
         """
         value = getattr(self, key, None)
         if isinstance(value, SecretStr):
@@ -535,6 +549,7 @@ class BaseConfig(ConfigModel):
 
         Returns:
             Dict[str, Any]: Configuration as dictionary
+
         """
         data = {}
         for field, value in self:
@@ -550,7 +565,6 @@ class BaseConfig(ConfigModel):
 class ConfigurationError(Exception):
     """Raised when there is a configuration error."""
 
-    pass
 
 
 __all__ = [

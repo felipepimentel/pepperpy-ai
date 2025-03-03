@@ -15,6 +15,7 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Args:
             dimension: Dimension of vectors to store
+
         """
         self._dimension = dimension
         self._storage: Dict[str, np.ndarray] = {}
@@ -35,12 +36,13 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Raises:
             ValueError: If vector dimension doesn't match expected dimension
+
         """
         vector = np.array(value, dtype=np.float32)
         if vector.shape != (self._dimension,):
             raise ValueError(
                 f"Vector dimension mismatch. Expected {self._dimension}, "
-                f"got {vector.shape[0]}"
+                f"got {vector.shape[0]}",
             )
 
         self._storage[key] = vector
@@ -55,6 +57,7 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Returns:
             Optional[np.ndarray]: Vector if found, None otherwise
+
         """
         return self._storage.get(key)
 
@@ -66,6 +69,7 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Returns:
             bool: True if vector was deleted, False if not found
+
         """
         if key in self._storage:
             del self._storage[key]
@@ -96,12 +100,13 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Raises:
             ValueError: If query vector dimension doesn't match expected dimension
+
         """
         query_vec = np.array(query, dtype=np.float32)
         if query_vec.shape != (self._dimension,):
             raise ValueError(
                 f"Query vector dimension mismatch. Expected {self._dimension}, "
-                f"got {query_vec.shape[0]}"
+                f"got {query_vec.shape[0]}",
             )
 
         # Normalize query vector
@@ -128,6 +133,7 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Returns:
             Optional[Dict[str, Any]]: Metadata if found, None otherwise
+
         """
         return self._metadata.get(key)
 
@@ -140,6 +146,7 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Returns:
             bool: True if metadata was updated, False if key not found
+
         """
         if key in self._storage:
             if key in self._metadata:
@@ -154,5 +161,6 @@ class VectorMemory(MemoryInterface[np.ndarray]):
 
         Returns:
             List[str]: List of stored keys
+
         """
         return list(self._storage.keys())

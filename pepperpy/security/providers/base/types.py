@@ -47,6 +47,7 @@ class SecurityIssue:
             description: Description of the issue
             content_span: Optional span in the content (start, end)
             metadata: Optional additional metadata
+
         """
         self.issue_id = issue_id
         self.category = category
@@ -60,6 +61,7 @@ class SecurityIssue:
 
         Returns:
             Dictionary representation
+
         """
         return {
             "issue_id": self.issue_id,
@@ -88,6 +90,7 @@ class SecurityValidationResult:
             issues: List of security issues
             score: Optional security score (0-1, higher is more secure)
             metadata: Optional additional metadata
+
         """
         self.is_valid = is_valid
         self.issues = issues or []
@@ -99,6 +102,7 @@ class SecurityValidationResult:
 
         Returns:
             Dictionary representation
+
         """
         return {
             "is_valid": self.is_valid,

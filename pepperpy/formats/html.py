@@ -31,6 +31,7 @@ class HTMLProcessor:
 
         Args:
             parser: HTML parser to use (html.parser, lxml, html5lib)
+
         """
         self.parser = parser
 
@@ -45,11 +46,12 @@ class HTMLProcessor:
 
         Raises:
             ProcessingError: If parsing fails
+
         """
         try:
             return BeautifulSoup(content, self.parser)
         except Exception as e:
-            raise ProcessingError(f"HTML parsing failed: {str(e)}") from e
+            raise ProcessingError(f"HTML parsing failed: {e!s}") from e
 
     def extract_text(self, content: str) -> str:
         """Extract text from HTML content.
@@ -62,12 +64,13 @@ class HTMLProcessor:
 
         Raises:
             ProcessingError: If extraction fails
+
         """
         try:
             soup = self.parse(content)
             return soup.get_text(separator=" ", strip=True)
         except Exception as e:
-            raise ProcessingError(f"HTML text extraction failed: {str(e)}") from e
+            raise ProcessingError(f"HTML text extraction failed: {e!s}") from e
 
     def extract_links(self, content: str) -> List[Dict[str, str]]:
         """Extract links from HTML content.
@@ -80,6 +83,7 @@ class HTMLProcessor:
 
         Raises:
             ProcessingError: If extraction fails
+
         """
         try:
             soup = self.parse(content)
@@ -90,11 +94,11 @@ class HTMLProcessor:
                         "text": link.get_text(strip=True),
                         "href": link["href"],
                         "title": link.get("title", ""),
-                    }
+                    },
                 )
             return links
         except Exception as e:
-            raise ProcessingError(f"HTML link extraction failed: {str(e)}") from e
+            raise ProcessingError(f"HTML link extraction failed: {e!s}") from e
 
     def extract_metadata(self, content: str) -> Dict[str, str]:
         """Extract metadata from HTML content.
@@ -107,6 +111,7 @@ class HTMLProcessor:
 
         Raises:
             ProcessingError: If extraction fails
+
         """
         try:
             soup = self.parse(content)
@@ -125,7 +130,7 @@ class HTMLProcessor:
 
             return metadata
         except Exception as e:
-            raise ProcessingError(f"HTML metadata extraction failed: {str(e)}") from e
+            raise ProcessingError(f"HTML metadata extraction failed: {e!s}") from e
 
     def format(self, content: str, pretty: bool = True) -> str:
         """Format HTML content.
@@ -139,12 +144,13 @@ class HTMLProcessor:
 
         Raises:
             ProcessingError: If formatting fails
+
         """
         try:
             soup = self.parse(content)
             return soup.prettify() if pretty else str(soup)
         except Exception as e:
-            raise ProcessingError(f"HTML formatting failed: {str(e)}") from e
+            raise ProcessingError(f"HTML formatting failed: {e!s}") from e
 
     def validate(self, content: str) -> List[str]:
         """Validate HTML content.
@@ -154,6 +160,7 @@ class HTMLProcessor:
 
         Returns:
             List of validation errors
+
         """
         errors = []
 
@@ -185,6 +192,6 @@ class HTMLProcessor:
                     errors.append(f"Broken internal link: {href}")
 
         except Exception as e:
-            errors.append(f"HTML validation failed: {str(e)}")
+            errors.append(f"HTML validation failed: {e!s}")
 
         return errors

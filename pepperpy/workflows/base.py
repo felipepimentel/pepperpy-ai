@@ -108,6 +108,7 @@ class AbstractWorkflowStep(ABC):
 
         Args:
             name: Step name
+
         """
         self.name = name
 
@@ -117,8 +118,8 @@ class AbstractWorkflowStep(ABC):
 
         Returns:
             Step execution result
+
         """
-        pass
 
 
 class AbstractWorkflowDefinition(ABC):
@@ -129,6 +130,7 @@ class AbstractWorkflowDefinition(ABC):
 
         Args:
             name: Workflow name
+
         """
         self.name = name
         self._steps: List[AbstractWorkflowStep] = []
@@ -138,6 +140,7 @@ class AbstractWorkflowDefinition(ABC):
 
         Args:
             step: Step to add
+
         """
         self._steps.append(step)
 
@@ -146,6 +149,7 @@ class AbstractWorkflowDefinition(ABC):
 
         Returns:
             List of workflow steps
+
         """
         return self._steps.copy()
 
@@ -163,6 +167,7 @@ class BaseWorkflow(ABC):
         Args:
             definition: Workflow definition
             workflow_id: Optional workflow ID
+
         """
         self._callback = None
         self._metrics = {}
@@ -271,6 +276,7 @@ class BaseWorkflow(ABC):
         Raises:
             WorkflowError: If execution fails
             StateError: If workflow is not in valid state
+
         """
         if self.state != WorkflowState.READY:
             raise StateError(f"Workflow not ready (state: {self.state}) from e")
@@ -287,7 +293,7 @@ class BaseWorkflow(ABC):
                 await self._metrics["execution_count"].inc()
             if isinstance(self._metrics["execution_time"], Histogram):
                 await self._metrics["execution_time"].observe(
-                    (datetime.utcnow() - start_time).total_seconds()
+                    (datetime.utcnow() - start_time).total_seconds(),
                 )
 
             await self.set_state(WorkflowState.READY)
@@ -308,7 +314,7 @@ class BaseWorkflow(ABC):
             )
             await error_counter.inc(1.0)
             await error_histogram.observe(
-                (datetime.utcnow() - start_time).total_seconds()
+                (datetime.utcnow() - start_time).total_seconds(),
             )
 
             await self.set_state(WorkflowState.ERROR)
@@ -329,6 +335,7 @@ class BaseWorkflow(ABC):
 
         Raises:
             WorkflowError: If step execution fails
+
         """
         if self.state != ComponentState.EXECUTING:
             raise StateError(f"Workflow not executing (state: {self.state})")
@@ -347,13 +354,13 @@ class BaseWorkflow(ABC):
             # Update metrics
             await self._step_metrics[f"{step.name}_count"].inc()
             await self._step_metrics[f"{step.name}_time"].observe(
-                (datetime.utcnow() - start_time).total_seconds()
+                (datetime.utcnow() - start_time).total_seconds(),
             )
 
             # Notify step complete
             if isinstance(self._callback, WorkflowCallback):
                 await self._callback.on_step_complete(
-                    str(self.workflow_id), step.name, result
+                    str(self.workflow_id), step.name, result,
                 )
 
             return result
@@ -373,7 +380,7 @@ class BaseWorkflow(ABC):
             )
             await error_counter.inc()
             await error_histogram.observe(
-                (datetime.utcnow() - start_time).total_seconds()
+                (datetime.utcnow() - start_time).total_seconds(),
             )
 
             raise WorkflowError(f"Failed to execute step {step.name}: {e}") from e
@@ -401,7 +408,6 @@ class BaseWorkflow(ABC):
         This method should be implemented by subclasses to perform
         workflow-specific initialization.
         """
-        pass
 
     @abstractmethod
     async def _execute(self, **kwargs: Any) -> Any:
@@ -415,8 +421,8 @@ class BaseWorkflow(ABC):
 
         Returns:
             Execution result
+
         """
-        pass
 
     @abstractmethod
     async def _execute_step(self, step: AbstractWorkflowStep, **kwargs: Any) -> Any:
@@ -431,8 +437,8 @@ class BaseWorkflow(ABC):
 
         Returns:
             Step result
+
         """
-        pass
 
     @abstractmethod
     async def _cleanup(self) -> None:
@@ -441,7 +447,6 @@ class BaseWorkflow(ABC):
         This method should be implemented by subclasses to perform
         workflow-specific cleanup.
         """
-        pass
 
     @abstractmethod
     async def start(self) -> None:
@@ -464,7 +469,7 @@ class BaseWorkflow(ABC):
         ...
 
 
-# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base.py during consolidation  # noqa: E501
+# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base.py during consolidation
 
 """Base classes and interfaces for the unified workflow system.
 
@@ -491,6 +496,7 @@ class WorkflowStep:
 
         Args:
             step_id: ID of the step this step depends on
+
         """
         if step_id not in self.dependencies:
             self.dependencies.append(step_id)
@@ -501,6 +507,7 @@ class WorkflowStep:
         Args:
             key: Metadata key
             value: Metadata value
+
         """
         self.metadata[key] = value
 
@@ -513,6 +520,7 @@ class WorkflowDefinition:
 
         Args:
             name: Workflow name
+
         """
         self.name = name
         self.steps: Dict[str, WorkflowStep] = {}
@@ -526,6 +534,7 @@ class WorkflowDefinition:
 
         Raises:
             ValueError: If step ID already exists
+
         """
         if step.id in self.steps:
             raise ValueError(f"Step with ID '{step.id}' already exists") from e
@@ -539,6 +548,7 @@ class WorkflowDefinition:
 
         Returns:
             Step if found, None otherwise
+
         """
         return self.steps.get(step_id)
 
@@ -548,6 +558,7 @@ class WorkflowDefinition:
         Args:
             key: Metadata key
             value: Metadata value
+
         """
         self.metadata[key] = value
 
@@ -556,6 +567,7 @@ class WorkflowDefinition:
 
         Returns:
             List of validation errors, empty if valid
+
         """
         errors = []
 
@@ -571,6 +583,7 @@ class WorkflowDefinition:
 
             Returns:
                 True if cycle found, False otherwise
+
             """
             if step_id in path:
                 cycle_path = path[path.index(step_id) :] + [step_id]
@@ -588,7 +601,7 @@ class WorkflowDefinition:
                 for dep_id in step.dependencies:
                     if dep_id not in self.steps:
                         errors.append(
-                            f"Step '{step_id}' depends on non-existent step '{dep_id}'"
+                            f"Step '{step_id}' depends on non-existent step '{dep_id}'",
                         )
                     elif check_cycle(dep_id):
                         return True

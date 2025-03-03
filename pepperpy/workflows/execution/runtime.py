@@ -48,6 +48,7 @@ class WorkflowEngine(ComponentBase):
 
         Args:
             config: Optional engine configuration
+
         """
         super().__init__(config or WorkflowEngineConfig(name=self.__class__.__name__))
         self._workflows: Dict[WorkflowID, BaseWorkflow] = {}
@@ -91,7 +92,7 @@ class WorkflowEngine(ComponentBase):
                     "workflow_execution_time": workflow_execution_time,
                     "workflow_queue_time": workflow_queue_time,
                     "workflow_retry_count": workflow_retry_count,
-                }
+                },
             )
 
             # Start scheduler
@@ -136,7 +137,6 @@ class WorkflowEngine(ComponentBase):
 
         This method is not used directly but is required by ComponentBase.
         """
-        pass
 
     def register_workflow(self, workflow_type: Type[BaseWorkflow]) -> None:
         """Register a workflow type.
@@ -146,6 +146,7 @@ class WorkflowEngine(ComponentBase):
 
         Raises:
             ValueError: If workflow type is already registered
+
         """
         name = workflow_type.__name__
         if name in self._workflow_types:
@@ -175,6 +176,7 @@ class WorkflowEngine(ComponentBase):
         Raises:
             ValueError: If workflow type is not registered
             WorkflowError: If workflow creation fails
+
         """
         if workflow_type not in self._workflow_types:
             raise ValueError(f"Workflow type not registered: {workflow_type}")
@@ -232,6 +234,7 @@ class WorkflowEngine(ComponentBase):
             ValueError: If workflow not found
             StateError: If workflow is not in valid state
             WorkflowError: If workflow execution fails
+
         """
         workflow_id = WorkflowID(UUID(str(workflow_id)))
         if workflow_id not in self._workflows:
@@ -240,7 +243,7 @@ class WorkflowEngine(ComponentBase):
         workflow = self._workflows[workflow_id]
         if workflow.state != WorkflowState.READY:
             raise StateError(
-                f"Workflow not ready: {workflow_id} (state: {workflow.state})"
+                f"Workflow not ready: {workflow_id} (state: {workflow.state})",
             )
 
         try:
@@ -279,6 +282,7 @@ class WorkflowEngine(ComponentBase):
         Raises:
             ValueError: If workflow not found
             WorkflowError: If workflow cleanup fails
+
         """
         workflow_id = WorkflowID(UUID(str(workflow_id)))
         if workflow_id not in self._workflows:
@@ -319,6 +323,7 @@ class WorkflowEngine(ComponentBase):
 
         Raises:
             ValueError: If workflow not found
+
         """
         workflow_id = WorkflowID(UUID(str(workflow_id)))
         if workflow_id not in self._workflows:
@@ -330,6 +335,7 @@ class WorkflowEngine(ComponentBase):
 
         Returns:
             List of workflow information
+
         """
         result = []
         for workflow_id, workflow in self._workflows.items():
@@ -340,7 +346,7 @@ class WorkflowEngine(ComponentBase):
                     "state": workflow.state,
                     "active": workflow_id in self._active_workflows,
                     "scheduled": workflow_id in self._scheduled_workflows,
-                }
+                },
             )
         return result
 
@@ -349,6 +355,7 @@ class WorkflowEngine(ComponentBase):
 
         Returns:
             List of workflow type names
+
         """
         return list(self._workflow_types.keys())
 
@@ -362,7 +369,7 @@ class WorkflowEngine(ComponentBase):
                 # Check for workflows to execute
                 now = datetime.utcnow()
                 for workflow_id, schedule_time in list(
-                    self._scheduled_workflows.items()
+                    self._scheduled_workflows.items(),
                 ):
                     if schedule_time <= now:
                         # Start workflow

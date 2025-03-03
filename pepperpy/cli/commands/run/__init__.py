@@ -7,7 +7,7 @@ from pepperpy.cli.commands.run.base import (
 )
 
 __all__ = [
-    "RunCommand",
     "RunAgentCommand",
+    "RunCommand",
     "RunWorkflowCommand",
 ]

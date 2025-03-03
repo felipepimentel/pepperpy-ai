@@ -112,6 +112,7 @@ class Memory(Protocol[K_contra, V_co]):
         Raises:
             ValueError: If key is invalid
             TypeError: If value type is not supported
+
         """
         ...
 
@@ -128,6 +129,7 @@ class Memory(Protocol[K_contra, V_co]):
         Raises:
             KeyError: If key not found
             ValueError: If key is invalid
+
         """
         ...
 
@@ -143,6 +145,7 @@ class Memory(Protocol[K_contra, V_co]):
 
         Raises:
             ValueError: If key is invalid
+
         """
         ...
 
@@ -158,6 +161,7 @@ class Memory(Protocol[K_contra, V_co]):
 
         Raises:
             ValueError: If key is invalid
+
         """
         ...
 
@@ -175,6 +179,7 @@ class Memory(Protocol[K_contra, V_co]):
 
         Yields:
             Memory entries matching criteria
+
         """
         ...
 
@@ -187,6 +192,7 @@ class Memory(Protocol[K_contra, V_co]):
 
         Returns:
             Number of entries cleared
+
         """
         ...
 
@@ -245,6 +251,7 @@ class Tool(Protocol):
             ValueError: If parameters are invalid
             PermissionError: If execution not permitted
             RuntimeError: If execution fails
+
         """
         ...
 
@@ -262,6 +269,7 @@ class Tool(Protocol):
 
         Returns:
             True if permitted, False otherwise
+
         """
         ...
 
@@ -277,6 +285,7 @@ class Tool(Protocol):
 
         Raises:
             ValueError: If parameters are invalid
+
         """
         ...
 
@@ -295,6 +304,7 @@ class Tool(Protocol):
             duration: Operation duration in seconds
             success: Whether operation succeeded
             params: Operation parameters
+
         """
         ...
 
@@ -311,6 +321,7 @@ class Tool(Protocol):
             event_type: Type of event
             data: Event data
             context_id: Context ID
+
         """
         ...
 
@@ -325,19 +336,20 @@ class MetricValue(BaseModel):
         timestamp: Time of recording
         labels: Additional metric labels
         metadata: Additional metadata
+
     """
 
     name: str = Field(description="Name of the metric")
     type: MetricType = Field(description="Type of metric")
     value: int | float = Field(description="Current value")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Time of recording"
+        default_factory=datetime.utcnow, description="Time of recording",
     )
     labels: MetricLabels = Field(
-        default_factory=dict, description="Additional metric labels"
+        default_factory=dict, description="Additional metric labels",
     )
     metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata"
+        default_factory=dict, description="Additional metadata",
     )
 
 
@@ -366,6 +378,7 @@ class MetricsCollector(Protocol):
 
         Raises:
             ValueError: If metric name or value is invalid
+
         """
         ...
 
@@ -382,6 +395,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Metric value if found, None otherwise
+
         """
         ...
 
@@ -400,6 +414,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             List of matching metrics
+
         """
         ...
 
@@ -418,6 +433,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Number of metrics cleared
+
         """
         ...
 
@@ -434,6 +450,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Formatted metrics string
+
         """
         ...
 
@@ -454,6 +471,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Recorded metric value
+
         """
         ...
 
@@ -474,6 +492,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Recorded metric value
+
         """
         ...
 
@@ -494,6 +513,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Recorded metric value
+
         """
         ...
 
@@ -514,6 +534,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Recorded metric value
+
         """
         ...
 
@@ -534,6 +555,7 @@ class MetricsCollector(Protocol):
 
         Returns:
             Recorded metric value
+
         """
         ...
 
@@ -592,6 +614,7 @@ class FrameworkAdapter(Protocol):
         Raises:
             ValueError: If configuration is invalid
             RuntimeError: If initialization fails
+
         """
         ...
 
@@ -601,6 +624,7 @@ class FrameworkAdapter(Protocol):
 
         Raises:
             RuntimeError: If cleanup fails
+
         """
         ...
 
@@ -616,6 +640,7 @@ class FrameworkAdapter(Protocol):
 
         Raises:
             ValueError: If configuration is invalid
+
         """
         ...
 
@@ -634,6 +659,7 @@ class FrameworkAdapter(Protocol):
             duration: Operation duration in seconds
             success: Whether operation succeeded
             metadata: Optional metric metadata
+
         """
         ...
 
@@ -650,6 +676,7 @@ class FrameworkAdapter(Protocol):
             event_type: Type of event
             data: Event data
             metadata: Optional event metadata
+
         """
         ...
 
@@ -666,6 +693,7 @@ class KeyValueStore(Protocol[K_contra, V_co]):
 
         Returns:
             Value if found, None otherwise
+
         """
         ...
 
@@ -675,6 +703,7 @@ class KeyValueStore(Protocol[K_contra, V_co]):
         Args:
             key: Key to set
             value: Value to store
+
         """
         ...
 
@@ -683,6 +712,7 @@ class KeyValueStore(Protocol[K_contra, V_co]):
 
         Args:
             key: Key to delete
+
         """
         ...
 
@@ -694,6 +724,7 @@ class KeyValueStore(Protocol[K_contra, V_co]):
 
         Returns:
             True if key exists, False otherwise
+
         """
         ...
 
@@ -711,6 +742,7 @@ class LifecycleProtocol(Protocol):
 
         Raises:
             LifecycleError: If initialization fails
+
         """
         ...
 
@@ -722,5 +754,6 @@ class LifecycleProtocol(Protocol):
 
         Raises:
             LifecycleError: If cleanup fails
+
         """
         ...

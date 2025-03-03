@@ -23,6 +23,7 @@ def register_indexing_provider(provider_id: str, provider: "IndexingProvider") -
     Args:
         provider_id: Unique identifier for the provider
         provider: The provider to register
+
     """
     if provider_id in _indexing_providers:
         logger.warning(f"Indexing provider already registered with ID: {provider_id}")
@@ -42,6 +43,7 @@ def get_indexing_provider(provider_id: str) -> "IndexingProvider":
 
     Raises:
         ValueError: If the provider is not found
+
     """
     provider = _indexing_providers.get(provider_id)
     if provider is None:
@@ -55,5 +57,6 @@ def list_indexing_providers() -> List[str]:
 
     Returns:
         A list of provider IDs
+
     """
     return list(_indexing_providers.keys())

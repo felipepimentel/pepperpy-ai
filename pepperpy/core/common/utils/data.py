@@ -22,15 +22,15 @@ class DataUtils:
 
         Returns:
             Dictionary representation
+
         """
         if hasattr(obj, "__dict__"):
             return obj.__dict__
-        elif hasattr(obj, "dict"):
+        if hasattr(obj, "dict"):
             return obj.dict()
-        elif isinstance(obj, dict):
+        if isinstance(obj, dict):
             return obj
-        else:
-            raise ValueError(f"Cannot convert {type(obj)} to dict")
+        raise ValueError(f"Cannot convert {type(obj)} to dict")
 
     @staticmethod
     def from_dict(data: Dict[str, Any], cls: type[T]) -> T:
@@ -42,13 +42,13 @@ class DataUtils:
 
         Returns:
             Instance of target class
+
         """
         if hasattr(cls, "from_dict"):
             return cls.from_dict(data)
-        elif hasattr(cls, "parse_obj"):
+        if hasattr(cls, "parse_obj"):
             return cls.parse_obj(data)
-        else:
-            return cls(**data)
+        return cls(**data)
 
     @staticmethod
     def to_json(obj: Any) -> str:
@@ -59,6 +59,7 @@ class DataUtils:
 
         Returns:
             JSON string
+
         """
 
         def default(o: Any) -> Any:
@@ -78,6 +79,7 @@ class DataUtils:
 
         Returns:
             Instance of target class
+
         """
         return DataUtils.from_dict(json.loads(data), cls)
 
@@ -91,6 +93,7 @@ class DataUtils:
 
         Returns:
             Merged dictionary
+
         """
         result = {}
         for d in dicts:
@@ -102,7 +105,7 @@ class DataUtils:
 
     @staticmethod
     def flatten_dict(
-        d: Dict[str, Any], parent_key: str = "", sep: str = "."
+        d: Dict[str, Any], parent_key: str = "", sep: str = ".",
     ) -> Dict[str, Any]:
         """Flatten nested dictionary.
 
@@ -113,6 +116,7 @@ class DataUtils:
 
         Returns:
             Flattened dictionary
+
         """
         items: List[tuple[str, Any]] = []
         for k, v in d.items():

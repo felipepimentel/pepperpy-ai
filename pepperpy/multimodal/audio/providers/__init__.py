@@ -4,6 +4,6 @@
 from pepperpy.multimodal.audio.providers import synthesis, transcription
 
 __all__ = [
-    "transcription",
     "synthesis",
+    "transcription",
 ]

@@ -16,15 +16,12 @@ class ContentFilterProvider(BaseProvider):
 
     async def initialize(self) -> None:
         """Initialize the content filter provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the content filter provider."""
-        pass
 
     def validate(self):
         """Validate the provider configuration."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -32,6 +29,7 @@ class ContentFilterProvider(BaseProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_id": "content_filter",

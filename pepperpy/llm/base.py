@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 
 class LLMMessage:
     """Message for LLM interaction."""
-    
+
     def __init__(
         self,
         role: str,
@@ -18,7 +18,7 @@ class LLMMessage:
 
 class CompletionOptions:
     """Options for LLM completion."""
-    
+
     def __init__(
         self,
         model: str = "default",
@@ -40,7 +40,7 @@ class CompletionOptions:
 
 class LLMResponse:
     """Response from LLM."""
-    
+
     def __init__(
         self,
         text: str = "",
@@ -56,7 +56,7 @@ class LLMResponse:
 
 class ModelParameters:
     """Parameters for a specific LLM model."""
-    
+
     def __init__(
         self,
         model: str = "unknown",
@@ -74,7 +74,7 @@ class ModelParameters:
 
 class LLMProviderBase(ABC):
     """Base class for LLM providers."""
-    
+
     @abstractmethod
     def generate(
         self,
@@ -91,8 +91,8 @@ class LLMProviderBase(ABC):
             
         Returns:
             LLMResponse object with the generated text
+
         """
-        pass
 
     @abstractmethod
     async def generate_async(
@@ -110,8 +110,8 @@ class LLMProviderBase(ABC):
             
         Returns:
             LLMResponse object with the generated text
+
         """
-        pass
 
     @abstractmethod
     def embed(
@@ -129,8 +129,8 @@ class LLMProviderBase(ABC):
             
         Returns:
             List of embedding values
+
         """
-        pass
 
     @abstractmethod
     async def generate_response(self, messages: List[LLMMessage], **kwargs: Any) -> LLMResponse:
@@ -142,8 +142,8 @@ class LLMProviderBase(ABC):
             
         Returns:
             LLMResponse object with the generated text
+
         """
-        pass
 
     @abstractmethod
     async def validate(self) -> None:
@@ -151,8 +151,8 @@ class LLMProviderBase(ABC):
         
         Raises:
             Exception: If the provider is not properly configured
+
         """
-        pass
 
     @abstractmethod
     def get_models(self) -> List[str]:
@@ -160,8 +160,8 @@ class LLMProviderBase(ABC):
         
         Returns:
             List of model identifiers
+
         """
-        pass
 
     @abstractmethod
     def get_model_parameters(self, model_name: str) -> ModelParameters:
@@ -172,5 +172,5 @@ class LLMProviderBase(ABC):
             
         Returns:
             ModelParameters object with the model's parameters
+
         """
-    pass

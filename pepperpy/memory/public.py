@@ -20,6 +20,7 @@ class MemoryCapability(BaseCapability):
 
         Args:
             config: Optional configuration for the capability
+
         """
         super().__init__("memory", config)
 
@@ -32,6 +33,7 @@ class MemoryCapability(BaseCapability):
 
         Raises:
             NotImplementedError: If not implemented by subclass
+
         """
         raise NotImplementedError("Memory capability must implement store method")
 
@@ -47,6 +49,7 @@ class MemoryCapability(BaseCapability):
 
         Raises:
             NotImplementedError: If not implemented by subclass
+
         """
         raise NotImplementedError("Memory capability must implement retrieve method")
 
@@ -61,6 +64,7 @@ class MemoryCapability(BaseCapability):
 
         Raises:
             NotImplementedError: If not implemented by subclass
+
         """
         raise NotImplementedError("Memory capability must implement delete method")
 
@@ -69,6 +73,7 @@ class MemoryCapability(BaseCapability):
 
         Raises:
             NotImplementedError: If not implemented by subclass
+
         """
         raise NotImplementedError("Memory capability must implement clear method")
 
@@ -85,11 +90,11 @@ class ConversationMemory(MemoryCapability):
 
         Args:
             message: Message to add
+
         """
-        pass
 
     async def get_messages(
-        self, limit: Optional[int] = None, reverse: bool = False
+        self, limit: Optional[int] = None, reverse: bool = False,
     ) -> List[Dict[str, Any]]:
         """Get messages from the conversation history.
 
@@ -99,6 +104,7 @@ class ConversationMemory(MemoryCapability):
 
         Returns:
             List of messages
+
         """
         return []
 
@@ -107,6 +113,7 @@ class ConversationMemory(MemoryCapability):
 
         Returns:
             Conversation context
+
         """
         return {}
 
@@ -115,8 +122,8 @@ class ConversationMemory(MemoryCapability):
 
         Args:
             context: Conversation context
+
         """
-        pass
 
 
 class WorkingMemory(MemoryCapability):
@@ -133,21 +140,22 @@ class WorkingMemory(MemoryCapability):
             key: Key to store the value under
             value: Value to store
             ttl: Time-to-live in seconds
+
         """
-        pass
 
     async def get_all(self) -> Dict[str, Any]:
         """Get all values in working memory.
 
         Returns:
             Dictionary of all key-value pairs
+
         """
         return {}
 
 
 # Export public classes
 __all__ = [
-    "MemoryCapability",
     "ConversationMemory",
+    "MemoryCapability",
     "WorkingMemory",
 ]

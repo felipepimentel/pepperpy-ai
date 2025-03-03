@@ -106,7 +106,7 @@ class CollaborationSystem:
             raise ValueError(f"Agent {task.assigned_to} not found")
 
     async def broadcast_message(
-        self, sender_id: str, content: Any, metadata: Optional[dict] = None
+        self, sender_id: str, content: Any, metadata: Optional[dict] = None,
     ):
         """Send a message to all agents except the sender."""
         for agent_id, agent in self.agents.items():
@@ -201,7 +201,7 @@ class Consensus:
     async def submit_proposal(self, proposer_id: str, content: Any) -> Proposal:
         """Submit a new proposal for consensus."""
         proposal = self.Proposal(
-            id=str(uuid.uuid4()), content=content, proposer_id=proposer_id, votes={}
+            id=str(uuid.uuid4()), content=content, proposer_id=proposer_id, votes={},
         )
 
         self.proposals[proposal.id] = proposal

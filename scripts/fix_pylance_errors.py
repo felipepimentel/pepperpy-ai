@@ -82,7 +82,7 @@ PARAMETER_FIXES = {
 
 def read_file(file_path: str) -> str:
     """Read file content."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 
@@ -106,7 +106,7 @@ def fix_imports(file_path: str) -> bool:
 
             # Adicionar a correção no início do arquivo após as importações do sistema
             import_section_end = re.search(
-                r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+                r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
             )
             if import_section_end:
                 pos = import_section_end.start()
@@ -121,7 +121,7 @@ def fix_imports(file_path: str) -> bool:
         ):
             # Adicionar a definição do símbolo após as importações
             import_section_end = re.search(
-                r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+                r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
             )
             if import_section_end:
                 pos = import_section_end.end()
@@ -145,7 +145,7 @@ def fix_imports(file_path: str) -> bool:
 
             # Verificar se o método __init__ existe
             init_match = re.search(
-                r"def __init__\([^)]*\)[^:]*:", content[class_body_start:]
+                r"def __init__\([^)]*\)[^:]*:", content[class_body_start:],
             )
 
             for attr_name, attr_code in attributes.items():
@@ -159,7 +159,7 @@ def fix_imports(file_path: str) -> bool:
 
                         # Encontrar a indentação dentro do __init__
                         init_indent_match = re.search(
-                            r"(\n[ \t]+)", content[init_body_start:init_body_end]
+                            r"(\n[ \t]+)", content[init_body_start:init_body_end],
                         )
                         if init_indent_match:
                             init_indent = init_indent_match.group(1)
@@ -187,7 +187,7 @@ def fix_imports(file_path: str) -> bool:
         if f"{class_name}(" in content:
             # Adicionar implementação após as importações
             import_section_end = re.search(
-                r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE
+                r"(^import [^\n]+$|^from [^\n]+ import [^\n]+$)", content, re.MULTILINE,
             )
             if import_section_end:
                 pos = import_section_end.end()
@@ -206,7 +206,7 @@ def fix_imports(file_path: str) -> bool:
 
             for method_name, method_code in methods.items():
                 method_match = re.search(
-                    rf"def {method_name}\([^)]*\)[^:]*:", content[class_body_start:]
+                    rf"def {method_name}\([^)]*\)[^:]*:", content[class_body_start:],
                 )
                 if method_match:
                     # Substituir a definição do método

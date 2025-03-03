@@ -34,7 +34,7 @@ class AssetMetadata(ResourceMetadata):
     expiration: Optional[datetime] = Field(None, description="Asset expiration")
     permissions: Set[str] = Field(default_factory=set, description="Asset permissions")
     attributes: Dict[str, Any] = Field(
-        default_factory=dict, description="Asset attributes"
+        default_factory=dict, description="Asset attributes",
     )
 
 
@@ -65,13 +65,13 @@ class AssetManager(ComponentBase):
 
         # Initialize metrics
         self._assets_loaded = Counter(
-            "assets_loaded_total", "Total number of assets loaded"
+            "assets_loaded_total", "Total number of assets loaded",
         )
         self._assets_saved = Counter(
-            "assets_saved_total", "Total number of assets saved"
+            "assets_saved_total", "Total number of assets saved",
         )
         self._asset_errors = Counter(
-            "asset_errors_total", "Total number of asset errors"
+            "asset_errors_total", "Total number of asset errors",
         )
         self._asset_size = Histogram("asset_size_bytes", "Asset size in bytes")
 
@@ -97,6 +97,7 @@ class AssetManager(ComponentBase):
 
         Raises:
             AssetError: If asset cannot be loaded
+
         """
         try:
             path = Path(path)
@@ -184,6 +185,7 @@ class AssetManager(ComponentBase):
 
         Raises:
             AssetError: If asset cannot be saved
+
         """
         try:
             # Save resource
@@ -226,6 +228,7 @@ class AssetManager(ComponentBase):
 
         Returns:
             Optional[Asset]: Asset if found
+
         """
         return self._assets.get(str(Path(path)))
 
@@ -246,6 +249,7 @@ class AssetManager(ComponentBase):
 
         Returns:
             List[Asset]: List of assets
+
         """
         assets = list(self._assets.values())
 
@@ -274,6 +278,7 @@ class AssetManager(ComponentBase):
 
         Raises:
             AssetError: If asset cannot be deleted
+
         """
         try:
             # Delete resource
@@ -296,15 +301,15 @@ class AssetManager(ComponentBase):
 
         Args:
             asset: Asset to generate previews for
+
         """
         # TODO: Implement image preview generation
-        pass
 
     async def _generate_document_previews(self, asset: Asset) -> None:
         """Generate document previews.
 
         Args:
             asset: Asset to generate previews for
+
         """
         # TODO: Implement document preview generation
-        pass

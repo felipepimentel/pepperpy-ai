@@ -24,8 +24,8 @@ class Parser(ABC):
 
         Returns:
             Parsed content in appropriate format
+
         """
-        pass
 
     @abstractmethod
     def parse_file(self, file_path: str) -> Any:
@@ -36,8 +36,8 @@ class Parser(ABC):
 
         Returns:
             Parsed content in appropriate format
+
         """
-        pass
 
 
 class TextParser(Parser):
@@ -51,6 +51,7 @@ class TextParser(Parser):
 
         Returns:
             Processed text content
+
         """
         return content.strip()
 
@@ -62,8 +63,9 @@ class TextParser(Parser):
 
         Returns:
             Processed text content
+
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             return self.parse(f.read())
 
 
@@ -75,6 +77,7 @@ class JsonParser(Parser):
 
         Args:
             **kwargs: Additional arguments passed to json.loads/json.load
+
         """
         self.kwargs = kwargs
 
@@ -86,6 +89,7 @@ class JsonParser(Parser):
 
         Returns:
             Parsed JSON data
+
         """
         return json.loads(content, **self.kwargs)
 
@@ -97,8 +101,9 @@ class JsonParser(Parser):
 
         Returns:
             Parsed JSON data
+
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             return json.load(f, **self.kwargs)
 
 
@@ -110,6 +115,7 @@ class YamlParser(Parser):
 
         Args:
             **kwargs: Additional arguments passed to yaml.safe_load
+
         """
         self.kwargs = kwargs
 
@@ -121,6 +127,7 @@ class YamlParser(Parser):
 
         Returns:
             Parsed YAML data
+
         """
         return yaml.safe_load(content, **self.kwargs)
 
@@ -132,8 +139,9 @@ class YamlParser(Parser):
 
         Returns:
             Parsed YAML data
+
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             return yaml.safe_load(f, **self.kwargs)
 
 
@@ -145,6 +153,7 @@ class XmlParser(Parser):
 
         Args:
             **kwargs: Additional arguments passed to ElementTree.parse
+
         """
         self.kwargs = kwargs
 
@@ -156,6 +165,7 @@ class XmlParser(Parser):
 
         Returns:
             Parsed XML element tree
+
         """
         return ET.fromstring(content, **self.kwargs)
 
@@ -167,5 +177,6 @@ class XmlParser(Parser):
 
         Returns:
             Parsed XML element tree
+
         """
         return ET.parse(file_path, **self.kwargs)

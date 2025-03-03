@@ -72,9 +72,10 @@ class WorkflowScheduler(ComponentBase):
 
         Args:
             config: Optional scheduler configuration
+
         """
         super().__init__(
-            config or WorkflowSchedulerConfig(name=self.__class__.__name__)
+            config or WorkflowSchedulerConfig(name=self.__class__.__name__),
         )
         self._scheduled_workflows: Dict[WorkflowID, ScheduledWorkflow] = {}
         self._active_workflows: Set[WorkflowID] = set()
@@ -112,7 +113,7 @@ class WorkflowScheduler(ComponentBase):
                     "workflow_execution_time": workflow_execution_time,
                     "workflow_retry_count": workflow_retry_count,
                     "workflow_error_count": workflow_error_count,
-                }
+                },
             )
 
             # Start scheduler
@@ -151,7 +152,6 @@ class WorkflowScheduler(ComponentBase):
 
         This method is not used directly but is required by ComponentBase.
         """
-        pass
 
     async def schedule_workflow(
         self,
@@ -171,6 +171,7 @@ class WorkflowScheduler(ComponentBase):
         Raises:
             ValueError: If workflow is already scheduled
             WorkflowError: If scheduling fails
+
         """
         if workflow.id in self._scheduled_workflows:
             raise ValueError(f"Workflow already scheduled: {workflow.id}")
@@ -219,6 +220,7 @@ class WorkflowScheduler(ComponentBase):
         Raises:
             ValueError: If workflow is not scheduled
             WorkflowError: If cancellation fails
+
         """
         workflow_id = WorkflowID(UUID(str(workflow_id)))
         if workflow_id not in self._scheduled_workflows:
@@ -248,6 +250,7 @@ class WorkflowScheduler(ComponentBase):
 
         Returns:
             List of scheduled workflow information
+
         """
         result = []
         for workflow_id, scheduled in self._scheduled_workflows.items():
@@ -260,7 +263,7 @@ class WorkflowScheduler(ComponentBase):
                     "error": (
                         str(scheduled.last_error) if scheduled.last_error else None
                     ),
-                }
+                },
             )
         return result
 
@@ -299,6 +302,7 @@ class WorkflowScheduler(ComponentBase):
 
         Args:
             scheduled: Scheduled workflow to execute
+
         """
         workflow_id = scheduled.workflow_id
         if workflow_id in self._active_workflows:
@@ -346,7 +350,7 @@ class WorkflowScheduler(ComponentBase):
                     )
                     jitter = delay * policy.jitter * (2 * random.random() - 1)
                     scheduled.schedule_time = datetime.utcnow() + timedelta(
-                        seconds=delay + jitter
+                        seconds=delay + jitter,
                     )
 
                     # Update metrics

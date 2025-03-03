@@ -18,11 +18,9 @@ class DocumentProcessorProvider(RagProvider):
 
     async def initialize(self) -> None:
         """Initialize the document processor provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the document processor provider."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -30,6 +28,7 @@ class DocumentProcessorProvider(RagProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_type": ProviderType.DOCUMENT_PROCESSOR,

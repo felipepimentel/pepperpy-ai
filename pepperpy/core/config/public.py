@@ -29,6 +29,7 @@ class ConfigProvider:
 
         Args:
             name: Provider name
+
         """
         self.name = name
 
@@ -40,6 +41,7 @@ class ConfigProvider:
 
         Raises:
             NotImplementedError: If the subclass does not implement this method
+
         """
         raise NotImplementedError("Subclasses must implement load method")
 
@@ -57,6 +59,7 @@ class ConfigSection:
         Args:
             name: Section name
             values: Initial values
+
         """
         self.name = name
         self.values = values or {}
@@ -70,6 +73,7 @@ class ConfigSection:
 
         Returns:
             Configuration value or default
+
         """
         return self.values.get(key, default)
 
@@ -79,6 +83,7 @@ class ConfigSection:
         Args:
             key: Configuration key
             value: Configuration value
+
         """
         self.values[key] = value
 
@@ -87,6 +92,7 @@ class ConfigSection:
 
         Returns:
             Dictionary containing section values
+
         """
         return self.values.copy()
 
@@ -111,6 +117,7 @@ class ConfigManager(Lifecycle):
 
         Raises:
             ConfigurationError: If initialization fails
+
         """
         # Load from registered providers
         for provider in self.providers:
@@ -135,6 +142,7 @@ class ConfigManager(Lifecycle):
 
         Args:
             provider: Configuration provider
+
         """
         self.providers.append(provider)
 
@@ -147,18 +155,18 @@ class ConfigManager(Lifecycle):
         Raises:
             FileNotFoundError: If the file doesn't exist
             ConfigurationError: If the file format is invalid
+
         """
         # Implementation would load from file
-        pass
 
     async def load_from_env(self, prefix: Optional[str] = None) -> None:
         """Load configuration from environment variables.
 
         Args:
             prefix: Optional prefix for environment variables
+
         """
         # Implementation would load from environment
-        pass
 
     def get(self, key: str, default: Any = None) -> Any:
         """Get a configuration value.
@@ -169,6 +177,7 @@ class ConfigManager(Lifecycle):
 
         Returns:
             Configuration value or default
+
         """
         if "." not in key:
             return default
@@ -190,6 +199,7 @@ class ConfigManager(Lifecycle):
 
         Raises:
             ValueError: If key format is invalid
+
         """
         if "." not in key:
             raise ValueError("Key must be in format 'section.key'")
@@ -209,6 +219,7 @@ class ConfigManager(Lifecycle):
 
         Returns:
             Dictionary containing section configuration
+
         """
         section_obj = self.sections.get(section)
 

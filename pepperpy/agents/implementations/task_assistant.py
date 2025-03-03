@@ -27,6 +27,7 @@ class TaskAssistant(Agent):
             config_name: Name of the configuration to load from Hub
             config_version: Version of the configuration to load
             **kwargs: Additional configuration options
+
         """
         # Set default workflow
         self.workflow = workflow or [
@@ -66,6 +67,7 @@ class TaskAssistant(Agent):
 
         Raises:
             ProcessingError: If task processing fails
+
         """
         try:
             # Execute workflow steps
@@ -74,12 +76,12 @@ class TaskAssistant(Agent):
 
         except Exception as e:
             raise ProcessingError(
-                f"Failed to process task: {str(e)}",
+                f"Failed to process task: {e!s}",
                 details={"task": input},
             ) from e
 
     async def _execute_workflow(
-        self, input: str, workflow: List[Dict[str, Any]]
+        self, input: str, workflow: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Execute workflow steps for a task.
 
@@ -89,6 +91,7 @@ class TaskAssistant(Agent):
 
         Returns:
             Dict containing results from each workflow step
+
         """
         results = {}
         try:
@@ -102,7 +105,7 @@ class TaskAssistant(Agent):
 
         except Exception as e:
             raise ProcessingError(
-                f"Workflow execution failed: {str(e)}",
+                f"Workflow execution failed: {e!s}",
                 details={"workflow": workflow, "results": results},
             ) from e
 
@@ -117,6 +120,7 @@ class TaskAssistant(Agent):
 
         Returns:
             Dict containing the step results
+
         """
         step_methods = {
             "plan": self._plan_task,
@@ -136,7 +140,7 @@ class TaskAssistant(Agent):
 
         except Exception as e:
             raise ProcessingError(
-                f"Step execution failed: {str(e)}",
+                f"Step execution failed: {e!s}",
                 details={"step": step_name, "task": input},
             ) from e
 

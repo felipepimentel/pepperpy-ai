@@ -17,6 +17,7 @@ class VisionProviderRegistry:
         Args:
             name: Name of the provider
             provider_cls: Provider class
+
         """
         cls._providers[name] = provider_cls
 
@@ -32,6 +33,7 @@ class VisionProviderRegistry:
 
         Raises:
             KeyError: If provider is not registered
+
         """
         if name not in cls._providers:
             raise KeyError(f"Vision provider '{name}' not registered")
@@ -43,5 +45,6 @@ class VisionProviderRegistry:
 
         Returns:
             Dict of provider names to provider classes
+
         """
         return cls._providers.copy()

@@ -24,10 +24,10 @@ from pepperpy.core.logging.base import (
 )
 
 __all__ = [
+    "LogHandler",
+    "LogLevel",
     "Logger",
     "StructuredLogger",
-    "LogLevel",
-    "LogHandler",
-    "get_logger",
     "configure_logging",
+    "get_logger",
 ]

@@ -46,6 +46,7 @@ class LifecycleManager:
         Args:
             config: Optional configuration for the manager
             context: Optional runtime context for the manager
+
         """
         self.config = config or LifecycleConfig()
         self.context = context or LifecycleContext(
@@ -67,6 +68,7 @@ class LifecycleManager:
         Args:
             component: Component to register
             dependencies: Optional list of component IDs this component depends on
+
         """
         component_id = component.__class__.__name__
         self.components[component_id] = component
@@ -82,6 +84,7 @@ class LifecycleManager:
 
         Args:
             hook: Hook to add
+
         """
         self.hooks.append(hook)
         for component in self.components.values():
@@ -95,6 +98,7 @@ class LifecycleManager:
 
         Raises:
             InitializationError: If initialization fails
+
         """
         # Initialize dependencies first
         for dep_id in self.dependencies[component_id]:
@@ -108,7 +112,7 @@ class LifecycleManager:
             await self.components[component_id].initialize()
         except Exception as e:
             raise InitializationError(
-                f"Failed to initialize {component_id}: {e}"
+                f"Failed to initialize {component_id}: {e}",
             ) from e
 
     async def initialize(self) -> None:
@@ -118,6 +122,7 @@ class LifecycleManager:
 
         Raises:
             InitializationError: If initialization fails
+
         """
         try:
             # Initialize all components that haven't been initialized
@@ -134,6 +139,7 @@ class LifecycleManager:
 
         Raises:
             StartError: If starting fails
+
         """
         try:
             # Start components in dependency order
@@ -151,6 +157,7 @@ class LifecycleManager:
 
         Raises:
             StopError: If stopping fails
+
         """
         try:
             # Stop components in reverse dependency order
@@ -168,6 +175,7 @@ class LifecycleManager:
 
         Raises:
             FinalizeError: If cleanup fails
+
         """
         try:
             # Clean up components in reverse dependency order
@@ -187,6 +195,7 @@ class LifecycleManager:
 
         Raises:
             RetryError: If retry fails
+
         """
         try:
             if operation == "initialize":

@@ -27,6 +27,7 @@ class CommandInfo:
         description: Command description
         parent: Optional parent group name
         aliases: Optional command aliases
+
     """
 
     name: str

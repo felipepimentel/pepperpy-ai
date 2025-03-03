@@ -6,8 +6,8 @@ from pepperpy.optimization.base import LoadBalancer, Router, RoutingStrategy
 from pepperpy.optimization.config import RouteConfig
 
 __all__ = [
-    "Router",
-    "RouteConfig",
-    "RoutingStrategy",
     "LoadBalancer",
+    "RouteConfig",
+    "Router",
+    "RoutingStrategy",
 ]

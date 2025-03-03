@@ -12,7 +12,6 @@ from pepperpy.core.common.config.types import ConfigValue
 class ConfigEncryptionError(Exception):
     """Error during configuration encryption/decryption."""
 
-    pass
 
 
 class SecureConfigProvider(ConfigProvider):
@@ -28,6 +27,7 @@ class SecureConfigProvider(ConfigProvider):
         Raises:
             ImportError: If cryptography package is not installed
             ConfigEncryptionError: If encryption setup fails
+
         """
         try:
             from cryptography.fernet import Fernet
@@ -109,7 +109,7 @@ class SecureConfigProvider(ConfigProvider):
         """Load all configuration values from file."""
         try:
             if self.file_path.exists():
-                with open(self.file_path, "r", encoding="utf-8") as f:
+                with open(self.file_path, encoding="utf-8") as f:
                     encrypted_config = json.load(f)
                     # Validate that all values are strings (encrypted data)
                     if not all(isinstance(v, str) for v in encrypted_config.values()):

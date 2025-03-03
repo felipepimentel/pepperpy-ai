@@ -13,7 +13,7 @@ class AuditAnalyzer:
     """Analyzes audit events for patterns and anomalies."""
 
     def analyze_user_activity(
-        self, events: List[AuditEvent], window_size: int = 3600
+        self, events: List[AuditEvent], window_size: int = 3600,
     ) -> Dict[str, Any]:
         """Analyze user activity patterns.
 
@@ -23,6 +23,7 @@ class AuditAnalyzer:
 
         Returns:
             Dictionary containing user activity statistics
+
         """
         user_stats = {}
 
@@ -56,7 +57,7 @@ class AuditAnalyzer:
         return user_stats
 
     def detect_anomalies(
-        self, events: List[AuditEvent], thresholds: Dict[str, Any]
+        self, events: List[AuditEvent], thresholds: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         """Detect anomalous patterns in audit events.
 
@@ -66,6 +67,7 @@ class AuditAnalyzer:
 
         Returns:
             List of detected anomalies
+
         """
         anomalies = []
 
@@ -89,7 +91,7 @@ class AuditAnalyzer:
                         "user_id": user_id,
                         "count": event_count,
                         "threshold": thresholds["max_events_per_user"],
-                    }
+                    },
                 )
 
             # Check severity patterns
@@ -103,7 +105,7 @@ class AuditAnalyzer:
                         "user_id": user_id,
                         "count": len(critical_events),
                         "threshold": thresholds["max_critical_events"],
-                    }
+                    },
                 )
 
             # Check for rapid resource access
@@ -124,7 +126,7 @@ class AuditAnalyzer:
                                     sorted_events[i].event_type.value,
                                     sorted_events[i + 1].event_type.value,
                                 ],
-                            }
+                            },
                         )
 
         return anomalies

@@ -20,13 +20,11 @@ from pepperpy.core.base import BaseManager
 class EncryptionError(Exception):
     """Raised when encryption fails."""
 
-    pass
 
 
 class DecryptionError(Exception):
     """Raised when decryption fails."""
 
-    pass
 
 
 @dataclass
@@ -65,6 +63,7 @@ class KeyManager(BaseManager):
 
         Raises:
             ValueError: If key_id already exists
+
         """
         if key_id in self._keys:
             raise ValueError(f"Key {key_id} already exists")
@@ -89,6 +88,7 @@ class KeyManager(BaseManager):
 
         Raises:
             KeyError: If key_id doesn't exist
+
         """
         try:
             key = self._keys[key_id]
@@ -111,6 +111,7 @@ class KeyManager(BaseManager):
 
         Raises:
             KeyError: If key_id doesn't exist
+
         """
         old_key = self.get_key(key_id)
         old_key.expires_at = datetime.utcnow()
@@ -126,6 +127,7 @@ class KeyManager(BaseManager):
 
         Raises:
             KeyError: If key_id doesn't exist
+
         """
         # Verify key exists and is valid
         self.get_key(key_id)
@@ -139,6 +141,7 @@ class KeyManager(BaseManager):
 
         Raises:
             RuntimeError: If no active key is set
+
         """
         if not self._active_key_id:
             raise RuntimeError("No active key set")
@@ -153,6 +156,7 @@ class CryptoManager(BaseManager):
 
         Args:
             key_manager: Optional key manager to use. If not provided, a new one will be created.
+
         """
         super().__init__()
         self._key_manager = key_manager or KeyManager()
@@ -174,6 +178,7 @@ class CryptoManager(BaseManager):
 
         Raises:
             EncryptionError: If encryption fails
+
         """
         try:
             return self._get_fernet().encrypt(data)
@@ -191,6 +196,7 @@ class CryptoManager(BaseManager):
 
         Raises:
             DecryptionError: If decryption fails
+
         """
         try:
             return self._get_fernet().decrypt(encrypted_data)
@@ -206,6 +212,7 @@ class CryptoManager(BaseManager):
 
         Returns:
             The derived key
+
         """
         salt = salt or os.urandom(16)
         kdf = PBKDF2HMAC(

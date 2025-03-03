@@ -22,6 +22,7 @@ def format_success(message: str) -> Text:
 
     Returns:
         Formatted text
+
     """
     return Text(message, style="green bold")
 
@@ -34,6 +35,7 @@ def format_error(message: str) -> Text:
 
     Returns:
         Formatted text
+
     """
     return Text(message, style="red bold")
 
@@ -46,6 +48,7 @@ def format_warning(message: str) -> Text:
 
     Returns:
         Formatted text
+
     """
     return Text(message, style="yellow bold")
 
@@ -58,6 +61,7 @@ def format_info(message: str) -> Text:
 
     Returns:
         Formatted text
+
     """
     return Text(message, style="blue")
 
@@ -76,6 +80,7 @@ def format_panel(
 
     Returns:
         Formatted panel
+
     """
     return Panel(content, title=title, style=style)
 
@@ -94,6 +99,7 @@ def format_table(
 
     Returns:
         Formatted table
+
     """
     table = Table(title=title)
 
@@ -113,6 +119,7 @@ def print_success(message: str) -> None:
 
     Args:
         message: Success message
+
     """
     console.print(format_success(message))
 
@@ -122,6 +129,7 @@ def print_error(message: str) -> None:
 
     Args:
         message: Error message
+
     """
     console.print(format_error(message))
 
@@ -131,6 +139,7 @@ def print_warning(message: str) -> None:
 
     Args:
         message: Warning message
+
     """
     console.print(format_warning(message))
 
@@ -140,5 +149,6 @@ def print_info(message: str) -> None:
 
     Args:
         message: Info message
+
     """
     console.print(format_info(message))

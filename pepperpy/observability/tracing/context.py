@@ -20,6 +20,7 @@ class TraceContext:
 
         Args:
             span: Active span
+
         """
         self.span = span
         self._context = span.get_span_context()
@@ -30,6 +31,7 @@ class TraceContext:
 
         Returns:
             SpanContext: Current span context
+
         """
         return self._context
 
@@ -38,6 +40,7 @@ class TraceContext:
 
         Args:
             carrier: Context carrier dictionary
+
         """
         propagator = TextMapPropagator()
         propagator.inject(carrier, self.context)
@@ -51,6 +54,7 @@ class TraceContext:
 
         Returns:
             Optional[SpanContext]: Extracted span context
+
         """
         propagator = TextMapPropagator()
         return propagator.extract(carrier)
@@ -61,6 +65,7 @@ class TraceContext:
         Args:
             name: Event name
             attributes: Optional event attributes
+
         """
         self.span.add_event(name, attributes=attributes or {})
 
@@ -70,6 +75,7 @@ class TraceContext:
         Args:
             key: Attribute key
             value: Attribute value
+
         """
         self.span.set_attribute(key, value)
 
@@ -78,5 +84,6 @@ class TraceContext:
 
         Args:
             exception: Exception to record
+
         """
         self.span.record_exception(exception)

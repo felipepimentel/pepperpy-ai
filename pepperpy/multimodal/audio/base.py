@@ -54,9 +54,10 @@ class AudioError(MultimodalError):
             component: Optional component name that caused the error
             provider: Optional provider name that caused the error
             details: Optional additional details
+
         """
         super().__init__(
-            message, component=component, provider=provider, details=details
+            message, component=component, provider=provider, details=details,
         )
 
 
@@ -96,6 +97,7 @@ class AudioProcessor(MultimodalProcessor):
             name: Processor name
             config: Optional configuration
             supported_formats: List of supported audio formats
+
         """
         if supported_formats is None:
             supported_formats = [
@@ -125,8 +127,8 @@ class AudioProcessor(MultimodalProcessor):
 
         Raises:
             AudioError: If processing fails
+
         """
-        pass
 
     def _normalize(self, audio: Any) -> Any:
         """Normalize audio levels.
@@ -136,6 +138,7 @@ class AudioProcessor(MultimodalProcessor):
 
         Returns:
             Normalized audio array
+
         """
         if not NUMPY_AVAILABLE:
             # Simple normalization for non-numpy arrays
@@ -145,12 +148,11 @@ class AudioProcessor(MultimodalProcessor):
             if max_val > 0:
                 return [x / max_val for x in audio]
             return audio
-        else:
-            # Scale to [-1, 1] range using numpy
-            max_val = np.max(np.abs(audio))
-            if max_val > 0:
-                return audio / max_val
-            return audio
+        # Scale to [-1, 1] range using numpy
+        max_val = np.max(np.abs(audio))
+        if max_val > 0:
+            return audio / max_val
+        return audio
 
 
 class AudioProvider(MultimodalProvider):
@@ -168,6 +170,7 @@ class AudioProvider(MultimodalProvider):
             name: Provider name
             config: Optional configuration
             supported_formats: List of supported audio formats
+
         """
         if supported_formats is None:
             supported_formats = [
@@ -190,8 +193,8 @@ class AudioProvider(MultimodalProvider):
 
         Raises:
             AudioError: If initialization fails
+
         """
-        pass
 
     @abstractmethod
     async def shutdown(self) -> None:
@@ -199,11 +202,11 @@ class AudioProvider(MultimodalProvider):
 
         Raises:
             AudioError: If shutdown fails
+
         """
-        pass
 
     async def save_audio(
-        self, audio: Any, path: Union[str, Path], format: Optional[DataFormat] = None
+        self, audio: Any, path: Union[str, Path], format: Optional[DataFormat] = None,
     ) -> Path:
         """Save audio data to file.
 
@@ -217,5 +220,6 @@ class AudioProvider(MultimodalProvider):
 
         Raises:
             AudioError: If saving fails
+
         """
         raise NotImplementedError("save_audio method must be implemented by subclasses")

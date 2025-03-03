@@ -16,9 +16,9 @@ from pepperpy.agents.capabilities.planning.providers.types import (
 
 __all__ = [
     "BasePlanningProvider",
-    "PlanningResult",
     "PlanStatus",
     "PlanStep",
+    "PlanningResult",
     "get_planning_provider_class",
     "register_planning_provider_class",
 ]

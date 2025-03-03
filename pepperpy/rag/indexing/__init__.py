@@ -22,9 +22,9 @@ __all__ = [
     "Chunker",
     "DocumentIndexer",
     "Embedder",
+    "HybridIndexer",
     "Indexer",
     "IndexingManager",
-    "HybridIndexer",
     "TextIndexer",
     "VectorIndexer",
 ]

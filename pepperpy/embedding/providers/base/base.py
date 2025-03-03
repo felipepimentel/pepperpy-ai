@@ -29,8 +29,8 @@ class BaseEmbeddingProvider(ABC):
 
         Raises:
             EmbeddingError: If embedding generation fails
+
         """
-        pass
 
     @abstractmethod
     def get_dimension(self) -> int:
@@ -38,8 +38,8 @@ class BaseEmbeddingProvider(ABC):
 
         Returns:
             int: Embedding dimension
+
         """
-        pass
 
     @abstractmethod
     def get_models(self) -> List[str]:
@@ -47,5 +47,5 @@ class BaseEmbeddingProvider(ABC):
 
         Returns:
             List[str]: List of model names
+
         """
-        pass

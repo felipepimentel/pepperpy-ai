@@ -58,13 +58,11 @@ class Principal(ABC):
 
         This method must be implemented by subclasses.
         """
-        pass
 
 
 class Role(Principal):
     """Represents a role that can be assigned to users."""
 
-    pass
 
 
 class User(Principal):
@@ -180,7 +178,7 @@ class SecurityManager:
         """Check if a user has a specific permission."""
         if not user.has_permission(permission):
             raise PermissionError(
-                f"User {user.name} does not have permission {permission.name}"
+                f"User {user.name} does not have permission {permission.name}",
             )
 
 
@@ -194,8 +192,8 @@ __all__ = [
     "Permission",
     "Principal",
     "Role",
-    "User",
     "SecurityContext",
     "SecurityManager",
+    "User",
     "create_security_manager",
 ]

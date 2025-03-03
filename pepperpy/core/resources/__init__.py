@@ -37,6 +37,7 @@ class ResourceMetadata(BaseModel):
         version: Version of the resource
         tags: Resource tags
         properties: Additional properties
+
     """
 
     resource_type: ResourceType
@@ -62,6 +63,7 @@ class BaseResource(Extension):
         Args:
             metadata: Resource metadata
             event_bus: Optional event bus for resource events
+
         """
         super().__init__(
             name=metadata.resource_name,
@@ -76,16 +78,15 @@ class BaseResource(Extension):
 
         Returns:
             Resource metadata
+
         """
         return self._resource_metadata
 
     async def _initialize(self) -> None:
         """Initialize resource."""
-        pass
 
     async def _cleanup(self) -> None:
         """Clean up resource."""
-        pass
 
     async def execute(self, operation: str, params: dict[str, Any]) -> dict[str, Any]:
         """Execute resource operation.
@@ -99,6 +100,7 @@ class BaseResource(Extension):
 
         Raises:
             NotImplementedError: If not implemented by subclass
+
         """
         raise NotImplementedError("Resource must implement execute method")
 
@@ -116,6 +118,7 @@ class MemoryResource(BaseResource):
         Args:
             metadata: Resource metadata
             event_bus: Optional event bus for resource events
+
         """
         if metadata.resource_type != ResourceType.MEMORY:
             raise ValueError("Resource type must be MEMORY")
@@ -135,6 +138,7 @@ class StorageResource(BaseResource):
         Args:
             metadata: Resource metadata
             event_bus: Optional event bus for resource events
+
         """
         if metadata.resource_type != ResourceType.STORAGE:
             raise ValueError("Resource type must be STORAGE")
@@ -162,6 +166,7 @@ class ResourceManager(Extension):
             name: Manager name
             version: Manager version
             event_bus: Optional event bus for manager events
+
         """
         super().__init__(name=name, version=version, event_bus=event_bus)
         self._resources: dict[str, BaseResource] = {}
@@ -171,6 +176,7 @@ class ResourceManager(Extension):
 
         Args:
             resource: Resource to register
+
         """
         self._resources[str(resource.metadata.id)] = resource
 
@@ -179,6 +185,7 @@ class ResourceManager(Extension):
 
         Args:
             resource_id: ID of the resource to unregister
+
         """
         if resource_id in self._resources:
             del self._resources[resource_id]
@@ -191,6 +198,7 @@ class ResourceManager(Extension):
 
         Returns:
             Resource if found, None otherwise
+
         """
         return self._resources.get(resource_id)
 
@@ -199,6 +207,7 @@ class ResourceManager(Extension):
 
         Returns:
             List of registered resources
+
         """
         return list(self._resources.values())
 

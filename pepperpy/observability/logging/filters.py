@@ -17,6 +17,7 @@ class ContextFilter:
 
         Args:
             context: Context key-value pairs to match
+
         """
         self.context = context
 
@@ -28,6 +29,7 @@ class ContextFilter:
 
         Returns:
             True if record should be logged
+
         """
         for key, value in self.context.items():
             if key not in record.context or record.context[key] != value:
@@ -43,6 +45,7 @@ class LevelFilter:
 
         Args:
             levels: Set of allowed log levels
+
         """
         self.levels = levels
 
@@ -54,6 +57,7 @@ class LevelFilter:
 
         Returns:
             True if record should be logged
+
         """
         return record.level in self.levels
 

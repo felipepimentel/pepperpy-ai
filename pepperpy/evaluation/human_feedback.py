@@ -167,7 +167,7 @@ class FeedbackAnalyzer:
         }
 
     def analyze_text_feedback(
-        self, feedback_items: List[FeedbackItem]
+        self, feedback_items: List[FeedbackItem],
     ) -> Dict[str, Any]:
         """Analyze free-text feedback."""
         if not feedback_items:
@@ -270,10 +270,9 @@ class FeedbackManager:
                     for fb in feedback_items
                 ]
                 for item_id, feedback_items in self.collector.feedback.items()
-            }
+            },
         }
 
         if format == "json":
             return json.dumps(data, indent=2)
-        else:
-            raise ValueError(f"Unsupported export format: {format}")
+        raise ValueError(f"Unsupported export format: {format}")

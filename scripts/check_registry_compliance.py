@@ -65,6 +65,7 @@ def find_registry_files() -> List[Path]:
 
     Returns:
         List of registry file paths
+
     """
     registry_files = []
 
@@ -93,8 +94,9 @@ def check_compliance(file_path: Path) -> Dict[str, bool]:
 
     Returns:
         Dictionary of check results
+
     """
-    with open(file_path, "r") as f:
+    with open(file_path) as f:
         content = f.read()
 
     results = {}
@@ -149,7 +151,7 @@ def main():
 
     if non_compliant_files > 0:
         logger.info(
-            "\nPlease update the non-compliant files to follow the recommended pattern."
+            "\nPlease update the non-compliant files to follow the recommended pattern.",
         )
         logger.info("See docs/REGISTRY_USAGE_GUIDE.md for more information.")
         sys.exit(1)

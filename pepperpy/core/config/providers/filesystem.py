@@ -22,6 +22,7 @@ class FilesystemProvider(ConfigProvider):
 
         Args:
             directory: Directory to store configuration files in
+
         """
         super().__init__()
         self.directory = Path(directory)
@@ -37,6 +38,7 @@ class FilesystemProvider(ConfigProvider):
 
         Returns:
             Path to configuration file
+
         """
         # Replace invalid characters
         safe_key = key.replace("/", "_").replace("\\", "_")
@@ -51,6 +53,7 @@ class FilesystemProvider(ConfigProvider):
 
         Returns:
             True if configuration should be reloaded
+
         """
         # Always reload if not in cache
         if key not in self._cache:
@@ -75,6 +78,7 @@ class FilesystemProvider(ConfigProvider):
 
         Returns:
             Configuration value or None if not found
+
         """
         path = self._get_path(key)
 
@@ -116,6 +120,7 @@ class FilesystemProvider(ConfigProvider):
         Args:
             key: Configuration key
             value: Configuration value
+
         """
         path = self._get_path(key)
 
@@ -149,6 +154,7 @@ class FilesystemProvider(ConfigProvider):
 
         Args:
             key: Configuration key
+
         """
         path = self._get_path(key)
 
@@ -184,6 +190,7 @@ class FilesystemProvider(ConfigProvider):
 
         Returns:
             List of configuration keys
+
         """
         try:
             # Get all JSON files

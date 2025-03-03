@@ -63,6 +63,7 @@ def check_directories(project_root: Path) -> Tuple[List[str], List[str]]:
 
     Returns:
         Tuple of (existing directories, missing directories)
+
     """
     existing = []
     missing = []
@@ -85,6 +86,7 @@ def check_stubs(project_root: Path) -> Tuple[List[str], List[str]]:
 
     Returns:
         Tuple of (existing stubs, missing stubs)
+
     """
     existing = []
     missing = []
@@ -94,7 +96,7 @@ def check_stubs(project_root: Path) -> Tuple[List[str], List[str]]:
 
         # Check if it's a directory with __init__.py
         if stub_path.is_dir() and (stub_path / "__init__.py").exists():
-            with open(stub_path / "__init__.py", "r", encoding="utf-8") as f:
+            with open(stub_path / "__init__.py", encoding="utf-8") as f:
                 content = f.read()
                 if "Compatibility stub" in content:
                     existing.append(stub)
@@ -102,7 +104,7 @@ def check_stubs(project_root: Path) -> Tuple[List[str], List[str]]:
                     missing.append(stub)
         # Check if it's a file
         elif stub_path.is_file():
-            with open(stub_path, "r", encoding="utf-8") as f:
+            with open(stub_path, encoding="utf-8") as f:
                 content = f.read()
                 if "Compatibility stub" in content:
                     existing.append(stub)
@@ -122,6 +124,7 @@ def should_ignore_path(path: str) -> bool:
 
     Returns:
         True if the path should be ignored, False otherwise
+
     """
     for ignored_path in IGNORED_PATHS:
         if path.startswith(ignored_path):
@@ -137,6 +140,7 @@ def find_problematic_imports(project_root: Path) -> Dict[str, List[str]]:
 
     Returns:
         Dictionary mapping problematic imports to lists of files
+
     """
     problematic_files: Dict[str, List[str]] = {imp: [] for imp in PROBLEMATIC_IMPORTS}
 
@@ -157,13 +161,13 @@ def find_problematic_imports(project_root: Path) -> Dict[str, List[str]]:
                     continue
 
                 try:
-                    with open(file_path, "r", encoding="utf-8") as f:
+                    with open(file_path, encoding="utf-8") as f:
                         content = f.read()
 
                     for imp in PROBLEMATIC_IMPORTS:
                         if imp in content:
                             # Check if it's not in a compatibility stub
-                            with open(file_path, "r", encoding="utf-8") as f:
+                            with open(file_path, encoding="utf-8") as f:
                                 first_lines = "".join(f.readlines()[:5])
                                 if "Compatibility stub" not in first_lines:
                                     problematic_files[imp].append(rel_path)

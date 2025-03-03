@@ -20,6 +20,7 @@ class Embedder(Lifecycle, ABC):
 
         Args:
             config: Optional configuration dictionary
+
         """
         super().__init__()
         self.config = config or {}
@@ -33,8 +34,8 @@ class Embedder(Lifecycle, ABC):
 
         Returns:
             Array of embeddings with shape (n_texts, embedding_dim)
+
         """
-        pass
 
 
 class TextEmbedder(Embedder):
@@ -45,6 +46,7 @@ class TextEmbedder(Embedder):
 
         Args:
             model_name: Name of the sentence transformer model to use
+
         """
         super().__init__()
         self.model_name = model_name
@@ -53,7 +55,6 @@ class TextEmbedder(Embedder):
     async def initialize(self) -> None:
         """Initialize the sentence transformer model."""
         # TODO: Initialize sentence transformer model
-        pass
 
     async def cleanup(self) -> None:
         """Clean up resources."""
@@ -67,6 +68,7 @@ class TextEmbedder(Embedder):
 
         Returns:
             Array of embeddings with shape (n_texts, embedding_dim)
+
         """
         # TODO: Implement text embedding using sentence transformers
         return np.zeros((1, 384))
@@ -80,6 +82,7 @@ class DocumentEmbedder(Embedder):
 
         Args:
             model_name: Name of the sentence transformer model to use
+
         """
         super().__init__()
         self.model_name = model_name
@@ -88,7 +91,6 @@ class DocumentEmbedder(Embedder):
     async def initialize(self) -> None:
         """Initialize the sentence transformer model."""
         # TODO: Initialize sentence transformer model
-        pass
 
     async def cleanup(self) -> None:
         """Clean up resources."""
@@ -102,6 +104,7 @@ class DocumentEmbedder(Embedder):
 
         Returns:
             Array of embeddings with shape (n_docs, embedding_dim)
+
         """
         # TODO: Implement document embedding using sentence transformers
         return np.zeros((1, 768))
@@ -115,6 +118,7 @@ class SentenceEmbedder(Embedder):
 
         Args:
             model_name: Name of the sentence transformer model to use
+
         """
         super().__init__()
         self.model_name = model_name
@@ -123,7 +127,6 @@ class SentenceEmbedder(Embedder):
     async def initialize(self) -> None:
         """Initialize the sentence transformer model."""
         # TODO: Initialize sentence transformer model
-        pass
 
     async def cleanup(self) -> None:
         """Clean up resources."""
@@ -137,6 +140,7 @@ class SentenceEmbedder(Embedder):
 
         Returns:
             Array of embeddings with shape (n_sentences, embedding_dim)
+
         """
         # TODO: Implement sentence embedding using sentence transformers
         return np.zeros((1, 384))

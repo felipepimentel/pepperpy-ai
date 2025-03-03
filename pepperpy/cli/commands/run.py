@@ -33,7 +33,6 @@ class PepperpyError(Exception):
 class ProviderMessage:
     """Provider message."""
 
-    pass
 
 
 # pip install click
@@ -87,7 +86,6 @@ except ImportError:
 class ProviderRegistry:
     """Provider registry."""
 
-    pass
 
 
 from pepperpy.agents.manager import AgentManager
@@ -105,7 +103,6 @@ provider_registry = ProviderRegistry()
 @click.group()
 def run() -> None:
     """Execute Pepperpy components."""
-    pass
 
 
 @run.command()
@@ -115,7 +112,7 @@ def run() -> None:
 @click.option("--timeout", type=int, help="Execution timeout in seconds")
 @click.option("--background", is_flag=True, help="Run in background")
 def agent(
-    agent_id: str, task: str, config: str, timeout: int, background: bool
+    agent_id: str, task: str, config: str, timeout: int, background: bool,
 ) -> None:
     """Run an agent.
 
@@ -134,12 +131,12 @@ def agent(
         # Execute agent
         if background:
             asyncio.create_task(
-                manager.execute_agent(agent_id, [], "default", **params)
+                manager.execute_agent(agent_id, [], "default", **params),
             )
             format_success(f"Started agent {agent_id} in background")
         else:
             result = asyncio.run(
-                manager.execute_agent(agent_id, [], "default", **params)
+                manager.execute_agent(agent_id, [], "default", **params),
             )
             format_success(f"Agent {agent_id} completed successfully")
             console.print(result)
@@ -158,7 +155,7 @@ def agent(
 @click.option("--timeout", type=int, help="Execution timeout in seconds")
 @click.option("--background", is_flag=True, help="Run in background")
 def workflow(
-    workflow_file: str, input: str, config: str, timeout: int, background: bool
+    workflow_file: str, input: str, config: str, timeout: int, background: bool,
 ) -> None:
     """Run a workflow.
 
@@ -172,7 +169,7 @@ def workflow(
         # Load input data if provided
         input_data = {}
         if input:
-            with open(input, "r") as f:
+            with open(input) as f:
                 input_data = json.load(f)
 
         # Load config if provided
@@ -186,15 +183,15 @@ def workflow(
         if background:
             run_id = asyncio.run(
                 engine.start_workflow(
-                    workflow_id, {**input_data, **config_data, "timeout": timeout}
-                )
+                    workflow_id, {**input_data, **config_data, "timeout": timeout},
+                ),
             )
             format_success(f"Started workflow {workflow_id} (Run ID: {run_id})")
         else:
             result = asyncio.run(
                 engine.run_workflow(
-                    workflow_id, {**input_data, **config_data, "timeout": timeout}
-                )
+                    workflow_id, {**input_data, **config_data, "timeout": timeout},
+                ),
             )
             format_success(f"Workflow {workflow_id} completed successfully")
             console.print(result)
@@ -220,7 +217,7 @@ def tool(tool_name: str, input: str, config: str, timeout: int) -> None:
         # Load input data if provided
         input_data = {}
         if input:
-            with open(input, "r") as f:
+            with open(input) as f:
                 input_data = json.load(f)
 
         # Load config if provided

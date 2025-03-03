@@ -28,6 +28,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         Raises:
             ImportError: If google-cloud-speech package is not installed
             TranscriptionError: If initialization fails
+
         """
         try:
             # Import Google Cloud Speech
@@ -35,13 +36,13 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         except ImportError:
             raise ImportError(
                 "google-cloud-speech package is required for GoogleTranscriptionProvider. "
-                "Install it with: pip install google-cloud-speech"
+                "Install it with: pip install google-cloud-speech",
             ) from None
 
         self.kwargs = kwargs
         self.credentials = credentials
         self.project_id = project_id
-        
+
         try:
             # Initialize client
             self.client = speech.SpeechClient()
@@ -66,10 +67,11 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
 
         Raises:
             TranscriptionError: If transcription fails
+
         """
         try:
             from google.cloud import speech
-            
+
             # Handle audio input
             audio_content = None
             if isinstance(audio, (str, Path)):
@@ -79,20 +81,20 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                 audio_content = audio
             else:
                 raise ValueError(f"Unsupported audio type: {type(audio)}")
-            
+
             # Create audio object
             audio_obj = speech.RecognitionAudio(content=audio_content)
-            
+
             # Prepare config
             config = speech.RecognitionConfig(
                 language_code=language or "en-US",
                 **self.kwargs,
                 **kwargs,
             )
-            
+
             # Transcribe audio
             response = self.client.recognize(config=config, audio=audio_obj)
-            
+
             # Process results
             segments = []
             for result in response.results:
@@ -104,9 +106,9 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                         "end": 0.0,
                     }
                     segments.append(segment)
-            
+
             return segments
-            
+
         except Exception as e:
             raise TranscriptionError(f"Failed to transcribe audio: {e}") from e
 
@@ -128,10 +130,11 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
 
         Raises:
             TranscriptionError: If transcription fails
+
         """
         try:
             from google.cloud import speech
-            
+
             # Handle audio input
             audio_content = None
             if isinstance(audio, (str, Path)):
@@ -141,10 +144,10 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                 audio_content = audio
             else:
                 raise ValueError(f"Unsupported audio type: {type(audio)}")
-            
+
             # Create audio object
             audio_obj = speech.RecognitionAudio(content=audio_content)
-            
+
             # Prepare config with word time offsets
             config = speech.RecognitionConfig(
                 language_code=language or "en-US",
@@ -152,10 +155,10 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                 **self.kwargs,
                 **kwargs,
             )
-            
+
             # Transcribe audio
             response = self.client.recognize(config=config, audio=audio_obj)
-            
+
             # Process results with timestamps
             segments = []
             for result in response.results:
@@ -168,7 +171,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                             "end": word_info.end_time.total_seconds(),
                         }
                         words.append(word_data)
-                    
+
                     # Create segment from words
                     if words:
                         segment = {
@@ -179,9 +182,9 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
                             "words": words,
                         }
                         segments.append(segment)
-            
+
             return segments
-            
+
         except Exception as e:
             raise TranscriptionError(f"Failed to transcribe audio: {e}") from e
 
@@ -190,6 +193,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
 
         Returns:
             List of supported language codes
+
         """
         # Google Cloud Speech supports many languages
         # This is a subset of commonly used ones
@@ -216,6 +220,7 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
 
         Returns:
             List of supported audio format extensions
+
         """
         return [
             "wav",

@@ -28,6 +28,7 @@ def validate_path(path: str | Path, must_exist: bool = True) -> Path:
 
     Raises:
         ValidationError: If the path is invalid or doesn't exist when required.
+
     """
     try:
         path_obj = Path(path).resolve()
@@ -49,6 +50,7 @@ def load_config(config_path: str | Path) -> dict[str, Any]:
 
     Raises:
         ConfigError: If the config file is invalid or cannot be loaded.
+
     """
     try:
         path_obj = validate_path(config_path)
@@ -71,6 +73,7 @@ def save_config(config: dict[str, Any], config_path: str | Path) -> None:
 
     Raises:
         ConfigError: If the config cannot be saved.
+
     """
     try:
         path_obj = Path(config_path)
@@ -85,6 +88,7 @@ def get_config_dir() -> Path:
 
     Returns:
         Path to the config directory.
+
     """
     config_dir = Path(click.get_app_dir("pepperpy"))
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -96,6 +100,7 @@ def get_data_dir() -> Path:
 
     Returns:
         Path to the data directory.
+
     """
     data_dir = Path(os.path.expanduser("~/.local/share/pepperpy"))
     data_dir.mkdir(parents=True, exist_ok=True)

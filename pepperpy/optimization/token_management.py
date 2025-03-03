@@ -8,4 +8,4 @@ from pepperpy.optimization.base import TokenManager
 from pepperpy.optimization.config import TokenConfig
 
 __version__ = "0.1.0"
-__all__ = ["TokenManager", "TokenConfig"]
+__all__ = ["TokenConfig", "TokenManager"]

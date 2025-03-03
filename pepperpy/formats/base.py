@@ -22,7 +22,6 @@ U = TypeVar("U")
 class FormatError(Exception):
     """Base exception for format-related errors."""
 
-    pass
 
 
 class FormatHandler(Generic[T], abc.ABC):
@@ -35,8 +34,8 @@ class FormatHandler(Generic[T], abc.ABC):
 
         Returns:
             MIME type string
+
         """
-        pass
 
     @property
     @abc.abstractmethod
@@ -45,8 +44,8 @@ class FormatHandler(Generic[T], abc.ABC):
 
         Returns:
             List of file extensions (without dot)
+
         """
-        pass
 
     @abc.abstractmethod
     def serialize(self, data: T) -> bytes:
@@ -60,8 +59,8 @@ class FormatHandler(Generic[T], abc.ABC):
 
         Raises:
             FormatError: If serialization fails
+
         """
-        pass
 
     @abc.abstractmethod
     def deserialize(self, data: bytes) -> T:
@@ -75,8 +74,8 @@ class FormatHandler(Generic[T], abc.ABC):
 
         Raises:
             FormatError: If deserialization fails
+
         """
-        pass
 
     def validate(self, data: bytes) -> bool:
         """Validate that the bytes conform to this format.
@@ -86,6 +85,7 @@ class FormatHandler(Generic[T], abc.ABC):
 
         Returns:
             True if valid, False otherwise
+
         """
         try:
             self.deserialize(data)
@@ -99,7 +99,7 @@ class FormatConverter(abc.ABC):
 
     @abc.abstractmethod
     def convert(
-        self, data: bytes, source_format: FormatHandler, target_format: FormatHandler
+        self, data: bytes, source_format: FormatHandler, target_format: FormatHandler,
     ) -> bytes:
         """Convert data from one format to another.
 
@@ -113,8 +113,8 @@ class FormatConverter(abc.ABC):
 
         Raises:
             FormatError: If conversion fails
+
         """
-        pass
 
 
 class FormatValidator(abc.ABC):
@@ -130,8 +130,8 @@ class FormatValidator(abc.ABC):
 
         Returns:
             True if valid, False otherwise
+
         """
-        pass
 
 
 class FormatRegistry:
@@ -147,6 +147,7 @@ class FormatRegistry:
 
         Args:
             handler: Format handler to register
+
         """
         # Register by MIME type
         self._handlers[handler.mime_type] = handler
@@ -163,6 +164,7 @@ class FormatRegistry:
 
         Returns:
             Format handler or None if not found
+
         """
         return self._handlers.get(mime_type)
 
@@ -174,6 +176,7 @@ class FormatRegistry:
 
         Returns:
             Format handler or None if not found
+
         """
         return self._extensions.get(extension.lower())
 
@@ -182,6 +185,7 @@ class FormatRegistry:
 
         Returns:
             List of all format handlers
+
         """
         return list(set(self._handlers.values()))
 
@@ -190,6 +194,7 @@ class FormatRegistry:
 
         Returns:
             List of all MIME types
+
         """
         return list(self._handlers.keys())
 
@@ -198,6 +203,7 @@ class FormatRegistry:
 
         Returns:
             List of all file extensions
+
         """
         return list(self._extensions.keys())
 
@@ -210,6 +216,7 @@ class BaseProcessor(Generic[T, U], abc.ABC):
 
         Args:
             name: Processor name
+
         """
         self.name = name
 
@@ -223,8 +230,8 @@ class BaseProcessor(Generic[T, U], abc.ABC):
 
         Returns:
             Processed data
+
         """
-        pass
 
 
 class BaseTransformer(Generic[T, U], abc.ABC):
@@ -235,6 +242,7 @@ class BaseTransformer(Generic[T, U], abc.ABC):
 
         Args:
             name: Transformer name
+
         """
         self.name = name
 
@@ -247,8 +255,8 @@ class BaseTransformer(Generic[T, U], abc.ABC):
 
         Returns:
             Transformed data
+
         """
-        pass
 
 
 class BaseValidator(Generic[T], abc.ABC):
@@ -259,6 +267,7 @@ class BaseValidator(Generic[T], abc.ABC):
 
         Args:
             name: Validator name
+
         """
         self.name = name
 
@@ -271,5 +280,5 @@ class BaseValidator(Generic[T], abc.ABC):
 
         Returns:
             True if valid, False otherwise
+
         """
-        pass

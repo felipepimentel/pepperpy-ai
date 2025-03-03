@@ -22,6 +22,7 @@ class YamlUtils:
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         YamlFormatter._ensure_yaml_available()
 
@@ -37,12 +38,13 @@ class YamlUtils:
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         return YamlFormatter.load(path)
 
     @staticmethod
     def save(
-        data: Dict[str, Any], path: Union[str, Path], default_flow_style: bool = False
+        data: Dict[str, Any], path: Union[str, Path], default_flow_style: bool = False,
     ) -> None:
         """Save dictionary to YAML file.
 
@@ -53,6 +55,7 @@ class YamlUtils:
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         formatter = YamlFormatter(default_flow_style=default_flow_style)
         formatter.format_to_file(data, str(path))
@@ -69,6 +72,7 @@ class YamlUtils:
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         return YamlFormatter.parse(text)
 
@@ -85,6 +89,7 @@ class YamlUtils:
 
         Raises:
             ImportError: If PyYAML is not installed
+
         """
         return YamlFormatter.stringify(data, default_flow_style)
 
@@ -98,9 +103,10 @@ class YamlUtils:
 
         Returns:
             Merged dictionary
+
         """
         return YamlFormatter.merge(base, override)
 
 
 # Re-export YamlFormatter for direct use
-__all__ = ["YamlUtils", "YamlFormatter"]
+__all__ = ["YamlFormatter", "YamlUtils"]

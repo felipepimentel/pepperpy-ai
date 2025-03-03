@@ -11,7 +11,7 @@ from typing import Dict, List, Tuple
 
 def read_file(file_path: str) -> str:
     """Read file content."""
-    with open(file_path, "r", encoding="utf-8") as f:
+    with open(file_path, encoding="utf-8") as f:
         return f.read()
 
 

@@ -28,8 +28,8 @@ class BaseStorageProvider(ABC):
 
         Returns:
             bool: True if successful, False otherwise.
+
         """
-        pass
 
     @abstractmethod
     def load(self, key: str) -> Optional[Any]:
@@ -40,8 +40,8 @@ class BaseStorageProvider(ABC):
 
         Returns:
             Optional[Any]: The loaded data, or None if not found.
+
         """
-        pass
 
     @abstractmethod
     def delete(self, key: str) -> bool:
@@ -52,8 +52,8 @@ class BaseStorageProvider(ABC):
 
         Returns:
             bool: True if successful, False otherwise.
+
         """
-        pass
 
     @abstractmethod
     def exists(self, key: str) -> bool:
@@ -64,8 +64,8 @@ class BaseStorageProvider(ABC):
 
         Returns:
             bool: True if the key exists, False otherwise.
+
         """
-        pass
 
     @abstractmethod
     def list_keys(self, prefix: str = "") -> List[str]:
@@ -76,5 +76,5 @@ class BaseStorageProvider(ABC):
 
         Returns:
             List[str]: A list of keys.
+
         """
-        pass

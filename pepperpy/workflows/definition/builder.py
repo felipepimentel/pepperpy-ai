@@ -16,6 +16,7 @@ class WorkflowBuilder:
 
         Args:
             name: Workflow name
+
         """
         self._definition = WorkflowDefinition(name)
         self._current_step: Optional[WorkflowStep] = None
@@ -29,6 +30,7 @@ class WorkflowBuilder:
 
         Returns:
             Builder instance for chaining
+
         """
         self._definition.add_step(step)
         self._current_step = step
@@ -42,6 +44,7 @@ class WorkflowBuilder:
 
         Returns:
             Builder instance for chaining
+
         """
         self._config.update(config)
         return self
@@ -51,6 +54,7 @@ class WorkflowBuilder:
 
         Returns:
             Configured workflow instance
+
         """
         workflow = BaseWorkflow(self._definition)
         for key, value in self._config.items():

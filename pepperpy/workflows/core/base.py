@@ -100,6 +100,7 @@ class WorkflowStep(ABC):
 
         Args:
             name: Step name
+
         """
         self.name = name
 
@@ -109,8 +110,8 @@ class WorkflowStep(ABC):
 
         Returns:
             Step execution result
+
         """
-        pass
 
 
 class WorkflowDefinition(ABC):
@@ -121,6 +122,7 @@ class WorkflowDefinition(ABC):
 
         Args:
             name: Workflow name
+
         """
         self.name = name
         self._steps: List[WorkflowStep] = []
@@ -130,6 +132,7 @@ class WorkflowDefinition(ABC):
 
         Args:
             step: Step to add
+
         """
         self._steps.append(step)
 
@@ -138,6 +141,7 @@ class WorkflowDefinition(ABC):
 
         Returns:
             List of workflow steps
+
         """
         return self._steps.copy()
 
@@ -147,7 +151,6 @@ class WorkflowDefinition(ABC):
 
         This method must be implemented by subclasses.
         """
-        pass
 
 
 class BaseWorkflow(ABC):
@@ -163,6 +166,7 @@ class BaseWorkflow(ABC):
         Args:
             definition: Workflow definition
             workflow_id: Optional workflow ID
+
         """
         self.definition = definition
         self.workflow_id = workflow_id or UUID(str(uuid4()))
@@ -268,6 +272,7 @@ class BaseWorkflow(ABC):
         Raises:
             WorkflowError: If execution fails
             StateError: If workflow is not in valid state
+
         """
         if self.state != WorkflowState.READY:
             raise StateError(f"Workflow not ready (state: {self.state}) from e")
@@ -284,7 +289,7 @@ class BaseWorkflow(ABC):
                 await self._metrics["execution_count"].inc()
             if isinstance(self._metrics["execution_time"], Histogram):
                 await self._metrics["execution_time"].observe(
-                    (datetime.utcnow() - start_time).total_seconds()
+                    (datetime.utcnow() - start_time).total_seconds(),
                 )
 
             await self.set_state(WorkflowState.READY)
@@ -305,7 +310,7 @@ class BaseWorkflow(ABC):
             )
             await error_counter.inc(1.0)
             await error_histogram.observe(
-                (datetime.utcnow() - start_time).total_seconds()
+                (datetime.utcnow() - start_time).total_seconds(),
             )
 
             await self.set_state(WorkflowState.ERROR)
@@ -326,6 +331,7 @@ class BaseWorkflow(ABC):
 
         Raises:
             WorkflowError: If step execution fails
+
         """
         if self.state != ComponentState.EXECUTING:
             raise StateError(f"Workflow not executing (state: {self.state})")
@@ -344,13 +350,13 @@ class BaseWorkflow(ABC):
             # Update metrics
             await self._step_metrics[f"{step.name}_count"].inc()
             await self._step_metrics[f"{step.name}_time"].observe(
-                (datetime.utcnow() - start_time).total_seconds()
+                (datetime.utcnow() - start_time).total_seconds(),
             )
 
             # Notify step complete
             if isinstance(self._callback, WorkflowCallback):
                 await self._callback.on_step_complete(
-                    str(self.workflow_id), step.name, result
+                    str(self.workflow_id), step.name, result,
                 )
 
             return result
@@ -370,7 +376,7 @@ class BaseWorkflow(ABC):
             )
             await error_counter.inc()
             await error_histogram.observe(
-                (datetime.utcnow() - start_time).total_seconds()
+                (datetime.utcnow() - start_time).total_seconds(),
             )
 
             raise WorkflowError(f"Failed to execute step {step.name}: {e}") from e
@@ -398,7 +404,6 @@ class BaseWorkflow(ABC):
         This method should be implemented by subclasses to perform
         workflow-specific initialization.
         """
-        pass
 
     @abstractmethod
     async def _execute(self, **kwargs: Any) -> Any:
@@ -412,8 +417,8 @@ class BaseWorkflow(ABC):
 
         Returns:
             Execution result
+
         """
-        pass
 
     @abstractmethod
     async def _execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
@@ -428,8 +433,8 @@ class BaseWorkflow(ABC):
 
         Returns:
             Step result
+
         """
-        pass
 
     @abstractmethod
     async def _cleanup(self) -> None:
@@ -438,7 +443,6 @@ class BaseWorkflow(ABC):
         This method should be implemented by subclasses to perform
         workflow-specific cleanup.
         """
-        pass
 
     @abstractmethod
     async def start(self) -> None:

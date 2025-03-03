@@ -42,6 +42,7 @@ class PluginRegistry:
         Args:
             plugin_id: Unique identifier for the plugin
             plugin_info: Plugin metadata and configuration
+
         """
         if plugin_id in self._plugins:
             logger.warning(f"Plugin {plugin_id} already registered, overwriting")
@@ -56,6 +57,7 @@ class PluginRegistry:
         Args:
             plugin_id: Plugin identifier
             command: Click command or group
+
         """
         if plugin_id not in self._plugins:
             raise ValueError(f"Plugin {plugin_id} not registered")
@@ -68,6 +70,7 @@ class PluginRegistry:
 
         Returns:
             Dictionary of plugin_id to plugin_info
+
         """
         return self._plugins.copy()
 
@@ -76,6 +79,7 @@ class PluginRegistry:
 
         Returns:
             Dictionary of plugin_id to list of commands
+
         """
         return self._commands.copy()
 
@@ -87,6 +91,7 @@ class PluginRegistry:
 
         Returns:
             List of commands for the plugin
+
         """
         return self._commands.get(plugin_id, [])
 
@@ -96,6 +101,7 @@ def discover_plugins() -> List[Tuple[str, Path]]:
 
     Returns:
         List of (plugin_id, plugin_path) tuples
+
     """
     plugin_dirs = [
         # User plugins
@@ -133,12 +139,13 @@ def load_plugin(plugin_id: str, plugin_path: Path) -> Optional[PluginInfo]:
 
     Returns:
         Plugin info dictionary or None if loading failed
+
     """
     try:
         # Try loading as a module
         if (plugin_path / "cli.py").exists():
             spec = importlib.util.spec_from_file_location(
-                f"pepperpy_plugin_{plugin_id}", plugin_path / "cli.py"
+                f"pepperpy_plugin_{plugin_id}", plugin_path / "cli.py",
             )
             if spec is None or spec.loader is None:
                 logger.error(f"Failed to load plugin {plugin_id}: invalid spec")
@@ -168,7 +175,7 @@ def load_plugin(plugin_id: str, plugin_path: Path) -> Optional[PluginInfo]:
         # Register commands
         for name, obj in inspect.getmembers(module):
             if isinstance(obj, (click.Command, click.Group)) and not name.startswith(
-                "_"
+                "_",
             ):
                 registry.register_command(plugin_id, obj)
 
@@ -184,6 +191,7 @@ def load_all_plugins() -> Dict[str, PluginInfo]:
 
     Returns:
         Dictionary of plugin_id to plugin_info for successfully loaded plugins
+
     """
     plugins = discover_plugins()
     loaded_plugins = {}
@@ -201,6 +209,7 @@ def get_plugin_commands() -> Dict[str, List[PluginCommandType]]:
 
     Returns:
         Dictionary of plugin_id to list of commands
+
     """
     registry = PluginRegistry()
     return registry.get_commands()

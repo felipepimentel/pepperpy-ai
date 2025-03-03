@@ -9,11 +9,10 @@ from pepperpy.security.registry import get_security_provider_class
 class SecurityError(Exception):
     """Base exception for security-related errors."""
 
-    pass
 
 
 def create_security_provider(
-    provider: str, config: Optional[Dict[str, Any]] = None, **kwargs
+    provider: str, config: Optional[Dict[str, Any]] = None, **kwargs,
 ) -> SecurityManager:
     """Create a security provider instance.
 
@@ -27,6 +26,7 @@ def create_security_provider(
 
     Raises:
         SecurityError: If provider creation fails
+
     """
     try:
         # Get provider class from registry
@@ -42,5 +42,5 @@ def create_security_provider(
         return provider_class(**provider_config)
     except Exception as e:
         raise SecurityError(
-            f"Failed to create security provider '{provider}': {e}"
+            f"Failed to create security provider '{provider}': {e}",
         ) from e

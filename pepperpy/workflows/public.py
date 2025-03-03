@@ -38,7 +38,7 @@ class WorkflowStep:
     """
 
     def __init__(
-        self, name: str, function: Callable, dependencies: Optional[List[str]] = None
+        self, name: str, function: Callable, dependencies: Optional[List[str]] = None,
     ):
         """Initialize a workflow step.
 
@@ -46,6 +46,7 @@ class WorkflowStep:
             name: Step name
             function: Function to execute
             dependencies: Names of steps this step depends on
+
         """
         self.name = name
         self.function = function
@@ -65,6 +66,7 @@ class WorkflowDefinition:
         Args:
             name: Workflow name
             description: Workflow description
+
         """
         self.name = name
         self.description = description
@@ -78,6 +80,7 @@ class WorkflowDefinition:
 
         Returns:
             Self for chaining
+
         """
         self.steps[step.name] = step
         return self
@@ -95,6 +98,7 @@ class BaseWorkflow:
 
         Args:
             definition: Workflow definition
+
         """
         self.definition = definition
         self.status = WorkflowStatus.PENDING
@@ -107,6 +111,7 @@ class BaseWorkflow:
 
         Returns:
             Workflow outputs
+
         """
         self.status = WorkflowStatus.RUNNING
         try:
@@ -127,7 +132,7 @@ class WorkflowExecutor:
     """
 
     async def execute(
-        self, workflow: BaseWorkflow, inputs: Dict[str, Any]
+        self, workflow: BaseWorkflow, inputs: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Execute a workflow.
 
@@ -137,6 +142,7 @@ class WorkflowExecutor:
 
         Returns:
             Workflow outputs
+
         """
         return await workflow.execute(inputs)
 
@@ -163,6 +169,7 @@ class WorkflowScheduler:
 
         Returns:
             Scheduled workflow ID
+
         """
         # Implementation would schedule the workflow
         return "workflow-id"  # Placeholder for actual implementation
@@ -181,11 +188,12 @@ class WorkflowBuilder:
         Args:
             name: Workflow name
             description: Workflow description
+
         """
         self.definition = WorkflowDefinition(name, description)
 
     def add_step(
-        self, name: str, function: Callable, dependencies: Optional[List[str]] = None
+        self, name: str, function: Callable, dependencies: Optional[List[str]] = None,
     ) -> "WorkflowBuilder":
         """Add a step to the workflow.
 
@@ -196,6 +204,7 @@ class WorkflowBuilder:
 
         Returns:
             Self for chaining
+
         """
         step = WorkflowStep(name, function, dependencies)
         self.definition.add_step(step)
@@ -206,6 +215,7 @@ class WorkflowBuilder:
 
         Returns:
             Built workflow
+
         """
         return BaseWorkflow(self.definition)
 
@@ -226,6 +236,7 @@ class WorkflowFactory:
 
         Returns:
             Created workflow
+
         """
         return BaseWorkflow(definition)
 
@@ -246,6 +257,7 @@ class WorkflowRegistry:
 
         Args:
             definition: Workflow definition to register
+
         """
         self.workflows[definition.name] = definition
 
@@ -257,6 +269,7 @@ class WorkflowRegistry:
 
         Returns:
             Workflow definition or None if not found
+
         """
         return self.workflows.get(name)
 
@@ -264,12 +277,12 @@ class WorkflowRegistry:
 # Export public classes
 __all__ = [
     "BaseWorkflow",
-    "WorkflowDefinition",
-    "WorkflowStep",
-    "WorkflowStatus",
-    "WorkflowExecutor",
-    "WorkflowScheduler",
     "WorkflowBuilder",
+    "WorkflowDefinition",
+    "WorkflowExecutor",
     "WorkflowFactory",
     "WorkflowRegistry",
+    "WorkflowScheduler",
+    "WorkflowStatus",
+    "WorkflowStep",
 ]

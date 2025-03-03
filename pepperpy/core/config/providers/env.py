@@ -21,6 +21,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Args:
             prefix: Prefix for environment variables
+
         """
         super().__init__()
         self.prefix = prefix
@@ -33,6 +34,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Returns:
             Environment variable key
+
         """
         # Convert to uppercase and replace separators
         env_key = key.upper().replace("/", "_").replace(".", "_")
@@ -46,6 +48,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Returns:
             Configuration key
+
         """
         # Remove prefix and convert to lowercase
         key = env_key[len(self.prefix) :].lower()
@@ -59,6 +62,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Returns:
             Configuration value or None if not found
+
         """
         try:
             env_key = self._get_env_key(key)
@@ -94,6 +98,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Raises:
             NotImplementedError: Setting environment variables is not supported
+
         """
         raise NotImplementedError("Setting environment variables is not supported")
 
@@ -105,6 +110,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Raises:
             NotImplementedError: Deleting environment variables is not supported
+
         """
         raise NotImplementedError("Deleting environment variables is not supported")
 
@@ -116,6 +122,7 @@ class EnvironmentProvider(ConfigProvider):
 
         Returns:
             List of configuration keys
+
         """
         try:
             # Get all environment variables with prefix

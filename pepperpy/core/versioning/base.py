@@ -22,27 +22,22 @@ class Version(ABC):
     @abstractmethod
     def __str__(self) -> str:
         """Convert version to string representation."""
-        pass
 
     @abstractmethod
-    def __eq__(self, other: Any) -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if versions are equal."""
-        pass
 
     @abstractmethod
     def __lt__(self, other: Any) -> bool:
         """Check if version is less than other."""
-        pass
 
     @abstractmethod
     def __gt__(self, other: Any) -> bool:
         """Check if version is greater than other."""
-        pass
 
     @abstractmethod
     def is_compatible_with(self, other: "Version") -> bool:
         """Check if version is compatible with other version."""
-        pass
 
 
 class VersionedObject(ABC):
@@ -52,12 +47,10 @@ class VersionedObject(ABC):
     @abstractmethod
     def version(self) -> Version:
         """Get object version."""
-        pass
 
     @abstractmethod
     def is_compatible_with(self, other: "VersionedObject") -> bool:
         """Check if object is compatible with other object."""
-        pass
 
 
 class VersionProvider(ABC):
@@ -66,12 +59,10 @@ class VersionProvider(ABC):
     @abstractmethod
     def get_version(self) -> Version:
         """Get component version."""
-        pass
 
     @abstractmethod
     def get_supported_versions(self) -> List[Version]:
         """Get list of supported versions."""
-        pass
 
 
 class VersionResolver(ABC):
@@ -86,8 +77,8 @@ class VersionResolver(ABC):
 
         Returns:
             Resolved version or None if no resolution is possible
+
         """
-        pass
 
 
 class VersionConstraint(ABC):
@@ -102,10 +93,9 @@ class VersionConstraint(ABC):
 
         Returns:
             True if constraint is satisfied
+
         """
-        pass
 
     @abstractmethod
     def to_string(self) -> str:
         """Convert constraint to string representation."""
-        pass

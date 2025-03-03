@@ -96,6 +96,7 @@ class LifecycleHook(Protocol):
 
         Args:
             context: Event context
+
         """
         ...
 
@@ -104,6 +105,7 @@ class LifecycleHook(Protocol):
 
         Args:
             context: Event context
+
         """
         ...
 
@@ -112,6 +114,7 @@ class LifecycleHook(Protocol):
 
         Args:
             context: Error context
+
         """
         ...
 
@@ -124,6 +127,7 @@ class Lifecycle(Protocol):
 
         Raises:
             LifecycleError: If initialization fails
+
         """
         ...
 
@@ -132,6 +136,7 @@ class Lifecycle(Protocol):
 
         Raises:
             LifecycleError: If start fails
+
         """
         ...
 
@@ -140,6 +145,7 @@ class Lifecycle(Protocol):
 
         Raises:
             LifecycleError: If stop fails
+
         """
         ...
 
@@ -148,6 +154,7 @@ class Lifecycle(Protocol):
 
         Raises:
             LifecycleError: If cleanup fails
+
         """
         ...
 

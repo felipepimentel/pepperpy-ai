@@ -18,11 +18,9 @@ class EmbeddingModelProvider(RagProvider):
 
     async def initialize(self) -> None:
         """Initialize the embedding model provider."""
-        pass
 
     async def cleanup(self) -> None:
         """Clean up the embedding model provider."""
-        pass
 
     @property
     def provider_info(self) -> Dict[str, Any]:
@@ -30,6 +28,7 @@ class EmbeddingModelProvider(RagProvider):
 
         Returns:
             A dictionary containing information about the provider
+
         """
         return {
             "provider_type": ProviderType.EMBEDDING_MODEL,

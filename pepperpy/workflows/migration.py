@@ -54,6 +54,7 @@ class MigrationHelper:
 
         Returns:
             List of tuples (import_path, alias, line)
+
         """
         legacy_imports = []
 
@@ -74,7 +75,7 @@ class MigrationHelper:
                                 name.name,
                                 name.asname or name.name,
                                 line,
-                            )
+                            ),
                         )
             elif isinstance(node, ast.ImportFrom):
                 if node.module in MigrationHelper.IMPORT_MAPPING:
@@ -85,7 +86,7 @@ class MigrationHelper:
                                 f"{node.module}.{name.name}",
                                 name.asname or name.name,
                                 line,
-                            )
+                            ),
                         )
 
         return legacy_imports
@@ -101,6 +102,7 @@ class MigrationHelper:
 
         Returns:
             Dictionary mapping old import lines to new ones
+
         """
         migration = {}
 
@@ -119,11 +121,10 @@ class MigrationHelper:
                         new_line = f"from {new_module} import {name}"
                     else:
                         new_line = f"from {new_module} import {name} as {alias}"
+                elif alias == module:
+                    new_line = f"import {new_module}"
                 else:
-                    if alias == module:
-                        new_line = f"import {new_module}"
-                    else:
-                        new_line = f"import {new_module} as {alias}"
+                    new_line = f"import {new_module} as {alias}"
 
                 migration[line] = new_line
 
@@ -138,6 +139,7 @@ class MigrationHelper:
 
         Returns:
             List of tuples (usage_type, line_number)
+
         """
         legacy_usage = []
 
@@ -175,6 +177,7 @@ class MigrationHelper:
 
         Raises:
             ValueError: If conversion fails
+
         """
         # Check if it's already a new-style definition
         if isinstance(legacy_definition, WorkflowDefinition):
@@ -182,7 +185,7 @@ class MigrationHelper:
 
         # Check if it has the expected attributes
         if not hasattr(legacy_definition, "name") or not hasattr(
-            legacy_definition, "steps"
+            legacy_definition, "steps",
         ):
             raise ValueError("Legacy definition does not have required attributes")
 
@@ -225,6 +228,7 @@ class MigrationHelper:
 
         Returns:
             Migration guide as a string
+
         """
         legacy_imports = MigrationHelper.detect_legacy_imports(code)
         legacy_usage = MigrationHelper.detect_legacy_usage(code)
@@ -275,6 +279,7 @@ class MigrationHelper:
 
         Returns:
             Migrated code
+
         """
         legacy_imports = MigrationHelper.detect_legacy_imports(code)
         import_migration = MigrationHelper.generate_import_migration(legacy_imports)
@@ -286,10 +291,10 @@ class MigrationHelper:
 
         # Add async/await where needed
         migrated_code = re.sub(
-            r"def\s+execute\s*\(", "async def execute(", migrated_code
+            r"def\s+execute\s*\(", "async def execute(", migrated_code,
         )
         migrated_code = re.sub(
-            r"(\w+)\.execute\s*\(", r"await \1.execute(", migrated_code
+            r"(\w+)\.execute\s*\(", r"await \1.execute(", migrated_code,
         )
 
         return migrated_code

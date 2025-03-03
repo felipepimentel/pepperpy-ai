@@ -15,8 +15,8 @@ from pepperpy.adapters.plugin import AdapterPlugin, load_adapter_plugins
 from pepperpy.adapters.registry import AdapterRegistry
 
 __all__ = [
-    "BaseAdapter",
-    "AdapterRegistry",
     "AdapterPlugin",
+    "AdapterRegistry",
+    "BaseAdapter",
     "load_adapter_plugins",
 ]

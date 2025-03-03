@@ -40,10 +40,11 @@ def register_reasoning_provider(provider_id: str, provider: CapabilityProvider) 
     Args:
         provider_id: Unique identifier for the provider
         provider: The provider to register
+
     """
     if provider_id in _reasoning_providers:
         logger.warning(
-            f"Reasoning provider {provider_id} already registered, overwriting"
+            f"Reasoning provider {provider_id} already registered, overwriting",
         )
 
     _reasoning_providers[provider_id] = provider
@@ -62,5 +63,6 @@ def get_reasoning_provider(provider_id: str) -> Optional[CapabilityProvider]:
 
     Returns:
         The provider if found, None otherwise
+
     """
     return _reasoning_providers.get(provider_id)

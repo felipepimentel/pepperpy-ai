@@ -25,6 +25,7 @@ class SecurityVisitor(BaseVisitor):
     Attributes:
         banned_functions: Set of function names that are considered unsafe
         banned_modules: Set of module names that are considered unsafe
+
     """
 
     def __init__(
@@ -37,6 +38,7 @@ class SecurityVisitor(BaseVisitor):
         Args:
             banned_functions: Functions to flag as unsafe
             banned_modules: Modules to flag as unsafe
+
         """
         super().__init__()
         self.banned_functions = banned_functions or {
@@ -52,6 +54,7 @@ class SecurityVisitor(BaseVisitor):
 
         Args:
             node: AST call node
+
         """
         if isinstance(node.func, ast.Name):
             if node.func.id in self.banned_functions:
@@ -68,6 +71,7 @@ class SecurityVisitor(BaseVisitor):
 
         Args:
             node: AST import node
+
         """
         for name in node.names:
             if name.name in self.banned_modules:
@@ -84,6 +88,7 @@ class SecurityVisitor(BaseVisitor):
 
         Args:
             node: AST import-from node
+
         """
         if node.module in self.banned_modules:
             self.add_result(
@@ -103,6 +108,7 @@ class ComplexityVisitor(BaseVisitor):
     Attributes:
         max_complexity: Maximum allowed complexity
         current_complexity: Current complexity being calculated
+
     """
 
     def __init__(self, max_complexity: int = 10) -> None:
@@ -110,6 +116,7 @@ class ComplexityVisitor(BaseVisitor):
 
         Args:
             max_complexity: Maximum allowed complexity
+
         """
         super().__init__()
         self.max_complexity = max_complexity
@@ -120,6 +127,7 @@ class ComplexityVisitor(BaseVisitor):
 
         Args:
             node: AST function node
+
         """
         old_complexity = self.current_complexity
         self.current_complexity = 1
@@ -144,6 +152,7 @@ class ComplexityVisitor(BaseVisitor):
 
         Args:
             node: AST if node
+
         """
         self.current_complexity += 1
         self.generic_visit(node)
@@ -153,6 +162,7 @@ class ComplexityVisitor(BaseVisitor):
 
         Args:
             node: AST while node
+
         """
         self.current_complexity += 1
         self.generic_visit(node)
@@ -162,6 +172,7 @@ class ComplexityVisitor(BaseVisitor):
 
         Args:
             node: AST for node
+
         """
         self.current_complexity += 1
         self.generic_visit(node)
@@ -178,6 +189,7 @@ class SecurityAnalyzer(CodeAnalyzer):
 
         Args:
             config: Optional configuration with banned functions/modules
+
         """
         self.config = config or {}
         self.banned_functions = self.config.get("banned_functions", None)
@@ -194,6 +206,7 @@ class SecurityAnalyzer(CodeAnalyzer):
 
         Raises:
             SyntaxError: If code is invalid Python
+
         """
         try:
             tree = ast.parse(code)
@@ -211,7 +224,7 @@ class SecurityAnalyzer(CodeAnalyzer):
                     line=e.lineno,
                     column=e.offset,
                     details={"error": str(e)},
-                )
+                ),
             ]
 
     def analyze_file(self, path: str) -> List[AnalysisResult]:
@@ -226,6 +239,7 @@ class SecurityAnalyzer(CodeAnalyzer):
         Raises:
             FileNotFoundError: If file doesn't exist
             PermissionError: If file can't be read
+
         """
         try:
             code = Path(path).read_text()
@@ -236,7 +250,7 @@ class SecurityAnalyzer(CodeAnalyzer):
                     level=AnalysisLevel.ERROR,
                     message=f"Failed to read file: {path}",
                     details={"error": str(e)},
-                )
+                ),
             ]
 
     def analyze_module(self, module: str) -> List[AnalysisResult]:
@@ -250,6 +264,7 @@ class SecurityAnalyzer(CodeAnalyzer):
 
         Raises:
             ImportError: If module can't be imported
+
         """
         try:
             spec = importlib.util.find_spec(module)
@@ -259,7 +274,7 @@ class SecurityAnalyzer(CodeAnalyzer):
                         level=AnalysisLevel.ERROR,
                         message=f"Module not found: {module}",
                         details={"module": module},
-                    )
+                    ),
                 ]
             return self.analyze_file(spec.origin)
         except ImportError as e:
@@ -268,7 +283,7 @@ class SecurityAnalyzer(CodeAnalyzer):
                     level=AnalysisLevel.ERROR,
                     message=f"Failed to import module: {module}",
                     details={"error": str(e)},
-                )
+                ),
             ]
 
 
@@ -283,6 +298,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
 
         Args:
             config: Optional configuration with complexity thresholds
+
         """
         self.config = config or {}
         self.max_complexity = self.config.get("max_complexity", 10)
@@ -298,6 +314,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
 
         Raises:
             SyntaxError: If code is invalid Python
+
         """
         try:
             tree = ast.parse(code)
@@ -312,7 +329,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
                     line=e.lineno,
                     column=e.offset,
                     details={"error": str(e)},
-                )
+                ),
             ]
 
     def analyze_file(self, path: str) -> List[AnalysisResult]:
@@ -327,6 +344,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
         Raises:
             FileNotFoundError: If file doesn't exist
             PermissionError: If file can't be read
+
         """
         try:
             code = Path(path).read_text()
@@ -337,7 +355,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
                     level=AnalysisLevel.ERROR,
                     message=f"Failed to read file: {path}",
                     details={"error": str(e)},
-                )
+                ),
             ]
 
     def analyze_module(self, module: str) -> List[AnalysisResult]:
@@ -351,6 +369,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
 
         Raises:
             ImportError: If module can't be imported
+
         """
         try:
             spec = importlib.util.find_spec(module)
@@ -360,7 +379,7 @@ class ComplexityAnalyzer(CodeAnalyzer):
                         level=AnalysisLevel.ERROR,
                         message=f"Module not found: {module}",
                         details={"module": module},
-                    )
+                    ),
                 ]
             return self.analyze_file(spec.origin)
         except ImportError as e:
@@ -369,5 +388,5 @@ class ComplexityAnalyzer(CodeAnalyzer):
                     level=AnalysisLevel.ERROR,
                     message=f"Failed to import module: {module}",
                     details={"error": str(e)},
-                )
+                ),
             ]

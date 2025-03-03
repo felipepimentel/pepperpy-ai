@@ -20,7 +20,7 @@ def fix_workflows_base_py():
 
         # Corrigir a indentação do método __init__ na classe WorkflowEngine
         pattern_init = re.compile(
-            r'"""Workflow definition\s+Args:\s+definition: Workflow definition\s+"""\s+super\(\).__init__\(definition\.name\)'
+            r'"""Workflow definition\s+Args:\s+definition: Workflow definition\s+"""\s+super\(\).__init__\(definition\.name\)',
         )
         replacement_init = (
             '"""Workflow definition\n'
@@ -33,7 +33,7 @@ def fix_workflows_base_py():
 
         # Corrigir o ponto e vírgula no final do método execute_step
         pattern_execute_step = re.compile(
-            r'return \{"step_id": step\.id, "action": step\.action, "status": "executed"\}'
+            r'return \{"step_id": step\.id, "action": step\.action, "status": "executed"\}',
         )
         replacement_execute_step = (
             'return {"step_id": step.id, "action": step.action, "status": "executed"}'

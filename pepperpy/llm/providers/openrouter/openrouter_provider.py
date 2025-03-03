@@ -26,6 +26,7 @@ class OpenRouterProvider(LLMProvider):
             api_key: OpenRouter API key
             base_url: Base URL for API requests
             **kwargs: Additional configuration parameters
+
         """
         self.api_key = api_key
         self.base_url = base_url or "https://openrouter.ai/api/v1"
@@ -49,6 +50,7 @@ class OpenRouterProvider(LLMProvider):
 
         Raises:
             ValueError: If model is not supported
+
         """
         # Placeholder implementation
         return LLMResponse(
@@ -74,6 +76,7 @@ class OpenRouterProvider(LLMProvider):
 
         Raises:
             ValueError: If model is not supported
+
         """
         # Placeholder implementation
         return LLMResponse(
@@ -86,6 +89,7 @@ class OpenRouterProvider(LLMProvider):
 
         Returns:
             List of model identifiers
+
         """
         return [
             "openai/gpt-4",
@@ -109,6 +113,7 @@ class OpenRouterProvider(LLMProvider):
 
         Raises:
             ValueError: If model is not found
+
         """
         models = {
             "openai/gpt-4": ModelParameters(
