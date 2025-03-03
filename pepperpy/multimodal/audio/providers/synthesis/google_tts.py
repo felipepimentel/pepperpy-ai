@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 from gtts import gTTS
 from pydantic import BaseModel, Field
 
+from pepperpy.multimodal.audio.base import (
     AudioConfig,
     AudioData,
     SynthesisError,
@@ -41,13 +42,13 @@ class GTTSProvider(SynthesisProvider):
         try:
             self.config = GTTSConfig(**config)
         except Exception as e:
-            raise SynthesisError( from e)
-            "Failed to initialize gTTS provider",
+            raise SynthesisError(
+                "Failed to initialize gTTS provider",
                 provider="gtts",
                 details={"error": str(e)},
-            )
+            ) from e
 
-    async def synthesize()
+    async def synthesize(
         self,
         text: str,
         *,
@@ -59,20 +60,20 @@ class GTTSProvider(SynthesisProvider):
 
         Args:
             text: Text to synthesize
-            language: Optional language code
-            voice: Optional voice identifier (not used in gTTS)
-            **kwargs: Additional provider-specific parameters
+            language: Language code (overrides config)
+            voice: Voice name (not used by gTTS)
+            **kwargs: Additional parameters
 
         Returns:
-            Synthesized audio data
+            AudioData object with synthesized speech
 
         Raises:
             SynthesisError: If synthesis fails
         """
         try:
-            # Run gTTS in a thread pool to avoid blocking
+            # Run gTTS in executor (blocking operation)
             loop = asyncio.get_event_loop()
-            audio_data = await loop.run_in_executor()
+            audio_data = await loop.run_in_executor(
                 None,
                 self._synthesize_sync,
                 text,
@@ -81,7 +82,7 @@ class GTTSProvider(SynthesisProvider):
             )
 
             # Create audio configuration
-            config = AudioConfig()
+            config = AudioConfig(
                 language=language or self.config.language,
                 voice="default",  # gTTS doesn't support voice selection
                 format=self.config.format,
@@ -91,23 +92,23 @@ class GTTSProvider(SynthesisProvider):
             )
 
             # Return audio data
-            return AudioData()
+            return AudioData(
                 content=audio_data,
                 config=config,
                 duration=0.0,  # gTTS doesn't provide duration info
                 size=len(audio_data),
-                metadata={}
+                metadata={
                     "provider": "gtts",
                     "slow": kwargs.get("slow", self.config.slow),
                 },
             )
 
         except Exception as e:
-            raise SynthesisError( from e)
-            "Failed to synthesize speech",
+            raise SynthesisError(
+                "Failed to synthesize speech",
                 provider="gtts",
                 details={"error": str(e), "text": text},
-            )
+            ) from e
 
     def _synthesize_sync(self, text: str, language: str, slow: bool) -> bytes:
         """Synchronous gTTS synthesis.
@@ -118,20 +119,19 @@ class GTTSProvider(SynthesisProvider):
             slow: Whether to use slow speech rate
 
         Returns:
-            Raw audio data
-
-        Raises:
-            Exception: If synthesis fails
+            Audio data as bytes
         """
         # Create gTTS instance
         tts = gTTS(text=text, lang=language, slow=slow)
-
-        # Save to bytes buffer
+        
+        # Save to buffer
         buffer = io.BytesIO()
         tts.write_to_fp(buffer)
+        buffer.seek(0)
+        
         return buffer.getvalue()
 
-    async def save()
+    async def save(
         self,
         audio: AudioData,
         path: Union[str, Path],
@@ -141,8 +141,8 @@ class GTTSProvider(SynthesisProvider):
 
         Args:
             audio: Audio data to save
-            path: Output file path
-            **kwargs: Additional provider-specific parameters
+            path: Path to save to
+            **kwargs: Additional parameters
 
         Returns:
             Path to saved file
@@ -151,20 +151,22 @@ class GTTSProvider(SynthesisProvider):
             SynthesisError: If saving fails
         """
         try:
-            # Convert path to Path object
-            output_path = Path(path)
-
-            # Create parent directories if needed
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Write audio data
-            output_path.write_bytes(audio.content)
-
-            return output_path
-
+            # Convert to Path
+            path_obj = Path(path)
+            
+            # Create directory if it doesn't exist
+            if not path_obj.parent.exists():
+                path_obj.parent.mkdir(parents=True)
+            
+            # Write audio data to file
+            with open(path_obj, "wb") as f:
+                f.write(audio.content)
+            
+            return path_obj
+            
         except Exception as e:
-            raise SynthesisError( from e)
-            "Failed to save audio file",
+            raise SynthesisError(
+                "Failed to save audio file",
                 provider="gtts",
                 details={"error": str(e), "path": str(path)},
-            )
+            ) from e

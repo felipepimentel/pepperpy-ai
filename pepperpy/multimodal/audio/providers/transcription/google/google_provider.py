@@ -1,8 +1,9 @@
-"""Provider implementation for Google Cloud Speech-to-Text capabilities."""
+"""Google Cloud Speech-to-Text provider for transcription capability."""
 
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from pepperpy.multimodal.audio.base import (
     TranscriptionError,
     TranscriptionProvider,
 )
@@ -11,7 +12,7 @@ from typing import Dict, List, Optional, Union
 class GoogleTranscriptionProvider(TranscriptionProvider):
     """Provider implementation for Google Cloud Speech-to-Text capabilities."""
 
-    def __init__()
+    def __init__(
         self,
         credentials: Optional[Dict[str, str]] = None,
         project_id: Optional[str] = None,
@@ -20,29 +21,30 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         """Initialize Google Cloud Speech-to-Text provider.
 
         Args:
-            credentials: Optional service account credentials
-            project_id: Optional Google Cloud project ID
-            **kwargs: Additional parameters to pass to Google Cloud
-
+            credentials: Google Cloud credentials
+            project_id: Google Cloud project ID
+            **kwargs: Additional configuration parameters
+        
         Raises:
             ImportError: If google-cloud-speech package is not installed
             TranscriptionError: If initialization fails
         """
         try:
+            # Import Google Cloud Speech
             from google.cloud import speech
         except ImportError:
-            raise ImportError( from None)
-            "google-cloud-speech package is required for GoogleTranscriptionProvider. "
+            raise ImportError(
+                "google-cloud-speech package is required for GoogleTranscriptionProvider. "
                 "Install it with: pip install google-cloud-speech"
-            )
+            ) from None
 
         self.kwargs = kwargs
-
+        self.credentials = credentials
+        self.project_id = project_id
+        
         try:
-            self.client = speech.SpeechClient(
-                credentials=credentials,
-                project=project_id
-            )
+            # Initialize client
+            self.client = speech.SpeechClient()
         except Exception as e:
             raise TranscriptionError(f"Failed to initialize Google Cloud client: {e}") from e
 
@@ -50,59 +52,61 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         self,
         audio: Union[str, Path, bytes],
         language: Optional[str] = None,
-        **kwargs
-    ) -> str:
-        """Transcribe audio using Google Cloud Speech-to-Text.
+        **kwargs,
+    ) -> List[Dict]:
+        """Transcribe audio to text.
 
         Args:
-            audio: Path to audio file, audio file bytes, or URL
-            language: Optional language code (e.g. 'en-US', 'pt-BR')
-            **kwargs: Additional parameters to pass to Google Cloud
+            audio: Audio data as file path or bytes
+            language: Language code (e.g., 'en-US')
+            **kwargs: Additional parameters
 
         Returns:
-            str: Transcribed text
+            List of transcription segments
 
         Raises:
             TranscriptionError: If transcription fails
         """
         try:
             from google.cloud import speech
-
-            # Handle different audio input types
+            
+            # Handle audio input
+            audio_content = None
             if isinstance(audio, (str, Path)):
-                audio_path = Path(audio)
-                if not audio_path.exists():
-                    raise TranscriptionError(f"Audio file not found: {audio_path}")
-                with open(audio_path, "rb") as f:
-                    content = f.read()
+                with open(audio, "rb") as f:
+                    audio_content = f.read()
+            elif isinstance(audio, bytes):
+                audio_content = audio
             else:
-                content = audio
-
-            # Prepare audio input
-            audio_input = speech.RecognitionAudio(content=content)
-
+                raise ValueError(f"Unsupported audio type: {type(audio)}")
+            
+            # Create audio object
+            audio_obj = speech.RecognitionAudio(content=audio_content)
+            
             # Prepare config
             config = speech.RecognitionConfig(
                 language_code=language or "en-US",
                 **self.kwargs,
-                **kwargs
+                **kwargs,
             )
-
+            
             # Transcribe audio
-            response = self.client.recognize(
-                config=config,
-                audio=audio_input
-            )
-
-            # Combine all transcripts
-            text = " ".join(
-                result.alternatives[0].transcript
-                for result in response.results
-                if result.alternatives
-            )
-
-            return text
-
+            response = self.client.recognize(config=config, audio=audio_obj)
+            
+            # Process results
+            segments = []
+            for result in response.results:
+                for alternative in result.alternatives:
+                    segment = {
+                        "text": alternative.transcript,
+                        "confidence": alternative.confidence,
+                        "start": 0.0,  # Basic recognize doesn't provide timestamps
+                        "end": 0.0,
+                    }
+                    segments.append(segment)
+            
+            return segments
+            
         except Exception as e:
             raise TranscriptionError(f"Failed to transcribe audio: {e}") from e
 
@@ -110,69 +114,74 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         self,
         audio: Union[str, Path, bytes],
         language: Optional[str] = None,
-        **kwargs
-    ) -> List[Dict[str, Union[str, float]]]:
-        """Transcribe audio with timestamps using Google Cloud Speech-to-Text.
+        **kwargs,
+    ) -> List[Dict]:
+        """Transcribe audio with word-level timestamps.
 
         Args:
-            audio: Path to audio file, audio file bytes, or URL
-            language: Optional language code (e.g. 'en-US', 'pt-BR')
-            **kwargs: Additional parameters to pass to Google Cloud
+            audio: Audio data as file path or bytes
+            language: Language code (e.g., 'en-US')
+            **kwargs: Additional parameters
 
         Returns:
-            List[Dict[str, Union[str, float]]]: List of segments with text and timestamps
+            List of transcription segments with timestamps
 
         Raises:
             TranscriptionError: If transcription fails
         """
         try:
             from google.cloud import speech
-
-            # Handle different audio input types
+            
+            # Handle audio input
+            audio_content = None
             if isinstance(audio, (str, Path)):
-                audio_path = Path(audio)
-                if not audio_path.exists():
-                    raise TranscriptionError(f"Audio file not found: {audio_path}")
-                with open(audio_path, "rb") as f:
-                    content = f.read()
+                with open(audio, "rb") as f:
+                    audio_content = f.read()
+            elif isinstance(audio, bytes):
+                audio_content = audio
             else:
-                content = audio
-
-            # Prepare audio input
-            audio_input = speech.RecognitionAudio(content=content)
-
+                raise ValueError(f"Unsupported audio type: {type(audio)}")
+            
+            # Create audio object
+            audio_obj = speech.RecognitionAudio(content=audio_content)
+            
             # Prepare config with word time offsets
-            config = speech.RecognitionConfig()
+            config = speech.RecognitionConfig(
                 language_code=language or "en-US",
                 enable_word_time_offsets=True,
                 **self.kwargs,
                 **kwargs,
             )
-
+            
             # Transcribe audio
-            response = self.client.recognize(
-                config=config,
-                audio=audio_input
-            )
-
-            # Extract segments with timestamps
+            response = self.client.recognize(config=config, audio=audio_obj)
+            
+            # Process results with timestamps
             segments = []
             for result in response.results:
-                if result.alternatives:
-                    words = result.alternatives[0].words
-                    if words:
-                        current_segment = {
-                            "text": "",
-                            "start": words[0].start_time.total_seconds(),
-                            "end": words[-1].end_time.total_seconds()
+                for alternative in result.alternatives:
+                    words = []
+                    for word_info in alternative.words:
+                        word_data = {
+                            "word": word_info.word,
+                            "start": word_info.start_time.total_seconds(),
+                            "end": word_info.end_time.total_seconds(),
                         }
-                        for word in words:
-                            current_segment["text"] += f" {word.word}"
-                        current_segment["text"] = current_segment["text"].strip()
-                        segments.append(current_segment)
-
+                        words.append(word_data)
+                    
+                    # Create segment from words
+                    if words:
+                        segment = {
+                            "text": alternative.transcript,
+                            "confidence": alternative.confidence,
+                            "start": words[0]["start"],
+                            "end": words[-1]["end"],
+                            "words": words,
+                        }
+                        segments.append(segment)
+            
             return segments
-
+            
         except Exception as e:
             raise TranscriptionError(f"Failed to transcribe audio: {e}") from e
 
@@ -180,159 +189,41 @@ class GoogleTranscriptionProvider(TranscriptionProvider):
         """Get list of supported language codes.
 
         Returns:
-            List[str]: List of language codes
+            List of supported language codes
         """
+        # Google Cloud Speech supports many languages
+        # This is a subset of commonly used ones
         return [
-            "af-ZA",
-            "am-ET",
-            "ar-AE",
-            "ar-BH",
-            "ar-DZ",
-            "ar-EG",
-            "ar-IL",
-            "ar-IQ",
-            "ar-JO",
-            "ar-KW",
-            "ar-LB",
-            "ar-MA",
-            "ar-OM",
-            "ar-PS",
-            "ar-QA",
-            "ar-SA",
-            "ar-TN",
-            "ar-YE",
-            "az-AZ",
-            "bg-BG",
-            "bn-BD",
-            "bn-IN",
-            "bs-BA",
-            "ca-ES",
-            "cs-CZ",
-            "da-DK",
-            "de-AT",
-            "de-CH",
-            "de-DE",
-            "el-GR",
-            "en-AU",
-            "en-CA",
-            "en-GB",
-            "en-GH",
-            "en-HK",
-            "en-IE",
-            "en-IN",
-            "en-KE",
-            "en-NG",
-            "en-NZ",
-            "en-PH",
-            "en-PK",
-            "en-SG",
-            "en-TZ",
-            "en-US",
-            "en-ZA",
-            "es-AR",
-            "es-BO",
-            "es-CL",
-            "es-CO",
-            "es-CR",
-            "es-DO",
-            "es-EC",
-            "es-ES",
-            "es-GT",
-            "es-HN",
-            "es-MX",
-            "es-NI",
-            "es-PA",
-            "es-PE",
-            "es-PR",
-            "es-PY",
-            "es-SV",
-            "es-US",
-            "es-UY",
-            "es-VE",
-            "et-EE",
-            "eu-ES",
-            "fa-IR",
-            "fi-FI",
-            "fil-PH",
-            "fr-BE",
-            "fr-CA",
-            "fr-CH",
-            "fr-FR",
-            "gl-ES",
-            "gu-IN",
-            "he-IL",
-            "hi-IN",
-            "hr-HR",
-            "hu-HU",
-            "hy-AM",
-            "id-ID",
-            "is-IS",
-            "it-CH",
-            "it-IT",
-            "ja-JP",
-            "jv-ID",
-            "ka-GE",
-            "kk-KZ",
-            "km-KH",
-            "kn-IN",
-            "ko-KR",
-            "lo-LA",
-            "lt-LT",
-            "lv-LV",
-            "mk-MK",
-            "ml-IN",
-            "mn-MN",
-            "mr-IN",
-            "ms-MY",
-            "mt-MT",
-            "my-MM",
-            "nb-NO",
-            "ne-NP",
-            "nl-BE",
-            "nl-NL",
-            "pa-Guru-IN",
-            "pl-PL",
-            "ps-AF",
-            "pt-BR",
-            "pt-PT",
-            "ro-RO",
-            "ru-RU",
-            "si-LK",
-            "sk-SK",
-            "sl-SI",
-            "sq-AL",
-            "sr-RS",
-            "su-ID",
-            "sv-SE",
-            "sw-KE",
-            "sw-TZ",
-            "ta-IN",
-            "ta-LK",
-            "ta-MY",
-            "ta-SG",
-            "te-IN",
-            "th-TH",
-            "tr-TR",
-            "uk-UA",
-            "ur-IN",
-            "ur-PK",
-            "uz-UZ",
-            "vi-VN",
-            "zu-ZA",
+            "en-US",  # English (United States)
+            "en-GB",  # English (United Kingdom)
+            "es-ES",  # Spanish (Spain)
+            "es-US",  # Spanish (United States)
+            "fr-FR",  # French
+            "de-DE",  # German
+            "it-IT",  # Italian
+            "pt-BR",  # Portuguese (Brazil)
+            "ru-RU",  # Russian
+            "ja-JP",  # Japanese
+            "ko-KR",  # Korean
+            "zh-CN",  # Chinese (Simplified)
+            "zh-TW",  # Chinese (Traditional)
+            "ar-SA",  # Arabic
+            "hi-IN",  # Hindi
         ]
 
     def get_supported_formats(self) -> List[str]:
         """Get list of supported audio formats.
 
         Returns:
-            List[str]: List of format extensions
+            List of supported audio format extensions
         """
         return [
-            "flac",
             "wav",
             "mp3",
+            "flac",
             "ogg",
-            "webm",
+            "m4a",
+            "aac",
             "amr",
             "amr-wb",
         ]

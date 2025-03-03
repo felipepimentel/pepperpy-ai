@@ -1,129 +1,10 @@
 Arquivo,Linha,Coluna,Código,Mensagem,Prioridade,Auto-corrigível
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,19,32,F821,Undefined name `BaseAdapter`,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,29,53,F821,Undefined name `BaseAdapter`,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,56,62,F821,Undefined name `BaseAdapter`,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,67,47,F821,Undefined name `BaseAdapter`,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,96,26,F821,Undefined name `BaseAdapter`,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,28,23,None,SyntaxError: Expected ':'; found newline,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,30,24,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,30,25,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,32,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,32,7,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,32,20,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,33,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,50,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,52,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,52,21,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,52,45,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,52,46,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,53,21,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,53,52,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,53,53,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,54,17,None,SyntaxError: Expected `except` or `finally` after `try` block,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,54,18,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,54,19,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,55,13,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,55,14,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,59,9,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,59,26,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,59,31,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,60,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,60,31,None,SyntaxError: Expected ')'; found 'from',9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,60,37,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,60,38,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,62,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,63,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,63,21,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,63,45,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,63,46,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,64,21,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,64,37,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,64,38,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,65,17,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,65,18,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,65,19,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,66,13,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,66,14,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,68,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,68,34,None,SyntaxError: Expected ':'; found newline,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,70,18,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,70,19,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,72,9,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,72,22,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,72,23,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,73,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,73,7,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,73,20,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,74,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,85,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,85,13,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,85,25,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,85,26,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,86,13,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,86,43,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,86,44,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,87,13,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,88,9,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,88,10,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,91,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,91,35,None,SyntaxError: Expected ':'; found newline,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,93,18,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,93,19,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,95,9,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,95,22,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,95,23,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,96,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,96,7,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,96,20,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,97,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,108,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,108,13,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,108,25,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,108,26,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,109,13,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,109,59,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,109,60,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,110,13,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,111,9,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,111,10,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,114,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,114,32,None,SyntaxError: Expected ':'; found newline,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,116,18,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,116,19,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,118,9,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,118,22,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,118,23,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,119,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,119,7,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,119,20,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,120,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,131,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,131,13,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,131,25,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,131,26,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,132,13,None,SyntaxError: Invalid annotated assignment target,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,132,43,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,132,44,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,133,13,None,SyntaxError: Expected an expression,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,134,9,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,134,10,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/factory.py,139,1,None,SyntaxError: Expected a statement,9,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,7,1,I001,Import block is un-sorted or un-formatted,4,Sim
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/adapters/registry.py,11,36,F811,Redefinition of unused `BaseAdapter` from line 10,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/agents/multi_agent.py,3,1,I001,Import block is un-sorted or un-formatted,4,Sim
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/analysis/code.py,8,1,I001,Import block is un-sorted or un-formatted,4,Sim
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/analysis/code.py,23,1,B018,Found useless expression. Either assign it to a variable or remove it.,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/analysis/code.py,199,48,F821,Undefined name `MetricsCollector`,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/analysis/code.py,257,13,B904,Within an `except` clause; raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,20,19,None,SyntaxError: Expected ':'; found newline,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,24,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,24,6,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,24,7,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,25,1,None,SyntaxError: Unexpected indentation,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,48,1,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,51,19,None,SyntaxError: Expected ':'; found newline,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,62,5,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,62,6,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,62,7,None,SyntaxError: Expected a statement,9,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,63,1,None,SyntaxError: Unexpected indentation,9,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/analysis/code.py,24,1,B018,Found useless expression. Either assign it to a variable or remove it.,9,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/analysis/code.py,258,13,B904,Within an `except` clause; raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling,1,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,86,1,None,SyntaxError: Unexpected indentation,9,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,93,13,None,SyntaxError: Expected `except` or `finally` after `try` block,9,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/caching/distributed.py,93,14,None,SyntaxError: Expected a statement,9,Não
@@ -1541,22 +1422,31 @@ Arquivo,Linha,Coluna,Código,Mensagem,Prioridade,Auto-corrigível
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/observability/logging/handlers.py,12,31,F401,`typing.Optional` imported but unused,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/optimization/base.py,29,7,B024,`BaseOptimizer` is an abstract base class; but it has no abstract methods or properties,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/__init__.py,8,1,I001,Import block is un-sorted or un-formatted,4,Sim
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,7,1,I001,Import block is un-sorted or un-formatted,4,Sim
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,8,47,F401,`typing.Union` imported but unused,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,11,37,F811,Redefinition of unused `Lifecycle` from line 10,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,13,42,F811,Redefinition of unused `Embedder` from line 12,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,13,52,F811,Redefinition of unused `TextEmbedder` from line 12,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,15,40,F811,Redefinition of unused `Indexer` from line 14,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,15,49,F811,Redefinition of unused `VectorIndexer` from line 14,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,16,36,F811,Redefinition of unused `TextEmbedder` from line 13,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/rag/retrieval/system.py,17,36,F811,Redefinition of unused `TextEmbedder` from line 16,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/security/base.py,31,7,B024,`Principal` is an abstract base class; but it has no abstract methods or properties,3,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,14,57,F401,`typing.Tuple` imported but unused,3,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,18,5,F401,`pepperpy.core.base.ComponentBase` imported but unused,3,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,25,39,F811,Redefinition of unused `ComponentState` from line 21,3,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,315,13,B904,Within an `except` clause; raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling,1,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,606,9,F811,Redefinition of unused `__init__` from line 510,3,Não
-/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,617,9,F811,Redefinition of unused `add_metadata` from line 544,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,11,1,I001,Import block is un-sorted or un-formatted,4,Sim
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,15,57,F401,`typing.Tuple` imported but unused,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,19,5,F401,`pepperpy.core.base.ComponentBase` imported but unused,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,26,39,F811,Redefinition of unused `ComponentState` from line 22,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,28,38,F811,Redefinition of unused `ComponentState` from line 26,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,29,38,F811,Redefinition of unused `ComponentState` from line 28,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,318,13,B904,Within an `except` clause; raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling,1,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,609,9,F811,Redefinition of unused `__init__` from line 513,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/base.py,620,9,F811,Redefinition of unused `add_metadata` from line 547,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/core/base.py,116,7,B024,`WorkflowDefinition` is an abstract base class; but it has no abstract methods or properties,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/core/base.py,307,13,B904,Within an `except` clause; raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling,1,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/execution/scheduler.py,7,1,I001,Import block is un-sorted or un-formatted,4,Sim
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/execution/scheduler.py,10,21,F401,`asyncio.Lock` imported but unused,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/execution/scheduler.py,10,27,F401,`asyncio.Task` imported but unused,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/execution/scheduler.py,13,21,F401,`logging.getLogger` imported but unused,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/execution/scheduler.py,22,38,F811,Redefinition of unused `ComponentBase` from line 17,3,Não
+/home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/execution/scheduler.py,23,38,F811,Redefinition of unused `ComponentBase` from line 22,3,Não
 /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflows/migration.py,11,37,F401,`typing.Optional` imported but unused,3,Não

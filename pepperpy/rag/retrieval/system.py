@@ -5,14 +5,12 @@ relevant documents based on queries.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
 from pepperpy.core.base import Lifecycle
-from pepperpy.core.lifecycle import Lifecycle
 from pepperpy.embedding.rag import Embedder, TextEmbedder
-from pepperpy.rag.embeddings.base import Embedder, TextEmbedder
 from pepperpy.rag.indexing import Indexer, VectorIndexer
-from pepperpy.rag.indexing.base import Indexer, VectorIndexer
+# # from pepperpy.rag.indexing.base import Indexer, VectorIndexer  # Removido: Redefinition of unused `Indexer` from line 15  # Removido: Redefinition of unused `VectorIndexer` from line 15
 
 
 class Retriever(Lifecycle, ABC):

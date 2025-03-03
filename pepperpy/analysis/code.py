@@ -9,16 +9,16 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import n  # TODO: Verificar se este é o import correto
 from typing import (
     Any,
     Dict,
     List,
     Optional,
+    n,  # TODO: Verificar se este é o import correto
 )
 
 from pepperpy.core.common.errors.base import PepperError
-
+from pepperpy.monitoring.metrics import MetricsCollector
 
 n  # Definindo a classe ProcessingError localmente para evitar erros de importação
 
@@ -254,7 +254,7 @@ class CodeTransformer:
                     error=str(e),
                 )
 
-            raise ProcessingError(f"Code transformation failed: {str(e)}")
+            raise ProcessingError(f"Code transformation failed: {str(e)}") from e
 
     async def validate(self, content: str, context: TransformContext) -> List[str]:
         """Validate code content.

@@ -237,7 +237,7 @@ class ResourceMetricsCollector:
 
         # Collect all metrics for the resource
         for name, metric in self._collector.get_metrics().items():
-            for key, value in metric.items():
+            for _key, value in metric.items():
                 if (
                     "resource_id" in value.labels
                     and value.labels["resource_id"] == resource_id

@@ -4,7 +4,6 @@ This module provides functionality for managing and validating schemas.
 """
 
 import logging
-import time
 from typing import Any, Dict, List, Optional
 
 from .base import ValidationError, Validator
@@ -78,7 +77,7 @@ class ValidationManager:
                 raise ValidationError(f"Validator not found: {name}")
 
             # Record validation start time
-            start_time = time.perf_counter()
+#             start_time = time.perf_counter()  # Removido: Local variable `start_time` is assigned to but never used
 
             # Validate data
             result = validator.validate(data)

@@ -4,14 +4,14 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Proposal  # TODO: Verificar se este é o import correto
-from typing import Team  # TODO: Verificar se este é o import correto
 from typing import (
     Any,
     Dict,
     List,
     Optional,
+    Proposal,  # TODO: Verificar se este é o import correto
     Set,
+    Team,  # TODO: Verificar se este é o import correto
 )
 
 

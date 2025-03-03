@@ -1,11 +1,12 @@
 """Adapter registry module.
-from pepperpy.adapters.base import BaseAdapter
 
 This module provides a registry for adapter plugins and adapter classes.
 """
 
+
 from typing import Any, Dict, Optional, Type
 
+from pepperpy.adapters.base import BaseAdapter
 from pepperpy.adapters.types import AdapterType
 from pepperpy.core.logging import get_logger
 
@@ -16,7 +17,7 @@ class AdapterRegistry:
     """Registry for adapter plugins and adapter classes."""
 
     _instance = None
-    _adapters: Dict[str, Type["BaseAdapter"]] = {}
+    _adapters: Dict[str, Type[BaseAdapter]] = {}
     _plugins: Dict[str, Dict[str, Any]] = {}
 
     def __new__(cls):
@@ -26,7 +27,7 @@ class AdapterRegistry:
         return cls._instance
 
     def register_adapter(
-        self, adapter_id: str, adapter_class: Type["BaseAdapter"]
+        self, adapter_id: str, adapter_class: Type[BaseAdapter]
     ) -> None:
         """Register an adapter class with the registry.
 
@@ -53,7 +54,7 @@ class AdapterRegistry:
         self._plugins[plugin_id] = plugin_info
         logger.debug(f"Registered adapter plugin: {plugin_id}")
 
-    def get_adapter(self, adapter_id: str) -> Optional[Type["BaseAdapter"]]:
+    def get_adapter(self, adapter_id: str) -> Optional[Type[BaseAdapter]]:
         """Get an adapter class by ID.
 
         Args:
@@ -64,7 +65,7 @@ class AdapterRegistry:
         """
         return self._adapters.get(adapter_id)
 
-    def get_adapters(self) -> Dict[str, Type["BaseAdapter"]]:
+    def get_adapters(self) -> Dict[str, Type[BaseAdapter]]:
         """Get all registered adapter classes.
 
         Returns:
@@ -93,7 +94,7 @@ class AdapterRegistry:
 
     def get_adapters_by_type(
         self, adapter_type: AdapterType
-    ) -> Dict[str, Type["BaseAdapter"]]:
+    ) -> Dict[str, Type[BaseAdapter]]:
         """Get all adapters of a specific type.
 
         Args:

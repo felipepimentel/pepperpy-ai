@@ -4,7 +4,7 @@ This module provides filters for logging records based on
 their context values and log levels.
 """
 
-from typing import Any, Dict, Set
+from typing import Any
 
 from pepperpy.observability.logging.base import LogLevel, LogRecord
 

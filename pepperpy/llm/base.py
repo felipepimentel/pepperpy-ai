@@ -1,222 +1,176 @@
-"""Base LLM provider module.
-
-This module defines the base classes and interfaces for LLM providers.
-"""
-
-from abc import abstractmethod
-from collections.abc import AsyncGenerator
-from typing import Any
-
-from pydantic import BaseModel, Field
-
-from pepperpy.core.common.providers.unified import BaseProvider, ProviderConfig
-from pepperpy.core.metrics import MetricsManager
-
- """Language model message.
-
-    Attributes:
-        role: Message role (system, user, assistant)
-        content: Message content
-        name: Optional name for the message sender
-    """
-class LLMMessage(BaseModel):
-    """LLM message."""
-
-    role: str
-    content: str
-    name: str | None = None
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional
 
 
-class LLMResponse(BaseModel):
-    """LLM response."""
+class LLMMessage:
+    """Message for LLM interaction."""
+    
+    def __init__(
+        self,
+        role: str,
+        content: str,
+        name: Optional[str] = None,
+    ):
+        self.role = role
+        self.content = content
+        self.name = name
 
-    content: str
-    model: str
-    usage: dict[str, int]
-    finish_reason: str | None = None
+
+class CompletionOptions:
+    """Options for LLM completion."""
+    
+    def __init__(
+        self,
+        model: str = "default",
+        temperature: float = 0.7,
+        max_tokens: Optional[int] = None,
+        top_p: float = 1.0,
+        frequency_penalty: float = 0.0,
+        presence_penalty: float = 0.0,
+        stop: Optional[List[str]] = None,
+    ):
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.top_p = top_p
+        self.frequency_penalty = frequency_penalty
+        self.presence_penalty = presence_penalty
+        self.stop = stop or []
 
 
-class LLMProvider(BaseProvider):
+class LLMResponse:
+    """Response from LLM."""
+    
+    def __init__(
+        self,
+        text: str = "",
+        model: str = "unknown",
+        usage: Optional[Dict[str, int]] = None,
+        finish_reason: Optional[str] = None,
+    ):
+        self.text = text
+        self.model = model
+        self.usage = usage or {}
+        self.finish_reason = finish_reason
+
+
+class ModelParameters:
+    """Parameters for a specific LLM model."""
+    
+    def __init__(
+        self,
+        model: str = "unknown",
+        context_window: int = 4096,
+        max_output_tokens: int = 2048,
+        supports_functions: bool = False,
+        supports_vision: bool = False,
+    ):
+        self.model = model
+        self.context_window = context_window
+        self.max_output_tokens = max_output_tokens
+        self.supports_functions = supports_functions
+        self.supports_vision = supports_vision
+
+
+class LLMProviderBase(ABC):
     """Base class for LLM providers."""
-
-    def __init__(self, config: ProviderConfig) -> None:
-        """Initialize provider.
-
-        Args:
-            config: Provider configuration
-        """
-        super().__init__(config)
-        self.metrics = MetricsManager()
-
+    
     @abstractmethod
-    async def process_message()
+    def generate(
         self,
-        message: LLMMessage,
-    ) -> LLMResponse | AsyncGenerator[LLMResponse, None]:
-        """Process a provider message.
-
-        Args:
-            message: Provider message
-
-        Returns:
-            Provider response or async generator of responses
-        """
-        pass
-
-    @abstractmethod
-    async def embed()
-        self,
-        text: str,
-        *,
-        model: str | None = None,
-        dimensions: int | None = None,
-        **kwargs: Any,
-    ) -> list[float]:
-        """Generate embeddings for text.
-
-        Args:
-            text: Input text
-            model: Model to use for embeddings
-            dimensions: Number of dimensions for embeddings
-            **kwargs: Additional provider-specific arguments
-
-        Returns:
-            Text embeddings
-        """
-        pass
-
-    @abstractmethod
-    async def generate()
-        self,
-        messages: list[LLMMessage],
+        prompt: str,
+        options: Optional[CompletionOptions] = None,
         **kwargs: Any,
     ) -> LLMResponse:
-        """Generate response from messages.
-
+        """Generate text completion.
+        
         Args:
-            messages: Input messages
-            **kwargs: Additional provider-specific arguments
-
+            prompt: The text prompt to generate from
+            options: Completion options
+            **kwargs: Additional provider-specific parameters
+            
         Returns:
-            Generated response
-        """
-        pass
-        """Clean up provider resources.
-
-        This method should be called when the provider is no longer needed.
-        """
-        try:
-            # Clean up service connection
-            await self._cleanup_service()
-            self._metrics.increment("provider.llm.successful_cleanups")
-            logger.info("LLM provider cleaned up successfully")
-            self._initialized = False
-        except Exception as e:
-            self._metrics.increment("provider.llm.cleanup_errors")
-            logger.error("Failed to clean up LLM provider: %s", e)
-            raise
-
-    @abstractmethod
-    async def _initialize_service(self) -> None:
-        """Initialize service connection.
-
-        This method should be implemented by subclasses to handle
-        service-specific initialization.
+            LLMResponse object with the generated text
         """
         pass
 
     @abstractmethod
-    async def _cleanup_service(self) -> None:
-        """Clean up service connection.
-
-        This method should be implemented by subclasses to handle
-        service-specific cleanup.
-        """
-        pass
-
-    @abstractmethod
-    async def process_message()
+    async def generate_async(
         self,
-        message: ProviderMessage,
-    ) -> ProviderResponse | AsyncGenerator[ProviderResponse, None]:
-        """Process a provider message.
-
+        prompt: str,
+        options: Optional[CompletionOptions] = None,
+        **kwargs: Any,
+    ) -> LLMResponse:
+        """Generate text completion asynchronously.
+        
         Args:
-            message: Provider message to process
-
+            prompt: The text prompt to generate from
+            options: Completion options
+            **kwargs: Additional provider-specific parameters
+            
         Returns:
-            Provider response or async generator of responses
-
-        Raises:
-            ProviderError: If message processing fails
+            LLMResponse object with the generated text
         """
         pass
 
     @abstractmethod
-    async def embed()
+    def embed(
         self,
         text: str,
-        *,
-        model: str | None = None,
-        dimensions: int | None = None,
+        dimensions: Optional[int] = None,
         **kwargs: Any,
-    ) -> list[float]:
+    ) -> List[float]:
         """Generate embeddings for the given text.
-
+        
         Args:
-            text: Text to generate embeddings for
-            model: Optional model to use for embeddings
-            dimensions: Optional number of dimensions for embeddings
-            **kwargs: Additional model-specific parameters
-
+            text: The text to generate embeddings for
+            dimensions: Optional number of dimensions for the embeddings
+            **kwargs: Additional provider-specific parameters
+            
         Returns:
             List of embedding values
-
-        Raises:
-            ProviderError: If embedding generation fails
         """
         pass
 
     @abstractmethod
-    async def generate()
-        self,
-        messages: list[LLMMessage],
-        **kwargs: Any,
-    ) -> LLMResponse:
+    async def generate_response(self, messages: List[LLMMessage], **kwargs: Any) -> LLMResponse:
         """Generate a response from the language model.
-
+        
         Args:
-            messages: List of messages for context
+            messages: List of messages in the conversation
             **kwargs: Additional provider-specific parameters
-
+            
         Returns:
-            Model response
-
-        Raises:
-            ProviderError: If generation fails
+            LLMResponse object with the generated text
         """
         pass
 
     @abstractmethod
     async def validate(self) -> None:
         """Validate provider configuration and state.
-
+        
         Raises:
-            ConfigurationError: If validation fails
+            Exception: If the provider is not properly configured
         """
         pass
 
     @abstractmethod
-    async def get_token_count(self, text: str) -> int:
-        """Get the number of tokens in the text.
-
-        Args:
-            text: Text to count tokens for
-
+    def get_models(self) -> List[str]:
+        """Get list of available models.
+        
         Returns:
-            Number of tokens
-
-        Raises:
-            ProviderError: If token counting fails
+            List of model identifiers
         """
         pass
+
+    @abstractmethod
+    def get_model_parameters(self, model_name: str) -> ModelParameters:
+        """Get parameters for a specific model.
+        
+        Args:
+            model_name: The name of the model
+            
+        Returns:
+            ModelParameters object with the model's parameters
+        """
+    pass

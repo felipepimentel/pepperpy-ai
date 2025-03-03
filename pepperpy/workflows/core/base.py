@@ -262,7 +262,7 @@ class BaseWorkflow(ABC):
             StateError: If workflow is not in valid state
         """
         if self.state != WorkflowState.READY:
-            raise StateError(f"Workflow not ready (state: {self.state})")
+            raise StateError(f"Workflow not ready (state: {self.state}) from e")
 
         start_time = datetime.utcnow()
         await self.set_state(WorkflowState.EXECUTING)
@@ -304,7 +304,7 @@ class BaseWorkflow(ABC):
             self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self.workflow_id), e)
-            raise WorkflowError(f"Failed to execute workflow: {e}")
+            raise WorkflowError(f"Failed to execute workflow: {e}") from e
 
     async def execute_step(self, step: WorkflowStep, **kwargs: Any) -> Any:
         """Execute a single workflow step.

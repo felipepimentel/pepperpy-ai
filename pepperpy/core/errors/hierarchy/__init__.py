@@ -69,7 +69,7 @@ class ErrorHierarchy:
 
         # Find parent in hierarchy
         parent_type = error_type.__bases__[0]
-        while parent_type not in self._nodes and parent_type != object:
+        while parent_type not in self._nodes and parent_type is not object:
             parent_type = parent_type.__bases__[0]
 
         if parent_type in self._nodes:

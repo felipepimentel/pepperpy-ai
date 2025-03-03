@@ -34,10 +34,7 @@ class SecureConfigProvider(ConfigProvider):
             from cryptography.hazmat.primitives import hashes
             from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
         except ImportError:
-            raise ImportError( from None)
-            "cryptography package is required for SecureConfigProvider. "
-                "Install it with: pip install cryptography"
-            )
+            raise ImportError("cryptography package is required for SecureConfigProvider. Install it with: pip install cryptography") from None
 
         self.file_path = Path(file_path)
         self._config: Dict[str, str] = {}  # Store encrypted strings
@@ -45,12 +42,7 @@ class SecureConfigProvider(ConfigProvider):
         try:
             # Generate encryption key from password
             salt = b"pepperpy_secure_config"  # Constant salt for key derivation
-            kdf = PBKDF2HMAC()
-                algorithm=hashes.SHA256(),
-                length=32,
-                salt=salt,
-                iterations=100000,
-            )
+            kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
             key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
             self._fernet = Fernet(key)
         except Exception as e:
@@ -144,7 +136,5 @@ class SecureConfigProvider(ConfigProvider):
 
     def get_namespace(self, namespace: str) -> Dict[str, ConfigValue]:
         """Get all configuration values under a namespace."""
-        encrypted_values = {}
-            k: v for k, v in self._config.items() if k.startswith(f"{namespace}.")
-        }
+        encrypted_values = {k: v for k, v in self._config.items() if k.startswith(f"{namespace}.")}
         return {k: self._decrypt_value(v) for k, v in encrypted_values.items()}

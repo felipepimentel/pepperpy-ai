@@ -39,7 +39,7 @@ class ComponentDiscovery:
             return []
 
         components = []
-        for name, obj in inspect.getmembers(module):
+        for _name, obj in inspect.getmembers(module):
             if (
                 inspect.isclass(obj)
                 and issubclass(obj, Component)

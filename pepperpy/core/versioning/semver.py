@@ -1,303 +1,289 @@
-"""Semantic versioning implementation.
-
-This module provides a comprehensive implementation of Semantic Versioning (SemVer):
-
-- SemVer parsing and formatting
-- Version comparison and validation
-- Version increment and manipulation
-- Pre-release and build metadata support
-- Version range specification
-
-The semantic versioning implementation follows the SemVer 2.0.0 specification
-(https://semver.org/), ensuring consistent version handling across the framework.
-"""
-
-from .parser import SemVerParser
-from .validator import SemVerValidator
-
-__all__ = ["SemVerParser", "SemVerValidator"]
-"""
-Semantic versioning parser functionality.
-"""
-
-import re
-
-from ..errors import VersionParseError
-from ..types import Version
+from enum import Enum
+from typing import List, Optional, Union
 
 
-class SemVerParser:
-    """Parser for semantic versioning."""
+class VersionComponent(Enum):
+    """Version component enum."""
+    
+    MAJOR = "major"
+    MINOR = "minor"
+    PATCH = "patch"
+    PRE_RELEASE = "pre_release"
+    BUILD = "build"
 
-    # Regex pattern for semantic versioning
-    SEMVER_PATTERN = re.compile()
-        r"^(?P<major>0|[1-9]\d*)\.(?P<minor>0|[1-9]\d*)\.(?P<patch>0|[1-9]\d*)"
-        r"(?:-(?P<pre>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
-        r"(?:\+(?P<build>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
-    )
 
-    # Regex pattern for pre-release and build metadata identifiers
-    IDENTIFIER_PATTERN = re.compile(r"^[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*$")
+class VersionValidationError(Exception):
+    """Exception raised for version validation errors."""
+    
+    def __init__(self, version=None, message=None):
+        """Initialize with version and message."""
+        self.version = version
+        self.message = message
+        super().__init__(f"Invalid version: {version} - {message}" if version and message else "Invalid version")
 
-    @classmethod
-    def parse(cls, version_str: str) -> Version:
-        """Parse a version string into a Version object."""
-        match = cls.SEMVER_PATTERN.match(version_str)
-        if not match:
-            raise VersionParseError()
-                version_str, "Version string does not match semantic versioning format"
-            )
 
-        try:
-            major = int(match.group("major"))
-            minor = int(match.group("minor"))
-            patch = int(match.group("patch"))
-            pre_release = match.group("pre")
-            build = match.group("build")
-
-            # Validate pre-release and build metadata if present
-            if pre_release and not cls.IDENTIFIER_PATTERN.match(pre_release):
-                raise VersionParseError()
-                    version_str, "Invalid pre-release identifier format"
-                )
-            if build and not cls.IDENTIFIER_PATTERN.match(build):
-                raise VersionParseError(version_str, "Invalid build metadata format")
-
-            return Version()
-                major=major,
-                minor=minor,
-                patch=patch,
-                pre_release=pre_release,
-                build=build,
-            )
-        except ValueError as e:
-            raise VersionParseError(version_str, str(e))
-
-    @classmethod
-    def parse_range(cls, range_str: str) -> tuple[Version, Version]:
-        """Parse a version range string into a tuple of Version objects."""
-        parts = range_str.split("-")
-        if len(parts) != 2:
-            raise VersionParseError()
-                range_str, "Version range must be in format 'version1-version2'"
-            )
-
-        try:
-            version1 = cls.parse(parts[0].strip())
-            version2 = cls.parse(parts[1].strip())
-            return version1, version2
-        except VersionParseError as e:
-            raise VersionParseError(range_str, f"Invalid version in range: {e}")
-
-    @classmethod
-    def format()
-        cls,
+class Version:
+    """Semantic version representation."""
+    
+    def __init__(
+        self,
         major: int,
         minor: int,
         patch: int,
-        pre_release: str | None = None,
-        build: str | None = None,
-    ) -> str:
-        """Format version components into a version string."""
-        version = f"{major}.{minor}.{patch}"
-        if pre_release:
-            if not cls.IDENTIFIER_PATTERN.match(pre_release):
-                raise VersionParseError()
-                    pre_release, "Invalid pre-release identifier format"
-                )
-            version += f"-{pre_release}"
-        if build:
-            if not cls.IDENTIFIER_PATTERN.match(build):
-                raise VersionParseError(build, "Invalid build metadata format")
-            version += f"+{build}"
+        pre_release: Optional[str] = None,
+        build: Optional[str] = None,
+    ):
+        """Initialize version with components."""
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+        self.pre_release = pre_release
+        self.build = build
+    
+    def __str__(self) -> str:
+        """Convert to string representation."""
+        version = f"{self.major}.{self.minor}.{self.patch}"
+        if self.pre_release:
+            version += f"-{self.pre_release}"
+        if self.build:
+            version += f"+{self.build}"
         return version
-
-    @classmethod
-    def increment()
-        cls, version: Version, component: str, pre_release: str | None = None
-    ) -> Version:
-        """Create a new version by incrementing a component."""
-        if component not in ["major", "minor", "patch"]:
-            raise ValueError("Component must be one of: 'major', 'minor', 'patch'")
-
-        major = version.major
-        minor = version.minor
-        patch = version.patch
-
-        if component == "major":
-            major += 1
-            minor = 0
-            patch = 0
-        elif component == "minor":
-            minor += 1
-            patch = 0
-        else:  # patch
-            patch += 1
-
-        return Version()
-            major=major,
-            minor=minor,
-            patch=patch,
-            pre_release=pre_release,
-            build=None,  # Build metadata is dropped on increment
+    
+    def __repr__(self) -> str:
+        """Return string representation."""
+        return f"Version({self.major}, {self.minor}, {self.patch}, '{self.pre_release}', '{self.build}')"
+    
+    def __eq__(self, other) -> bool:
+        """Check equality with another version."""
+        if not isinstance(other, Version):
+            return False
+        return (
+            self.major == other.major
+            and self.minor == other.minor
+            and self.patch == other.patch
+            and self.pre_release == other.pre_release
+            and self.build == other.build
         )
-"""
-Semantic versioning validation functionality.
-"""
+    
+    def __lt__(self, other) -> bool:
+        """Compare with another version."""
+        if not isinstance(other, Version):
+            return NotImplemented
+        
+        # Compare major, minor, patch
+        if self.major != other.major:
+            return self.major < other.major
+        if self.minor != other.minor:
+            return self.minor < other.minor
+        if self.patch != other.patch:
+            return self.patch < other.patch
+        
+        # Pre-release versions are lower than release versions
+        if self.pre_release and not other.pre_release:
+            return True
+        if not self.pre_release and other.pre_release:
+            return False
+        
+        # Compare pre-release identifiers
+        if self.pre_release and other.pre_release:
+            self_identifiers = self.pre_release.split(".")
+            other_identifiers = other.pre_release.split(".")
+            
+            for i in range(min(len(self_identifiers), len(other_identifiers))):
+                self_id = self_identifiers[i]
+                other_id = other_identifiers[i]
+                
+                self_is_numeric = self_id.isdigit()
+                other_is_numeric = other_id.isdigit()
+                
+                if self_is_numeric and other_is_numeric:
+                    if int(self_id) != int(other_id):
+                        return int(self_id) < int(other_id)
+                elif self_is_numeric:
+                    return True
+                elif other_is_numeric:
+                    return False
+                elif self_id != other_id:
+                    return self_id < other_id
+            
+            return len(self_identifiers) < len(other_identifiers)
+        
+        # Build metadata does not affect precedence
+        return False
 
-import re
-from typing import List, Optional
 
-from ..errors import VersionValidationError
-from ..types import Version, VersionComponent
-
-
-class SemVerValidator:
-    """Validator for semantic versioning."""
-
-    # Regex pattern for pre-release and build metadata identifiers
-    IDENTIFIER_PATTERN = re.compile(r"^[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*$")
-
-    # Dummy version for validation errors that don't need a specific version
+class SemVer:
+    """Semantic versioning utility class."""
+    
+    VERSION_REGEX = r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
     DUMMY_VERSION = Version(0, 0, 0)
-
+    
     @classmethod
-    def validate(cls, version: Version) -> bool:
-        """Validate a version object according to semantic versioning rules."""
+    def parse(cls, version_str: str) -> Version:
+        """Parse version string into Version object."""
+        import re
+        
+        match = re.match(cls.VERSION_REGEX, version_str)
+        if not match:
+            raise VersionValidationError(version_str, "Invalid version format")
+        
+        major, minor, patch, pre_release, build = match.groups()
+        
         try:
-            # Validate numeric components
-            if any(x < 0 for x in [version.major, version.minor, version.patch]):
-                raise VersionValidationError()
-                    version, "Version components cannot be negative"
-                )
-
-            # Validate pre-release format if present
-            if version.pre_release:
-                if not cls.IDENTIFIER_PATTERN.match(version.pre_release):
-                    raise VersionValidationError()
-                        version, "Invalid pre-release identifier format"
-                    )
-                cls._validate_pre_release_identifiers(version.pre_release)
-
-            # Validate build metadata format if present
-            if version.build:
-                if not cls.IDENTIFIER_PATTERN.match(version.build):
-                    raise VersionValidationError()
-                        version, "Invalid build metadata format"
-                    )
-                cls._validate_build_identifiers(version.build)
-
+            major = int(major)
+            minor = int(minor)
+            patch = int(patch)
+        except ValueError as e:
+            raise VersionValidationError(version_str, f"Invalid version numbers: {e}") from e
+        
+        # Validate pre-release and build identifiers
+        if pre_release:
+            cls._validate_pre_release_identifiers(pre_release)
+        
+        if build:
+            cls._validate_build_identifiers(build)
+        
+        return Version(major, minor, patch, pre_release, build)
+    
+    @classmethod
+    def validate(cls, version: Union[str, Version]) -> bool:
+        """Validate version string or object."""
+        try:
+            if isinstance(version, str):
+                cls.parse(version)
+            else:
+                # Validate version object
+                if not isinstance(version, Version):
+                    raise VersionValidationError(version, "Not a Version object")
+                
+                if version.major < 0 or version.minor < 0 or version.patch < 0:
+                    raise VersionValidationError(version, "Version components cannot be negative")
+                
+                if version.pre_release:
+                    cls._validate_pre_release_identifiers(version.pre_release)
+                
+                if version.build:
+                    cls._validate_build_identifiers(version.build)
+            
             return True
         except VersionValidationError:
             raise
         except Exception as e:
-            raise VersionValidationError(version, str(e))
-
+            raise VersionValidationError(version, str(e)) from None
+    
     @classmethod
-    def validate_increment()
+    def validate_increment(
         cls, current: Version, next_version: Version, component: VersionComponent
     ) -> bool:
         """Validate that a version increment is valid."""
         try:
             if component == VersionComponent.MAJOR:
                 if next_version.major != current.major + 1:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Major version must increment by 1",
                     )
                 if next_version.minor != 0 or next_version.patch != 0:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Minor and patch must be reset to 0 on major increment",
                     )
-
+            
             elif component == VersionComponent.MINOR:
                 if next_version.major != current.major:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Major version must not change on minor increment",
                     )
                 if next_version.minor != current.minor + 1:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Minor version must increment by 1",
                     )
                 if next_version.patch != 0:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Patch must be reset to 0 on minor increment",
                     )
-
+            
             elif component == VersionComponent.PATCH:
                 if next_version.major != current.major:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Major version must not change on patch increment",
                     )
                 if next_version.minor != current.minor:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Minor version must not change on patch increment",
                     )
                 if next_version.patch != current.patch + 1:
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         next_version,
                         "Patch version must increment by 1",
                     )
-
+            
             return True
         except VersionValidationError:
             raise
         except Exception as e:
-            raise VersionValidationError(next_version, str(e))
-
+            raise VersionValidationError(next_version, str(e)) from None
+    
     @classmethod
-    def validate_pre_release()
+    def validate_pre_release(
         cls, version: Version, allowed_identifiers: Optional[List[str]] = None
     ) -> bool:
         """Validate pre-release version."""
         if not version.pre_release:
             return True
-
+        
         try:
-            identifiers = version.pre_release.split(".")
+            # Validate pre-release format
             cls._validate_pre_release_identifiers(version.pre_release)
-
+            
+            # Check if pre-release identifier is in allowed list
             if allowed_identifiers:
-                if not any()
+                identifiers = version.pre_release.split(".")
+                if not any(
                     identifier in allowed_identifiers for identifier in identifiers
                 ):
-                    raise VersionValidationError()
+                    raise VersionValidationError(
                         version,
                         f"Pre-release identifier must be one of: {allowed_identifiers}",
                     )
-
+            
             return True
         except VersionValidationError:
             raise
         except Exception as e:
-            raise VersionValidationError(version, str(e))
-
+            raise VersionValidationError(version, str(e)) from None
+    
     @classmethod
     def _validate_pre_release_identifiers(cls, pre_release: str) -> None:
         """Validate individual pre-release identifiers."""
         identifiers = pre_release.split(".")
+        
         for identifier in identifiers:
-            # Numeric identifiers cannot have leading zeros
+            if not identifier:
+                raise VersionValidationError(
+                    cls.DUMMY_VERSION,
+                    "Pre-release identifiers cannot be empty",
+                )
+            
             if identifier.isdigit() and len(identifier) > 1 and identifier[0] == "0":
-                raise VersionValidationError()
+                raise VersionValidationError(
                     cls.DUMMY_VERSION,
                     f"Numeric pre-release identifier '{identifier}' cannot have leading zeros",
                 )
-
+    
     @classmethod
     def _validate_build_identifiers(cls, build: str) -> None:
         """Validate individual build metadata identifiers."""
         identifiers = build.split(".")
+        
         for identifier in identifiers:
             if not identifier:
-                raise VersionValidationError()
+                raise VersionValidationError(
                     cls.DUMMY_VERSION,
                     "Build metadata identifiers cannot be empty",
                 )
-``` 

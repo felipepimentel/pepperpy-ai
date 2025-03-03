@@ -1,60 +1,49 @@
-"""Base classes for audio synthesis providers.
-
-This module provides base classes for audio synthesis providers that extend
-the general multimodal synthesis framework.
-"""
+"""Base classes for audio synthesis providers."""
 
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
-from pepperpy.multimodal.synthesis.base import AudioConfig as BaseAudioConfig
-from pepperpy.multimodal.synthesis.base import AudioData as BaseAudioData
+from pydantic import Field
+
+from pepperpy.multimodal.audio.base import AudioConfig as BaseAudioConfig
+from pepperpy.multimodal.audio.base import AudioData as BaseAudioData
 from pepperpy.multimodal.synthesis.base import SynthesisError as BaseSynthesisError
-
+from pepperpy.multimodal.synthesis.base import (
     SynthesisProvider as BaseSynthesisProvider,
 )
 
 
 class AudioConfig(BaseAudioConfig):
-    """Configuration for audio synthesis.
+    """Audio configuration for synthesis."""
 
-    Extends the base AudioConfig from multimodal synthesis.
-    """
-
-    pass
+    language: str = Field(default="en", description="Language code")
+    voice: Optional[str] = Field(default=None, description="Voice identifier")
+    format: str = Field(default="mp3", description="Audio format")
+    sample_rate: int = Field(default=24000, description="Sample rate in Hz")
+    bit_depth: int = Field(default=16, description="Bit depth")
+    channels: int = Field(default=1, description="Number of audio channels")
 
 
 class AudioData(BaseAudioData):
-    """Container for synthesized audio data.
+    """Audio data container."""
 
-    Extends the base AudioData from multimodal synthesis.
-    """
-
-    pass
+    content: bytes = Field(..., description="Audio content as bytes")
+    config: AudioConfig = Field(..., description="Audio configuration")
+    duration: float = Field(default=0.0, description="Audio duration in seconds")
+    size: int = Field(default=0, description="Size in bytes")
+    metadata: dict = Field(default_factory=dict, description="Additional metadata")
 
 
 class SynthesisError(BaseSynthesisError):
-    """Exception raised for errors in the synthesis process.
-
-    Extends the base SynthesisError from multimodal synthesis.
-    """
+    """Error raised during audio synthesis."""
 
     pass
 
 
 class SynthesisProvider(BaseSynthesisProvider):
-    """Base class for speech synthesis providers.
-
-    Extends the base SynthesisProvider from multimodal synthesis.
-    """
-
-    pass
-
-
-class BaseSynthesisProvider(SynthesisProvider):
     """Base implementation of synthesis provider with common functionality."""
 
-    async def save()
+    async def save(
         self,
         audio: AudioData,
         path: Union[str, Path],
@@ -64,8 +53,8 @@ class BaseSynthesisProvider(SynthesisProvider):
 
         Args:
             audio: Audio data to save
-            path: Output file path
-            **kwargs: Additional provider-specific parameters
+            path: Path to save to
+            **kwargs: Additional parameters
 
         Returns:
             Path to saved file
@@ -74,19 +63,21 @@ class BaseSynthesisProvider(SynthesisProvider):
             SynthesisError: If saving fails
         """
         try:
-            # Convert path to Path object
-            output_path = Path(path)
-
-            # Create parent directories if needed
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-
-            # Write audio data
-            output_path.write_bytes(audio.content)
-
-            return output_path
-
+            # Convert to Path
+            path_obj = Path(path)
+            
+            # Create directory if it doesn't exist
+            if not path_obj.parent.exists():
+                path_obj.parent.mkdir(parents=True)
+            
+            # Write audio data to file
+            with open(path_obj, "wb") as f:
+                f.write(audio.content)
+            
+            return path_obj
+            
         except Exception as e:
-            raise SynthesisError( from e)
-            "Failed to save audio file",
+            raise SynthesisError(
+                "Failed to save audio file",
                 details={"error": str(e), "path": str(path)},
-            )
+            ) from e

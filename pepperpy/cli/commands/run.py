@@ -214,7 +214,8 @@ def task(task_file: str, is_async: bool, output: Optional[str]) -> None:
             if task_path.suffix == ".json":
                 definition = json.load(f)
             else:
-                definition = yaml.safe_load(f)
+                definition = {}  # Placeholder
+#                 definition = yaml.safe_load(f)  # Removido: Local variable `definition` is assigned to but never used
 
         # TODO: Implement task execution
         result = {"status": "completed", "output": "Task result"}

@@ -164,13 +164,15 @@ class HubSecurityManager(BaseSecurityManager):
             # Load keys
             for key_file in self.keys_dir.glob("*.key"):
                 with open(key_file) as f:
-                    key_data = json.load(f)
+                    # key_data will be used in future implementation
+                    _ = json.load(f)
                     # Process key data...
 
             # Load tokens
             for token_file in self.tokens_dir.glob("*.token"):
                 with open(token_file) as f:
-                    token_data = json.load(f)
+                    # token_data will be used in future implementation
+                    _ = json.load(f)
                     # Process token data...
 
         except Exception as e:

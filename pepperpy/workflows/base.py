@@ -1,4 +1,5 @@
 """Base interfaces for workflows
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
 from ..core.base.common import BaseComponent
@@ -11,18 +12,18 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, List, Optional, Protocol, Union
 from uuid import UUID, uuid4
 
 from pepperpy.core.base import (
-    ComponentBase,
     ComponentCallback,
     ComponentConfig,
     ComponentState,
 )
+# Removido: Redefinition of unused `ComponentState` from line 21
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
-from pepperpy.core.types.enums import ComponentState
+# Removido: Redefinition of unused `ComponentState` from line 23
 from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
 
 
@@ -270,7 +271,7 @@ class BaseWorkflow(ABC):
             StateError: If workflow is not in valid state
         """
         if self.state != WorkflowState.READY:
-            raise StateError(f"Workflow not ready (state: {self.state})")
+            raise StateError(f"Workflow not ready (state: {self.state}) from e")
 
         start_time = datetime.utcnow()
         await self.set_state(WorkflowState.EXECUTING)
@@ -312,7 +313,7 @@ class BaseWorkflow(ABC):
             self._context.error = e
             if self._callback:
                 await self._callback.on_error(str(self.workflow_id), e)
-            raise WorkflowError(f"Failed to execute workflow: {e}")
+            raise WorkflowError(f"Failed to execute workflow: {e}") from e
 
     async def execute_step(self, step: AbstractWorkflowStep, **kwargs: Any) -> Any:
         """Execute a single workflow step.
@@ -527,7 +528,7 @@ class WorkflowDefinition:
             ValueError: If step ID already exists
         """
         if step.id in self.steps:
-            raise ValueError(f"Step with ID '{step.id}' already exists")
+            raise ValueError(f"Step with ID '{step.id}' already exists") from e
         self.steps[step.id] = step
 
     def get_step(self, step_id: str) -> Optional[WorkflowStep]:
@@ -603,6 +604,7 @@ class WorkflowDefinition:
 
     """Base implementation of a workflow."""
 
+# Removido: Redefinition of unused `__init__` from line 511
     def __init__(self, definition: WorkflowDefinition) -> None:
         """Initialize workflow.
 
@@ -614,7 +616,7 @@ class WorkflowDefinition:
         self.state: Dict[str, Any] = {}
         self.results: Dict[str, Any] = {}
 
-    def add_metadata(self, key: str, value: Any) -> None:
+# Removido: Redefinition of unused `add_metadata` from line 545
         """Add metadata to the workflow.
 
         Args:

@@ -25,7 +25,7 @@ class AgentFactory:
         """Initialize agent factory."""
         self._registry = get_agent_registry()
 
-    def create_agent()
+    def create_agent(
         self,
         agent_type: str,
         config: Optional[Dict[str, Any]] = None,
@@ -46,9 +46,9 @@ class AgentFactory:
             # Create agent using registry
             agent = self._registry.create_agent(agent_type, config)
 
-            logger.info()
+            logger.info(
                 "Created agent",
-                extra={}
+                extra={
                     "agent_type": agent_type,
                     "agent_name": agent.config.name,
                 },
@@ -57,15 +57,15 @@ class AgentFactory:
             return agent
 
         except Exception as e:
-            raise AgentError( from e)
-            f"Failed to create agent: {e}",
-                details={}
+            raise AgentError(
+                f"Failed to create agent: {e}",
+                details={
                     "agent_type": agent_type,
                     "config": config,
                 },
-            )
+            ) from e
 
-    def create_autonomous_agent()
+    def create_autonomous_agent(
         self,
         name: str,
         task_types: Optional[list[str]] = None,
@@ -81,14 +81,14 @@ class AgentFactory:
         Returns:
             Autonomous agent instance
         """
-        config = {}
+        config = {
             "name": name,
             "task_types": task_types or [],
             **kwargs,
         }
         return self.create_agent("autonomous", config)
 
-    def create_interactive_agent()
+    def create_interactive_agent(
         self,
         name: str,
         conversation_types: Optional[list[str]] = None,
@@ -104,14 +104,14 @@ class AgentFactory:
         Returns:
             Interactive agent instance
         """
-        config = {}
+        config = {
             "name": name,
             "conversation_types": conversation_types or [],
             **kwargs,
         }
         return self.create_agent("interactive", config)
 
-    def create_workflow_agent()
+    def create_workflow_agent(
         self,
         name: str,
         step_types: Optional[list[str]] = None,
@@ -127,7 +127,7 @@ class AgentFactory:
         Returns:
             Workflow agent instance
         """
-        config = {}
+        config = {
             "name": name,
             "step_types": step_types or [],
             **kwargs,

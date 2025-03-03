@@ -192,8 +192,7 @@ def deploy(
     "--input", "input_file", type=click.Path(exists=True), help="Input file (JSON)"
 )
 @click.option("--async", "is_async", is_flag=True, help="Run asynchronously")
-    workflow_id: str, input_file: Optional[str] = None, is_async: bool = False
-) -> None:
+def run_workflow(workflow_id: str, input_file: Optional[str] = None, is_async: bool = False) -> None:
     """Run a workflow.
 
     WORKFLOW_ID: ID of the workflow to run
@@ -379,6 +378,7 @@ def delete(workflow_id: str) -> None:
 
 @workflow.command()
 @click.option("--state", type=click.Choice([s.name for s in WorkflowState]))
+def list_workflows(state: Optional[str] = None) -> None:
     """List workflows."""
     try:
         # Initialize workflow engine

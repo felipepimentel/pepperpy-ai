@@ -51,21 +51,17 @@ from pepperpy.rag.registry import RagRegistry, rag_registry
 # Retrieval components
 from pepperpy.rag.retrieval import (
     RetrievalManager,
-)
-from pepperpy.rag.retrieval import Retriever as InternalRetriever
-from pepperpy.rag.retrieval import (
     SimilarityRetriever,
 )
+from pepperpy.rag.retrieval import Retriever as InternalRetriever
 from pepperpy.rag.types import (
     Chunk,
-)
-from pepperpy.rag.types import Document as InternalDocument
-from pepperpy.rag.types import (
     Embedding,
     RagComponentType,
     RagContext,
     RagResponse,
 )
+from pepperpy.rag.types import Document as InternalDocument
 from pepperpy.rag.types import SearchQuery as InternalSearchQuery
 from pepperpy.rag.types import SearchResult as InternalSearchResult
 

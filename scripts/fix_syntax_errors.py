@@ -1,228 +1,196 @@
 #!/usr/bin/env python3
 """
-Script para identificar e corrigir erros de sintaxe nos arquivos Python.
-Este script analisa os arquivos com erros de sintaxe e tenta corrigi-los.
+Script to fix syntax errors in various files and B904 errors (raise ... from err).
 """
 
-import ast
-import json
-import os
 import re
-import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Any, Optional
+from typing import List, Tuple
 
-def run_ruff_check() -> List[Dict[str, Any]]:
-    """Executa o Ruff e retorna os erros em formato JSON."""
-    try:
-        result = subprocess.run(
-            ["ruff", "check", "pepperpy/", "--output-format=json"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        return json.loads(result.stdout)
-    except Exception as e:
-        print(f"Erro ao executar o Ruff: {e}")
-        return []
+# Files with syntax errors to fix
+FILES_TO_FIX = {
+    "pepperpy/cli/registry.py": {
+        "patterns": [
+            # Fix raise CLIError() with parameters on separate lines
+            (
+                r'raise CLIError\(\)\s+f"([^"]+)",\s+details=({[^}]+}),\s+\)',
+                r'raise CLIError(f"\1", details=\2)',
+            ),
+            (
+                r'raise CLIError\(\s+from\s+e\)\s+f"([^"]+)",\s+details=({[^}]+}),\s+\)',
+                r'raise CLIError(f"\1", details=\2) from e',
+            ),
+        ]
+    },
+    "pepperpy/cloud/providers/gcp.py": {
+        "patterns": [
+            # Fix __init__ method
+            (r"def __init__\(\)\s+self,", r"def __init__(self,"),
+            # Fix raise ImportError with from None
+            (
+                r'raise ImportError\(\s+from\s+None\)\s+"([^"]+)"\s+"([^"]+)"\s+\)',
+                r'raise ImportError("\1\2") from None',
+            ),
+            # Fix Client initialization
+            (
+                r"self\.client = storage\.Client\(\)\s+project=([^,]+),\s+credentials=([^,]+),\s+\)",
+                r"self.client = storage.Client(project=\1, credentials=\2)",
+            ),
+            # Fix blob.generate_signed_url
+            (
+                r'return blob\.generate_signed_url\(\)\s+expiration=([^,]+),\s+method="GET",\s+\)',
+                r'return blob.generate_signed_url(expiration=\1, method="GET")',
+            ),
+        ]
+    },
+    "pepperpy/core/config/providers/secure.py": {
+        "patterns": [
+            # Fix raise ImportError with from None
+            (
+                r'raise ImportError\(\s+from\s+None\)\s+"([^"]+)"\s+"([^"]+)"\s+\)',
+                r'raise ImportError("\1\2") from None',
+            ),
+            # Fix PBKDF2HMAC initialization
+            (
+                r"kdf = PBKDF2HMAC\(\)\s+algorithm=([^,]+),\s+length=(\d+),\s+salt=([^,]+),\s+iterations=(\d+),\s+\)",
+                r"kdf = PBKDF2HMAC(algorithm=\1, length=\2, salt=\3, iterations=\4)",
+            ),
+            # Fix dictionary comprehension
+            (
+                r'encrypted_values = {}\s+k: v for k, v in self\._config\.items\(\) if k\.startswith\(f"{([^}]+)}\."\)\s+}',
+                r'encrypted_values = {k: v for k, v in self._config.items() if k.startswith(f"{\1}.")}',
+            ),
+        ]
+    },
+    "pepperpy/core/lifecycle/base.py": {
+        "patterns": [
+            # Fix import statement
+            (
+                r"LifecycleTransition,\s+from,\s+import,\s+typing,\s+\)",
+                r"LifecycleTransition\n)",
+            ),
+        ]
+    },
+    "pepperpy/core/protocols/base.py": {
+        "patterns": [
+            # Fix decorator
+            (
+                r'@runtime_checkable\s+"""Protocol for components with lifecycle management."""',
+                r'@runtime_checkable\nclass LifecycleProtocol(Protocol):\n    """Protocol for components with lifecycle management."""',
+            ),
+        ]
+    },
+    "pepperpy/core/resources/base.py": {
+        "patterns": [
+            # Fix import statement
+            (r"ResourceType,\s+from,\s+import,\s+typing,\s+\)", r"ResourceType\n)"),
+        ]
+    },
+}
 
-def find_syntax_errors(errors: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    """Encontra erros de sintaxe nos arquivos."""
-    syntax_errors_by_file = {}
-    
-    for error in errors:
-        if error.get("code") is None and "SyntaxError" in error.get("message", ""):
-            filename = error.get("filename")
-            if filename not in syntax_errors_by_file:
-                syntax_errors_by_file[filename] = []
-            syntax_errors_by_file[filename].append(error)
-    
-    return syntax_errors_by_file
+# Files with B904 errors to fix
+B904_FILES = [
+    "pepperpy/core/config/base.py",
+    "pepperpy/core/versioning/semver.py",
+    "pepperpy/llm/providers/gemini/gemini_provider.py",
+    "pepperpy/llm/providers/openai/openai_provider.py",
+    "pepperpy/workflows/base.py",
+    "pepperpy/workflows/core/base.py",
+]
 
-def fix_raise_from_syntax_errors(file_path: str, errors: List[Dict[str, Any]]) -> bool:
-    """Corrige erros de sintaxe relacionados a 'raise ... from'."""
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        
-        fixed = False
-        for error in errors:
-            if "Expected ')'; found 'from'" in error.get("message", ""):
-                line_num = error.get("location", {}).get("row", 0) - 1
-                if 0 <= line_num < len(lines):
-                    # Procura por padrões como "raise Exception(...) from exc"
-                    # onde o parêntese não foi fechado corretamente
-                    line = lines[line_num]
-                    if "raise" in line and "from" in line and ")" not in line.split("from")[0]:
-                        # Adiciona o parêntese faltante antes do "from"
-                        parts = line.split("from")
-                        lines[line_num] = parts[0] + ")" + " from" + parts[1]
-                        fixed = True
-        
-        if fixed:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-            print(f"Corrigidos erros de sintaxe 'raise from' em {file_path}")
-        
-        return fixed
-    except Exception as e:
-        print(f"Erro ao corrigir erros de sintaxe em {file_path}: {e}")
+
+def fix_syntax_errors(file_path: str, patterns: List[Tuple[str, str]]) -> bool:
+    """Fix syntax errors in a file using regex patterns."""
+    path = Path(file_path)
+    if not path.exists():
+        print(f"File not found: {file_path}")
         return False
 
-def fix_line_continuation_errors(file_path: str, errors: List[Dict[str, Any]]) -> bool:
-    """Corrige erros de sintaxe relacionados a continuação de linha."""
     try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        
-        fixed = False
-        for error in errors:
-            if "Expected a newline after line continuation character" in error.get("message", ""):
-                line_num = error.get("location", {}).get("row", 0) - 1
-                if 0 <= line_num < len(lines):
-                    # Adiciona uma quebra de linha após o caractere de continuação
-                    line = lines[line_num]
-                    if "\\" in line and not line.strip().endswith("\\"):
-                        # Substitui o caractere de continuação por uma quebra de linha
-                        lines[line_num] = line.replace("\\", "\\\n")
-                        fixed = True
-        
-        if fixed:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-            print(f"Corrigidos erros de continuação de linha em {file_path}")
-        
-        return fixed
-    except Exception as e:
-        print(f"Erro ao corrigir erros de continuação de linha em {file_path}: {e}")
-        return False
+        content = path.read_text()
+        original_content = content
 
-def fix_indentation_errors(file_path: str, errors: List[Dict[str, Any]]) -> bool:
-    """Corrige erros de indentação."""
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        
-        fixed = False
-        for error in errors:
-            if "Unexpected indentation" in error.get("message", ""):
-                line_num = error.get("location", {}).get("row", 0) - 1
-                if 0 <= line_num < len(lines) and line_num > 0:
-                    # Tenta corrigir a indentação baseado na linha anterior
-                    prev_line = lines[line_num - 1]
-                    current_line = lines[line_num]
-                    
-                    # Calcula a indentação correta
-                    prev_indent = len(prev_line) - len(prev_line.lstrip())
-                    if prev_line.strip().endswith(":"):
-                        # Se a linha anterior termina com :, aumenta a indentação
-                        correct_indent = prev_indent + 4
-                    else:
-                        # Caso contrário, mantém a mesma indentação
-                        correct_indent = prev_indent
-                    
-                    # Aplica a indentação correta
-                    lines[line_num] = " " * correct_indent + current_line.lstrip()
-                    fixed = True
-        
-        if fixed:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.writelines(lines)
-            print(f"Corrigidos erros de indentação em {file_path}")
-        
-        return fixed
-    except Exception as e:
-        print(f"Erro ao corrigir erros de indentação em {file_path}: {e}")
-        return False
+        for pattern, replacement in patterns:
+            content = re.sub(
+                pattern, replacement, content, flags=re.MULTILINE | re.DOTALL
+            )
 
-def fix_statement_errors(file_path: str, errors: List[Dict[str, Any]]) -> bool:
-    """Corrige erros de declaração."""
-    try:
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-        
-        # Verifica se o arquivo tem erros de sintaxe graves
-        try:
-            ast.parse(content)
-            # Se chegou aqui, não há erros de sintaxe graves
+        if content != original_content:
+            path.write_text(content)
+            print(f"Fixed syntax errors in {file_path}")
+            return True
+        else:
+            print(f"No changes needed in {file_path}")
             return False
-        except SyntaxError as e:
-            # Tenta corrigir o arquivo manualmente
-            lines = content.split("\n")
-            
-            # Procura por padrões comuns de erro
-            fixed = False
-            for i in range(len(lines)):
-                # Corrige parênteses desbalanceados
-                if lines[i].count("(") > lines[i].count(")"):
-                    lines[i] += ")"
-                    fixed = True
-                
-                # Corrige chaves desbalanceadas
-                if lines[i].count("{") > lines[i].count("}"):
-                    lines[i] += "}"
-                    fixed = True
-                
-                # Corrige colchetes desbalanceados
-                if lines[i].count("[") > lines[i].count("]"):
-                    lines[i] += "]"
-                    fixed = True
-            
-            if fixed:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write("\n".join(lines))
-                print(f"Corrigidos erros de declaração em {file_path}")
-            
-            return fixed
     except Exception as e:
-        print(f"Erro ao corrigir erros de declaração em {file_path}: {e}")
+        print(f"Error fixing {file_path}: {e}")
         return False
 
-def fix_all_syntax_errors() -> int:
-    """Corrige todos os erros de sintaxe encontrados."""
-    errors = run_ruff_check()
-    if not errors:
-        print("Nenhum erro encontrado ou ocorreu um problema ao executar o Ruff.")
-        return 0
-    
-    syntax_errors_by_file = find_syntax_errors(errors)
-    if not syntax_errors_by_file:
-        print("Nenhum erro de sintaxe encontrado.")
-        return 0
-    
-    print(f"Encontrados erros de sintaxe em {len(syntax_errors_by_file)} arquivos.")
-    
-    total_fixed = 0
-    for file_path, file_errors in syntax_errors_by_file.items():
-        print(f"Tentando corrigir {len(file_errors)} erros de sintaxe em {file_path}...")
-        
-        # Aplica as correções em ordem
-        if fix_raise_from_syntax_errors(file_path, file_errors):
-            total_fixed += 1
-        
-        if fix_line_continuation_errors(file_path, file_errors):
-            total_fixed += 1
-        
-        if fix_indentation_errors(file_path, file_errors):
-            total_fixed += 1
-        
-        if fix_statement_errors(file_path, file_errors):
-            total_fixed += 1
-    
-    return total_fixed
+
+def fix_b904_errors(file_path: str) -> bool:
+    """Fix B904 errors (raise ... from err) in a file."""
+    path = Path(file_path)
+    if not path.exists():
+        print(f"File not found: {file_path}")
+        return False
+
+    try:
+        content = path.read_text()
+        original_content = content
+
+        # Pattern to find raise statements in except blocks without 'from'
+        pattern = r"(except\s+([A-Za-z0-9_]+)(?:\s+as\s+([A-Za-z0-9_]+))?\s*:(?:[^\n]*\n)+?\s+)raise\s+([A-Za-z0-9_]+)\(([^)]*)\)(?!\s+from)"
+
+        def replace_raise(match):
+            except_block = match.group(1)
+            exception_type = match.group(2)
+            exception_var = match.group(3)
+            raise_type = match.group(4)
+            raise_args = match.group(5)
+
+            if exception_var:
+                return f"{except_block}raise {raise_type}({raise_args}) from {exception_var}"
+            else:
+                return f"{except_block}raise {raise_type}({raise_args}) from None"
+
+        content = re.sub(
+            pattern, replace_raise, content, flags=re.MULTILINE | re.DOTALL
+        )
+
+        if content != original_content:
+            path.write_text(content)
+            print(f"Fixed B904 errors in {file_path}")
+            return True
+        else:
+            print(f"No B904 errors found in {file_path}")
+            return False
+    except Exception as e:
+        print(f"Error fixing B904 errors in {file_path}: {e}")
+        return False
+
 
 def main():
-    """Função principal."""
-    print("Iniciando correção de erros de sintaxe...")
-    
-    fixed_count = fix_all_syntax_errors()
-    
-    if fixed_count > 0:
-        print(f"Corrigidos {fixed_count} erros de sintaxe.")
-        print("Execute 'python scripts/analyze_lint_errors.py' para verificar os erros restantes.")
-    else:
-        print("Nenhum erro de sintaxe foi corrigido.")
+    """Main function to fix syntax errors and B904 errors."""
+    syntax_fixed = 0
+    b904_fixed = 0
+
+    # Fix syntax errors
+    for file_path, config in FILES_TO_FIX.items():
+        if fix_syntax_errors(file_path, config["patterns"]):
+            syntax_fixed += 1
+
+    # Fix B904 errors
+    for file_path in B904_FILES:
+        if fix_b904_errors(file_path):
+            b904_fixed += 1
+
+    print("\nSummary:")
+    print(f"- Fixed syntax errors in {syntax_fixed} files")
+    print(f"- Fixed B904 errors in {b904_fixed} files")
+
+    return 0
+
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main())

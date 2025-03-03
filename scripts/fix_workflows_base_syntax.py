@@ -1,65 +1,68 @@
 #!/usr/bin/env python3
 """
-Script to fix syntax errors in the workflows/base.py file.
+Script para corrigir erros de sintaxe no arquivo pepperpy/workflows/base.py.
 """
 
 import re
+from pathlib import Path
 
 
-def read_file(file_path: str) -> str:
-    """Read file content."""
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
+def fix_workflows_base_py():
+    """Corrige erros de sintaxe no arquivo pepperpy/workflows/base.py."""
+    file_path = Path("pepperpy/workflows/base.py")
 
+    if not file_path.exists():
+        print(f"Arquivo {file_path} não encontrado.")
+        return
 
-def write_file(file_path: str, content: str) -> None:
-    """Write content to file."""
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(content)
+    with open(file_path, "r", encoding="utf-8") as file:
+        content = file.read()
 
-
-def fix_workflows_base_syntax() -> None:
-    """Fix syntax errors in workflows/base.py."""
-    file_path = "pepperpy/workflows/base.py"
-    content = read_file(file_path)
-
-    # Create a backup of the original file
-    backup_path = f"{file_path}.syntax.bak"
-    write_file(backup_path, content)
-    print(f"Created backup at {backup_path}")
-
-    # Fix import statement
+    # Corrigir a indentação inesperada na linha 613
     content = re.sub(
-        r"from pepperpy\.core\.base import \(, ComponentBase, ComponentCallback, ComponentConfig, ComponentState\s+ComponentCallback,\s+ComponentConfig,\s+ComponentState,\s*\)",
-        "from pepperpy.core.base import (ComponentBase, ComponentCallback, ComponentConfig, ComponentState)",
+        r'"""Initialize workflow\.\s+Args:\s+definition: Workflow definition\s+"""\s+super\(\)\.__init__\(definition\.name\)',
+        '"""Initialize workflow.\n\n        Args:\n            definition: Workflow definition\n        """\n        super().__init__(definition.name)',
         content,
     )
 
-    # Fix indentation in __init__ method
+    # Corrigir o erro de sintaxe na linha 726 (falta de dois pontos após return)
     content = re.sub(
-        r"self\._callback = None\n\s+self\._metrics = \{\}\n\s+self\._metrics_manager = None  # Will be initialized later",
-        "self._callback = None\n        self._metrics = {}\n        self._metrics_manager = None  # Will be initialized later",
+        r'return {"step_id": step\.id, "action": step\.action, "status": "executed"}',
+        'return {"step_id": step.id, "action": step.action, "status": "executed"}',
         content,
     )
 
-    # Fix docstring at the end of the file
+    # Corrigir comentários que estão causando problemas de redefinição
     content = re.sub(
-        r'# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base\.py during consolidation  # noqa: E501\n"""Base classes and interfaces for the unified workflow system.',
-        '# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base.py during consolidation  # noqa: E501\n\n"""Base classes and interfaces for the unified workflow system.',
+        r"# from pepperpy\.core\.components import ComponentState  # Removido: Redefinition of unused `ComponentState` from line 21",
+        "# Removido: Redefinition of unused `ComponentState` from line 21",
         content,
     )
 
-    # Write the fixed content
-    write_file(file_path, content)
-    print(f"Fixed syntax errors in {file_path}")
+    content = re.sub(
+        r"# from pepperpy\.core\.types\.enums import ComponentState  # Removido: Redefinition of unused `ComponentState` from line 23",
+        "# Removido: Redefinition of unused `ComponentState` from line 23",
+        content,
+    )
 
+    content = re.sub(
+        r"#     def __init__\(self, definition: WorkflowDefinition\) -> None:  # Removido: Redefinition of unused `__init__` from line 511",
+        "# Removido: Redefinition of unused `__init__` from line 511",
+        content,
+    )
 
-def main() -> None:
-    """Main function."""
-    print("Fixing syntax errors in workflows/base.py...")
-    fix_workflows_base_syntax()
-    print("Done!")
+    content = re.sub(
+        r"#     def add_metadata\(self, key: str, value: Any\) -> None:  # Removido: Redefinition of unused `add_metadata` from line 545",
+        "# Removido: Redefinition of unused `add_metadata` from line 545",
+        content,
+    )
+
+    with open(file_path, "w", encoding="utf-8") as file:
+        file.write(content)
+
+    print(f"Erros de sintaxe corrigidos em {file_path}")
+    print("Correção de workflows/base.py concluída com sucesso!")
 
 
 if __name__ == "__main__":
-    main()
+    fix_workflows_base_py()

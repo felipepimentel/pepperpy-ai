@@ -4,7 +4,6 @@ import io
 from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel, Field
-from pydantic.dataclasses import dataclass
 from pydub import AudioSegment
 
 from pepperpy.multimodal.synthesis.base import AudioData, AudioProcessor, SynthesisError

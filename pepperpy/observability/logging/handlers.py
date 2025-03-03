@@ -7,9 +7,6 @@ files, streams, and other output mechanisms.
 import asyncio
 import gzip
 import os
-from asyncio import Lock
-from os import path
-from typing import Any, Dict, Optional
 
 from pepperpy.core.errors import ValidationError
 from pepperpy.observability.logging.base import LogHandler, LogRecord

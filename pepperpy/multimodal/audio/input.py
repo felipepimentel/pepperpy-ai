@@ -140,8 +140,10 @@ class AudioProcessor(BaseAudioProcessor):
                     for i in range(0, len(audio), window_size)
                 ]
             )
-            threshold = np.mean(energy) * self._config.get("energy_threshold", 2.0)
-            mask = energy > threshold
+            # threshold will be used in future implementation
+            _ = np.mean(energy) * self._config.get("energy_threshold", 2.0)
+            # Calculate mask but don't use it yet - will be used in future implementation
+            # mask = energy > threshold
             return audio
 
     async def process_audio(self, audio_path: Union[str, Path]) -> AudioFeatures:

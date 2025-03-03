@@ -43,7 +43,7 @@ class CommandRegistry:
             cls._instance = cls()
         return cls._instance
 
-    def register_command()
+    def register_command(
         self,
         group_name: str,
         command: Command,
@@ -65,9 +65,9 @@ class CommandRegistry:
         try:
             # Add command to group
             group.add_command(command, aliases)
-            logger.info()
+            logger.info(
                 "Registered command",
-                extra={}
+                extra={
                     "group": group_name,
                     "command": command.name,
                     "aliases": aliases,
@@ -77,22 +77,17 @@ class CommandRegistry:
         except CLIError:
             raise
         except Exception as e:
-            raise CLIError( from e)
-            f"Failed to register command {command.name}: {e}",
-                details={}
+            raise CLIError(
+                f"Failed to register command {command.name}: {e}",
+                details={
                     "group": group_name,
                     "command": command.name,
                     "aliases": aliases,
                     "error": str(e),
                 },
-            )
+            ) from e
 
-    def register_group()
-        self,
-        name: str,
-        description: str,
-        parent: Optional[str] = None,
-    ) -> CommandGroup:
+    def register_group(self, name: str, description: str, parent: Optional[str] = None) -> CommandGroup:
         """Register a command group.
 
         Args:
@@ -121,18 +116,13 @@ class CommandRegistry:
             # Register group
             self._groups[name] = group
 
-            logger.info()
-                "Registered command group", extra={"name": name, "parent": parent}
-            )
+            logger.info("Registered command group", extra={"name": name, "parent": parent})
             return group
 
         except CLIError:
             raise
         except Exception as e:
-            raise CLIError( from e)
-            f"Failed to register group {name}: {e}",
-                details={"name": name, "parent": parent, "error": str(e)},
-            )
+            raise CLIError(f"Failed to register group {name}: {e}", details={"name": name, "parent": parent, "error": str(e)}) from e
 
     def get_command(self, command_path: CommandPath) -> Optional[CommandLike]:
         """Get a command by its full path.
@@ -204,10 +194,7 @@ class CommandRegistry:
 
         command = self.get_command(command_path)
         if not command:
-            raise CLIError()
-                f"Command not found: {command_path}",
-                details={"available": self.get_completions("")},
-            )
+            raise CLIError(f"Command not found: {command_path}", details={"available": self.get_completions("")})
 
         return command.get_help()
 
@@ -224,10 +211,7 @@ class CommandRegistry:
             CLIError: If group not found
         """
         if name not in self._groups:
-            raise CLIError()
-                f"Group not found: {name}",
-                details={"available": list(self._groups.keys())},
-            )
+            raise CLIError(f"Group not found: {name}", details={"available": list(self._groups.keys())})
         return self._groups[name]
 
     def _get_or_create_group(self, name: str) -> CommandGroup:

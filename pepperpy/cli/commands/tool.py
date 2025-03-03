@@ -1,5 +1,6 @@
 """Tool commands for the Pepperpy CLI.
 import click
+from typing import Optional
 from rich.console import Console
 from rich.table import Table
 
@@ -11,6 +12,7 @@ This module provides commands for:
 """
 
 import click
+from typing import Optional
 from rich.console import Console
 
 from pepperpy.core.errors import PepperpyError
@@ -124,6 +126,7 @@ def tool() -> None:
 @click.argument("name")
 @click.option("--type", help="Tool type")
 @click.option("--config", type=click.Path(exists=True), help="Tool configuration file")
+def create_tool(name: str, type: Optional[str] = None, config: Optional[str] = None) -> None:
     """Create a new tool.
 
     NAME: Name of the tool to create
@@ -163,6 +166,7 @@ def delete(name: str) -> None:
 @tool.command()
 @click.option("--type", help="Filter by tool type")
 @click.option("--status", help="Filter by status")
+def list_tools(type: Optional[str] = None, status: Optional[str] = None) -> None:
     """List available tools."""
     try:
         # TODO: Implement tool listing
@@ -194,6 +198,7 @@ def delete(name: str) -> None:
 @click.argument("operation")
 @click.option("--input", type=click.Path(exists=True), help="Input file")
 @click.option("--output", type=click.Path(), help="Output file")
+def run_tool(name: str, operation: str, input: Optional[str] = None, output: Optional[str] = None) -> None:
     """Run a tool operation.
 
     NAME: Name of the tool

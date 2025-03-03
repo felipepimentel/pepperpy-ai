@@ -22,7 +22,8 @@ except ImportError:
     raise ImportError(
         "pydantic is required for configuration management. "
         "Install it with: poetry add pydantic pydantic-settings"
-    )
+    
+    ) from None
 
 from pepperpy.core.common.observability import ObservabilityManager
 from pepperpy.core.metrics import MetricsCollector
@@ -81,10 +82,10 @@ class ConfigModel(BaseModel):
         env_prefix = prefix or cls.Config.env_prefix
         env_values = {}
 
-        for field_name, field in cls.model_fields.items():
-            env_key = f"{env_prefix}{field_name}".upper()
+        for _field_name, _field in cls.model__fields.items():
+            env_key = f"{env_prefix}{_field_name}".upper()
             if env_key in os.environ:
-                env_values[field_name] = os.environ[env_key]
+                env_values[_field_name] = os.environ[env_key]
 
         return cls(**env_values)
 
@@ -125,7 +126,7 @@ class ConfigModel(BaseModel):
         if not migration_path:
             raise ValueError(
                 f"No migration path from {self.version} to {target_version}"
-            )
+            ) from None
 
         # Apply migrations
         for version in migration_path:

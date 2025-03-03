@@ -9,8 +9,7 @@ from pepperpy.storage.base import StorageError, StorageProvider
 class GCPStorageProvider(StorageProvider):
     """Provider implementation for Google Cloud Storage services."""
 
-    def __init__()
-        self,
+    def __init__(self,
         bucket_name: str,
         project_id: str,
         credentials: Optional[Dict[str, Any]] = None,
@@ -30,20 +29,14 @@ class GCPStorageProvider(StorageProvider):
         try:
             from google.cloud import storage
         except ImportError:
-            raise ImportError( from None)
-            "google-cloud-storage package is required for GCPStorageProvider. "
-                "Install it with: pip install google-cloud-storage"
-            )
+            raise ImportError("google-cloud-storage package is required for GCPStorageProvider. Install it with: pip install google-cloud-storage") from None
 
         self.bucket_name = bucket_name
         self.project_id = project_id
         self.base_path = base_path or ""
 
         try:
-            self.client = storage.Client()
-                project=project_id,
-                credentials=credentials,
-            )
+            self.client = storage.Client(project=project_id, credentials=credentials)
             self.bucket = self.client.bucket(bucket_name)
         except Exception as e:
             raise StorageError(f"Failed to initialize GCP storage: {e}") from e
@@ -97,7 +90,7 @@ class GCPStorageProvider(StorageProvider):
             blob = self.bucket.blob(self._get_full_path(path))
             return blob.download_as_bytes()
         except Exception as e:
-            raise StorageError(f"Failed to retrieve data from GCS: {e}")
+            raise StorageError(f"Failed to retrieve data from GCS: {e}") from e
 
     def delete(self, path: Union[str, Path]) -> bool:
         """Delete data from GCS.
@@ -118,7 +111,7 @@ class GCPStorageProvider(StorageProvider):
                 return True
             return False
         except Exception as e:
-            raise StorageError(f"Failed to delete data from GCS: {e}")
+            raise StorageError(f"Failed to delete data from GCS: {e}") from e
 
     def exists(self, path: Union[str, Path]) -> bool:
         """Check if path exists in GCS.
@@ -172,9 +165,6 @@ class GCPStorageProvider(StorageProvider):
         """
         try:
             blob = self.bucket.blob(self._get_full_path(path))
-            return blob.generate_signed_url()
-                expiration=expires_in or 3600,
-                method="GET",
-            )
+            return blob.generate_signed_url(expiration=expires_in or 3600, method="GET")
         except Exception as e:
             raise StorageError(f"Failed to generate signed URL: {e}") from e

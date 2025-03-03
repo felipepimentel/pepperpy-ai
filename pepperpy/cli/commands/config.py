@@ -30,7 +30,7 @@ def config() -> None:
 @config.command()
 @click.argument("key")
 @click.argument("value")
-def set(key: str, value: str) -> None:
+def set_value(key: str, value: str) -> None:
     """Set a configuration value.
 
     KEY is the configuration key to set.
@@ -49,7 +49,7 @@ def set(key: str, value: str) -> None:
 
 @config.command()
 @click.argument("key")
-def get(key: str) -> None:
+def get_value(key: str) -> None:
     """Get a configuration value.
 
     KEY is the configuration key to get.
@@ -98,7 +98,7 @@ def init() -> None:
 
 
 @config.command()
-def validate() -> None:
+def validate_conf() -> None:
     """Validate current configuration."""
     try:
         # TODO: Implement config validation
@@ -150,6 +150,7 @@ def config() -> None:
 @config.command()
 @click.argument("key")
 @click.argument("value")
+def set_value(key: str, value: str) -> None:
     """Set a configuration value.
 
     KEY: Configuration key
@@ -168,6 +169,7 @@ def config() -> None:
 
 @config.command()
 @click.argument("key")
+def get_value(key: str) -> None:
     """Get a configuration value.
 
     KEY: Configuration key
@@ -213,6 +215,7 @@ def show(output: Optional[str] = None) -> None:
 
 
 @config.command()
+def validate_conf() -> None:
     """Validate current configuration."""
     try:
         # TODO: Implement config validation

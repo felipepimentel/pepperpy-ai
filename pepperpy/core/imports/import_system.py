@@ -281,7 +281,7 @@ class ImportOptimizer(BaseComponent):
 
             # Get module dependencies
             dependencies = set()
-            for key, value in module.__dict__.items():
+            for _key, value in module.__dict__.items():
                 if isinstance(value, type(sys)):
                     dependencies.add(value.__name__)
 

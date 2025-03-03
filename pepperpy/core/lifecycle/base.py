@@ -26,9 +26,6 @@ from pepperpy.core.common.lifecycle.types import (  # TODO: Verificar se este é
     LifecycleMetrics,
     LifecycleState,
     LifecycleTransition,
-    from,
-    import,
-    typing,
 )
 
 

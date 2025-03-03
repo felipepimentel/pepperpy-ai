@@ -406,7 +406,7 @@ def discover_components(module: Any) -> List[Type[BaseComponent]]:
         List of discovered component classes
     """
     components = []
-    for name, obj in inspect.getmembers(module):
+    for _name, obj in inspect.getmembers(module):
         if (
             inspect.isclass(obj)
             and issubclass(obj, BaseComponent)

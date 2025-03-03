@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field, field_validator
 from typing_extensions import runtime_checkable
 
 from pepperpy.core.common.events import EventBus, EventType
-from pepperpy.core.common.lifecycle import Lifecycle
 from pepperpy.core.metrics.types import MetricType
 
 # Type variables for generic implementations
@@ -700,6 +699,7 @@ class KeyValueStore(Protocol[K_contra, V_co]):
 
 
 @runtime_checkable
+class LifecycleProtocol(Protocol):
     """Protocol for components with lifecycle management."""
 
     async def initialize(self) -> None:

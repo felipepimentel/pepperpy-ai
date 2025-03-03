@@ -8,7 +8,7 @@ implementations to the new unified workflow system.
 
 import ast
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from .base import WorkflowDefinition
 from .builder import WorkflowBuilder

@@ -13,9 +13,9 @@ This module provides commands for:
 import asyncio
 import json
 from pathlib import Path
-from typing import LocalHubStorage  # TODO: Verificar se este é o import correto
-from typing import MarketplaceClient  # TODO: Verificar se este é o import correto
 from typing import (
+    LocalHubStorage,  # TODO: Verificar se este é o import correto
+    MarketplaceClient,  # TODO: Verificar se este é o import correto
     Optional,
     Set,
 )
@@ -144,7 +144,7 @@ def publish(
 @hub.command()
 @click.argument("artifact_id")
 @click.option("--version", help="Specific version to install")
-def install(artifact_id: str, version: Optional[str] = None) -> None:
+def install_artifact(artifact_id: str, version: Optional[str] = None) -> None:
     """Install an artifact from the marketplace.
 
     ARTIFACT_ID is the ID of the artifact to install.
@@ -379,7 +379,7 @@ def hub() -> None:
 
 @hub.command()
 @click.option("--public/--private", default=False, help="Make artifact public")
-def publish(artifact_path: str, public: bool) -> None:
+def publish_artifact(artifact_path: str, public: bool) -> None:
     """Publish an artifact to the Hub.
 
     ARTIFACT_PATH: Path to the artifact file
@@ -413,7 +413,7 @@ def publish(artifact_path: str, public: bool) -> None:
 
 @hub.command()
 @click.option("--version", help="Specific version to install")
-def install(artifact_id: str, version: Optional[str] = None) -> None:
+def install_artifact(artifact_id: str, version: Optional[str] = None) -> None:
     """Install an artifact from the Hub.
 
     ARTIFACT_ID: ID of the artifact to install
@@ -450,13 +450,7 @@ def install(artifact_id: str, version: Optional[str] = None) -> None:
 @click.option("--type", "artifact_type", help="Filter by artifact type")
 @click.option("--tags", help="Filter by tags (comma-separated)")
 @click.option("--per-page", type=int, default=20, help="Results per page")
-def search(
-    query: Optional[str] = None,
-    artifact_type: Optional[str] = None,
-    tags: Optional[str] = None,
-    page: int = 1,
-    per_page: int = 20,
-) -> None:
+def search_artifacts(query: Optional[str] = None, artifact_type: Optional[str] = None, tags: Optional[str] = None, page: int = 1, per_page: int = 20) -> None:
     """Search for artifacts in the Hub."""
     try:
         # Initialize components
@@ -588,7 +582,7 @@ def update(artifact_id: str, metadata_file: str) -> None:
 
 @hub.command()
 @click.option("--force", is_flag=True, help="Force deletion without confirmation")
-def delete(artifact_id: str, force: bool = False) -> None:
+def delete_artifact(artifact_id: str, force: bool = False) -> None:
     """Delete an artifact from the Hub.
 
     ARTIFACT_ID: ID of the artifact to delete
