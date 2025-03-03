@@ -25,4 +25,4 @@ class StoryAgent(BaseAgent):
             The result of the agent execution
         """
         # Placeholder implementation
-        return {"status": "success", "message": "Story Agent placeholder"} 
+        return {"status": "success", "message": "Story Agent placeholder"}

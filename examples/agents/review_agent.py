@@ -25,4 +25,4 @@ class ReviewAgent(BaseAgent):
             The result of the agent execution
         """
         # Placeholder implementation
-        return {"status": "success", "message": "Review Agent placeholder"} 
+        return {"status": "success", "message": "Review Agent placeholder"}

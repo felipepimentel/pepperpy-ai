@@ -25,4 +25,4 @@ class ArtAgent(BaseAgent):
             The result of the agent execution
         """
         # Placeholder implementation
-        return {"status": "success", "message": "Art Agent placeholder"} 
+        return {"status": "success", "message": "Art Agent placeholder"}

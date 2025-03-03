@@ -14,10 +14,12 @@ class ComponentState(Enum):
     INITIALIZING = auto()
     READY = auto()
     EXECUTING = auto()
+    RUNNING = auto()
     PAUSED = auto()
     COMPLETED = auto()
     ERROR = auto()
     CLEANED = auto()
+    UNREGISTERED = auto()
 
 
 class AgentState(Enum):

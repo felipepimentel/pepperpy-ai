@@ -25,4 +25,4 @@ class APIAgent(BaseAgent):
             The result of the agent execution
         """
         # Placeholder implementation
-        return {"status": "success", "message": "API Agent placeholder"} 
+        return {"status": "success", "message": "API Agent placeholder"}
