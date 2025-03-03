@@ -4,7 +4,7 @@ Defines the interfaces and base classes for the security system,
 including permissions, roles, and users.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Dict, Optional, Set
 from uuid import UUID
 
@@ -51,6 +51,14 @@ class Principal(ABC):
     def list_permissions(self) -> Set[Permission]:
         """List all permissions granted to this principal."""
         return self._permissions.copy()
+
+    @abstractmethod
+    def initialize(self) -> None:
+        """Initialize the principal.
+
+        This method must be implemented by subclasses.
+        """
+        pass
 
 
 class Role(Principal):

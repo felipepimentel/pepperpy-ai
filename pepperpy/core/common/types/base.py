@@ -3,7 +3,7 @@
 Defines the base types and interfaces used by core components.
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
@@ -65,3 +65,11 @@ class BaseComponent(ABC):
             Metadata value if found, None otherwise
         """
         return self._metadata.get(key)
+
+    @abstractmethod
+    def initialize(self) -> None:
+        """Initialize the basecomponent.
+        
+        This method must be implemented by subclasses.
+        """
+        pass

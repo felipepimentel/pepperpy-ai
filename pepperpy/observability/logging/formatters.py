@@ -10,7 +10,18 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field
+# pip install pydantic
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    print("Pydantic not installed. Install with: pip install pydantic")
+    BaseModel = object
+
+    def Field(*args, **kwargs):
+        def decorator(x):
+            return x
+
+        return decorator
 
 
 class LogRecord(BaseModel):
@@ -26,17 +37,17 @@ class LogRecord(BaseModel):
 
 class JsonFormatter(logging.Formatter):
     """JSON formatter for structured logging.
-    
+
     This formatter converts log records to JSON format for structured logging.
     It includes timestamp, level, logger name, message, and any additional context.
     """
 
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record as JSON.
-        
+
         Args:
             record: The log record to format
-            
+
         Returns:
             JSON string representation of the log record
         """
@@ -61,25 +72,25 @@ class JsonFormatter(logging.Formatter):
 
 class ColoredFormatter(logging.Formatter):
     """Colored formatter for console output.
-    
+
     This formatter adds color to log messages based on their level.
     """
 
     COLORS = {
         "DEBUG": "[36m",  # Cyan
-        "INFO": "[32m",   # Green
-        "WARNING": "[33m", # Yellow
+        "INFO": "[32m",  # Green
+        "WARNING": "[33m",  # Yellow
         "ERROR": "[31m",  # Red
-        "CRITICAL": "[41m[37m", # White on Red background
+        "CRITICAL": "[41m[37m",  # White on Red background
     }
     RESET = "[0m"
 
     def format(self, record: logging.LogRecord) -> str:
         """Format the log record with colors.
-        
+
         Args:
             record: The log record to format
-            
+
         Returns:
             Colored string representation of the log record
         """

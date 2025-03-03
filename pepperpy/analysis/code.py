@@ -13,14 +13,13 @@ from typing import (
     Any,
     Dict,
     List,
-    Optional,
-    n,  # TODO: Verificar se este é o import correto
+    Optional,  # TODO: Verificar se este é o import correto
 )
 
 from pepperpy.core.common.errors.base import PepperError
 from pepperpy.monitoring.metrics import MetricsCollector
 
-n  # Definindo a classe ProcessingError localmente para evitar erros de importação
+# Definindo a classe ProcessingError localmente para evitar erros de importação
 
 
 class ProcessingError(PepperError):

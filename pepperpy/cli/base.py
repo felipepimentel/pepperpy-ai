@@ -87,6 +87,7 @@ class Command(ABC):
             return f"{self.parent.full_name} {self.name}"
         return self.name
 
+    @abstractmethod
     async def validate(self, context: CommandContext) -> None:
         """Validate command input.
 

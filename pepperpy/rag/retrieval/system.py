@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 from pepperpy.core.base import Lifecycle
 from pepperpy.embedding.rag import Embedder, TextEmbedder
 from pepperpy.rag.indexing import Indexer, VectorIndexer
+
 # # from pepperpy.rag.indexing.base import Indexer, VectorIndexer  # Removido: Redefinition of unused `Indexer` from line 15  # Removido: Redefinition of unused `VectorIndexer` from line 15
 
 

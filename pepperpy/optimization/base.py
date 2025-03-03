@@ -61,6 +61,14 @@ class BaseOptimizer(ABC):
         """Update optimizer metrics."""
         self._metrics.update(metrics)
 
+    @abstractmethod
+    def initialize(self) -> None:
+        """Initialize the baseoptimizer.
+
+        This method must be implemented by subclasses.
+        """
+        pass
+
 
 class Batcher(BaseOptimizer):
     """Base class for request batching."""

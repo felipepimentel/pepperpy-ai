@@ -11,8 +11,9 @@ This module provides commands for:
 - Listing available tools
 """
 
-import click
 from typing import Optional
+
+import click
 from rich.console import Console
 
 from pepperpy.core.errors import PepperpyError

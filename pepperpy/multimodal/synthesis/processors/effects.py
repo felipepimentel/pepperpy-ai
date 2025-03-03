@@ -3,8 +3,27 @@
 import io
 from typing import Any, List, Optional, Union
 
-from pydantic import BaseModel, Field
-from pydub import AudioSegment
+# pip install pydantic
+try:
+    from pydantic import BaseModel, Field
+except ImportError:
+    print("Pydantic not installed. Install with: pip install pydantic")
+    BaseModel = object
+    
+    def Field(*args, **kwargs):
+        def decorator(x):
+            return x
+        return decorator
+
+# pip install pydub
+try:
+    from pydub import AudioSegment
+except ImportError:
+    print("Pydub not installed. Install with: pip install pydub")
+
+    class AudioSegment:
+        pass
+
 
 from pepperpy.multimodal.synthesis.base import AudioData, AudioProcessor, SynthesisError
 

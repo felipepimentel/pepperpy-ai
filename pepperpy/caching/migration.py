@@ -91,12 +91,10 @@ class MigrationHelper:
                 "pepperpy.rag.vector.optimization.caching"
             )
             if hasattr(vector_module, "VectorCache"):
-                old_caches.append(
-                    (
-                        "pepperpy.rag.vector.optimization.caching.VectorCache",
-                        vector_module.VectorCache,
-                    )
-                )
+                old_caches.append((
+                    "pepperpy.rag.vector.optimization.caching.VectorCache",
+                    vector_module.VectorCache,
+                ))
         except (ImportError, AttributeError):
             pass
 
@@ -178,7 +176,7 @@ class MigrationHelper:
                             else:
                                 results[str_key] = False
             except Exception as e:
-                warnings.warn(f"Error migrating Redis cache: {e}")
+                warnings.warn(f"Error migrating Redis cache: {e}", stacklevel=2)
         elif isinstance(old_cache, LocalCache):
             # Direct access to cache dict
             cache_dict = getattr(old_cache, "_cache", {})
@@ -223,7 +221,8 @@ class MigrationHelper:
 
                 if not keys:
                     warnings.warn(
-                        f"Unsupported cache type for migration: {type(old_cache)}"
+                        f"Unsupported cache type for migration: {type(old_cache)}",
+                        stacklevel=2,
                     )
                     return {}
 
@@ -241,7 +240,7 @@ class MigrationHelper:
                         except Exception:
                             results[key] = False
             except Exception as e:
-                warnings.warn(f"Error in generic cache migration: {e}")
+                warnings.warn(f"Error in generic cache migration: {e}", stacklevel=2)
 
         return results
 

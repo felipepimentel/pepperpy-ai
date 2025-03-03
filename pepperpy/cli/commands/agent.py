@@ -9,8 +9,9 @@ This module provides commands for managing agents:
 - Monitoring agent activity
 """
 
+from typing import Any, Dict, List, Optional
+
 import click
-from typing import Optional, List, Dict, Any
 from rich.console import Console
 from rich.table import Table
 
