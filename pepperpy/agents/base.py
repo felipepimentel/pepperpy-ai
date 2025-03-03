@@ -4,13 +4,14 @@ This module defines the base interfaces and classes for agents in the PepperPy f
 """
 
 import logging
+import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 
 from pepperpy.core.base import ComponentConfig, Lifecycle
-from pepperpy.core.metrics import MetricsManager
 from pepperpy.core.types.enums import AgentID, AgentState
+from pepperpy.observability.metrics.manager import MetricsManager
 
 
 @dataclass
@@ -51,8 +52,9 @@ class BaseAgent(Lifecycle, ABC):
         """
         super().__init__()
         self.config = config
+        self.id = str(uuid.uuid4())  # Add unique ID for each agent
         self._logger = logging.getLogger(f"pepperpy.agents.{config.name}")
-        self._metrics_manager = MetricsManager(namespace=f"agents.{config.name}")
+        self._metrics_manager = MetricsManager()
         self._state = AgentState.UNKNOWN
         self._capabilities: Dict[str, AgentCapability] = {}
 

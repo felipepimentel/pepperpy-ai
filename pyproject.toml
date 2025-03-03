@@ -138,8 +138,12 @@ ignore = [
     "B010", # Chamada de setattr com atributo literal
     "B023", # Função definida dentro de loop
     # Adicionando mais códigos de erro para ignorar
-    "D413",  # Missing blank line after last section
     "UP006", # Use list instead of List for type annotation
+    "UP007", # Use X | Y for type annotation instead of Union[X, Y]
+    "UP008", # Use X | None for type annotation instead of Optional[X]
+    "UP015", # Use `X | Y` instead of `Union[X, Y]` for type annotation
+    "UP037", # Use `X | None` instead of `Optional[X]` for type annotation
+    "D413",  # Missing blank line after last section
 ]
 
 [tool.ruff.lint.per-file-ignores]

@@ -5,10 +5,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+# Import enums
+from .enums import ComponentState
+
 # Define common type aliases
 PathLike = Union[str, bytes]
-JsonDict = Dict[str, Any]
-JsonList = List[Any]
+JsonDict = dict[str, Any]
+JsonList = list[Any]
 
 
 class VersionChangeType(Enum):
@@ -92,7 +95,7 @@ class VersionChange:
     type: VersionChangeType
     description: str
     breaking: bool = False
-    affected_components: List[str] = field(default_factory=list)
+    affected_components: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -102,7 +105,7 @@ class VersionDependency:
     component: str
     version: Version
     required: bool = True
-    compatibility_range: Optional[Tuple[Version, Version]] = None
+    compatibility_range: Optional[tuple[Version, Version]] = None
     description: Optional[str] = None
 
 
@@ -115,4 +118,5 @@ __all__ = [
     "VersionChangeType",
     "VersionComponent",
     "VersionDependency",
+    "ComponentState",
 ]

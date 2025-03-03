@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 
 import psutil
 
-from pepperpy.core.types import ComponentState
+from pepperpy.core.types.enums import ComponentState
 from pepperpy.hub.manager import HubManager
 from pepperpy.observability.metrics.manager import MetricsManager
 
@@ -177,12 +177,30 @@ async def check_components() -> Dict:
 
     """
     # Get component states
-    hub = HubManager()
-    metrics = MetricsManager()
+    hub_status = ComponentState.UNKNOWN
+    metrics_status = ComponentState.UNKNOWN
+
+    try:
+        # Try to get hub status if available
+        from pepperpy.hub.manager import HubManager
+
+        hub = HubManager()
+        hub_status = getattr(hub, "_state", ComponentState.UNKNOWN)
+    except (ImportError, TypeError):
+        pass
+
+    try:
+        # Try to get metrics status if available
+        from pepperpy.observability.metrics.manager import MetricsManager
+
+        metrics = MetricsManager()
+        metrics_status = getattr(metrics, "_state", ComponentState.UNKNOWN)
+    except (ImportError, TypeError):
+        pass
 
     return {
-        "hub": hub.state == ComponentState.RUNNING,
-        "metrics": metrics.state == ComponentState.RUNNING,
+        "hub": hub_status == ComponentState.READY,
+        "metrics": metrics_status == ComponentState.READY,
     }
 
 
