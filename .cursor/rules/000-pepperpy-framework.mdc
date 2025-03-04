@@ -1,0 +1,492 @@
+---
+description: ALWAYS use when interacting with the PepperPy framework to ensure correct usage of APIs, proper module organization, and consistent patterns. This rule provides a high-level overview of the framework architecture and integration patterns.
+globs: ["pepperpy/**/*.py", "examples/**/*.py"]
+version: 1.0
+priority: critical
+tags: ["pepperpy", "framework", "architecture", "integration", "modules"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>pepperpy_framework_overview</n>
+    <description>ALWAYS use when interacting with the PepperPy framework to ensure correct usage of APIs, proper module organization, and consistent patterns. This rule provides a high-level overview of the framework architecture and integration patterns.</description>
+    <priority>critical</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>pepperpy</tag>
+      <tag>framework</tag>
+      <tag>architecture</tag>
+      <tag>integration</tag>
+      <tag>modules</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_extension</type>
+      <pattern>\.py$</pattern>
+      <description>Match Python files</description>
+    </filter>
+    <filter>
+      <type>directory</type>
+      <pattern>pepperpy/|examples/</pattern>
+      <description>Match files in pepperpy module or examples</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)import\s+pepperpy.*?(?:from\s+pepperpy\.\w+\s+import|from\s+pepperpy\s+import\s+\w+)</pattern>
+          <message>Avoid redundant imports from pepperpy - prefer specific module imports</message>
+        </condition>
+        <condition>
+          <pattern>(?s)from\s+pepperpy\.core\.\w+\s+import.*?from\s+pepperpy\.\w+\.providers</pattern>
+          <message>Import core components before provider implementations</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+(?:Agent|Provider|Workflow|Pipeline).*?def\s+__init__\s*\([^)]*\)\s*(?!:.*?super\(\).__init__)</pattern>
+          <message>Always call super().__init__() in framework component constructors</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+\((?!.*?(?:Base|Abstract|Interface))</pattern>
+          <message>Framework extensions should inherit from base classes or interfaces</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <framework_structure>
+          <module_layer>
+            <layer>
+              <n>Core Components</n>
+              <modules>
+                <module>pepperpy.core</module>
+                <module>pepperpy.types</module>
+              </modules>
+              <description>Foundation interfaces, abstract classes, and base types</description>
+            </layer>
+            <layer>
+              <n>Execution Components</n>
+              <modules>
+                <module>pepperpy.agents</module>
+                <module>pepperpy.workflows</module>
+                <module>pepperpy.pipeline</module>
+                <module>pepperpy.capabilities</module>
+              </modules>
+              <description>Components for orchestration and execution of AI logic</description>
+            </layer>
+            <layer>
+              <n>Knowledge Components</n>
+              <modules>
+                <module>pepperpy.rag</module>
+                <module>pepperpy.memory</module>
+                <module>pepperpy.embedding</module>
+                <module>pepperpy.llm</module>
+              </modules>
+              <description>Components for knowledge representation and retrieval</description>
+            </layer>
+            <layer>
+              <n>Storage Components</n>
+              <modules>
+                <module>pepperpy.storage</module>
+                <module>pepperpy.caching</module>
+              </modules>
+              <description>Persistence and retrieval mechanisms</description>
+            </layer>
+            <layer>
+              <n>Infrastructure Components</n>
+              <modules>
+                <module>pepperpy.cloud</module>
+                <module>pepperpy.security</module>
+                <module>pepperpy.observability</module>
+              </modules>
+              <description>Infrastructure services and utilities</description>
+            </layer>
+            <layer>
+              <n>Extensions</n>
+              <modules>
+                <module>pepperpy.adapters</module>
+                <module>pepperpy.formats</module>
+                <module>pepperpy.multimodal</module>
+              </modules>
+              <description>Extensions for specific use cases and capabilities</description>
+            </layer>
+          </module_layer>
+        </framework_structure>
+
+        <module_responsibilities>
+          <module>
+            <n>pepperpy.core</n>
+            <description>Central framework definitions and interfaces that all other modules depend on</description>
+            <key_components>
+              <component>BaseComponent</component>
+              <component>Configuration</component>
+              <component>Registry</component>
+              <component>Context</component>
+            </key_components>
+          </module>
+          <module>
+            <n>pepperpy.agents</n>
+            <description>AI agent definitions, behaviors, and coordination</description>
+            <key_components>
+              <component>BaseAgent</component>
+              <component>AgentRegistry</component>
+              <component>TeamCoordinator</component>
+            </key_components>
+          </module>
+          <module>
+            <n>pepperpy.llm</n>
+            <description>Large Language Model interfaces and providers</description>
+            <key_components>
+              <component>BaseLLMProvider</component>
+              <component>PromptTemplate</component>
+              <component>ModelRegistry</component>
+            </key_components>
+          </module>
+          <module>
+            <n>pepperpy.rag</n>
+            <description>Retrieval Augmented Generation components</description>
+            <key_components>
+              <component>BaseRetriever</component>
+              <component>QueryEngine</component>
+              <component>DocumentProcessor</component>
+            </key_components>
+          </module>
+          <module>
+            <n>pepperpy.workflows</n>
+            <description>Workflow definitions, execution, and orchestration</description>
+            <key_components>
+              <component>Workflow</component>
+              <component>Task</component>
+              <component>WorkflowExecutor</component>
+            </key_components>
+          </module>
+          <module>
+            <n>pepperpy.caching</n>
+            <description>Caching strategies and implementations</description>
+            <key_components>
+              <component>BaseCache</component>
+              <component>CacheProvider</component>
+              <component>CachePolicy</component>
+            </key_components>
+          </module>
+          <module>
+            <n>pepperpy.hub</n>
+            <description>Integration with PepperHub asset storage</description>
+            <key_components>
+              <component>AssetManager</component>
+              <component>HubClient</component>
+              <component>AssetRegistry</component>
+            </key_components>
+          </module>
+        </module_responsibilities>
+
+        <dependency_patterns>
+          <rule>Lower layers should not depend on higher layers</rule>
+          <rule>Core components should have minimal dependencies</rule>
+          <rule>Extensions should not be required by core functionality</rule>
+          <rule>Use dependency injection for provider implementations</rule>
+          <example>
+            <![CDATA[
+# Good - Dependency injection pattern
+from pepperpy.llm.providers.base import BaseLLMProvider
+from pepperpy.agents.base import BaseAgent
+
+class AnalystAgent(BaseAgent):
+    """Agent that analyzes data and provides insights."""
+    
+    def __init__(
+        self,
+        name: str,
+        llm_provider: BaseLLMProvider,
+        **kwargs
+    ):
+        """Initialize analyst agent.
+        
+        Args:
+            name: Agent identifier
+            llm_provider: Language model provider
+            **kwargs: Additional arguments for the base agent
+        """
+        super().__init__(name=name, **kwargs)
+        self.llm_provider = llm_provider
+        
+    async def analyze(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze data using the LLM provider.
+        
+        Args:
+            data: Input data to analyze
+            
+        Returns:
+            Analysis results
+        """
+        # Implementation that uses self.llm_provider
+            ]]>
+          </example>
+        </dependency_patterns>
+
+        <integration_patterns>
+          <pattern>
+            <n>Provider Pattern</n>
+            <description>Implement provider interfaces for exchangeable implementations</description>
+            <example>
+              <![CDATA[
+from pepperpy.storage.providers.base import StorageProvider
+from typing import Dict, Any, Optional
+
+class CustomStorageProvider(StorageProvider):
+    """Custom storage provider implementation."""
+    
+    async def get(self, key: str) -> Optional[Dict[str, Any]]:
+        """Get an item from storage."""
+        # Implementation
+        
+    async def set(self, key: str, value: Dict[str, Any]) -> None:
+        """Store an item."""
+        # Implementation
+              ]]>
+            </example>
+          </pattern>
+          <pattern>
+            <n>Factory Pattern</n>
+            <description>Use factories to create complex objects with configuration</description>
+            <example>
+              <![CDATA[
+from pepperpy.agents.factory import create_agent
+from pepperpy.llm.factory import create_llm_provider
+
+# Create components using factories
+llm = create_llm_provider(
+    provider_type="openai",
+    model="gpt-4",
+    temperature=0.7
+)
+
+agent = create_agent(
+    agent_type="assistant",
+    name="customer_support",
+    llm_provider=llm,
+    capabilities=["question_answering", "empathy"]
+)
+              ]]>
+            </example>
+          </pattern>
+          <pattern>
+            <n>Registry Pattern</n>
+            <description>Register and discover implementations dynamically</description>
+            <example>
+              <![CDATA[
+from pepperpy.rag.registry import register_retriever, get_retriever
+from pepperpy.rag.base import BaseRetriever
+
+# Register a custom implementation
+@register_retriever("hybrid_search")
+class HybridRetriever(BaseRetriever):
+    """Custom hybrid search retriever."""
+    # Implementation
+
+# Use the registered implementation elsewhere
+retriever = get_retriever(
+    retriever_type="hybrid_search",
+    config={"semantic_weight": 0.7, "keyword_weight": 0.3}
+)
+              ]]>
+            </example>
+          </pattern>
+        </integration_patterns>
+
+        <naming_conventions>
+          <rule>Base classes should use `Base` prefix (BaseRetriever)</rule>
+          <rule>Interfaces should use `Interface` suffix (StorageInterface)</rule>
+          <rule>Abstract classes should use `Abstract` prefix (AbstractProcessor)</rule>
+          <rule>Factory functions should use `create_` prefix (create_agent)</rule>
+          <rule>Registry functions should use `register_` and `get_` prefixes</rule>
+        </naming_conventions>
+
+        <versioning>
+          <rule>Public APIs must maintain backward compatibility within major versions</rule>
+          <rule>Document deprecated features with `@deprecated` decorator</rule>
+          <rule>Use feature flags for gradual rollout of major changes</rule>
+          <example>
+            <![CDATA[
+from pepperpy.core.deprecation import deprecated
+
+@deprecated("Use 'process_text' instead", version="1.2.0", removal_version="2.0.0")
+def parse_text(text: str) -> Dict[str, Any]:
+    """Legacy method for text parsing."""
+    return process_text(text)
+            ]]>
+          </example>
+        </versioning>
+      </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <correct>
+        <description>Properly structured integration with the framework</description>
+        <content>
+          <![CDATA[
+from typing import Dict, Any, List, Optional
+import logging
+
+from pepperpy.core.base import BaseComponent
+from pepperpy.agents.base import BaseAgent
+from pepperpy.llm.providers.openai import OpenAIProvider
+from pepperpy.workflows.base import Workflow, Task
+from pepperpy.rag.base import BaseRetriever
+from pepperpy.storage.providers.memory import InMemoryStorage
+
+logger = logging.getLogger(__name__)
+
+class DocumentProcessor(BaseComponent):
+    """Process documents with AI analysis.
+    
+    This component combines RAG capabilities with agent-based
+    analysis to extract insights from documents.
+    """
+    
+    def __init__(
+        self,
+        agent: BaseAgent,
+        retriever: BaseRetriever,
+        storage: Optional[InMemoryStorage] = None
+    ):
+        """Initialize document processor.
+        
+        Args:
+            agent: Agent to perform analysis
+            retriever: Retriever for context augmentation
+            storage: Optional storage for results
+        """
+        super().__init__()
+        self.agent = agent
+        self.retriever = retriever
+        self.storage = storage or InMemoryStorage()
+        
+    async def process_document(
+        self,
+        document: Dict[str, Any],
+        analysis_tasks: List[str]
+    ) -> Dict[str, Any]:
+        """Process a document with the specified analysis tasks.
+        
+        Args:
+            document: Document to process
+            analysis_tasks: List of analysis tasks to perform
+            
+        Returns:
+            Analysis results
+        """
+        logger.info(f"Processing document: {document.get('id', 'unknown')}")
+        
+        # Retrieve relevant context
+        context = await self.retriever.retrieve(
+            query=document.get("summary", ""),
+            filters={"document_type": document.get("type")}
+        )
+        
+        # Create workflow for multi-step processing
+        workflow = Workflow(name="document_analysis")
+        
+        # Add analysis tasks
+        for task_name in analysis_tasks:
+            workflow.add_task(
+                Task(
+                    name=task_name,
+                    execute=self._create_analysis_task(task_name)
+                )
+            )
+            
+        # Execute workflow
+        results = await workflow.run({
+            "document": document,
+            "context": context
+        })
+        
+        # Store results
+        await self.storage.set(
+            f"analysis:{document.get('id', 'unknown')}",
+            results
+        )
+        
+        return results
+        
+    def _create_analysis_task(self, task_name: str):
+        """Create an analysis task function.
+        
+        Args:
+            task_name: Name of the analysis task
+            
+        Returns:
+            Task execution function
+        """
+        async def execute_task(inputs: Dict[str, Any]) -> Dict[str, Any]:
+            """Execute the analysis task.
+            
+            Args:
+                inputs: Task inputs
+                
+            Returns:
+                Task results
+            """
+            # Task implementation
+            return await self.agent.execute_task(
+                task=task_name,
+                inputs=inputs
+            )
+            
+        return execute_task
+          ]]>
+        </content>
+      </correct>
+      <incorrect>
+        <description>Poorly structured integration with anti-patterns</description>
+        <content>
+          <![CDATA[
+import pepperpy
+import pepperpy.llm
+from pepperpy.agents import BaseAgent
+from pepperpy.rag.retrieval.semantic import SemanticRetriever
+from pepperpy.core import BaseComponent
+from pepperpy.llm import OpenAIProvider
+
+# Anti-pattern: Direct instantiation without factory or configuration
+llm = OpenAIProvider(api_key="my-key-123456789") 
+
+# Anti-pattern: Tight coupling to implementation
+class MyProcessor:  # Missing inheritance from BaseComponent
+    def __init__(self):
+        # Anti-pattern: Hard-coded dependencies
+        self.agent = pepperpy.agents.create_agent("default")
+        self.retriever = SemanticRetriever(
+            # Hard-coded configuration
+            vector_store="pinecone",
+            embedding_model="text-embedding-ada-002"
+        )
+    
+    # Anti-pattern: Synchronous methods for async operations
+    def process(self, data):
+        # Anti-pattern: Direct import and use inside method
+        from pepperpy.llm import OpenAIProvider
+        
+        # Anti-pattern: Creating new provider instances for each operation
+        llm = OpenAIProvider()
+        
+        # Anti-pattern: Blocking async operation
+        import asyncio
+        result = asyncio.run(llm.generate(data))
+        
+        return result
+          ]]>
+        </content>
+      </incorrect>
+    </example>
+  </examples>
+</rule> 

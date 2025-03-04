@@ -1,0 +1,315 @@
+---
+description: ALWAYS use when creating or modifying AI assets in the PepperHub storage to ensure consistent organization and structure. This rule defines standards for managing prompts, agents, workflows, and other AI assets.
+globs: [".pepper_hub/**/*"]
+version: 1.1
+priority: high
+tags: ["pepperhub", "assets", "prompts", "agents", "workflows"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>pepperhub_asset_management</n>
+    <description>ALWAYS use when creating or modifying AI assets in the PepperHub storage to ensure consistent organization and structure. This rule defines standards for managing prompts, agents, workflows, and other AI assets.</description>
+    <priority>high</priority>
+    <version>1.1</version>
+    <tags>
+      <tag>pepperhub</tag>
+      <tag>assets</tag>
+      <tag>prompts</tag>
+      <tag>agents</tag>
+      <tag>workflows</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_extension</type>
+      <pattern>\.(yaml|yml|json)$</pattern>
+      <description>Match YAML/JSON files for asset definitions</description>
+    </filter>
+    <filter>
+      <type>directory</type>
+      <pattern>\.pepper_hub/</pattern>
+      <description>Match files in the .pepper_hub directory</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>^name:[^"'\n]*$</pattern>
+          <message>Asset must have a valid name field</message>
+        </condition>
+        <condition>
+          <pattern>^type:[^"'\n]*$</pattern>
+          <message>Asset must have a valid type field</message>
+        </condition>
+        <condition>
+          <pattern>^version:\s*\d+\.\d+\.\d+$</pattern>
+          <message>Asset must have semantic version (MAJOR.MINOR.PATCH)</message>
+        </condition>
+        <condition>
+          <pattern>^content:.*$</pattern>
+          <message>Asset must have content field</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <directory_structure>
+          <required_structure>
+```plaintext
+.pepper_hub/
+├── prompts/
+│   └── (prompt_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+├── agents/
+│   └── (agent_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.1.0.yaml
+├── workflows/
+│   └── (workflow_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+├── resources/
+│   └── (resource_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+├── teams/
+│   └── (team_name)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+├── errors/
+│   └── (error_type)/
+│       ├── 1.0.0.yaml
+│       └── 1.0.1.yaml
+└── configs/
+    └── (config_name)/
+        ├── 1.0.0.yaml
+        └── 1.0.1.yaml
+```
+          </required_structure>
+
+          <rules>
+            <rule>Each asset must be stored in its own subfolder</rule>
+            <rule>Version files must use semantic versioning (MAJOR.MINOR.PATCH)</rule>
+            <rule>Folder names should match the asset name</rule>
+            <rule>Use consistent file extension (.yaml preferred)</rule>
+          </rules>
+        </directory_structure>
+
+        <asset_format>
+          <required_fields>
+            <field>
+              <n>name</n>
+              <description>Unique identifier for the asset</description>
+              <example>customer_service_prompt</example>
+            </field>
+            <field>
+              <n>type</n>
+              <description>Asset category</description>
+              <example>prompt</example>
+              <allowed_values>prompt, agent, workflow, resource, team, error, config</allowed_values>
+            </field>
+            <field>
+              <n>version</n>
+              <description>Semantic version</description>
+              <example>1.0.0</example>
+            </field>
+            <field>
+              <n>content</n>
+              <description>Core asset content</description>
+            </field>
+          </required_fields>
+
+          <optional_fields>
+            <field>
+              <n>description</n>
+              <description>Brief explanation of the asset purpose</description>
+            </field>
+            <field>
+              <n>tags</n>
+              <description>Categorization labels</description>
+              <example>["customer_service", "support", "onboarding"]</example>
+            </field>
+            <field>
+              <n>author</n>
+              <description>Creator of the asset</description>
+            </field>
+            <field>
+              <n>created_at</n>
+              <description>Creation timestamp</description>
+              <example>2023-05-01T13:45:30Z</example>
+            </field>
+            <field>
+              <n>dependencies</n>
+              <description>Other assets this asset depends on</description>
+              <example>["base_prompt:1.0.0", "helper_agent:2.1.0"]</example>
+            </field>
+          </optional_fields>
+
+          <example>
+```yaml
+name: "financial_analysis_prompt"
+type: "prompt"
+version: "1.2.0"
+description: "Analyzes financial data and generates insights"
+tags: ["finance", "analysis", "reporting"]
+author: "finance_team"
+created_at: "2023-06-15T10:30:00Z"
+content: |
+  Analyze the following financial data:
+  
+  {{data}}
+  
+  Provide the following insights:
+  1. Key performance indicators
+  2. Month-over-month growth metrics
+  3. Areas of concern
+  4. Recommendations for improvement
+dependencies:
+  - "base_analysis:1.0.0"
+```
+          </example>
+        </asset_format>
+
+        <best_practices>
+          <versioning>
+            <rule>Increment MAJOR version for breaking changes</rule>
+            <rule>Increment MINOR version for new features</rule>
+            <rule>Increment PATCH version for bug fixes</rule>
+            <rule>Keep changelog entries in asset files</rule>
+          </versioning>
+
+          <organization>
+            <rule>Group related assets in logical collections</rule>
+            <rule>Use descriptive, consistent naming conventions</rule>
+            <rule>Include usage examples in descriptions</rule>
+            <rule>Document expected inputs and outputs</rule>
+          </organization>
+
+          <templates>
+            <prompt_template>
+```yaml
+name: "template_name"
+type: "prompt"
+version: "1.0.0"
+description: "Brief description"
+tags: ["tag1", "tag2"]
+content: |
+  # Role
+  You are a [role description]
+  
+  # Task
+  [Task description]
+  
+  # Context
+  {{context}}
+  
+  # Instructions
+  [Detailed instructions]
+```
+            </prompt_template>
+
+            <agent_template>
+```yaml
+name: "template_name"
+type: "agent"
+version: "1.0.0"
+description: "Brief description"
+tags: ["tag1", "tag2"]
+content:
+  role: "Agent role description"
+  capabilities:
+    - "capability1"
+    - "capability2"
+  initialization:
+    parameters:
+      param1: "default_value"
+  prompt_templates:
+    main: "prompt_name:1.0.0"
+    fallback: "fallback_prompt:1.0.0"
+```
+            </agent_template>
+
+            <workflow_template>
+```yaml
+name: "template_name"
+type: "workflow"
+version: "1.0.0"
+description: "Brief description"
+tags: ["tag1", "tag2"]
+content:
+  steps:
+    - name: "step1"
+      task: "task_name:1.0.0"
+      inputs:
+        param1: "{{workflow.inputs.param1}}"
+    - name: "step2"
+      task: "task_name:1.0.0"
+      inputs:
+        param1: "{{steps.step1.outputs.result}}"
+  outputs:
+    result: "{{steps.step2.outputs.result}}"
+```
+            </workflow_template>
+          </templates>
+        </best_practices>
+      </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <correct>
+        <description>Properly structured prompt asset</description>
+        <content>
+```yaml
+name: "customer_inquiry_prompt"
+type: "prompt"
+version: "1.0.0"
+description: "Handles customer inquiries about product features"
+tags: ["customer_service", "product", "inquiry"]
+author: "support_team"
+created_at: "2023-05-15T14:30:00Z"
+content: |
+  # Role
+  You are a helpful product specialist for our software platform.
+  
+  # Context
+  The customer is inquiring about {{feature}} functionality.
+  
+  Product documentation:
+  {{documentation}}
+  
+  # Instructions
+  1. Explain the requested feature in simple terms
+  2. Provide examples of how to use it
+  3. Mention any limitations or requirements
+  4. Suggest related features they might be interested in
+  
+  # Response Format
+  Your response should be friendly, clear, and structured with:
+  - Feature overview
+  - Usage examples
+  - Additional information
+```
+        </content>
+      </correct>
+      <incorrect>
+        <description>Poorly structured asset with missing fields</description>
+        <content>
+```yaml
+name: "basic_prompt"
+content: "Answer the question: {{question}}"
+```
+        </content>
+      </incorrect>
+    </example>
+  </examples>
+</rule>

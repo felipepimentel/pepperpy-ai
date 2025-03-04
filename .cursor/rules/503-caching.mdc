@@ -1,0 +1,798 @@
+---
+description: ALWAYS use when implementing or modifying caching components to ensure consistent patterns and performance optimization. This rule defines standards for caching strategies, invalidation, and configuration.
+globs: ["pepperpy/caching/**/*.py", "pepperpy/**/cache*.py"]
+version: 1.0
+priority: high
+tags: ["caching", "performance", "optimization", "storage"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>caching_standards</n>
+    <description>ALWAYS use when implementing or modifying caching components to ensure consistent patterns and performance optimization. This rule defines standards for caching strategies, invalidation, and configuration.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>caching</tag>
+      <tag>performance</tag>
+      <tag>optimization</tag>
+      <tag>storage</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_extension</type>
+      <pattern>\.py$</pattern>
+      <description>Match Python files</description>
+    </filter>
+    <filter>
+      <type>content</type>
+      <pattern>(?:Cache|Caching|cached|memoize|TTL)</pattern>
+      <description>Match files containing caching-related terms</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)class\s+\w+(?:Cache|CacheProvider|CacheStrategy)</pattern>
+          <message>Use consistent naming for cache-related components</message>
+        </condition>
+        <condition>
+          <pattern>(?s)from typing import .*?Optional.*?Dict</pattern>
+          <message>Include proper type annotations for cache operations</message>
+        </condition>
+        <condition>
+          <pattern>(?s)async def\s+get|async def\s+set|async def\s+delete|async def\s+clear</pattern>
+          <message>Cache operations should be async methods</message>
+        </condition>
+        <condition>
+          <pattern>(?s)def\s+invalidate|def\s+refresh|def\s+purge</pattern>
+          <message>Cache invalidation methods should follow standard naming</message>
+        </condition>
+        <condition>
+          <pattern>(?s)ttl\s*=|expiration\s*=|timeout\s*=</pattern>
+          <message>Include TTL or expiration parameters for cache entries</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <cache_strategies>
+          <strategy>
+            <n>LRU (Least Recently Used)</n>
+            <description>Cache strategy that evicts least recently used items first</description>
+            <use_case>General-purpose caching with memory constraints</use_case>
+            <implementation>
+              <![CDATA[
+from typing import Dict, Any, Optional, TypeVar, Generic
+from collections import OrderedDict
+import time
+from datetime import timedelta
+
+K = TypeVar('K')
+V = TypeVar('V')
+
+class LRUCache(Generic[K, V]):
+    """LRU Cache implementation for in-memory caching.
+    
+    This cache evicts least recently used items when it reaches
+    its maximum capacity.
+    """
+    
+    def __init__(self, max_size: int = 1000):
+        """Initialize LRU cache.
+        
+        Args:
+            max_size: Maximum number of items to store in the cache
+        """
+        self.max_size = max_size
+        self.cache: OrderedDict[K, tuple[V, float, Optional[float]]] = OrderedDict()
+        
+    async def get(self, key: K) -> Optional[V]:
+        """Get item from cache.
+        
+        Args:
+            key: Cache key
+            
+        Returns:
+            Cached value or None if not found or expired
+        """
+        if key not in self.cache:
+            return None
+            
+        value, created_at, ttl = self.cache[key]
+        
+        # Check for expiration
+        if ttl is not None and time.time() - created_at > ttl:
+            await self.delete(key)
+            return None
+            
+        # Move to end (most recently used)
+        self.cache.move_to_end(key)
+        return value
+        
+    async def set(
+        self, 
+        key: K, 
+        value: V, 
+        ttl: Optional[float] = None
+    ) -> None:
+        """Set item in cache.
+        
+        Args:
+            key: Cache key
+            value: Value to cache
+            ttl: Optional time-to-live in seconds
+        """
+        # Evict if at capacity
+        if len(self.cache) >= self.max_size and key not in self.cache:
+            self.cache.popitem(last=False)  # Remove least recently used
+            
+        # Store with creation timestamp
+        self.cache[key] = (value, time.time(), ttl)
+        self.cache.move_to_end(key)
+              ]]>
+            </implementation>
+          </strategy>
+          <strategy>
+            <n>TTL (Time To Live)</n>
+            <description>Cache strategy with expiration timing</description>
+            <use_case>Caching time-sensitive data</use_case>
+            <implementation>
+              <![CDATA[
+from typing import Dict, Any, Optional, TypeVar, Generic
+import time
+import asyncio
+from datetime import timedelta
+
+K = TypeVar('K')
+V = TypeVar('V')
+
+class TTLCache(Generic[K, V]):
+    """TTL-based cache implementation.
+    
+    This cache automatically expires entries after their TTL.
+    """
+    
+    def __init__(self, default_ttl: float = 300.0):
+        """Initialize TTL cache.
+        
+        Args:
+            default_ttl: Default time-to-live in seconds
+        """
+        self.default_ttl = default_ttl
+        self.cache: Dict[K, tuple[V, float, float]] = {}
+        self.cleanup_task = None
+        
+    async def start_cleanup(self, interval: float = 60.0) -> None:
+        """Start periodic cleanup of expired items.
+        
+        Args:
+            interval: Cleanup interval in seconds
+        """
+        if self.cleanup_task is not None:
+            return
+            
+        self.cleanup_task = asyncio.create_task(self._cleanup_loop(interval))
+        
+    async def _cleanup_loop(self, interval: float) -> None:
+        """Periodic cleanup loop for expired items."""
+        while True:
+            await asyncio.sleep(interval)
+            await self.purge_expired()
+              ]]>
+            </implementation>
+          </strategy>
+          <strategy>
+            <n>Distributed Cache</n>
+            <description>Cache strategy for multi-node environments</description>
+            <use_case>Scaling across multiple instances or nodes</use_case>
+            <implementation>
+              <![CDATA[
+from typing import Dict, Any, Optional, Union
+import json
+import aioredis
+from datetime import timedelta
+
+class RedisCache:
+    """Distributed cache implementation using Redis.
+    
+    This cache supports distributed operations across
+    multiple instances of the application.
+    """
+    
+    def __init__(
+        self, 
+        redis_url: str,
+        default_ttl: int = 300,
+        prefix: str = "cache:"
+    ):
+        """Initialize Redis cache.
+        
+        Args:
+            redis_url: Redis connection string
+            default_ttl: Default expiration time in seconds
+            prefix: Key prefix for namespacing
+        """
+        self.redis_url = redis_url
+        self.default_ttl = default_ttl
+        self.prefix = prefix
+        self.client = None
+        
+    async def initialize(self) -> None:
+        """Initialize Redis connection."""
+        self.client = await aioredis.from_url(self.redis_url)
+        
+    async def get(
+        self, 
+        key: str, 
+        default: Any = None
+    ) -> Any:
+        """Get value from cache.
+        
+        Args:
+            key: Cache key
+            default: Default value if key not found
+            
+        Returns:
+            Cached value or default if not found
+        """
+        if self.client is None:
+            await self.initialize()
+            
+        full_key = f"{self.prefix}{key}"
+        value = await self.client.get(full_key)
+        
+        if value is None:
+            return default
+            
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value.decode('utf-8')
+              ]]>
+            </implementation>
+          </strategy>
+        </cache_strategies>
+
+        <cache_decorators>
+          <rule>Implement function/method caching with decorators</rule>
+          <rule>Support both sync and async functions</rule>
+          <rule>Include parameter-based cache keys</rule>
+          <example>
+            <![CDATA[
+import functools
+import inspect
+import hashlib
+import json
+from typing import Any, Callable, Dict, Optional, TypeVar, cast, Union
+
+from pepperpy.caching.base import BaseCache
+from pepperpy.caching.memory import InMemoryCache
+
+F = TypeVar('F', bound=Callable[..., Any])
+T = TypeVar('T')
+
+def cached(
+    ttl: Optional[float] = None,
+    key_prefix: str = "",
+    cache: Optional[BaseCache] = None
+) -> Callable[[F], F]:
+    """Cache decorator for both sync and async functions.
+    
+    Args:
+        ttl: Time-to-live in seconds
+        key_prefix: Prefix for cache keys
+        cache: Cache instance to use (creates in-memory cache if None)
+        
+    Returns:
+        Decorated function with caching
+    """
+    # Create default cache if none provided
+    cache_instance = cache or InMemoryCache()
+    
+    def decorator(func: F) -> F:
+        """Decorate function with caching capability."""
+        is_async = inspect.iscoroutinefunction(func)
+        
+        @functools.wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Async wrapper for the function."""
+            # Generate cache key from function name and arguments
+            key = _generate_cache_key(func, key_prefix, args, kwargs)
+            
+            # Try to get from cache
+            cached_value = await cache_instance.get(key)
+            if cached_value is not None:
+                return cached_value
+                
+            # Execute function and cache result
+            result = await func(*args, **kwargs)
+            await cache_instance.set(key, result, ttl)
+            return result
+            
+        @functools.wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            """Sync wrapper for the function."""
+            # Generate cache key from function name and arguments
+            key = _generate_cache_key(func, key_prefix, args, kwargs)
+            
+            # Try to get from cache
+            import asyncio
+            cached_value = asyncio.run(cache_instance.get(key))
+            if cached_value is not None:
+                return cached_value
+                
+            # Execute function and cache result
+            result = func(*args, **kwargs)
+            asyncio.run(cache_instance.set(key, result, ttl))
+            return result
+            
+        if is_async:
+            return cast(F, async_wrapper)
+        return cast(F, sync_wrapper)
+        
+    return decorator
+    
+def _generate_cache_key(
+    func: Callable[..., Any],
+    prefix: str,
+    args: tuple[Any, ...],
+    kwargs: Dict[str, Any]
+) -> str:
+    """Generate cache key from function and arguments.
+    
+    Args:
+        func: The function being cached
+        prefix: Key prefix
+        args: Positional arguments
+        kwargs: Keyword arguments
+        
+    Returns:
+        Cache key string
+    """
+    # Convert arguments to JSON-serializable format
+    serialized_args = json.dumps(
+        [func.__module__, func.__name__, args, kwargs],
+        sort_keys=True,
+        default=str
+    )
+    
+    # Create hash of the serialized arguments
+    key_hash = hashlib.md5(serialized_args.encode()).hexdigest()
+    
+    # Combine prefix with hash
+    return f"{prefix}:{func.__module__}.{func.__name__}:{key_hash}"
+            ]]>
+          </example>
+        </cache_decorators>
+
+        <invalidation_strategies>
+          <rule>Implement both time-based and event-based invalidation</rule>
+          <rule>Support pattern-based key invalidation</rule>
+          <rule>Include versioning in cache keys</rule>
+          <example>
+            <![CDATA[
+from typing import List, Pattern, Optional, Set
+import re
+from datetime import datetime
+
+class CacheInvalidator:
+    """Cache invalidation manager.
+    
+    This component manages both time-based and event-based
+    cache invalidation strategies.
+    """
+    
+    def __init__(self, cache_provider: BaseCache):
+        """Initialize invalidator.
+        
+        Args:
+            cache_provider: The cache provider to use
+        """
+        self.cache = cache_provider
+        self.patterns: List[tuple[Pattern, str]] = []
+        self.last_invalidation = datetime.now()
+        self.version = 1
+        
+    def register_pattern(
+        self,
+        pattern: str,
+        event_type: str
+    ) -> None:
+        """Register invalidation pattern.
+        
+        Args:
+            pattern: Regex pattern for matching cache keys
+            event_type: Event that should trigger invalidation
+        """
+        compiled = re.compile(pattern)
+        self.patterns.append((compiled, event_type))
+        
+    async def invalidate_by_event(
+        self,
+        event_type: str,
+        related_keys: Optional[List[str]] = None
+    ) -> int:
+        """Invalidate cache entries based on event.
+        
+        Args:
+            event_type: Type of event that occurred
+            related_keys: Optional specific keys to invalidate
+            
+        Returns:
+            Number of invalidated cache entries
+        """
+        if related_keys:
+            # Directly invalidate specific keys
+            for key in related_keys:
+                await self.cache.delete(key)
+            return len(related_keys)
+        
+        # Find patterns matching the event type
+        matching_patterns = [
+            pattern for pattern, event in self.patterns
+            if event == event_type
+        ]
+        
+        # No patterns match this event
+        if not matching_patterns:
+            return 0
+            
+        # Get all cache keys
+        all_keys = await self.cache.get_keys()
+        
+        # Find keys matching patterns
+        to_invalidate: Set[str] = set()
+        for key in all_keys:
+            for pattern in matching_patterns:
+                if pattern.match(key):
+                    to_invalidate.add(key)
+                    break
+                    
+        # Invalidate matching keys
+        count = 0
+        for key in to_invalidate:
+            await self.cache.delete(key)
+            count += 1
+            
+        return count
+        
+    def get_versioned_key(self, key: str) -> str:
+        """Get versioned cache key.
+        
+        Args:
+            key: Original cache key
+            
+        Returns:
+            Versioned cache key
+        """
+        return f"v{self.version}:{key}"
+        
+    async def increment_version(self) -> None:
+        """Increment cache version, effectively invalidating all entries."""
+        self.version += 1
+        self.last_invalidation = datetime.now()
+            ]]>
+          </example>
+        </invalidation_strategies>
+
+        <monitoring>
+          <rule>Implement cache performance metrics</rule>
+          <rule>Track hit/miss rates</rule>
+          <rule>Monitor memory usage</rule>
+          <example>
+            <![CDATA[
+from typing import Dict, Any, Optional
+import time
+from datetime import datetime
+
+class MonitoredCache:
+    """Cache wrapper with performance monitoring.
+    
+    This wrapper adds monitoring capabilities to any cache implementation.
+    """
+    
+    def __init__(self, cache_provider: BaseCache):
+        """Initialize monitored cache.
+        
+        Args:
+            cache_provider: The cache provider to wrap
+        """
+        self.cache = cache_provider
+        self.metrics = {
+            "hits": 0,
+            "misses": 0,
+            "writes": 0,
+            "deletes": 0,
+            "errors": 0,
+            "hit_rate": 0.0,
+            "avg_latency_ms": 0.0,
+            "start_time": datetime.now()
+        }
+        self.latency_samples = []
+        
+    async def get(self, key: str, default: Any = None) -> Any:
+        """Get item from cache with monitoring.
+        
+        Args:
+            key: Cache key
+            default: Default value if key not found
+            
+        Returns:
+            Cached value or default if not found
+        """
+        start_time = time.time()
+        try:
+            value = await self.cache.get(key)
+            
+            # Update metrics
+            if value is not None:
+                self.metrics["hits"] += 1
+            else:
+                self.metrics["misses"] += 1
+                
+            # Calculate new hit rate
+            total = self.metrics["hits"] + self.metrics["misses"]
+            self.metrics["hit_rate"] = self.metrics["hits"] / total if total > 0 else 0
+            
+            return value if value is not None else default
+        except Exception:
+            self.metrics["errors"] += 1
+            raise
+        finally:
+            # Record latency
+            latency_ms = (time.time() - start_time) * 1000
+            self.latency_samples.append(latency_ms)
+            
+            # Keep only the last 100 samples
+            if len(self.latency_samples) > 100:
+                self.latency_samples.pop(0)
+                
+            # Update average latency
+            self.metrics["avg_latency_ms"] = sum(self.latency_samples) / len(self.latency_samples)
+            ]]>
+          </example>
+        </monitoring>
+      </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <correct>
+        <description>Well-implemented cache provider with proper async patterns</description>
+        <content>
+          <![CDATA[
+from typing import Dict, Any, Optional, List, Pattern, Union
+import re
+import time
+import json
+from abc import ABC, abstractmethod
+
+class CacheEntry:
+    """Represents a cache entry with metadata."""
+    
+    def __init__(
+        self,
+        value: Any,
+        ttl: Optional[float] = None
+    ):
+        """Initialize cache entry.
+        
+        Args:
+            value: The value to cache
+            ttl: Optional time-to-live in seconds
+        """
+        self.value = value
+        self.created_at = time.time()
+        self.ttl = ttl
+        self.last_accessed = time.time()
+        self.access_count = 0
+        
+    def is_expired(self) -> bool:
+        """Check if the entry has expired.
+        
+        Returns:
+            True if expired, False otherwise
+        """
+        if self.ttl is None:
+            return False
+        return time.time() - self.created_at > self.ttl
+        
+    def access(self) -> None:
+        """Update access stats when entry is accessed."""
+        self.last_accessed = time.time()
+        self.access_count += 1
+
+class MemoryCache:
+    """In-memory cache implementation with async interface.
+    
+    This cache provides a standard async interface for caching
+    with TTL support, bulk operations, and pattern-based operations.
+    """
+    
+    def __init__(self, max_size: int = 10000):
+        """Initialize memory cache.
+        
+        Args:
+            max_size: Maximum number of items to store
+        """
+        self.max_size = max_size
+        self.cache: Dict[str, CacheEntry] = {}
+        
+    async def get(self, key: str) -> Optional[Any]:
+        """Get item from cache.
+        
+        Args:
+            key: Cache key
+            
+        Returns:
+            Cached value or None if not found or expired
+        """
+        entry = self.cache.get(key)
+        
+        if entry is None:
+            return None
+            
+        if entry.is_expired():
+            await self.delete(key)
+            return None
+            
+        entry.access()
+        return entry.value
+        
+    async def set(
+        self, 
+        key: str, 
+        value: Any,
+        ttl: Optional[float] = None
+    ) -> None:
+        """Set item in cache.
+        
+        Args:
+            key: Cache key
+            value: Value to cache
+            ttl: Optional time-to-live in seconds
+        """
+        # Ensure we don't exceed max size
+        if len(self.cache) >= self.max_size and key not in self.cache:
+            # Evict least recently used item
+            lru_key = min(
+                self.cache.keys(),
+                key=lambda k: self.cache[k].last_accessed
+            )
+            await self.delete(lru_key)
+            
+        self.cache[key] = CacheEntry(value, ttl)
+        
+    async def delete(self, key: str) -> bool:
+        """Delete item from cache.
+        
+        Args:
+            key: Cache key
+            
+        Returns:
+            True if item was deleted, False if not found
+        """
+        if key in self.cache:
+            del self.cache[key]
+            return True
+        return False
+        
+    async def clear(self) -> None:
+        """Clear all items from cache."""
+        self.cache.clear()
+        
+    async def get_many(
+        self, 
+        keys: List[str]
+    ) -> Dict[str, Any]:
+        """Get multiple items from cache.
+        
+        Args:
+            keys: List of cache keys
+            
+        Returns:
+            Dictionary of found keys and their values
+        """
+        result = {}
+        for key in keys:
+            value = await self.get(key)
+            if value is not None:
+                result[key] = value
+        return result
+        
+    async def set_many(
+        self,
+        items: Dict[str, Any],
+        ttl: Optional[float] = None
+    ) -> None:
+        """Set multiple items in cache.
+        
+        Args:
+            items: Dictionary of keys and values to cache
+            ttl: Optional time-to-live in seconds
+        """
+        for key, value in items.items():
+            await self.set(key, value, ttl)
+            
+    async def delete_pattern(
+        self,
+        pattern: Union[str, Pattern]
+    ) -> int:
+        """Delete items matching a pattern.
+        
+        Args:
+            pattern: Regex pattern string or compiled pattern
+            
+        Returns:
+            Number of items deleted
+        """
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+            
+        keys_to_delete = [
+            key for key in self.cache.keys()
+            if pattern.match(key)
+        ]
+        
+        for key in keys_to_delete:
+            await self.delete(key)
+            
+        return len(keys_to_delete)
+        
+    async def get_keys(self) -> List[str]:
+        """Get all cache keys.
+        
+        Returns:
+            List of all keys in the cache
+        """
+        # Remove expired entries before returning keys
+        expired_keys = [
+            key for key, entry in self.cache.items()
+            if entry.is_expired()
+        ]
+        
+        for key in expired_keys:
+            await self.delete(key)
+            
+        return list(self.cache.keys())
+          ]]>
+        </content>
+      </correct>
+      <incorrect>
+        <description>Poorly implemented cache with blocking operations and no expiration</description>
+        <content>
+          <![CDATA[
+class SimpleCache:
+    def __init__(self):
+        self.data = {}
+    
+    def get(self, key):
+        # Blocking operation in async context
+        # No expiration check
+        # No type hints
+        # No metrics
+        return self.data.get(key)
+    
+    def set(self, key, value):
+        # No TTL support
+        # No capacity management
+        # No serialization handling
+        self.data[key] = value
+        
+    def clear(self):
+        self.data = {}
+          ]]>
+        </content>
+      </incorrect>
+    </example>
+  </examples>
+</rule> 

@@ -1,0 +1,866 @@
+---
+description: ALWAYS use when implementing or consuming integrations with external services and APIs to ensure consistent patterns, error handling, and maintainability. This rule defines standards for adapter implementations and service providers.
+globs: ["pepperpy/adapters/**/*.py", "pepperpy/**/providers/**/*.py", "pepperpy/cloud/**/*.py"]
+version: 1.0
+priority: high
+tags: ["integrations", "providers", "adapters", "cloud", "apis"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>external_integrations</n>
+    <description>ALWAYS use when implementing or consuming integrations with external services and APIs to ensure consistent patterns, error handling, and maintainability. This rule defines standards for adapter implementations and service providers.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>integrations</tag>
+      <tag>providers</tag>
+      <tag>adapters</tag>
+      <tag>cloud</tag>
+      <tag>apis</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_extension</type>
+      <pattern>\.py$</pattern>
+      <description>Match Python files</description>
+    </filter>
+    <filter>
+      <type>directory</type>
+      <pattern>providers/|adapters/|cloud/</pattern>
+      <description>Match files in provider or adapter directories</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)import\s+requests|import\s+aiohttp|import\s+httpx</pattern>
+          <message>Use appropriate client libraries for HTTP (aiohttp or httpx for async)</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Provider\((?!.*?Base\w+Provider)</pattern>
+          <message>Providers must inherit from appropriate base provider class</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Adapter\((?!.*?Base\w+Adapter)</pattern>
+          <message>Adapters must inherit from appropriate base adapter class</message>
+        </condition>
+        <condition>
+          <pattern>(?s)def\s+\w+\([^)]*\)\s*(?:->\s*\w+)?\s*:\s*(?!.*?(?:try:|self\.logger|logging))</pattern>
+          <message>Integration methods should include error handling and logging</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Config\((?!.*?BaseModel)</pattern>
+          <message>Provider configurations should use Pydantic models</message>
+        </condition>
+        <condition>
+          <pattern>(?s)(?:aiohttp|httpx)\.(?:ClientSession|AsyncClient)\([^)]*\)</pattern>
+          <message>Use connection pooling for HTTP clients</message>
+        </condition>
+        <condition>
+          <pattern>(?s)while\s+True.*?\s+await\s+asyncio\.sleep</pattern>
+          <message>Use exponential backoff for retries</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <integration_standards>
+          <error_handling>
+            <rule>Handle specific exceptions from external services</rule>
+            <rule>Implement exponential backoff for retries</rule>
+            <rule>Wrap external exceptions in framework-specific exceptions</rule>
+            <rule>Include detailed context in error messages</rule>
+            <example>
+              <![CDATA[
+from typing import Dict, Any, Optional
+import asyncio
+import random
+from pepperpy.core.exceptions import ProviderError, RateLimitError, AuthenticationError
+
+class ExternalServiceError(ProviderError):
+    """Base exception for external service errors."""
+    pass
+
+async def call_with_retry(
+    func,
+    *args,
+    max_retries: int = 3,
+    initial_delay: float = 1.0,
+    max_delay: float = 60.0,
+    jitter: float = 0.1,
+    retry_on: tuple = (RateLimitError,),
+    **kwargs
+) -> Any:
+    """Call a function with exponential backoff retry.
+    
+    Args:
+        func: Async function to call
+        *args: Positional arguments for the function
+        max_retries: Maximum number of retry attempts
+        initial_delay: Initial delay in seconds
+        max_delay: Maximum delay in seconds
+        jitter: Random jitter factor (0.0-1.0)
+        retry_on: Tuple of exceptions to retry on
+        **kwargs: Keyword arguments for the function
+        
+    Returns:
+        Result of the function call
+        
+    Raises:
+        Exception: The last exception raised by the function
+    """
+    delay = initial_delay
+    last_exception = None
+    
+    for attempt in range(max_retries + 1):
+        try:
+            return await func(*args, **kwargs)
+        except retry_on as e:
+            last_exception = e
+            if attempt == max_retries:
+                break
+                
+            # Calculate next delay with exponential backoff and jitter
+            jitter_amount = random.uniform(-jitter, jitter) * delay
+            delay = min(max_delay, delay * 2 + jitter_amount)
+            
+            # Log retry attempt
+            logger.warning(
+                f"Retrying after error: {e} (attempt {attempt+1}/{max_retries}, "
+                f"waiting {delay:.2f}s)"
+            )
+            
+            # Wait before retrying
+            await asyncio.sleep(delay)
+    
+    # If we get here, all retries failed
+    raise last_exception
+              ]]>
+            </example>
+          </error_handling>
+
+          <authentication>
+            <rule>Support multiple authentication methods</rule>
+            <rule>Use secure credential management</rule>
+            <rule>Implement token refresh</rule>
+            <rule>Support credential rotation</rule>
+            <example>
+              <![CDATA[
+from enum import Enum
+from typing import Dict, Any, Optional, Union
+from pydantic import BaseModel, Field, SecretStr
+from datetime import datetime, timedelta
+
+class AuthType(Enum):
+    """Authentication types supported by providers."""
+    
+    API_KEY = "api_key"
+    OAUTH = "oauth"
+    JWT = "jwt"
+    BASIC = "basic"
+    NONE = "none"
+    
+class AuthCredentials(BaseModel):
+    """Base class for authentication credentials."""
+    
+    auth_type: AuthType
+    
+class ApiKeyAuth(AuthCredentials):
+    """API key authentication."""
+    
+    auth_type: AuthType = Field(default=AuthType.API_KEY, const=True)
+    api_key: SecretStr
+    api_key_header: str = "X-API-Key"
+    
+class OAuthCredentials(AuthCredentials):
+    """OAuth authentication."""
+    
+    auth_type: AuthType = Field(default=AuthType.OAUTH, const=True)
+    client_id: str
+    client_secret: SecretStr
+    token_url: str
+    scope: str = ""
+    access_token: Optional[SecretStr] = None
+    refresh_token: Optional[SecretStr] = None
+    expires_at: Optional[datetime] = None
+    
+    def is_expired(self, buffer_seconds: int = 300) -> bool:
+        """Check if token is expired or about to expire."""
+        if not self.expires_at or not self.access_token:
+            return True
+        return datetime.now() > (self.expires_at - timedelta(seconds=buffer_seconds))
+
+class AuthManager:
+    """Manager for handling authentication."""
+    
+    def __init__(self, credentials: AuthCredentials):
+        """Initialize auth manager.
+        
+        Args:
+            credentials: Authentication credentials
+        """
+        self.credentials = credentials
+        
+    async def get_auth_headers(self) -> Dict[str, str]:
+        """Get authentication headers.
+        
+        Returns:
+            Dictionary of authentication headers
+        """
+        if self.credentials.auth_type == AuthType.API_KEY:
+            return self._get_api_key_headers()
+        elif self.credentials.auth_type == AuthType.OAUTH:
+            return await self._get_oauth_headers()
+        # Handle other auth types
+        return {}
+        
+    def _get_api_key_headers(self) -> Dict[str, str]:
+        """Get API key headers."""
+        creds = self.credentials
+        if not isinstance(creds, ApiKeyAuth):
+            raise ValueError("Invalid credential type")
+        return {creds.api_key_header: creds.api_key.get_secret_value()}
+        
+    async def _get_oauth_headers(self) -> Dict[str, str]:
+        """Get OAuth headers, refreshing token if necessary."""
+        creds = self.credentials
+        if not isinstance(creds, OAuthCredentials):
+            raise ValueError("Invalid credential type")
+            
+        if creds.is_expired():
+            await self.refresh_oauth_token()
+            
+        return {"Authorization": f"Bearer {creds.access_token.get_secret_value()}"}
+        
+    async def refresh_oauth_token(self) -> None:
+        """Refresh OAuth token if expired."""
+        creds = self.credentials
+        if not isinstance(creds, OAuthCredentials):
+            raise ValueError("Invalid credential type")
+            
+        # Implementation of token refresh logic
+              ]]>
+            </example>
+          </authentication>
+
+          <connection_management>
+            <rule>Use connection pooling for performance</rule>
+            <rule>Implement proper connection cleanup</rule>
+            <rule>Monitor connection status</rule>
+            <rule>Handle connection timeouts</rule>
+            <example>
+              <![CDATA[
+import asyncio
+import contextlib
+from typing import Dict, Any, Optional, AsyncGenerator
+import httpx
+from pepperpy.core.context import get_context
+
+class ConnectionManager:
+    """Manager for HTTP connections."""
+    
+    def __init__(self):
+        """Initialize connection manager."""
+        self._clients: Dict[str, httpx.AsyncClient] = {}
+        
+    @contextlib.asynccontextmanager
+    async def get_client(
+        self,
+        base_url: str,
+        timeout: float = 30.0,
+        headers: Optional[Dict[str, str]] = None
+    ) -> AsyncGenerator[httpx.AsyncClient, None]:
+        """Get HTTP client with connection pooling.
+        
+        Args:
+            base_url: Base URL for the client
+            timeout: Request timeout in seconds
+            headers: Default headers
+            
+        Yields:
+            HTTP client
+        """
+        client_key = f"{base_url}"
+        
+        # Create new client if not exists
+        if client_key not in self._clients:
+            self._clients[client_key] = httpx.AsyncClient(
+                base_url=base_url,
+                timeout=timeout,
+                headers=headers or {},
+                follow_redirects=True
+            )
+            
+        try:
+            yield self._clients[client_key]
+        except Exception as e:
+            # If connection error, remove client
+            if isinstance(e, (httpx.ConnectError, httpx.ReadTimeout)):
+                await self._cleanup_client(client_key)
+            raise
+            
+    async def _cleanup_client(self, client_key: str) -> None:
+        """Clean up a client connection."""
+        if client_key in self._clients:
+            client = self._clients.pop(client_key)
+            await client.aclose()
+            
+    async def close_all(self) -> None:
+        """Close all connections."""
+        for client_key, client in list(self._clients.items()):
+            await self._cleanup_client(client_key)
+            
+# Global connection manager
+_connection_manager = ConnectionManager()
+
+# Get shared connection manager
+def get_connection_manager() -> ConnectionManager:
+    """Get the global connection manager."""
+    return _connection_manager
+    
+# Cleanup on shutdown
+async def cleanup_connections() -> None:
+    """Clean up all connections on shutdown."""
+    await _connection_manager.close_all()
+              ]]>
+            </example>
+          </connection_management>
+        </integration_standards>
+
+        <provider_patterns>
+          <base_provider>
+            <rule>Implement common provider interface</rule>
+            <rule>Support configuration validation</rule>
+            <rule>Include health check method</rule>
+            <example>
+              <![CDATA[
+from abc import ABC, abstractmethod
+from typing import Dict, Any, Optional, Generic, TypeVar
+from pydantic import BaseModel, Field
+
+T = TypeVar('T', bound=BaseModel)
+
+class BaseServiceProvider(Generic[T], ABC):
+    """Base class for external service providers."""
+    
+    def __init__(
+        self,
+        config: T,
+        connection_timeout: float = 10.0,
+        operation_timeout: float = 30.0
+    ):
+        """Initialize service provider.
+        
+        Args:
+            config: Provider configuration
+            connection_timeout: Connection timeout in seconds
+            operation_timeout: Operation timeout in seconds
+        """
+        self.config = config
+        self.connection_timeout = connection_timeout
+        self.operation_timeout = operation_timeout
+        self.logger = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.auth_manager = self._create_auth_manager()
+        
+    def _create_auth_manager(self) -> AuthManager:
+        """Create authentication manager.
+        
+        Returns:
+            Authentication manager
+        """
+        return AuthManager(self.config.credentials)
+        
+    @abstractmethod
+    async def health_check(self) -> Dict[str, Any]:
+        """Check health of the service.
+        
+        Returns:
+            Health check results
+        """
+        pass
+        
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the provider.
+        
+        This method should be called before using the provider.
+        """
+        pass
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        pass
+              ]]>
+            </example>
+          </base_provider>
+
+          <implementation_practices>
+            <rule>Use pagination for large result sets</rule>
+            <rule>Implement throttling for rate limits</rule>
+            <rule>Cache responses when appropriate</rule>
+            <rule>Handle data format variations</rule>
+            <example>
+              <![CDATA[
+from typing import Dict, Any, List, Optional, AsyncIterator
+import asyncio
+from pepperpy.caching.memory import InMemoryCache
+
+async def paginated_request(
+    client: httpx.AsyncClient,
+    url: str,
+    params: Dict[str, Any],
+    page_param: str = "page",
+    limit_param: str = "limit",
+    items_per_page: int = 100,
+    max_items: Optional[int] = None,
+    result_key: Optional[str] = None
+) -> AsyncIterator[Dict[str, Any]]:
+    """Make paginated requests to an API.
+    
+    Args:
+        client: HTTP client
+        url: Request URL
+        params: Request parameters
+        page_param: Page parameter name
+        limit_param: Limit parameter name
+        items_per_page: Items per page
+        max_items: Maximum total items to return
+        result_key: Key containing items in response
+        
+    Yields:
+        API response items
+    """
+    page = 1
+    total_items = 0
+    has_more = True
+    
+    while has_more:
+        # Update params with pagination info
+        request_params = {
+            **params,
+            page_param: page,
+            limit_param: items_per_page
+        }
+        
+        # Make request
+        response = await client.get(url, params=request_params)
+        response.raise_for_status()
+        
+        # Parse response
+        data = response.json()
+        
+        # Extract items from response
+        items = data[result_key] if result_key else data
+        
+        # Check if we have more pages
+        current_page_count = len(items)
+        has_more = current_page_count == items_per_page
+        
+        # Yield each item
+        for item in items:
+            yield item
+            total_items += 1
+            
+            # Stop if we've reached max items
+            if max_items and total_items >= max_items:
+                has_more = False
+                break
+                
+        # Move to next page
+        page += 1
+        
+        # Implement throttling if needed
+        await asyncio.sleep(0.2)  # Basic throttling
+
+class RateLimiter:
+    """Rate limiter for API calls."""
+    
+    def __init__(
+        self,
+        calls_per_minute: int = 60,
+        burst: int = 5
+    ):
+        """Initialize rate limiter.
+        
+        Args:
+            calls_per_minute: Maximum calls per minute
+            burst: Maximum burst size
+        """
+        self.rate = calls_per_minute / 60.0  # calls per second
+        self.burst = burst
+        self.tokens = burst
+        self.last_time = 0.0
+        self.lock = asyncio.Lock()
+        
+    async def acquire(self) -> None:
+        """Acquire a token for making an API call."""
+        async with self.lock:
+            now = asyncio.get_event_loop().time()
+            
+            # Refill tokens based on time elapsed
+            if self.last_time > 0:
+                elapsed = now - self.last_time
+                self.tokens = min(self.burst, self.tokens + elapsed * self.rate)
+                
+            # If no tokens, wait until we have one
+            if self.tokens < 1:
+                wait_time = (1 - self.tokens) / self.rate
+                await asyncio.sleep(wait_time)
+                self.tokens = 1
+                
+            # Consume a token
+            self.tokens -= 1
+            self.last_time = now
+              ]]>
+            </example>
+          </implementation_practices>
+        </provider_patterns>
+
+        <adapter_patterns>
+          <rule>Transform external API responses to framework data models</rule>
+          <rule>Normalize error responses</rule>
+          <rule>Handle version differences in external APIs</rule>
+          <example>
+            <![CDATA[
+from typing import Dict, Any, List, Optional, Type, TypeVar, Generic
+from pydantic import BaseModel, create_model, Field
+from datetime import datetime
+
+T = TypeVar('T', bound=BaseModel)
+
+class AdapterResult(Generic[T]):
+    """Result of adapter operation with metadata."""
+    
+    def __init__(
+        self,
+        data: T,
+        meta: Dict[str, Any] = None,
+        raw_response: Optional[Dict[str, Any]] = None
+    ):
+        """Initialize adapter result.
+        
+        Args:
+            data: Adapted data
+            meta: Result metadata
+            raw_response: Original raw response
+        """
+        self.data = data
+        self.meta = meta or {}
+        self.raw_response = raw_response
+        
+class BaseAdapter(Generic[T]):
+    """Base class for adapting external API responses."""
+    
+    def __init__(
+        self,
+        target_model: Type[T],
+        field_mappings: Dict[str, str] = None
+    ):
+        """Initialize adapter.
+        
+        Args:
+            target_model: Model to adapt to
+            field_mappings: Mappings from external fields to model fields
+        """
+        self.target_model = target_model
+        self.field_mappings = field_mappings or {}
+        
+    def adapt(
+        self,
+        data: Dict[str, Any],
+        partial: bool = False
+    ) -> AdapterResult[T]:
+        """Adapt external data to target model.
+        
+        Args:
+            data: External data
+            partial: Whether to allow partial models
+            
+        Returns:
+            Adapted data with metadata
+        """
+        # Apply field mappings
+        mapped_data = self._apply_mappings(data)
+        
+        # Convert data types as needed
+        processed_data = self._process_fields(mapped_data)
+        
+        # Create model instance
+        if partial:
+            # Create a new model with all fields optional
+            fields = {
+                name: (Optional[field_type], None) 
+                for name, field_type in self.target_model.__annotations__.items()
+            }
+            partial_model = create_model(
+                f"Partial{self.target_model.__name__}",
+                **fields
+            )
+            model_instance = partial_model(**processed_data)
+            # Convert back to original model type
+            model_data = {k: v for k, v in model_instance.dict().items() if v is not None}
+            result = self.target_model(**model_data)
+        else:
+            result = self.target_model(**processed_data)
+            
+        # Return result with metadata
+        meta = self._extract_metadata(data)
+        return AdapterResult(data=result, meta=meta, raw_response=data)
+        
+    def _apply_mappings(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Apply field mappings to external data.
+        
+        Args:
+            data: External data
+            
+        Returns:
+            Mapped data
+        """
+        result = {}
+        for external_field, value in data.items():
+            # Get target field name (or use external field if no mapping)
+            target_field = self.field_mappings.get(external_field, external_field)
+            result[target_field] = value
+        return result
+        
+    def _process_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process fields for data type conversion.
+        
+        Args:
+            data: Mapped data
+            
+        Returns:
+            Processed data
+        """
+        # Default implementation just returns the data
+        # Subclasses should override to handle specific field conversions
+        return data
+        
+    def _extract_metadata(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract metadata from external data.
+        
+        Args:
+            data: External data
+            
+        Returns:
+            Metadata dictionary
+        """
+        # Default implementation extracts nothing
+        # Subclasses should override to extract relevant metadata
+        return {}
+              ]]>
+            </example>
+          </adapter_patterns>
+        </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <correct>
+        <description>Well-implemented provider with proper error handling and connection management</description>
+        <content>
+          <![CDATA[
+from typing import Dict, Any, List, Optional
+import logging
+import httpx
+from pydantic import BaseModel, Field, SecretStr
+
+from pepperpy.core.exceptions import ProviderError
+from pepperpy.adapters.base import BaseAdapter
+
+# Configuration model with validation
+class VectorDBConfig(BaseModel):
+    """Configuration for vector database provider."""
+    
+    api_key: SecretStr
+    base_url: str = "https://api.vectordb.example.com/v1"
+    dimension: int = 1536
+    index_name: str
+    namespace: Optional[str] = None
+    
+    class Config:
+        """Pydantic configuration."""
+        
+        extra = "forbid"  # Prevent extra fields
+
+# Provider implementation
+class VectorDBProvider:
+    """Provider for vector database service."""
+    
+    def __init__(self, config: VectorDBConfig):
+        """Initialize vector DB provider.
+        
+        Args:
+            config: Provider configuration
+        """
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+        self._client = None
+        
+    async def initialize(self) -> None:
+        """Initialize the provider.
+        
+        This method should be called before using the provider.
+        """
+        self._client = httpx.AsyncClient(
+            base_url=self.config.base_url,
+            timeout=30.0,
+            headers={
+                "Authorization": f"Api-Key {self.config.api_key.get_secret_value()}",
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        )
+        
+        # Verify connection and credentials
+        try:
+            await self.health_check()
+        except Exception as e:
+            await self.cleanup()
+            raise ProviderError(f"Failed to initialize vector database: {str(e)}") from e
+            
+        self.logger.info(f"Vector DB provider initialized with index: {self.config.index_name}")
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        if self._client:
+            await self._client.aclose()
+            self._client = None
+            
+    async def health_check(self) -> Dict[str, Any]:
+        """Check health of the service.
+        
+        Returns:
+            Health check results
+            
+        Raises:
+            ProviderError: If health check fails
+        """
+        try:
+            response = await self._client.get("/health")
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPStatusError as e:
+            raise ProviderError(f"Vector DB health check failed: {e.response.status_code}") from e
+        except httpx.RequestError as e:
+            raise ProviderError(f"Vector DB request failed: {str(e)}") from e
+            
+    async def query_vectors(
+        self,
+        query_vector: List[float],
+        top_k: int = 10,
+        filters: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Query vectors by similarity.
+        
+        Args:
+            query_vector: Query embedding vector
+            top_k: Number of results to return
+            filters: Optional metadata filters
+            
+        Returns:
+            List of similar vectors with metadata
+            
+        Raises:
+            ProviderError: If query fails
+        """
+        if not self._client:
+            raise ProviderError("Provider not initialized")
+            
+        # Validate inputs
+        if len(query_vector) != self.config.dimension:
+            raise ValueError(
+                f"Query vector dimension {len(query_vector)} does not match "
+                f"configured dimension {self.config.dimension}"
+            )
+            
+        # Prepare request
+        payload = {
+            "vector": query_vector,
+            "top_k": top_k,
+            "namespace": self.config.namespace,
+            "include_metadata": True
+        }
+        
+        if filters:
+            payload["filter"] = filters
+            
+        try:
+            # Send request
+            self.logger.debug(f"Querying vectors in index: {self.config.index_name}")
+            response = await self._client.post(
+                f"/indexes/{self.config.index_name}/query",
+                json=payload
+            )
+            response.raise_for_status()
+            
+            # Process response
+            result = response.json()
+            self.logger.debug(f"Retrieved {len(result.get('matches', []))} matches")
+            
+            return result.get("matches", [])
+        except httpx.HTTPStatusError as e:
+            self.logger.error(
+                f"Vector query failed: {e.response.status_code} - {e.response.text}"
+            )
+            raise ProviderError(f"Vector query failed: {e.response.text}") from e
+        except httpx.RequestError as e:
+            self.logger.error(f"Vector request failed: {str(e)}")
+            raise ProviderError(f"Vector request failed: {str(e)}") from e
+          ]]>
+        </content>
+      </correct>
+      <incorrect>
+        <description>Poorly implemented integration with bad practices</description>
+        <content>
+          <![CDATA[
+import requests
+import json
+import time
+
+# Bad practice: Hard-coded credentials
+API_KEY = "sk-1234567890abcdef"
+API_URL = "https://api.example.com"
+
+# Bad practice: No error handling
+def query_api(query):
+    # Bad practice: Creating new session for each request
+    # Bad practice: No timeouts
+    response = requests.get(
+        f"{API_URL}/search",
+        params={"q": query},
+        headers={"Authorization": f"Bearer {API_KEY}"}
+    )
+    
+    # Bad practice: No status code checking
+    return response.json()
+    
+# Bad practice: Custom retry logic without backoff
+def retry_query(query, max_attempts=3):
+    for i in range(max_attempts):
+        try:
+            return query_api(query)
+        except:
+            # Bad practice: Bare except
+            # Bad practice: No logging
+            # Bad practice: Fixed retry delay
+            time.sleep(1)
+            continue
+    
+    # Bad practice: Returning None on failure without indication
+    return None
+          ]]>
+        </content>
+      </incorrect>
+    </example>
+  </examples>
+</rule> 

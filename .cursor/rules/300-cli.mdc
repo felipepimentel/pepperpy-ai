@@ -1,0 +1,282 @@
+---
+title: CLI Module Rules
+description: Standards and best practices for the Pepperpy CLI module.
+globs: pepperpy/cli/**/*.py
+---
+
+# CLI Module Guidelines
+
+## Overview
+
+This document establishes standards and best practices for the Pepperpy CLI module.
+The CLI provides a command-line interface for interacting with Pepperpy's features through a modular, extensible architecture.
+
+## Directory Structure
+
+```plaintext
+pepperpy/cli/
+├── __init__.py          # Core CLI setup and base classes
+├── hub.py              # Hub-related commands
+├── providers.py        # Provider management commands
+├── memory.py          # Memory management commands
+├── search.py          # Search and indexing commands
+└── plugins/           # Custom plugin commands
+    └── __init__.py
+```
+
+## Core Components
+
+### 1. Base Classes
+
+```python
+class CommandGroup:
+    """Base class for CLI command groups."""
+    
+    name: str  # Group name (e.g., "hub", "provider")
+    help: str  # Help text for the group
+    
+    @classmethod
+    def get_command_group(cls) -> click.Group:
+        """Get the Click command group."""
+        raise NotImplementedError
+```
+
+### 2. CLI Manager
+
+```python
+class CLIManager:
+    """Manages CLI command groups and plugins."""
+    
+    _groups: Dict[str, Type[CommandGroup]] = {}
+    
+    @classmethod
+    def register_group(cls, group: Type[CommandGroup]) -> None:
+        """Register a command group."""
+        cls._groups[group.name] = group
+```
+
+## Command Structure Rules
+
+1. **Group Organization**
+   - Each major feature should have its own command group
+   - Groups must inherit from `CommandGroup`
+   - Groups must be registered with `CLIManager`
+
+2. **Command Naming**
+   - Use kebab-case for command names (e.g., `list-providers`)
+   - Group related commands under subcommands
+   - Follow the pattern: `<group> <command> [subcommand]`
+
+3. **Options and Arguments**
+   - Use short (-x) and long (--xxx) options
+   - Required parameters should be arguments
+   - Optional parameters should be options
+   - Include help text for all parameters
+
+Example:
+```python
+@click.command()
+@click.argument("name")
+@click.option("--type", "-t", help="Resource type")
+@click.option("--force", "-f", is_flag=True, help="Force operation")
+def create_resource(name: str, type: str, force: bool):
+    """Create a new resource."""
+    pass
+```
+
+## Error Handling
+
+1. **Consistent Error Messages**
+   ```python
+   try:
+       # Operation logic
+   except Exception as e:
+       logger.error(
+           "Operation failed",
+           error=str(e),
+           operation="create_resource",
+           params={"name": name, "type": type}
+       )
+       click.echo(f"Error: {str(e)}")
+   ```
+
+2. **Exit Codes**
+   - 0: Success
+   - 1: General error
+   - 2: Invalid usage
+   - 3: Configuration error
+   - 4: Permission error
+
+## Output Formatting
+
+1. **Standard Output Format**
+   ```python
+   def format_output(title: str, content: Any) -> None:
+       """Format CLI output consistently."""
+       click.echo(f"\n{title}:")
+       click.echo("=" * 80)
+       # Format content based on type
+       click.echo(format_content(content))
+   ```
+
+2. **Progress Indicators**
+   ```python
+   with click.progressbar(
+       items,
+       label="Processing",
+       length=len(items)
+   ) as bar:
+       for item in bar:
+           process_item(item)
+   ```
+
+## Documentation Requirements
+
+1. **Command Help**
+   - Brief description in command decorator
+   - Detailed help in function docstring
+   - Examples in docstring
+
+```python
+@click.command()
+@click.argument("index_name")
+def optimize_index(index_name: str) -> None:
+    """Optimize a search index for better performance.
+    
+    Detailed help text that explains:
+    - What the command does
+    - When to use it
+    - Side effects or warnings
+    
+    Example:
+        $ pepperpy search optimize my-index
+    """
+    pass
+```
+
+2. **Group Help**
+   - Overview of group purpose
+   - List of available commands
+   - Common usage patterns
+
+## Configuration Integration
+
+1. **Environment Variables**
+   - Use `PEPPERPY_` prefix
+   - Support both CLI options and env vars
+   - Document all supported variables
+
+```python
+@click.option(
+    "--api-key",
+    envvar="PEPPERPY_API_KEY",
+    help="API key for authentication"
+)
+```
+
+2. **Configuration Files**
+   - Support loading from config files
+   - Allow overriding via CLI options
+   - Validate configuration values
+
+## Testing Requirements
+
+1. **Test Categories**
+   - Unit tests for command logic
+   - Integration tests for full CLI
+   - Click testing utilities
+
+```python
+def test_command_output(cli_runner):
+    """Test command output format."""
+    result = cli_runner.invoke(
+        cli,
+        ["search", "list"]
+    )
+    assert result.exit_code == 0
+    assert "Available Indexes" in result.output
+```
+
+2. **Coverage Requirements**
+   - 100% coverage for command parameters
+   - Test all error scenarios
+   - Test help text generation
+
+## Plugin System
+
+1. **Plugin Structure**
+   ```python
+   class CustomCommandGroup(CommandGroup):
+       """Custom plugin commands."""
+       
+       name = "custom"
+       help = "Custom plugin commands"
+       
+       @classmethod
+       def get_command_group(cls) -> click.Group:
+           """Get the custom command group."""
+           @click.group(name=cls.name, help=cls.help)
+           def custom():
+               """Custom plugin commands."""
+               pass
+           
+           # Add commands
+           custom.add_command(cls.command1)
+           custom.add_command(cls.command2)
+           
+           return custom
+   ```
+
+2. **Plugin Registration**
+   ```python
+   # Register plugin commands
+   CLIManager.register_group(CustomCommandGroup)
+   ```
+
+## Security Guidelines
+
+1. **Input Validation**
+   - Validate all user inputs
+   - Sanitize file paths
+   - Check permissions before operations
+
+2. **Sensitive Data**
+   - Never log sensitive data
+   - Use secure prompts for passwords
+   - Support credential files
+
+## Performance Guidelines
+
+1. **Lazy Loading**
+   - Load resources on demand
+   - Use async operations when appropriate
+   - Support pagination for large datasets
+
+2. **Resource Cleanup**
+   - Clean up temporary files
+   - Close connections properly
+   - Handle interrupts gracefully
+
+## Monitoring Integration
+
+1. **Logging**
+   - Use structured logging
+   - Include operation context
+   - Log appropriate levels
+
+2. **Metrics**
+   - Track command usage
+   - Measure operation duration
+   - Record error rates
+
+## Version Management
+
+1. **Command Versioning**
+   - Support multiple versions
+   - Deprecate old commands properly
+   - Provide migration paths
+
+2. **Compatibility**
+   - Document breaking changes
+   - Support backward compatibility
+   - Version command groups 

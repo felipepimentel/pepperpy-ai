@@ -1,0 +1,582 @@
+---
+description: ALWAYS use when developing or modifying workflow components to ensure consistent patterns and reusability. This rule defines standards for workflow definition, execution, and composition.
+globs: ["pepperpy/workflows/**/*.py", "pepperpy/**/workflow*.py", "pepperpy/**/pipeline*.py"]
+version: 1.0
+priority: high
+tags: ["workflows", "pipeline", "orchestration", "execution", "tasks"]
+---
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rule>
+  <metadata>
+    <n>workflow_standards</n>
+    <description>ALWAYS use when developing or modifying workflow components to ensure consistent patterns and reusability. This rule defines standards for workflow definition, execution, and composition.</description>
+    <priority>high</priority>
+    <version>1.0</version>
+    <tags>
+      <tag>workflows</tag>
+      <tag>pipeline</tag>
+      <tag>orchestration</tag>
+      <tag>execution</tag>
+      <tag>tasks</tag>
+    </tags>
+  </metadata>
+
+  <filters>
+    <filter>
+      <type>file_extension</type>
+      <pattern>\.py$</pattern>
+      <description>Match Python files</description>
+    </filter>
+    <filter>
+      <type>directory</type>
+      <pattern>pepperpy/workflows/</pattern>
+      <description>Match files in the workflows module</description>
+    </filter>
+  </filters>
+
+  <actions>
+    <action>
+      <type>validate</type>
+      <conditions>
+        <condition>
+          <pattern>(?s)class\s+\w+(?:Workflow|Task|Step|Pipeline|Executor|Scheduler)</pattern>
+          <message>Use consistent naming for workflow-related components</message>
+        </condition>
+        <condition>
+          <pattern>(?s)from typing import .*?Protocol.*?from</pattern>
+          <message>Use Protocol for interface definitions</message>
+        </condition>
+        <condition>
+          <pattern>(?s)async def\s+execute|async def\s+run|async def\s+process</pattern>
+          <message>Execution methods should be async</message>
+        </condition>
+        <condition>
+          <pattern>(?s)def\s+add_step|def\s+add_task|def\s+register_task</pattern>
+          <message>Task registration methods should follow standard naming</message>
+        </condition>
+        <condition>
+          <pattern>(?s)def\s+on_success|def\s+on_failure|def\s+on_completion</pattern>
+          <message>Event handlers should follow standard naming</message>
+        </condition>
+        <condition>
+          <pattern>(?s)class\s+\w+Config\(BaseModel\)</pattern>
+          <message>Use Pydantic models for workflow configuration</message>
+        </condition>
+        <condition>
+          <pattern>(?s)from pydantic import .*?Field</pattern>
+          <message>Use Pydantic Field for configuration validation</message>
+        </condition>
+      </conditions>
+    </action>
+    <action>
+      <type>suggest</type>
+      <guidelines>
+        <architecture>
+          <component_types>
+            <type>
+              <n>Task</n>
+              <description>Atomic unit of work that performs a specific operation</description>
+              <key_methods>
+                <method>execute</method>
+                <method>validate_inputs</method>
+                <method>get_outputs</method>
+              </key_methods>
+            </type>
+            <type>
+              <n>Workflow</n>
+              <description>Composition of tasks with defined execution flow</description>
+              <key_methods>
+                <method>add_task</method>
+                <method>run</method>
+                <method>on_completion</method>
+              </key_methods>
+            </type>
+            <type>
+              <n>Pipeline</n>
+              <description>Linear sequence of tasks with data flowing between them</description>
+              <key_methods>
+                <method>add_step</method>
+                <method>execute</method>
+                <method>process_results</method>
+              </key_methods>
+            </type>
+            <type>
+              <n>Executor</n>
+              <description>Runtime environment for tasks and workflows</description>
+              <key_methods>
+                <method>submit</method>
+                <method>wait</method>
+                <method>cancel</method>
+              </key_methods>
+            </type>
+            <type>
+              <n>Scheduler</n>
+              <description>Manages timing and triggers for workflow execution</description>
+              <key_methods>
+                <method>schedule</method>
+                <method>cancel_scheduled</method>
+                <method>get_schedule</method>
+              </key_methods>
+            </type>
+          </component_types>
+        </architecture>
+
+        <standards>
+          <task_design>
+            <rule>Implement idempotent tasks when possible</rule>
+            <rule>Define clear input/output contracts</rule>
+            <rule>Provide meaningful error messages</rule>
+            <example>
+              <![CDATA[
+from pydantic import BaseModel, Field
+from typing import Dict, Any, List, Optional
+from pepperpy.workflows.base import Task, TaskResult
+
+class TextProcessingConfig(BaseModel):
+    min_length: int = Field(default=10, description="Minimum text length to process")
+    max_tokens: int = Field(default=1000, description="Maximum tokens to process")
+    filters: List[str] = Field(default_factory=list, description="Text filters to apply")
+
+class TextProcessingTask(Task):
+    """Process text with configurable filters and limits.
+    
+    This task handles text processing with standardized configuration
+    and clear input/output contracts.
+    """
+    
+    def __init__(self, config: Optional[TextProcessingConfig] = None):
+        self.config = config or TextProcessingConfig()
+        
+    async def execute(self, inputs: Dict[str, Any]) -> TaskResult:
+        """Execute the text processing task.
+        
+        Args:
+            inputs: Dictionary containing 'text' key with input text
+            
+        Returns:
+            TaskResult with processed text and metadata
+            
+        Raises:
+            ValueError: If required inputs are missing
+        """
+        # Validate inputs
+        if 'text' not in inputs:
+            raise ValueError("Input must contain 'text' key")
+            
+        text = inputs['text']
+        
+        # Apply processing logic
+        processed_text = self._apply_filters(text)
+        
+        # Return result
+        return TaskResult(
+            outputs={'processed_text': processed_text},
+            metadata={
+                'original_length': len(text),
+                'processed_length': len(processed_text),
+                'filters_applied': self.config.filters
+            }
+        )
+        
+    def _apply_filters(self, text: str) -> str:
+        # Implementation of filtering logic
+        result = text
+        
+        for filter_name in self.config.filters:
+            # Apply each filter
+            pass
+            
+        return result
+              ]]>
+            </example>
+          </task_design>
+
+          <workflow_composition>
+            <rule>Support both sequential and parallel execution</rule>
+            <rule>Implement proper error handling and recovery</rule>
+            <rule>Allow conditional branching based on task results</rule>
+            <example>
+              <![CDATA[
+from typing import Dict, Any, List, Optional, Union, Callable
+from pepperpy.workflows.base import Workflow, Task, TaskResult, ExecutionError
+
+class DataProcessingWorkflow(Workflow):
+    """Data processing workflow with parallel and sequential steps.
+    
+    This workflow demonstrates composition of tasks with proper
+    error handling and conditional branches.
+    """
+    
+    def __init__(self, name: str):
+        super().__init__(name=name)
+        self.tasks = []
+        self.error_handlers = {}
+        self.conditional_branches = {}
+        
+    def add_task(
+        self, 
+        task: Task, 
+        depends_on: Optional[List[str]] = None,
+        error_handler: Optional[Callable[[ExecutionError], None]] = None,
+        condition: Optional[Callable[[Dict[str, Any]], bool]] = None
+    ) -> None:
+        """Add a task to the workflow.
+        
+        Args:
+            task: The task to add
+            depends_on: Optional list of task names this task depends on
+            error_handler: Optional function to handle task errors
+            condition: Optional function to determine if task should run
+        """
+        task_id = f"task_{len(self.tasks)}"
+        self.tasks.append({
+            'id': task_id,
+            'task': task,
+            'depends_on': depends_on or []
+        })
+        
+        if error_handler:
+            self.error_handlers[task_id] = error_handler
+            
+        if condition:
+            self.conditional_branches[task_id] = condition
+            
+    async def run(self, initial_inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Run the workflow with the provided inputs.
+        
+        Args:
+            initial_inputs: Initial inputs to the workflow
+            
+        Returns:
+            Combined outputs from all tasks
+            
+        Raises:
+            WorkflowExecutionError: If workflow execution fails
+        """
+        # Implementation of workflow execution logic
+        results = {}
+        task_outputs = {}
+        task_outputs.update(initial_inputs)
+        
+        # Build execution plan based on dependencies
+        execution_plan = self._build_execution_plan()
+        
+        # Execute tasks according to plan
+        for task_batch in execution_plan:
+            batch_results = await self._execute_task_batch(
+                task_batch, task_outputs
+            )
+            task_outputs.update(batch_results)
+            
+        # Process and return final results
+        return self._process_final_results(task_outputs)
+        
+    async def _execute_task_batch(
+        self,
+        task_batch: List[Dict[str, Any]],
+        current_outputs: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Execute a batch of tasks in parallel.
+        
+        Args:
+            task_batch: List of tasks to execute
+            current_outputs: Current accumulated outputs
+            
+        Returns:
+            Outputs from this batch of tasks
+        """
+        # Implementation of parallel task execution
+        pass
+              ]]>
+            </example>
+          </workflow_composition>
+
+          <execution_monitoring>
+            <rule>Implement progress tracking and status reporting</rule>
+            <rule>Log relevant execution metrics</rule>
+            <rule>Support cancellation and timeout</rule>
+            <example>
+              <![CDATA[
+from typing import Dict, Any, List, Optional, Callable
+import asyncio
+import time
+from datetime import datetime
+from pepperpy.workflows.base import Executor, Task, WorkflowStatus
+
+class AsyncExecutor(Executor):
+    """Asynchronous executor for tasks and workflows.
+    
+    This executor provides execution monitoring, cancellation,
+    and progress reporting.
+    """
+    
+    def __init__(
+        self,
+        max_concurrency: int = 10,
+        default_timeout: float = 60.0
+    ):
+        self.max_concurrency = max_concurrency
+        self.default_timeout = default_timeout
+        self.running_tasks = {}
+        self.semaphore = asyncio.Semaphore(max_concurrency)
+        
+    async def submit(
+        self,
+        task: Task,
+        inputs: Dict[str, Any],
+        task_id: Optional[str] = None,
+        timeout: Optional[float] = None,
+        progress_callback: Optional[Callable[[str, float], None]] = None
+    ) -> str:
+        """Submit a task for execution.
+        
+        Args:
+            task: The task to execute
+            inputs: Task inputs
+            task_id: Optional task identifier
+            timeout: Optional execution timeout
+            progress_callback: Optional progress reporting callback
+            
+        Returns:
+            Task ID for tracking
+        """
+        # Generate task ID if not provided
+        task_id = task_id or f"task_{int(time.time())}_{id(task)}"
+        
+        # Create task execution coroutine
+        execution_coro = self._execute_with_monitoring(
+            task_id,
+            task,
+            inputs,
+            timeout or self.default_timeout,
+            progress_callback
+        )
+        
+        # Store task and start execution
+        task_obj = asyncio.create_task(execution_coro)
+        self.running_tasks[task_id] = {
+            'task': task_obj,
+            'status': WorkflowStatus.RUNNING,
+            'start_time': datetime.now(),
+            'progress': 0.0
+        }
+        
+        return task_id
+        
+    async def _execute_with_monitoring(
+        self,
+        task_id: str,
+        task: Task,
+        inputs: Dict[str, Any],
+        timeout: float,
+        progress_callback: Optional[Callable[[str, float], None]]
+    ) -> Any:
+        """Execute task with monitoring and timeout.
+        
+        Args:
+            task_id: Task identifier
+            task: Task to execute
+            inputs: Task inputs
+            timeout: Execution timeout
+            progress_callback: Progress reporting callback
+            
+        Returns:
+            Task execution result
+        """
+        # Implementation of monitored task execution
+        pass
+              ]]>
+            </example>
+          </execution_monitoring>
+        </standards>
+      </guidelines>
+    </action>
+  </actions>
+
+  <examples>
+    <example>
+      <correct>
+        <description>Complete implementation of a workflow composition</description>
+        <content>
+          <![CDATA[
+from typing import Dict, Any, List, Optional
+from pydantic import BaseModel, Field
+from pepperpy.workflows.base import Workflow, Task, TaskResult
+
+class DataProcessingConfig(BaseModel):
+    """Configuration for the data processing pipeline."""
+    
+    max_items: int = Field(default=100, description="Maximum items to process")
+    batch_size: int = Field(default=10, description="Number of items per batch")
+    parallelism: int = Field(default=2, description="Number of parallel processing tasks")
+
+class DataProcessingWorkflow(Workflow):
+    """Data processing workflow with configurable steps.
+    
+    This workflow demonstrates proper composition of tasks,
+    error handling, and result management.
+    """
+    
+    def __init__(
+        self,
+        config: Optional[DataProcessingConfig] = None,
+        name: str = "data_processing"
+    ):
+        """Initialize data processing workflow.
+        
+        Args:
+            config: Configuration for the workflow
+            name: Name of the workflow
+        """
+        super().__init__(name=name)
+        self.config = config or DataProcessingConfig()
+        self.fetch_task = None
+        self.process_tasks = []
+        self.aggregation_task = None
+        
+    def configure(
+        self,
+        fetch_task: Task,
+        process_task_factory: callable,
+        aggregation_task: Task
+    ) -> None:
+        """Configure the workflow tasks.
+        
+        Args:
+            fetch_task: Task to fetch initial data
+            process_task_factory: Factory function to create processing tasks
+            aggregation_task: Task to aggregate results
+        """
+        self.fetch_task = fetch_task
+        
+        # Create processing tasks based on parallelism config
+        for i in range(self.config.parallelism):
+            self.process_tasks.append(process_task_factory(
+                name=f"process_{i}",
+                batch_size=self.config.batch_size
+            ))
+            
+        self.aggregation_task = aggregation_task
+        
+    async def run(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Run the workflow with provided inputs.
+        
+        Args:
+            inputs: Initial inputs for the workflow
+            
+        Returns:
+            Final workflow outputs
+            
+        Raises:
+            WorkflowConfigError: If workflow is not configured
+            WorkflowExecutionError: If execution fails
+        """
+        if not self.fetch_task or not self.process_tasks or not self.aggregation_task:
+            raise ValueError("Workflow not fully configured")
+            
+        try:
+            # Step 1: Fetch data
+            self.logger.info(f"Starting data fetch for workflow {self.name}")
+            fetch_result = await self.fetch_task.execute(inputs)
+            
+            # Step 2: Process data in parallel batches
+            raw_items = fetch_result.outputs.get('items', [])
+            limited_items = raw_items[:self.config.max_items]
+            
+            # Distribute items across processing tasks
+            batches = self._create_batches(limited_items)
+            processing_results = []
+            
+            for i, batch in enumerate(batches):
+                task_index = i % len(self.process_tasks)
+                process_task = self.process_tasks[task_index]
+                
+                batch_result = await process_task.execute({
+                    'items': batch,
+                    'batch_id': i
+                })
+                
+                processing_results.append(batch_result.outputs)
+                
+            # Step 3: Aggregate results
+            aggregation_result = await self.aggregation_task.execute({
+                'processing_results': processing_results,
+                'original_count': len(raw_items),
+                'processed_count': len(limited_items)
+            })
+            
+            self.logger.info(f"Workflow {self.name} completed successfully")
+            return aggregation_result.outputs
+            
+        except Exception as e:
+            self.logger.error(f"Workflow {self.name} failed: {str(e)}")
+            await self.on_failure(e, inputs)
+            raise
+            
+    def _create_batches(self, items: List[Any]) -> List[List[Any]]:
+        """Split items into batches for parallel processing.
+        
+        Args:
+            items: List of items to process
+            
+        Returns:
+            List of batches
+        """
+        batches = []
+        for i in range(0, len(items), self.config.batch_size):
+            batch = items[i:i + self.config.batch_size]
+            batches.append(batch)
+        return batches
+    
+    async def on_failure(self, error: Exception, inputs: Dict[str, Any]) -> None:
+        """Handle workflow failure.
+        
+        Args:
+            error: Exception that caused the failure
+            inputs: Inputs that were provided to the workflow
+        """
+        # Log detailed error information
+        self.logger.error(
+            f"Workflow {self.name} failed with error: {str(error)}",
+            extra={
+                'workflow': self.name,
+                'error_type': type(error).__name__,
+                'inputs': inputs
+            }
+        )
+          ]]>
+        </content>
+      </correct>
+      <incorrect>
+        <description>Poor implementation with inconsistent patterns and error handling</description>
+        <content>
+          <![CDATA[
+class SimpleWorkflow:
+    def __init__(self, name):
+        self.name = name
+        self.steps = []
+    
+    def add_step(self, step_func):
+        # No typing, no clear contract
+        # Missing error handling
+        # No support for dependencies
+        self.steps.append(step_func)
+    
+    def run(self, data):
+        # Synchronous execution only
+        # No proper error handling
+        # No status reporting
+        results = []
+        for step in self.steps:
+            result = step(data)
+            results.append(result)
+            data = result  # Direct chaining without validation
+            
+        return results[-1]  # Only returns last result
+          ]]>
+        </content>
+      </incorrect>
+    </example>
+  </examples>
+</rule> 
