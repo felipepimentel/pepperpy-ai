@@ -1,375 +1,410 @@
-#!/usr/bin/env python
-"""News Podcast Generator Example.
+#!/usr/bin/env python3
+"""News Podcast Generator
 
-This example demonstrates how to use PepperPy to create a news podcast:
-1. Fetch news articles from an RSS feed
-2. Summarize the articles using LLM
-3. Convert the summaries to speech
-4. Combine the audio files into a podcast
+Este exemplo demonstra como criar um gerador de podcast de notícias.
 
-Usage:
-    poetry run python -m examples.news_podcast.news_podcast --feed <feed_url> --output <output_file>
+Funcionalidades:
+1. Busca artigos de notícias de um feed RSS
+2. Resume os artigos usando um modelo de linguagem (OpenAI)
+3. Converte os resumos em áudio usando síntese de voz (gTTS)
+4. Combina os arquivos de áudio em um podcast
+
+Como usar:
+Para executar o exemplo, use o seguinte comando:
+```bash
+python -m examples.news_podcast.news_podcast --feed https://news.google.com/rss --output example_output/podcast.mp3 --max-articles 3
+```
+
+Parâmetros disponíveis:
+- `--feed`: URL do feed RSS (padrão: https://news.google.com/rss)
+- `--output`: Caminho para salvar o podcast (padrão: example_output/news_podcast.mp3)
+- `--max-articles`: Número máximo de artigos a incluir (padrão: 5)
+- `--voice`: Nome da voz a ser usada (padrão: en)
+
+Requisitos:
+- Python 3.10+
+- Bibliotecas: feedparser, openai, gtts, pydub, python-dotenv
+- Chaves de API configuradas no arquivo .env:
+  - OPENAI_API_KEY ou OPENROUTER_API_KEY para o LLM
+  - ELEVENLABS_API_KEY para síntese de voz (opcional, usa gTTS como fallback)
 """
 
 import argparse
 import asyncio
+import json
 import logging
 import os
 import tempfile
+from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import feedparser
+import requests
+from dotenv import load_dotenv
+from gtts import gTTS
+from openai import AsyncOpenAI
 from pydub import AudioSegment
 
-from pepperpy.agents.base import AgentConfig, BaseAgent
-
-# Import from PepperPy library
-from pepperpy.llm.providers.base import get_llm_provider
-from pepperpy.llm.providers.base.types import CompletionOptions, MessageRole
-from pepperpy.multimodal.synthesis.base import VoiceConfig
-from pepperpy.multimodal.synthesis.providers.google_tts import GoogleTTSProvider
-from pepperpy.observability.logging import get_logger
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
 # Configure logging
-logger = get_logger("news_podcast")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Default values
+DEFAULT_FEED_URL = "https://news.google.com/rss"
+# Define o caminho para a pasta example_output dentro do diretório do exemplo
+EXAMPLE_DIR = Path(__file__).parent
+OUTPUT_DIR = EXAMPLE_DIR / "example_output"
+DEFAULT_OUTPUT_PATH = str(OUTPUT_DIR / "news_podcast.mp3")
+
+# Garantir que a pasta example_output exista
+OUTPUT_DIR.mkdir(exist_ok=True)
+DEFAULT_MAX_ARTICLES = 5
+DEFAULT_VOICE_NAME = "en"  # Idioma padrão para gTTS
 
 
+@dataclass
 class NewsArticle:
     """Represents a news article."""
 
-    def __init__(self, title: str, link: str, summary: str, published: str):
-        """Initialize a news article.
-
-        Args:
-            title: The title of the article
-            link: The URL of the article
-            summary: The summary of the article
-            published: The publication date
-        """
-        self.title = title
-        self.link = link
-        self.summary = summary
-        self.published = published
+    title: str
+    link: str
+    summary: str
+    published: Optional[datetime] = None
 
 
-class NewsFetcherAgent(BaseAgent):
-    """Agent for fetching news articles from an RSS feed."""
+async def fetch_news(
+    feed_url: str, max_articles: int = DEFAULT_MAX_ARTICLES
+) -> List[NewsArticle]:
+    """Fetch news articles from the RSS feed.
 
-    def __init__(self, feed_url: str, max_articles: int = 5):
-        """Initialize news fetcher agent.
+    Args:
+        feed_url: URL of the RSS feed
+        max_articles: Maximum number of articles to fetch
 
-        Args:
-            feed_url: URL of the RSS feed
-            max_articles: Maximum number of articles to fetch
-        """
-        config = AgentConfig(
-            name="news_fetcher",
-            description="Fetches news articles from an RSS feed",
-            metadata={"feed_url": feed_url, "max_articles": max_articles},
-        )
-        super().__init__(config)
-        self.feed_url = feed_url
-        self.max_articles = max_articles
+    Returns:
+        List of news articles
+    """
+    logger.info(f"Fetching news from {feed_url}")
+    try:
+        # Parse the RSS feed
+        feed = feedparser.parse(feed_url)
 
-    async def _initialize(self) -> None:
-        """Initialize the agent."""
-        logger.info(f"Initializing news fetcher agent with feed: {self.feed_url}")
-
-    async def _cleanup(self) -> None:
-        """Clean up resources."""
-        pass
-
-    async def execute(self, **kwargs: Any) -> List[NewsArticle]:
-        """Fetch articles from the feed.
-
-        Returns:
-            List of NewsArticle objects
-        """
-        logger.info(f"Fetching news from {self.feed_url}")
-        feed = feedparser.parse(self.feed_url)
-
+        # Extract articles
         articles = []
-        for entry in feed.entries[: self.max_articles]:
+        for entry in feed.entries[:max_articles]:
+            # Convert struct_time to datetime safely
+            published_date = None
+            if hasattr(entry, "published_parsed") and entry.published_parsed:
+                try:
+                    import time
+
+                    published_date = datetime.fromtimestamp(
+                        time.mktime(entry.published_parsed)
+                    )
+                except Exception as e:
+                    logger.warning(f"Error converting date: {e}")
+
             article = NewsArticle(
                 title=entry.title,
                 link=entry.link,
                 summary=entry.get("summary", "No summary available"),
-                published=entry.get("published", datetime.now().strftime("%Y-%m-%d")),
+                published=published_date,
             )
             articles.append(article)
 
         logger.info(f"Fetched {len(articles)} articles")
         return articles
+    except Exception as e:
+        logger.error(f"Error fetching news: {e}")
+        return []
 
 
-class NewsSummarizerAgent(BaseAgent):
-    """Agent for summarizing news articles using LLM."""
+async def summarize_article(article: NewsArticle) -> str:
+    """Summarize a news article using OpenAI.
 
-    def __init__(
-        self, provider_name: str = "openai", model_name: str = "gpt-3.5-turbo"
-    ):
-        """Initialize news summarizer agent.
+    Args:
+        article: News article to summarize
 
-        Args:
-            provider_name: Name of the LLM provider
-            model_name: Name of the model to use
-        """
-        config = AgentConfig(
-            name="news_summarizer",
-            description="Summarizes news articles using LLM",
-            metadata={"provider": provider_name, "model": model_name},
-        )
-        super().__init__(config)
-        self.provider_name = provider_name
-        self.model_name = model_name
-        self.provider = None
+    Returns:
+        Summarized article text
+    """
+    logger.info(f"Summarizing article: {article.title}")
 
-    async def _initialize(self) -> None:
-        """Initialize the LLM provider."""
-        logger.info(f"Initializing LLM provider: {self.provider_name}")
-        self.provider = get_llm_provider(self.provider_name)
-        if not self.provider:
-            raise ValueError(f"Provider not found: {self.provider_name}")
+    # Tentar obter a chave da API do OpenRouter primeiro, depois OpenAI
+    api_key = os.environ.get("OPENROUTER_API_KEY") or os.environ.get("OPENAI_API_KEY")
 
-    async def _cleanup(self) -> None:
-        """Clean up resources."""
-        pass
+    if not api_key:
+        logger.warning("No API key found for OpenAI or OpenRouter")
+        return f"Here's a brief news update about {article.title}."
 
-    async def execute(self, article: NewsArticle) -> str:
-        """Summarize a news article.
+    try:
+        # Verificar se estamos usando OpenRouter ou OpenAI diretamente
+        if os.environ.get("OPENROUTER_API_KEY"):
+            # Usar OpenRouter
+            url = "https://openrouter.ai/api/v1/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://example.com",  # Necessário para OpenRouter
+            }
+            data = {
+                "model": "openai/gpt-3.5-turbo",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a professional news summarizer. Create a concise summary of the news article in a style suitable for a podcast. Keep it under 100 words.",
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Title: {article.title}\n\nSummary: {article.summary}\n\nLink: {article.link}",
+                    },
+                ],
+            }
 
-        Args:
-            article: NewsArticle object
+            response = requests.post(url, headers=headers, json=data)
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    content = result["choices"][0]["message"]["content"]
+                    # Garantir que o conteúdo não seja None
+                    return (
+                        content
+                        if content is not None
+                        else f"Here's a brief news update about {article.title}."
+                    )
+                except (KeyError, json.JSONDecodeError) as e:
+                    logger.error(f"Error parsing OpenRouter response: {e}")
+                    return f"Here's a brief news update about {article.title}."
+            else:
+                logger.error(
+                    f"OpenRouter API error: {response.status_code} - {response.text}"
+                )
+                return f"Here's a brief news update about {article.title}."
+        else:
+            # Usar OpenAI diretamente
+            client = AsyncOpenAI(api_key=api_key)
+            response = await client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a professional news summarizer. Create a concise summary of the news article in a style suitable for a podcast. Keep it under 100 words.",
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Title: {article.title}\n\nSummary: {article.summary}\n\nLink: {article.link}",
+                    },
+                ],
+            )
+            content = response.choices[0].message.content
+            # Garantir que o conteúdo não seja None
+            return (
+                content
+                if content is not None
+                else f"Here's a brief news update about {article.title}."
+            )
+    except Exception as e:
+        logger.error(f"Error summarizing article: {e}")
+        return f"Here's a brief news update about {article.title}."
 
-        Returns:
-            Summarized article text
-        """
-        logger.info(f"Summarizing article: {article.title}")
 
-        messages = [
-            {
-                "role": MessageRole.SYSTEM,
-                "content": "You are a professional news summarizer. Create a concise summary of the news article in a style suitable for a podcast. Keep it under 100 words.",
-            },
-            {
-                "role": MessageRole.USER,
-                "content": f"Title: {article.title}\n\nSummary: {article.summary}\n\nLink: {article.link}",
-            },
-        ]
+async def text_to_speech_elevenlabs(text: str, output_path: Path) -> bool:
+    """Convert text to speech using ElevenLabs API.
 
-        options = CompletionOptions(
-            model=self.model_name, temperature=0.7, max_tokens=200
-        )
+    Args:
+        text: Text to convert
+        output_path: Path to save the audio file
 
-        # Ensure provider is initialized
-        if not self.provider:
-            await self.initialize()
+    Returns:
+        True if successful, False otherwise
+    """
+    api_key = os.environ.get("ELEVENLABS_API_KEY")
+    if not api_key:
+        logger.warning("No ElevenLabs API key found")
+        return False
 
-        response = await self.provider.chat_async(messages, options=options)
+    try:
+        # Usar a voz "Rachel" (ID padrão) ou outra voz configurada
+        voice_id = os.environ.get("ELEVENLABS_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
 
-        return response.content
+        url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
+        headers = {
+            "Accept": "audio/mpeg",
+            "Content-Type": "application/json",
+            "xi-api-key": api_key,
+        }
+        data = {
+            "text": text,
+            "model_id": "eleven_monolingual_v1",
+            "voice_settings": {"stability": 0.5, "similarity_boost": 0.5},
+        }
+
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            with open(output_path, "wb") as f:
+                f.write(response.content)
+            logger.info(f"ElevenLabs audio saved to {output_path}")
+            return True
+        else:
+            logger.error(
+                f"ElevenLabs API error: {response.status_code} - {response.text}"
+            )
+            return False
+    except Exception as e:
+        logger.error(f"Error in ElevenLabs text-to-speech: {e}")
+        return False
 
 
-class PodcastGeneratorAgent(BaseAgent):
-    """Agent for generating a podcast from news summaries."""
+async def text_to_speech(
+    text: str, output_path: Path, voice_name: str = DEFAULT_VOICE_NAME
+) -> Path:
+    """Convert text to speech using ElevenLabs or gTTS as fallback.
 
-    def __init__(self, voice_name: str = "en-US-Neural2-F"):
-        """Initialize podcast generator agent.
+    Args:
+        text: Text to convert
+        output_path: Path to save the audio file
+        voice_name: Voice name or language code
 
-        Args:
-            voice_name: Name of the voice to use
-        """
-        config = AgentConfig(
-            name="podcast_generator",
-            description="Generates a podcast from news summaries",
-            metadata={"voice": voice_name},
-        )
-        super().__init__(config)
-        self.voice_name = voice_name
-        self.tts_provider = None
+    Returns:
+        Path to the generated audio file
+    """
+    logger.info(f"Converting text to speech: {text[:30]}...")
 
-    async def _initialize(self) -> None:
-        """Initialize the TTS provider."""
-        logger.info("Initializing TTS provider")
-        self.tts_provider = GoogleTTSProvider()
+    # Tentar primeiro com ElevenLabs
+    success = await text_to_speech_elevenlabs(text, output_path)
 
-    async def _cleanup(self) -> None:
-        """Clean up resources."""
-        pass
+    # Se falhar, usar gTTS como fallback
+    if not success:
+        try:
+            logger.info("Using gTTS as fallback")
+            tts = gTTS(text=text, lang=voice_name)
+            tts.save(output_path)
+            logger.info(f"gTTS audio saved to {output_path}")
+        except Exception as e:
+            logger.error(f"Error in gTTS: {e}")
+            # Criar um arquivo de áudio silencioso como último recurso
+            silent = AudioSegment.silent(duration=3000)
+            silent.export(output_path, format="mp3")
 
-    async def text_to_speech(self, text: str, output_path: Path) -> Path:
-        """Convert text to speech.
+    return output_path
 
-        Args:
-            text: Text to convert
-            output_path: Path to save the audio file
 
-        Returns:
-            Path to the generated audio file
-        """
-        logger.info(f"Converting text to speech: {text[:30]}...")
+def combine_audio_files(audio_files: List[Path], output_path: Path) -> Path:
+    """Combine audio files into a single podcast.
 
-        # Ensure tts_provider is initialized
-        if not self.tts_provider:
-            await self.initialize()
+    Args:
+        audio_files: List of audio file paths
+        output_path: Path to save the combined audio
 
-        voice_config = VoiceConfig(
-            name=self.voice_name, language_code="en-US", speaking_rate=1.0, pitch=0.0
-        )
+    Returns:
+        Path to the combined audio file
+    """
+    logger.info(f"Combining {len(audio_files)} audio files")
 
-        audio_data = await self.tts_provider.synthesize(
-            text=text, voice=voice_config, output_format="mp3"
-        )
+    # Create a silent intro
+    podcast = AudioSegment.silent(duration=1000)
 
-        # Save audio data to file
-        with open(output_path, "wb") as f:
-            f.write(audio_data.content)
+    # Add each audio file with a short pause between
+    for audio_file in audio_files:
+        try:
+            segment = AudioSegment.from_file(audio_file)
+            podcast += segment
+            podcast += AudioSegment.silent(duration=1000)  # 1 second pause
+        except Exception as e:
+            logger.error(f"Error adding audio file {audio_file}: {e}")
 
-        return output_path
+    # Garantir que o diretório de saída exista
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    def combine_audio_files(self, audio_files: List[Path], output_path: Path) -> Path:
-        """Combine audio files into a single podcast.
+    # Export the combined podcast
+    podcast.export(output_path, format="mp3")
+    logger.info(f"Podcast saved to {output_path}")
 
-        Args:
-            audio_files: List of audio file paths
-            output_path: Path to save the combined audio
-
-        Returns:
-            Path to the combined audio file
-        """
-        logger.info(f"Combining {len(audio_files)} audio files")
-
-        # Create intro jingle
-        intro = AudioSegment.silent(duration=1000)  # 1 second of silence
-
-        # Combine all audio segments
-        combined = intro
-
-        for audio_file in audio_files:
-            segment = AudioSegment.from_file(audio_file, format="mp3")
-            combined += segment
-            # Add a short pause between segments
-            combined += AudioSegment.silent(duration=500)  # 0.5 seconds of silence
-
-        # Export combined audio
-        combined.export(output_path, format="mp3")
-
-        logger.info(f"Podcast saved to {output_path}")
-        return output_path
-
-    async def execute(
-        self, articles: List[NewsArticle], summaries: List[str], output_path: Path
-    ) -> Path:
-        """Generate a podcast from news summaries.
-
-        Args:
-            articles: List of NewsArticle objects
-            summaries: List of article summaries
-            output_path: Path to save the podcast
-
-        Returns:
-            Path to the generated podcast
-        """
-        with tempfile.TemporaryDirectory() as temp_dir:
-            temp_dir_path = Path(temp_dir)
-            audio_files = []
-
-            # Process each article
-            for i, (article, summary) in enumerate(zip(articles, summaries)):
-                # Create podcast script
-                script = f"Next up: {article.title}. {summary}"
-
-                # Convert to speech
-                audio_path = temp_dir_path / f"article_{i}.mp3"
-                audio_file = await self.text_to_speech(script, audio_path)
-                audio_files.append(audio_file)
-
-            # Combine audio files
-            return self.combine_audio_files(audio_files, output_path)
+    return output_path
 
 
 async def generate_news_podcast(
-    feed_url: str,
-    output_path: str,
-    max_articles: int = 5,
-    llm_provider: str = "openai",
-    llm_model: str = "gpt-3.5-turbo",
-    voice_name: str = "en-US-Neural2-F",
-) -> Path:
-    """Generate a news podcast from an RSS feed.
+    feed_url: str = DEFAULT_FEED_URL,
+    output_path: str = DEFAULT_OUTPUT_PATH,
+    max_articles: int = DEFAULT_MAX_ARTICLES,
+    voice_name: str = DEFAULT_VOICE_NAME,
+) -> Optional[Path]:
+    """Generate a news podcast.
 
     Args:
         feed_url: URL of the RSS feed
         output_path: Path to save the podcast
         max_articles: Maximum number of articles to include
-        llm_provider: Name of the LLM provider
-        llm_model: Name of the model to use
         voice_name: Name of the voice to use
 
     Returns:
-        Path to the generated podcast
+        Path to the generated podcast or None if no articles found
     """
-    # Create output directory if it doesn't exist
-    output_dir = os.path.dirname(output_path)
-    if output_dir and not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    logger.info("Starting news podcast generation")
 
-    # Initialize agents
-    news_fetcher = NewsFetcherAgent(feed_url, max_articles)
-    news_summarizer = NewsSummarizerAgent(llm_provider, llm_model)
-    podcast_generator = PodcastGeneratorAgent(voice_name)
+    # Fetch news articles
+    articles = await fetch_news(feed_url, max_articles)
 
-    # Initialize all agents
-    await news_fetcher.initialize()
-    await news_summarizer.initialize()
-    await podcast_generator.initialize()
+    if not articles:
+        logger.error("No articles found")
+        return None
 
-    try:
-        # Fetch articles
-        articles = await news_fetcher.execute()
+    # Create a temporary directory for audio files
+    with tempfile.TemporaryDirectory() as temp_dir:
+        audio_files = []
 
-        # Summarize articles
-        summaries = []
-        for article in articles:
-            summary = await news_summarizer.execute(article)
-            summaries.append(summary)
+        # Process each article
+        for i, article in enumerate(articles):
+            # Summarize the article
+            summary = await summarize_article(article)
 
-        # Generate podcast
-        output_file = await podcast_generator.execute(
-            articles=articles, summaries=summaries, output_path=Path(output_path)
-        )
+            # Convert summary to speech
+            audio_path = Path(temp_dir) / f"article_{i}.mp3"
+            audio_file = await text_to_speech(summary, audio_path, voice_name)
+            audio_files.append(audio_file)
 
-        return output_file
-    finally:
-        # Clean up resources
-        await news_fetcher.cleanup()
-        await news_summarizer.cleanup()
-        await podcast_generator.cleanup()
+        # Combine audio files into a podcast
+        output_file = combine_audio_files(audio_files, Path(output_path))
+
+    logger.info(f"Podcast generation complete: {output_file}")
+    return output_file
 
 
 def parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Generate a news podcast from an RSS feed"
+    parser = argparse.ArgumentParser(description="Generate a news podcast")
+    parser.add_argument(
+        "--feed",
+        type=str,
+        default=DEFAULT_FEED_URL,
+        help="URL of the RSS feed",
     )
-    parser.add_argument("--feed", required=True, help="URL of the RSS feed")
-    parser.add_argument("--output", required=True, help="Path to save the podcast")
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=DEFAULT_OUTPUT_PATH,
+        help="Path to save the podcast (default: example_output/news_podcast.mp3)",
+    )
     parser.add_argument(
         "--max-articles",
         type=int,
-        default=5,
+        default=DEFAULT_MAX_ARTICLES,
         help="Maximum number of articles to include",
     )
     parser.add_argument(
-        "--llm-provider", default="openai", help="Name of the LLM provider"
-    )
-    parser.add_argument(
-        "--llm-model", default="gpt-3.5-turbo", help="Name of the model to use"
-    )
-    parser.add_argument(
-        "--voice", default="en-US-Neural2-F", help="Name of the voice to use"
+        "--voice",
+        type=str,
+        default=DEFAULT_VOICE_NAME,
+        help="Name of the voice to use (language code for gTTS)",
     )
     return parser.parse_args()
 
@@ -379,18 +414,14 @@ async def main():
     args = parse_args()
 
     try:
-        output_file = await generate_news_podcast(
+        await generate_news_podcast(
             feed_url=args.feed,
             output_path=args.output,
             max_articles=args.max_articles,
-            llm_provider=args.llm_provider,
-            llm_model=args.llm_model,
             voice_name=args.voice,
         )
-
-        logger.info(f"Podcast generated successfully: {output_file}")
     except Exception as e:
-        logger.error(f"Failed to generate podcast: {e}", exc_info=True)
+        logger.error(f"Error generating podcast: {e}")
         raise
 
 
