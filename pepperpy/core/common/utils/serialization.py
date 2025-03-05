@@ -16,9 +16,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import (
     Any,
+    Callable,
     Dict,
     List,
     Optional,
+    Type,
     TypeVar,
     Union,
     cast,
@@ -209,7 +211,9 @@ class XmlUtils:
 
     @staticmethod
     def find(
-        element: ET.Element, xpath: str, namespaces: Optional[Dict[str, str]] = None,
+        element: ET.Element,
+        xpath: str,
+        namespaces: Optional[Dict[str, str]] = None,
     ) -> Optional[ET.Element]:
         """Find first element matching XPath.
 
@@ -226,7 +230,9 @@ class XmlUtils:
 
     @staticmethod
     def find_all(
-        element: ET.Element, xpath: str, namespaces: Optional[Dict[str, str]] = None,
+        element: ET.Element,
+        xpath: str,
+        namespaces: Optional[Dict[str, str]] = None,
     ) -> List[ET.Element]:
         """Find all elements matching XPath.
 
@@ -428,18 +434,27 @@ class CsvUtils:
     @overload
     @staticmethod
     def loads(
-        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True,
+        data: str,
+        delimiter: str = ",",
+        quotechar: str = '"',
+        has_header: bool = True,
     ) -> List[Dict[str, str]]: ...
 
     @overload
     @staticmethod
     def loads(
-        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = False,
+        data: str,
+        delimiter: str = ",",
+        quotechar: str = '"',
+        has_header: bool = False,
     ) -> List[List[str]]: ...
 
     @staticmethod
     def loads(
-        data: str, delimiter: str = ",", quotechar: str = '"', has_header: bool = True,
+        data: str,
+        delimiter: str = ",",
+        quotechar: str = '"',
+        has_header: bool = True,
     ) -> Union[List[Dict[str, str]], List[List[str]]]:
         """Parse CSV string.
 
@@ -510,3 +525,185 @@ __all__ = [
     "XmlUtils",
     "YamlUtils",
 ]
+
+
+def serialize(
+    data: Any,
+    format_type: str = "json",
+    file_path: Optional[Union[str, Path]] = None,
+    **kwargs: Any,
+) -> Optional[str]:
+    """Serialize data to the specified format.
+
+    This function provides a unified interface for serializing data to different formats.
+    It supports JSON, YAML, XML, and CSV formats.
+
+    Args:
+        data: The data to serialize
+        format_type: The format to serialize to ('json', 'yaml', 'xml', 'csv')
+        file_path: Optional file path to save the serialized data
+        **kwargs: Additional format-specific arguments
+
+    Returns:
+        The serialized data as a string if file_path is None, otherwise None
+
+    Examples:
+        >>> data = {"name": "John", "age": 30}
+        >>> serialize(data, "json")
+        '{"name": "John", "age": 30}'
+        >>> serialize(data, "yaml")
+        'name: John\\nage: 30\\n'
+    """
+    format_type = format_type.lower()
+    result: Optional[str] = None
+
+    if format_type == "json":
+        indent = kwargs.get("indent", 2)
+        if file_path:
+            JsonUtils.save(data, file_path, indent=indent)
+        else:
+            result = JsonUtils.dumps(data, indent=indent)
+    elif format_type == "yaml":
+        if file_path:
+            YamlUtils.save(data, file_path)
+        else:
+            result = YamlUtils.dumps(data)
+    elif format_type == "xml":
+        root_tag = kwargs.get("root_tag", "root")
+        encoding = kwargs.get("encoding", "utf-8")
+        pretty = kwargs.get("pretty", True)
+
+        if isinstance(data, ET.Element):
+            element = data
+        elif isinstance(data, dict):
+            element = XmlUtils.from_dict(data, root_tag)
+        else:
+            raise ValueError(f"Cannot serialize {type(data)} to XML")
+
+        if file_path:
+            XmlUtils.save(element, file_path, encoding=encoding, pretty=pretty)
+        else:
+            result = XmlUtils.dumps(element, encoding=encoding, pretty=pretty)
+    elif format_type == "csv":
+        delimiter = kwargs.get("delimiter", ",")
+        quotechar = kwargs.get("quotechar", '"')
+        header = kwargs.get("header", None)
+
+        if file_path:
+            CsvUtils.save(
+                data, file_path, delimiter=delimiter, quotechar=quotechar, header=header
+            )
+        else:
+            result = CsvUtils.dumps(
+                data, delimiter=delimiter, quotechar=quotechar, header=header
+            )
+    else:
+        raise ValueError(f"Unsupported format: {format_type}")
+
+    return result
+
+
+def deserialize(
+    data: Union[str, Path],
+    format_type: str = "json",
+    target_type: Optional[Type[T]] = None,
+    **kwargs: Any,
+) -> Any:
+    """Deserialize data from the specified format.
+
+    This function provides a unified interface for deserializing data from different formats.
+    It supports JSON, YAML, XML, and CSV formats.
+
+    Args:
+        data: The data to deserialize (string or file path)
+        format_type: The format to deserialize from ('json', 'yaml', 'xml', 'csv')
+        target_type: Optional type to convert the deserialized data to
+        **kwargs: Additional format-specific arguments
+
+    Returns:
+        The deserialized data
+
+    Examples:
+        >>> deserialize('{"name": "John", "age": 30}', "json")
+        {'name': 'John', 'age': 30}
+        >>> deserialize('name: John\\nage: 30', "yaml")
+        {'name': 'John', 'age': 30}
+    """
+    format_type = format_type.lower()
+    result: Any = None
+
+    # Check if data is a file path
+    if isinstance(data, (str, Path)) and Path(data).is_file():
+        file_path = Path(data)
+        if format_type == "json":
+            result = JsonUtils.load(file_path)
+        elif format_type == "yaml":
+            result = YamlUtils.load(file_path)
+        elif format_type == "xml":
+            result = XmlUtils.load(file_path)
+            if kwargs.get("as_dict", False):
+                result = XmlUtils.to_dict(result)
+        elif format_type == "csv":
+            delimiter = kwargs.get("delimiter", ",")
+            quotechar = kwargs.get("quotechar", '"')
+            has_header = kwargs.get("has_header", True)
+            result = CsvUtils.load(
+                file_path,
+                delimiter=delimiter,
+                quotechar=quotechar,
+                has_header=has_header,
+            )
+        else:
+            raise ValueError(f"Unsupported format: {format_type}")
+    # Otherwise, treat data as a string
+    elif isinstance(data, str):
+        if format_type == "json":
+            result = JsonUtils.loads(data)
+        elif format_type == "yaml":
+            result = YamlUtils.loads(data)
+        elif format_type == "xml":
+            result = XmlUtils.loads(data)
+            if kwargs.get("as_dict", False):
+                result = XmlUtils.to_dict(result)
+        elif format_type == "csv":
+            delimiter = kwargs.get("delimiter", ",")
+            quotechar = kwargs.get("quotechar", '"')
+            has_header = kwargs.get("has_header", True)
+            result = CsvUtils.loads(
+                data, delimiter=delimiter, quotechar=quotechar, has_header=has_header
+            )
+        else:
+            raise ValueError(f"Unsupported format: {format_type}")
+    else:
+        raise ValueError(f"Cannot deserialize data of type {type(data)}")
+
+    # Convert to target type if specified
+    if target_type is not None:
+        if hasattr(target_type, "from_dict") and callable(target_type.from_dict):
+            from_dict_method = cast(
+                Callable[[Dict[str, Any]], T], target_type.from_dict
+            )
+            if isinstance(result, dict):
+                result = from_dict_method(result)
+            else:
+                raise ValueError(
+                    f"Cannot convert {type(result)} to {target_type} using from_dict"
+                )
+        elif hasattr(target_type, "parse_obj") and callable(target_type.parse_obj):
+            parse_obj_method = cast(
+                Callable[[Dict[str, Any]], T], target_type.parse_obj
+            )
+            if isinstance(result, dict):
+                result = parse_obj_method(result)
+            else:
+                raise ValueError(
+                    f"Cannot convert {type(result)} to {target_type} using parse_obj"
+                )
+        else:
+            # Try to instantiate the target type with the result as kwargs
+            if isinstance(result, dict):
+                result = target_type(**result)  # type: ignore
+            else:
+                raise ValueError(f"Cannot convert {type(result)} to {target_type}")
+
+    return result

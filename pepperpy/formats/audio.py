@@ -192,7 +192,11 @@ class WAVFormat(FormatHandler[AudioData]):
             raise e
 
     def _create_wav_header(
-        self, sample_rate: int, channels: int, bit_depth: int, data_size: int,
+        self,
+        sample_rate: int,
+        channels: int,
+        bit_depth: int,
+        data_size: int,
     ) -> bytes:
         """Create a WAV header.
 
@@ -403,3 +407,121 @@ class OGGFormat(FormatHandler[AudioData]):
         # This is a placeholder implementation
         # In a real implementation, you would use a library like pydub or soundfile
         raise FormatError("OGG deserialization requires additional libraries")
+
+
+class AudioProcessor:
+    """Processor for audio data.
+
+    This class provides methods for processing audio data, including:
+    - Loading audio from files
+    - Saving audio to files
+    - Converting between formats
+    - Basic audio processing operations
+    """
+
+    def __init__(self) -> None:
+        """Initialize the audio processor."""
+        self.formats = {
+            "wav": WAVFormat(),
+            "mp3": MP3Format(),
+            "flac": FLACFormat(),
+            "ogg": OGGFormat(),
+        }
+
+    def load_file(self, file_path: str) -> AudioData:
+        """Load audio from a file.
+
+        Args:
+            file_path: Path to the audio file
+
+        Returns:
+            AudioData object
+
+        Raises:
+            FormatError: If the file format is not supported or loading fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported audio format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        with open(file_path, "rb") as f:
+            data = f.read()
+
+        return format_handler.deserialize(data)
+
+    def save_file(self, audio_data: AudioData, file_path: str) -> None:
+        """Save audio to a file.
+
+        Args:
+            audio_data: AudioData object
+            file_path: Path to save the audio file
+
+        Raises:
+            FormatError: If the file format is not supported or saving fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported audio format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        data = format_handler.serialize(audio_data)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+    def convert_format(self, audio_data: AudioData, target_format: str) -> bytes:
+        """Convert audio to a different format.
+
+        Args:
+            audio_data: AudioData object
+            target_format: Target format extension (e.g., 'mp3', 'wav')
+
+        Returns:
+            Serialized audio data in the target format
+
+        Raises:
+            FormatError: If the target format is not supported
+        """
+        if target_format not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported target format: {target_format}")
+
+        format_handler = self._get_format_for_extension(target_format)
+        return format_handler.serialize(audio_data)
+
+    def get_supported_formats(self) -> Dict[str, FormatHandler]:
+        """Get all supported audio formats.
+
+        Returns:
+            Dictionary of format handlers
+        """
+        return self.formats
+
+    def get_supported_extensions(self) -> list[str]:
+        """Get all supported file extensions.
+
+        Returns:
+            List of supported file extensions
+        """
+        extensions = []
+        for format_handler in self.formats.values():
+            extensions.extend(format_handler.file_extensions)
+        return extensions
+
+    def _get_format_for_extension(self, extension: str) -> FormatHandler:
+        """Get the format handler for a file extension.
+
+        Args:
+            extension: File extension
+
+        Returns:
+            Format handler
+
+        Raises:
+            FormatError: If no handler is found for the extension
+        """
+        for format_name, format_handler in self.formats.items():
+            if extension in format_handler.file_extensions:
+                return format_handler
+
+        raise FormatError(f"No handler found for extension: {extension}")

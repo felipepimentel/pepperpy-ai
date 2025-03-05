@@ -38,7 +38,9 @@ class ConfigUtils:
 
     @staticmethod
     def save(
-        data: Dict[str, Any], path: Union[str, Path], format: Optional[str] = None,
+        data: Dict[str, Any],
+        path: Union[str, Path],
+        format: Optional[str] = None,
     ) -> None:
         """Save configuration to file.
 
@@ -146,7 +148,9 @@ class ConfigUtils:
                         and isinstance(value, dict)
                     ):
                         result[key] = ConfigUtils.merge_configs(
-                            result[key], value, deep=True,
+                            result[key],
+                            value,
+                            deep=True,
                         )
                     else:
                         result[key] = value
@@ -155,7 +159,10 @@ class ConfigUtils:
 
     @staticmethod
     def get_nested(
-        config: Dict[str, Any], path: str, default: Any = None, separator: str = ".",
+        config: Dict[str, Any],
+        path: str,
+        default: Any = None,
+        separator: str = ".",
     ) -> Any:
         """Get nested configuration value.
 
@@ -180,7 +187,10 @@ class ConfigUtils:
 
     @staticmethod
     def set_nested(
-        config: Dict[str, Any], path: str, value: Any, separator: str = ".",
+        config: Dict[str, Any],
+        path: str,
+        value: Any,
+        separator: str = ".",
     ) -> None:
         """Set nested configuration value.
 
@@ -203,7 +213,9 @@ class ConfigUtils:
 
     @staticmethod
     def flatten(
-        config: Dict[str, Any], parent_key: str = "", separator: str = ".",
+        config: Dict[str, Any],
+        parent_key: str = "",
+        separator: str = ".",
     ) -> Dict[str, Any]:
         """Flatten nested configuration.
 
@@ -248,3 +260,42 @@ class ConfigUtils:
             ConfigUtils.set_nested(result, key, value, separator)
 
         return result
+
+
+def load_config(path: Union[str, Path], format: Optional[str] = None) -> Dict[str, Any]:
+    """Load configuration from file.
+
+    This is a convenience wrapper around ConfigUtils.load.
+
+    Args:
+        path: File path
+        format: File format (json, yaml, or None to auto-detect)
+
+    Returns:
+        Configuration data as dictionary
+
+    Examples:
+        >>> config = load_config("config.json")
+        >>> print(config["app_name"])
+        MyApp
+    """
+    return ConfigUtils.load(path, format)
+
+
+def save_config(
+    data: Dict[str, Any], path: Union[str, Path], format: Optional[str] = None
+) -> None:
+    """Save configuration to file.
+
+    This is a convenience wrapper around ConfigUtils.save.
+
+    Args:
+        data: Configuration dictionary
+        path: File path
+        format: File format (json, yaml, or None to auto-detect)
+
+    Examples:
+        >>> config = {"app_name": "MyApp", "version": "1.0.0"}
+        >>> save_config(config, "config.json")
+    """
+    ConfigUtils.save(data, path, format)

@@ -52,6 +52,12 @@ from pepperpy.formats.parsers import (
     YamlParser,
 )
 from pepperpy.formats.rss import RSSArticle, RSSFeed, RSSProcessor
+from pepperpy.formats.serialization import (
+    DictSerializer,
+    JsonSerializer,
+    Serializable,
+    Serializer,
+)
 from pepperpy.formats.text import TextProcessor
 from pepperpy.formats.vector import VectorProcessor
 
@@ -84,6 +90,11 @@ __all__ = [
     # RSS
     "RSSArticle",
     "RSSFeed",
+    # Serialization
+    "Serializable",
+    "Serializer",
+    "JsonSerializer",
+    "DictSerializer",
     # Utils
     "SerializationUtils",
     "JsonUtils",

@@ -26,7 +26,12 @@ from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
 
 # Removido: Redefinition of unused `ComponentState` from line 23
-from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
+from pepperpy.observability.metrics.collector import (
+    Counter,
+    Histogram,
+    MetricsCollector,
+)
+from pepperpy.observability.metrics.manager import MetricsRegistry as MetricsManager
 
 
 class WorkflowState(str, Enum):
@@ -54,6 +59,38 @@ class WorkflowStepConfig:
 
 
 @dataclass
+class WorkflowStep:
+    """Represents a single step in a workflow."""
+
+    id: str
+    name: str
+    action: str
+    parameters: Dict[str, Any] = field(default_factory=dict)
+    dependencies: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def add_dependency(self, step_id: str) -> None:
+        """Add a dependency on another step.
+
+        Args:
+            step_id: ID of the step this step depends on
+
+        """
+        if step_id not in self.dependencies:
+            self.dependencies.append(step_id)
+
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add metadata to the step.
+
+        Args:
+            key: Metadata key
+            value: Metadata value
+
+        """
+        self.metadata[key] = value
+
+
+@dataclass
 class WorkflowConfig(ComponentConfig):
     """Workflow configuration."""
 
@@ -77,53 +114,56 @@ class WorkflowContext:
 
 
 class WorkflowCallback(ComponentCallback, Protocol):
-    """Protocol for workflow callbacks."""
+    """Workflow callback interface."""
 
     async def on_state_change(self, workflow_id: str, state: ComponentState) -> None:
         """Called when workflow state changes."""
-        ...
 
     async def on_step_start(self, workflow_id: str, step: str) -> None:
         """Called when workflow step starts."""
-        ...
 
     async def on_step_complete(self, workflow_id: str, step: str, result: Any) -> None:
         """Called when workflow step completes."""
-        ...
 
     async def on_error(self, workflow_id: str, error: Exception) -> None:
         """Called when workflow encounters an error."""
-        ...
 
     async def on_progress(self, workflow_id: str, progress: float) -> None:
-        """Called when workflow makes progress."""
-        ...
+        """Called when workflow progress changes."""
 
 
 class AbstractWorkflowStep(ABC):
     """Abstract base class for workflow steps."""
 
     def __init__(self, name: str) -> None:
-        """Initialize workflow step.
-
-        Args:
-            name: Step name
-
-        """
+        """Initialize step."""
         self.name = name
 
     @abstractmethod
     async def execute(self) -> Any:
-        """Execute the workflow step.
-
-        Returns:
-            Step execution result
-
-        """
+        """Execute step."""
+        ...
 
 
 class AbstractWorkflowDefinition(ABC):
     """Abstract base class for workflow definitions."""
+
+    def __init__(self, name: str) -> None:
+        """Initialize workflow definition."""
+        self.name = name
+        self._steps: List[AbstractWorkflowStep] = []
+
+    def add_step(self, step: AbstractWorkflowStep) -> None:
+        """Add step to workflow."""
+        self._steps.append(step)
+
+    def get_steps(self) -> List[AbstractWorkflowStep]:
+        """Get workflow steps."""
+        return self._steps.copy()
+
+
+class WorkflowDefinition:
+    """Defines the structure of a workflow."""
 
     def __init__(self, name: str) -> None:
         """Initialize workflow definition.
@@ -133,25 +173,104 @@ class AbstractWorkflowDefinition(ABC):
 
         """
         self.name = name
-        self._steps: List[AbstractWorkflowStep] = []
+        self.steps: Dict[str, WorkflowStep] = {}
+        self.metadata: Dict[str, Any] = {}
 
-    def add_step(self, step: AbstractWorkflowStep) -> None:
+    def add_step(self, step: WorkflowStep) -> None:
         """Add a step to the workflow.
 
         Args:
             step: Step to add
 
-        """
-        self._steps.append(step)
+        Raises:
+            ValueError: If a step with the same ID already exists
 
-    def get_steps(self) -> List[AbstractWorkflowStep]:
-        """Get workflow steps.
+        """
+        if step.id in self.steps:
+            raise ValueError(f"Step with ID '{step.id}' already exists")
+        self.steps[step.id] = step
+
+    def get_step(self, step_id: str) -> Optional[WorkflowStep]:
+        """Get a step by ID.
+
+        Args:
+            step_id: Step ID
 
         Returns:
-            List of workflow steps
+            Step with the given ID, or None if not found
 
         """
-        return self._steps.copy()
+        return self.steps.get(step_id)
+
+    def add_metadata(self, key: str, value: Any) -> None:
+        """Add metadata to the workflow.
+
+        Args:
+            key: Metadata key
+            value: Metadata value
+
+        """
+        self.metadata[key] = value
+
+    def validate(self) -> List[str]:
+        """Validate workflow definition.
+
+        Returns:
+            List of validation errors, empty if valid
+
+        """
+        errors = []
+
+        # Check for cycles in dependencies
+        for step_id in self.steps:
+            if self._has_cycle(step_id):
+                errors.append(
+                    f"Cycle detected in step dependencies for step '{step_id}'"
+                )
+
+        def check_cycle(step_id: str) -> bool:
+            """Check if there is a cycle in the dependencies.
+
+            Args:
+                step_id: Step ID to check
+
+            Returns:
+                True if a cycle is detected, False otherwise
+
+            """
+            visited = set()
+            path = set()
+
+            def dfs(current_id: str) -> bool:
+                """Depth-first search to detect cycles.
+
+                Args:
+                    current_id: Current step ID
+
+                Returns:
+                    True if a cycle is detected, False otherwise
+
+                """
+                if current_id in path:
+                    return True
+                if current_id in visited:
+                    return False
+
+                visited.add(current_id)
+                path.add(current_id)
+
+                step = self.steps.get(current_id)
+                if step:
+                    for dep_id in step.dependencies:
+                        if dfs(dep_id):
+                            return True
+
+                path.remove(current_id)
+                return False
+
+            return dfs(step_id)
+
+        return errors
 
 
 class BaseWorkflow(ABC):
@@ -179,6 +298,27 @@ class BaseWorkflow(ABC):
         self._context = WorkflowContext(workflow_id=self.workflow_id)
         self._step_metrics: Dict[str, Union[Counter, Histogram]] = {}
         self._metrics_manager = MetricsManager.get_instance()
+        self.metrics_collector = MetricsCollector(f"workflow_{self.workflow_id}")
+
+        # Initialize metrics
+        self.step_execution_time = self.metrics_collector.create_histogram(
+            "step_execution_time", "Time taken to execute each step in seconds"
+        )
+        self.step_execution_count = self.metrics_collector.create_counter(
+            "step_execution_count", "Number of steps executed"
+        )
+        self.workflow_execution_time = self.metrics_collector.create_histogram(
+            "workflow_execution_time", "Time taken to execute the workflow in seconds"
+        )
+        self.error_count = self.metrics_collector.create_counter(
+            "error_count", "Number of errors encountered during workflow execution"
+        )
+        self.retry_count = self.metrics_collector.create_counter(
+            "retry_count", "Number of retries performed during workflow execution"
+        )
+        self.success_count = self.metrics_collector.create_counter(
+            "success_count", "Number of successful workflow executions"
+        )
 
     @property
     def state(self) -> WorkflowState:
@@ -194,7 +334,11 @@ class BaseWorkflow(ABC):
     def steps(self) -> List[WorkflowStep]:
         """Get workflow steps."""
         if isinstance(self.definition, WorkflowDefinition):
-            return self.definition.get_steps()
+            return (
+                list(self.definition.steps.values())
+                if hasattr(self.definition, "steps")
+                else []
+            )
         return []
 
     async def set_state(self, value: WorkflowState) -> None:
@@ -279,7 +423,7 @@ class BaseWorkflow(ABC):
 
         """
         if self.state != WorkflowState.READY:
-            raise StateError(f"Workflow not ready (state: {self.state}) from e")
+            raise StateError(f"Workflow not ready (state: {self.state})")
 
         start_time = datetime.utcnow()
         await self.set_state(WorkflowState.EXECUTING)
@@ -360,7 +504,9 @@ class BaseWorkflow(ABC):
             # Notify step complete
             if isinstance(self._callback, WorkflowCallback):
                 await self._callback.on_step_complete(
-                    str(self.workflow_id), step.name, result,
+                    str(self.workflow_id),
+                    step.name,
+                    result,
                 )
 
             return result
@@ -467,151 +613,3 @@ class BaseWorkflow(ABC):
     async def stop(self) -> None:
         """Stop workflow execution."""
         ...
-
-
-# Merged from /home/pimentel/Workspace/pepperpy/pepperpy-ai/pepperpy/workflow/base.py during consolidation
-
-"""Base classes and interfaces for the unified workflow system.
-
-This module provides the core abstractions for the workflow system:
-- WorkflowStep: Represents a single step in a workflow
-- WorkflowDefinition: Defines the structure of a workflow
-- BaseWorkflow: Base implementation of a workflow
-"""
-
-
-@dataclass
-class WorkflowStep:
-    """Represents a single step in a workflow."""
-
-    id: str
-    name: str
-    action: str
-    parameters: Dict[str, Any] = field(default_factory=dict)
-    dependencies: List[str] = field(default_factory=list)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def add_dependency(self, step_id: str) -> None:
-        """Add a dependency on another step.
-
-        Args:
-            step_id: ID of the step this step depends on
-
-        """
-        if step_id not in self.dependencies:
-            self.dependencies.append(step_id)
-
-    def add_metadata(self, key: str, value: Any) -> None:
-        """Add metadata to the step.
-
-        Args:
-            key: Metadata key
-            value: Metadata value
-
-        """
-        self.metadata[key] = value
-
-
-class WorkflowDefinition:
-    """Defines the structure of a workflow."""
-
-    def __init__(self, name: str) -> None:
-        """Initialize workflow definition.
-
-        Args:
-            name: Workflow name
-
-        """
-        self.name = name
-        self.steps: Dict[str, WorkflowStep] = {}
-        self.metadata: Dict[str, Any] = {}
-
-    def add_step(self, step: AbstractWorkflowStep) -> None:
-        """Add a step to the workflow.
-
-        Args:
-            step: Step to add
-
-        Raises:
-            ValueError: If step ID already exists
-
-        """
-        if step.id in self.steps:
-            raise ValueError(f"Step with ID '{step.id}' already exists") from e
-        self.steps[step.id] = step
-
-    def get_step(self, step_id: str) -> Optional[WorkflowStep]:
-        """Get a step by ID.
-
-        Args:
-            step_id: Step ID
-
-        Returns:
-            Step if found, None otherwise
-
-        """
-        return self.steps.get(step_id)
-
-    def add_metadata(self, key: str, value: Any) -> None:
-        """Add metadata to the workflow.
-
-        Args:
-            key: Metadata key
-            value: Metadata value
-
-        """
-        self.metadata[key] = value
-
-    def validate(self) -> List[str]:
-        """Validate the workflow definition.
-
-        Returns:
-            List of validation errors, empty if valid
-
-        """
-        errors = []
-
-        # Check for cycles in dependencies
-        visited: Set[str] = set()
-        path: List[str] = []
-
-        def check_cycle(step_id: str) -> bool:
-            """Check for cycles in dependencies.
-
-            Args:
-                step_id: Step ID to check
-
-            Returns:
-                True if cycle found, False otherwise
-
-            """
-            if step_id in path:
-                cycle_path = path[path.index(step_id) :] + [step_id]
-                errors.append(f"Dependency cycle detected: {' -> '.join(cycle_path)}")
-                return True
-
-            if step_id in visited:
-                return False
-
-            visited.add(step_id)
-            path.append(step_id)
-
-            step = self.steps.get(step_id)
-            if step:
-                for dep_id in step.dependencies:
-                    if dep_id not in self.steps:
-                        errors.append(
-                            f"Step '{step_id}' depends on non-existent step '{dep_id}'",
-                        )
-                    elif check_cycle(dep_id):
-                        return True
-
-            path.pop()
-            return False
-
-        for step_id in self.steps:
-            check_cycle(step_id)
-
-        return errors
-
-    """Base implementation of a workflow."""

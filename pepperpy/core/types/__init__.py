@@ -3,7 +3,7 @@
 # Import basic types
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, NewType, Optional, Tuple, Union
 
 # Import enums
 from .enums import ComponentState
@@ -12,6 +12,15 @@ from .enums import ComponentState
 PathLike = Union[str, bytes]
 JsonDict = dict[str, Any]
 JsonList = list[Any]
+
+# Define ID types
+WorkflowID = NewType("WorkflowID", str)
+StepID = NewType("StepID", str)
+AgentID = NewType("AgentID", str)
+ProviderID = NewType("ProviderID", str)
+ComponentID = NewType("ComponentID", str)
+SessionID = NewType("SessionID", str)
+TaskID = NewType("TaskID", str)
 
 
 class VersionChangeType(Enum):
@@ -110,13 +119,20 @@ class VersionDependency:
 
 
 __all__ = [
+    "AgentID",
+    "ComponentID",
+    "ComponentState",
     "JsonDict",
     "JsonList",
     "PathLike",
+    "ProviderID",
+    "SessionID",
+    "StepID",
+    "TaskID",
     "Version",
     "VersionChange",
     "VersionChangeType",
     "VersionComponent",
     "VersionDependency",
-    "ComponentState",
+    "WorkflowID",
 ]

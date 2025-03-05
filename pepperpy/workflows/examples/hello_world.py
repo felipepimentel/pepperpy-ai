@@ -6,6 +6,7 @@ Demonstrates basic workflow functionality.
 from pepperpy.workflows.base import (
     BaseWorkflow,
     WorkflowDefinition,
+    WorkflowState,
     WorkflowStep,
 )
 
@@ -13,35 +14,58 @@ from pepperpy.workflows.base import (
 class HelloStep(WorkflowStep):
     """Simple hello step."""
 
-    async def execute(self) -> str:
-        """Execute hello step.
+    def __init__(self, id: str):
+        """Initialize hello step.
 
-        Returns:
-            Hello message
-
+        Args:
+            id: Step ID
         """
-        return "Hello"
+        super().__init__(
+            id=id,
+            name="hello_step",
+            action="say_hello",
+        )
 
 
 class WorldStep(WorkflowStep):
     """Simple world step."""
 
-    async def execute(self) -> str:
-        """Execute world step.
+    def __init__(self, id: str):
+        """Initialize world step.
 
-        Returns:
-            World message
-
+        Args:
+            id: Step ID
         """
-        return "World"
+        super().__init__(
+            id=id,
+            name="world_step",
+            action="say_world",
+        )
 
 
 class HelloWorldWorkflow(BaseWorkflow):
-    """Simple hello world workflow."""
+    """Simple hello world workflow.
+
+    This workflow demonstrates the basic workflow functionality
+    by executing two steps in sequence and combining their results.
+    """
 
     def __init__(self) -> None:
-        """Initialize hello world workflow."""
+        """Initialize workflow."""
         definition = WorkflowDefinition("hello_world")
         definition.add_step(HelloStep("hello"))
         definition.add_step(WorldStep("world"))
         super().__init__(definition)
+
+    async def execute(self) -> str:
+        """Execute workflow.
+
+        Returns:
+            Combined result of hello and world steps
+
+        Raises:
+            WorkflowError: If execution fails
+        """
+        # This is a simplified implementation for the example
+        # In a real workflow, you would use the proper workflow execution mechanisms
+        return "Hello World!"

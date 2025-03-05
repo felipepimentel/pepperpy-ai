@@ -43,7 +43,9 @@ class DateUtils:
 
     @staticmethod
     def parse_date(
-        date_str: str, format: Optional[str] = None, tz: Optional[timezone] = None,
+        date_str: str,
+        format: Optional[str] = None,
+        tz: Optional[timezone] = None,
     ) -> datetime:
         """Parse date string.
 
@@ -64,7 +66,9 @@ class DateUtils:
 
     @staticmethod
     def format_date(
-        dt: datetime, format: Optional[str] = None, tz: Optional[timezone] = None,
+        dt: datetime,
+        format: Optional[str] = None,
+        tz: Optional[timezone] = None,
     ) -> str:
         """Format datetime.
 
@@ -213,3 +217,53 @@ class DateUtils:
 
         """
         return datetime.fromtimestamp(timestamp, timezone.utc)
+
+
+def format_date(
+    dt: datetime, format_str: Optional[str] = None, tz: Optional[timezone] = None
+) -> str:
+    """Format a datetime object to a string.
+
+    This is a convenience wrapper around DateUtils.format_date.
+
+    Args:
+        dt: The datetime object to format
+        format_str: The format string to use (defaults to DateUtils.DEFAULT_DATE_FORMAT)
+        tz: The timezone to convert to before formatting
+
+    Returns:
+        A formatted date string
+
+    Examples:
+        >>> from datetime import datetime, timezone
+        >>> dt = datetime(2023, 1, 15, tzinfo=timezone.utc)
+        >>> format_date(dt)
+        '2023-01-15'
+        >>> format_date(dt, format_str="%d/%m/%Y")
+        '15/01/2023'
+    """
+    return DateUtils.format_date(dt, format_str, tz)
+
+
+def parse_date(
+    date_str: str, format_str: Optional[str] = None, tz: Optional[timezone] = None
+) -> datetime:
+    """Parse a date string into a datetime object.
+
+    This is a convenience wrapper around DateUtils.parse_date.
+
+    Args:
+        date_str: The date string to parse
+        format_str: The format string to use (defaults to DateUtils.DEFAULT_DATE_FORMAT)
+        tz: The timezone to set on the resulting datetime object
+
+    Returns:
+        A datetime object
+
+    Examples:
+        >>> parse_date("2023-01-15")
+        datetime.datetime(2023, 1, 15, 0, 0)
+        >>> parse_date("15/01/2023", format_str="%d/%m/%Y")
+        datetime.datetime(2023, 1, 15, 0, 0)
+    """
+    return DateUtils.parse_date(date_str, format_str, tz)

@@ -31,6 +31,7 @@ The error system is designed to:
 from typing import Any, Dict, List, Optional, Union
 
 from .base import (
+    AgentError,
     ConfigError,
     PepperError,
     StateError,
@@ -45,6 +46,7 @@ from .base import (
 
 __version__ = "0.1.0"
 __all__ = [
+    "AgentError",
     "ConfigError",
     "PepperError",
     "StateError",
@@ -77,12 +79,9 @@ class ExecutionError(PepperPyError):
     """Raised when workflow execution fails."""
 
 
-
 class DuplicateError(PepperPyError):
     """Raised when attempting to register a duplicate item."""
 
 
-
 class NotFoundError(PepperPyError):
     """Raised when an item is not found."""
-

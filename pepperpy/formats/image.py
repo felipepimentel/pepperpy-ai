@@ -11,7 +11,6 @@ This module provides format handlers for image formats:
 from typing import Any, Dict, Optional, Tuple
 
 try:
-
     NUMPY_AVAILABLE = True
 except ImportError:
     NUMPY_AVAILABLE = False
@@ -436,3 +435,122 @@ class TIFFFormat(FormatHandler[ImageData]):
         # This is a placeholder implementation
         # In a real implementation, you would use a library like PIL
         raise FormatError("TIFF deserialization requires additional libraries like PIL")
+
+
+class ImageProcessor:
+    """Processor for image data.
+
+    This class provides methods for processing image data, including:
+    - Loading images from files
+    - Saving images to files
+    - Converting between formats
+    - Basic image processing operations
+    """
+
+    def __init__(self) -> None:
+        """Initialize the image processor."""
+        self.formats = {
+            "png": PNGFormat(),
+            "jpeg": JPEGFormat(),
+            "gif": GIFFormat(),
+            "bmp": BMPFormat(),
+            "tiff": TIFFFormat(),
+        }
+
+    def load_file(self, file_path: str) -> ImageData:
+        """Load image from a file.
+
+        Args:
+            file_path: Path to the image file
+
+        Returns:
+            ImageData object
+
+        Raises:
+            FormatError: If the file format is not supported or loading fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported image format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        with open(file_path, "rb") as f:
+            data = f.read()
+
+        return format_handler.deserialize(data)
+
+    def save_file(self, image_data: ImageData, file_path: str) -> None:
+        """Save image to a file.
+
+        Args:
+            image_data: ImageData object
+            file_path: Path to save the image file
+
+        Raises:
+            FormatError: If the file format is not supported or saving fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported image format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        data = format_handler.serialize(image_data)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+    def convert_format(self, image_data: ImageData, target_format: str) -> bytes:
+        """Convert image to a different format.
+
+        Args:
+            image_data: ImageData object
+            target_format: Target format extension (e.g., 'jpg', 'png')
+
+        Returns:
+            Serialized image data in the target format
+
+        Raises:
+            FormatError: If the target format is not supported
+        """
+        if target_format not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported target format: {target_format}")
+
+        format_handler = self._get_format_for_extension(target_format)
+        return format_handler.serialize(image_data)
+
+    def get_supported_formats(self) -> Dict[str, FormatHandler]:
+        """Get all supported image formats.
+
+        Returns:
+            Dictionary of format handlers
+        """
+        return self.formats
+
+    def get_supported_extensions(self) -> list[str]:
+        """Get all supported file extensions.
+
+        Returns:
+            List of supported file extensions
+        """
+        extensions = []
+        for format_handler in self.formats.values():
+            extensions.extend(format_handler.file_extensions)
+        return extensions
+
+    def _get_format_for_extension(self, extension: str) -> FormatHandler:
+        """Get the format handler for a file extension.
+
+        Args:
+            extension: File extension
+
+        Returns:
+            Format handler
+
+        Raises:
+            FormatError: If no handler is found for the extension
+        """
+        for format_name, format_handler in self.formats.items():
+            if extension in format_handler.file_extensions:
+                return format_handler
+
+        raise FormatError(f"No handler found for extension: {extension}")

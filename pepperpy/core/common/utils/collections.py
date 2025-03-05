@@ -19,6 +19,50 @@ K = TypeVar("K")
 V = TypeVar("V")
 
 
+def chunk_list(items: List[T], size: int) -> List[List[T]]:
+    """Split list into chunks.
+
+    Args:
+        items: List to split
+        size: Chunk size
+
+    Returns:
+        List of chunks
+
+    """
+    return [items[i : i + size] for i in range(0, len(items), size)]
+
+
+def filter_dict(d: Dict[K, V], keys: List[K]) -> Dict[K, V]:
+    """Filter dictionary by keys.
+
+    Args:
+        d: Dictionary to filter
+        keys: Keys to keep
+
+    Returns:
+        Filtered dictionary
+
+    """
+    return {k: v for k, v in d.items() if k in keys}
+
+
+def merge_dicts(d1: Dict[K, V], d2: Dict[K, V]) -> Dict[K, V]:
+    """Merge two dictionaries.
+
+    Args:
+        d1: First dictionary
+        d2: Second dictionary
+
+    Returns:
+        Merged dictionary
+
+    """
+    result = d1.copy()
+    result.update(d2)
+    return result
+
+
 class StringUtils:
     """Utility functions for string manipulation."""
 
@@ -258,7 +302,8 @@ class ListUtils:
 
     @staticmethod
     def partition(
-        items: List[T], predicate: Callable[[T], bool],
+        items: List[T],
+        predicate: Callable[[T], bool],
     ) -> tuple[List[T], List[T]]:
         """Split list into two parts based on predicate.
 
@@ -369,7 +414,9 @@ class ListUtils:
 
     @staticmethod
     def update_by(
-        items: List[T], predicate: Callable[[T], bool], update: Callable[[T], T],
+        items: List[T],
+        predicate: Callable[[T], bool],
+        update: Callable[[T], T],
     ) -> List[T]:
         """Update items matching predicate.
 
@@ -390,7 +437,10 @@ class DictUtils:
 
     @staticmethod
     def get_nested(
-        data: Dict[str, Any], path: str, default: Any = None, separator: str = ".",
+        data: Dict[str, Any],
+        path: str,
+        default: Any = None,
+        separator: str = ".",
     ) -> Any:
         """Get value from nested dictionary using dot notation.
 
@@ -418,7 +468,10 @@ class DictUtils:
 
     @staticmethod
     def set_nested(
-        data: Dict[str, Any], path: str, value: Any, separator: str = ".",
+        data: Dict[str, Any],
+        path: str,
+        value: Any,
+        separator: str = ".",
     ) -> None:
         """Set value in nested dictionary using dot notation.
 
@@ -500,7 +553,9 @@ class DictUtils:
 
     @staticmethod
     def flatten(
-        data: Dict[str, Any], parent_key: str = "", separator: str = ".",
+        data: Dict[str, Any],
+        parent_key: str = "",
+        separator: str = ".",
     ) -> Dict[str, Any]:
         """Flatten nested dictionary.
 
@@ -548,7 +603,9 @@ class DictUtils:
 
     @staticmethod
     def filter_keys(
-        data: Dict[K, V], keys: List[K], include: bool = True,
+        data: Dict[K, V],
+        keys: List[K],
+        include: bool = True,
     ) -> Dict[K, V]:
         """Filter dictionary by keys.
 

@@ -331,3 +331,169 @@ class XMLFormat(FormatHandler[ET.Element]):
             return ET.fromstring(data.decode("utf-8"))
         except Exception as e:
             raise FormatError(f"Failed to deserialize XML: {e!s}") from e
+
+
+class TextProcessor:
+    """Processor for text data.
+
+    This class provides methods for processing text data, including:
+    - Loading text from files
+    - Saving text to files
+    - Converting between formats
+    - Basic text processing operations
+    """
+
+    def __init__(self) -> None:
+        """Initialize the text processor."""
+        self.formats = {
+            "plain": PlainTextFormat(),
+            "markdown": MarkdownFormat(),
+            "json": JSONFormat(),
+            "yaml": YAMLFormat(),
+            "xml": XMLFormat(),
+        }
+
+    def load_file(self, file_path: str) -> Any:
+        """Load text from a file.
+
+        Args:
+            file_path: Path to the text file
+
+        Returns:
+            Loaded text data (type depends on format)
+
+        Raises:
+            FormatError: If the file format is not supported or loading fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported text format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        with open(file_path, "rb") as f:
+            data = f.read()
+
+        return format_handler.deserialize(data)
+
+    def save_file(self, data: Any, file_path: str) -> None:
+        """Save text to a file.
+
+        Args:
+            data: Text data to save (type depends on format)
+            file_path: Path to save the text file
+
+        Raises:
+            FormatError: If the file format is not supported or saving fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported text format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        data_bytes = format_handler.serialize(data)
+
+        with open(file_path, "wb") as f:
+            f.write(data_bytes)
+
+    def convert_format(self, data: Any, source_format: str, target_format: str) -> Any:
+        """Convert text from one format to another.
+
+        Args:
+            data: Text data to convert
+            source_format: Source format extension (e.g., 'json', 'yaml')
+            target_format: Target format extension (e.g., 'json', 'yaml')
+
+        Returns:
+            Converted text data
+
+        Raises:
+            FormatError: If the source or target format is not supported
+        """
+        if source_format not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported source format: {source_format}")
+        if target_format not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported target format: {target_format}")
+
+        source_handler = self._get_format_for_extension(source_format)
+        target_handler = self._get_format_for_extension(target_format)
+
+        # For simple text formats, we can just convert directly
+        if isinstance(source_handler, (PlainTextFormat, MarkdownFormat)) and isinstance(
+            target_handler, (PlainTextFormat, MarkdownFormat)
+        ):
+            return data
+
+        # For structured formats, we need to serialize and deserialize
+        if isinstance(source_handler, (JSONFormat, YAMLFormat)) and isinstance(
+            target_handler, (JSONFormat, YAMLFormat)
+        ):
+            return data  # Both are already structured data
+
+        # XML requires special handling
+        if isinstance(source_handler, XMLFormat) and isinstance(
+            target_handler, (JSONFormat, YAMLFormat)
+        ):
+            # Convert XML to dict (simplified)
+            raise FormatError(
+                "XML to JSON/YAML conversion requires additional libraries"
+            )
+
+        if isinstance(source_handler, (JSONFormat, YAMLFormat)) and isinstance(
+            target_handler, XMLFormat
+        ):
+            # Convert dict to XML (simplified)
+            raise FormatError(
+                "JSON/YAML to XML conversion requires additional libraries"
+            )
+
+        # Default fallback: serialize to bytes and deserialize
+        serialized = source_handler.serialize(data)
+        if isinstance(source_handler, (PlainTextFormat, MarkdownFormat)) and isinstance(
+            target_handler, (JSONFormat, YAMLFormat)
+        ):
+            # Text to structured - try to parse as JSON first
+            try:
+                return json.loads(serialized.decode("utf-8"))
+            except:
+                raise FormatError(
+                    "Cannot convert plain text to structured format automatically"
+                )
+
+        return target_handler.deserialize(serialized)
+
+    def get_supported_formats(self) -> Dict[str, FormatHandler]:
+        """Get all supported text formats.
+
+        Returns:
+            Dictionary of format handlers
+        """
+        return self.formats
+
+    def get_supported_extensions(self) -> list[str]:
+        """Get all supported file extensions.
+
+        Returns:
+            List of supported file extensions
+        """
+        extensions = []
+        for format_handler in self.formats.values():
+            extensions.extend(format_handler.file_extensions)
+        return extensions
+
+    def _get_format_for_extension(self, extension: str) -> FormatHandler:
+        """Get the format handler for a file extension.
+
+        Args:
+            extension: File extension
+
+        Returns:
+            Format handler
+
+        Raises:
+            FormatError: If no handler is found for the extension
+        """
+        for format_name, format_handler in self.formats.items():
+            if extension in format_handler.file_extensions:
+                return format_handler
+
+        raise FormatError(f"No handler found for extension: {extension}")

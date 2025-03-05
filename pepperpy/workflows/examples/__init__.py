@@ -1,52 +1,18 @@
-"""Workflow implementation examples.
+"""Example workflows for the PepperPy framework.
 
-This module provides practical examples of workflow implementations,
-demonstrating:
+This module provides example workflow implementations to demonstrate
+the workflow system's capabilities and serve as reference implementations.
 
-- Workflow Types
-  - Simple workflows
-  - Complex workflows
-  - Parallel workflows
-  - Nested workflows
-
-- Implementation Patterns
-  - Step definition
-  - Execution configuration
-  - Error handling
-  - Callbacks and events
-
-- Use Cases
-  - Data processing
-  - Service integration
-  - Task automation
-  - Agent orchestration
-
-The examples serve to:
-- Demonstrate functionality
-- Illustrate best practices
-- Facilitate learning
-- Validate implementations
+Examples:
+    - HelloWorld: Simple workflow that demonstrates basic workflow functionality
+    - Actions: Example workflow actions that can be used in workflows
 """
 
-from typing import Dict, List, Optional, Union
-
-from .actions import (
-    DelayAction,
-    HelloWorldAction,
-    ListProcessorAction,
-    RandomNumberAction,
-    register_example_actions,
-)
+from .actions import HelloWorldAction, RandomDelayAction
 from .hello_world import HelloWorldWorkflow
 
-__version__ = "0.1.0"
 __all__ = [
-    # Actions
-    "DelayAction",
-    "HelloWorldAction",
-    "ListProcessorAction",
-    "RandomNumberAction",
-    "register_example_actions",
-    # Workflows
     "HelloWorldWorkflow",
+    "HelloWorldAction",
+    "RandomDelayAction",
 ]

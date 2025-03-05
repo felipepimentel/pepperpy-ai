@@ -23,7 +23,6 @@ class FormatError(Exception):
     """Base exception for format-related errors."""
 
 
-
 class FormatHandler(Generic[T], abc.ABC):
     """Base interface for all format handlers."""
 
@@ -99,7 +98,10 @@ class FormatConverter(abc.ABC):
 
     @abc.abstractmethod
     def convert(
-        self, data: bytes, source_format: FormatHandler, target_format: FormatHandler,
+        self,
+        data: bytes,
+        source_format: FormatHandler,
+        target_format: FormatHandler,
     ) -> bytes:
         """Convert data from one format to another.
 
@@ -281,4 +283,116 @@ class BaseValidator(Generic[T], abc.ABC):
         Returns:
             True if valid, False otherwise
 
+        """
+
+
+class FormatProcessor(abc.ABC):
+    """Base class for format processors.
+
+    Format processors provide a unified interface for working with different data formats.
+    They handle loading, saving, and converting between formats.
+    """
+
+    def __init__(self, registry: Optional[FormatRegistry] = None) -> None:
+        """Initialize format processor.
+
+        Args:
+            registry: Optional format registry to use
+        """
+        self.registry = registry or FormatRegistry()
+
+    def register_handler(self, handler: FormatHandler) -> None:
+        """Register a format handler.
+
+        Args:
+            handler: Format handler to register
+        """
+        self.registry.register(handler)
+
+    def get_handler_by_mime_type(self, mime_type: str) -> Optional[FormatHandler]:
+        """Get a format handler by MIME type.
+
+        Args:
+            mime_type: MIME type string
+
+        Returns:
+            Format handler or None if not found
+        """
+        return self.registry.get_by_mime_type(mime_type)
+
+    def get_handler_by_extension(self, extension: str) -> Optional[FormatHandler]:
+        """Get a format handler by file extension.
+
+        Args:
+            extension: File extension (without dot)
+
+        Returns:
+            Format handler or None if not found
+        """
+        return self.registry.get_by_extension(extension)
+
+    def get_supported_formats(self) -> List[FormatHandler]:
+        """Get all supported formats.
+
+        Returns:
+            List of all format handlers
+        """
+        return self.registry.get_all_handlers()
+
+    def get_supported_mime_types(self) -> List[str]:
+        """Get all supported MIME types.
+
+        Returns:
+            List of all MIME types
+        """
+        return self.registry.get_all_mime_types()
+
+    def get_supported_extensions(self) -> List[str]:
+        """Get all supported file extensions.
+
+        Returns:
+            List of all file extensions
+        """
+        return self.registry.get_all_extensions()
+
+    @abc.abstractmethod
+    def load_file(self, file_path: str) -> Any:
+        """Load data from a file.
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Loaded data
+
+        Raises:
+            FormatError: If the file format is not supported or loading fails
+        """
+
+    @abc.abstractmethod
+    def save_file(self, data: Any, file_path: str) -> None:
+        """Save data to a file.
+
+        Args:
+            data: Data to save
+            file_path: Path to save the file
+
+        Raises:
+            FormatError: If the file format is not supported or saving fails
+        """
+
+    @abc.abstractmethod
+    def convert_format(self, data: Any, source_format: str, target_format: str) -> Any:
+        """Convert data from one format to another.
+
+        Args:
+            data: Data to convert
+            source_format: Source format (MIME type or extension)
+            target_format: Target format (MIME type or extension)
+
+        Returns:
+            Converted data
+
+        Raises:
+            FormatError: If the source or target format is not supported or conversion fails
         """

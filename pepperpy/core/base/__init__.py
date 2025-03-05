@@ -1,5 +1,4 @@
 """Base classes and interfaces for PepperPy core components.
-from .manager import BaseManager, ComponentState
 
 This module provides the foundational classes and interfaces that form the
 core of the PepperPy framework. These components are used throughout the
@@ -15,6 +14,8 @@ It includes:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Protocol
+
+from .manager import BaseManager, ComponentState
 
 
 @dataclass

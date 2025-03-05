@@ -18,7 +18,12 @@ from pepperpy.core.base import (
 )
 from pepperpy.core.errors import StateError, WorkflowError
 from pepperpy.core.types import WorkflowID
-from pepperpy.monitoring.metrics import Counter, Histogram, MetricsManager
+from pepperpy.observability.metrics.collector import (
+    Counter,
+    Histogram,
+    MetricsCollector,
+)
+from pepperpy.observability.metrics.manager import MetricsRegistry as MetricsManager
 
 
 class WorkflowState(str, Enum):
@@ -356,7 +361,9 @@ class BaseWorkflow(ABC):
             # Notify step complete
             if isinstance(self._callback, WorkflowCallback):
                 await self._callback.on_step_complete(
-                    str(self.workflow_id), step.name, result,
+                    str(self.workflow_id),
+                    step.name,
+                    result,
                 )
 
             return result

@@ -20,8 +20,7 @@ from pepperpy.core.common.utils import (
     numbers,
     serialization,
 )
-from pepperpy.core.errors import ConfigError, PepperpyError, ValidationError
-from pepperpy.core.types import BaseComponent, ComponentType
-from pepperpy.core.versioning import Version, VersionInfo
+from pepperpy.core.errors import ConfigError, PepperError, StateError, ValidationError
+from pepperpy.core.types import ComponentState, Version
 
 __version__ = "0.1.0"

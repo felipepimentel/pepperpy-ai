@@ -433,19 +433,23 @@ class BinaryVectorFormat(FormatHandler[VectorData]):
                         offset = (i * dimensions + j) * item_size
                         if data_type == 0:  # float32
                             value = struct.unpack(
-                                "f", vector_data[offset : offset + 4],
+                                "f",
+                                vector_data[offset : offset + 4],
                             )[0]
                         elif data_type == 1:  # float64
                             value = struct.unpack(
-                                "d", vector_data[offset : offset + 8],
+                                "d",
+                                vector_data[offset : offset + 8],
                             )[0]
                         elif data_type == 2:  # int32
                             value = struct.unpack(
-                                "i", vector_data[offset : offset + 4],
+                                "i",
+                                vector_data[offset : offset + 4],
                             )[0]
                         elif data_type == 3:  # int64
                             value = struct.unpack(
-                                "q", vector_data[offset : offset + 8],
+                                "q",
+                                vector_data[offset : offset + 8],
                             )[0]
                         vector.append(value)
                     vectors.append(vector)
@@ -524,7 +528,8 @@ class FaissIndexFormat(FormatHandler[VectorData]):
 
             buffer = io.BytesIO()
             faiss.write_index(
-                index, faiss.PyCallbackIOWriter(lambda x: buffer.write(x)),
+                index,
+                faiss.PyCallbackIOWriter(lambda x: buffer.write(x)),
             )
             return buffer.getvalue()
         except Exception as e:
@@ -581,3 +586,171 @@ class FaissIndexFormat(FormatHandler[VectorData]):
             if not isinstance(e, FormatError):
                 e = FormatError(f"Failed to deserialize FAISS index: {e!s}")
             raise e
+
+
+class VectorProcessor:
+    """Processor for vector data.
+
+    This class provides methods for processing vector data, including:
+    - Loading vectors from files
+    - Saving vectors to files
+    - Converting between formats
+    - Basic vector operations
+    """
+
+    def __init__(self) -> None:
+        """Initialize the vector processor."""
+        self.formats = {
+            "numpy": NumpyFormat(),
+            "json": JSONVectorFormat(),
+            "binary": BinaryVectorFormat(),
+            "faiss": FaissIndexFormat(),
+        }
+
+    def load_file(self, file_path: str) -> VectorData:
+        """Load vector data from a file.
+
+        Args:
+            file_path: Path to the vector file
+
+        Returns:
+            VectorData object
+
+        Raises:
+            FormatError: If the file format is not supported or loading fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported vector format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        with open(file_path, "rb") as f:
+            data = f.read()
+
+        return format_handler.deserialize(data)
+
+    def save_file(self, vector_data: VectorData, file_path: str) -> None:
+        """Save vector data to a file.
+
+        Args:
+            vector_data: VectorData object
+            file_path: Path to save the vector file
+
+        Raises:
+            FormatError: If the file format is not supported or saving fails
+        """
+        extension = file_path.split(".")[-1].lower()
+        if extension not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported vector format: {extension}")
+
+        format_handler = self._get_format_for_extension(extension)
+        data = format_handler.serialize(vector_data)
+
+        with open(file_path, "wb") as f:
+            f.write(data)
+
+    def convert_format(self, vector_data: VectorData, target_format: str) -> bytes:
+        """Convert vector data to a different format.
+
+        Args:
+            vector_data: VectorData object
+            target_format: Target format extension (e.g., 'npy', 'json')
+
+        Returns:
+            Serialized vector data in the target format
+
+        Raises:
+            FormatError: If the target format is not supported
+        """
+        if target_format not in self.get_supported_extensions():
+            raise FormatError(f"Unsupported target format: {target_format}")
+
+        format_handler = self._get_format_for_extension(target_format)
+        return format_handler.serialize(vector_data)
+
+    def create_vector_data(
+        self,
+        vectors: Any,
+        dimensions: Optional[int] = None,
+        count: Optional[int] = None,
+    ) -> VectorData:
+        """Create a VectorData object from raw vectors.
+
+        Args:
+            vectors: Vector data (numpy array or list of lists)
+            dimensions: Number of dimensions per vector (optional, inferred if not provided)
+            count: Number of vectors (optional, inferred if not provided)
+
+        Returns:
+            VectorData object
+
+        Raises:
+            FormatError: If the vector data is invalid
+        """
+        # Infer dimensions and count if not provided
+        if NUMPY_AVAILABLE and isinstance(vectors, np.ndarray):
+            if vectors.ndim == 1:
+                inferred_count = 1
+                inferred_dimensions = vectors.shape[0]
+                # Reshape to 2D for consistency
+                vectors = vectors.reshape(1, -1)
+            else:
+                inferred_count = vectors.shape[0]
+                inferred_dimensions = vectors.shape[1]
+        elif isinstance(vectors, list):
+            inferred_count = len(vectors)
+            if inferred_count > 0 and isinstance(vectors[0], list):
+                inferred_dimensions = len(vectors[0])
+            else:
+                inferred_dimensions = 1
+                # Reshape to 2D for consistency
+                vectors = [[v] for v in vectors]
+        else:
+            raise FormatError("Unsupported vector data type")
+
+        # Use provided values or inferred ones
+        final_dimensions = dimensions or inferred_dimensions
+        final_count = count or inferred_count
+
+        return VectorData(
+            vectors=vectors,
+            dimensions=final_dimensions,
+            count=final_count,
+        )
+
+    def get_supported_formats(self) -> Dict[str, FormatHandler]:
+        """Get all supported vector formats.
+
+        Returns:
+            Dictionary of format handlers
+        """
+        return self.formats
+
+    def get_supported_extensions(self) -> list[str]:
+        """Get all supported file extensions.
+
+        Returns:
+            List of supported file extensions
+        """
+        extensions = []
+        for format_handler in self.formats.values():
+            extensions.extend(format_handler.file_extensions)
+        return extensions
+
+    def _get_format_for_extension(self, extension: str) -> FormatHandler:
+        """Get the format handler for a file extension.
+
+        Args:
+            extension: File extension
+
+        Returns:
+            Format handler
+
+        Raises:
+            FormatError: If no handler is found for the extension
+        """
+        for format_name, format_handler in self.formats.items():
+            if extension in format_handler.file_extensions:
+                return format_handler
+
+        raise FormatError(f"No handler found for extension: {extension}")
