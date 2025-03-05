@@ -12,7 +12,8 @@ Funcionalidades:
 Como usar:
 Para executar o exemplo, use o seguinte comando:
 ```bash
-python -m examples.news_podcast.news_podcast --feed https://news.google.com/rss --output example_output/podcast.mp3 --max-articles 3
+python -m examples.news_podcast.news_podcast --feed https://news.google.com/rss \
+    --output example_output/podcast.mp3 --max-articles 3
 ```
 
 Parâmetros disponíveis:
@@ -37,9 +38,8 @@ import os
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional
 
 import feedparser
 import requests
@@ -160,11 +160,19 @@ async def summarize_article(article: NewsArticle) -> str:
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are a professional news summarizer. Create a concise summary of the news article in a style suitable for a podcast. Keep it under 100 words.",
+                        "content": (
+                            "You are a professional news summarizer. Create a concise "
+                            "summary of the news article in a style suitable for a podcast. "
+                            "Keep it under 100 words."
+                        ),
                     },
                     {
                         "role": "user",
-                        "content": f"Title: {article.title}\n\nSummary: {article.summary}\n\nLink: {article.link}",
+                        "content": (
+                            f"Title: {article.title}\n\n"
+                            f"Summary: {article.summary}\n\n"
+                            f"Link: {article.link}"
+                        ),
                     },
                 ],
             }
@@ -196,11 +204,19 @@ async def summarize_article(article: NewsArticle) -> str:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are a professional news summarizer. Create a concise summary of the news article in a style suitable for a podcast. Keep it under 100 words.",
+                        "content": (
+                            "You are a professional news summarizer. Create a concise "
+                            "summary of the news article in a style suitable for a podcast. "
+                            "Keep it under 100 words."
+                        ),
                     },
                     {
                         "role": "user",
-                        "content": f"Title: {article.title}\n\nSummary: {article.summary}\n\nLink: {article.link}",
+                        "content": (
+                            f"Title: {article.title}\n\n"
+                            f"Summary: {article.summary}\n\n"
+                            f"Link: {article.link}"
+                        ),
                     },
                 ],
             )

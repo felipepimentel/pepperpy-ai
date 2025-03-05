@@ -1,157 +1,135 @@
 ---
-title: Example Execution & Validation
-description: ALWAYS use when executing and validating example files to ensure proper functionality and integration. This prompt guides example testing and issue resolution.
-version: 1.0
+title: PepperPy Example Execution and Analysis Guide
+description: Comprehensive guidelines for analyzing, running, and improving PepperPy examples while preserving architectural integrity.
+version: 1.3
 category: validation
-tags: [examples, testing, fixes]
-yolo: true
+tags: [examples, testing, architecture, vertical-domain, analysis]
 ---
 
-# Context
-Guides the process of executing, validating, and fixing example files while maintaining project standards and best practices.
+## Framework Architecture Context
 
-# Pre-execution Validation
-```yaml
-validate:
-  project_structure:
-    file: ".product/project_structure.yml"
-    required: true
-  
-  knowledge_base:
-    query:
-      - common_issues
-      - best_practices
-      - example_patterns
-  
-  environment:
-    check:
-      - poetry_installation
-      - required_env_vars
-      - python_version
+PepperPy is a modular AI framework built on vertical domain organization:
+
+- Each domain encapsulates its complete implementation (base, types, providers)
+- Public APIs are exposed through `public.py` and carefully selected exports in `__init__.py`
+- Vertical structure maintains high cohesion and minimal coupling between domains
+- Providers implement specific functionalities but are accessed through abstraction layers
+
+## Core Abstraction Principles
+
+- **CRITICAL**: Examples MUST ONLY use public interfaces (`public.py`, exports in `__init__.py`)
+- **NEVER** import directly from `providers` subdirectories (e.g., `from pepperpy.llm.providers import...`)
+- All interaction must respect abstraction boundaries
+- Use Factories and Registry patterns to obtain provider implementations
+
+```python
+# CORRECT ✅
+from pepperpy.llm import get_provider, ChatModel
+
+# INCORRECT ❌
+from pepperpy.llm.providers.openai import openai_provider
 ```
 
-# Execution Process
+## Example Analysis and Execution Process
 
-## 1. Initial Run
+### 1. Example Code Analysis
+
 ```yaml
-execute:
-  command: string        # e.g., "poetry run python {example_path}"
-  mode: yolo|standard   # Default: standard
-  environment:
-    preserve: true      # Don't modify existing env vars
-    validate: true      # Check required vars exist
+analyze_example:
+  # First analyze the actual example code
+  code_review:
+    - examine_file_structure: "Analyze the structure of the example code"
+    - review_imports: "Identify all import statements and verify they follow abstraction principles"
+    - analyze_functionality: "Determine what the example is attempting to demonstrate"
+    - identify_dependencies: "Determine which PepperPy modules and external dependencies are required"
+  
+  abstraction_validation:
+    - check_public_api_usage: "Verify example only uses public interfaces"
+    - identify_abstraction_violations: "Flag any direct access to providers or implementation details"
+  
+  environment_requirements:
+    - identify_required_env_vars: "Determine required environment variables from code"
+    - identify_external_services: "Note any external services or APIs needed"
 ```
 
-## 2. Error Handling
+### 2. Environment Preparation
+
+```yaml
+preparation:
+  verify:
+    - Poetry installation: "poetry --version"
+    - Python version: "python --version"
+    - Dependencies: "poetry install"
+  
+  environment_variables:
+    analyze: "Identify specific environment variables needed for this example"
+    recommend: "Suggest values or sources for required variables"
+```
+
+### 3. Example Execution
+
+```yaml
+execution:
+  command: "Execute the specified command and capture output"
+  
+  monitor:
+    - exit_code: "Report execution success or failure"
+    - stdout_stderr: "Capture and analyze console output"
+    - errors: "Identify any runtime errors and their causes"
+```
+
+### 4. Issue Analysis and Resolution
+
 ```yaml
 on_error:
   analyze:
-    - error_type
-    - error_location
-    - potential_causes
-  
-  fix_strategy:
-    scope:
-      - example_code
-      - library_code
-      - environment
+    - error_details: "Provide detailed analysis of specific errors encountered"
+    - root_cause: "Determine exact cause in example or framework code"
     
-    constraints:
-      - maintain_structure
-      - respect_interfaces
-      - follow_standards
-    
-    priorities:
-      - fix_root_cause
-      - minimize_changes
-      - maintain_flexibility
+  resolution:
+    - provide_specific_fixes: "Offer exact code changes to resolve issues"
+    - explain_rationale: "Explain why the fix preserves architectural integrity"
 ```
 
-## 3. Validation
+### 5. Improvement Recommendations
+
 ```yaml
-verify:
-  execution:
-    - exit_code: 0
-    - expected_output: matched
-    - no_errors: true
+improvements:
+  code_quality:
+    - identify_specific_improvements: "Suggest concrete improvements to example code"
+    - provide_improved_code: "Show improved version that maintains architectural integrity"
   
-  logs:
-    - level: configured
-    - format: correct
-    - content: relevant
-  
-  quality:
-    - code_style: consistent
-    - best_practices: followed
-    - documentation: updated
+  documentation:
+    - suggest_clarifications: "Recommend specific documentation improvements"
+    - provide_examples: "Show examples of improved documentation"
 ```
 
-# Example Usage
+## Example Validation Checklist
+
 ```yaml
-# Example Execution
-execution:
-  file: "examples/research_assistant.py"
-  command: "poetry run python examples/research_assistant.py"
-  mode: yolo
+validation_checklist:
+  functionality:
+    - execution_successful: "Did the example run successfully?"
+    - expected_output: "Did the example produce expected results?"
   
-  validation:
-    env_vars:
-      - PEPPERPY_API_KEY
-      - PEPPERPY_PROVIDER
-      - PEPPERPY_MODEL
+  architecture:
+    - abstraction_integrity: "Does the example maintain proper abstraction boundaries?"
+    - vertical_domain_respect: "Does the example respect vertical domain organization?"
     
-    structure:
-      check: ".product/project_structure.yml"
-    
-    quality:
-      style: true
-      practices: true
-      docs: true
-
-# Error Resolution
-if_error:
-  analyze:
-    type: import_error
-    location: "research_assistant.py"
-    cause: "missing dependency"
-  
-  fix:
-    scope: example_code
-    changes:
-      - add_import
-      - update_requirements
-      - verify_dependencies
-  
-  verify:
-    - rerun_example
-    - check_logs
-    - validate_output
+  code_quality:
+    - readability: "Is the example code clear and understandable?"
+    - error_handling: "Does the example handle errors appropriately?"
+    - documentation: "Is the example well-documented?"
 ```
 
-# Guidelines
+## Analysis Response Format
 
-## Example Execution
-- Run with specified command
-- Preserve environment variables
-- Follow project structure
-- Monitor for issues
+The analysis should include:
 
-## Error Resolution
-- Analyze root cause
-- Choose appropriate fix scope
-- Maintain project standards
-- Verify solution
-
-## Code Quality
-- Follow best practices
-- Maintain flexibility
-- Keep code straightforward
-- Update documentation
-
-## Validation
-- Check execution success
-- Verify log outputs
-- Ensure quality standards
-- Document changes
-
-Remember: Reference project_structure rule for structural requirements and coding_standards rule for style guidelines.
+1. **Example Overview**: Brief description of what the example demonstrates
+2. **Code Analysis**: Review of the example code structure and architecture compliance
+3. **Execution Results**: Detailed results of running the example
+4. **Issue Identification**: Specific issues found (if any)
+5. **Resolution Steps**: Concrete steps to resolve identified issues
+6. **Improvement Suggestions**: Specific suggestions to improve the example
+7. **Validation Summary**: Summary of the example's compliance with framework principles

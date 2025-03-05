@@ -11,6 +11,7 @@ This module provides functionality for handling various data formats:
 - Vector: Vector data formats
 - Audio: Audio data formats
 - Image: Image data formats
+- RSS: RSS feed processing
 
 The module centralizes format handling to provide consistent interfaces
 for working with different data formats throughout the framework.
@@ -50,6 +51,7 @@ from pepperpy.formats.parsers import (
     XmlParser,
     YamlParser,
 )
+from pepperpy.formats.rss import RSSArticle, RSSFeed, RSSProcessor
 from pepperpy.formats.text import TextProcessor
 from pepperpy.formats.vector import VectorProcessor
 
@@ -62,6 +64,7 @@ __all__ = [
     "AudioProcessor",
     "ImageProcessor",
     "VectorProcessor",
+    "RSSProcessor",
     # Base classes
     "BaseProcessor",
     "BaseTransformer",
@@ -78,6 +81,9 @@ __all__ = [
     "JsonFormatter",
     "YamlFormatter",
     "XmlFormatter",
+    # RSS
+    "RSSArticle",
+    "RSSFeed",
     # Utils
     "SerializationUtils",
     "JsonUtils",
