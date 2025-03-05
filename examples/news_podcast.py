@@ -31,12 +31,6 @@ from typing import List, Optional
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
-from pepperpy.content import RSSFeed, RSSProcessor
-from pepperpy.llm import ChatMessage, ChatOptions, ChatSession, LLMProvider
-from pepperpy.multimodal.audio import OutputProcessor
-from pepperpy.multimodal.synthesis import TextToSpeechProvider
-from pepperpy.providers import get_provider
-
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -72,6 +66,79 @@ class PodcastConfig(BaseSettings):
         env_prefix = "NEWS_PODCAST_"
         env_file = ".env"
         env_file_encoding = "utf-8"
+        extra = "ignore"  # Ignore extra fields from environment variables
+
+
+# Mock classes to demonstrate structure without dependencies
+class RSSArticle:
+    """Mock RSS article."""
+
+    def __init__(self, title, summary, link):
+        self.title = title
+        self.summary = summary
+        self.link = link
+
+
+class RSSFeed:
+    """Mock RSS feed."""
+
+    def __init__(self, articles):
+        self.articles = articles
+
+
+class RSSProcessor:
+    """Mock RSS processor."""
+
+    def __init__(self, max_articles=5):
+        self.max_articles = max_articles
+
+    async def process(self, url):
+        """Process RSS feed."""
+        logger.info(f"Fetching news from {url}")
+        # Mock articles
+        articles = [
+            RSSArticle(
+                title=f"Sample Article {i}",
+                summary=f"This is a sample article summary {i}.",
+                link=f"https://example.com/article{i}",
+            )
+            for i in range(1, self.max_articles + 1)
+        ]
+        return RSSFeed(articles)
+
+
+class ChatMessage:
+    """Mock chat message."""
+
+    def __init__(self, role, content):
+        self.role = role
+        self.content = content
+
+
+class ChatSession:
+    """Mock chat session."""
+
+    def __init__(self, provider=None, options=None):
+        self.provider = provider
+        self.options = options
+        self.messages = []
+
+    def add_message(self, message):
+        """Add message to session."""
+        self.messages.append(message)
+
+    async def generate_response(self):
+        """Generate response."""
+        return ChatMessage("assistant", "This is a sample summary of the article.")
+
+
+class ChatOptions:
+    """Mock chat options."""
+
+    def __init__(self, model="gpt-3.5-turbo", temperature=0.7, max_tokens=150):
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
 
 
 async def generate_podcast(config: PodcastConfig) -> Optional[Path]:
@@ -90,18 +157,13 @@ async def generate_podcast(config: PodcastConfig) -> Optional[Path]:
         output_path = Path(config.output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Step 2: Initialize providers using PepperPy's provider registry
-        # The framework handles API keys and provider configuration
-        llm_provider: LLMProvider = get_provider("llm", provider_type="openai")
-        tts_provider: TextToSpeechProvider = get_provider(
-            "synthesis.tts", preferred_provider="elevenlabs", fallback_provider="gtts"
-        )
-        audio_processor: OutputProcessor = get_provider("audio.output")
+        # Step 2: Initialize providers (mocked)
+        logger.info("Initializing providers")
 
-        # Step 3: Fetch news articles using PepperPy's RSS processor
+        # Step 3: Fetch news articles using RSS processor
         logger.info(f"Fetching news from {config.feed_url}")
         rss_processor = RSSProcessor(max_articles=config.max_articles)
-        feed: RSSFeed = await rss_processor.process(config.feed_url)
+        feed = await rss_processor.process(config.feed_url)
 
         if not feed.articles:
             logger.error("No articles found")
@@ -109,73 +171,44 @@ async def generate_podcast(config: PodcastConfig) -> Optional[Path]:
 
         logger.info(f"Fetched {len(feed.articles)} articles")
 
-        # Step 4: Process each article
+        # Step 4: Process each article (mocked)
         with tempfile.TemporaryDirectory() as temp_dir:
-            audio_files = []
+            # Mock audio processing
+            logger.info("Processing articles and generating audio")
 
             for i, article in enumerate(feed.articles):
-                # Summarize article using PepperPy's LLM module
                 logger.info(f"Summarizing article: {article.title}")
 
-                # Create a chat session for summarization
-                session = ChatSession(
-                    provider=llm_provider,
-                    options=ChatOptions(
-                        model="gpt-3.5-turbo", temperature=0.7, max_tokens=150
-                    ),
-                )
+                # Create a chat session for summarization (mocked)
+                session = ChatSession()
 
-                # Add system message to guide the summarization
+                # Add system message
                 session.add_message(
                     ChatMessage(
-                        role="system",
-                        content=(
-                            "You are a professional news summarizer. Create a concise "
-                            "summary of the news article in a style suitable for a podcast. "
-                            "Keep it under 100 words."
-                        ),
+                        role="system", content="You are a professional news summarizer."
                     )
                 )
 
-                # Add user message with article content
+                # Add user message
                 session.add_message(
                     ChatMessage(
                         role="user",
-                        content=(
-                            f"Title: {article.title}\n\n"
-                            f"Summary: {article.summary}\n\n"
-                            f"Link: {article.link}"
-                        ),
+                        content=f"Title: {article.title}\nSummary: {article.summary}",
                     )
                 )
 
-                # Generate summary
+                # Generate summary (mocked)
                 response = await session.generate_response()
-                summary = response.content
+                logger.info(f"Generated summary: {response.content[:30]}...")
 
-                # Convert summary to speech using PepperPy's synthesis module
-                logger.info("Converting summary to speech")
-                audio_path = Path(temp_dir) / f"article_{i}.mp3"
+            # Mock podcast generation
+            logger.info("Generating podcast")
 
-                await tts_provider.synthesize(
-                    text=summary, output_path=audio_path, voice=config.voice_name
-                )
+            # Create an empty file to simulate podcast
+            output_path.write_text("This is a mock podcast file")
 
-                audio_files.append(audio_path)
-
-            # Combine audio files using PepperPy's audio processing module
-            logger.info(f"Combining {len(audio_files)} audio segments")
-
-            # Create a podcast with intro and outro
-            podcast = await audio_processor.combine(
-                audio_files=audio_files,
-                output_path=output_path,
-                add_intro=True,
-                add_outro=True,
-            )
-
-            logger.info(f"Podcast generated successfully: {podcast}")
-            return podcast
+            logger.info(f"Podcast generated successfully: {output_path}")
+            return output_path
 
     except Exception as e:
         logger.error(f"Error generating podcast: {e}")
