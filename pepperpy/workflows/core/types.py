@@ -99,7 +99,12 @@ class WorkflowCallback(Protocol):
 
 # Type aliases
 WorkflowConfig = Dict[str, Any]
-WorkflowResult = Dict[str, Any]
+
+# Deprecated: Use the dataclass version from pepperpy.workflows.types instead
+# WorkflowResult = Dict[str, Any]
+
+# Import the proper WorkflowResult from the main types module
+from pepperpy.workflows.types import WorkflowResult  # noqa
 
 # Type variables
 T = TypeVar("T", bound=BaseComponent)

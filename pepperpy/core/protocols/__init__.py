@@ -1,48 +1,23 @@
-"""Protocols and interfaces for PepperPy
+"""Protocolos do framework PepperPy.
 
-This module defines the fundamental protocols and interfaces of the framework,
-including:
-
-- Lifecycle
-  - Initialization
-  - Execution
-  - Finalization
-  - States
-
-- Capabilities
-  - Serialization
-  - Validation
-  - Observability
-  - Configuration
-
-- Communication
-  - Events
-  - Messages
-  - Callbacks
-  - Streams
-
-Protocols are essential for:
-- Defining clear contracts
-- Ensuring extensibility
-- Allowing polymorphism
-- Facilitating testing
+Este módulo define protocolos que estabelecem contratos para diferentes
+componentes do framework, garantindo interoperabilidade e extensibilidade.
 """
 
-from typing import Dict, List, Optional, Protocol, Union
+from pepperpy.core.protocols.base import LifecycleProtocol
+from pepperpy.core.protocols.composition import (
+    ComposableProtocol,
+    OutputProtocol,
+    ProcessorProtocol,
+    SourceProtocol,
+)
 
-from pepperpy.core.validation.protocols import Validatable
-from pepperpy.formats.serialization import Serializable
-
-from .lifecycle import Lifecycle
-from .messaging import MessageHandler
-from .observable import Observable, Observer
-
-__version__ = "0.1.0"
 __all__ = [
-    "Lifecycle",
-    "MessageHandler",
-    "Observable",
-    "Observer",
-    "Serializable",
-    "Validatable",
+    # Base protocols
+    "LifecycleProtocol",
+    # Composition protocols
+    "SourceProtocol",
+    "ProcessorProtocol",
+    "OutputProtocol",
+    "ComposableProtocol",
 ]

@@ -1,76 +1,68 @@
-"""PepperPy Framework.
+"""PepperPy: Um framework moderno e flexível para aplicações de IA em Python.
 
-A Python framework for building AI-powered applications.
-
-Core Components:
-1. Core Framework
-   - Configuration management
-   - Error handling
-   - Lifecycle management
-   - State management
-   - Security
-
-2. Processing
-   - Agent management
-   - Workflow orchestration
-   - Content synthesis
-   - Memory management
-
-3. Integrations
-   - LangChain integration
-   - AutoGen integration
-   - Provider management
-   - Plugin system
-
-4. Utilities
-   - Common utilities
-   - Helper functions
-   - Shared tools
+PepperPy oferece três níveis de abstração:
+1. Composição Universal: API de baixo nível para compor componentes em pipelines
+2. Abstração por Intenção: API de médio nível para expressar intenções de forma natural
+3. Templates: API de alto nível com soluções pré-configuradas
 """
 
-# Providers are now distributed by domain
-# The following imports are for backward compatibility
-from pepperpy.agents.providers import *
-from pepperpy.cloud.providers import *
-from pepperpy.core import *
-from pepperpy.core.config.providers import *
-from pepperpy.embedding.providers import *
-from pepperpy.llm.providers import *
-from pepperpy.memory.providers import *
-from pepperpy.multimodal.audio.providers import *
-from pepperpy.multimodal.vision.providers import *
-from pepperpy.storage.providers import *
+from typing import Any, Callable, Dict, List, Optional, Union
 
-# from pepperpy.integrations import *  # noqa
-# from pepperpy.utils import *  # noqa
+# Importar componentes de composição
+from pepperpy.core.composition import compose, compose_parallel
+from pepperpy.core.composition.factory import ComponentFactory, PipelineFactory
+from pepperpy.core.composition.registry import (
+    get_output_component_class,
+    get_processor_component_class,
+    get_source_component_class,
+)
 
+# Importar componentes de intenção
+from pepperpy.core.intent.public import (
+    IntentBuilder,
+    classify_intent,
+    process_intent,
+    recognize_intent,
+)
+from pepperpy.core.intent.types import IntentType
 
-# The centralized providers module has been removed
-# Please use the domain-specific providers instead
-# For example: from pepperpy.llm.providers import OpenAIProvider
+# Importar namespaces para compatibilidade com versões anteriores
+from pepperpy.namespaces import outputs, processors, sources
 
-__version__ = "0.1.0"
+# Importar componentes de templates
+from pepperpy.workflows.templates.public import (
+    execute_template,
+    get_template,
+    list_templates,
+    register_template,
+)
 
+# Exportar API pública
 __all__ = [
-    # Core components
-    "Config",
-    "Environment",
-    "FeatureFlags",
-    "ObservabilityManager",
-    "SecurityManager",
-    "StateManager",
-    # Processing
-    "AgentManager",
-    "WorkflowManager",
-    "SynthesisManager",
-    "MemoryManager",
-    # Integrations
-    "LangChainIntegration",
-    "AutoGenIntegration",
-    "ProviderManager",
-    "PluginManager",
-    # Utilities
-    "Timer",
-    "Cache",
-    "Validator",
+    # Composição
+    "compose",
+    "compose_parallel",
+    "ComponentFactory",
+    "PipelineFactory",
+    "get_source_component_class",
+    "get_processor_component_class",
+    "get_output_component_class",
+    # Intenção
+    "recognize_intent",
+    "process_intent",
+    "classify_intent",
+    "IntentBuilder",
+    "IntentType",
+    # Templates
+    "execute_template",
+    "register_template",
+    "get_template",
+    "list_templates",
+    # Namespaces (compatibilidade)
+    "sources",
+    "processors",
+    "outputs",
 ]
+
+# Versão da biblioteca
+__version__ = "0.1.0"

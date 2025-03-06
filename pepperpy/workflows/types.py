@@ -3,8 +3,9 @@
 Defines the data types and enumerations used in the workflow module.
 """
 
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Dict, Protocol, TypeVar
+from typing import Any, Dict, List, Optional, Protocol, TypeVar
 
 from pepperpy.core.types.base import BaseComponent
 
@@ -104,3 +105,65 @@ WorkflowResult = Dict[str, Any]
 # Type variables
 T = TypeVar("T", bound=BaseComponent)
 WorkflowT = TypeVar("WorkflowT", bound=BaseWorkflow)
+
+
+class WorkflowStepType(Enum):
+    """Tipos de passos de workflow."""
+
+    SOURCE = "source"
+    PROCESSOR = "processor"
+    OUTPUT = "output"
+    CUSTOM = "custom"
+
+
+@dataclass
+class WorkflowStep:
+    """Definição de um passo de workflow.
+
+    Attributes:
+        name: O nome do passo.
+        type: O tipo do passo.
+        component: O componente a ser executado.
+        config: A configuração do passo.
+        metadata: Metadados adicionais para o passo.
+    """
+
+    name: str
+    type: WorkflowStepType
+    component: str
+    config: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class WorkflowDefinition:
+    """Definição de um workflow.
+
+    Attributes:
+        name: O nome do workflow.
+        description: Uma descrição do workflow.
+        steps: Os passos do workflow.
+        metadata: Metadados adicionais para o workflow.
+    """
+
+    name: str
+    description: str
+    steps: List[WorkflowStep]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class WorkflowResult:
+    """Resultado da execução de um workflow.
+
+    Attributes:
+        status: O status da execução (success, error, etc.).
+        result: O resultado da execução.
+        metadata: Metadados adicionais sobre a execução.
+        error: Informações sobre o erro, se houver.
+    """
+
+    status: str
+    result: Dict[str, Any]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    error: Optional[Dict[str, Any]] = None

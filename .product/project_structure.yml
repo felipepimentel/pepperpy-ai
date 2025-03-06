@@ -175,13 +175,13 @@ contents:
   type: directory
 - contents:
   - contents:
-    - description: Context
+    - description: '# Framework Architecture Context'
       extension: md
-      lines: 157
+      lines: 135
       name: example.run.md
       path: .product/prompts/example.run.md
-      size: 3144
-      size_human: 3.1 KB
+      size: 4893
+      size_human: 4.8 KB
       type: file
     - description: Context
       extension: md
@@ -251,9 +251,9 @@ contents:
     files_count: 9
     name: prompts
     path: .product/prompts
-    total_lines: 1859
-    total_size: 42811
-    total_size_human: 41.8 KB
+    total_lines: 1837
+    total_size: 44560
+    total_size_human: 43.5 KB
     type: directory
   - contents: []
     dirs_count: 0
@@ -265,11 +265,11 @@ contents:
     total_size_human: 0 bytes
     type: directory
   - extension: yml
-    lines: 0
+    lines: 6687
     name: project_structure.yml
     path: .product/project_structure.yml
-    size: 0
-    size_human: 0 bytes
+    size: 195912
+    size_human: 191.3 KB
     type: file
   - description: "Nova Estrutura de Tasks # Vis\xE3o Geral"
     extension: md
@@ -283,9 +283,9 @@ contents:
   files_count: 2
   name: .product
   path: .product
-  total_lines: 197
-  total_size: 4516
-  total_size_human: 4.4 KB
+  total_lines: 6884
+  total_size: 200428
+  total_size_human: 195.7 KB
   type: directory
 - contents:
   - extension: svg
@@ -513,6 +513,22 @@ contents:
   total_size_human: 6.3 KB
   type: directory
 - contents:
+  - extension: mp3
+    lines: 0
+    name: news_podcast.mp3
+    path: example_output/news_podcast.mp3
+    size: 27
+    size_human: 27 bytes
+    type: file
+  dirs_count: 0
+  files_count: 1
+  name: example_output
+  path: example_output
+  total_lines: 0
+  total_size: 27
+  total_size_human: 27 bytes
+  type: directory
+- contents:
   - contents:
     - description: API Agent implementation for Pepperpy examples.
       extension: py
@@ -569,45 +585,70 @@ contents:
     total_size_human: 2.8 KB
     type: directory
   - contents:
-    - contents: []
-      dirs_count: 0
-      files_count: 0
-      name: example_output
-      path: examples/news_podcast/example_output
-      total_lines: 0
-      total_size: 0
-      total_size_human: 0 bytes
-      type: directory
-    - extension: py
+    - extension: mp3
       lines: 0
-      name: __init__.py
-      path: examples/news_podcast/__init__.py
-      size: 0
-      size_human: 0 bytes
+      name: news_podcast.mp3
+      path: examples/example_output/news_podcast.mp3
+      size: 27
+      size_human: 27 bytes
       type: file
-    - description: News Podcast Generator
-      extension: py
-      lines: 543
-      name: news_podcast.py
-      path: examples/news_podcast/news_podcast.py
-      size: 18368
-      size_human: 17.9 KB
-      type: file
-    dirs_count: 1
-    files_count: 2
-    name: news_podcast
-    path: examples/news_podcast
-    total_lines: 543
-    total_size: 18368
-    total_size_human: 17.9 KB
+    dirs_count: 0
+    files_count: 1
+    name: example_output
+    path: examples/example_output
+    total_lines: 0
+    total_size: 27
+    total_size_human: 27 bytes
     type: directory
-  dirs_count: 2
-  files_count: 0
+  - contents:
+    - description: Workflow implementation examples.
+      extension: py
+      lines: 52
+      name: __init__.py
+      path: examples/hello_workflow/__init__.py
+      size: 1037
+      size_human: 1.0 KB
+      type: file
+    - description: Example workflow actions.
+      extension: py
+      lines: 105
+      name: actions.py
+      path: examples/hello_workflow/actions.py
+      size: 2980
+      size_human: 2.9 KB
+      type: file
+    - description: Example workflow implementation.
+      extension: py
+      lines: 47
+      name: hello_world.py
+      path: examples/hello_workflow/hello_world.py
+      size: 954
+      size_human: 954 bytes
+      type: file
+    description: Workflow implementation examples.
+    dirs_count: 0
+    files_count: 3
+    name: hello_workflow
+    path: examples/hello_workflow
+    total_lines: 204
+    total_size: 4971
+    total_size_human: 4.9 KB
+    type: directory
+  - description: News Podcast Generator Example
+    extension: py
+    lines: 338
+    name: news_podcast.py
+    path: examples/news_podcast.py
+    size: 11009
+    size_human: 10.8 KB
+    type: file
+  dirs_count: 3
+  files_count: 1
   name: examples
   path: examples
-  total_lines: 0
-  total_size: 0
-  total_size_human: 0 bytes
+  total_lines: 338
+  total_size: 11009
+  total_size_human: 10.8 KB
   type: directory
 - contents:
   - contents:
@@ -1311,11 +1352,11 @@ contents:
       type: file
     - description: Memory cache implementation.
       extension: py
-      lines: 20
+      lines: 261
       name: memory.py
       path: pepperpy/caching/memory.py
-      size: 345
-      size_human: 345 bytes
+      size: 6602
+      size_human: 6.4 KB
       type: file
     - description: Migration utilities for transitioning to the unified caching system.
       extension: py
@@ -1353,9 +1394,9 @@ contents:
     files_count: 11
     name: caching
     path: pepperpy/caching
-    total_lines: 2014
-    total_size: 56343
-    total_size_human: 55.0 KB
+    total_lines: 2255
+    total_size: 62600
+    total_size_human: 61.1 KB
     type: directory
   - contents:
     - description: Capabilities module for PepperPy.
@@ -2027,10 +2068,10 @@ contents:
     - contents:
       - description: Base classes and interfaces for PepperPy core components.
         extension: py
-        lines: 165
+        lines: 166
         name: __init__.py
         path: pepperpy/core/base/__init__.py
-        size: 4197
+        size: 4198
         size_human: 4.1 KB
         type: file
       - description: Base manager module for the Pepperpy framework.
@@ -2046,8 +2087,8 @@ contents:
       files_count: 2
       name: base
       path: pepperpy/core/base
-      total_lines: 357
-      total_size: 9672
+      total_lines: 358
+      total_size: 9673
       total_size_human: 9.4 KB
       type: directory
     - contents:
@@ -2103,85 +2144,85 @@ contents:
           type: file
         - description: Collection utilities for PepperPy.
           extension: py
-          lines: 602
+          lines: 659
           name: collections.py
           path: pepperpy/core/common/utils/collections.py
-          size: 15342
-          size_human: 15.0 KB
+          size: 16268
+          size_human: 15.9 KB
           type: file
         - description: Utilities for configuration file manipulation.
           extension: py
-          lines: 250
+          lines: 301
           name: config.py
           path: pepperpy/core/common/utils/config.py
-          size: 6804
-          size_human: 6.6 KB
+          size: 7965
+          size_human: 7.8 KB
           type: file
         - description: Data manipulation utilities.
           extension: py
-          lines: 128
+          lines: 253
           name: data.py
           path: pepperpy/core/common/utils/data.py
-          size: 3194
-          size_human: 3.1 KB
+          size: 6801
+          size_human: 6.6 KB
           type: file
         - description: Date utilities.
           extension: py
-          lines: 215
+          lines: 269
           name: dates.py
           path: pepperpy/core/common/utils/dates.py
-          size: 4785
-          size_human: 4.7 KB
+          size: 6339
+          size_human: 6.2 KB
           type: file
         - description: File handling utilities.
           extension: py
-          lines: 187
+          lines: 282
           name: files.py
           path: pepperpy/core/common/utils/files.py
-          size: 4284
-          size_human: 4.2 KB
+          size: 6850
+          size_human: 6.7 KB
           type: file
         - description: Number manipulation utilities.
           extension: py
-          lines: 211
+          lines: 322
           name: numbers.py
           path: pepperpy/core/common/utils/numbers.py
-          size: 5568
-          size_human: 5.4 KB
+          size: 9148
+          size_human: 8.9 KB
           type: file
         - description: Serialization utilities for PepperPy.
           extension: py
-          lines: 512
+          lines: 709
           name: serialization.py
           path: pepperpy/core/common/utils/serialization.py
-          size: 14621
-          size_human: 14.3 KB
+          size: 21343
+          size_human: 20.8 KB
           type: file
         description: Core utility functions for the PepperPy framework
         dirs_count: 0
         files_count: 8
         name: utils
         path: pepperpy/core/common/utils
-        total_lines: 2126
-        total_size: 55190
-        total_size_human: 53.9 KB
+        total_lines: 2816
+        total_size: 75306
+        total_size_human: 73.5 KB
         type: directory
       - description: Common utilities and shared components for the PepperPy framework.
         extension: py
-        lines: 27
+        lines: 26
         name: __init__.py
         path: pepperpy/core/common/__init__.py
-        size: 824
-        size_human: 824 bytes
+        size: 771
+        size_human: 771 bytes
         type: file
       description: Common utilities and shared components for the PepperPy framework.
       dirs_count: 2
       files_count: 1
       name: common
       path: pepperpy/core/common
-      total_lines: 27
-      total_size: 824
-      total_size_human: 824 bytes
+      total_lines: 26
+      total_size: 771
+      total_size_human: 771 bytes
       type: directory
     - contents:
       - contents:
@@ -2421,11 +2462,11 @@ contents:
         type: directory
       - description: Error handling system for PepperPy.
         extension: py
-        lines: 88
+        lines: 87
         name: __init__.py
         path: pepperpy/core/errors/__init__.py
-        size: 1761
-        size_human: 1.7 KB
+        size: 1792
+        size_human: 1.8 KB
         type: file
       - description: Core error definitions for the Pepperpy framework.
         extension: py
@@ -2448,8 +2489,8 @@ contents:
       files_count: 3
       name: errors
       path: pepperpy/core/errors
-      total_lines: 1170
-      total_size: 29083
+      total_lines: 1169
+      total_size: 29114
       total_size_human: 28.4 KB
       type: directory
     - contents:
@@ -2658,11 +2699,11 @@ contents:
     - contents:
       - description: Protocols and interfaces for PepperPy
         extension: py
-        lines: 47
+        lines: 48
         name: __init__.py
         path: pepperpy/core/protocols/__init__.py
-        size: 891
-        size_human: 891 bytes
+        size: 931
+        size_human: 931 bytes
         type: file
       - description: Core protocols for the Pepperpy framework.
         extension: py
@@ -2688,6 +2729,14 @@ contents:
         size: 9538
         size_human: 9.3 KB
         type: file
+      - description: Messaging protocols for PepperPy.
+        extension: py
+        lines: 202
+        name: messaging.py
+        path: pepperpy/core/protocols/messaging.py
+        size: 4428
+        size_human: 4.3 KB
+        type: file
       - description: Protocol middleware for the Pepperpy framework.
         extension: py
         lines: 251
@@ -2696,14 +2745,22 @@ contents:
         size: 6807
         size_human: 6.6 KB
         type: file
+      - description: Observable protocols for PepperPy.
+        extension: py
+        lines: 191
+        name: observable.py
+        path: pepperpy/core/protocols/observable.py
+        size: 5516
+        size_human: 5.4 KB
+        type: file
       description: Protocols and interfaces for PepperPy
       dirs_count: 0
-      files_count: 5
+      files_count: 7
       name: protocols
       path: pepperpy/core/protocols
-      total_lines: 1518
-      total_size: 38672
-      total_size_human: 37.8 KB
+      total_lines: 1912
+      total_size: 48656
+      total_size_human: 47.5 KB
       type: directory
     - contents:
       - description: Sistema de Registro Unificado do PepperPy
@@ -2863,11 +2920,11 @@ contents:
     - contents:
       - description: Core types for the PepperPy framework
         extension: py
-        lines: 122
+        lines: 138
         name: __init__.py
         path: pepperpy/core/types/__init__.py
-        size: 2910
-        size_human: 2.8 KB
+        size: 3311
+        size_human: 3.2 KB
         type: file
       - description: Base types for core components.
         extension: py
@@ -2898,18 +2955,18 @@ contents:
       files_count: 4
       name: types
       path: pepperpy/core/types
-      total_lines: 324
-      total_size: 6841
-      total_size_human: 6.7 KB
+      total_lines: 340
+      total_size: 7242
+      total_size_human: 7.1 KB
       type: directory
     - contents:
       - description: Validation module for the Pepperpy framework.
         extension: py
-        lines: 22
+        lines: 32
         name: __init__.py
         path: pepperpy/core/validation/__init__.py
-        size: 613
-        size_human: 613 bytes
+        size: 816
+        size_human: 816 bytes
         type: file
       - description: Base interfaces and exceptions for validation.
         extension: py
@@ -2943,6 +3000,14 @@ contents:
         size: 4956
         size_human: 4.8 KB
         type: file
+      - description: Validation protocols for PepperPy.
+        extension: py
+        lines: 214
+        name: protocols.py
+        path: pepperpy/core/validation/protocols.py
+        size: 6007
+        size_human: 5.9 KB
+        type: file
       - description: Schema definitions and format validation for the Pepperpy framework.
         extension: py
         lines: 109
@@ -2961,12 +3026,12 @@ contents:
         type: file
       description: Validation module for the Pepperpy framework.
       dirs_count: 0
-      files_count: 7
+      files_count: 8
       name: validation
       path: pepperpy/core/validation
-      total_lines: 639
-      total_size: 18631
-      total_size_human: 18.2 KB
+      total_lines: 863
+      total_size: 24841
+      total_size_human: 24.3 KB
       type: directory
     - contents:
       - description: Version management and compatibility system
@@ -3361,34 +3426,34 @@ contents:
       type: directory
     - description: Format handling functionality for PepperPy.
       extension: py
-      lines: 87
+      lines: 104
       name: __init__.py
       path: pepperpy/formats/__init__.py
-      size: 2063
-      size_human: 2.0 KB
+      size: 2443
+      size_human: 2.4 KB
       type: file
     - description: Audio format handlers for the unified format handling system.
       extension: py
-      lines: 405
+      lines: 527
       name: audio.py
       path: pepperpy/formats/audio.py
-      size: 11936
-      size_human: 11.7 KB
+      size: 15653
+      size_human: 15.3 KB
       type: file
     - description: Base classes and interfaces for the unified format handling system.
       extension: py
-      lines: 284
+      lines: 398
       name: base.py
       path: pepperpy/formats/base.py
-      size: 6697
-      size_human: 6.5 KB
+      size: 9870
+      size_human: 9.6 KB
       type: file
     - description: CSV format handling functionality.
       extension: py
       lines: 136
       name: csv.py
       path: pepperpy/formats/csv.py
-      size: 3750
+      size: 3743
       size_human: 3.7 KB
       type: file
     - description: Formatters functionality for PepperPy formats.
@@ -3404,16 +3469,16 @@ contents:
       lines: 197
       name: html.py
       path: pepperpy/formats/html.py
-      size: 5528
+      size: 5521
       size_human: 5.4 KB
       type: file
     - description: Image format handlers for the unified format handling system.
       extension: py
-      lines: 438
+      lines: 556
       name: image.py
       path: pepperpy/formats/image.py
-      size: 12264
-      size_human: 12.0 KB
+      size: 15984
+      size_human: 15.6 KB
       type: file
     - description: JSON utilities.
       extension: py
@@ -3447,21 +3512,37 @@ contents:
       size: 3832
       size_human: 3.7 KB
       type: file
+    - description: RSS format handling for PepperPy.
+      extension: py
+      lines: 268
+      name: rss.py
+      path: pepperpy/formats/rss.py
+      size: 8826
+      size_human: 8.6 KB
+      type: file
+    - description: Serialization protocols for PepperPy.
+      extension: py
+      lines: 145
+      name: serialization.py
+      path: pepperpy/formats/serialization.py
+      size: 3640
+      size_human: 3.6 KB
+      type: file
     - description: Text format handlers for the unified format handling system.
       extension: py
-      lines: 333
+      lines: 499
       name: text.py
       path: pepperpy/formats/text.py
-      size: 7999
-      size_human: 7.8 KB
+      size: 13771
+      size_human: 13.4 KB
       type: file
     - description: Vector format handlers for the unified format handling system.
       extension: py
-      lines: 583
+      lines: 756
       name: vector.py
       path: pepperpy/formats/vector.py
-      size: 17609
-      size_human: 17.2 KB
+      size: 23293
+      size_human: 22.7 KB
       type: file
     - extension: py
       lines: 0
@@ -3480,12 +3561,12 @@ contents:
       type: file
     description: Format handling functionality for PepperPy.
     dirs_count: 1
-    files_count: 15
+    files_count: 17
     name: formats
     path: pepperpy/formats
-    total_lines: 3606
-    total_size: 98437
-    total_size_human: 96.1 KB
+    total_lines: 4729
+    total_size: 133335
+    total_size_human: 130.2 KB
     type: directory
   - contents:
     - description: Hub system for PepperPy.
@@ -4592,20 +4673,20 @@ contents:
       - contents:
         - description: Specialized metric collectors for different subsystems.
           extension: py
-          lines: 98
+          lines: 302
           name: __init__.py
           path: pepperpy/observability/metrics/collector/__init__.py
-          size: 2776
-          size_human: 2.7 KB
+          size: 8279
+          size_human: 8.1 KB
           type: file
         description: Specialized metric collectors for different subsystems.
         dirs_count: 0
         files_count: 1
         name: collector
         path: pepperpy/observability/metrics/collector
-        total_lines: 98
-        total_size: 2776
-        total_size_human: 2.7 KB
+        total_lines: 302
+        total_size: 8279
+        total_size_human: 8.1 KB
         type: directory
       - description: Metrics collection for PepperPy.
         extension: py
@@ -4625,20 +4706,20 @@ contents:
         type: file
       - description: Model performance metrics module.
         extension: py
-        lines: 1
+        lines: 559
         name: model_performance.py
         path: pepperpy/observability/metrics/model_performance.py
-        size: 40
-        size_human: 40 bytes
+        size: 18185
+        size_human: 17.8 KB
         type: file
       description: Metrics collection for PepperPy.
       dirs_count: 1
       files_count: 3
       name: metrics
       path: pepperpy/observability/metrics
-      total_lines: 129
-      total_size: 3578
-      total_size_human: 3.5 KB
+      total_lines: 687
+      total_size: 21723
+      total_size_human: 21.2 KB
       type: directory
     - contents:
       - description: System monitoring for PepperPy.
@@ -4651,19 +4732,19 @@ contents:
         type: file
       - description: Cost tracking module for API usage costs.
         extension: py
-        lines: 1
+        lines: 605
         name: cost_tracking.py
         path: pepperpy/observability/monitoring/cost_tracking.py
-        size: 48
-        size_human: 48 bytes
+        size: 19545
+        size_human: 19.1 KB
         type: file
       - description: Hallucination detection module for LLM outputs.
         extension: py
-        lines: 1
+        lines: 428
         name: hallucination_detection.py
         path: pepperpy/observability/monitoring/hallucination_detection.py
-        size: 54
-        size_human: 54 bytes
+        size: 14790
+        size_human: 14.4 KB
         type: file
       - description: Runtime monitoring functionality for PepperPy.
         extension: py
@@ -4686,9 +4767,9 @@ contents:
       files_count: 5
       name: monitoring
       path: pepperpy/observability/monitoring
-      total_lines: 160
-      total_size: 5382
-      total_size_human: 5.3 KB
+      total_lines: 1191
+      total_size: 39615
+      total_size_human: 38.7 KB
       type: directory
     - contents:
       - description: Distributed tracing module for Pepperpy.
@@ -6218,11 +6299,11 @@ contents:
         type: file
       - description: Base interfaces for workflows
         extension: py
-        lines: 465
+        lines: 472
         name: base.py
         path: pepperpy/workflows/core/base.py
-        size: 15026
-        size_human: 14.7 KB
+        size: 15183
+        size_human: 14.8 KB
         type: file
       - description: Workflow caching system.
         extension: py
@@ -6261,9 +6342,9 @@ contents:
       files_count: 6
       name: core
       path: pepperpy/workflows/core
-      total_lines: 1032
-      total_size: 30177
-      total_size_human: 29.5 KB
+      total_lines: 1039
+      total_size: 30334
+      total_size_human: 29.6 KB
       type: directory
     - contents:
       - description: Workflow definition and construction.
@@ -6324,38 +6405,38 @@ contents:
       total_size_human: 13.6 KB
       type: directory
     - contents:
-      - description: Workflow implementation examples.
+      - description: Example workflows for the PepperPy framework.
         extension: py
-        lines: 52
+        lines: 18
         name: __init__.py
         path: pepperpy/workflows/examples/__init__.py
-        size: 1037
-        size_human: 1.0 KB
+        size: 552
+        size_human: 552 bytes
         type: file
       - description: Example workflow actions.
         extension: py
-        lines: 105
+        lines: 72
         name: actions.py
         path: pepperpy/workflows/examples/actions.py
-        size: 2980
-        size_human: 2.9 KB
+        size: 1769
+        size_human: 1.7 KB
         type: file
       - description: Example workflow implementation.
         extension: py
-        lines: 47
+        lines: 71
         name: hello_world.py
         path: pepperpy/workflows/examples/hello_world.py
-        size: 954
-        size_human: 954 bytes
+        size: 1666
+        size_human: 1.6 KB
         type: file
-      description: Workflow implementation examples.
+      description: Example workflows for the PepperPy framework.
       dirs_count: 0
       files_count: 3
       name: examples
       path: pepperpy/workflows/examples
-      total_lines: 204
-      total_size: 4971
-      total_size_human: 4.9 KB
+      total_lines: 161
+      total_size: 3987
+      total_size_human: 3.9 KB
       type: directory
     - contents:
       - description: Workflow execution and control.
@@ -6417,11 +6498,11 @@ contents:
       type: file
     - description: Base interfaces for workflows
       extension: py
-      lines: 617
+      lines: 615
       name: base.py
       path: pepperpy/workflows/base.py
-      size: 19265
-      size_human: 18.8 KB
+      size: 19966
+      size_human: 19.5 KB
       type: file
     - description: Builder classes for constructing workflows.
       extension: py
@@ -6491,9 +6572,9 @@ contents:
     files_count: 10
     name: workflows
     path: pepperpy/workflows
-    total_lines: 2016
-    total_size: 58999
-    total_size_human: 57.6 KB
+    total_lines: 2014
+    total_size: 59700
+    total_size_human: 58.3 KB
     type: directory
   - description: PepperPy Framework.
     extension: py
@@ -6598,8 +6679,8 @@ contents:
   lines: 0
   name: .gitignore
   path: .gitignore
-  size: 606
-  size_human: 606 bytes
+  size: 631
+  size_human: 631 bytes
   type: file
 - extension: yaml
   lines: 69
@@ -6671,17 +6752,17 @@ contents:
   size_human: 46 bytes
   type: file
 - extension: toml
-  lines: 190
+  lines: 191
   name: pyproject.toml
   path: pyproject.toml
-  size: 5934
+  size: 5966
   size_human: 5.8 KB
   type: file
-dirs_count: 7
+dirs_count: 8
 files_count: 14
 name: pepperpy-ai
 path: .
-total_lines: 1300
-total_size: 448156
+total_lines: 1301
+total_size: 448213
 total_size_human: 437.7 KB
 type: directory

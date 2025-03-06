@@ -30,5 +30,17 @@ The pipeline system is fundamental for:
 
 from typing import Dict, List, Optional, Union
 
+from pepperpy.pipeline.composition_adapters import (
+    ComposablePipeline,
+    ParallelPipeline,
+    compose,
+    compose_parallel,
+)
+
 __version__ = "0.1.0"
-__all__ = []  # Will be populated as implementations are added
+__all__ = [
+    "ComposablePipeline",
+    "ParallelPipeline",
+    "compose",
+    "compose_parallel",
+]
