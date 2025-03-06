@@ -71,7 +71,7 @@ async def demo_template():
     # Configurar parâmetros para o template
     params = {
         "source_url": "https://example.com/news",
-        "output_path": "output/news_summary.txt",
+        "output_path": "outputs/news_summary.txt",
         "max_items": 3,
         "summary_length": 100,
     }
@@ -81,7 +81,7 @@ async def demo_template():
     # Executar o template (simulado)
     result = {
         "status": "success",
-        "output_path": "output/news_summary.txt",
+        "output_path": "outputs/news_summary.txt",
         "message": "Resumo de notícias gerado com sucesso",
     }
 

@@ -322,7 +322,7 @@ async def demo_custom_pipeline():
         .source(JSONFileSource("data/example.json"))
         .process(FilterProcessor({"id": 2}))
         .process(TransformProcessor("double_value"))
-        .output(JSONFileOutput("output/processed_data.json"))
+        .output(JSONFileOutput("outputs/processed_data.json"))
         .execute()
     )
 
@@ -339,7 +339,7 @@ async def demo_multiple_outputs():
     transform_processor = TransformProcessor("uppercase_name")
 
     # Criar saídas
-    json_output = JSONFileOutput("output/filtered_data.json")
+    json_output = JSONFileOutput("outputs/filtered_data.json")
     console_output = ConsoleOutput(format="table")
 
     # Criar e executar o pipeline com a primeira saída

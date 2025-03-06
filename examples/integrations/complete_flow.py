@@ -61,16 +61,16 @@ async def create_custom_pipeline(
     source = Sources.rss(source_url, max_items=max_items)
     processor = Processors.summarize(max_length=max_length)
 
-    # Escolher o componente de saída com base no formato
+    # Determinar o tipo de saída com base no formato solicitado
     if output_format == "audio":
-        output_path = f"output/news_{voice}.mp3"
+        output_path = f"outputs/news_{voice}.mp3"
         output = Outputs.audio(output_path, voice=voice)
     else:
-        output_path = "output/news_summary.txt"
+        output_path = "outputs/news_summary.txt"
         output = Outputs.file(output_path)
 
     # Criar diretório de saída se não existir
-    os.makedirs("output", exist_ok=True)
+    os.makedirs("outputs", exist_ok=True)
 
     # Criar e executar o pipeline
     result = await (
@@ -115,15 +115,11 @@ async def handle_news_intent(intent_data: Dict[str, Any]) -> Dict[str, Any]:
     if use_template:
         print("Usando template pré-configurado para processar notícias")
 
-        # Mapear parâmetros para o formato esperado pelo template
+        # Criar template com parâmetros
         template_params = {
-            "source_url": source_url,
-            "output_path": f"output/news_template_{voice}.mp3"
-            if output_format == "audio"
-            else "output/news_template.txt",
+            "source_url": "https://example.com/news",
             "voice": voice,
-            "max_articles": max_items,
-            "summary_length": max_length,
+            "output_path": f"outputs/news_template_{voice}.mp3",
         }
 
         # Executar o template

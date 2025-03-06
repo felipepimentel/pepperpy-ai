@@ -30,8 +30,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Criar diretório de saída
-output_dir = Path("example_output")
+# Configurar diretório de saída
+output_dir = Path("outputs")
 output_dir.mkdir(exist_ok=True)
 
 # Lista de URLs para processar

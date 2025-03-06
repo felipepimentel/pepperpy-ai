@@ -48,10 +48,10 @@ async def handle_podcast_intent(intent_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Resultado do processamento da intenção
     """
-    # Mapear parâmetros da intenção para parâmetros do template
+    # Mapear parâmetros do template para o formato esperado pela intenção
     template_params = {
-        "source_url": intent_data.get("source_url", "https://news.google.com/rss"),
-        "output_path": intent_data.get("output_path", "output/podcast.mp3"),
+        "source_url": intent_data.get("source_url", "https://example.com/news"),
+        "output_path": intent_data.get("output_path", "outputs/podcast.mp3"),
         "voice": intent_data.get("voice", "pt"),
         "max_articles": intent_data.get("max_items", 3),
         "summary_length": intent_data.get("max_length", 150),

@@ -72,6 +72,20 @@ ehthumbs.db
 Desktop.ini
 supabase
 
-example_output
 
 backups
+# Output files
+outputs/
+*.txt
+*.csv
+*.json
+*.xml
+*.html
+*.pdf
+*.mp3
+*.wav
+*.mp4
+*.png
+*.jpg
+*.jpeg
+*.gif

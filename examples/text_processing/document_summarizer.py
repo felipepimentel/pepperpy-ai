@@ -155,7 +155,7 @@ class OutputFormatter:
                 - include_metadata: Se deve incluir metadados na saída
         """
         self.format = config.get("format", "text")
-        self.output_path = config.get("output_path", "output/summary.txt")
+        self.output_path = config.get("output_path", "outputs/summary.txt")
         self.include_metadata = config.get("include_metadata", False)
 
         # Criar diretório de saída se não existir
@@ -238,7 +238,7 @@ async def summarize_document(
     max_length: int = 150,
     method: str = "extractive",
     output_format: str = "text",
-    output_path: str = "output/summary.txt",
+    output_path: str = "outputs/summary.txt",
     include_metadata: bool = False,
 ) -> str:
     """Resume um documento.
@@ -310,7 +310,7 @@ async def main():
         max_length=100,
         method="extractive",
         output_format="text",
-        output_path="output/resumo_texto.txt",
+        output_path="outputs/resumo_texto.txt",
     )
 
     # Exemplo 2: Resumir documento de URL simulada
@@ -321,7 +321,7 @@ async def main():
         max_length=200,
         method="abstractive",
         output_format="markdown",
-        output_path="output/resumo_url.md",
+        output_path="outputs/resumo_url.md",
         include_metadata=True,
     )
 
@@ -333,12 +333,12 @@ async def main():
         max_length=150,
         method="extractive",
         output_format="json",
-        output_path="output/resumo_arquivo.json",
+        output_path="outputs/resumo_arquivo.json",
         include_metadata=True,
     )
 
     print("\n=== Resumos Gerados com Sucesso ===")
-    print("Os resumos foram salvos na pasta 'output/'")
+    print("Os resumos foram salvos na pasta 'outputs/'")
     print("\nPara personalizar o resumo, você pode:")
     print("1. Definir variáveis de ambiente")
     print("2. Passar parâmetros diretamente para a função summarize_document()")

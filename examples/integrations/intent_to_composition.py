@@ -48,19 +48,19 @@ async def handle_summarize_intent(intent_data: Dict[str, Any]) -> Dict[str, Any]
         Resultado do processamento da intenção
     """
     # Extrair parâmetros da intenção
-    source_url = intent_data.get("source_url", "https://example.com")
+    url = intent_data.get("url", "https://example.com/news")
     max_length = intent_data.get("max_length", 150)
-    output_path = intent_data.get("output_path", "output/summary.txt")
+    output_path = intent_data.get("output_path", "outputs/summary.txt")
 
     # Criar diretório de saída se não existir
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    print(f"Processando intenção de resumir conteúdo de {source_url}")
+    print(f"Processando intenção de resumir conteúdo de {url}")
 
     # Criar pipeline de composição
     pipeline = (
         compose("summarization_pipeline")
-        .source(Sources.web(source_url))
+        .source(Sources.web(url))
         .process(Processors.summarize(max_length=max_length))
         .output(Outputs.file(output_path))
     )

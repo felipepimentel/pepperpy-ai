@@ -106,7 +106,7 @@ async def save_result(params: Dict[str, Any]) -> Dict[str, Any]:
         Informações sobre o salvamento
     """
     data = params.get("data", {})
-    output_path = params.get("output_path", "output/result.json")
+    output_path = params.get("output_path", "outputs/result.json")
 
     print(f"Salvando resultados em {output_path}")
 
@@ -171,7 +171,7 @@ def create_data_processing_workflow() -> WorkflowDefinition:
                 "id": "save",
                 "name": "Salvar Resultados",
                 "function": save_result,
-                "params": {"output_path": "output/processed_data.json"},
+                "params": {"output_path": "outputs/processed_data.json"},
                 "input_mapping": {"data": "$.process.output"},
             },
             {
@@ -240,7 +240,7 @@ def create_conditional_workflow() -> WorkflowDefinition:
                 "id": "save",
                 "name": "Salvar Resultados",
                 "function": save_result,
-                "params": {"output_path": "output/conditional_result.json"},
+                "params": {"output_path": "outputs/conditional_result.json"},
                 "input_mapping": {
                     "data": {
                         "sum": "$.process_sum.output.result.total",
@@ -294,7 +294,7 @@ def create_error_handling_workflow() -> WorkflowDefinition:
                 "id": "save",
                 "name": "Salvar Resultados",
                 "function": save_result,
-                "params": {"output_path": "output/error_handling_result.json"},
+                "params": {"output_path": "outputs/error_handling_result.json"},
                 "input_mapping": {"data": "$.process.output"},
             },
             {

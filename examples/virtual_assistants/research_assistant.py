@@ -143,7 +143,7 @@ async def generate_report(params: Dict[str, Any]) -> Dict[str, Any]:
     analysis = params.get("analysis", {})
     report_format = params.get("format", "markdown")
     output_path = params.get(
-        "output_path", f"output/report_{datetime.now().strftime('%Y%m%d')}.md"
+        "output_path", f"outputs/report_{datetime.now().strftime('%Y%m%d')}.md"
     )
 
     print(f"Gerando relatório sobre: '{topic}'")
@@ -265,7 +265,7 @@ def create_research_workflow(
                 "params": {
                     "topic": topic,
                     "format": output_format,
-                    "output_path": f"output/report_{topic.replace(' ', '_').lower()}.{output_format if output_format != 'markdown' else 'md'}",
+                    "output_path": f"outputs/report_{topic.replace(' ', '_').lower()}.{output_format if output_format != 'markdown' else 'md'}",
                 },
                 "input_mapping": {
                     "search_results": "$.search.output",

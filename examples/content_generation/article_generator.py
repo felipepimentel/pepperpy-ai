@@ -179,7 +179,7 @@ class ArticleFormatter:
                 - include_metadata: Se deve incluir metadados
         """
         self.format = config.get("format", "markdown")
-        self.output_path = config.get("output_path", "output/article.md")
+        self.output_path = config.get("output_path", "outputs/article.md")
         self.include_metadata = config.get("include_metadata", False)
 
         # Criar diretório de saída se não existir
@@ -296,7 +296,7 @@ async def generate_article(
             if output_format == "html"
             else "txt"
         )
-        output_path = f"output/article.{extension}"
+        output_path = f"outputs/article.{extension}"
 
     # Criar pipeline de geração de artigo
     article_path = await (
@@ -327,7 +327,7 @@ async def main():
         style="journalistic",
         length="short",
         output_format="markdown",
-        output_path="output/artigo_basico.md",
+        output_path="outputs/artigo_basico.md",
     )
 
     # Exemplo 2: Artigo detalhado em HTML
@@ -337,7 +337,7 @@ async def main():
         style="academic",
         length="medium",
         output_format="html",
-        output_path="output/artigo_detalhado.html",
+        output_path="outputs/artigo_detalhado.html",
         include_metadata=True,
     )
 
@@ -349,12 +349,12 @@ async def main():
         style="conversational",
         length="long",
         output_format="text",
-        output_path="output/comprehensive_article.txt",
+        output_path="outputs/comprehensive_article.txt",
         include_metadata=True,
     )
 
     print("\n=== Artigos Gerados com Sucesso ===")
-    print("Os artigos foram salvos na pasta 'output/'")
+    print("Os artigos foram salvos na pasta 'outputs/'")
     print("\nPara personalizar a geração, você pode:")
     print("1. Modificar os parâmetros da função generate_article()")
     print("2. Adaptar os componentes para comportamentos personalizados")

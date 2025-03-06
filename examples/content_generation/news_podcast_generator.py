@@ -107,8 +107,8 @@ class PodcastOutputComponent:
                 - voice: Voz a ser usada (código de idioma)
                 - output_path: Caminho para salvar o arquivo de áudio
         """
-        self.voice = config.get("voice", "pt")
-        self.output_path = config.get("output_path", "output/news_podcast.mp3")
+        self.voice = config.get("voice", "en")
+        self.output_path = config.get("output_path", "outputs/news_podcast.mp3")
 
         # Criar diretório de saída se não existir
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
@@ -174,7 +174,7 @@ async def generate_news_podcast(
     )
     voice = voice or os.environ.get("NEWS_PODCAST_VOICE", "pt")
     output_path = output_path or os.environ.get(
-        "NEWS_PODCAST_OUTPUT_PATH", "output/news_podcast.mp3"
+        "NEWS_PODCAST_OUTPUT_PATH", "outputs/news_podcast.mp3"
     )
 
     # Criar pipeline de geração de podcast
