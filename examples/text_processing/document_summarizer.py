@@ -72,6 +72,14 @@ class DocumentSource:
 
         return {"content": content, "metadata": metadata}
 
+    async def read(self) -> Dict[str, Any]:
+        """Lê o documento da fonte especificada.
+
+        Returns:
+            Documento carregado com metadados
+        """
+        return await self.fetch()
+
 
 class SummarizerProcessor:
     """Componente de processamento para resumir documentos."""
@@ -99,25 +107,39 @@ class SummarizerProcessor:
         content = document["content"]
         metadata = document["metadata"]
 
-        print(f"Resumindo documento de {len(content)} caracteres")
-        print(f"Método: {self.method}, Tamanho máximo: {self.max_length} caracteres")
+        print(f"Resumindo documento usando método '{self.method}'")
+        print(f"Tamanho original: {len(content)} caracteres")
+        print(f"Tamanho máximo do resumo: {self.max_length} caracteres")
 
         # Simulação de resumo
         if self.method == "extractive":
-            summary = content[: self.max_length] + "..."
+            # Simulação de resumo extrativo (seleciona as primeiras frases)
+            summary = content.split(". ")[0] + "."
+            if len(summary) > self.max_length:
+                summary = summary[: self.max_length] + "..."
         else:  # abstractive
-            summary = (
-                f"Este é um resumo abstrato do documento original. "
-                f"O documento foi resumido para aproximadamente {self.max_length} caracteres."
-            )
+            # Simulação de resumo abstrativo
+            summary = f"Resumo abstrativo do documento com {len(content)} caracteres."
 
-        # Atualizar documento com o resumo
-        document["summary"] = summary
-        document["metadata"]["summary_method"] = self.method
-        document["metadata"]["original_length"] = len(content)
-        document["metadata"]["summary_length"] = len(summary)
+        print(f"Resumo gerado com {len(summary)} caracteres")
 
-        return document
+        # Adicionar resumo ao documento
+        result = document.copy()
+        result["summary"] = summary
+        result["metadata"] = {**metadata, "summary_method": self.method}
+
+        return result
+
+    async def process(self, document: Dict[str, Any]) -> Dict[str, Any]:
+        """Processa o documento gerando um resumo.
+
+        Args:
+            document: Documento a ser processado
+
+        Returns:
+            Documento com resumo adicionado
+        """
+        return await self.transform(document)
 
 
 class OutputFormatter:
@@ -139,7 +161,7 @@ class OutputFormatter:
         # Criar diretório de saída se não existir
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
 
-    async def output(self, document: Dict[str, Any]) -> str:
+    async def write(self, document: Dict[str, Any]) -> str:
         """Formata e salva o resumo.
 
         Args:
@@ -148,10 +170,11 @@ class OutputFormatter:
         Returns:
             Caminho do arquivo de saída
         """
-        summary = document["summary"]
-        metadata = document["metadata"]
+        summary = document.get("summary", "")
+        metadata = document.get("metadata", {})
 
         print(f"Formatando resumo no formato '{self.format}'")
+        print(f"Salvando em: {self.output_path}")
 
         # Formatar saída de acordo com o formato especificado
         if self.format == "markdown":
@@ -172,11 +195,10 @@ class OutputFormatter:
         elif self.format == "json":
             import json
 
-            data = {
-                "summary": summary,
-                "metadata": metadata if self.include_metadata else {},
-            }
-            output = json.dumps(data, indent=2)
+            output_data = {"summary": summary}
+            if self.include_metadata:
+                output_data["metadata"] = metadata
+            output = json.dumps(output_data, indent=2)
 
         else:  # text
             output = f"RESUMO DO DOCUMENTO\n\n{summary}\n"
@@ -185,22 +207,38 @@ class OutputFormatter:
                 for key, value in metadata.items():
                     output += f"{key}: {value}\n"
 
-        # Salvar saída no arquivo
-        with open(self.output_path, "w") as f:
-            f.write(output)
+        # Simular salvamento do arquivo
+        print(f"Conteúdo a ser salvo ({len(output)} caracteres):")
+        print("-" * 40)
+        print(output[:100] + "..." if len(output) > 100 else output)
+        print("-" * 40)
 
-        print(f"Resumo salvo em: {self.output_path}")
+        # Em uma implementação real, salvaríamos o arquivo
+        # with open(self.output_path, "w", encoding="utf-8") as f:
+        #     f.write(output)
+
         return self.output_path
+
+    async def output(self, document: Dict[str, Any]) -> str:
+        """Formata e salva o resumo.
+
+        Args:
+            document: Documento com resumo
+
+        Returns:
+            Caminho do arquivo de saída
+        """
+        return await self.write(document)
 
 
 async def summarize_document(
     source_type: str = "text",
     path: str = "",
     content: str = "",
-    max_length: int = None,
+    max_length: int = 150,
     method: str = "extractive",
     output_format: str = "text",
-    output_path: str = None,
+    output_path: str = "output/summary.txt",
     include_metadata: bool = False,
 ) -> str:
     """Resume um documento.
@@ -216,16 +254,21 @@ async def summarize_document(
         include_metadata: Se deve incluir metadados na saída
 
     Returns:
-        Caminho do arquivo de resumo gerado
+        Caminho do arquivo de saída
     """
-    # Usar valores padrão ou do ambiente para parâmetros não especificados
-    max_length = max_length or int(os.environ.get("SUMMARY_MAX_LENGTH", "150"))
-    output_path = output_path or os.environ.get(
-        "SUMMARY_OUTPUT_PATH",
-        f"output/summary.{output_format if output_format != 'text' else 'txt'}",
-    )
+    # Usar variáveis de ambiente para configurações, se disponíveis
+    env_max_length = os.environ.get("SUMMARY_MAX_LENGTH")
+    if env_max_length:
+        try:
+            max_length = int(env_max_length)
+            print(
+                f"Usando tamanho máximo de resumo da variável de ambiente: {max_length}"
+            )
+        except ValueError:
+            print(f"Valor inválido para SUMMARY_MAX_LENGTH: {env_max_length}")
 
     # Criar pipeline de resumo
+    print(f"Criando pipeline de resumo para documento do tipo '{source_type}'")
     summary_path = await (
         compose("document_summarizer")
         .source(
@@ -235,7 +278,12 @@ async def summarize_document(
                 "content": content,
             })
         )
-        .process(SummarizerProcessor({"max_length": max_length, "method": method}))
+        .process(
+            SummarizerProcessor({
+                "max_length": max_length,
+                "method": method,
+            })
+        )
         .output(
             OutputFormatter({
                 "format": output_format,

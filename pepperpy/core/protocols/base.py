@@ -14,7 +14,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_validator
 from typing_extensions import runtime_checkable
 
-from pepperpy.core.common.events import EventBus, EventType
+from pepperpy.core.events import EventBus, EventType
 from pepperpy.core.metrics.types import MetricType
 
 # Type variables for generic implementations
@@ -343,13 +343,16 @@ class MetricValue(BaseModel):
     type: MetricType = Field(description="Type of metric")
     value: int | float = Field(description="Current value")
     timestamp: datetime = Field(
-        default_factory=datetime.utcnow, description="Time of recording",
+        default_factory=datetime.utcnow,
+        description="Time of recording",
     )
     labels: MetricLabels = Field(
-        default_factory=dict, description="Additional metric labels",
+        default_factory=dict,
+        description="Additional metric labels",
     )
     metadata: dict[str, Any] = Field(
-        default_factory=dict, description="Additional metadata",
+        default_factory=dict,
+        description="Additional metadata",
     )
 
 

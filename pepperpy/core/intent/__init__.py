@@ -35,5 +35,11 @@ from pepperpy.core.intent.creators import (
     summarize_document,
     translate_content,
 )
+from pepperpy.core.intent.public import recognize_intent
 
-__all__ = ["create_podcast", "summarize_document", "translate_content"]
+__all__ = [
+    "create_podcast",
+    "summarize_document",
+    "translate_content",
+    "recognize_intent",
+]

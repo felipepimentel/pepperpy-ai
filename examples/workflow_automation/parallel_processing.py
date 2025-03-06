@@ -1,13 +1,27 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """Exemplo simplificado de processamento paralelo.
 
-Este exemplo demonstra como usar o PepperPy para processar múltiplas fontes
-em paralelo, combinando os resultados em um único output.
+Purpose:
+    Demonstrar como usar o PepperPy para processar múltiplas fontes
+    em paralelo, combinando os resultados em um único output.
+
+Requirements:
+    - Python 3.9+
+    - PepperPy library
+
+Usage:
+    1. Install dependencies:
+       pip install pepperpy
+
+    2. Run the example:
+       python examples/workflow_automation/parallel_processing.py
 """
 
 import asyncio
 import logging
-import os
 from pathlib import Path
+from typing import Any, Dict
 
 # Configurar logging
 logging.basicConfig(
@@ -20,162 +34,182 @@ logger = logging.getLogger(__name__)
 output_dir = Path("example_output")
 output_dir.mkdir(exist_ok=True)
 
-# Lista de feeds RSS para processar
-rss_feeds = [
+# Lista de URLs para processar
+urls = [
     "https://news.google.com/rss",
     "https://feeds.bbci.co.uk/news/world/rss.xml",
     "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
 ]
 
 
-async def process_parallel_universal():
-    """Processa múltiplas fontes em paralelo usando a API Universal de Composição."""
-    from pepperpy import compose, outputs, processors, sources
+async def process_parallel_custom():
+    """Processa múltiplas fontes em paralelo usando funções personalizadas."""
+    logger.info("Processando fontes em paralelo usando funções personalizadas")
 
-    logger.info("Processando fontes em paralelo usando Composição Universal")
+    async def fetch_url(url: str) -> Dict[str, Any]:
+        """Simula a obtenção de dados de uma URL.
 
-    # Criar pipelines individuais para cada feed
-    pipelines = []
-    for i, feed_url in enumerate(rss_feeds):
-        pipeline = (
-            compose(f"feed_pipeline_{i}")
-            .source(sources.rss(feed_url, max_items=3))
-            .process(processors.summarize(max_length=100))
-            .output(outputs.file(str(output_dir / f"summary_feed_{i}.txt")))
-        )
-        pipelines.append(pipeline)
+        Args:
+            url: URL para obter dados
 
-    # Executar pipelines em paralelo
-    results = await asyncio.gather(*(pipeline.execute() for pipeline in pipelines))
+        Returns:
+            Dados obtidos da URL
+        """
+        logger.info(f"Obtendo dados de {url}")
+        await asyncio.sleep(1)  # Simular latência de rede
+        return {
+            "url": url,
+            "title": f"Conteúdo de {url}",
+            "items": [
+                {"id": 1, "title": "Item 1", "content": "Conteúdo do item 1"},
+                {"id": 2, "title": "Item 2", "content": "Conteúdo do item 2"},
+                {"id": 3, "title": "Item 3", "content": "Conteúdo do item 3"},
+            ],
+        }
 
-    logger.info(f"Processamento paralelo concluído. Resultados: {results}")
+    async def process_data(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Simula o processamento de dados.
 
-    # Criar arquivos de saída simulados se não existirem
-    for i, result_path in enumerate(results):
-        if not os.path.exists(result_path):
-            os.makedirs(os.path.dirname(result_path), exist_ok=True)
-            with open(result_path, "w") as f:
-                f.write(f"Resumo de notícias de {rss_feeds[i]}\n\n")
-                for j in range(3):
-                    f.write(f"Notícia {j + 1}: Resumo limitado a 100 caracteres.\n\n")
+        Args:
+            data: Dados a serem processados
 
-    # Combinar resultados em um único arquivo
-    combined_content = ""
-    for i, result_path in enumerate(results):
-        with open(result_path, "r") as f:
-            content = f.read()
-            combined_content += f"=== Feed {i + 1}: {rss_feeds[i]} ===\n{content}\n\n"
+        Returns:
+            Dados processados
+        """
+        logger.info(f"Processando dados de {data['url']}")
+        await asyncio.sleep(0.5)  # Simular processamento
 
-    combined_path = output_dir / "combined_parallel_universal.txt"
-    with open(combined_path, "w") as f:
-        f.write(combined_content)
+        # Processar cada item
+        processed_items = []
+        for item in data["items"]:
+            processed_item = item.copy()
+            processed_item["processed"] = True
+            processed_item["summary"] = (
+                f"Resumo de {item['title']}: {item['content'][:30]}..."
+            )
+            processed_items.append(processed_item)
 
-    logger.info(f"Conteúdo combinado salvo em: {combined_path}")
-    return str(combined_path)
+        result = data.copy()
+        result["items"] = processed_items
+        result["processed"] = True
+        return result
 
+    async def save_result(data: Dict[str, Any], path: Path) -> str:
+        """Simula o salvamento de resultados.
 
-async def process_parallel_intent():
-    """Processa múltiplas fontes em paralelo usando a API de Intenção."""
-    from pepperpy import create
+        Args:
+            data: Dados a serem salvos
+            path: Caminho para salvar os dados
 
-    logger.info("Processando fontes em paralelo usando Abstração por Intenção")
+        Returns:
+            Caminho do arquivo salvo
+        """
+        logger.info(f"Salvando resultado em {path}")
 
-    # Criar intenções para cada feed
-    intents = []
-    for i, feed_url in enumerate(rss_feeds):
-        intent = (
-            create("news_processor")
-            .from_source(feed_url)
-            .with_summary(max_length=100)
-            .save_to(str(output_dir / f"intent_feed_{i}.txt"))
-        )
-        intents.append(intent)
+        # Criar conteúdo formatado
+        content = f"# {data['title']}\n\n"
+        content += f"URL: {data['url']}\n\n"
+        content += "## Itens processados\n\n"
 
-    # Executar intenções em paralelo
-    results = await asyncio.gather(*(intent.execute() for intent in intents))
+        for item in data["items"]:
+            content += f"### {item['title']}\n"
+            content += f"ID: {item['id']}\n"
+            content += f"Resumo: {item['summary']}\n\n"
 
-    logger.info(f"Processamento paralelo concluído. Resultados: {results}")
+        # Salvar no arquivo
+        with open(path, "w") as f:
+            f.write(content)
 
-    # Criar arquivos de saída simulados se não existirem
-    for i, result_path in enumerate(results):
-        if not os.path.exists(result_path):
-            os.makedirs(os.path.dirname(result_path), exist_ok=True)
-            with open(result_path, "w") as f:
-                f.write(f"Resumo de notícias de {rss_feeds[i]}\n\n")
-                for j in range(3):
-                    f.write(f"Notícia {j + 1}: Resumo limitado a 100 caracteres.\n\n")
+        return str(path)
 
-    # Combinar resultados em um único arquivo
-    combined_content = ""
-    for i, result_path in enumerate(results):
-        with open(result_path, "r") as f:
-            content = f.read()
-            combined_content += f"=== Feed {i + 1}: {rss_feeds[i]} ===\n{content}\n\n"
-
-    combined_path = output_dir / "combined_parallel_intent.txt"
-    with open(combined_path, "w") as f:
-        f.write(combined_content)
-
-    logger.info(f"Conteúdo combinado salvo em: {combined_path}")
-    return str(combined_path)
-
-
-async def process_parallel_template():
-    """Processa múltiplas fontes em paralelo usando Templates Pré-configurados."""
-    from pepperpy import templates
-
-    logger.info("Processando fontes em paralelo usando Templates Pré-configurados")
-
-    # Criar tarefas para cada feed
+    # Criar tarefas para cada URL
     tasks = []
-    for i, feed_url in enumerate(rss_feeds):
-        task = templates.news_summarizer(
-            source_url=feed_url,
-            max_items=3,
-            summary_length=100,
-            output_path=str(output_dir / f"template_feed_{i}.txt"),
-        )
-        tasks.append(task)
+    for i, url in enumerate(urls):
+        output_path = output_dir / f"processed_{i}.txt"
+
+        # Criar pipeline de processamento
+        async def process_pipeline(url=url, output_path=output_path):
+            """Pipeline de processamento para uma URL.
+
+            Args:
+                url: URL para processar
+                output_path: Caminho para salvar o resultado
+
+            Returns:
+                Caminho do arquivo salvo
+            """
+            data = await fetch_url(url)
+            processed = await process_data(data)
+            return await save_result(processed, output_path)
+
+        tasks.append(process_pipeline())
 
     # Executar tarefas em paralelo
     results = await asyncio.gather(*tasks)
 
-    logger.info(f"Processamento paralelo concluído. Resultados: {results}")
-
-    # Criar arquivos de saída simulados se não existirem
-    for i, result_path in enumerate(results):
-        if not os.path.exists(result_path):
-            os.makedirs(os.path.dirname(result_path), exist_ok=True)
-            with open(result_path, "w") as f:
-                f.write(f"Resumo de notícias de {rss_feeds[i]}\n\n")
-                for j in range(3):
-                    f.write(f"Notícia {j + 1}: Resumo limitado a 100 caracteres.\n\n")
-
-    # Combinar resultados em um único arquivo
-    combined_content = ""
-    for i, result_path in enumerate(results):
-        with open(result_path, "r") as f:
-            content = f.read()
-            combined_content += f"=== Feed {i + 1}: {rss_feeds[i]} ===\n{content}\n\n"
-
-    combined_path = output_dir / "combined_parallel_template.txt"
+    # Combinar resultados
+    combined_path = output_dir / "combined_results.txt"
     with open(combined_path, "w") as f:
-        f.write(combined_content)
+        f.write("# Resultados Combinados\n\n")
+        for i, result_path in enumerate(results):
+            f.write(f"## Resultado {i + 1}: {urls[i]}\n")
+            with open(result_path, "r") as result_file:
+                f.write(result_file.read())
+            f.write("\n---\n\n")
 
-    logger.info(f"Conteúdo combinado salvo em: {combined_path}")
-    return str(combined_path)
+    logger.info(f"Resultados combinados salvos em {combined_path}")
+    return results
+
+
+async def process_parallel_tasks():
+    """Demonstra o processamento paralelo usando tarefas assíncronas."""
+    logger.info("Processando tarefas em paralelo")
+
+    # Simular tarefas de processamento
+    async def task1():
+        logger.info("Iniciando tarefa 1")
+        await asyncio.sleep(2)
+        logger.info("Tarefa 1 concluída")
+        return "Resultado da tarefa 1"
+
+    async def task2():
+        logger.info("Iniciando tarefa 2")
+        await asyncio.sleep(1.5)
+        logger.info("Tarefa 2 concluída")
+        return "Resultado da tarefa 2"
+
+    async def task3():
+        logger.info("Iniciando tarefa 3")
+        await asyncio.sleep(1)
+        logger.info("Tarefa 3 concluída")
+        return "Resultado da tarefa 3"
+
+    # Executar tarefas em paralelo
+    results = await asyncio.gather(task1(), task2(), task3())
+
+    # Salvar resultados
+    result_path = output_dir / "task_results.txt"
+    with open(result_path, "w") as f:
+        f.write("# Resultados das Tarefas\n\n")
+        for i, result in enumerate(results):
+            f.write(f"## Tarefa {i + 1}\n")
+            f.write(f"{result}\n\n")
+
+    logger.info(f"Resultados das tarefas salvos em {result_path}")
+    return results
 
 
 async def main():
-    """Função principal que executa todos os exemplos."""
+    """Função principal."""
     logger.info("Iniciando exemplos de processamento paralelo")
 
-    # Executar exemplos
-    await process_parallel_universal()
-    await process_parallel_intent()
-    await process_parallel_template()
+    # Exemplo 1: Processamento paralelo usando funções personalizadas
+    await process_parallel_custom()
 
-    logger.info("Exemplos concluídos com sucesso!")
+    # Exemplo 2: Processamento paralelo usando tarefas assíncronas
+    await process_parallel_tasks()
+
+    logger.info("Exemplos concluídos")
 
 
 if __name__ == "__main__":

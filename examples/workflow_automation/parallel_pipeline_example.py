@@ -27,28 +27,57 @@ class WebAPISource(SourceComponentBase[List[Dict[str, Any]]]):
         """Initialize the web API source.
 
         Args:
-            config: Configuration dictionary containing the API endpoint and parameters.
+            config: Configuration dictionary.
         """
         super().__init__(config)
-        self.endpoint = config.get("endpoint", "https://api.example.com/data")
-        self.category = config.get("category", "general")
+        self.api_url = config.get("api_url", "https://api.example.com/data")
+        self.item_count = config.get("item_count", 5)
+        self.fetch_time = config.get("fetch_time", 1.0)  # Simulated fetch time
+
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method is called before using the component.
+        """
+        print(f"Initializing WebAPISource for {self.api_url}")
+
+    async def cleanup(self) -> None:
+        """Clean up component resources.
+
+        This method is called when the component is no longer needed.
+        """
+        print(f"Cleaning up WebAPISource for {self.api_url}")
 
     async def fetch(self) -> List[Dict[str, Any]]:
         """Fetch data from the web API.
 
         Returns:
-            List of dictionaries containing the API response items.
+            List of dictionaries containing data items.
         """
-        print(f"Fetching data from {self.endpoint} for category: {self.category}")
-        # Simulate network delay
-        await asyncio.sleep(1)
-        # In a real implementation, this would use aiohttp or similar to fetch the data
-        # For this example, we'll return mock data
-        return [
-            {"id": 1, "title": f"{self.category} Item 1", "data": "Data 1"},
-            {"id": 2, "title": f"{self.category} Item 2", "data": "Data 2"},
-            {"id": 3, "title": f"{self.category} Item 3", "data": "Data 3"},
-        ]
+        print(f"Fetching data from {self.api_url}")
+        # Simulate API fetch time
+        await asyncio.sleep(self.fetch_time)
+
+        # Generate mock data
+        result = []
+        for i in range(self.item_count):
+            result.append({
+                "id": f"item-{i}",
+                "title": f"Item {i} from {self.api_url}",
+                "description": f"This is a mock item {i} fetched from {self.api_url}",
+                "timestamp": time.time(),
+            })
+        return result
+
+    async def read(self) -> List[Dict[str, Any]]:
+        """Read data from the source.
+
+        This method is called by the pipeline implementation.
+
+        Returns:
+            List of dictionaries containing data items.
+        """
+        return await self.fetch()
 
 
 class DataEnricherProcessor(
@@ -67,6 +96,20 @@ class DataEnricherProcessor(
         self.processing_time = config.get(
             "processing_time", 0.5
         )  # Simulated processing time
+
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method is called before using the component.
+        """
+        print(f"Initializing DataEnricherProcessor for {self.enrichment_type}")
+
+    async def cleanup(self) -> None:
+        """Clean up component resources.
+
+        This method is called when the component is no longer needed.
+        """
+        print(f"Cleaning up DataEnricherProcessor for {self.enrichment_type}")
 
     async def transform(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Enrich data with additional information.
@@ -107,6 +150,20 @@ class CSVOutputComponent(OutputComponentBase[List[Dict[str, Any]]]):
         super().__init__(config)
         self.output_file = config.get("output_file", "output.csv")
 
+    async def initialize(self) -> None:
+        """Initialize the component.
+
+        This method is called before using the component.
+        """
+        print(f"Initializing CSVOutputComponent for {self.output_file}")
+
+    async def cleanup(self) -> None:
+        """Clean up component resources.
+
+        This method is called when the component is no longer needed.
+        """
+        print(f"Cleaning up CSVOutputComponent for {self.output_file}")
+
     async def output(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Format and output the data as CSV.
 
@@ -132,6 +189,19 @@ class CSVOutputComponent(OutputComponentBase[List[Dict[str, Any]]]):
             "output_file": self.output_file,
         }
 
+    async def write(self, data: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Write data to the output.
+
+        This method is called by the pipeline implementation.
+
+        Args:
+            data: List of dictionaries to output.
+
+        Returns:
+            Dictionary containing the result information.
+        """
+        return await self.output(data)
+
 
 async def main():
     """Run the example parallel pipeline."""
@@ -140,8 +210,9 @@ async def main():
         compose_parallel("Parallel Data Processing Pipeline")
         .source(
             WebAPISource({
-                "endpoint": "https://api.example.com/news",
-                "category": "news",
+                "api_url": "https://api.example.com/news",
+                "item_count": 5,
+                "fetch_time": 1.0,
             })
         )
         .process(
@@ -173,8 +244,9 @@ async def main():
         compose("Sequential Data Processing Pipeline")
         .source(
             WebAPISource({
-                "endpoint": "https://api.example.com/news",
-                "category": "news",
+                "api_url": "https://api.example.com/news",
+                "item_count": 5,
+                "fetch_time": 1.0,
             })
         )
         .process(

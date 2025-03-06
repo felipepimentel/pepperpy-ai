@@ -8,7 +8,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any
 
-from pepperpy.core.common.lifecycle.errors import (
+from pepperpy.core.lifecycle.errors import (
     FinalizeError,
     HookError,
     InitializationError,
@@ -17,8 +17,7 @@ from pepperpy.core.common.lifecycle.errors import (
     StateError,
     StopError,
 )
-from pepperpy.core.common.lifecycle.types import (  # TODO: Verificar se este é o import correto
-    ALLOWED_TRANSITIONS,
+from pepperpy.core.lifecycle.types import (
     LifecycleConfig,
     LifecycleContext,
     LifecycleEvent,
@@ -163,7 +162,8 @@ class LifecycleComponent(ABC):
         """
         try:
             await self._transition(
-                LifecycleState.INITIALIZING, LifecycleEvent.INITIALIZE,
+                LifecycleState.INITIALIZING,
+                LifecycleEvent.INITIALIZE,
             )
             # Subclass initialization here
             await self._transition(LifecycleState.READY, LifecycleEvent.INITIALIZE)

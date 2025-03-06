@@ -29,20 +29,16 @@ output_dir.mkdir(exist_ok=True)
 
 async def example_universal_composition():
     """Demonstra o uso da API de Composição Universal."""
-    from pepperpy import compose, outputs, processors, sources
+    from pepperpy.core.composition import Outputs, Processors, Sources, compose
 
     logger.info("=== Exemplo de Composição Universal ===")
 
     # Criar um podcast a partir de um feed RSS
     podcast_path = await (
         compose("podcast_pipeline")
-        .source(sources.rss("https://news.google.com/rss", max_items=5))
-        .process(processors.summarize(max_length=150))
-        .output(
-            outputs.podcast(
-                voice="en", output_path=str(output_dir / "universal_podcast.mp3")
-            )
-        )
+        .source(Sources.rss("https://news.google.com/rss", max_items=5))
+        .process(Processors.summarize(max_length=150))
+        .output(Outputs.podcast(str(output_dir / "universal_podcast.mp3"), voice="en"))
         .execute()
     )
 
@@ -52,16 +48,23 @@ async def example_universal_composition():
 
 async def example_intent_abstraction():
     """Demonstra o uso da API de Abstração por Intenção."""
-    from pepperpy import create
+    # Simulação de abstração por intenção
+    from pepperpy.core.composition import Outputs, Processors, Sources, compose
 
     logger.info("=== Exemplo de Abstração por Intenção ===")
 
-    # Criar um podcast a partir de um feed RSS
+    # Texto de exemplo
+    text = """
+    O PepperPy é um framework de composição universal para Python que permite
+    a criação de pipelines de processamento flexíveis e reutilizáveis.
+    """
+
+    # Criar um pipeline para processar o texto (simulando abstração por intenção)
     podcast_path = await (
-        create("podcast")
-        .from_source("https://news.google.com/rss")
-        .with_summary(max_length=150)
-        .to_audio(str(output_dir / "intent_podcast.mp3"), voice="en")
+        compose("intent_podcast")
+        .source(Sources.text(text))
+        .process(Processors.summarize(max_length=150))
+        .output(Outputs.podcast(str(output_dir / "intent_podcast.mp3"), voice="en"))
         .execute()
     )
 
@@ -71,17 +74,18 @@ async def example_intent_abstraction():
 
 async def example_template():
     """Demonstra o uso de Templates Pré-configurados."""
-    from pepperpy import templates
+    # Simulação de template
+    from pepperpy.core.composition import Outputs, Processors, Sources, compose
 
-    logger.info("=== Exemplo de Templates Pré-configurados ===")
+    logger.info("=== Exemplo de Template ===")
 
-    # Criar um podcast a partir de um feed RSS
-    podcast_path = await templates.news_podcast(
-        source_url="https://news.google.com/rss",
-        output_path=str(output_dir / "template_podcast.mp3"),
-        voice="en",
-        max_articles=5,
-        summary_length=150,
+    # Criar um podcast a partir de um feed RSS (simulando um template)
+    podcast_path = await (
+        compose("podcast_template")
+        .source(Sources.rss("https://news.google.com/rss", max_items=5))
+        .process(Processors.summarize(max_length=150))
+        .output(Outputs.podcast(str(output_dir / "template_podcast.mp3"), voice="en"))
+        .execute()
     )
 
     logger.info(f"Podcast gerado em: {podcast_path}")
@@ -90,195 +94,114 @@ async def example_template():
 
 async def example_document_summary():
     """Demonstra a sumarização de documentos."""
-    from pepperpy import compose, create, outputs, processors, sources, templates
+    from pepperpy.core.composition import Outputs, Processors, Sources, compose
 
     logger.info("=== Exemplo de Sumarização de Documentos ===")
 
-    # Criar um documento de exemplo
-    sample_text = """
-    O framework PepperPy é uma solução moderna para desenvolvimento de aplicações de IA em Python.
-    Ele oferece três níveis de abstração para atender diferentes necessidades:
-    1. Composição Universal: API de baixo nível para compor componentes em pipelines
-    2. Abstração por Intenção: API de médio nível para expressar intenções de forma natural
-    3. Templates: API de alto nível com soluções pré-configuradas
-    
-    Com o PepperPy, você pode facilmente criar pipelines para processamento de texto,
-    geração de conteúdo, tradução, sumarização e muito mais. A arquitetura modular
-    permite estender o framework com novos componentes e integrações.
-    
-    O PepperPy é ideal para desenvolvedores que precisam criar soluções de IA
-    rapidamente, sem sacrificar flexibilidade ou controle.
+    # Texto de exemplo
+    document_text = """
+    O PepperPy é um framework de composição universal para Python que permite
+    a criação de pipelines de processamento flexíveis e reutilizáveis. Ele
+    fornece uma API fluente para compor componentes de diferentes domínios,
+    como processamento de texto, geração de conteúdo, e automação de fluxos
+    de trabalho.
+
+    A arquitetura do PepperPy é baseada em três tipos principais de componentes:
+    1. Fontes (Sources): Componentes que fornecem dados para o pipeline.
+    2. Processadores (Processors): Componentes que transformam os dados.
+    3. Saídas (Outputs): Componentes que escrevem os dados processados.
+
+    Esses componentes são combinados em pipelines que podem ser executados
+    para processar dados de forma sequencial ou paralela. A API fluente
+    permite a criação de pipelines de forma intuitiva e encadeada.
+
+    O PepperPy também fornece abstrações de alto nível, como intenções e
+    templates, que simplificam ainda mais o uso do framework para casos
+    comuns. Isso permite que os usuários escolham o nível de abstração
+    mais adequado para suas necessidades.
     """
 
-    sample_file = output_dir / "sample_document_summary.txt"
-    with open(sample_file, "w") as f:
-        f.write(sample_text)
-
-    # Sumarização usando Composição Universal
-    summary_path_universal = await (
-        compose("summary_pipeline")
-        .source(sources.file(str(sample_file)))
-        .process(processors.summarize(max_length=100))
-        .output(outputs.file(str(output_dir / "document_summary_universal.txt")))
+    # Criar um pipeline para sumarizar o documento
+    summary_path = await (
+        compose("document_summarizer")
+        .source(Sources.text(document_text))
+        .process(Processors.summarize(max_length=100))
+        .output(Outputs.file(str(output_dir / "document_summary.txt")))
         .execute()
     )
 
-    # Sumarização usando Abstração por Intenção
-    summary_path_intent = await (
-        create("summarizer")
-        .from_source(str(sample_file))
-        .with_summary(max_length=100)
-        .save_to(str(output_dir / "document_summary_intent.txt"))
-        .execute()
-    )
+    logger.info(f"Resumo salvo em: {summary_path}")
 
-    # Sumarização usando Templates
-    summary_path_template = await templates.document_summarizer(
-        content_path=str(sample_file),
-        output_path=str(output_dir / "document_summary_template.txt"),
-        max_length=100,
-    )
+    # Ler o resumo
+    with open(summary_path, "r") as f:
+        summary = f.read()
 
-    # Exibir resultados
-    with open(summary_path_universal, "r") as f:
-        logger.info(f"Sumarização Universal:\n{f.read()}")
-
-    with open(summary_path_intent, "r") as f:
-        logger.info(f"Sumarização por Intenção:\n{f.read()}")
-
-    with open(summary_path_template, "r") as f:
-        logger.info(f"Sumarização por Template:\n{f.read()}")
-
-    return [summary_path_universal, summary_path_intent, summary_path_template]
+    logger.info(f"Resumo: {summary[:100]}...")
+    return summary_path
 
 
 async def example_content_translation():
     """Demonstra a tradução de conteúdo."""
-    from pepperpy import compose, create, outputs, processors, sources, templates
+    from pepperpy.core.composition import Outputs, Processors, Sources, compose
 
     logger.info("=== Exemplo de Tradução de Conteúdo ===")
 
-    # Criar um documento de exemplo
-    sample_text = """
-    The PepperPy framework is a modern solution for AI application development in Python.
-    It offers three levels of abstraction to meet different needs:
-    1. Universal Composition: Low-level API for composing components into pipelines
-    2. Intent Abstraction: Mid-level API for expressing intentions naturally
-    3. Templates: High-level API with pre-configured solutions
+    # Texto de exemplo
+    text = """
+    O PepperPy é um framework de composição universal para Python que permite
+    a criação de pipelines de processamento flexíveis e reutilizáveis.
     """
 
-    sample_file = output_dir / "sample_document_translation.txt"
-    with open(sample_file, "w") as f:
-        f.write(sample_text)
-
-    # Tradução usando Composição Universal
-    translation_path_universal = await (
-        compose("translation_pipeline")
-        .source(sources.file(str(sample_file)))
-        .process(processors.translate(target_language="pt"))
-        .output(outputs.file(str(output_dir / "content_translation_universal.txt")))
+    # Criar um pipeline para traduzir o texto
+    translation_path = await (
+        compose("content_translator")
+        .source(Sources.text(text))
+        .process(Processors.translate(target_language="en"))
+        .output(Outputs.file(str(output_dir / "translated_content.txt")))
         .execute()
     )
 
-    # Tradução usando Abstração por Intenção
-    translation_path_intent = await (
-        create("translator")
-        .from_source(str(sample_file))
-        .to_target_language("pt")
-        .save_to(str(output_dir / "content_translation_intent.txt"))
-        .execute()
-    )
+    logger.info(f"Tradução salva em: {translation_path}")
 
-    # Tradução usando Templates
-    translation_path_template = await templates.content_translator(
-        content_path=str(sample_file),
-        target_language="pt",
-        output_path=str(output_dir / "content_translation_template.txt"),
-    )
+    # Ler a tradução
+    with open(translation_path, "r") as f:
+        translation = f.read()
 
-    # Exibir resultados
-    with open(translation_path_universal, "r") as f:
-        logger.info(f"Tradução Universal:\n{f.read()}")
-
-    with open(translation_path_intent, "r") as f:
-        logger.info(f"Tradução por Intenção:\n{f.read()}")
-
-    with open(translation_path_template, "r") as f:
-        logger.info(f"Tradução por Template:\n{f.read()}")
-
-    return [
-        translation_path_universal,
-        translation_path_intent,
-        translation_path_template,
-    ]
+    logger.info(f"Tradução: {translation[:100]}...")
+    return translation_path
 
 
 async def example_parallel_pipeline():
-    """Demonstra o uso de pipeline paralelo."""
-    from pepperpy import compose, create, outputs, processors, sources, templates
+    """Demonstra o uso de pipelines paralelos."""
+    from pepperpy.core.composition import Outputs, Processors, Sources, compose_parallel
 
     logger.info("=== Exemplo de Pipeline Paralelo ===")
 
-    # Definir fontes RSS
-    rss_feeds = [
-        "https://news.google.com/rss",
-        "https://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-    ]
+    # Texto de exemplo
+    text = """
+    O PepperPy é um framework de composição universal para Python que permite
+    a criação de pipelines de processamento flexíveis e reutilizáveis.
+    """
 
-    # Processamento paralelo usando Composição Universal
-    tasks_universal = []
-    for i, feed_url in enumerate(rss_feeds):
-        task = (
-            compose(f"feed_pipeline_{i}")
-            .source(sources.rss(feed_url, max_items=3))
-            .process(processors.summarize(max_length=100))
-            .output(
-                outputs.file(str(output_dir / f"parallel_summary_universal_{i}.txt"))
-            )
-            .execute()
-        )
-        tasks_universal.append(task)
-
-    results_universal = await asyncio.gather(*tasks_universal)
-    logger.info(
-        f"Resultados do processamento paralelo (Universal): {results_universal}"
+    # Criar um pipeline paralelo para processar o texto
+    result_path = await (
+        compose_parallel("parallel_pipeline")
+        .source(Sources.text(text))
+        .process(Processors.summarize(max_length=50))
+        .process(Processors.translate(target_language="en"))
+        .process(Processors.extract_keywords(max_keywords=5))
+        .output(Outputs.file(str(output_dir / "parallel_result.txt")))
+        .execute()
     )
 
-    # Processamento paralelo usando Abstração por Intenção
-    tasks_intent = []
-    for i, feed_url in enumerate(rss_feeds):
-        task = (
-            create("news_processor")
-            .from_source(feed_url)
-            .with_summary(max_length=100)
-            .save_to(str(output_dir / f"parallel_summary_intent_{i}.txt"))
-            .execute()
-        )
-        tasks_intent.append(task)
+    logger.info(f"Resultado salvo em: {result_path}")
 
-    results_intent = await asyncio.gather(*tasks_intent)
-    logger.info(f"Resultados do processamento paralelo (Intenção): {results_intent}")
+    # Ler o resultado
+    with open(result_path, "r") as f:
+        result = f.read()
 
-    # Processamento paralelo usando Templates
-    tasks_template = []
-    for i, feed_url in enumerate(rss_feeds):
-        task = templates.news_summarizer(
-            source_url=feed_url,
-            output_path=str(output_dir / f"parallel_summary_template_{i}.txt"),
-            max_items=3,
-            summary_length=100,
-        )
-        tasks_template.append(task)
-
-    results_template = await asyncio.gather(*tasks_template)
-    logger.info(f"Resultados do processamento paralelo (Template): {results_template}")
-
-    return {
-        "universal": results_universal,
-        "intent": results_intent,
-        "template": results_template,
-    }
+    logger.info(f"Resultado: {result[:100]}...")
+    return result_path
 
 
 async def main():

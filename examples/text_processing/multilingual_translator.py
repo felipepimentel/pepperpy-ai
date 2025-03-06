@@ -23,10 +23,15 @@ import asyncio
 import random
 from typing import Any, Dict, Optional
 
-from pepperpy.core.composition import Output, Processor, Source, compose
+from pepperpy.core.composition import compose
+from pepperpy.core.composition.types import (
+    OutputComponent,
+    ProcessorComponent,
+    SourceComponent,
+)
 
 
-class TextSource(Source):
+class TextSource(SourceComponent[Dict[str, Any]]):
     """Fonte de texto para tradução.
 
     Responsável por fornecer o texto a ser traduzido, com detecção
@@ -43,6 +48,14 @@ class TextSource(Source):
         """
         self.text = config.get("text", "")
         self.detect_language = config.get("detect_language", True)
+
+    async def read(self) -> Dict[str, Any]:
+        """Lê o texto da fonte.
+
+        Returns:
+            Dicionário contendo o texto e o idioma detectado
+        """
+        return await self.fetch()
 
     async def fetch(self) -> Dict[str, Any]:
         """Busca o texto e detecta o idioma.
@@ -89,7 +102,7 @@ class TextSource(Source):
         return {"text": self.text, "detected_language": None}
 
 
-class TranslationProcessor(Processor):
+class TranslationProcessor(ProcessorComponent[Dict[str, Any], Dict[str, Any]]):
     """Processador de tradução.
 
     Responsável por traduzir o texto do idioma de origem para o idioma de destino.
@@ -107,6 +120,17 @@ class TranslationProcessor(Processor):
         self.target_language = config.get("target_language", "en")
         self.preserve_formatting = config.get("preserve_formatting", True)
         self.quality = config.get("quality", "standard")
+
+    async def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Processa os dados para tradução.
+
+        Args:
+            data: Dados contendo o texto e o idioma detectado
+
+        Returns:
+            Dicionário contendo o texto traduzido e metadados
+        """
+        return await self.transform(data)
 
     async def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Traduz o texto para o idioma de destino.
@@ -182,7 +206,7 @@ class TranslationProcessor(Processor):
         }
 
 
-class TranslationOutput(Output):
+class TranslationOutput(OutputComponent[Dict[str, Any]]):
     """Saída da tradução.
 
     Responsável por formatar e exibir o resultado da tradução.
@@ -201,7 +225,7 @@ class TranslationOutput(Output):
         self.include_metadata = config.get("include_metadata", False)
         self.output_file = config.get("output_file", None)
 
-    async def output(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    async def write(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Formata e exibe o resultado da tradução.
 
         Args:
@@ -238,73 +262,90 @@ class TranslationOutput(Output):
                 output_content += f"Tempo de processamento: {statistics.get('processing_time_ms')} ms\n"
                 output_content += f"Qualidade: {quality}\n"
 
-        elif self.format == "html":
-            output_content = "<div class='translation'>\n"
-            output_content += "  <div class='translation-header'>\n"
-            output_content += f"    <div class='source-language'>De: {source_lang.get('name')} ({source_lang.get('code')})</div>\n"
-            output_content += f"    <div class='target-language'>Para: {target_lang.get('name')} ({target_lang.get('code')})</div>\n"
-            output_content += "  </div>\n"
-            output_content += "  <div class='translation-content'>\n"
-            output_content += "    <div class='original-text'>\n"
-            output_content += "      <h3>Texto original:</h3>\n"
-            output_content += f"      <p>{original_text}</p>\n"
-            output_content += "    </div>\n"
-            output_content += "    <div class='translated-text'>\n"
-            output_content += "      <h3>Texto traduzido:</h3>\n"
-            output_content += f"      <p>{translated_text}</p>\n"
-            output_content += "    </div>\n"
-            output_content += "  </div>\n"
-
-            if self.include_metadata:
-                output_content += "  <div class='translation-metadata'>\n"
-                output_content += "    <h4>Metadados:</h4>\n"
-                output_content += "    <ul>\n"
-                output_content += (
-                    f"      <li>Palavras: {statistics.get('word_count')}</li>\n"
-                )
-                output_content += (
-                    f"      <li>Caracteres: {statistics.get('character_count')}</li>\n"
-                )
-                output_content += f"      <li>Tempo de processamento: {statistics.get('processing_time_ms')} ms</li>\n"
-                output_content += f"      <li>Qualidade: {quality}</li>\n"
-                output_content += "    </ul>\n"
-                output_content += "  </div>\n"
-
-            output_content += "</div>"
-
         elif self.format == "json":
-            output_content = {
+            import json
+
+            output_data = {
                 "translation": {
+                    "original": original_text,
+                    "translated": translated_text,
                     "source_language": source_lang,
                     "target_language": target_lang,
-                    "original_text": original_text,
-                    "translated_text": translated_text,
                 }
             }
 
             if self.include_metadata:
-                output_content["metadata"] = {
+                output_data["metadata"] = {
                     "statistics": statistics,
                     "quality": quality,
                 }
 
-        else:
-            output_content = f"Formato não suportado: {self.format}"
+            output_content = json.dumps(output_data, indent=2, ensure_ascii=False)
 
-        # Salvar em arquivo se especificado
-        if self.output_file and self.format != "json":
-            try:
-                with open(self.output_file, "w", encoding="utf-8") as f:
-                    f.write(output_content)
-                print(f"Resultado salvo em: {self.output_file}")
-            except Exception as e:
-                print(f"Erro ao salvar arquivo: {str(e)}")
+        elif self.format == "html":
+            output_content = "<!DOCTYPE html>\n<html>\n<head>\n"
+            output_content += "<meta charset='utf-8'>\n"
+            output_content += "<title>Tradução</title>\n"
+            output_content += "<style>body{font-family:Arial,sans-serif;margin:20px;line-height:1.6}</style>\n"
+            output_content += "</head>\n<body>\n"
+            output_content += "<h1>Tradução</h1>\n"
+            output_content += f"<p><strong>De:</strong> {source_lang.get('name')} ({source_lang.get('code')})</p>\n"
+            output_content += f"<p><strong>Para:</strong> {target_lang.get('name')} ({target_lang.get('code')})</p>\n"
+            output_content += "<h2>Texto original</h2>\n"
+            output_content += f"<div>{original_text}</div>\n"
+            output_content += "<h2>Texto traduzido</h2>\n"
+            output_content += f"<div>{translated_text}</div>\n"
+
+            if self.include_metadata:
+                output_content += "<h2>Metadados</h2>\n<ul>\n"
+                output_content += f"<li><strong>Palavras:</strong> {statistics.get('word_count')}</li>\n"
+                output_content += f"<li><strong>Caracteres:</strong> {statistics.get('character_count')}</li>\n"
+                output_content += f"<li><strong>Tempo de processamento:</strong> {statistics.get('processing_time_ms')} ms</li>\n"
+                output_content += f"<li><strong>Qualidade:</strong> {quality}</li>\n"
+                output_content += "</ul>\n"
+
+            output_content += "</body>\n</html>"
+
+        else:
+            output_content = translated_text
+
+        # Exibir resultado
+        print("\n=== RESULTADO DA TRADUÇÃO ===")
+        print(f"Formato: {self.format}")
+        if self.format == "text":
+            print(output_content)
+        else:
+            print(f"Conteúdo formatado ({len(output_content)} caracteres)")
+
+        # Salvar em arquivo, se especificado
+        if self.output_file:
+            print(f"Salvando resultado em: {self.output_file}")
+            # Em uma implementação real, salvaríamos o arquivo
+            # with open(self.output_file, "w", encoding="utf-8") as f:
+            #     f.write(output_content)
 
         return {
             "format": self.format,
             "content": output_content,
-            "file_path": self.output_file if self.output_file else None,
+            "output_file": self.output_file,
+            "translation": {
+                "original": original_text,
+                "translated": translated_text,
+                "source_language": source_lang,
+                "target_language": target_lang,
+            },
         }
+
+    async def output(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Formata e exibe o resultado da tradução.
+
+        Args:
+            data: Dados contendo o texto traduzido e metadados
+
+        Returns:
+            Dicionário contendo o resultado formatado
+        """
+        return await self.write(data)
 
 
 async def translate_text(
@@ -319,116 +360,91 @@ async def translate_text(
 
     Args:
         text: Texto a ser traduzido
-        target_language: Código do idioma de destino
+        target_language: Idioma de destino
         quality: Qualidade da tradução (draft, standard, premium)
         output_format: Formato de saída (text, json, html)
         include_metadata: Se deve incluir metadados
         output_file: Caminho para salvar o resultado (opcional)
 
     Returns:
-        Resultado da tradução
+        Dicionário contendo o resultado da tradução
     """
-    # Configurar componentes
-    source = TextSource({"text": text, "detect_language": True})
+    print(f"Iniciando tradução para {target_language}")
+    print(f"Texto: '{text[:50]}...' ({len(text)} caracteres)")
 
-    processor = TranslationProcessor({
-        "target_language": target_language,
-        "preserve_formatting": True,
-        "quality": quality,
-    })
-
-    output = TranslationOutput({
-        "format": output_format,
-        "include_metadata": include_metadata,
-        "output_file": output_file,
-    })
-
-    # Compor pipeline
-    pipeline = await compose(source, processor, output)
-
-    # Executar pipeline
-    result = await pipeline.execute()
+    # Criar pipeline de tradução
+    result = await (
+        compose("translator")
+        .source(
+            TextSource({
+                "text": text,
+                "detect_language": True,
+            })
+        )
+        .process(
+            TranslationProcessor({
+                "target_language": target_language,
+                "preserve_formatting": True,
+                "quality": quality,
+            })
+        )
+        .output(
+            TranslationOutput({
+                "format": output_format,
+                "include_metadata": include_metadata,
+                "output_file": output_file,
+            })
+        )
+        .execute()
+    )
 
     return result
 
 
 async def demo_translator():
     """Demonstra o uso do tradutor multilíngue."""
-    print("\n=== Demonstração do Tradutor Multilíngue ===")
+    print("=== Demonstração do Tradutor Multilíngue ===\n")
 
     # Exemplo 1: Tradução simples para inglês
-    print("\n--- Exemplo 1: Tradução simples para inglês ---")
-    text1 = "Este é um exemplo de texto que será traduzido para o inglês."
-    result1 = await translate_text(
-        text=text1,
+    print("--- Exemplo 1: Tradução para inglês ---")
+    await translate_text(
+        "Este é um exemplo de texto em português que será traduzido para inglês.",
         target_language="en",
         quality="standard",
         output_format="text",
         include_metadata=True,
     )
 
-    print("\nResultado:")
-    print(result1["content"])
-
-    # Exemplo 2: Tradução para espanhol com alta qualidade
-    print("\n--- Exemplo 2: Tradução para espanhol com alta qualidade ---")
-    text2 = "Este texto será traduzido para o espanhol com alta qualidade."
-    result2 = await translate_text(
-        text=text2,
+    print("\n--- Exemplo 2: Tradução para espanhol com saída em JSON ---")
+    await translate_text(
+        "This is an example text in English that will be translated to Spanish.",
         target_language="es",
         quality="premium",
-        output_format="text",
+        output_format="json",
         include_metadata=True,
     )
 
-    print("\nResultado:")
-    print(result2["content"])
-
-    # Exemplo 3: Tradução para francês com saída em HTML
     print("\n--- Exemplo 3: Tradução para francês com saída em HTML ---")
-    text3 = "Este texto será traduzido para o francês e formatado em HTML."
-    result3 = await translate_text(
-        text=text3,
+    await translate_text(
+        "Dies ist ein Beispieltext auf Deutsch, der ins Französische übersetzt wird.",
         target_language="fr",
-        quality="standard",
+        quality="draft",
         output_format="html",
         include_metadata=True,
     )
 
-    print("\nResultado (HTML):")
-    print(result3["content"][:200] + "...\n(HTML truncado)")
-
-    # Exemplo 4: Tradução rápida para alemão
-    print("\n--- Exemplo 4: Tradução rápida para alemão ---")
-    text4 = "Este é um texto curto para tradução rápida."
-    result4 = await translate_text(
-        text=text4,
-        target_language="de",
-        quality="draft",
-        output_format="text",
-        include_metadata=False,
-    )
-
-    print("\nResultado:")
-    print(result4["content"])
+    print("\n=== Demonstração Concluída ===")
+    print("O tradutor multilíngue demonstrou:")
+    print("1. Detecção automática de idioma")
+    print("2. Tradução para diferentes idiomas")
+    print("3. Diferentes níveis de qualidade")
+    print("4. Múltiplos formatos de saída")
+    print("5. Inclusão de metadados")
 
 
 async def main():
     """Função principal."""
-    print("=== Tradutor Multilíngue ===")
-    print(
-        "Este exemplo demonstra como criar um sistema de tradução multilíngue usando o PepperPy."
-    )
-
     await demo_translator()
-
-    print("\n=== Recursos Demonstrados ===")
-    print("1. Detecção automática de idioma")
-    print("2. Tradução para múltiplos idiomas")
-    print("3. Diferentes níveis de qualidade de tradução")
-    print("4. Múltiplos formatos de saída (texto, HTML, JSON)")
-    print("5. Inclusão opcional de metadados")
-    print("6. Composição de pipeline com Source, Processor e Output")
 
 
 if __name__ == "__main__":

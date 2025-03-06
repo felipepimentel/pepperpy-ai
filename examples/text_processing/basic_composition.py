@@ -46,6 +46,14 @@ class SimpleTextSource:
         print(f"Fonte: Fornecendo texto de {len(self.text)} caracteres")
         return self.text
 
+    async def read(self) -> str:
+        """Lê o texto configurado.
+
+        Returns:
+            O texto configurado
+        """
+        return await self.fetch()
+
 
 class TextTransformProcessor:
     """Componente de processamento que transforma texto."""
@@ -79,6 +87,17 @@ class TextTransformProcessor:
         else:
             return text
 
+    async def process(self, text: str) -> str:
+        """Processa o texto aplicando a transformação configurada.
+
+        Args:
+            text: Texto a ser processado
+
+        Returns:
+            Texto processado
+        """
+        return await self.transform(text)
+
 
 class ConsoleOutputComponent:
     """Componente de saída que exibe o resultado no console."""
@@ -92,11 +111,11 @@ class ConsoleOutputComponent:
         """
         self.prefix = config.get("prefix", "Resultado: ")
 
-    async def output(self, text: str) -> str:
-        """Exibe o texto no console.
+    async def write(self, text: str) -> str:
+        """Escreve o texto no console.
 
         Args:
-            text: Texto a ser exibido
+            text: Texto a ser escrito
 
         Returns:
             O texto exibido
@@ -107,6 +126,17 @@ class ConsoleOutputComponent:
         print(result)
         print("-" * 40)
         return result
+
+    async def output(self, text: str) -> str:
+        """Exibe o texto no console.
+
+        Args:
+            text: Texto a ser exibido
+
+        Returns:
+            O texto exibido
+        """
+        return await self.write(text)
 
 
 async def demo_basic_pipeline():

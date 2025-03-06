@@ -15,24 +15,25 @@ Usage:
        pip install pepperpy
 
     2. Run the example:
-       python examples/quickstart/simple_intent.py
+       python examples/workflow_automation/simple_intent.py
 """
 
 import asyncio
-from typing import Any, Dict
+from typing import Any, Awaitable, Callable, Dict
 
-from pepperpy.core.intent import IntentBuilder, IntentType, register_intent_handler
+# Importando apenas o que está disponível
+from pepperpy.core.intent.types import IntentType
 
 
 # Simulação da função de reconhecimento de intenção
-async def recognize_intent(text: str) -> Dict[str, Any]:
+async def custom_recognize_intent(text: str) -> Dict[str, Any]:
     """Simula o reconhecimento de intenção a partir de texto.
 
     Args:
         text: Texto a ser analisado
 
     Returns:
-        Intenção reconhecida
+        Intenção reconhecida como dicionário
     """
     print(f"Reconhecendo intenção a partir do texto: '{text}'")
 
@@ -56,8 +57,10 @@ async def recognize_intent(text: str) -> Dict[str, Any]:
 
         return {
             "intent": "summarize",
+            "type": IntentType.COMMAND.value,
             "confidence": 0.9,
             "parameters": {"source_url": url, "max_length": max_length},
+            "text": text,
         }
 
     elif "traduzir" in text.lower() or "tradução" in text.lower():
@@ -76,6 +79,7 @@ async def recognize_intent(text: str) -> Dict[str, Any]:
 
         return {
             "intent": "translate",
+            "type": IntentType.COMMAND.value,
             "confidence": 0.85,
             "parameters": {
                 "text": text.split("traduzir")[1].strip()
@@ -83,10 +87,17 @@ async def recognize_intent(text: str) -> Dict[str, Any]:
                 else "Texto de exemplo",
                 "target_language": target_language,
             },
+            "text": text,
         }
 
     else:
-        return {"intent": "unknown", "confidence": 0.3, "parameters": {}}
+        return {
+            "intent": "unknown",
+            "type": IntentType.UNKNOWN.value,
+            "confidence": 0.3,
+            "parameters": {},
+            "text": text,
+        }
 
 
 # Simulação do processador de intenção
@@ -119,7 +130,10 @@ INTENT_HANDLERS = {}
 
 
 # Função para registrar manipuladores de intenção
-def register_intent_handler(intent_name: str, handler_func):
+def register_intent_handler(
+    intent_name: str,
+    handler_func: Callable[[Dict[str, Any]], Awaitable[Dict[str, Any]]],
+):
     """Registra um manipulador para uma intenção específica.
 
     Args:
@@ -210,7 +224,7 @@ async def demo_intent_recognition():
 
     for command in commands:
         print(f"\nComando: '{command}'")
-        intent = await recognize_intent(command)
+        intent = await custom_recognize_intent(command)
         print(f"Intenção reconhecida: {intent['intent']}")
         print(f"Confiança: {intent['confidence']}")
         print(f"Parâmetros: {intent['parameters']}")
@@ -227,8 +241,10 @@ async def demo_intent_processing():
     print("\nProcessando intenção de resumo:")
     intent = {
         "intent": "summarize",
+        "type": IntentType.COMMAND.value,
         "confidence": 0.9,
         "parameters": {"source_url": "https://example.com/article", "max_length": 100},
+        "text": "resumir o artigo em https://example.com/article em 100 palavras",
     }
 
     result = await process_intent(intent)
@@ -238,8 +254,10 @@ async def demo_intent_processing():
     print("\nProcessando intenção de tradução:")
     intent = {
         "intent": "translate",
+        "type": IntentType.COMMAND.value,
         "confidence": 0.85,
         "parameters": {"text": "olá mundo", "target_language": "en"},
+        "text": "traduzir 'olá mundo' para inglês",
     }
 
     result = await process_intent(intent)
@@ -247,19 +265,17 @@ async def demo_intent_processing():
 
 
 async def demo_intent_builder():
-    """Demonstra o uso do IntentBuilder."""
+    """Demonstra a construção manual de intenções."""
     print("\n=== Construção Manual de Intenção ===")
 
-    # Criar uma intenção manualmente usando o IntentBuilder
-    intent = (
-        IntentBuilder("play_music")
-        .with_type(IntentType.COMMAND)
-        .with_confidence(0.95)
-        .with_entity("song", "Bohemian Rhapsody")
-        .with_entity("artist", "Queen")
-        .with_text("tocar Bohemian Rhapsody do Queen")
-        .build()
-    )
+    # Criar uma intenção manualmente
+    intent = {
+        "intent": "play_music",
+        "type": IntentType.COMMAND.value,
+        "confidence": 0.95,
+        "parameters": {"song": "Bohemian Rhapsody", "artist": "Queen"},
+        "text": "tocar Bohemian Rhapsody do Queen",
+    }
 
     print("Intenção construída manualmente:")
     print(f"Nome: {intent['intent']}")
@@ -287,7 +303,7 @@ async def main():
     print("1. Reconhecimento de intenção a partir de texto")
     print("2. Extração de parâmetros de comandos em linguagem natural")
     print("3. Processamento de intenções com manipuladores específicos")
-    print("4. Construção manual de intenções usando o IntentBuilder")
+    print("4. Construção manual de intenções")
 
 
 if __name__ == "__main__":

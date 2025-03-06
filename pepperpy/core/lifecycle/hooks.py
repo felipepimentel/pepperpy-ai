@@ -6,8 +6,8 @@ This module provides standard hooks for lifecycle management.
 import logging
 from typing import Any
 
-from pepperpy.core.common.protocols.lifecycle import LifecycleHook
 from pepperpy.core.metrics import Counter, Histogram
+from pepperpy.core.protocols.lifecycle import LifecycleHook
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,11 @@ class LoggingHook(LifecycleHook):
         logger.info(f"{component_id}: Completed {event}")
 
     def on_error(
-        self, component_id: str, event: str, error: Exception, **kwargs: Any,
+        self,
+        component_id: str,
+        event: str,
+        error: Exception,
+        **kwargs: Any,
     ) -> None:
         """Log error in lifecycle event.
 
@@ -125,11 +129,16 @@ class MetricsHook(LifecycleHook):
 
         if duration is not None:
             self._histograms[histogram_key].observe(
-                duration, labels={"component_id": component_id, "event": event},
+                duration,
+                labels={"component_id": component_id, "event": event},
             )
 
     def on_error(
-        self, component_id: str, event: str, error: Exception, **kwargs: Any,
+        self,
+        component_id: str,
+        event: str,
+        error: Exception,
+        **kwargs: Any,
     ) -> None:
         """Record error in lifecycle event.
 

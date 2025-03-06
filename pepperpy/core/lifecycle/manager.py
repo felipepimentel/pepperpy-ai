@@ -7,16 +7,16 @@ multiple lifecycle components.
 from collections import defaultdict
 from typing import Any
 
-from pepperpy.core.common.lifecycle.base import LifecycleComponent
-from pepperpy.core.common.lifecycle.errors import (
+from pepperpy.core.lifecycle.base import LifecycleComponent
+from pepperpy.core.lifecycle.errors import (
     FinalizeError,
     InitializationError,
     RetryError,
     StartError,
     StopError,
 )
-from pepperpy.core.common.lifecycle.hooks import LoggingHook, MetricsHook
-from pepperpy.core.common.lifecycle.types import (
+from pepperpy.core.lifecycle.hooks import LoggingHook, MetricsHook
+from pepperpy.core.lifecycle.types import (
     LifecycleConfig,
     LifecycleContext,
     LifecycleEvent,

@@ -1,22 +1,44 @@
-"""Componentes concretos para o módulo de composição universal.
+"""Componentes para o módulo de composição universal.
 
-Este módulo fornece implementações concretas de componentes para o módulo
-de composição universal, incluindo fontes, processadores e saídas.
+Este módulo fornece componentes para uso em pipelines de composição,
+incluindo fontes, processadores e saídas.
 """
 
+import asyncio
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from pepperpy.core.composition.types import (
     OutputComponent,
-    OutputWriteError,
-    ProcessingError,
     ProcessorComponent,
     SourceComponent,
-    SourceReadError,
 )
+
+
+class SourceReadError(Exception):
+    """Erro ao ler de uma fonte."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class ProcessingError(Exception):
+    """Erro ao processar dados."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
+
+
+class OutputWriteError(Exception):
+    """Erro ao escrever em uma saída."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+        self.message = message
 
 
 class Sources:
@@ -27,7 +49,7 @@ class Sources:
     """
 
     @staticmethod
-    def rss(url: str, max_items: int = 5) -> SourceComponent[List[Dict[str, Any]]]:
+    def rss(url: str, max_items: int = 10) -> SourceComponent[List[Dict[str, Any]]]:
         """Cria uma fonte de dados RSS.
 
         Args:
@@ -41,42 +63,54 @@ class Sources:
         class RSSSource(SourceComponent[List[Dict[str, Any]]]):
             """Fonte de dados RSS."""
 
-            def __init__(self, url: str, max_items: int = 5) -> None:
+            def __init__(self, url: str, max_items: int = 10) -> None:
                 self.url = url
                 self.max_items = max_items
 
             async def read(self) -> List[Dict[str, Any]]:
-                """Lê dados do feed RSS.
+                """Lê os itens do feed RSS.
 
                 Returns:
-                    Lista de itens do feed RSS.
+                    Lista de itens do feed.
 
                 Raises:
                     SourceReadError: Se ocorrer um erro ao ler o feed.
                 """
                 try:
-                    # Simulação - em uma implementação real, usaríamos uma biblioteca RSS
-                    return [
+                    # Simulação - em uma implementação real, usaríamos feedparser
+                    print(f"Lendo feed RSS de {self.url}")
+                    items = [
                         {
-                            "title": f"Item {i} do feed {self.url}",
+                            "title": f"Item {i}",
                             "description": f"Descrição do item {i}",
                             "link": f"{self.url}/item{i}",
                             "published": "2023-01-01",
                         }
                         for i in range(1, self.max_items + 1)
                     ]
+                    return items
                 except Exception as e:
                     raise SourceReadError(f"Erro ao ler feed RSS: {e}")
+
+            async def fetch(self) -> List[Dict[str, Any]]:
+                """Obtém os itens do feed RSS.
+
+                Returns:
+                    Lista de itens do feed.
+
+                Raises:
+                    SourceReadError: Se ocorrer um erro ao obter o feed.
+                """
+                return await self.read()
 
         return RSSSource(url, max_items)
 
     @staticmethod
-    def file(path: str, format: str = "auto") -> SourceComponent[str]:
+    def file(path: str) -> SourceComponent[str]:
         """Cria uma fonte de dados de arquivo.
 
         Args:
             path: Caminho do arquivo.
-            format: Formato do arquivo (auto, text, json, etc.).
 
         Returns:
             Um componente de fonte de arquivo.
@@ -85,12 +119,11 @@ class Sources:
         class FileSource(SourceComponent[str]):
             """Fonte de dados de arquivo."""
 
-            def __init__(self, path: str, format: str = "auto") -> None:
+            def __init__(self, path: str) -> None:
                 self.path = path
-                self.format = format
 
             async def read(self) -> str:
-                """Lê dados do arquivo.
+                """Lê o conteúdo do arquivo.
 
                 Returns:
                     Conteúdo do arquivo.
@@ -99,12 +132,24 @@ class Sources:
                     SourceReadError: Se ocorrer um erro ao ler o arquivo.
                 """
                 try:
-                    with open(self.path, "r", encoding="utf-8") as f:
-                        return f.read()
+                    # Simulação - em uma implementação real, leríamos o arquivo
+                    print(f"Lendo arquivo {self.path}")
+                    return f"Conteúdo simulado do arquivo {self.path}"
                 except Exception as e:
                     raise SourceReadError(f"Erro ao ler arquivo: {e}")
 
-        return FileSource(path, format)
+            async def fetch(self) -> str:
+                """Obtém o conteúdo do arquivo.
+
+                Returns:
+                    Conteúdo do arquivo.
+
+                Raises:
+                    SourceReadError: Se ocorrer um erro ao obter o arquivo.
+                """
+                return await self.read()
+
+        return FileSource(path)
 
     @staticmethod
     def text(content: str) -> SourceComponent[str]:
@@ -131,6 +176,14 @@ class Sources:
                 """
                 return self.content
 
+            async def fetch(self) -> str:
+                """Obtém o texto.
+
+                Returns:
+                    O texto.
+                """
+                return self.content
+
         return TextSource(content)
 
 
@@ -142,67 +195,129 @@ class Processors:
     """
 
     @staticmethod
+    def transform(transform_func: callable) -> ProcessorComponent[Any, Any]:
+        """Cria um processador de transformação personalizado.
+
+        Args:
+            transform_func: Função de transformação a ser aplicada aos dados.
+
+        Returns:
+            Um componente de processamento de transformação.
+        """
+
+        class TransformProcessor(ProcessorComponent[Any, Any]):
+            """Processador de transformação personalizado."""
+
+            def __init__(self, transform_func: callable) -> None:
+                self.transform_func = transform_func
+
+            async def process(self, data: Any) -> Any:
+                """Processa os dados aplicando a função de transformação.
+
+                Args:
+                    data: Dados a serem transformados.
+
+                Returns:
+                    Dados transformados.
+
+                Raises:
+                    ProcessingError: Se ocorrer um erro durante a transformação.
+                """
+                try:
+                    # Aplicar a função de transformação
+                    if asyncio.iscoroutinefunction(self.transform_func):
+                        return await self.transform_func(data)
+                    else:
+                        return self.transform_func(data)
+                except Exception as e:
+                    raise ProcessingError(f"Erro ao transformar dados: {e}")
+
+            async def transform(self, data: Any) -> Any:
+                """Transforma os dados aplicando a função de transformação.
+
+                Args:
+                    data: Dados a serem transformados.
+
+                Returns:
+                    Dados transformados.
+
+                Raises:
+                    ProcessingError: Se ocorrer um erro durante a transformação.
+                """
+                return await self.process(data)
+
+        return TransformProcessor(transform_func)
+
+    @staticmethod
     def summarize(
         max_length: int = 150, model: str = "default"
     ) -> ProcessorComponent[Any, str]:
         """Cria um processador de sumarização.
 
         Args:
-            max_length: Comprimento máximo do resumo.
+            max_length: Tamanho máximo do resumo.
             model: Modelo a ser usado para sumarização.
 
         Returns:
             Um componente de processamento de sumarização.
         """
 
-        class SummarizationProcessor(ProcessorComponent[Any, str]):
+        class SummarizationProcessor(ProcessorComponent[str, str]):
             """Processador de sumarização."""
 
             def __init__(self, max_length: int = 150, model: str = "default") -> None:
                 self.max_length = max_length
                 self.model = model
 
-            async def process(self, data: Any) -> str:
+            async def process(self, data: str) -> str:
                 """Processa os dados para gerar um resumo.
 
                 Args:
-                    data: Dados a serem resumidos.
+                    data: Texto a ser resumido.
 
                 Returns:
-                    Resumo dos dados.
+                    Texto resumido.
 
                 Raises:
-                    ProcessingError: Se ocorrer um erro durante o processamento.
+                    ProcessingError: Se ocorrer um erro durante a sumarização.
                 """
                 try:
-                    # Simulação - em uma implementação real, usaríamos um modelo de IA
-                    if isinstance(data, list):
-                        # Resumir uma lista de itens (como de um feed RSS)
-                        items = data[:3]  # Limitar a 3 itens para o resumo
-                        titles = [item.get("title", "") for item in items]
-                        return f"Resumo dos principais itens: {', '.join(titles)}"
-                    elif isinstance(data, str):
-                        # Resumir um texto
-                        if len(data) > self.max_length:
-                            return data[: self.max_length] + "..."
+                    # Simulação - em uma implementação real, usaríamos um modelo de NLP
+                    print(
+                        f"Resumindo texto com modelo {self.model} "
+                        f"(max_length={self.max_length})"
+                    )
+                    if len(data) <= self.max_length:
                         return data
-                    else:
-                        # Tentar converter para string
-                        return str(data)[: self.max_length]
+                    return data[: self.max_length] + "..."
                 except Exception as e:
-                    raise ProcessingError(f"Erro ao sumarizar conteúdo: {e}")
+                    raise ProcessingError(f"Erro ao resumir texto: {e}")
+
+            async def transform(self, data: str) -> str:
+                """Transforma os dados para gerar um resumo.
+
+                Args:
+                    data: Texto a ser resumido.
+
+                Returns:
+                    Texto resumido.
+
+                Raises:
+                    ProcessingError: Se ocorrer um erro durante a sumarização.
+                """
+                return await self.process(data)
 
         return SummarizationProcessor(max_length, model)
 
     @staticmethod
     def translate(
-        target_language: str, source_language: Optional[str] = None
+        target_language: str = "en", source_language: str = "auto"
     ) -> ProcessorComponent[str, str]:
         """Cria um processador de tradução.
 
         Args:
             target_language: Idioma de destino.
-            source_language: Idioma de origem (opcional, auto-detectado se não fornecido).
+            source_language: Idioma de origem (auto para detecção automática).
 
         Returns:
             Um componente de processamento de tradução.
@@ -212,7 +327,7 @@ class Processors:
             """Processador de tradução."""
 
             def __init__(
-                self, target_language: str, source_language: Optional[str] = None
+                self, target_language: str = "en", source_language: str = "auto"
             ) -> None:
                 self.target_language = target_language
                 self.source_language = source_language
@@ -231,14 +346,27 @@ class Processors:
                 """
                 try:
                     # Simulação - em uma implementação real, usaríamos uma API de tradução
-                    if self.target_language == "pt":
-                        return f"[Traduzido para Português]: {data}"
-                    elif self.target_language == "en":
-                        return f"[Translated to English]: {data}"
-                    else:
-                        return f"[Translated to {self.target_language}]: {data}"
+                    print(
+                        f"Traduzindo texto de {self.source_language} "
+                        f"para {self.target_language}"
+                    )
+                    return f"[Tradução para {self.target_language}] {data}"
                 except Exception as e:
                     raise ProcessingError(f"Erro ao traduzir texto: {e}")
+
+            async def transform(self, data: str) -> str:
+                """Transforma os dados para traduzir o texto.
+
+                Args:
+                    data: Texto a ser traduzido.
+
+                Returns:
+                    Texto traduzido.
+
+                Raises:
+                    ProcessingError: Se ocorrer um erro durante a tradução.
+                """
+                return await self.process(data)
 
         return TranslationProcessor(target_language, source_language)
 
@@ -281,6 +409,20 @@ class Processors:
                 except Exception as e:
                     raise ProcessingError(f"Erro ao extrair palavras-chave: {e}")
 
+            async def transform(self, data: str) -> List[str]:
+                """Transforma os dados para extrair palavras-chave.
+
+                Args:
+                    data: Texto do qual extrair palavras-chave.
+
+                Returns:
+                    Lista de palavras-chave.
+
+                Raises:
+                    ProcessingError: Se ocorrer um erro durante a extração.
+                """
+                return await self.process(data)
+
         return KeywordExtractor(max_keywords)
 
 
@@ -290,6 +432,73 @@ class Outputs:
     Esta classe fornece métodos estáticos para criar componentes de saída
     para uso em pipelines de composição.
     """
+
+    @staticmethod
+    def console(prefix: str = "") -> OutputComponent[Any]:
+        """Cria uma saída de console.
+
+        Args:
+            prefix: Prefixo a ser adicionado à saída.
+
+        Returns:
+            Um componente de saída de console.
+        """
+
+        class ConsoleOutput(OutputComponent[Any]):
+            """Saída de console."""
+
+            def __init__(self, prefix: str = "") -> None:
+                self.prefix = prefix
+
+            async def write(self, data: Any) -> str:
+                """Escreve os dados no console.
+
+                Args:
+                    data: Dados a serem escritos.
+
+                Returns:
+                    Mensagem de confirmação.
+
+                Raises:
+                    OutputWriteError: Se ocorrer um erro ao escrever no console.
+                """
+                try:
+                    # Formatar a saída
+                    if isinstance(data, dict):
+                        output = json.dumps(data, ensure_ascii=False, indent=2)
+                    elif isinstance(data, list):
+                        output = "\n".join(str(item) for item in data)
+                    else:
+                        output = str(data)
+
+                    # Adicionar prefixo se fornecido
+                    if self.prefix:
+                        output = f"{self.prefix}{output}"
+
+                    # Imprimir no console
+                    print("\n=== Saída do Pipeline ===")
+                    print(output)
+                    print("=========================\n")
+
+                    return "Dados exibidos no console"
+                except Exception as e:
+                    raise OutputWriteError(f"Erro ao escrever no console: {e}")
+
+            async def output(self, data: Any) -> str:
+                """Envia os dados para o console.
+
+                Args:
+                    data: Dados a serem enviados.
+
+                Returns:
+                    Mensagem de confirmação.
+
+                Raises:
+                    OutputWriteError: Se ocorrer um erro ao enviar os dados.
+                """
+                return await self.write(data)
+
+        return ConsoleOutput(prefix)
 
     @staticmethod
     def file(path: str, format: str = "auto") -> OutputComponent[Any]:
@@ -352,6 +561,20 @@ class Outputs:
                 except Exception as e:
                     raise OutputWriteError(f"Erro ao escrever no arquivo: {e}")
 
+            async def output(self, data: Any) -> str:
+                """Envia os dados para o arquivo.
+
+                Args:
+                    data: Dados a serem enviados.
+
+                Returns:
+                    Caminho do arquivo.
+
+                Raises:
+                    OutputWriteError: Se ocorrer um erro ao enviar os dados.
+                """
+                return await self.write(data)
+
         return FileOutput(path, format)
 
     @staticmethod
@@ -399,5 +622,19 @@ class Outputs:
                     return self.path
                 except Exception as e:
                     raise OutputWriteError(f"Erro ao gerar podcast: {e}")
+
+            async def output(self, data: str) -> str:
+                """Envia os dados para o podcast.
+
+                Args:
+                    data: Dados a serem enviados.
+
+                Returns:
+                    Caminho do arquivo de podcast.
+
+                Raises:
+                    OutputWriteError: Se ocorrer um erro ao enviar os dados.
+                """
+                return await self.write(data)
 
         return PodcastOutput(path, voice)

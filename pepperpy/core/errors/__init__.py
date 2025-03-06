@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional, Union
 from .base import (
     AgentError,
     ConfigError,
+    LifecycleError,
     PepperError,
     StateError,
     ValidationError,
@@ -47,8 +48,14 @@ from .base import (
 __version__ = "0.1.0"
 __all__ = [
     "AgentError",
+    "ComponentNotFoundError",
     "ConfigError",
+    "DuplicateError",
+    "ExecutionError",
+    "LifecycleError",
+    "NotFoundError",
     "PepperError",
+    "PepperPyError",
     "StateError",
     "ValidationError",
     "VersionCompatibilityError",
@@ -85,3 +92,26 @@ class DuplicateError(PepperPyError):
 
 class NotFoundError(PepperPyError):
     """Raised when an item is not found."""
+
+
+class ComponentNotFoundError(NotFoundError):
+    """Raised when a component is not found.
+
+    This error is raised when attempting to access a component
+    that does not exist or has not been registered.
+    """
+
+    def __init__(self, component_type: str, component_id: str, *args: Any) -> None:
+        """Initialize error.
+
+        Args:
+            component_type: Type of component (e.g., "source", "processor")
+            component_id: ID of the component that was not found
+            *args: Additional arguments
+        """
+        message = (
+            f"Component of type '{component_type}' with ID '{component_id}' not found"
+        )
+        super().__init__(message, *args)
+        self.component_type = component_type
+        self.component_id = component_id

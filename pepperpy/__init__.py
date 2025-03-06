@@ -27,7 +27,7 @@ from pepperpy.core.intent.public import (
 from pepperpy.core.intent.types import IntentType
 
 # Importar namespaces para compatibilidade com versões anteriores
-from pepperpy.namespaces import outputs, processors, sources
+from pepperpy.core.namespaces import outputs, processors, sources
 
 # Importar componentes de templates
 from pepperpy.workflows.templates.public import (

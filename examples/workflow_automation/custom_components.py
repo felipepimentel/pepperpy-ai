@@ -15,7 +15,7 @@ Usage:
        pip install pepperpy
 
     2. Run the example:
-       python examples/advanced/custom_components.py
+       python examples/workflow_automation/custom_components.py
 """
 
 import asyncio
@@ -23,11 +23,11 @@ import json
 import os
 from typing import Any, Dict, TypeVar
 
-from pepperpy.core.composition import (
+from pepperpy.core.composition import compose
+from pepperpy.core.composition.types import (
     OutputComponent,
     ProcessorComponent,
     SourceComponent,
-    compose,
 )
 
 # Definir tipos genéricos para os componentes
@@ -45,6 +45,14 @@ class JSONFileSource(SourceComponent[Dict[str, Any]]):
             file_path: Caminho para o arquivo JSON
         """
         self.file_path = file_path
+
+    async def read(self) -> Dict[str, Any]:
+        """Lê dados da fonte.
+
+        Returns:
+            Dados lidos da fonte.
+        """
+        return await self.fetch()
 
     async def fetch(self) -> Dict[str, Any]:
         """Carrega dados de um arquivo JSON.
@@ -78,6 +86,17 @@ class FilterProcessor(ProcessorComponent[Dict[str, Any], Dict[str, Any]]):
             filter_criteria: Critérios de filtragem
         """
         self.filter_criteria = filter_criteria
+
+    async def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Processa os dados de entrada.
+
+        Args:
+            data: Dados a serem processados.
+
+        Returns:
+            Dados processados.
+        """
+        return await self.transform(data)
 
     async def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Filtra os dados de acordo com os critérios especificados.
@@ -126,6 +145,17 @@ class TransformProcessor(ProcessorComponent[Dict[str, Any], Dict[str, Any]]):
             transform_function: Nome da função de transformação a ser aplicada
         """
         self.transform_function = transform_function
+
+    async def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Processa os dados de entrada.
+
+        Args:
+            data: Dados a serem processados.
+
+        Returns:
+            Dados processados.
+        """
+        return await self.transform(data)
 
     async def transform(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Transforma os dados de acordo com a função especificada.
@@ -182,6 +212,17 @@ class JSONFileOutput(OutputComponent[Dict[str, Any]]):
         # Criar diretório de saída se não existir
         os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
 
+    async def write(self, data: Dict[str, Any]) -> str:
+        """Escreve os dados no destino.
+
+        Args:
+            data: Dados a serem escritos.
+
+        Returns:
+            Resultado da operação.
+        """
+        return await self.output(data)
+
     async def output(self, data: Dict[str, Any]) -> str:
         """Salva os dados em um arquivo JSON.
 
@@ -215,6 +256,17 @@ class ConsoleOutput(OutputComponent[Dict[str, Any]]):
             format: Formato de saída (json, table, summary)
         """
         self.format = format
+
+    async def write(self, data: Dict[str, Any]) -> str:
+        """Escreve os dados no destino.
+
+        Args:
+            data: Dados a serem escritos.
+
+        Returns:
+            Resultado da operação.
+        """
+        return await self.output(data)
 
     async def output(self, data: Dict[str, Any]) -> str:
         """Exibe os dados no console.

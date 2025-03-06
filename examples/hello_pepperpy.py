@@ -49,8 +49,10 @@ async def demo_intent():
     print(f"Texto do usuário: '{text}'")
 
     intent = await recognize_intent(text)
-    print(f"Intenção reconhecida: {intent['intent']}")
-    print(f"Parâmetros: {intent['parameters']}")
+    print(f"Intenção reconhecida: {intent.name}")
+    print(f"Tipo: {intent.type.value}")
+    print(f"Confiança: {intent.confidence:.2f}")
+    print(f"Entidades: {intent.entities}")
 
     # Processar a intenção (simulado)
     print("Processando intenção...")

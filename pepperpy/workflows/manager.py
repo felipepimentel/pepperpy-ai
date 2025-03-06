@@ -7,10 +7,17 @@ It manages workflow types, configurations, and provides a central point for work
 import logging
 from typing import Dict, List, Optional, Type
 
-from pepperpy.core.common.lifecycle import Lifecycle
-from pepperpy.core.common.models import BaseModel
+try:
+    from pydantic import BaseModel
+except ImportError:
+    raise ImportError(
+        "pydantic is required for workflow management. "
+        "Install it with: poetry add pydantic"
+    ) from None
+
 from pepperpy.core.errors import WorkflowError
-from pepperpy.workflows.core.definition import WorkflowDefinition
+from pepperpy.core.lifecycle.lifecycle import Lifecycle
+from pepperpy.workflows.core.base import WorkflowDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +32,9 @@ class WorkflowManager(Lifecycle):
         self._logger = logger
 
     def register_workflow(
-        self, name: str, workflow_class: Type[WorkflowDefinition],
+        self,
+        name: str,
+        workflow_class: Type[WorkflowDefinition],
     ) -> None:
         """Register a workflow type.
 
@@ -68,7 +77,9 @@ class WorkflowManager(Lifecycle):
         return list(self._workflows.keys())
 
     async def create_workflow(
-        self, name: str, config: Optional[BaseModel] = None,
+        self,
+        name: str,
+        config: Optional[BaseModel] = None,
     ) -> WorkflowDefinition:
         """Create a workflow instance.
 
