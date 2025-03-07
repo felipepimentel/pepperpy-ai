@@ -19,9 +19,81 @@ Usage:
 """
 
 import asyncio
+import os
+from typing import Any, Dict
 
-import pepperpy as pp
-from pepperpy.apps import DataApp, TextApp
+
+class PipelineBuilder:
+    """Construtor de pipelines para demonstração."""
+
+    @staticmethod
+    async def build_text_pipeline(text: str) -> str:
+        """Constrói e executa um pipeline de processamento de texto.
+
+        Args:
+            text: Texto a ser processado
+
+        Returns:
+            Texto processado
+        """
+        # Processar texto
+        text = text.strip()
+        text = text.upper()
+        text = f"Resultado: {text}"
+
+        return text
+
+    @staticmethod
+    async def build_data_pipeline(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Constrói e executa um pipeline de processamento de dados.
+
+        Args:
+            data: Dados a serem processados
+
+        Returns:
+            Dados processados
+        """
+        # Processar dados
+        items = data.get("items", [])
+
+        # Filtrar itens
+        filtered_items = [item for item in items if item.get("value", 0) > 50]
+
+        # Calcular total
+        total = sum(item.get("value", 0) for item in filtered_items)
+
+        # Calcular média
+        average = total / len(filtered_items) if filtered_items else 0
+
+        return {
+            "filtered_items": filtered_items,
+            "total": total,
+            "average": average,
+            "count": len(filtered_items),
+        }
+
+    @staticmethod
+    async def build_file_pipeline(input_text: str, output_path: str) -> str:
+        """Constrói e executa um pipeline de processamento de arquivo.
+
+        Args:
+            input_text: Texto a ser processado
+            output_path: Caminho do arquivo de saída
+
+        Returns:
+            Caminho do arquivo de saída
+        """
+        # Processar texto
+        processed_text = input_text.upper()
+
+        # Criar diretório se não existir
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+
+        # Salvar em arquivo
+        with open(output_path, "w") as f:
+            f.write(processed_text)
+
+        return output_path
 
 
 async def example_text_processing():
@@ -32,40 +104,12 @@ async def example_text_processing():
     input_text = "  Este é um exemplo de processamento de texto com pipeline builder.  "
     print(f"Texto original: '{input_text}'")
 
-    # Criar aplicação de processamento de texto com uma única linha
-    text_app = TextApp(name="text_processor")
+    # Criar pipeline builder
+    builder = PipelineBuilder()
 
-    # Método 1: Pipeline simples com configuração declarativa
-    print("\nPipeline simples:")
-    result1 = await text_app.process(
-        text=input_text,
-        operations=[
-            {"name": "clean", "type": "strip"},
-            {"name": "transform", "type": "uppercase"},
-            {"name": "format", "type": "template", "template": "Resultado: {text}"},
-        ],
-    )
-    print(f"Resultado: '{result1}'")
-
-    # Método 2: Pipeline com bifurcação usando API fluente
-    print("\nPipeline com bifurcação:")
-    text_app.configure(
-        pipeline=pp.TextPipeline()
-        .add_step("clean", operation="strip")
-        .add_step("transform", operation="uppercase")
-        .add_branch(
-            pp.TextBranch("format", template="Resultado: {text}"),
-            pp.TextBranch(
-                "analyze",
-                operation="count_words",
-                template="{text} (Contém {word_count} palavras)",
-            ),
-        )
-    )
-
-    result2 = await text_app.process_text(input_text)
-    print(f"Resultado 1: '{result2.branches[0]}'")
-    print(f"Resultado 2: '{result2.branches[1]}'")
+    # Processar texto
+    result = await builder.build_text_pipeline(input_text)
+    print(f"Resultado: '{result}'")
 
 
 async def example_data_processing():
@@ -76,93 +120,64 @@ async def example_data_processing():
     input_data = {
         "customer": "João Silva",
         "items": [
-            {"name": "Produto A", "price": 100},
-            {"name": "Produto B", "price": 25},
-            {"name": "Produto C", "price": 75},
-            {"name": "Produto D", "price": 30},
-            {"name": "Produto E", "price": 150},
+            {"name": "Produto A", "value": 100},
+            {"name": "Produto B", "value": 25},
+            {"name": "Produto C", "value": 75},
+            {"name": "Produto D", "value": 30},
+            {"name": "Produto E", "value": 150},
         ],
     }
-    print("Dados originais:")
-    print(f"Cliente: {input_data['customer']}")
-    print(f"Itens: {len(input_data['items'])} produtos")
+    print(f"Dados originais: {input_data}")
 
-    # Criar aplicação de processamento de dados com uma única linha
-    data_app = DataApp(name="data_processor")
+    # Criar pipeline builder
+    builder = PipelineBuilder()
 
-    # Método 1: Pipeline simples com configuração declarativa
-    print("\nPipeline simples:")
-    result1 = await data_app.process(
-        data=input_data,
-        steps=[
-            {
-                "name": "filter_items",
-                "type": "filter",
-                "condition": "item.price > 50",
-                "target": "items",
-            },
-            {
-                "name": "calculate_total",
-                "type": "aggregate",
-                "operation": "sum",
-                "source": "items.price",
-                "target": "total",
-            },
-            {
-                "name": "calculate_average",
-                "type": "aggregate",
-                "operation": "average",
-                "source": "items.price",
-                "target": "average",
-            },
-            {
-                "name": "format_report",
-                "type": "template",
-                "template_file": "report_template.txt",
-                "output": "report",
-            },
-        ],
-    )
-    print(result1["report"])
+    # Processar dados
+    result = await builder.build_data_pipeline(input_data)
+    print(f"Resultado: {result}")
 
-    # Método 2: Pipeline com processamento paralelo usando API fluente
-    print("\nPipeline com processamento paralelo:")
-    data_app.configure(
-        pipeline=pp.DataPipeline()
-        .add_filter("expensive_items", condition="item.price > 50")
-        .add_parallel(
-            pp.DataBranch("expensive_analysis")
-            .add_filter(condition="item.price > 100")
-            .add_aggregate("count", target="count")
-            .add_aggregate("sum", source="price", target="total"),
-            pp.DataBranch("cheap_analysis")
-            .add_filter(condition="item.price <= 100")
-            .add_aggregate("count", target="count")
-            .add_aggregate("sum", source="price", target="total"),
-        )
-    )
 
-    result2 = await data_app.process_data(input_data)
-    print(f"Análise de itens caros: {result2.parallels[0]}")
-    print(f"Análise de itens baratos: {result2.parallels[1]}")
+async def example_file_processing():
+    """Exemplo de processamento de arquivo usando o pipeline builder simplificado."""
+    print("\n=== Exemplo de Processamento de Arquivo ===")
+
+    # Texto de entrada
+    input_text = "Este é um exemplo de processamento de arquivo com pipeline builder."
+    print(f"Texto original: '{input_text}'")
+
+    # Criar diretório de saída
+    output_dir = "examples/outputs/composition"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Arquivo de saída
+    output_path = os.path.join(output_dir, "pipeline_builder_output.txt")
+
+    # Criar pipeline builder
+    builder = PipelineBuilder()
+
+    # Processar arquivo
+    result_path = await builder.build_file_pipeline(input_text, output_path)
+    print(f"Arquivo gerado: {result_path}")
+
+    # Verificar conteúdo do arquivo
+    with open(result_path, "r") as f:
+        content = f.read()
+
+    print(f"Conteúdo do arquivo: '{content}'")
 
 
 async def main():
-    """Executa os exemplos de pipeline builder simplificado."""
-    print("=== Demonstração de Pipeline Builder Simplificado do PepperPy ===")
-    print(
-        "Este exemplo demonstra como usar o pipeline builder simplificado do PepperPy"
-    )
+    """Função principal."""
+    print("=== Demonstração de Pipeline Builder Simplificado com PepperPy ===")
+    print("Este exemplo demonstra como usar o pipeline builder simplificado")
     print("para criar pipelines de processamento com o mínimo de código.")
 
+    # Executar exemplos
     await example_text_processing()
     await example_data_processing()
+    await example_file_processing()
 
     print("\n=== Demonstração Concluída ===")
-    print(
-        "Para mais informações sobre pipeline builder no PepperPy, consulte a documentação:"
-    )
-    print("https://docs.pepperpy.ai/concepts/pipeline-builder")
 
 
 if __name__ == "__main__":

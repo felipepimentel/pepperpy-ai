@@ -29,170 +29,182 @@ import asyncio
 import os
 import random
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict
 
-from pepperpy.apps import MediaApp
-from pepperpy.sources import RSSSource
-
-
-def generate_fake_feed_url() -> str:
-    """Gera uma URL fake de feed RSS.
-
-    Returns:
-        URL fake de feed RSS
-    """
-    feeds = [
-        "https://news.google.com/rss",
-        "https://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://rss.nytimes.com/services/xml/rss/nyt/World.xml",
-        "https://www.tecmundo.com.br/rss",
-        "https://www.wired.com/feed/rss",
-        "https://feeds.folha.uol.com.br/emcimadahora/rss091.xml",
-        "https://g1.globo.com/rss/g1/",
-        "https://www.theverge.com/rss/index.xml",
-        "https://www.engadget.com/rss.xml",
-        "https://www.cnet.com/rss/news/",
-    ]
-
-    return random.choice(feeds)
+from pepperpy.core.apps import ContentApp
+from pepperpy.core.sources.base import BaseSource
 
 
-def generate_fake_voice() -> str:
-    """Gera uma voz fake para o podcast.
+# Simulação de fonte RSS
+class MockRSSSource(BaseSource):
+    """Fonte simulada de RSS para demonstração."""
 
-    Returns:
-        Voz fake
-    """
-    voices = [
-        "pt-BR-Standard-A",
-        "pt-BR-Standard-B",
-        "pt-BR-Standard-C",
-        "pt-BR-Wavenet-A",
-        "pt-BR-Wavenet-B",
-        "pt-BR-Wavenet-C",
-        "en-US-Standard-A",
-        "en-US-Standard-B",
-        "en-US-Standard-C",
-        "en-US-Wavenet-A",
-    ]
+    def __init__(self, feed_url: str, max_items: int = 5):
+        """Inicializar fonte RSS simulada.
 
-    return random.choice(voices)
+        Args:
+            feed_url: URL do feed RSS
+            max_items: Número máximo de itens a serem retornados
+        """
+        super().__init__()
+        self.feed_url = feed_url
+        self.max_items = max_items
+        self.name = "mock_rss_source"
+
+    async def fetch(self) -> Dict[str, Any]:
+        """Buscar dados da fonte.
+
+        Returns:
+            Dados da fonte
+        """
+        print(f"Buscando notícias de {self.feed_url}")
+        await asyncio.sleep(1)  # Simular tempo de busca
+
+        # Gerar artigos simulados
+        articles = []
+        for i in range(1, self.max_items + 1):
+            articles.append({
+                "id": f"article-{i}",
+                "title": f"Notícia {i}: Acontecimento importante na área de tecnologia",
+                "link": f"https://example.com/news/{i}",
+                "published": datetime.now().isoformat(),
+                "summary": f"Este é um resumo da notícia {i} sobre um acontecimento importante na área de tecnologia. "
+                f"O artigo discute as implicações e desenvolvimentos recentes.",
+                "content": f"Este é o conteúdo completo da notícia {i}. " * 5,
+            })
+
+        return {
+            "feed_url": self.feed_url,
+            "title": "Feed de Notícias Simulado",
+            "description": "Um feed de notícias simulado para demonstração",
+            "articles": articles,
+            "fetched_at": datetime.now().isoformat(),
+        }
+
+    async def read(self) -> Dict[str, Any]:
+        """Ler dados da fonte.
+
+        Returns:
+            Dados da fonte
+        """
+        return await self.fetch()
 
 
-async def generate_news_podcast(
-    feed_url: Optional[str] = None,
-    max_articles: Optional[int] = None,
-    summary_length: Optional[int] = None,
-    voice: Optional[str] = None,
-    output_path: Optional[str] = None,
-) -> str:
-    """Gera um podcast de notícias.
+# Simulação de aplicação de mídia
+class MockMediaApp(ContentApp):
+    """Aplicação simulada de mídia para demonstração."""
 
-    Args:
-        feed_url: URL do feed RSS de notícias
-        max_articles: Número máximo de artigos a processar
-        summary_length: Comprimento máximo do resumo em palavras
-        voice: Voz a ser usada para o podcast
-        output_path: Caminho para salvar o podcast
+    def __init__(self, name: str = "mock_media_app"):
+        """Inicializar aplicação de mídia simulada.
 
-    Returns:
-        Caminho do arquivo de podcast gerado
-    """
-    # Valores padrão
-    feed_url = feed_url or os.environ.get(
-        "NEWS_PODCAST_FEED_URL", "https://news.google.com/rss"
-    )
-    max_articles = max_articles or int(os.environ.get("NEWS_PODCAST_MAX_ARTICLES", "5"))
-    summary_length = summary_length or int(
-        os.environ.get("NEWS_PODCAST_SUMMARY_LENGTH", "100")
-    )
-    voice = voice or os.environ.get("NEWS_PODCAST_VOICE", "pt-BR-Standard-A")
+        Args:
+            name: Nome da aplicação
+        """
+        super().__init__(name=name)
+        self.output_dir = "examples/outputs/content_generation"
+        os.makedirs(self.output_dir, exist_ok=True)
 
-    # Criar aplicação de mídia com uma única linha
-    app = MediaApp(name="news_podcast_generator")
+    async def text_to_speech(self, text: str, voice: str = "pt-BR") -> str:
+        """Converter texto em áudio (simulado).
 
-    # Configurar a aplicação com uma API fluente
-    app.configure(
-        max_articles=max_articles,
-        summary_length=summary_length,
-        voice=voice,
-        intro_text="Bem-vindo ao podcast de notícias gerado pelo PepperPy.",
-        outro_text="Obrigado por ouvir. Até a próxima!",
-        add_timestamps=True,
-    )
+        Args:
+            text: Texto a ser convertido
+            voice: Voz a ser usada
 
-    # Adicionar fonte de dados RSS
-    app.add_source(RSSSource(feed_url))
+        Returns:
+            Caminho do arquivo de áudio
+        """
+        print(f"Convertendo texto para áudio usando voz '{voice}'")
+        await asyncio.sleep(1)  # Simular tempo de processamento
 
-    # Se um caminho de saída foi especificado, configurar
-    if output_path:
-        app.set_output_path(output_path)
-    else:
-        # Gerar nome de arquivo baseado na data
-        date_str = datetime.now().strftime("%Y%m%d")
-        app.set_output_path(f"news_podcast_{date_str}.mp3")
+        # Simular geração de arquivo de áudio
+        output_path = os.path.join(
+            self.output_dir, f"podcast_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp3"
+        )
 
-    # Gerar podcast com uma única chamada
-    result = await app.generate_podcast()
+        # Criar arquivo vazio para simular
+        with open(output_path, "w") as f:
+            f.write(f"Simulação de arquivo de áudio para o texto: {text[:100]}...")
 
-    return result.output_path
+        print(f"Áudio gerado e salvo em {output_path}")
+        return output_path
+
+    async def generate_podcast(
+        self, feed_data: Dict[str, Any], voice: str = "pt-BR"
+    ) -> str:
+        """Gerar podcast a partir de dados de feed.
+
+        Args:
+            feed_data: Dados do feed
+            voice: Voz a ser usada
+
+        Returns:
+            Caminho do arquivo de podcast
+        """
+        print(f"Gerando podcast a partir de feed: {feed_data['title']}")
+
+        # Criar script do podcast
+        script = self._create_podcast_script(feed_data)
+
+        # Converter script em áudio
+        podcast_path = await self.text_to_speech(script, voice)
+
+        return podcast_path
+
+    def _create_podcast_script(self, feed_data: Dict[str, Any]) -> str:
+        """Criar script para o podcast.
+
+        Args:
+            feed_data: Dados do feed
+
+        Returns:
+            Script do podcast
+        """
+        articles = feed_data.get("articles", [])
+
+        script = "Bem-vindo ao podcast de notícias gerado pelo PepperPy. "
+        script += f"Hoje é {datetime.now().strftime('%d de %B de %Y')}. "
+        script += (
+            f"Apresentaremos {len(articles)} notícias do feed {feed_data['title']}.\n\n"
+        )
+
+        for i, article in enumerate(articles, 1):
+            script += f"Notícia {i}: {article['title']}.\n"
+            script += f"{article['summary']}\n\n"
+
+        script += "Isso conclui nosso podcast de notícias. Obrigado por ouvir!"
+
+        return script
 
 
 async def main():
-    """Executa o exemplo de geração de podcast de notícias."""
-    print("=== Gerador de Podcast de Notícias com PepperPy ===")
-    print("Este exemplo demonstra como gerar um podcast de notícias")
-    print("a partir de feeds RSS usando o PepperPy.")
+    """Função principal."""
+    print("=== Gerador de Podcast de Notícias PepperPy ===")
+    print("Este exemplo demonstra como gerar um podcast de notícias usando o PepperPy.")
 
-    # Definir configurações para diferentes podcasts
-    configurations = [
-        {"name": "Podcast Curto", "config": {"max_articles": 3, "summary_length": 50}},
-        {
-            "name": "Podcast Padrão",
-            "config": {"max_articles": 5, "summary_length": 100},
-        },
-        {
-            "name": "Podcast Detalhado",
-            "config": {"max_articles": 8, "summary_length": 200},
-        },
-    ]
+    # Configurar fonte de notícias
+    feed_url = os.environ.get("NEWS_PODCAST_FEED_URL", "https://news.google.com/rss")
+    max_articles = int(os.environ.get("NEWS_PODCAST_MAX_ARTICLES", "5"))
 
-    # Gerar podcasts com diferentes configurações
-    for i, config_item in enumerate(configurations):
-        # Gerar feed e voz fake
-        feed_url = generate_fake_feed_url()
-        voice = generate_fake_voice()
+    # Criar fonte RSS simulada
+    rss_source = MockRSSSource(feed_url=feed_url, max_items=max_articles)
 
-        # Obter configuração
-        config_name = config_item["name"]
-        config = config_item["config"]
+    # Buscar notícias
+    feed_data = await rss_source.fetch()
+    print(f"Obtidas {len(feed_data['articles'])} notícias de {feed_url}")
 
-        print(f"\n--- Gerando Podcast {i + 1}: {config_name} ---")
-        print(f"Feed: {feed_url}")
-        print(f"Voz: {voice}")
-        print(f"Configuração: {config}")
+    # Criar aplicação de mídia
+    media_app = MockMediaApp()
 
-        # Gerar podcast
-        date_str = datetime.now().strftime("%Y%m%d")
-        output_path = f"news_podcast_{date_str}_{i + 1}.mp3"
+    # Gerar podcast
+    podcast_path = await media_app.generate_podcast(feed_data, voice="pt-BR")
 
-        podcast_path = await generate_news_podcast(
-            feed_url=feed_url, voice=voice, output_path=output_path, **config
-        )
+    print("\nPodcast gerado com sucesso!")
+    print(f"Arquivo: {podcast_path}")
+    print(f"Duração simulada: {random.randint(3, 10)} minutos")
+    print(f"Notícias incluídas: {len(feed_data['articles'])}")
 
-        print("Podcast gerado com sucesso!")
-        print(f"Salvo em: {podcast_path}")
-
-        # Mostrar informações do arquivo
-        if os.path.exists(podcast_path):
-            file_size = os.path.getsize(podcast_path)
-            print(f"Tamanho do arquivo: {file_size / 1024:.2f} KB")
-
-        # Pausa entre gerações
-        if i < len(configurations) - 1:
-            await asyncio.sleep(1)
-
-    print("\n=== Geração de Podcasts Concluída ===")
+    print("\n=== Demonstração concluída ===")
 
 
 if __name__ == "__main__":

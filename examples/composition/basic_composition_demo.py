@@ -19,12 +19,65 @@ Usage:
 """
 
 import asyncio
+import os
+from typing import Any, Dict, List
 
-import pepperpy as pp
+
+class TextProcessor:
+    """Processador de texto simples para demonstração."""
+
+    @staticmethod
+    async def process_text(text: str) -> str:
+        """Processa um texto.
+
+        Args:
+            text: Texto a ser processado
+
+        Returns:
+            Texto processado
+        """
+        # Remover espaços em branco
+        text = text.strip()
+
+        # Converter para maiúsculas
+        text = text.upper()
+
+        # Adicionar prefixo
+        text = f"Resultado: {text}"
+
+        return text
+
+
+class DataProcessor:
+    """Processador de dados simples para demonstração."""
+
+    @staticmethod
+    async def filter_items(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Filtra itens com valor maior que 15.
+
+        Args:
+            items: Lista de itens
+
+        Returns:
+            Lista filtrada
+        """
+        return [item for item in items if item["value"] > 15]
+
+    @staticmethod
+    async def double_values(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Duplica os valores dos itens.
+
+        Args:
+            items: Lista de itens
+
+        Returns:
+            Lista com valores duplicados
+        """
+        return [{**item, "value_doubled": item["value"] * 2} for item in items]
 
 
 async def example_text_processing():
-    """Exemplo de processamento de texto usando composição funcional simplificada."""
+    """Exemplo de processamento de texto."""
     print("\n=== Exemplo de Processamento de Texto ===")
 
     # Texto de entrada
@@ -33,152 +86,95 @@ async def example_text_processing():
     )
     print(f"Texto original: '{input_text}'")
 
-    # Definir processadores de texto de forma declarativa
-    text_pipeline = pp.TextPipeline(
-        steps=[
-            pp.TextStep(name="remove_whitespace", operation="strip"),
-            pp.TextStep(name="to_uppercase", operation="uppercase"),
-            pp.TextStep(name="add_prefix", template="Resultado: {text}"),
-        ]
-    )
+    # Processar texto
+    processor = TextProcessor()
+    result = await processor.process_text(input_text)
 
-    # Processar texto com uma única linha
-    result = await text_pipeline.process(input_text)
+    # Exibir resultado
     print(f"Resultado: '{result}'")
 
-    # Exemplo com bifurcação usando API fluente
-    branched_pipeline = (
-        pp.TextPipeline()
-        .add_step(pp.TextStep(name="clean", operation="strip"))
-        .add_step(pp.TextStep(name="uppercase", operation="uppercase"))
-        .add_branch(
-            pp.TextStep(name="add_prefix", template="Resultado: {text}"),
-            pp.TextStep(
-                name="count_words",
-                operation="count_words",
-                template="{text} (Contém {word_count} palavras)",
-            ),
-        )
-    )
+    # Exemplo com bifurcação
+    print("\n=== Exemplo com Bifurcação ===")
 
-    # Processar texto com bifurcação
-    result = await branched_pipeline.process(input_text)
-    print(f"Resultado 1: '{result.branches[0]}'")
-    print(f"Resultado 2: '{result.branches[1]}'")
+    # Texto de entrada
+    input_text = "Este texto será processado de duas formas diferentes."
+    print(f"Texto original: '{input_text}'")
+
+    # Processar texto de duas formas
+    uppercase = input_text.upper()
+    lowercase = input_text.lower()
+
+    # Exibir resultados
+    print(f"Versão maiúscula: '{uppercase}'")
+    print(f"Versão minúscula: '{lowercase}'")
 
 
 async def example_data_processing():
-    """Exemplo de processamento de dados usando composição funcional simplificada."""
+    """Exemplo de processamento de dados."""
     print("\n=== Exemplo de Processamento de Dados ===")
 
     # Dados de entrada
     input_data = {
-        "customer": "João Silva",
         "items": [
-            {"name": "Produto A", "price": 100},
-            {"name": "Produto B", "price": 25},
-            {"name": "Produto C", "price": 75},
-            {"name": "Produto D", "price": 30},
-            {"name": "Produto E", "price": 150},
-        ],
-    }
-    print("Dados originais:")
-    print(f"Cliente: {input_data['customer']}")
-    print(f"Itens: {len(input_data['items'])} produtos")
-
-    # Definir processadores de dados de forma declarativa
-    data_pipeline = pp.DataPipeline(
-        steps=[
-            pp.DataStep(
-                name="filter_items", filter_condition="item.price > 50", target="items"
-            ),
-            pp.DataStep(
-                name="calculate_total",
-                operation="sum",
-                source="items.price",
-                target="total",
-            ),
-            pp.DataStep(
-                name="add_average",
-                operation="average",
-                source="items.price",
-                target="average",
-            ),
-            pp.DataStep(
-                name="format_as_text",
-                template="""
-                Relatório para {customer}
-                Total de itens: {items.length}
-                Valor total: R${total:.2f}
-                Valor médio: R${average:.2f}
-                
-                Itens:
-                {#each items}
-                - {name}: R${price:.2f}
-                {/each}
-                """,
-            ),
+            {"id": 1, "name": "Item 1", "value": 10},
+            {"id": 2, "name": "Item 2", "value": 20},
+            {"id": 3, "name": "Item 3", "value": 30},
         ]
-    )
+    }
+    print(f"Dados originais: {input_data}")
 
-    # Processar dados com uma única linha
-    result = await data_pipeline.process(input_data)
-    print(result)
+    # Processar dados
+    processor = DataProcessor()
+    filtered_items = await processor.filter_items(input_data["items"])
+    processed_items = await processor.double_values(filtered_items)
 
-    # Exemplo com processamento paralelo usando API fluente
-    parallel_pipeline = (
-        pp.DataPipeline()
-        .add_step(
-            pp.DataStep(
-                name="filter_items", filter_condition="item.price > 50", target="items"
-            )
-        )
-        .add_parallel(
-            pp.DataStep(
-                name="analyze_expensive",
-                filter_condition="item.price > 100",
-                target="expensive_items",
-                aggregations=[
-                    {"operation": "count", "target": "expensive_count"},
-                    {
-                        "operation": "sum",
-                        "source": "price",
-                        "target": "expensive_total",
-                    },
-                ],
-            ),
-            pp.DataStep(
-                name="analyze_cheap",
-                filter_condition="item.price <= 100",
-                target="cheap_items",
-                aggregations=[
-                    {"operation": "count", "target": "cheap_count"},
-                    {"operation": "sum", "source": "price", "target": "cheap_total"},
-                ],
-            ),
-        )
-    )
+    # Exibir resultado
+    print(f"Dados processados: {{'items': {processed_items}}}")
 
-    # Processar dados com processamento paralelo
-    result = await parallel_pipeline.process(input_data)
-    print(f"Análise de itens caros: {result.parallels[0]}")
-    print(f"Análise de itens baratos: {result.parallels[1]}")
+
+async def example_file_processing():
+    """Exemplo de processamento de arquivos."""
+    print("\n=== Exemplo de Processamento de Arquivos ===")
+
+    # Criar diretório de saída
+    output_dir = "examples/outputs/composition"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Arquivo de saída
+    output_file = os.path.join(output_dir, "processed_text.txt")
+
+    # Texto de entrada
+    input_text = "Este texto será salvo em um arquivo após processamento."
+    print(f"Texto original: '{input_text}'")
+
+    # Processar texto
+    processed_text = input_text.upper()
+
+    # Salvar em arquivo
+    with open(output_file, "w") as f:
+        f.write(processed_text)
+
+    print(f"Texto processado salvo em: {output_file}")
+
+    # Verificar conteúdo do arquivo
+    with open(output_file, "r") as f:
+        content = f.read()
+
+    print(f"Conteúdo do arquivo: '{content}'")
 
 
 async def main():
-    """Executa os exemplos de composição funcional simplificada."""
+    """Função principal."""
     print("=== Demonstração de Composição Funcional Simplificada com PepperPy ===")
     print("Este exemplo demonstra como usar a composição funcional simplificada")
     print("para criar pipelines de processamento com o mínimo de código.")
 
+    # Executar exemplos
     await example_text_processing()
     await example_data_processing()
+    await example_file_processing()
 
     print("\n=== Demonstração Concluída ===")
-    print(
-        "Para mais informações sobre composição funcional no PepperPy, consulte a documentação:"
-    )
-    print("https://docs.pepperpy.ai/concepts/functional-composition")
 
 
 if __name__ == "__main__":

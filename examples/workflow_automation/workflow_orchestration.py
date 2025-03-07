@@ -16,7 +16,7 @@ Usage:
        pip install pepperpy
 
     2. Run the example:
-       python examples/advanced/workflow_orchestration.py
+       python examples/workflow_automation/workflow_orchestration.py
 """
 
 import asyncio
@@ -24,10 +24,10 @@ import os
 import random
 from typing import Any, Dict
 
-from pepperpy.workflows.engine import execute_workflow
-from pepperpy.workflows.types import (
-    WorkflowDefinition,
+from pepperpy.workflows.public import (
+    BaseWorkflow,
     WorkflowStatus,
+    WorkflowStep,
 )
 
 
@@ -47,13 +47,18 @@ async def fetch_data(params: Dict[str, Any]) -> Dict[str, Any]:
     max_items = params.get("max_items", 5)
 
     print(f"Buscando dados de {source_url} (máximo de {max_items} itens)")
+    await asyncio.sleep(1)  # Simular tempo de processamento
 
-    # Simulação de busca de dados
+    # Gerar dados aleatórios
     items = []
-    for i in range(1, max_items + 1):
-        items.append({"id": i, "title": f"Item {i}", "value": random.randint(10, 100)})
+    for i in range(random.randint(1, max_items)):
+        items.append({"id": i, "value": random.randint(1, 100)})
 
-    return {"source": source_url, "items": items, "count": len(items)}
+    return {
+        "source": source_url,
+        "count": len(items),
+        "items": items,
+    }
 
 
 async def process_data(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -62,36 +67,30 @@ async def process_data(params: Dict[str, Any]) -> Dict[str, Any]:
     Args:
         params: Parâmetros da função
             - data: Dados a serem processados
-            - operation: Operação a ser aplicada
+            - operation: Operação a ser realizada (sum, average, etc.)
 
     Returns:
-        Dados processados
+        Resultado do processamento
     """
     data = params.get("data", {})
     operation = params.get("operation", "sum")
 
+    print(f"Processando dados com operação '{operation}'")
+    await asyncio.sleep(0.5)  # Simular tempo de processamento
+
     items = data.get("items", [])
-    print(f"Processando {len(items)} itens com operação '{operation}'")
+    if not items:
+        return {"result": {"total": 0, "count": 0}}
 
-    # Aplicar operação
     if operation == "sum":
-        total = sum(item.get("value", 0) for item in items)
-        result = {"total": total}
-
+        total = sum(item["value"] for item in items)
+        return {"result": {"total": total, "count": len(items)}}
     elif operation == "average":
-        values = [item.get("value", 0) for item in items]
-        avg = sum(values) / len(values) if values else 0
-        result = {"average": avg}
-
-    elif operation == "filter":
-        threshold = params.get("threshold", 50)
-        filtered = [item for item in items if item.get("value", 0) >= threshold]
-        result = {"filtered_items": filtered, "count": len(filtered)}
-
+        total = sum(item["value"] for item in items)
+        average = total / len(items)
+        return {"result": {"total": total, "average": average, "count": len(items)}}
     else:
-        result = {"error": f"Operação desconhecida: {operation}"}
-
-    return {"operation": operation, "input_count": len(items), "result": result}
+        raise ValueError(f"Operação não suportada: {operation}")
 
 
 async def save_result(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -100,7 +99,7 @@ async def save_result(params: Dict[str, Any]) -> Dict[str, Any]:
     Args:
         params: Parâmetros da função
             - data: Dados a serem salvos
-            - output_path: Caminho para salvar os dados
+            - output_path: Caminho do arquivo de saída
 
     Returns:
         Informações sobre o salvamento
@@ -109,11 +108,17 @@ async def save_result(params: Dict[str, Any]) -> Dict[str, Any]:
     output_path = params.get("output_path", "outputs/result.json")
 
     print(f"Salvando resultados em {output_path}")
+    await asyncio.sleep(0.5)  # Simular tempo de processamento
 
-    # Simular salvamento
+    # Criar diretório se não existir
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    return {"output_path": output_path, "size": len(str(data)), "success": True}
+    # Simular salvamento
+    return {
+        "path": output_path,
+        "size": len(str(data)),
+        "timestamp": "2023-01-01T12:00:00Z",
+    }
 
 
 async def notify_completion(params: Dict[str, Any]) -> Dict[str, Any]:
@@ -122,7 +127,7 @@ async def notify_completion(params: Dict[str, Any]) -> Dict[str, Any]:
     Args:
         params: Parâmetros da função
             - result: Resultado do processamento
-            - notification_type: Tipo de notificação
+            - notification_type: Tipo de notificação (email, sms, etc.)
 
     Returns:
         Informações sobre a notificação
@@ -130,248 +135,146 @@ async def notify_completion(params: Dict[str, Any]) -> Dict[str, Any]:
     result = params.get("result", {})
     notification_type = params.get("notification_type", "email")
 
-    print(f"Enviando notificação via {notification_type}")
+    print(f"Enviando notificação de conclusão via {notification_type}")
+    await asyncio.sleep(0.2)  # Simular tempo de processamento
 
     return {
-        "notification_type": notification_type,
-        "sent_at": "2023-01-01T13:00:00Z",
-        "success": True,
+        "type": notification_type,
+        "status": "sent",
+        "timestamp": "2023-01-01T12:30:00Z",
     }
 
 
-# Definição de workflows
-def create_data_processing_workflow() -> WorkflowDefinition:
-    """Cria um workflow de processamento de dados.
+# Implementação de um workflow simples
+class SimpleWorkflow(BaseWorkflow):
+    """Workflow simples de processamento de dados."""
 
-    Returns:
-        Definição do workflow
-    """
-    return {
-        "id": "data_processing_workflow",
-        "name": "Workflow de Processamento de Dados",
-        "description": "Busca, processa e salva dados",
-        "steps": [
-            {
-                "id": "fetch",
-                "name": "Buscar Dados",
-                "function": fetch_data,
-                "params": {
-                    "source_url": "https://example.com/api/data",
-                    "max_items": 10,
-                },
-            },
-            {
-                "id": "process",
-                "name": "Processar Dados",
-                "function": process_data,
-                "params": {"operation": "sum"},
-                "input_mapping": {"data": "$.fetch.output"},
-            },
-            {
-                "id": "save",
-                "name": "Salvar Resultados",
-                "function": save_result,
-                "params": {"output_path": "outputs/processed_data.json"},
-                "input_mapping": {"data": "$.process.output"},
-            },
-            {
-                "id": "notify",
-                "name": "Notificar Conclusão",
-                "function": notify_completion,
-                "params": {"notification_type": "email"},
-                "input_mapping": {"result": "$.process.output"},
-            },
-        ],
-    }
+    def __init__(self, name: str, description: str = ""):
+        """Inicializar workflow.
 
+        Args:
+            name: Nome do workflow
+            description: Descrição do workflow
+        """
+        self.name = name
+        self.description = description
+        self.steps = {}
+        self.status = WorkflowStatus.PENDING
+        self.outputs = {}
+        self.error = None
 
-def create_conditional_workflow() -> WorkflowDefinition:
-    """Cria um workflow com execução condicional.
+    async def execute(self, inputs: Dict[str, Any] = None) -> None:
+        """Executar o workflow.
 
-    Returns:
-        Definição do workflow
-    """
-    return {
-        "id": "conditional_workflow",
-        "name": "Workflow com Execução Condicional",
-        "description": "Executa etapas com base em condições",
-        "steps": [
-            {
-                "id": "fetch",
-                "name": "Buscar Dados",
-                "function": fetch_data,
-                "params": {
-                    "source_url": "https://example.com/api/data",
-                    "max_items": 5,
-                },
-            },
-            {
-                "id": "check_count",
-                "name": "Verificar Quantidade",
-                "function": lambda params: {
-                    "has_enough_data": params.get("count", 0) >= 3
-                },
-                "input_mapping": {"count": "$.fetch.output.count"},
-            },
-            {
-                "id": "process_sum",
-                "name": "Calcular Soma",
-                "function": process_data,
-                "params": {"operation": "sum"},
-                "input_mapping": {"data": "$.fetch.output"},
-                "condition": "$.check_count.output.has_enough_data == true",
-            },
-            {
-                "id": "process_average",
-                "name": "Calcular Média",
-                "function": process_data,
-                "params": {"operation": "average"},
-                "input_mapping": {"data": "$.fetch.output"},
-                "condition": "$.check_count.output.has_enough_data == true",
-            },
-            {
-                "id": "notify_insufficient",
-                "name": "Notificar Dados Insuficientes",
-                "function": notify_completion,
-                "params": {"notification_type": "alert"},
-                "condition": "$.check_count.output.has_enough_data == false",
-            },
-            {
-                "id": "save",
-                "name": "Salvar Resultados",
-                "function": save_result,
-                "params": {"output_path": "outputs/conditional_result.json"},
-                "input_mapping": {
-                    "data": {
-                        "sum": "$.process_sum.output.result.total",
-                        "average": "$.process_average.output.result.average",
-                        "count": "$.fetch.output.count",
-                    }
-                },
-                "condition": "$.check_count.output.has_enough_data == true",
-            },
-        ],
-    }
+        Args:
+            inputs: Entradas para o workflow
+        """
+        if inputs is None:
+            inputs = {}
+
+        print(f"Executando workflow '{self.name}'")
+        self.status = WorkflowStatus.RUNNING
+
+        try:
+            # Executar passos do workflow
+            for step_name, step in self.steps.items():
+                print(f"Executando passo '{step_name}'")
+
+                # Preparar parâmetros para o passo
+                step_params = {}
+
+                # Verificar dependências
+                for dep in step.dependencies:
+                    if dep in self.outputs:
+                        step_params[dep + "_output"] = self.outputs[dep]
+
+                # Adicionar parâmetros específicos do passo
+                if step_name == "fetch":
+                    step_params.update({
+                        "source_url": "https://example.com/api/data",
+                        "max_items": 5,
+                    })
+                elif step_name == "process":
+                    step_params.update({
+                        "data": self.outputs.get("fetch", {}),
+                        "operation": "sum",
+                    })
+                elif step_name == "save":
+                    step_params.update({
+                        "data": self.outputs.get("process", {}),
+                        "output_path": "outputs/workflow_result.json",
+                    })
+                elif step_name == "notify":
+                    step_params.update({
+                        "result": self.outputs.get("save", {}),
+                        "notification_type": "email",
+                    })
+
+                # Executar função do passo
+                result = await step.function(step_params)
+                self.outputs[step_name] = result
+
+            self.status = WorkflowStatus.COMPLETED
+            print(f"Workflow '{self.name}' concluído com sucesso")
+
+        except Exception as e:
+            self.status = WorkflowStatus.FAILED
+            self.error = str(e)
+            print(f"Erro ao executar workflow '{self.name}': {e}")
 
 
-def create_error_handling_workflow() -> WorkflowDefinition:
-    """Cria um workflow com tratamento de erros.
-
-    Returns:
-        Definição do workflow
-    """
-    return {
-        "id": "error_handling_workflow",
-        "name": "Workflow com Tratamento de Erros",
-        "description": "Demonstra como lidar com erros em workflows",
-        "steps": [
-            {
-                "id": "fetch",
-                "name": "Buscar Dados",
-                "function": fetch_data,
-                "params": {
-                    "source_url": "https://example.com/api/data",
-                    "max_items": 5,
-                },
-                "retry": {"max_attempts": 3, "delay_seconds": 1},
-            },
-            {
-                "id": "process",
-                "name": "Processar Dados",
-                "function": process_data,
-                "params": {
-                    "operation": "invalid_operation"  # Operação inválida para simular erro
-                },
-                "input_mapping": {"data": "$.fetch.output"},
-                "error_handler": {
-                    "function": lambda error, context: {
-                        "error_message": str(error),
-                        "fallback_result": {"total": 0},
-                    }
-                },
-            },
-            {
-                "id": "save",
-                "name": "Salvar Resultados",
-                "function": save_result,
-                "params": {"output_path": "outputs/error_handling_result.json"},
-                "input_mapping": {"data": "$.process.output"},
-            },
-            {
-                "id": "notify_error",
-                "name": "Notificar Erro",
-                "function": notify_completion,
-                "params": {"notification_type": "error_alert"},
-                "input_mapping": {"result": "$.process.error"},
-                "condition": "$.process.status == 'error'",
-            },
-        ],
-    }
-
-
-def create_nested_workflow() -> WorkflowDefinition:
-    """Cria um workflow que utiliza outros workflows.
-
-    Returns:
-        Definição do workflow
-    """
-    return {
-        "id": "nested_workflow",
-        "name": "Workflow Aninhado",
-        "description": "Demonstra como compor workflows",
-        "steps": [
-            {
-                "id": "data_processing",
-                "name": "Processamento de Dados",
-                "workflow": create_data_processing_workflow(),
-                "params": {
-                    "source_url": "https://example.com/api/nested/data",
-                    "max_items": 8,
-                },
-            },
-            {
-                "id": "conditional_processing",
-                "name": "Processamento Condicional",
-                "workflow": create_conditional_workflow(),
-                "condition": "$.data_processing.status == 'success'",
-            },
-            {
-                "id": "final_notification",
-                "name": "Notificação Final",
-                "function": notify_completion,
-                "params": {"notification_type": "summary"},
-                "input_mapping": {
-                    "result": {
-                        "data_processing": "$.data_processing.output",
-                        "conditional": "$.conditional_processing.output",
-                    }
-                },
-            },
-        ],
-    }
-
-
-async def run_workflow(workflow_def: WorkflowDefinition) -> None:
+async def run_workflow(workflow: BaseWorkflow) -> None:
     """Executa um workflow e exibe o resultado.
 
     Args:
-        workflow_def: Definição do workflow
+        workflow: Workflow a ser executado
     """
-    print(f"\n=== Executando Workflow: {workflow_def['name']} ===")
-    print(f"Descrição: {workflow_def['description']}")
+    print(f"\n=== Executando Workflow: {workflow.name} ===")
+    print(f"Descrição: {workflow.description}")
 
     # Executar o workflow
-    result = await execute_workflow(workflow_def)
+    await workflow.execute()
 
     # Exibir resultado
-    print(f"\nResultado: {result.status}")
+    print(f"\nResultado: {workflow.status}")
 
-    if result.status == WorkflowStatus.SUCCESS:
+    if workflow.status == WorkflowStatus.COMPLETED:
         print("Saída:")
-        for step_id, step_output in result.outputs.items():
+        for step_id, step_output in workflow.outputs.items():
             print(f"  {step_id}: {step_output}")
     else:
-        print(f"Erro: {result.error}")
+        print(f"Erro: {workflow.error}")
+
+
+def create_data_processing_workflow() -> BaseWorkflow:
+    """Cria um workflow de processamento de dados.
+
+    Returns:
+        Workflow de processamento de dados
+    """
+    workflow = SimpleWorkflow(
+        name="Workflow de Processamento de Dados",
+        description="Busca, processa e salva dados",
+    )
+
+    # Adicionar passos ao workflow
+    workflow.steps["fetch"] = WorkflowStep(
+        name="fetch", function=fetch_data, dependencies=[]
+    )
+
+    workflow.steps["process"] = WorkflowStep(
+        name="process", function=process_data, dependencies=["fetch"]
+    )
+
+    workflow.steps["save"] = WorkflowStep(
+        name="save", function=save_result, dependencies=["process"]
+    )
+
+    workflow.steps["notify"] = WorkflowStep(
+        name="notify", function=notify_completion, dependencies=["save"]
+    )
+
+    return workflow
 
 
 async def main():
@@ -381,24 +284,9 @@ async def main():
         "Este exemplo demonstra como orquestrar fluxos de trabalho complexos no PepperPy."
     )
 
-    # Executar workflow de processamento de dados
-    await run_workflow(create_data_processing_workflow())
-
-    # Executar workflow condicional
-    await run_workflow(create_conditional_workflow())
-
-    # Executar workflow com tratamento de erros
-    await run_workflow(create_error_handling_workflow())
-
-    # Executar workflow aninhado
-    await run_workflow(create_nested_workflow())
-
-    print("\n=== Conceitos Demonstrados ===")
-    print("1. Definição e execução de workflows")
-    print("2. Mapeamento de entradas entre etapas")
-    print("3. Execução condicional de etapas")
-    print("4. Tratamento de erros e recuperação")
-    print("5. Composição de workflows (workflows aninhados)")
+    # Criar e executar workflow de processamento de dados
+    data_workflow = create_data_processing_workflow()
+    await run_workflow(data_workflow)
 
 
 if __name__ == "__main__":
