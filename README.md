@@ -1,18 +1,159 @@
-# PepperPy
+# PepperPy: Framework Moderno para Aplicações de IA em Python
 
-Um framework moderno e flexível para aplicações de IA em Python.
+PepperPy é um framework flexível e poderoso para construir aplicações de IA em Python, oferecendo múltiplos níveis de abstração para atender a diferentes necessidades e perfis de usuários.
 
 ## Visão Geral
 
-PepperPy é um framework Python projetado para simplificar o desenvolvimento de aplicações de IA, oferecendo uma API intuitiva e flexível que permite aos desenvolvedores criar soluções poderosas com poucas linhas de código.
+O PepperPy oferece três níveis de abstração:
 
-## Características Principais
+1. **Composição Universal**: API de baixo nível para compor componentes em pipelines
+2. **Abstração por Intenção**: API de médio nível para expressar intenções de forma natural
+3. **Templates**: API de alto nível com soluções pré-configuradas
 
-- **Composição Universal**: API de baixo nível para compor componentes em pipelines
-- **Abstração por Intenção**: API de médio nível para expressar intenções de forma natural
-- **Templates**: API de alto nível com soluções pré-configuradas
-- **Extensibilidade**: Fácil integração com bibliotecas e serviços existentes
-- **Observabilidade**: Suporte integrado para logging, métricas e rastreamento
+## Recursos Principais
+
+### Composição Funcional
+
+Crie pipelines de processamento combinando componentes de forma flexível:
+
+```python
+import pepperpy as pp
+
+# Criar um pipeline de processamento de texto
+pipeline = (
+    pp.Pipeline.builder()
+    .add(pp.sources.text.from_string("Olá, mundo!"))
+    .add(pp.processors.text.tokenize())
+    .add(pp.processors.text.remove_stopwords())
+    .add(pp.outputs.console())
+    .build()
+)
+
+# Executar o pipeline
+result = pipeline.run()
+```
+
+### Abstração por Intenção
+
+Expresse suas intenções em linguagem natural e deixe o PepperPy configurar o pipeline adequado:
+
+```python
+import pepperpy as pp
+
+# Criar um pipeline a partir de uma intenção
+pipeline = pp.create_pipeline_from_intent(
+    "Extrair entidades de um texto e gerar um resumo"
+)
+
+# Processar um documento
+result = pipeline.process("caminho/para/documento.txt")
+```
+
+### Templates Pré-configurados
+
+Use soluções prontas para casos de uso comuns:
+
+```python
+import pepperpy as pp
+
+# Criar uma aplicação de perguntas e respostas
+app = pp.create_app("question_answering")
+
+# Indexar documentos
+app.index("caminho/para/documentos/")
+
+# Fazer uma pergunta
+resposta = app.query("Qual é a capital da França?")
+```
+
+### Assistência ao Desenvolvedor (Zero-to-Hero)
+
+Assistentes interativos para guiar a criação de componentes e pipelines:
+
+```python
+import pepperpy as pp
+
+# Criar um assistente para construção de pipelines
+assistant = pp.create_assistant("pipeline_builder")
+
+# Criar um pipeline com assistência
+pipeline = assistant.create("um pipeline para análise de sentimentos")
+```
+
+### Diagnóstico Inteligente
+
+Ferramentas para analisar, diagnosticar e otimizar pipelines:
+
+```python
+import pepperpy as pp
+
+# Analisar um pipeline
+analysis = pp.analyze_pipeline(pipeline)
+print(analysis.summary())
+
+# Perfilar a execução
+profiler = pp.profile_execution(pipeline, {"text": "Exemplo de texto"})
+print(profiler.summary())
+
+# Visualizar o pipeline
+svg = pp.visualize_pipeline(pipeline)
+with open("pipeline.svg", "w") as f:
+    f.write(svg)
+
+# Sugerir otimizações
+suggestions = pp.suggest_optimizations(pipeline)
+for suggestion in suggestions:
+    print(f"{suggestion['name']}: {suggestion['description']}")
+```
+
+### Integração Multimodal
+
+Processamento unificado de diferentes modalidades (texto, imagem, áudio, vídeo):
+
+```python
+import pepperpy as pp
+
+# Criar dados de diferentes modalidades
+text_data = pp.ModalityData(modality="text", content="Descrição de uma imagem")
+image_data = pp.ModalityData(modality="image", content="caminho/para/imagem.jpg")
+
+# Converter entre modalidades
+image_from_text = await pp.convert_between_modalities(
+    text_data, 
+    target_modality="image"
+)
+
+text_from_image = await pp.convert_between_modalities(
+    image_data, 
+    target_modality="text"
+)
+```
+
+### Workflows Adaptativos
+
+Workflows que aprendem e se adaptam com base em feedback:
+
+```python
+import pepperpy as pp
+
+# Criar um workflow adaptativo
+workflow = pp.create_adaptive_workflow("summarization")
+
+# Processar um documento
+result = await workflow.process("Este é um texto longo que precisa ser resumido.")
+
+# Fornecer feedback para aprendizado
+await workflow.learn_from_feedback(user_rating=4, comments="Bom resumo, mas muito técnico")
+```
+
+## Arquitetura
+
+O PepperPy segue uma arquitetura modular baseada em domínios verticais:
+
+- Cada domínio encapsula sua implementação completa (base, tipos, provedores)
+- APIs públicas são expostas através de `public.py` e exportações cuidadosamente selecionadas em `__init__.py`
+- A estrutura vertical mantém alta coesão e acoplamento mínimo entre domínios
+- Provedores implementam funcionalidades específicas, mas são acessados através de camadas de abstração
 
 ## Instalação
 
@@ -20,217 +161,14 @@ PepperPy é um framework Python projetado para simplificar o desenvolvimento de 
 pip install pepperpy
 ```
 
-## Exemplos de Uso
+## Documentação
 
-### Composição Universal
+Para documentação completa, visite [docs.pepperpy.ai](https://docs.pepperpy.ai).
 
-```python
-from pepperpy import compose, compose_parallel
+## Contribuindo
 
-# Gerar um podcast a partir de um feed RSS (pipeline sequencial)
-podcast_path = await (
-    compose("podcast_pipeline")
-    .source(RSSFeedSource({"url": "https://news.google.com/rss", "max_items": 5}))
-    .process(SummarizationProcessor({"max_length": 150}))
-    .output(PodcastOutputComponent({"voice": "en", "output_path": "news_podcast.mp3"}))
-    .execute()
-)
-
-# Processamento paralelo para análise de dados (pipeline paralelo)
-results = await (
-    compose_parallel("data_analysis_pipeline")
-    .source(WebAPISource({"endpoint": "https://api.example.com/data"}))
-    .process(DataEnricherProcessor({"enrichment_type": "sentiment"}))
-    .process(DataEnricherProcessor({"enrichment_type": "entities"}))
-    .output(AnalysisOutputComponent({"format": "json"}))
-    .execute()
-)
-```
-
-### Abstração por Intenção
-
-```python
-from pepperpy import recognize_intent, process_intent
-
-# Reconhecer e processar uma intenção do usuário
-text = "gere um podcast com as últimas notícias sobre tecnologia"
-intent = await recognize_intent(text)
-result = await process_intent(intent)
-```
-
-### Templates
-
-```python
-from pepperpy import execute_template
-
-# Gerar um podcast a partir de um feed RSS usando um template
-podcast_path = await execute_template(
-    "news_podcast",
-    {
-        "source_url": "https://news.google.com/rss",
-        "output_path": "news_podcast.mp3",
-        "voice": "en",
-        "max_articles": 5,
-        "summary_length": 150,
-    }
-)
-```
-
-## Arquitetura
-
-PepperPy é organizado em domínios verticais e camadas horizontais:
-
-### Domínios Verticais
-
-- **LLM**: Integração com modelos de linguagem
-- **Embedding**: Geração e manipulação de embeddings
-- **RAG**: Retrieval Augmented Generation
-- **Multimodal**: Processamento de áudio, imagem e vídeo
-- **Agents**: Agentes autônomos e assistentes
-- **Workflows**: Orquestração de fluxos de trabalho
-
-### Camadas Horizontais
-
-- **Composição Universal**: API de baixo nível para compor componentes
-- **Abstração por Intenção**: API de médio nível para expressar intenções
-- **Templates**: API de alto nível com soluções pré-configuradas
-
-## Fronteiras de Responsabilidade e Integração entre Sistemas
-
-O PepperPy oferece três níveis de abstração que se integram de forma coesa para proporcionar uma experiência de desenvolvimento flexível e poderosa. Cada nível tem responsabilidades bem definidas e interfaces claras para integração.
-
-### Quando Usar Cada Nível de Abstração
-
-1. **Composição Universal (Baixo Nível)**
-   - **Quando usar**: Para casos que exigem controle granular sobre o fluxo de dados e processamento
-   - **Casos de uso**: Pipelines personalizados, integração com componentes externos, processamento de dados complexo
-   - **Vantagens**: Máxima flexibilidade, controle total sobre o comportamento
-   - **Desvantagens**: Requer mais código, conhecimento detalhado dos componentes
-
-2. **Abstração por Intenção (Médio Nível)**
-   - **Quando usar**: Para aplicações que precisam interpretar comandos em linguagem natural
-   - **Casos de uso**: Chatbots, assistentes virtuais, interfaces conversacionais
-   - **Vantagens**: Interface natural, mapeamento automático para funcionalidades
-   - **Desvantagens**: Menos controle sobre o processamento específico
-
-3. **Templates (Alto Nível)**
-   - **Quando usar**: Para implementar rapidamente padrões comuns e casos de uso estabelecidos
-   - **Casos de uso**: Geração de podcasts, resumos, análise de dados, tradução
-   - **Vantagens**: Implementação rápida, configuração mínima, boas práticas incorporadas
-   - **Desvantagens**: Menos flexibilidade para casos muito específicos
-
-### Fluxo de Dados entre os Sistemas
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│                 │     │                 │     │                 │
-│    Templates    │◄────┤    Intenção     │◄────┤   Composição    │
-│   (Alto Nível)  │     │  (Médio Nível)  │     │  (Baixo Nível)  │
-│                 │     │                 │     │                 │
-└────────┬────────┘     └────────┬────────┘     └────────┬────────┘
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  Configuração   │     │ Reconhecimento  │     │   Componentes   │
-│  Pré-definida   │     │   de Intenção   │     │    Básicos      │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-```
-
-1. **Composição → Intenção**: Os manipuladores de intenção usam pipelines de composição para implementar o processamento específico para cada intenção reconhecida.
-
-2. **Intenção → Templates**: Os manipuladores de intenção podem executar templates para casos de uso comuns, simplificando a implementação.
-
-3. **Templates → Composição**: Os templates são implementados usando pipelines de composição, encapsulando padrões comuns em interfaces de alto nível.
-
-### Exemplos de Integração
-
-Veja a pasta `examples/integration/` para exemplos completos de integração entre os sistemas:
-
-- `intent_to_composition_example.py`: Demonstra como o sistema de intenção usa o sistema de composição
-- `template_to_intent_example.py`: Demonstra como o sistema de templates se integra com o sistema de intenção
-- `complete_flow_example.py`: Demonstra o fluxo completo de integração entre os três sistemas
-
-### Sistema de Composição
-
-O sistema de composição é o núcleo do PepperPy, permitindo a criação de pipelines flexíveis e reutilizáveis. Ele é baseado em três tipos de componentes:
-
-1. **Componentes de Fonte (Source)**: Responsáveis por obter dados de fontes externas
-   - Implementam a interface `SourceComponent[T]`
-   - Método principal: `fetch() -> T`
-   - Exemplos: `RSSFeedSource`, `WebAPISource`, `FileSource`
-
-2. **Componentes de Processamento (Processor)**: Transformam ou enriquecem os dados
-   - Implementam a interface `ProcessorComponent[T, U]`
-   - Método principal: `transform(data: T) -> U`
-   - Exemplos: `SummarizationProcessor`, `TranslationProcessor`, `EnrichmentProcessor`
-
-3. **Componentes de Saída (Output)**: Formatam e enviam os dados processados
-   - Implementam a interface `OutputComponent[T]`
-   - Método principal: `output(data: T) -> Any`
-   - Exemplos: `PodcastOutputComponent`, `FileOutputComponent`, `APIOutputComponent`
-
-O sistema de composição oferece duas abordagens principais:
-
-- **Pipelines Sequenciais**: Executam componentes em sequência
-  ```python
-  result = await (
-      compose("sequential_pipeline")
-      .source(source_component)
-      .process(processor_component)
-      .output(output_component)
-      .execute()
-  )
-  ```
-
-- **Pipelines Paralelos**: Executam componentes em paralelo para melhor desempenho
-  ```python
-  result = await (
-      compose_parallel("parallel_pipeline")
-      .source(source_component)
-      .process(processor1)
-      .process(processor2)  # Executado em paralelo com processor1
-      .output(output_component)
-      .execute()
-  )
-  ```
-
-### Extensão do Sistema de Composição
-
-Para criar novos componentes, basta implementar as interfaces apropriadas:
-
-```python
-from pepperpy.core.composition.base import SourceComponentBase
-from typing import Dict, List
-
-class CustomSource(SourceComponentBase[List[Dict[str, str]]]):
-    """Componente de fonte personalizado."""
-
-    def __init__(self, config: Dict[str, Any]):
-        super().__init__(config)
-        self.url = config.get("url")
-        self.max_items = config.get("max_items", 10)
-
-    async def fetch(self) -> List[Dict[str, str]]:
-        """Busca dados da fonte."""
-        # Implementação específica
-        return [{"title": "Item 1", "content": "Conteúdo 1"}, ...]
-```
-
-## Exemplos
-
-Veja a pasta `examples/` para exemplos completos de uso do PepperPy:
-
-- `composition/`: Exemplos de uso da API de composição universal
-- `intent/`: Exemplos de reconhecimento e processamento de intenções
-- `workflows/`: Exemplos de definição e execução de workflows
-- `content_processing/`: Exemplos de processamento de conteúdo
-- `conversational/`: Exemplos de agentes conversacionais
-- `integration/`: Exemplos de integração entre os diferentes sistemas
-
-## Contribuição
-
-Contribuições são bem-vindas! Por favor, leia o arquivo `CONTRIBUTING.md` para mais informações.
+Contribuições são bem-vindas! Por favor, leia nosso [guia de contribuição](CONTRIBUTING.md) para mais informações.
 
 ## Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo `LICENSE` para mais detalhes. 
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes. 

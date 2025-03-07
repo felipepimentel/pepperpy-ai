@@ -8,10 +8,10 @@ This module provides optimizers for different types of content:
 
 from typing import Any, Dict, Optional
 
-from ..core.base.common import BaseComponent
+from .base import SynthesisProcessor
 
 
-class AudioOptimizer(BaseComponent):
+class AudioOptimizer(SynthesisProcessor):
     """Optimizer for audio content."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:
@@ -46,7 +46,7 @@ class AudioOptimizer(BaseComponent):
         return audio_data
 
 
-class ImageOptimizer(BaseComponent):
+class ImageOptimizer(SynthesisProcessor):
     """Optimizer for image content."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:
@@ -81,7 +81,7 @@ class ImageOptimizer(BaseComponent):
         return image_data
 
 
-class TextOptimizer(BaseComponent):
+class TextOptimizer(SynthesisProcessor):
     """Optimizer for text content."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:

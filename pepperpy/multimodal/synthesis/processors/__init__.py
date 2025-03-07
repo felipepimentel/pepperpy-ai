@@ -9,17 +9,16 @@ including:
   - Formatting
   - Styling
 
-- Audio Processing
-  - Normalization
-  - Filtering
-  - Effects
-  - Mixing
-
 - Image Processing
   - Resizing
   - Filters
   - Composition
   - Optimization
+
+- Effects Processing
+  - Filters
+  - Transformations
+  - Enhancements
 
 The module provides:
 - Standardized interfaces
@@ -30,13 +29,13 @@ The module provides:
 
 from typing import Dict, List, Optional, Union
 
-from .audio import AudioProcessor
+from .effects import AudioEffectsProcessor
 from .image import ImageProcessor
 from .text import TextProcessor
 
 __version__ = "0.1.0"
 __all__ = [
-    "AudioProcessor",
+    "AudioEffectsProcessor",
     "ImageProcessor",
     "TextProcessor",
 ]

@@ -8,10 +8,10 @@ This module provides generators for different types of content:
 
 from typing import Any, Dict, Optional
 
-from ..core.base.common import BaseComponent
+from .base import SynthesisProcessor
 
 
-class AudioGenerator(BaseComponent):
+class AudioGenerator(SynthesisProcessor):
     """Generator for audio content."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:
@@ -46,7 +46,7 @@ class AudioGenerator(BaseComponent):
         return b"AUDIO_DATA_PLACEHOLDER"
 
 
-class ImageGenerator(BaseComponent):
+class ImageGenerator(SynthesisProcessor):
     """Generator for image content."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:
@@ -81,7 +81,7 @@ class ImageGenerator(BaseComponent):
         return b"IMAGE_DATA_PLACEHOLDER"
 
 
-class TextGenerator(BaseComponent):
+class TextGenerator(SynthesisProcessor):
     """Generator for text content."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:

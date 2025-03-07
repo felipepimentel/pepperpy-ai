@@ -40,7 +40,7 @@ except ImportError:
     np = None
     NDArray = Any
 
-from .base import BaseAudioProcessor
+from .base import AudioProcessor as BaseAudioProcessor
 
 
 class AudioProcessor(BaseAudioProcessor):
@@ -145,7 +145,10 @@ class AudioProcessor(BaseAudioProcessor):
         return result
 
     async def export_audio(
-        self, audio: Any, format: str = "wav", sample_rate: Optional[int] = None,
+        self,
+        audio: Any,
+        format: str = "wav",
+        sample_rate: Optional[int] = None,
     ) -> bytes:
         """Export audio to specified format.
 

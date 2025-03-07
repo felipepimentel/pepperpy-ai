@@ -37,14 +37,14 @@ specialization for their specific requirements.
 from typing import Dict, List, Optional, Union
 
 from .analysis import AudioAnalyzer, AudioClassifier, SpeechTranscriber
-from .base import AudioFeatures, BaseAudioProcessor
+from .base import AudioFeatures, AudioProcessor
 from .input import AudioProcessor as InputProcessor
 from .output import AudioProcessor as OutputProcessor
 
 __all__ = [
     # Base classes
     "AudioFeatures",
-    "BaseAudioProcessor",
+    "AudioProcessor",
     # Input processing
     "InputProcessor",
     # Output processing

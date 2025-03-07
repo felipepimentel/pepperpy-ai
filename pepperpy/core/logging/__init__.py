@@ -1,33 +1,77 @@
-"""Structured logging system for PepperPy core
+"""Módulo de logging do PepperPy.
 
-This module provides a structured logging system for the PepperPy core,
-enabling consistent, configurable logging across the entire framework.
-
-Classes:
-    Logger: Base logger interface
-    StructuredLogger: Logger implementation with structured output
-    LogLevel: Enum of log levels
-    LogHandler: Base class for log handlers
-
-Functions:
-    get_logger: Get a logger instance for a specific module
-    configure_logging: Configure global logging settings
+Este módulo fornece funções para configurar e obter loggers
+para aplicações PepperPy.
 """
 
-from pepperpy.core.logging.base import (
-    Logger,
-    LogHandler,
-    LogLevel,
-    StructuredLogger,
-    configure_logging,
-    get_logger,
-)
+import logging
+import os
+import sys
+from typing import Optional
 
-__all__ = [
-    "LogHandler",
-    "LogLevel",
-    "Logger",
-    "StructuredLogger",
-    "configure_logging",
-    "get_logger",
-]
+
+def get_logger(name: str) -> logging.Logger:
+    """Obtém um logger configurado.
+
+    Args:
+        name: Nome do logger
+
+    Returns:
+        Logger configurado
+    """
+    logger = logging.getLogger(name)
+
+    # Configurar logger se ainda não foi configurado
+    if not logger.handlers:
+        # Definir nível de log
+        log_level = os.environ.get("PEPPERPY_LOG_LEVEL", "INFO")
+        logger.setLevel(getattr(logging, log_level))
+
+        # Criar handler para console
+        handler = logging.StreamHandler(sys.stdout)
+
+        # Definir formato
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        handler.setFormatter(formatter)
+
+        # Adicionar handler ao logger
+        logger.addHandler(handler)
+
+    return logger
+
+
+def configure_logging(
+    level: str = "INFO",
+    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    log_file: Optional[str] = None,
+) -> None:
+    """Configura o logging global.
+
+    Args:
+        level: Nível de log
+        format: Formato do log
+        log_file: Caminho do arquivo de log
+    """
+    # Configurar root logger
+    root_logger = logging.getLogger()
+    root_logger.setLevel(getattr(logging, level))
+
+    # Remover handlers existentes
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    # Criar formatter
+    formatter = logging.Formatter(format)
+
+    # Adicionar handler para console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(formatter)
+    root_logger.addHandler(console_handler)
+
+    # Adicionar handler para arquivo se especificado
+    if log_file:
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(formatter)
+        root_logger.addHandler(file_handler)

@@ -14,7 +14,6 @@ from .base import (
     ImageFeatures,
     VisionError,
     VisionProcessor,
-    VisionProvider,
 )
 from .processing import (
     ImageAnalyzer,
@@ -31,7 +30,6 @@ __all__ = [
     "ImageFeatures",
     "VisionError",
     "VisionProcessor",
-    "VisionProvider",
     # Processing classes
     "ImageAnalyzer",
     "ImageCaptioner",

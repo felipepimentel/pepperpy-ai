@@ -16,14 +16,14 @@ from .base import (
     SynthesisProvider,
 )
 from .generators import (
-    ContentGenerator,
-    SpeechGenerator,
+    AudioGenerator,
+    ImageGenerator,
     TextGenerator,
 )
 from .optimizers import (
-    ContentOptimizer,
-    QualityOptimizer,
-    SizeOptimizer,
+    AudioOptimizer,
+    ImageOptimizer,
+    TextOptimizer,
 )
 
 __all__ = [
@@ -34,13 +34,13 @@ __all__ = [
     "SynthesisProcessor",
     "SynthesisProvider",
     # Generator classes
-    "ContentGenerator",
-    "SpeechGenerator",
+    "AudioGenerator",
+    "ImageGenerator",
     "TextGenerator",
     # Optimizer classes
-    "ContentOptimizer",
-    "QualityOptimizer",
-    "SizeOptimizer",
+    "AudioOptimizer",
+    "ImageOptimizer",
+    "TextOptimizer",
     # Submodules
     "processors",
 ]

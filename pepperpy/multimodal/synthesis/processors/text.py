@@ -5,10 +5,10 @@ Implements text processing for content synthesis.
 
 from typing import Any, Dict, Optional
 
-from ...core.base.common import BaseComponent
+from ..base import SynthesisProcessor
 
 
-class TextProcessor(BaseComponent):
+class TextProcessor(SynthesisProcessor):
     """Processor for text synthesis."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:

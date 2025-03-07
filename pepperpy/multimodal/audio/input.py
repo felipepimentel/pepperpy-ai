@@ -49,7 +49,8 @@ except ImportError:
     np = None
     NDArray = Any
 
-from .base import AudioFeatures, BaseAudioProcessor
+from .base import AudioFeatures
+from .base import AudioProcessor as BaseAudioProcessor
 
 
 @dataclass
@@ -101,55 +102,53 @@ class AudioProcessor(BaseAudioProcessor):
         return result
 
     def _denoise(self, audio: Any) -> Any:
-        """Remove noise from audio.
+        """Apply noise reduction to audio.
 
         Args:
             audio: Input audio array
 
         Returns:
             Denoised audio array
-
         """
-        if not NUMPY_AVAILABLE:
-            # Simple noise reduction for non-numpy arrays
-            threshold = self._config.get("noise_threshold", 0.1)
-            if not audio:
-                return audio
-            return [x if abs(x) > threshold else 0 for x in audio]
         # Simple noise reduction using numpy
         threshold = self._config.get("noise_threshold", 0.1)
-        mask = np.abs(audio) > threshold
-        return audio * mask
+
+        if NUMPY_AVAILABLE and np is not None:
+            mask = np.abs(audio) > threshold
+            return audio * mask
+        else:
+            # Simple implementation for when numpy is not available
+            return audio  # Just return original audio as fallback
 
     def _segment(self, audio: Any) -> Any:
-        """Segment audio into speech regions.
+        """Segment audio into chunks.
 
         Args:
             audio: Input audio array
 
         Returns:
             Segmented audio array
-
         """
-        if not NUMPY_AVAILABLE:
-            # Simple placeholder implementation for non-numpy arrays
-            return audio
         # Simple energy-based segmentation using numpy
         window_size = self._config.get("window_size", 1024)
-        energy = np.array(
-            [
-                np.sum(audio[i : i + window_size] ** 2)
-                for i in range(0, len(audio), window_size)
-            ],
-        )
-        # threshold will be used in future implementation
-        _ = np.mean(energy) * self._config.get("energy_threshold", 2.0)
-        # Calculate mask but don't use it yet - will be used in future implementation
-        # mask = energy > threshold
+
+        if NUMPY_AVAILABLE and np is not None:
+            energy = np.array(
+                [
+                    np.sum(audio[i : i + window_size] ** 2)
+                    for i in range(0, len(audio), window_size)
+                ],
+            )
+            # threshold will be used in future implementation
+            _ = np.mean(energy) * self._config.get("energy_threshold", 2.0)
+            # Calculate mask but don't use it yet - will be used in future implementation
+            # mask = energy > threshold
+
+        # For now, just return the original audio
         return audio
 
     async def process_audio(self, audio_path: Union[str, Path]) -> AudioFeatures:
-        """Process an audio file and extract features.
+        """Process audio file and extract features.
 
         Args:
             audio_path: Path to audio file
@@ -157,16 +156,11 @@ class AudioProcessor(BaseAudioProcessor):
         Returns:
             Extracted audio features
 
+        Raises:
+            AudioError: If processing fails
         """
-        # This is a placeholder implementation
-        # In a real implementation, you would:
-        # 1. Load the audio file
-        # 2. Process the audio
-        # 3. Extract features
-        # 4. Return the features
-
         # Placeholder implementation
-        if NUMPY_AVAILABLE:
+        if NUMPY_AVAILABLE and np is not None:
             features = np.random.random((100, 10))
         else:
             # Create a simple 2D list of random values
@@ -174,13 +168,18 @@ class AudioProcessor(BaseAudioProcessor):
 
         return AudioFeatures(
             features=features,
-            sample_rate=self._sample_rate,
-            duration=10.0,
-            metadata={"source": str(audio_path)},
+            sample_rate=44100,
+            duration=3.5,
+            metadata={
+                "file": str(audio_path),
+                "channels": 2,
+                "format": "wav",
+            },
         )
 
     async def process_batch(
-        self, audio_paths: List[Union[str, Path]],
+        self,
+        audio_paths: List[Union[str, Path]],
     ) -> List[AudioFeatures]:
         """Process multiple audio files in batch.
 
@@ -214,7 +213,8 @@ class SpeechTranscriber:
         raise NotImplementedError
 
     async def transcribe_batch(
-        self, audio_paths: List[Union[str, Path]],
+        self,
+        audio_paths: List[Union[str, Path]],
     ) -> List[List[Transcription]]:
         """Transcribe speech in multiple audio files.
 
@@ -252,7 +252,8 @@ class AudioClassifier:
         raise NotImplementedError
 
     async def classify_batch(
-        self, audio_paths: List[Union[str, Path]],
+        self,
+        audio_paths: List[Union[str, Path]],
     ) -> List[List[Classification]]:
         """Classify multiple audio files.
 

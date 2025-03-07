@@ -8,10 +8,10 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from ...core.base.common import BaseComponent
+from ..base import SynthesisProcessor
 
 
-class ImageProcessor(BaseComponent):
+class ImageProcessor(SynthesisProcessor):
     """Processor for image synthesis."""
 
     def __init__(self, name: str, config: Optional[Dict[str, Any]] = None) -> None:

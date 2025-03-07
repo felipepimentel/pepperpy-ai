@@ -11,21 +11,31 @@ except ImportError:
     BaseModel = object
 
     def Field(*args, **kwargs):
-        def decorator(x):
-            return x
-        return decorator
+        return kwargs.get("default", None)
+
 
 # pip install pydub
 try:
-    from pydub import AudioSegment
+    from pydub import AudioSegment as PydubAudioSegment
+
+    AudioSegment = PydubAudioSegment
 except ImportError:
     print("Pydub not installed. Install with: pip install pydub")
 
     class AudioSegment:
-        pass
+        """Placeholder for AudioSegment when pydub is not available."""
+
+        @staticmethod
+        def from_file(file, format=None):
+            """Placeholder for from_file method."""
+            return None
 
 
-from pepperpy.multimodal.synthesis.base import AudioData, AudioProcessor, SynthesisError
+from pepperpy.multimodal.synthesis.base import (
+    AudioData,
+    SynthesisError,
+    SynthesisProcessor,
+)
 
 
 class AudioEffectsConfig(BaseModel):
@@ -34,18 +44,21 @@ class AudioEffectsConfig(BaseModel):
     normalize: bool = Field(default=True, description="Normalize audio volume")
     target_db: float = Field(default=-20.0, description="Target dB for normalization")
     fade_in: Optional[float] = Field(
-        default=None, description="Fade in duration in seconds",
+        default=None,
+        description="Fade in duration in seconds",
     )
     fade_out: Optional[float] = Field(
-        default=None, description="Fade out duration in seconds",
+        default=None,
+        description="Fade out duration in seconds",
     )
     speed: float = Field(default=1.0, description="Playback speed multiplier (0.5-2.0)")
     pitch: float = Field(
-        default=0.0, description="Pitch shift in semitones (-12 to 12)",
+        default=0.0,
+        description="Pitch shift in semitones (-12 to 12)",
     )
 
 
-class AudioEffectsProcessor(AudioProcessor):
+class AudioEffectsProcessor(SynthesisProcessor):
     """Audio effects processor implementation."""
 
     def __init__(self, **config: Any):
