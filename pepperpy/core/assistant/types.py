@@ -13,6 +13,7 @@ class AssistantType(str, Enum):
     RAG_BUILDER = "rag_builder"
     AGENT_CREATOR = "agent_creator"
     MULTIMODAL_BUILDER = "multimodal_builder"
+    RESEARCH = "research"
 
 
 class TemplateCategory(str, Enum):

@@ -1,6 +1,8 @@
 """Pipeline builder assistant implementation."""
 
+import asyncio
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 from pepperpy.core.assistant.base import BaseAssistant
@@ -29,6 +31,16 @@ class PipelineBuilderAssistant(BaseAssistant[Pipeline]):
             **kwargs: Additional arguments for the base assistant
         """
         super().__init__(name=name, config=config, **kwargs)
+        self.logger = logging.getLogger(f"{__name__}.{name}")
+
+    async def initialize(self) -> None:
+        """Initialize the pipeline builder assistant.
+
+        This method is called before using the assistant.
+        """
+        self.logger.info(f"Initializing {self.name}")
+        # Simulate initialization
+        await asyncio.sleep(0.1)
 
     def create(self, description: str, **kwargs: Any) -> Pipeline:
         """Create a pipeline based on the description.

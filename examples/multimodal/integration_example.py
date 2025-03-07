@@ -26,6 +26,8 @@ O exemplo realiza as seguintes operações:
 
 import asyncio
 import json
+import os
+from pathlib import Path
 
 from pepperpy.multimodal import (
     ImageToTextConverter,
@@ -34,6 +36,12 @@ from pepperpy.multimodal import (
     TextToImageConverter,
     convert_between_modalities,
 )
+
+# Definir pasta de saída para os artefatos gerados
+OUTPUT_DIR = Path("examples/outputs/multimodal")
+
+# Garantir que a pasta de saída existe
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 async def main() -> None:
@@ -45,81 +53,91 @@ async def main() -> None:
     text_data = ModalityData(
         modality=Modality.TEXT,
         content="Uma paisagem montanhosa com um lago azul e céu ensolarado.",
-        metadata={"language": "pt", "source": "user_input"},
+        metadata={
+            "language": "pt",
+            "source": "exemplo",
+        },
     )
     print(f"Dados de texto criados: {text_data}")
 
-    # 2. Converter texto para imagem usando TextToImageConverter
+    # 2. Converter texto para imagem
     print("\n2. Convertendo texto para imagem...")
-    text_to_image = TextToImageConverter(
-        config={
-            "model_name": "stable-diffusion",
-            "image_size": (1024, 768),
-            "quality": "high",
-        }
-    )
-
+    text_to_image = TextToImageConverter()
     image_data = await text_to_image.convert(text_data)
+
+    # Simular dados binários da imagem para salvar
+    # Na implementação real, image_data.content conteria os dados binários
+    # Aqui estamos apenas simulando para o exemplo
+    simulated_image_data = b"Dados binarios simulados da imagem"
+
+    # Salvar a imagem simulada
+    image_path = OUTPUT_DIR / "imagem_gerada.png"
+    with open(image_path, "wb") as f:
+        f.write(simulated_image_data)
+
     print(f"Dados de imagem gerados: {image_data}")
     print(
         f"Dimensões da imagem: {image_data.content['width']}x{image_data.content['height']}"
     )
     print(f"Formato: {image_data.content['format']}")
+    print(f"Imagem salva em: {image_path}")
     print(f"Metadados: {json.dumps(image_data.metadata, indent=2)}")
 
-    # 3. Converter imagem para texto usando ImageToTextConverter
+    # 3. Converter imagem para texto
     print("\n3. Convertendo imagem para texto...")
-    image_to_text = ImageToTextConverter(
-        config={
-            "model_name": "vision-model",
-            "detail_level": "detailed",
-            "language": "pt",
-        }
-    )
+    image_to_text = ImageToTextConverter()
+    final_text_data = await image_to_text.convert(image_data)
 
-    text_data_2 = await image_to_text.convert(image_data)
-    print(f"Dados de texto gerados: {text_data_2}")
-    print(f"Descrição: {text_data_2.content}")
-    print(f"Metadados: {json.dumps(text_data_2.metadata, indent=2)}")
-
-    # 4. Demonstrar o uso da função de alto nível convert_between_modalities
-    print("\n4. Usando a função de alto nível convert_between_modalities...")
-
-    # Criar novos dados de texto
-    new_text_data = ModalityData(
-        modality=Modality.TEXT,
-        content="Um gato laranja dormindo em uma almofada azul.",
-        metadata={"language": "pt", "source": "user_input"},
-    )
-
-    # Converter para imagem usando a função de alto nível
-    new_image_data = await convert_between_modalities(
-        data=new_text_data,
-        target_modality=Modality.IMAGE,
-        config={
-            "model_name": "stable-diffusion-v2",
-            "image_size": (512, 512),
-            "quality": "standard",
-        },
-    )
-
-    print(f"Dados de imagem gerados: {new_image_data}")
-    print(
-        f"Dimensões da imagem: {new_image_data.content['width']}x{new_image_data.content['height']}"
-    )
-
-    # Converter de volta para texto
-    final_text_data = await convert_between_modalities(
-        data=new_image_data,
-        target_modality=Modality.TEXT,
-        config={
-            "detail_level": "basic",
-            "language": "pt",
-        },
-    )
+    # Salvar a descrição gerada
+    description_path = OUTPUT_DIR / "descricao_imagem.txt"
+    with open(description_path, "w") as f:
+        f.write(final_text_data.content)
 
     print(f"Dados de texto gerados: {final_text_data}")
     print(f"Descrição: {final_text_data.content}")
+    print(f"Descrição salva em: {description_path}")
+    print(f"Metadados: {json.dumps(final_text_data.metadata, indent=2)}")
+
+    # 4. Usar a função de alto nível convert_between_modalities
+    print("\n4. Usando a função de alto nível convert_between_modalities...")
+
+    # Texto para imagem
+    simple_text = ModalityData(
+        modality=Modality.TEXT,
+        content="Uma imagem simples.",
+        metadata={"language": "pt"},
+    )
+    simple_image = await convert_between_modalities(
+        simple_text, target_modality=Modality.IMAGE
+    )
+
+    # Simular dados binários da imagem simples
+    simulated_simple_image_data = b"Dados binarios simulados da imagem simples"
+
+    # Salvar a imagem simples simulada
+    simple_image_path = OUTPUT_DIR / "imagem_simples.png"
+    with open(simple_image_path, "wb") as f:
+        f.write(simulated_simple_image_data)
+
+    print(f"Dados de imagem gerados: {simple_image}")
+    print(
+        f"Dimensões da imagem: {simple_image.content['width']}x{simple_image.content['height']}"
+    )
+    print(f"Imagem salva em: {simple_image_path}")
+
+    # Imagem para texto
+    simple_text_back = await convert_between_modalities(
+        simple_image, target_modality=Modality.TEXT
+    )
+
+    # Salvar a descrição simples
+    simple_description_path = OUTPUT_DIR / "descricao_simples.txt"
+    with open(simple_description_path, "w") as f:
+        f.write(simple_text_back.content)
+
+    print(f"Dados de texto gerados: {simple_text_back}")
+    print(f"Descrição: {simple_text_back.content}")
+    print(f"Descrição salva em: {simple_description_path}")
 
     print("\nExemplo concluído com sucesso!")
 

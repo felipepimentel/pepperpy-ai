@@ -37,7 +37,10 @@ class Metric(ABC):
     """Base class for all metrics."""
 
     def __init__(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None,
+        self,
+        name: str,
+        description: str,
+        labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize metric.
 
@@ -64,7 +67,9 @@ class Metric(ABC):
         """
 
     def create_record(
-        self, value: float, labels: Optional[Dict[str, str]] = None,
+        self,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
     ) -> MetricRecord:
         """Create a metric record.
 
@@ -93,7 +98,10 @@ class Counter(Metric):
     """Counter metric that can only increase."""
 
     def __init__(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None,
+        self,
+        name: str,
+        description: str,
+        labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize counter.
 
@@ -108,7 +116,9 @@ class Counter(Metric):
         self.type = MetricType.COUNTER
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None,
+        self,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Increment counter.
 
@@ -126,12 +136,24 @@ class Counter(Metric):
         self._value += value
         self._logger.debug(f"Counter {self.name} incremented by {value}")
 
+    def inc(self, value: float = 1.0) -> None:
+        """Increment counter by 1 or specified value.
+
+        Args:
+            value: Value to increment by (default: 1.0)
+        """
+        # Synchronous increment for convenience
+        self._value += value
+
 
 class Gauge(Metric):
     """Gauge metric that can go up and down."""
 
     def __init__(
-        self, name: str, description: str, labels: Optional[Dict[str, str]] = None,
+        self,
+        name: str,
+        description: str,
+        labels: Optional[Dict[str, str]] = None,
     ):
         """Initialize gauge.
 
@@ -146,7 +168,9 @@ class Gauge(Metric):
         self.type = MetricType.GAUGE
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None,
+        self,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Set gauge value.
 
@@ -196,7 +220,9 @@ class Histogram(Metric):
         self.type = MetricType.HISTOGRAM
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None,
+        self,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Record a value in the histogram.
 
@@ -207,6 +233,16 @@ class Histogram(Metric):
         """
         self._values.append(value)
         self._logger.debug(f"Histogram {self.name} recorded value {value}")
+
+    def observe(self, value: float) -> None:
+        """Record a value in the histogram.
+
+        Args:
+            value: Value to record
+
+        """
+        # Synchronous observation for convenience
+        self._values.append(value)
 
 
 class Summary(Metric):
@@ -234,7 +270,9 @@ class Summary(Metric):
         self.type = MetricType.SUMMARY
 
     async def record(
-        self, value: float, labels: Optional[Dict[str, str]] = None,
+        self,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Record a value in the summary.
 
@@ -254,6 +292,62 @@ class MetricsCollector:
         """Initialize metrics collector."""
         self._metrics: Dict[str, List[MetricRecord]] = {}
         self._registered_metrics: Dict[str, Metric] = {}
+
+    def counter(
+        self, name: str, description: str = "", labels: Optional[Dict[str, str]] = None
+    ) -> "Counter":
+        """Create and register a counter metric.
+
+        Args:
+            name: Metric name
+            description: Metric description
+            labels: Optional metric labels
+
+        Returns:
+            Counter metric
+        """
+        counter = Counter(name, description, labels)
+        self.register_metric(counter)
+        return counter
+
+    def gauge(
+        self, name: str, description: str = "", labels: Optional[Dict[str, str]] = None
+    ) -> "Gauge":
+        """Create and register a gauge metric.
+
+        Args:
+            name: Metric name
+            description: Metric description
+            labels: Optional metric labels
+
+        Returns:
+            Gauge metric
+        """
+        gauge = Gauge(name, description, labels)
+        self.register_metric(gauge)
+        return gauge
+
+    def histogram(
+        self,
+        name: str,
+        description: str = "",
+        buckets: Optional[List[float]] = None,
+        labels: Optional[Dict[str, str]] = None,
+    ) -> "Histogram":
+        """Create and register a histogram metric.
+
+        Args:
+            name: Metric name
+            description: Metric description
+            buckets: Optional histogram buckets
+            labels: Optional metric labels
+
+        Returns:
+            Histogram metric
+        """
+        histogram = Histogram(name, description, buckets, labels)
+        self.register_metric(histogram)
+        return histogram
 
     def register_metric(self, metric: Metric) -> None:
         """Register a metric with the collector.
@@ -276,7 +370,10 @@ class MetricsCollector:
         self._metrics[metric_record.name].append(metric_record)
 
     async def record(
-        self, name: str, value: float, labels: Optional[Dict[str, str]] = None,
+        self,
+        name: str,
+        value: float,
+        labels: Optional[Dict[str, str]] = None,
     ) -> None:
         """Record a value for a registered metric.
 
@@ -368,7 +465,9 @@ class MetricsRegistry:
         return self._collectors.get(name)
 
     def record_metric(
-        self, metric_record: MetricRecord, collector_name: Optional[str] = None,
+        self,
+        metric_record: MetricRecord,
+        collector_name: Optional[str] = None,
     ) -> None:
         """Record a metric using the specified collector.
 

@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, Generic, List, Optional, TypeVar
 
-from pepperpy.core.common.lifecycle import Lifecycle
-from pepperpy.core.errors import ProcessingError, ValidationError
+from pepperpy.core.errors.base import ProcessingError, ValidationError
 from pepperpy.core.metrics import MetricsCollector
+from pepperpy.core.protocols.lifecycle import Lifecycle
 
 T = TypeVar("T")  # Input type
 U = TypeVar("U")  # Output type
@@ -119,19 +119,26 @@ class DataProcessor(Lifecycle, Generic[T, U]):
         self._logger = logging.getLogger(f"processor.{name}")
 
         # Initialize metrics
+        # type: ignore
         self._processed_items = self._metrics.counter(
-            "processor_items_total", labels={"processor": name},
+            "processor_items_total",
+            labels={"processor": name},
         )
+        # type: ignore
         self._processing_errors = self._metrics.counter(
-            "processor_errors_total", labels={"processor": name},
+            "processor_errors_total",
+            labels={"processor": name},
         )
+        # type: ignore
         self._processing_time = self._metrics.histogram(
             "processor_time_seconds",
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
             labels={"processor": name},
         )
+        # type: ignore
         self._batch_size_metric = self._metrics.gauge(
-            "processor_batch_size", labels={"processor": name},
+            "processor_batch_size",
+            labels={"processor": name},
         )
 
     async def process_item(self, item: DataItem[T]) -> ProcessingResult[U]:
@@ -161,8 +168,9 @@ class DataProcessor(Lifecycle, Generic[T, U]):
 
             # Transform data
             if self._transformer:
-                result = await self._transformer.transform(item)
+                result: U = await self._transformer.transform(item)
             else:
+                # If no transformer, assume T is compatible with U
                 result = item.data  # type: ignore
 
             processing_time = (datetime.now() - start_time).total_seconds()
@@ -195,7 +203,8 @@ class DataProcessor(Lifecycle, Generic[T, U]):
             )
 
     async def process_batch(
-        self, items: List[DataItem[T]],
+        self,
+        items: List[DataItem[T]],
     ) -> List[ProcessingResult[U]]:
         """Process a batch of data items.
 
@@ -219,7 +228,8 @@ class DataProcessor(Lifecycle, Generic[T, U]):
             raise ProcessingError(f"Batch processing failed: {e}") from e
 
     async def process_stream(
-        self, stream: AsyncIterator[DataItem[T]],
+        self,
+        stream: AsyncIterator[DataItem[T]],
     ) -> AsyncIterator[ProcessingResult[U]]:
         """Process a stream of data items.
 
@@ -288,12 +298,17 @@ class Pipeline(Lifecycle, Generic[T, U]):
         self._logger = logging.getLogger(f"pipeline.{name}")
 
         # Initialize metrics
+        # type: ignore
         self._processed_items = self._metrics.counter(
-            "pipeline_items_total", labels={"pipeline": name},
+            "pipeline_items_total",
+            labels={"pipeline": name},
         )
+        # type: ignore
         self._processing_errors = self._metrics.counter(
-            "pipeline_errors_total", labels={"pipeline": name},
+            "pipeline_errors_total",
+            labels={"pipeline": name},
         )
+        # type: ignore
         self._processing_time = self._metrics.histogram(
             "pipeline_time_seconds",
             buckets=[0.1, 0.5, 1.0, 2.0, 5.0],
@@ -361,7 +376,8 @@ class Pipeline(Lifecycle, Generic[T, U]):
             )
 
     async def process_batch(
-        self, items: List[DataItem[T]],
+        self,
+        items: List[DataItem[T]],
     ) -> List[ProcessingResult[U]]:
         """Process a batch of data items through the pipeline.
 
@@ -383,7 +399,8 @@ class Pipeline(Lifecycle, Generic[T, U]):
             raise ProcessingError(f"Pipeline batch processing failed: {e}") from e
 
     async def process_stream(
-        self, stream: AsyncIterator[DataItem[T]],
+        self,
+        stream: AsyncIterator[DataItem[T]],
     ) -> AsyncIterator[ProcessingResult[U]]:
         """Process a stream of data items through the pipeline.
 

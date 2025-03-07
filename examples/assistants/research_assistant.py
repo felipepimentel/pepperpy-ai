@@ -25,53 +25,62 @@ Usage:
 import asyncio
 import os
 import random
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from pepperpy.assistants import ResearchAssistant
+from pepperpy.core.assistant.implementations import ResearchAssistant
+
+# Definir pasta de saída para os artefatos gerados
+OUTPUT_DIR = Path("examples/outputs/research")
+
+# Garantir que a pasta de saída existe
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 def generate_fake_topic() -> str:
-    """Gera um tópico fake para pesquisa.
+    """Gera um tópico de pesquisa fake.
 
     Returns:
-        Tópico fake
+        Tópico de pesquisa
     """
     topics = [
-        "Impacto da Inteligência Artificial na Educação",
-        "Energias Renováveis e Sustentabilidade",
-        "Avanços em Medicina Personalizada",
-        "Cidades Inteligentes e Urbanismo",
-        "Blockchain e Transformação Digital",
+        "Inteligência Artificial e Ética",
         "Mudanças Climáticas e Biodiversidade",
-        "Exploração Espacial e Colonização de Marte",
+        "Economia Circular e Consumo Sustentável",
         "Neurociência e Interfaces Cérebro-Computador",
         "Segurança Cibernética e Privacidade de Dados",
-        "Economia Circular e Consumo Sustentável",
+        "Energias Renováveis e Sustentabilidade",
+        "Cidades Inteligentes e Urbanismo",
+        "Medicina Personalizada e Genômica",
+        "Exploração Espacial e Colonização de Marte",
+        "Blockchain e Criptomoedas",
+        "Realidade Virtual e Aumentada",
+        "Robótica e Automação Industrial",
+        "Biotecnologia e Edição Genética",
+        "Nanotecnologia e Materiais Avançados",
+        "Avanços em Medicina Personalizada",
     ]
-
     return random.choice(topics)
 
 
 def generate_fake_sources() -> List[str]:
-    """Gera fontes fake para pesquisa.
+    """Gera uma lista de fontes fake.
 
     Returns:
-        Lista de fontes fake
+        Lista de fontes
     """
     sources = [
-        "https://www.nature.com/articles/s41586-021-03380-x",
-        "https://www.science.org/doi/10.1126/science.abc1234",
-        "https://www.researchgate.net/publication/123456789",
-        "https://arxiv.org/abs/2104.12345",
-        "https://www.cell.com/cell/fulltext/S0092-8674(21)00123-4",
-        "https://www.nejm.org/doi/full/10.1056/NEJMoa2034577",
-        "https://www.thelancet.com/journals/lancet/article/PIIS0140-6736(21)00123-4",
-        "https://www.pnas.org/content/118/21/e2026322118",
-        "https://www.sciencedirect.com/science/article/pii/S0012345678901234",
-        "https://onlinelibrary.wiley.com/doi/abs/10.1002/adma.202100123",
+        "https://example.com/article1",
+        "https://example.com/article2",
+        "https://example.com/article3",
+        "https://example.com/article4",
+        "https://example.com/article5",
+        "https://example.com/article6",
+        "https://example.com/article7",
+        "https://example.com/article8",
+        "https://example.com/article9",
+        "https://example.com/article10",
     ]
-
-    # Selecionar um número aleatório de fontes (2-5)
     num_sources = random.randint(2, 5)
     return random.sample(sources, num_sources)
 
@@ -97,17 +106,20 @@ async def run_research_assistant(
     Returns:
         Resultado da pesquisa com relatório e metadados
     """
-    # Criar assistente de pesquisa com uma única linha
-    assistant = ResearchAssistant()
-
-    # Configurar o assistente com uma API fluente
-    assistant.configure(
-        depth=depth,
-        output_format=output_format,
-        include_citations=include_citations,
-        max_sources=10,
-        verify_facts=True,
+    # Criar assistente de pesquisa
+    assistant = ResearchAssistant(
+        name="research_assistant",
+        config={
+            "depth": depth,
+            "output_format": output_format,
+            "include_citations": include_citations,
+            "max_sources": 10,
+            "verify_facts": True,
+        },
     )
+
+    # Inicializar o assistente
+    await assistant.initialize()
 
     # Adicionar fontes se especificadas
     if sources:
@@ -116,7 +128,9 @@ async def run_research_assistant(
 
     # Se um caminho de saída foi especificado, configurar
     if output_path:
-        assistant.set_output_path(output_path)
+        # Garantir que o caminho é relativo à pasta de saída
+        full_output_path = OUTPUT_DIR / output_path
+        assistant.set_output_path(str(full_output_path))
 
     # Executar pesquisa com uma única chamada
     result = await assistant.research(topic)
@@ -188,11 +202,12 @@ async def main():
 
         # Mostrar primeiras linhas do relatório
         if os.path.exists(result["output_path"]):
-            with open(result["output_path"], "r") as f:
-                content = f.read(500)  # Ler primeiros 500 caracteres
             print("\nPrimeiras linhas do relatório:")
             print("-" * 50)
-            print(content + "...")
+            with open(result["output_path"], "r") as f:
+                lines = f.readlines()
+                print("".join(lines[:15]))
+                print("..." if len(lines) > 15 else "")
             print("-" * 50)
 
         # Pausa entre pesquisas

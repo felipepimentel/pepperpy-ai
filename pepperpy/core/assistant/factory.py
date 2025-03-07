@@ -3,8 +3,11 @@
 from typing import Any, Dict, Optional, Union
 
 from pepperpy.core.assistant.base import BaseAssistant
+from pepperpy.core.assistant.implementations import (
+    PipelineBuilderAssistant,
+    ResearchAssistant,
+)
 from pepperpy.core.assistant.types import AssistantType
-from pepperpy.core.registry.registry import get_class
 
 
 def create_assistant(
@@ -42,10 +45,13 @@ def create_assistant(
                 f"Valid types are: {valid_types}"
             )
 
-    # Get the assistant class from the registry
-    assistant_class = get_class(
-        f"pepperpy.core.assistant.implementations.{assistant_type.value}"
-    )
+    # Create the appropriate assistant based on type
+    if assistant_type == AssistantType.PIPELINE_BUILDER:
+        assistant_class = PipelineBuilderAssistant
+    elif assistant_type == AssistantType.RESEARCH:
+        assistant_class = ResearchAssistant
+    else:
+        raise ValueError(f"Unsupported assistant type: {assistant_type}")
 
     # Create and return the assistant
     return assistant_class(
