@@ -7,6 +7,7 @@ from enum import Enum, auto
 
 # Import internal implementations
 from pepperpy.capabilities.base import BaseCapability, CapabilityConfig
+from pepperpy.capabilities.providers import ProviderCapability, ProviderConfig
 
 # Re-export public interfaces
 from pepperpy.capabilities.public import (
@@ -14,21 +15,25 @@ from pepperpy.capabilities.public import (
     TaskRegistry,
     TaskScheduler,
 )
+from pepperpy.capabilities.registry import CapabilityRegistry
 
 
 class CapabilityType(Enum):
     """Types of capabilities supported by the system."""
 
-    MEMORY = auto()
-    STORAGE = auto()
+    # Implemented capabilities
     TASK = auto()
-    STREAMING = auto()
-    LOGGING = auto()
-    METRICS = auto()
-    TRACING = auto()
-    SECURITY = auto()
-    NETWORKING = auto()
-    SCHEDULING = auto()
+
+    # Planned capabilities (not yet implemented)
+    # MEMORY = auto()
+    # STORAGE = auto()
+    # STREAMING = auto()
+    # LOGGING = auto()
+    # METRICS = auto()
+    # TRACING = auto()
+    # SECURITY = auto()
+    # NETWORKING = auto()
+    # SCHEDULING = auto()
 
 
 __all__ = [
@@ -40,4 +45,8 @@ __all__ = [
     "BaseCapability",
     "CapabilityConfig",
     "CapabilityType",
+    "CapabilityRegistry",
+    # Provider classes
+    "ProviderCapability",
+    "ProviderConfig",
 ]

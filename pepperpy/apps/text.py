@@ -7,7 +7,7 @@ para processamento de texto usando o framework PepperPy.
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.apps.base import BaseApp
+from pepperpy.apps.base import BaseApp
 
 
 @dataclass

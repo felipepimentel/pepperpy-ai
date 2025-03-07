@@ -28,7 +28,7 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List
 
-from pepperpy.core.apps import RAGApp
+from pepperpy.apps import RAGApp
 
 # Definir pasta de saída para os artefatos gerados
 OUTPUT_DIR = Path("examples/outputs/rag")

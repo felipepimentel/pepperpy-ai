@@ -1,4 +1,4 @@
-# PepperPy Core Apps
+# PepperPy Apps
 
 Este módulo fornece classes de aplicação especializadas para diferentes domínios, simplificando o desenvolvimento de aplicações de IA.
 
@@ -34,7 +34,7 @@ Classe base para todas as aplicações PepperPy. Fornece funcionalidades comuns 
 - Gerenciamento de saída
 
 ```python
-from pepperpy.core.apps import BaseApp
+from pepperpy.apps import BaseApp
 
 app = BaseApp("my_app", description="Minha aplicação")
 app.configure(param1="valor1", param2="valor2")
@@ -49,7 +49,7 @@ Aplicação para processamento de texto. Suporta:
 - Processamento em paralelo
 
 ```python
-from pepperpy.core.apps import TextApp
+from pepperpy.apps import TextApp
 
 app = TextApp("text_processor")
 app.configure(operations=["summarize", "translate"])
@@ -67,7 +67,7 @@ Aplicação para processamento de dados estruturados. Suporta:
 - Processamento em paralelo
 
 ```python
-from pepperpy.core.apps import DataApp
+from pepperpy.apps import DataApp
 
 app = DataApp("data_processor")
 app.configure(steps=[
@@ -88,7 +88,7 @@ Aplicação para geração de conteúdo. Suporta:
 - Salvamento de conteúdo
 
 ```python
-from pepperpy.core.apps import ContentApp
+from pepperpy.apps import ContentApp
 
 app = ContentApp("content_generator")
 app.configure(
@@ -112,7 +112,7 @@ Aplicação para processamento de mídia. Suporta:
 - Extração de metadados
 
 ```python
-from pepperpy.core.apps import MediaApp
+from pepperpy.apps import MediaApp
 
 app = MediaApp("media_processor")
 app.configure(output_format="text")
@@ -131,7 +131,7 @@ Aplicação para Retrieval Augmented Generation (RAG). Suporta:
 - Consultas com recuperação de contexto
 
 ```python
-from pepperpy.core.apps import RAGApp
+from pepperpy.apps import RAGApp
 
 app = RAGApp("rag_app")
 
@@ -160,7 +160,7 @@ Aplicação para assistentes de IA. Suporta:
 - Geração de respostas
 
 ```python
-from pepperpy.core.apps import AssistantApp
+from pepperpy.apps import AssistantApp
 
 app = AssistantApp("assistant")
 app.set_system_message("Você é um assistente útil.")
@@ -207,7 +207,7 @@ print(result.sources)  # Para RAGResult
 Para criar uma nova aplicação especializada, herde de `BaseApp`:
 
 ```python
-from pepperpy.core.apps import BaseApp
+from pepperpy.apps import BaseApp
 
 class MyApp(BaseApp):
     async def process(self, input_data):

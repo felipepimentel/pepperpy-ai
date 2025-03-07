@@ -2,6 +2,10 @@
 
 Este módulo define a classe AssistantApp, que fornece funcionalidades
 para criação e interação com assistentes de IA usando o framework PepperPy.
+
+Note: Esta aplicação fornece uma interface de alto nível para funcionalidades de assistente.
+Ela é construída sobre as implementações de assistente em pepperpy.core.assistant,
+mas fornece uma API simplificada para casos de uso comuns.
 """
 
 import asyncio
@@ -9,7 +13,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.apps.base import BaseApp
+from pepperpy.apps.base import BaseApp
 
 
 @dataclass

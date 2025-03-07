@@ -31,7 +31,7 @@ import random
 from datetime import datetime
 from typing import Any, Dict
 
-from pepperpy.core.apps import ContentApp
+from pepperpy.apps import ContentApp
 from pepperpy.core.sources.base import BaseSource
 
 

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
-from pepperpy.core.apps.base import BaseApp
+from pepperpy.apps.base import BaseApp
 
 
 @dataclass

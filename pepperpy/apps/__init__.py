@@ -16,7 +16,7 @@ Classes:
     AssistantApp: Aplicação para assistentes de IA
 
 Example:
-    >>> from pepperpy.core.apps import TextApp
+    >>> from pepperpy.apps import TextApp
     >>> app = TextApp("my_text_app")
     >>> app.configure(operations=["summarize", "translate"])
     >>> result = await app.process("Texto para processar")
@@ -25,18 +25,18 @@ Example:
 
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.apps.assistant import (
+from pepperpy.apps.assistant import (
     AssistantApp,
     AssistantResponse,
     Conversation,
     Message,
 )
-from pepperpy.core.apps.base import BaseApp
-from pepperpy.core.apps.content import ContentApp, ContentResult
-from pepperpy.core.apps.data import DataApp, DataResult
-from pepperpy.core.apps.media import MediaApp, MediaResult
-from pepperpy.core.apps.rag import RAGApp, RAGResult
-from pepperpy.core.apps.text import TextApp, TextResult
+from pepperpy.apps.base import BaseApp
+from pepperpy.apps.content import ContentApp, ContentResult
+from pepperpy.apps.data import DataApp, DataResult
+from pepperpy.apps.media import MediaApp, MediaResult
+from pepperpy.apps.rag import RAGApp, RAGResult
+from pepperpy.apps.text import TextApp, TextResult
 
 __all__ = [
     "BaseApp",

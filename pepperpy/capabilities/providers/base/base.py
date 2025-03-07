@@ -1,39 +1,15 @@
-"""Provider capabilities for the Pepperpy framework.
+"""Base provider capability interface.
 
-This module defines the base provider capabilities and interfaces used
-throughout the framework. It includes:
-- Provider capability interface
-- Provider configuration
-- Provider lifecycle management
+This module defines the base provider capability interface that all providers
+must implement.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, TypeVar
-from uuid import UUID, uuid4
+from typing import Any, Dict
 
-from pydantic import BaseModel, Field
-
+from pepperpy.capabilities.providers.base.types import ProviderConfig
 from pepperpy.core.base import Capability
 from pepperpy.core.common.messages import ProviderMessage, ProviderResponse
-
-# Type variables
-T = TypeVar("T")
-ProviderType = TypeVar("ProviderType", bound="ProviderCapability")
-
-
-class ProviderConfig(BaseModel):
-    """Provider configuration model.
-
-    Attributes:
-        id: Unique provider identifier
-        type: Provider type identifier
-        config: Provider-specific configuration
-
-    """
-
-    id: UUID = Field(default_factory=uuid4)
-    type: str
-    config: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ProviderCapability(Capability, ABC):

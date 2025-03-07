@@ -15,6 +15,7 @@ O framework PepperPy fornece componentes para:
 
 Módulos Principais:
     pepperpy.core: Componentes fundamentais e infraestrutura básica
+    pepperpy.apps: Aplicações especializadas para diferentes domínios
     pepperpy.multimodal: Processamento multimodal (texto, imagem, áudio, vídeo)
     pepperpy.workflows: Fluxos de trabalho e orquestração
     pepperpy.agents: Agentes inteligentes e assistentes
@@ -24,7 +25,7 @@ Módulos Principais:
 
 Example:
     >>> import pepperpy as pp
-    >>> from pepperpy.core.apps import TextApp
+    >>> from pepperpy.apps import TextApp
     >>> app = TextApp("my_text_app")
     >>> app.configure(operations=["summarize", "translate"])
     >>> result = await app.process("Texto para processar")
@@ -40,7 +41,7 @@ Example:
 from typing import Any, Dict, List, Optional, Union
 
 # Aplicações
-from pepperpy.core.apps import (
+from pepperpy.apps import (
     AssistantApp,
     AssistantResponse,
     BaseApp,

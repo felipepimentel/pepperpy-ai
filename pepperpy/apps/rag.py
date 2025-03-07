@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.apps.base import BaseApp
+from pepperpy.apps.base import BaseApp
 
 
 @dataclass

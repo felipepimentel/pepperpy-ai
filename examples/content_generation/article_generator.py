@@ -25,7 +25,7 @@ import random
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pepperpy.core.apps import ContentApp
+from pepperpy.apps import ContentApp
 
 
 def generate_fake_topic() -> str:
