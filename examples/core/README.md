@@ -1,18 +1,16 @@
-# Exemplos de Componentes Core do PepperPy
+# PepperPy Core Examples
 
-Este diretório contém exemplos de uso dos componentes core do PepperPy, incluindo aplicações e fontes de dados.
+Este diretório contém exemplos demonstrando como usar as funcionalidades do núcleo do framework PepperPy.
 
 ## Exemplos Disponíveis
 
-### app_source_example.py
+### App Source Example
 
-Este exemplo demonstra como utilizar as aplicações e fontes de dados do PepperPy para criar um fluxo de processamento completo.
+O script `app_source_example.py` demonstra:
 
-O exemplo realiza as seguintes operações:
-1. Lê dados de um arquivo JSON
-2. Processa os dados com uma aplicação DataApp
-3. Gera conteúdo com base nos dados processados usando ContentApp
-4. Salva o conteúdo em um arquivo de texto
+- Implementação de fontes de dados para aplicações
+- Processamento de dados com aplicações PepperPy
+- Geração de conteúdo a partir de dados processados
 
 Para executar:
 
@@ -20,11 +18,21 @@ Para executar:
 python examples/core/app_source_example.py
 ```
 
+## Requisitos
+
+Todos os exemplos requerem que o framework PepperPy esteja instalado. Você pode instalá-lo usando:
+
+```bash
+pip install -e ../..
+```
+
 ou
 
 ```bash
-./examples/core/app_source_example.py
+poetry install
 ```
+
+a partir do diretório raiz do repositório.
 
 ## Componentes Demonstrados
 

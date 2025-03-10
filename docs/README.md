@@ -1,51 +1,80 @@
-# Documentação do PepperPy
+# PepperPy Framework Documentation
 
-Bem-vindo à documentação do PepperPy! Esta documentação foi criada para ajudar desenvolvedores a entender e utilizar os diversos módulos do framework PepperPy.
+Welcome to the PepperPy Framework documentation. This documentation provides comprehensive information about the framework, its components, and how to use them.
 
-## Estrutura da Documentação
+## Overview
 
-A documentação está organizada da seguinte forma:
+PepperPy is a modular Python framework designed for building AI-powered applications. It provides a set of tools and abstractions for working with large language models, retrieval-augmented generation, data processing, and more.
 
-- **[Página Inicial](./index.md)**: Visão geral do PepperPy e ponto de entrada para a documentação.
-- **[Módulos](./modules.md)**: Lista de todos os módulos disponíveis no PepperPy.
-- **Documentação de Módulos**: Documentação detalhada para cada módulo, localizada em `./modules/[nome-do-modulo].md`.
+## Documentation Structure
 
-## Módulos Documentados
+The documentation is organized into the following sections:
 
-Atualmente, a documentação cobre os seguintes módulos:
+- **API Reference**: Detailed reference documentation for the framework's API.
+- **User Guide**: Guides and tutorials for using the framework.
+- **Developer Guide**: Information for developers who want to contribute to the framework.
+- **Examples**: Example code and projects that demonstrate how to use the framework.
 
-- [Core](./modules/core.md) - Componentes e abstrações fundamentais
-- [LLM](./modules/llm.md) - Integração com modelos de linguagem
-- [Agents](./modules/agents.md) - Agentes autônomos e interativos
-- [RAG](./modules/rag.md) - Retrieval Augmented Generation
-- [Memory](./modules/memory.md) - Gerenciamento de memória para contexto
-- [Embedding](./modules/embedding.md) - Geração e manipulação de embeddings
-- [Storage](./modules/storage.md) - Armazenamento de dados
-- [Workflows](./modules/workflows.md) - Orquestração de fluxos de trabalho
-- [Multimodal](./modules/multimodal.md) - Processamento multimodal (visão, áudio)
+## Getting Started
 
-## Como Usar Esta Documentação
+To get started with PepperPy, follow these steps:
 
-Cada página de documentação de módulo segue uma estrutura consistente:
+1. Install the framework:
+   ```bash
+   pip install pepperpy
+   ```
 
-1. **Visão Geral**: Uma introdução ao módulo e suas principais funcionalidades.
-2. **Principais Componentes**: Descrição dos componentes mais importantes do módulo.
-3. **Exemplos de Uso**: Exemplos práticos de como utilizar o módulo.
-4. **Exemplo Completo**: Um exemplo mais abrangente que demonstra o uso do módulo em um cenário realista.
-5. **Melhores Práticas**: Recomendações para utilizar o módulo de forma eficiente.
+2. Import the framework in your code:
+   ```python
+   import pepperpy
+   ```
 
-## Contribuindo para a Documentação
+3. Use the framework's components:
+   ```python
+   # Example: Using the LLM module
+   from pepperpy.llm import get_provider, generate_text
+   
+   # Initialize a provider
+   provider = get_provider("openai")
+   
+   # Generate text
+   response = generate_text(provider, "Hello, world!")
+   print(response)
+   ```
 
-Se você encontrar erros, omissões ou tiver sugestões para melhorar esta documentação, sinta-se à vontade para contribuir:
+## Key Features
 
-1. Faça um fork do repositório
-2. Crie uma branch para suas alterações
-3. Faça as alterações necessárias
-4. Envie um pull request
+- **Modular Design**: The framework is designed to be modular, allowing you to use only the components you need.
+- **Extensible**: You can extend the framework with your own components and providers.
+- **Type-Safe**: The framework is built with type safety in mind, providing type hints for all public APIs.
+- **Async-First**: The framework is designed to be used with async/await, making it suitable for high-performance applications.
+- **Comprehensive**: The framework provides a wide range of tools and abstractions for building AI-powered applications.
 
-## Recursos Adicionais
+## Core Modules
 
-- [Site Oficial do PepperPy](https://pepperpy.ai)
-- [Repositório GitHub](https://github.com/pepperpy/pepperpy)
-- [Exemplos de Código](https://github.com/pepperpy/pepperpy/tree/main/examples)
-- [Comunidade Discord](https://discord.gg/pepperpy) 
+- **LLM**: Integration with large language models.
+- **RAG**: Retrieval-augmented generation.
+- **Data**: Data processing and persistence.
+- **Workflows**: Workflow management.
+- **Events**: Event-driven architecture.
+- **Plugins**: Plugin system for extending the framework.
+- **HTTP**: HTTP client and server.
+- **Cache**: Caching system.
+- **Storage**: Storage system.
+- **Memory**: Memory management.
+- **Streaming**: Streaming functionality.
+- **Config**: Configuration management.
+- **CLI**: Command-line interface.
+- **Utils**: Utility functions.
+- **Types**: Type definitions.
+- **Errors**: Error handling.
+- **Interfaces**: Interface definitions.
+- **Registry**: Component registry.
+
+## Contributing
+
+We welcome contributions to the framework. Please see the [Developer Guide](./dev/README.md) for more information on how to contribute.
+
+## License
+
+PepperPy is licensed under the MIT License. See the [LICENSE](../LICENSE) file for more information. 

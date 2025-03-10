@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Assistente de pesquisa usando PepperPy.
+"""Assistente virtual usando PepperPy.
 
 Purpose:
-    Demonstrar como criar um assistente de pesquisa que pode buscar informações,
-    analisar documentos e gerar relatórios, utilizando o framework PepperPy
-    para orquestrar o fluxo de trabalho.
+    Demonstrar como criar um assistente virtual que pode processar comandos,
+    responder perguntas e gerenciar contexto de conversação, utilizando o
+    framework PepperPy para orquestrar o fluxo de trabalho.
 
 Requirements:
     - Python 3.9+
@@ -16,7 +16,7 @@ Usage:
        pip install pepperpy
 
     2. Run the example:
-       python examples/virtual_assistants/research_assistant.py
+       python examples/assistants/virtual_assistant_example.py
 """
 
 import asyncio
@@ -89,11 +89,11 @@ async def perform_research(
     }
 
     # Realizar pesquisa
-    result = await assistant.research(research_params)
+    result = await assistant.process_message(f"Pesquise sobre {topic}")
 
     # Salvar resultado
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(result["content"])
+        f.write(result.get("content", "Sem conteúdo disponível"))
 
     print(f"Pesquisa concluída. Relatório salvo em: {output_path}")
     return output_path
@@ -101,12 +101,12 @@ async def perform_research(
 
 async def main():
     """Função principal."""
-    print("=== Assistente de Pesquisa PepperPy ===")
-    print("Este exemplo demonstra como usar o assistente de pesquisa do PepperPy.")
+    print("=== Assistente Virtual PepperPy ===")
+    print("Este exemplo demonstra como usar o assistente virtual do PepperPy.")
 
     # Criar assistente de pesquisa
     assistant = ResearchAssistant(
-        name="research_assistant",
+        name="virtual_assistant",
         config={
             "depth": "medium",
             "output_format": "markdown",
@@ -114,6 +114,7 @@ async def main():
             "max_sources": 3,
             "verify_facts": True,
         },
+        sources=["https://example.com/source1", "https://example.com/source2"],
     )
 
     # Inicializar assistente
@@ -134,18 +135,12 @@ async def main():
 
             print(f"\n=== Pesquisa {i}: {topic} (Profundidade: {depth}) ===")
 
-            # Configurar fontes e caminho de saída
-            assistant.sources = []
-            assistant.set_output_path(output_path)
-
             # Realizar pesquisa
-            result = await assistant.research(topic)
-
-            print(f"Pesquisa concluída. Relatório salvo em: {result['output_path']}")
+            await perform_research(assistant, topic, depth, max_sources)
 
     finally:
-        # Não há método cleanup na classe ResearchAssistant
-        pass
+        # Limpar recursos
+        await assistant.cleanup()
 
     print("\n=== Demonstração concluída ===")
 

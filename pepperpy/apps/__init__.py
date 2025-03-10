@@ -28,3 +28,19 @@ from pepperpy.apps.public import *
 
 # Re-export everything from public
 __all__ = public.__all__
+
+"""Applications module for PepperPy.
+
+This module provides high-level applications built on top of the framework.
+"""
+
+# Ensure the directory exists
+import os
+from typing import Any, Dict, List, Optional, Union
+
+os.makedirs(os.path.dirname(__file__), exist_ok=True)
+
+# Import from public module
+from pepperpy.apps.public import RAGApp
+
+__all__ = ["RAGApp"]

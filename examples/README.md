@@ -1,112 +1,203 @@
 # PepperPy Framework Examples
 
-This directory contains example scripts demonstrating how to use the PepperPy framework.
+Este diretório contém exemplos demonstrando como usar o framework PepperPy. Os exemplos estão organizados em uma estrutura padronizada para facilitar a compreensão e o uso.
 
-## Basic Examples
+## Estrutura de Exemplos
 
-### Basic Test
+Os exemplos estão organizados da seguinte forma:
 
-The `basic_test.py` script demonstrates the basic functionality of the PepperPy framework, including:
+1. **Exemplos Básicos**: Localizados na raiz do diretório `examples/`
+   - Demonstram funcionalidades fundamentais do framework
+   - São exemplos simples e autocontidos
+   - Servem como ponto de entrada para novos usuários
 
-- Storage module
-- Workflows module
-- Configuration handling
-- Error handling
+2. **Exemplos Específicos de Domínio**: Localizados em subpastas organizadas por funcionalidade
+   - Cada subpasta corresponde a um módulo ou funcionalidade específica
+   - Cada subpasta contém um arquivo README.md com documentação específica
+   - Os exemplos demonstram casos de uso mais avançados ou específicos
 
-To run the basic test:
+## Exemplos Básicos
 
-```bash
-python basic_test.py
-```
+### Hello PepperPy
 
-### RAG Example
+O script `hello_pepperpy.py` fornece uma introdução ao framework PepperPy, demonstrando:
 
-The `rag_example.py` script demonstrates how to use the Retrieval-Augmented Generation (RAG) capabilities of the PepperPy framework.
+- Conceitos básicos do framework
+- Níveis de abstração
+- APIs principais
 
-To run the RAG example:
-
-```bash
-python rag_example.py
-```
-
-### Workflow Example
-
-The `workflow_example.py` script demonstrates how to create and execute workflows using the PepperPy framework.
-
-To run the workflow example:
+Para executar:
 
 ```bash
-python workflow_example.py
+python examples/hello_pepperpy.py
 ```
 
-### Storage Example
+### Exemplo Simples
 
-The `storage_example.py` script demonstrates how to use the storage capabilities of the PepperPy framework.
+O script `simple_example.py` demonstra o gerenciamento básico de memória no PepperPy:
 
-To run the storage example:
+- Armazenamento de memórias de conversas
+- Recuperação de histórico de conversas
+- Estrutura básica de um aplicativo PepperPy
+
+Para executar:
 
 ```bash
-python storage_example.py
+python examples/simple_example.py
 ```
 
-### Streaming Example
+### Teste Básico
 
-The `streaming_example.py` script demonstrates how to use the streaming capabilities of the PepperPy framework.
+O script `basic_test.py` testa as funcionalidades básicas do framework PepperPy, incluindo:
 
-To run the streaming example:
+- Módulo de armazenamento
+- Módulo de fluxos de trabalho
+- Manipulação de configuração
+- Tratamento de erros
+
+Para executar:
 
 ```bash
-python streaming_example.py
+python examples/basic_test.py
 ```
 
-### Security Example
+### Exemplo de RAG
 
-The `security_example.py` script demonstrates how to use the security features of the PepperPy framework.
+O script `rag_example.py` demonstra como usar as capacidades de Retrieval-Augmented Generation (RAG) do framework PepperPy.
 
-To run the security example:
+Para executar:
 
 ```bash
-python security_example.py
+python examples/rag_example.py
 ```
 
-## Memory Examples
+### Exemplo de Fluxo de Trabalho
 
-The `memory` directory contains examples demonstrating how to use the memory capabilities of the PepperPy framework:
+O script `workflow_example.py` demonstra como criar e executar fluxos de trabalho usando o framework PepperPy.
 
-- `simple_memory.py`: Demonstrates basic memory operations
-- `memory_example.py`: Demonstrates more advanced memory features
-
-To run the memory examples:
+Para executar:
 
 ```bash
-python memory/simple_memory.py
-python memory/memory_example.py
+python examples/workflow_example.py
 ```
 
-## Running All Examples
+### Exemplo de Armazenamento
 
-To run all examples, you can use the following command:
+O script `storage_example.py` demonstra como usar as capacidades de armazenamento do framework PepperPy.
+
+Para executar:
 
 ```bash
-for example in $(find . -name "*.py" | grep -v "__pycache__"); do
-    echo "Running $example..."
-    python $example
-    echo "------------------------"
-done
+python examples/storage_example.py
 ```
 
-## Requirements
+### Exemplo de Streaming
 
-All examples require the PepperPy framework to be installed. You can install it using:
+O script `streaming_example.py` demonstra como usar as capacidades de streaming do framework PepperPy.
+
+Para executar:
+
+```bash
+python examples/streaming_example.py
+```
+
+### Exemplo de Segurança
+
+O script `security_example.py` demonstra como usar os recursos de segurança do framework PepperPy.
+
+Para executar:
+
+```bash
+python examples/security_example.py
+```
+
+## Exemplos Específicos de Domínio
+
+### Exemplos de Memória
+
+O diretório `memory/` contém exemplos demonstrando como usar as capacidades de memória do framework PepperPy:
+
+- `simple_memory.py`: Demonstra operações básicas de memória
+- `memory_example.py`: Demonstra recursos avançados de memória
+
+Para executar os exemplos de memória:
+
+```bash
+python examples/memory/simple_memory.py
+python examples/memory/memory_example.py
+```
+
+### Exemplos de RAG
+
+O diretório `rag/` contém exemplos demonstrando como usar as capacidades avançadas de RAG do framework PepperPy:
+
+- `document_qa.py`: Demonstra perguntas e respostas baseadas em documentos
+
+Para executar:
+
+```bash
+python examples/rag/document_qa.py
+```
+
+### Exemplos de Core
+
+O diretório `core/` contém exemplos das funcionalidades do núcleo do framework:
+
+- `app_source_example.py`: Implementação de fonte de aplicação
+
+Para executar:
+
+```bash
+python examples/core/app_source_example.py
+```
+
+### Outros Exemplos de Domínio
+
+- `assistants/`: Assistentes virtuais
+- `composition/`: Composição de componentes
+- `content_generation/`: Geração de conteúdo
+- `integrations/`: Integração com serviços externos
+- `multimodal/`: Processamento multimodal
+- `text_processing/`: Processamento de texto
+- `workflow_automation/`: Automação de fluxos de trabalho
+
+## Executando Todos os Exemplos
+
+Para executar todos os exemplos, você pode usar o script de teste:
+
+```bash
+python scripts/test_examples.py
+```
+
+Este script:
+1. Encontra todos os arquivos de exemplo Python no diretório `examples/`
+2. Executa cada exemplo com um timeout
+3. Relata sucesso ou falha para cada exemplo
+4. Fornece um resumo dos resultados dos testes
+
+## Requisitos
+
+Todos os exemplos requerem que o framework PepperPy esteja instalado. Você pode instalá-lo usando:
 
 ```bash
 pip install -e ..
 ```
 
-or
+ou
 
 ```bash
 poetry install
 ```
 
-from the root directory of the repository. 
+a partir do diretório raiz do repositório.
+
+## Padrões de Código
+
+Todos os exemplos seguem uma estrutura padronizada e convenções de codificação conforme definido em `.product/EXAMPLE_STANDARDS.md`, incluindo:
+
+1. **Docstrings Abrangentes**: Seções de Purpose, Requirements e Usage
+2. **Type Hints**: Todas as funções e métodos incluem anotações de tipo
+3. **Tratamento de Erros**: Tratamento adequado de exceções com exceções específicas
+4. **Imports Organizados**: Agrupados por biblioteca padrão, terceiros e framework
+5. **Código Assíncrono**: Padrão async/await quando apropriado
+6. **Conformidade com PEP 8**: Formatação e estilo consistentes 

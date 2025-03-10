@@ -1,18 +1,16 @@
-# Exemplos de Integração Multimodal do PepperPy
+# PepperPy Multimodal Examples
 
-Este diretório contém exemplos de uso da integração multimodal do PepperPy, demonstrando como converter entre diferentes modalidades (texto, imagem, áudio, vídeo).
+Este diretório contém exemplos demonstrando como usar as funcionalidades multimodais do framework PepperPy.
 
 ## Exemplos Disponíveis
 
-### integration_example.py
+### Integration Example
 
-Este exemplo demonstra como utilizar os conversores multimodais para converter entre diferentes modalidades (texto e imagem).
+O script `integration_example.py` demonstra:
 
-O exemplo realiza as seguintes operações:
-1. Cria dados de texto
-2. Converte texto para imagem usando TextToImageConverter
-3. Converte imagem para texto usando ImageToTextConverter
-4. Demonstra o uso da função de alto nível convert_between_modalities
+- Processamento de múltiplos tipos de mídia
+- Integração de texto, imagem e áudio
+- Análise e geração de conteúdo multimodal
 
 Para executar:
 
@@ -20,11 +18,21 @@ Para executar:
 python examples/multimodal/integration_example.py
 ```
 
+## Requisitos
+
+Todos os exemplos requerem que o framework PepperPy esteja instalado. Você pode instalá-lo usando:
+
+```bash
+pip install -e ../..
+```
+
 ou
 
 ```bash
-./examples/multimodal/integration_example.py
+poetry install
 ```
+
+a partir do diretório raiz do repositório.
 
 ## Componentes Demonstrados
 
