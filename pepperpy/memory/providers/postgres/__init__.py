@@ -1,1 +1,0 @@
-"""PostgreSQL memory provider implementation"""

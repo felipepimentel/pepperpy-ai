@@ -1,115 +1,134 @@
 """RAG (Retrieval Augmented Generation) module.
 
-This module provides a modular framework for building RAG applications with clear
-separation between indexing, retrieval, and generation components.
+This module provides functionality for building and using RAG systems.
+It includes components for document storage, retrieval, reranking,
+and generation, along with a flexible pipeline system.
+
+Example usage:
+    ```python
+    from pepperpy.rag import RAGPipelineBuilder
+    from pepperpy.rag.providers.embedding import OpenAIEmbeddingProvider
+    from pepperpy.rag.providers.reranking import CrossEncoderProvider
+    from pepperpy.rag.providers.generation import OpenAIGenerationProvider
+    from pepperpy.rag.storage import ChromaVectorStore
+
+    # Initialize components
+    vector_store = ChromaVectorStore(...)
+    embedding_provider = OpenAIEmbeddingProvider(...)
+    reranker = CrossEncoderProvider(...)
+    generator = OpenAIGenerationProvider(...)
+
+    # Build pipeline
+    pipeline = (
+        RAGPipelineBuilder()
+        .with_retrieval(vector_store, embedding_provider)
+        .with_reranking(reranker)
+        .with_generation(generator)
+        .build()
+    )
+
+    # Process query
+    result = await pipeline.process("What is the capital of France?")
+    print(result["response"])
+    ```
 """
 
-# Core components
-from pepperpy.rag.base import RagComponent, RagPipeline
-from pepperpy.rag.config import (
-    ChunkingConfig,
-    EmbeddingConfig,
-    GenerationConfig,
-    IndexConfig,
-    RagConfig,
-    RetrievalConfig,
-    create_default_config,
-)
-from pepperpy.rag.factory import RagPipelineFactory
-
-# Generation components
-from pepperpy.rag.generation import (
-    ContextAwareGenerator,
-    GenerationManager,
-    Generator,
-    PromptGenerator,
+from pepperpy.rag.document.core import DocumentChunk
+from pepperpy.rag.errors import (
+    DocumentError,
+    DocumentLoadError,
+    DocumentProcessError,
+    GenerationError,
+    PipelineError,
+    PipelineStageError,
+    QueryError,
+    RAGError,
+    RetrievalError,
+    StorageError,
+    VectorStoreError,
 )
 
-# Indexing components
-from pepperpy.rag.indexing import (
-    Chunker,
-    DocumentIndexer,
-    Embedder,
-    Indexer,
-    IndexingManager,
-)
-from pepperpy.rag.pipeline import StandardRagPipeline
+# Try to import pipeline components, but don't fail if dependencies are missing
+try:
+    from pepperpy.rag.pipeline.builder import RAGPipeline, RAGPipelineBuilder
 
-# Re-export public interfaces
-from pepperpy.rag.public import (
-    Document,
-    RAGConfig,
-    RAGFactory,
-    RAGPipeline,
-    Retriever,
-    SearchQuery,
-    SearchResult,
-    VectorRetriever,
-)
-from pepperpy.rag.registry import RagRegistry, rag_registry
+    _has_pipeline = True
+except ImportError:
+    _has_pipeline = False
 
-# Retrieval components
-from pepperpy.rag.retrieval import (
-    RetrievalManager,
-    SimilarityRetriever,
-)
-from pepperpy.rag.retrieval import Retriever as InternalRetriever
-from pepperpy.rag.types import (
-    Chunk,
-    Embedding,
-    RagComponentType,
-    RagContext,
-    RagResponse,
-)
-from pepperpy.rag.types import Document as InternalDocument
-from pepperpy.rag.types import SearchQuery as InternalSearchQuery
-from pepperpy.rag.types import SearchResult as InternalSearchResult
+# Import pipeline stages with error handling for missing components
+try:
+    from pepperpy.rag.pipeline.stages import (
+        GenerationStage,
+        RerankingStage,
+        RetrievalStage,
+    )
 
+    _has_stages = True
+except ImportError:
+    _has_stages = False
+
+# Import embedding providers
+try:
+    from pepperpy.rag.providers.embedding import (
+        BaseEmbeddingProvider,
+    )
+
+    _has_embedding = True
+except ImportError:
+    _has_embedding = False
+
+# Import vector stores with error handling for missing components
+try:
+    from pepperpy.rag.storage import (
+        VectorStore,
+    )
+
+    _has_storage = True
+except ImportError:
+    _has_storage = False
+
+# Define exports
 __all__ = [
-    # Public interfaces
-    "Document",
-    "Retriever",
-    "SearchQuery",
-    "SearchResult",
-    "VectorRetriever",
-    "RAGPipeline",
-    "RAGConfig",
-    "RAGFactory",
-    # Core components
-    "RagComponent",
-    "RagPipeline",
-    "RagConfig",
-    "ChunkingConfig",
-    "EmbeddingConfig",
-    "IndexConfig",
-    "RetrievalConfig",
-    "GenerationConfig",
-    "create_default_config",
-    "RagPipelineFactory",
-    "StandardRagPipeline",
-    "RagRegistry",
-    "rag_registry",
-    "RagComponentType",
-    "InternalDocument",
-    "Chunk",
-    "Embedding",
-    "InternalSearchQuery",
-    "InternalSearchResult",
-    "RagContext",
-    "RagResponse",
-    # Indexing components
-    "Chunker",
-    "DocumentIndexer",
-    "Embedder",
-    "Indexer",
-    "IndexingManager",
-    # Retrieval components
-    "InternalRetriever",
-    "RetrievalManager",
-    "SimilarityRetriever",
-    # Generation components
-    "Generator",
-    "PromptGenerator",
-    "ContextAwareGenerator",
-    "GenerationManager",
+    # Core
+    "DocumentChunk",
+    # Errors
+    "RAGError",
+    "DocumentError",
+    "DocumentLoadError",
+    "DocumentProcessError",
+    "StorageError",
+    "VectorStoreError",
+    "PipelineError",
+    "PipelineStageError",
+    "QueryError",
+    "RetrievalError",
+    "GenerationError",
 ]
+
+# Add pipeline exports if available
+if _has_pipeline:
+    __all__.extend([
+        "RAGPipeline",
+        "RAGPipelineBuilder",
+    ])
+
+# Add stage exports if available
+if _has_stages:
+    __all__.extend([
+        "GenerationStage",
+        "RerankingStage",
+        "RetrievalStage",
+    ])
+
+# Add embedding exports if available
+if _has_embedding:
+    __all__.extend([
+        "BaseEmbeddingProvider",
+    ])
+
+# Add storage exports if available
+if _has_storage:
+    __all__.extend([
+        "VectorStore",
+    ])

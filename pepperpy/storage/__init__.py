@@ -1,25 +1,14 @@
-"""Storage module for PepperPy.
+"""
+PepperPy Storage Module.
 
-This module provides storage capabilities for saving and loading data.
+This module provides storage functionality for the PepperPy framework.
 """
 
-# Import internal implementations
-from pepperpy.storage.base import BaseStorage, StorageError, StorageMetadata
-
-# Re-export public interfaces
-from pepperpy.storage.public import (
-    FileStorage,
-    ObjectStorage,
-    StorageCapability,
-)
+from pepperpy.storage.public import *
 
 __all__ = [
-    # Public interfaces
-    "StorageCapability",
+    "Storage",
+    "StorageProvider",
     "FileStorage",
-    "ObjectStorage",
-    # Implementation classes
-    "BaseStorage",
-    "StorageError",
-    "StorageMetadata",
+    "MemoryStorage",
 ]

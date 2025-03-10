@@ -1,1 +1,0 @@
-"""Format providers package."""

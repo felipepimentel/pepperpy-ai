@@ -1,133 +1,146 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""Exemplo simples de uso do PepperPy.
+"""Simple example of the PepperPy framework.
 
 Purpose:
-    Demonstrar como usar o PepperPy de forma simples e direta.
+    Demonstrate the basic structure and capabilities of the PepperPy framework.
 
 Requirements:
-    - Python 3.9+
+    - Python 3.8+
+    - Asyncio support
 
 Usage:
-    1. Run the example:
-       python examples/simple_example.py
+    python simple_example.py
 """
 
 import asyncio
-import random
+from datetime import datetime
+from typing import Dict, List, Optional
 
 
-class SimpleApp:
-    """Aplicação simples para demonstração."""
+class ConversationMemory:
+    """Memory item for conversations."""
 
-    def __init__(self, name: str) -> None:
-        """Inicializa a aplicação.
-
-        Args:
-            name: Nome da aplicação
-        """
-        self.name = name
-        print(f"Aplicação {name} inicializada")
-
-    async def process(self, text: str) -> str:
-        """Processa um texto.
-
-        Args:
-            text: Texto a ser processado
-
-        Returns:
-            Texto processado
-        """
-        print(f"Processando texto: {text}")
-
-        # Simular processamento
-        await asyncio.sleep(0.5)
-
-        # Processar texto
-        processed_text = text.strip().upper()
-
-        return f"Resultado: {processed_text}"
+    def __init__(
+        self,
+        content: str,
+        speaker: str,
+        conversation_id: str,
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> None:
+        """Initialize the conversation memory."""
+        self.content = content
+        self.speaker = speaker
+        self.conversation_id = conversation_id
+        self.metadata = metadata or {}
+        self.timestamp = datetime.now()
 
 
-def generate_fake_text() -> str:
-    """Gera um texto fake para demonstração.
+class MemoryManager:
+    """Simple memory manager for demonstration purposes."""
 
-    Returns:
-        Texto fake
-    """
-    topics = [
-        "inteligência artificial",
-        "aprendizado de máquina",
-        "processamento de linguagem natural",
-        "visão computacional",
-        "robótica",
-        "internet das coisas",
-        "computação em nuvem",
-        "big data",
-        "blockchain",
-        "segurança cibernética",
-    ]
+    def __init__(self) -> None:
+        """Initialize the memory manager."""
+        self.memories: List[ConversationMemory] = []
 
-    adjectives = [
-        "avançado",
-        "moderno",
-        "inovador",
-        "revolucionário",
-        "disruptivo",
-        "eficiente",
-        "escalável",
-        "robusto",
-        "flexível",
-        "inteligente",
-    ]
+    async def store_memory(self, memory: ConversationMemory) -> None:
+        """Store a memory item."""
+        self.memories.append(memory)
 
-    templates = [
-        "Este é um exemplo de texto sobre {topic}.",
-        "Vamos explorar o conceito de {topic} {adjective}.",
-        "O {topic} está transformando o mundo de forma {adjective}.",
-        "Aplicações {adjective}s de {topic} estão em alta.",
-        "Como o {topic} {adjective} está mudando o futuro.",
-        "Tendências {adjective}s em {topic} para 2023.",
-        "Desafios e oportunidades em {topic} {adjective}.",
-        "Implementando soluções de {topic} de maneira {adjective}.",
-        "O impacto do {topic} {adjective} na sociedade moderna.",
-        "Estratégias {adjective}s para adoção de {topic}.",
-    ]
+    async def get_conversation_history(
+        self,
+        conversation_id: str,
+    ) -> List[ConversationMemory]:
+        """Get conversation history."""
+        # Filter for the specified conversation ID
+        conversation_memories = [
+            memory
+            for memory in self.memories
+            if memory.conversation_id == conversation_id
+        ]
 
-    topic = random.choice(topics)
-    adjective = random.choice(adjectives)
-    template = random.choice(templates)
+        # Sort by timestamp (oldest first for conversation history)
+        conversation_memories.sort(key=lambda x: x.timestamp)
 
-    return template.format(topic=topic, adjective=adjective)
+        return conversation_memories
 
 
-async def main():
-    """Função principal."""
-    print("=== Exemplo Simples de Uso do PepperPy ===")
+# Create a global memory manager
+memory_manager = MemoryManager()
 
-    # Criar aplicação
-    app = SimpleApp(name="exemplo_simples")
 
-    # Gerar textos fake
-    print("\nProcessando múltiplos textos fake:")
+async def remember_conversation(
+    content: str,
+    speaker: str,
+    conversation_id: str,
+    metadata: Optional[Dict[str, str]] = None,
+) -> ConversationMemory:
+    """Remember a conversation message."""
+    memory = ConversationMemory(
+        content=content,
+        speaker=speaker,
+        conversation_id=conversation_id,
+        metadata=metadata,
+    )
+    await memory_manager.store_memory(memory)
+    return memory
 
-    for i in range(3):
-        # Gerar texto fake
-        fake_text = generate_fake_text()
-        print(f"\nTexto {i + 1}: {fake_text}")
 
-        # Processar texto
-        result = await app.process(fake_text)
+async def recall_conversation(
+    conversation_id: str,
+) -> List[ConversationMemory]:
+    """Recall conversation history."""
+    return await memory_manager.get_conversation_history(conversation_id)
 
-        # Exibir resultado
-        print(f"Resultado {i + 1}: {result}")
 
-        # Pausa entre processamentos
-        if i < 2:
-            await asyncio.sleep(0.5)
+async def main() -> None:
+    """Run the example."""
+    try:
+        print("PepperPy Framework Example")
+        print("=========================")
+        print("\nPepperPy provides modules for:")
+        print("- RAG (Retrieval Augmented Generation)")
+        print("- Memory Management")
+        print("- Streaming")
+        print("- Security")
+        print("- Storage")
+        print("- Workflows")
+        print("\nThis is a simplified demonstration of the framework.")
 
-    print("\n=== Processamento Concluído ===")
+        # Create a conversation
+        conversation_id = "example_conversation"
+        print(f"Creating conversation with ID: {conversation_id}")
+
+        # Store some conversation memories
+        print("\nStoring conversation memories...")
+        await remember_conversation(
+            content="Hello, how can I help you?",
+            speaker="assistant",
+            conversation_id=conversation_id,
+        )
+
+        await remember_conversation(
+            content="I'd like to know more about PepperPy.",
+            speaker="user",
+            conversation_id=conversation_id,
+        )
+
+        await remember_conversation(
+            content="PepperPy is a comprehensive framework for building AI applications.",
+            speaker="assistant",
+            conversation_id=conversation_id,
+        )
+
+        # Retrieve the conversation history
+        print("\nRetrieving conversation history...")
+        conversation = await recall_conversation(conversation_id)
+
+        print("\nConversation history:")
+        for i, message in enumerate(conversation):
+            print(f"{i + 1}. {message.speaker}: {message.content}")
+
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+        speaker=speaker,

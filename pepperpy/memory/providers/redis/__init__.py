@@ -1,1 +1,0 @@
-"""Redis memory provider implementation"""
