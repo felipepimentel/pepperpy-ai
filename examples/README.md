@@ -1,82 +1,112 @@
-# Exemplos do PepperPy
+# PepperPy Framework Examples
 
-Este diretório contém exemplos de uso do framework PepperPy, organizados por categoria para facilitar a navegação e compreensão.
+This directory contains example scripts demonstrating how to use the PepperPy framework.
 
-## Estrutura de Diretórios
+## Basic Examples
 
+### Basic Test
+
+The `basic_test.py` script demonstrates the basic functionality of the PepperPy framework, including:
+
+- Storage module
+- Workflows module
+- Configuration handling
+- Error handling
+
+To run the basic test:
+
+```bash
+python basic_test.py
 ```
-examples/
-├── content_generation/     # Exemplos de geração de conteúdo
-├── integrations/           # Exemplos de integração entre componentes
-├── text_processing/        # Exemplos de processamento de texto
-├── virtual_assistants/     # Exemplos de assistentes virtuais
-├── workflow_automation/    # Exemplos de automação de fluxos de trabalho
-└── hello_pepperpy.py       # Exemplo introdutório simples
+
+### RAG Example
+
+The `rag_example.py` script demonstrates how to use the Retrieval-Augmented Generation (RAG) capabilities of the PepperPy framework.
+
+To run the RAG example:
+
+```bash
+python rag_example.py
 ```
 
-## Categorias de Exemplos
+### Workflow Example
 
-### Introdução
+The `workflow_example.py` script demonstrates how to create and execute workflows using the PepperPy framework.
 
-- **[hello_pepperpy.py](hello_pepperpy.py)**: Exemplo introdutório que demonstra os conceitos básicos do PepperPy.
+To run the workflow example:
 
-### Processamento de Texto
+```bash
+python workflow_example.py
+```
 
-- **[basic_composition.py](text_processing/basic_composition.py)**: Demonstra o uso básico da API de composição.
-- **[document_summarizer.py](text_processing/document_summarizer.py)**: Exemplo de um resumidor de documentos.
-- **[universal_composition.py](text_processing/universal_composition.py)**: Demonstra o uso da API de composição universal.
-- **[multilingual_translator.py](text_processing/multilingual_translator.py)**: Sistema de tradução multilíngue.
+### Storage Example
 
-### Geração de Conteúdo
+The `storage_example.py` script demonstrates how to use the storage capabilities of the PepperPy framework.
 
-- **[article_generator.py](content_generation/article_generator.py)**: Gerador de artigos com diferentes formatos de saída.
-- **[news_podcast_generator.py](content_generation/news_podcast_generator.py)**: Gerador de podcasts de notícias a partir de feeds RSS.
+To run the storage example:
 
-### Automação de Fluxos de Trabalho
+```bash
+python storage_example.py
+```
 
-- **[simple_intent.py](workflow_automation/simple_intent.py)**: Exemplo básico de reconhecimento de intenção.
-- **[custom_components.py](workflow_automation/custom_components.py)**: Criação de componentes personalizados.
-- **[parallel_processing.py](workflow_automation/parallel_processing.py)**: Processamento paralelo de tarefas.
-- **[workflow_orchestration.py](workflow_automation/workflow_orchestration.py)**: Orquestração de fluxos de trabalho complexos.
-- **[parallel_pipeline_example.py](workflow_automation/parallel_pipeline_example.py)**: Exemplo de pipeline com processamento paralelo.
-- **[complex_workflow.py](workflow_automation/complex_workflow.py)**: Workflow complexo com condicionais e tratamento de erros.
+### Streaming Example
 
-### Integrações
+The `streaming_example.py` script demonstrates how to use the streaming capabilities of the PepperPy framework.
 
-- **[intent_to_composition.py](integrations/intent_to_composition.py)**: Integração entre reconhecimento de intenção e composição.
-- **[template_to_intent.py](integrations/template_to_intent.py)**: Integração entre templates e reconhecimento de intenção.
-- **[complete_flow.py](integrations/complete_flow.py)**: Fluxo completo integrando múltiplos componentes.
+To run the streaming example:
 
-### Assistentes Virtuais
+```bash
+python streaming_example.py
+```
 
-- **[research_assistant.py](virtual_assistants/research_assistant.py)**: Assistente de pesquisa que busca, analisa e gera relatórios.
+### Security Example
 
-## Como Executar os Exemplos
+The `security_example.py` script demonstrates how to use the security features of the PepperPy framework.
 
-1. Instale o PepperPy:
-   ```bash
-   pip install pepperpy
-   ```
+To run the security example:
 
-2. Execute o exemplo desejado:
-   ```bash
-   python examples/hello_pepperpy.py
-   # ou
-   python examples/text_processing/basic_composition.py
-   ```
+```bash
+python security_example.py
+```
 
-## Contribuindo com Novos Exemplos
+## Memory Examples
 
-Para contribuir com novos exemplos, siga estas diretrizes:
+The `memory` directory contains examples demonstrating how to use the memory capabilities of the PepperPy framework:
 
-1. Escolha a categoria apropriada ou sugira uma nova.
-2. Inclua um cabeçalho docstring detalhado explicando o propósito, requisitos e uso.
-3. Adicione comentários explicativos no código.
-4. Atualize este README.md para incluir seu novo exemplo.
-5. Certifique-se de que o exemplo seja executável de forma independente.
+- `simple_memory.py`: Demonstrates basic memory operations
+- `memory_example.py`: Demonstrates more advanced memory features
 
-## Requisitos
+To run the memory examples:
 
-- Python 3.9+
-- PepperPy (versão mais recente)
-- Dependências específicas mencionadas em cada exemplo 
+```bash
+python memory/simple_memory.py
+python memory/memory_example.py
+```
+
+## Running All Examples
+
+To run all examples, you can use the following command:
+
+```bash
+for example in $(find . -name "*.py" | grep -v "__pycache__"); do
+    echo "Running $example..."
+    python $example
+    echo "------------------------"
+done
+```
+
+## Requirements
+
+All examples require the PepperPy framework to be installed. You can install it using:
+
+```bash
+pip install -e ..
+```
+
+or
+
+```bash
+poetry install
+```
+
+from the root directory of the repository. 

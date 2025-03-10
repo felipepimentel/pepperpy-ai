@@ -148,12 +148,69 @@ await workflow.learn_from_feedback(user_rating=4, comments="Bom resumo, mas muit
 
 ## Arquitetura
 
-O PepperPy segue uma arquitetura modular baseada em domínios verticais:
+PepperPy is built with a modular architecture that allows for easy extension and customization:
 
-- Cada domínio encapsula sua implementação completa (base, tipos, provedores)
-- APIs públicas são expostas através de `public.py` e exportações cuidadosamente selecionadas em `__init__.py`
-- A estrutura vertical mantém alta coesão e acoplamento mínimo entre domínios
-- Provedores implementam funcionalidades específicas, mas são acessados através de camadas de abstração
+```
+pepperpy/
+├── types/                # Fundamental types
+├── errors/               # Error hierarchy
+├── utils/                # General utilities
+├── config/               # Framework configuration
+├── cli/                  # Command-line interface
+├── registry/             # Component registry
+├── interfaces/           # Base interfaces
+├── memory/               # Memory management
+├── cache/                # Caching system
+├── storage/              # Persistent storage
+├── workflows/            # Workflow system
+├── events/               # Event system
+├── plugins/              # Plugin system
+├── streaming/            # Streaming functionality
+├── llm/                  # LLM integration
+├── rag/                  # RAG system
+├── http/                 # HTTP client/server
+├── data/                 # Data handling
+└── docs/                 # Documentation
+```
+
+### Core Modules
+
+- **Types**: Centralized type definitions for consistent typing across the framework
+- **Errors**: Comprehensive error hierarchy with detailed error information
+- **Utils**: Common utilities for logging, async operations, and validation
+- **Config**: Flexible configuration system with environment variable support
+
+### Framework Base
+
+- **CLI**: Command-line interface for interacting with the framework
+- **Registry**: Component registry for discovering and managing components
+- **Interfaces**: Base interfaces for framework components
+
+### State Management
+
+- **Memory**: Memory management for storing and retrieving data
+- **Cache**: Caching system for improving performance
+- **Storage**: Persistent storage for data
+
+### Flow Control
+
+- **Workflows**: Workflow system for defining and executing complex processes
+- **Events**: Event system for communication between components
+- **Plugins**: Plugin system for extending functionality
+
+### I/O & Communication
+
+- **Streaming**: Streaming functionality for real-time data processing
+- **HTTP**: HTTP client and server for web communication
+
+### AI & Machine Learning
+
+- **LLM**: Integration with large language models
+- **RAG**: Retrieval-augmented generation system
+
+### Data & Integration
+
+- **Data**: Data handling with schema validation and transformation
 
 ## Instalação
 

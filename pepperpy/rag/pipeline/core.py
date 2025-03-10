@@ -355,17 +355,16 @@ class GenerationStage(PipelineStage):
 class Pipeline:
     """A pipeline for RAG.
 
-    A pipeline consists of a sequence of stages that process a query and context,
-    such as query expansion, retrieval, reranking, and generation.
+    A pipeline is a sequence of stages that are executed in order.
     """
 
-    def __init__(self, stages: List[PipelineStage] = None):
+    def __init__(self, stages: List[PipelineStage] = []):
         """Initialize a pipeline.
 
         Args:
-            stages: The stages of the pipeline
+            stages: The stages to add to the pipeline
         """
-        self.stages = stages or []
+        self.stages = stages.copy() if stages else []
 
     def add_stage(self, stage: PipelineStage) -> None:
         """Add a stage to the pipeline.
