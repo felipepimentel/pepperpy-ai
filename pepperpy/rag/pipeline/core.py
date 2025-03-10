@@ -6,7 +6,7 @@ including pipeline stages, pipeline execution, and query processing.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.rag.errors import PipelineError, PipelineStageError
 from pepperpy.rag.storage.core import ScoredChunk
@@ -14,9 +14,6 @@ from pepperpy.utils.logging import get_logger
 
 # Logger for this module
 logger = get_logger(__name__)
-
-T = TypeVar("T")
-R = TypeVar("R")
 
 
 @dataclass
@@ -47,33 +44,6 @@ class QueryResult:
     chunks: List[ScoredChunk]
     answer: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
-
-
-class BasePipelineStage(Generic[T, R], ABC):
-    """Base class for pipeline stages."""
-
-    def __init__(self, name: str):
-        """Initialize a pipeline stage.
-
-        Args:
-            name: The name of the stage
-        """
-        self.name = name
-
-    @abstractmethod
-    async def process(self, input_data: T) -> R:
-        """Process input data and produce output.
-
-        Args:
-            input_data: The input data to process
-
-        Returns:
-            The processed output
-
-        Raises:
-            PipelineStageError: If processing fails
-        """
-        pass
 
 
 class PipelineStage(ABC):
@@ -355,16 +325,17 @@ class GenerationStage(PipelineStage):
 class Pipeline:
     """A pipeline for RAG.
 
-    A pipeline is a sequence of stages that are executed in order.
+    A pipeline consists of a sequence of stages that process a query and context,
+    such as query expansion, retrieval, reranking, and generation.
     """
 
-    def __init__(self, stages: List[PipelineStage] = []):
+    def __init__(self, stages: List[PipelineStage] = None):
         """Initialize a pipeline.
 
         Args:
-            stages: The stages to add to the pipeline
+            stages: The stages of the pipeline
         """
-        self.stages = stages.copy() if stages else []
+        self.stages = stages or []
 
     def add_stage(self, stage: PipelineStage) -> None:
         """Add a stage to the pipeline.

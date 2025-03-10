@@ -15,8 +15,6 @@ from pepperpy.errors.core import (
     NetworkError,
     NotFoundError,
     PepperPyError,
-    PipelineError,
-    PipelineStageError,
     ProviderError,
     RateLimitError,
     SerializationError,
@@ -43,9 +41,6 @@ __all__ = [
     # Configuration
     "ConfigValidationError",
     "ConfigNotFoundError",
-    # Pipeline errors
-    "PipelineError",
-    "PipelineStageError",
     # Utility
     "ProviderError",
     "SerializationError",

@@ -84,6 +84,26 @@ class VectorStoreError(StorageError):
         self.store_type = store_type
 
 
+class EmbeddingError(RAGError):
+    """Error raised when there is an issue with embeddings."""
+
+    def __init__(
+        self,
+        message: str,
+        model: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize an embedding error.
+
+        Args:
+            message: The error message
+            model: The embedding model
+            details: Additional details about the error
+        """
+        super().__init__(message, details)
+        self.model = model
+
+
 class PipelineError(RAGError):
     """Error raised when there is an issue with a pipeline."""
 
@@ -120,6 +140,26 @@ class RetrievalError(RAGError):
     """Error raised when there is an issue with retrieval."""
 
     pass
+
+
+class RerankingError(RAGError):
+    """Error raised when there is an issue with reranking."""
+
+    def __init__(
+        self,
+        message: str,
+        model: Optional[str] = None,
+        details: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize a reranking error.
+
+        Args:
+            message: The error message
+            model: The reranking model
+            details: Additional details about the error
+        """
+        super().__init__(message, details)
+        self.model = model
 
 
 class GenerationError(RAGError):

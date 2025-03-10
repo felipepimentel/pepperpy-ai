@@ -5,10 +5,38 @@ This module provides functionality for generating responses based on retrieved d
 
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.errors import PipelineStageError
+from pepperpy.rag.errors import PipelineStageError
 from pepperpy.rag.pipeline.base import BasePipelineStage
 from pepperpy.rag.providers.generation.base import BaseGenerationProvider
 from pepperpy.rag.storage.types import SearchResult
+
+# Type alias for generation providers
+GenerationProvider = BaseGenerationProvider
+
+
+# Configuration for generation stage
+class GenerationStageConfig:
+    """Configuration for generation stage."""
+
+    def __init__(
+        self,
+        max_input_tokens: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
+        temperature: float = 0.7,
+        top_p: float = 0.9,
+    ):
+        """Initialize generation stage configuration.
+
+        Args:
+            max_input_tokens: Maximum number of input tokens to use.
+            max_output_tokens: Maximum number of output tokens to generate.
+            temperature: Sampling temperature (0-1, lower is more focused).
+            top_p: Nucleus sampling parameter (0-1).
+        """
+        self.max_input_tokens = max_input_tokens
+        self.max_output_tokens = max_output_tokens
+        self.temperature = temperature
+        self.top_p = top_p
 
 
 class GenerationStage(BasePipelineStage):

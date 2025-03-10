@@ -27,12 +27,12 @@ __all__ = [
     "Response",
     "delete",
     "get",
-    "get_http_client",
     "head",
     "options",
     "patch",
     "post",
     "put",
     "request",
+    "get_http_client",
     "set_http_client",
 ]

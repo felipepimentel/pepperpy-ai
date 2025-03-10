@@ -3,12 +3,53 @@
 This module provides functionality for retrieving relevant documents from a vector store.
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Protocol, Union
 
-from pepperpy.errors import PipelineStageError
+from pepperpy.rag.errors import PipelineStageError
 from pepperpy.rag.pipeline.base import BasePipelineStage
 from pepperpy.rag.storage.base import BaseVectorStore
 from pepperpy.rag.storage.types import Document, SearchResult
+
+
+# Protocol for embedding providers
+class EmbeddingProvider(Protocol):
+    """Protocol for embedding providers."""
+
+    async def embed_query(self, text: str) -> List[float]:
+        """Embed a query text.
+
+        Args:
+            text: The text to embed
+
+        Returns:
+            The embedding vector
+        """
+        ...
+
+
+# Configuration for retrieval stage
+class RetrievalStageConfig:
+    """Configuration for retrieval stage."""
+
+    def __init__(
+        self,
+        collection_name: str,
+        limit: int = 10,
+        min_score: Optional[float] = None,
+        filter: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize retrieval stage configuration.
+
+        Args:
+            collection_name: Name of the collection to search.
+            limit: Maximum number of documents to retrieve.
+            min_score: Minimum score for documents to be included.
+            filter: Filter to apply to the search.
+        """
+        self.collection_name = collection_name
+        self.limit = limit
+        self.min_score = min_score
+        self.filter = filter
 
 
 class RetrievalStage(BasePipelineStage):

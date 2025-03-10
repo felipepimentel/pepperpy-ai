@@ -6,10 +6,32 @@ more sophisticated similarity metrics.
 
 from typing import Any, List, Optional, Union
 
-from pepperpy.errors import PipelineStageError
+from pepperpy.rag.errors import PipelineStageError
 from pepperpy.rag.pipeline.base import BasePipelineStage
 from pepperpy.rag.providers.reranking.base import BaseRerankingProvider
 from pepperpy.rag.storage.types import SearchResult
+
+# Type alias for reranker providers
+RerankerProvider = BaseRerankingProvider
+
+
+# Configuration for reranking stage
+class RerankingStageConfig:
+    """Configuration for reranking stage."""
+
+    def __init__(
+        self,
+        limit: Optional[int] = None,
+        min_score: Optional[float] = None,
+    ):
+        """Initialize reranking stage configuration.
+
+        Args:
+            limit: Maximum number of documents to return.
+            min_score: Minimum score for documents to be included.
+        """
+        self.limit = limit
+        self.min_score = min_score
 
 
 class RerankingStage(BasePipelineStage):

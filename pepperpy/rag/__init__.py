@@ -35,100 +35,94 @@ Example usage:
 
 from pepperpy.rag.document.core import DocumentChunk
 from pepperpy.rag.errors import (
-    DocumentError,
-    DocumentLoadError,
-    DocumentProcessError,
+    EmbeddingError,
     GenerationError,
     PipelineError,
     PipelineStageError,
-    QueryError,
-    RAGError,
-    RetrievalError,
-    StorageError,
+    RerankingError,
     VectorStoreError,
 )
+from pepperpy.rag.pipeline.builder import RAGPipeline, RAGPipelineBuilder
+from pepperpy.rag.pipeline.stages import (
+    GenerationStage,
+    GenerationStageConfig,
+    RerankingStage,
+    RerankingStageConfig,
+    RetrievalStage,
+    RetrievalStageConfig,
+)
+from pepperpy.rag.providers.embedding import (
+    BaseEmbeddingProvider,
+    MockEmbeddingProvider,
+    OpenAIEmbeddingProvider,
+)
+from pepperpy.rag.providers.generation import (
+    BaseGenerationProvider,
+    MockGenerationProvider,
+    OpenAIGenerationProvider,
+)
 
-# Try to import pipeline components, but don't fail if dependencies are missing
+# Import reranking providers, making torch-dependent ones optional
+from pepperpy.rag.providers.reranking import (
+    BaseRerankingProvider,
+    MockRerankingProvider,
+)
+
+# Try to import torch-dependent providers
 try:
-    from pepperpy.rag.pipeline.builder import RAGPipeline, RAGPipelineBuilder
+    from pepperpy.rag.providers.reranking import CrossEncoderProvider
 
-    _has_pipeline = True
+    _has_torch = True
 except ImportError:
-    _has_pipeline = False
+    _has_torch = False
 
-# Import pipeline stages with error handling for missing components
-try:
-    from pepperpy.rag.pipeline.stages import (
-        GenerationStage,
-        RerankingStage,
-        RetrievalStage,
-    )
+from pepperpy.rag.storage import (
+    ChromaVectorStore,
+    FileVectorStore,
+    MemoryVectorStore,
+    VectorStore,
+)
 
-    _has_stages = True
-except ImportError:
-    _has_stages = False
-
-# Import embedding providers
-try:
-    from pepperpy.rag.providers.embedding import (
-        BaseEmbeddingProvider,
-    )
-
-    _has_embedding = True
-except ImportError:
-    _has_embedding = False
-
-# Import vector stores with error handling for missing components
-try:
-    from pepperpy.rag.storage import (
-        VectorStore,
-    )
-
-    _has_storage = True
-except ImportError:
-    _has_storage = False
-
-# Define exports
 __all__ = [
-    # Core
+    # Core types
     "DocumentChunk",
+    "VectorStore",
+    # Pipeline
+    "RAGPipeline",
+    "RAGPipelineBuilder",
+    # Stage classes
+    "RetrievalStage",
+    "RerankingStage",
+    "GenerationStage",
+    # Stage configs
+    "RetrievalStageConfig",
+    "RerankingStageConfig",
+    "GenerationStageConfig",
+    # Provider base classes
+    "BaseEmbeddingProvider",
+    "BaseRerankingProvider",
+    "BaseGenerationProvider",
+    # Embedding providers
+    "MockEmbeddingProvider",
+    "OpenAIEmbeddingProvider",
+    # Reranking providers
+    "MockRerankingProvider",
+    # Generation providers
+    "MockGenerationProvider",
+    "OpenAIGenerationProvider",
+    # Vector stores
+    "MemoryVectorStore",
+    "FileVectorStore",
+    "ChromaVectorStore",
     # Errors
-    "RAGError",
-    "DocumentError",
-    "DocumentLoadError",
-    "DocumentProcessError",
-    "StorageError",
-    "VectorStoreError",
+    "EmbeddingError",
+    "GenerationError",
     "PipelineError",
     "PipelineStageError",
-    "QueryError",
-    "RetrievalError",
-    "GenerationError",
+    "RerankingError",
+    "VectorStoreError",
 ]
 
-# Add pipeline exports if available
-if _has_pipeline:
-    __all__.extend([
-        "RAGPipeline",
-        "RAGPipelineBuilder",
-    ])
-
-# Add stage exports if available
-if _has_stages:
-    __all__.extend([
-        "GenerationStage",
-        "RerankingStage",
-        "RetrievalStage",
-    ])
-
-# Add embedding exports if available
-if _has_embedding:
-    __all__.extend([
-        "BaseEmbeddingProvider",
-    ])
-
-# Add storage exports if available
-if _has_storage:
-    __all__.extend([
-        "VectorStore",
-    ])
+# Add torch-dependent providers to __all__ if available
+if _has_torch:
+    __all__.append("CrossEncoderProvider")

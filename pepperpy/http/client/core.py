@@ -315,12 +315,12 @@ class HTTPXClient(HTTPClient):
         self.base_url = base_url
         self.default_options = default_options or RequestOptions()
 
-        # Initialize the client with proper base_url handling
-        client_kwargs = {}
-        if base_url is not None:
-            client_kwargs["base_url"] = base_url
-
-        self.client = httpx.AsyncClient(**client_kwargs)
+        self.client = httpx.AsyncClient(
+            base_url=base_url,
+            timeout=self.default_options.timeout,
+            follow_redirects=self.default_options.follow_redirects,
+            verify=self.default_options.verify_ssl,
+        )
 
     async def request(
         self,
@@ -601,8 +601,8 @@ class HTTPXClient(HTTPClient):
         return merged
 
 
-# Default HTTP client
-_http_client = None
+# Global HTTP client instance
+_http_client = HTTPXClient(base_url="https://api.example.com")
 
 
 def get_http_client() -> HTTPClient:
@@ -611,9 +611,6 @@ def get_http_client() -> HTTPClient:
     Returns:
         The default HTTP client
     """
-    global _http_client
-    if _http_client is None:
-        _http_client = HTTPXClient()
     return _http_client
 
 

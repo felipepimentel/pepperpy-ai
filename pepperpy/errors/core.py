@@ -194,33 +194,6 @@ class ConfigNotFoundError(NotFoundError, ConfigError):
     pass
 
 
-class PipelineError(PepperPyError):
-    """Exception for pipeline errors.
-
-    This exception is raised when there is an error in a pipeline.
-    """
-
-    pass
-
-
-class PipelineStageError(PipelineError):
-    """Exception for pipeline stage errors.
-
-    This exception is raised when there is an error in a pipeline stage.
-    """
-
-    def __init__(self, message: str, stage_name: Optional[str] = None, **kwargs: Any):
-        """Initialize a pipeline stage error.
-
-        Args:
-            message: The error message
-            stage_name: The name of the stage that failed
-            **kwargs: Additional error metadata
-        """
-        self.stage_name = stage_name
-        super().__init__(message, stage_name=stage_name, **kwargs)
-
-
 def convert_exception(exception: Exception, target_class: Type[Exception]) -> Exception:
     """Convert an exception to a different type.
 
