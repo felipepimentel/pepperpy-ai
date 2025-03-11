@@ -29,7 +29,10 @@ from pepperpy.http import (
     ServerError,
     ServerOptions,
     TimeoutError,
+    # Client functions
     add_route,
+    # Utils
+    check_status_code,
     client_delete,
     client_get,
     client_head,
@@ -38,9 +41,14 @@ from pepperpy.http import (
     client_post,
     client_put,
     client_request,
+    format_headers,
+    get_content_type,
     get_http_client,
     get_router,
     get_server,
+    is_json_content,
+    parse_json,
+    parse_query_params,
     server_delete,
     server_get,
     server_head,
@@ -103,4 +111,11 @@ __all__ = [
     "RoutingError",
     "ServerError",
     "TimeoutError",
+    # Utils
+    "check_status_code",
+    "format_headers",
+    "get_content_type",
+    "is_json_content",
+    "parse_json",
+    "parse_query_params",
 ]

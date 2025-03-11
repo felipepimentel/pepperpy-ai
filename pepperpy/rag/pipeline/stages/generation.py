@@ -1,163 +1,132 @@
-"""Generation stage implementation.
+"""Generation stage for the RAG pipeline."""
 
-This module provides functionality for generating responses based on retrieved documents.
-"""
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
-from typing import Any, Dict, List, Optional, Union
-
-from pepperpy.rag.errors import PipelineStageError
-from pepperpy.rag.pipeline.base import BasePipelineStage
-from pepperpy.rag.providers.generation.base import BaseGenerationProvider
-from pepperpy.rag.storage.types import SearchResult
-
-# Type alias for generation providers
-GenerationProvider = BaseGenerationProvider
+from pepperpy.errors import PepperpyError
+from pepperpy.llm.utils import Message, Prompt, Response
+from pepperpy.rag.document.core import DocumentChunk
 
 
-# Configuration for generation stage
+@dataclass
+class GenerationResult:
+    """Result from the generation stage."""
+
+    text: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    usage: Dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
 class GenerationStageConfig:
-    """Configuration for generation stage."""
+    """Configuration for the generation stage."""
 
-    def __init__(
+    provider: str
+    model: str
+    temperature: float = 0.7
+    max_tokens: Optional[int] = None
+    stop: Optional[List[str]] = None
+    system_message: Optional[str] = None
+
+
+class GenerationProvider(ABC):
+    """Base class for generation providers."""
+
+    @abstractmethod
+    async def generate(
         self,
-        max_input_tokens: Optional[int] = None,
-        max_output_tokens: Optional[int] = None,
-        temperature: float = 0.7,
-        top_p: float = 0.9,
-    ):
-        """Initialize generation stage configuration.
+        prompt: Prompt,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Response:
+        """Generate a response from a prompt.
 
         Args:
-            max_input_tokens: Maximum number of input tokens to use.
-            max_output_tokens: Maximum number of output tokens to generate.
-            temperature: Sampling temperature (0-1, lower is more focused).
-            top_p: Nucleus sampling parameter (0-1).
-        """
-        self.max_input_tokens = max_input_tokens
-        self.max_output_tokens = max_output_tokens
-        self.temperature = temperature
-        self.top_p = top_p
-
-
-class GenerationStage(BasePipelineStage):
-    """Generation stage for producing responses.
-
-    This stage takes a query and relevant documents to generate a response
-    using a language model. The response is grounded in the provided documents
-    to ensure accuracy and relevance.
-    """
-
-    def __init__(
-        self,
-        generation_provider: BaseGenerationProvider,
-        max_input_tokens: Optional[int] = None,
-        max_output_tokens: Optional[int] = None,
-        temperature: float = 0.7,
-        top_p: float = 0.9,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the generation stage.
-
-        Args:
-            generation_provider: Provider for generating responses.
-            max_input_tokens: Maximum number of input tokens to use.
-            max_output_tokens: Maximum number of output tokens to generate.
-            temperature: Sampling temperature (0-1, lower is more focused).
-            top_p: Nucleus sampling parameter (0-1).
-            **kwargs: Additional keyword arguments.
-        """
-        super().__init__(**kwargs)
-        self.generation_provider = generation_provider
-        self.max_input_tokens = max_input_tokens
-        self.max_output_tokens = max_output_tokens
-        self.temperature = temperature
-        self.top_p = top_p
-
-    def _format_context(
-        self,
-        documents: List[SearchResult],
-        include_metadata: bool = False,
-    ) -> str:
-        """Format documents into a context string.
-
-        Args:
-            documents: List of search results to format.
-            include_metadata: Whether to include document metadata.
+            prompt: The prompt to generate from
+            metadata: Optional metadata
 
         Returns:
-            Formatted context string.
+            Generated response
+
+        Raises:
+            PepperpyError: If generation fails
         """
-        context_parts = []
-        for i, result in enumerate(documents, 1):
-            # Format document content
-            content = "\n".join(chunk.content for chunk in result.document.chunks)
+        pass
 
-            # Add metadata if requested
-            if include_metadata and result.document.metadata:
-                metadata_str = "\n".join(
-                    f"{k}: {v}" for k, v in result.document.metadata.items()
-                )
-                content = f"{metadata_str}\n\n{content}"
 
-            # Add document to context with score
-            context_parts.append(
-                f"Document {i} (Score: {result.score:.3f}):\n{content}\n"
-            )
+class GenerationStage:
+    """Stage for generating responses using an LLM."""
 
-        return "\n\n".join(context_parts)
+    def __init__(self, config: GenerationStageConfig):
+        """Initialize the stage.
+
+        Args:
+            config: Stage configuration
+        """
+        self.config = config
 
     async def process(
         self,
         query: str,
-        documents: Union[SearchResult, List[SearchResult]],
-        **kwargs: Any,
-    ) -> Dict[str, Any]:
-        """Process a query and documents to generate a response.
+        chunks: List[DocumentChunk],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Response:
+        """Process the query and chunks to generate a response.
 
         Args:
-            query: Query text to respond to.
-            documents: Document or list of documents to use as context.
-            **kwargs: Additional arguments passed to the generation provider.
+            query: User query
+            chunks: Retrieved document chunks
+            metadata: Optional metadata
 
         Returns:
-            Dictionary containing the generated response and metadata.
+            Generated response
 
         Raises:
-            PipelineStageError: If generation fails.
+            PepperpyError: If generation fails
         """
         try:
-            # Convert single document to list
-            if isinstance(documents, SearchResult):
-                documents = [documents]
+            # Create messages
+            messages = []
 
-            # Format context from documents
-            include_metadata = kwargs.pop("include_metadata", False)
-            context = self._format_context(documents, include_metadata)
+            # Add system message if provided
+            if self.config.system_message:
+                messages.append(
+                    Message(role="system", content=self.config.system_message)
+                )
 
-            # Generate response
-            response = await self.generation_provider.generate(
-                query=query,
-                context=context,
-                max_input_tokens=kwargs.pop("max_input_tokens", self.max_input_tokens),
-                max_output_tokens=kwargs.pop(
-                    "max_output_tokens", self.max_output_tokens
-                ),
-                temperature=kwargs.pop("temperature", self.temperature),
-                top_p=kwargs.pop("top_p", self.top_p),
-                **kwargs,
+            # Add context from chunks
+            context = "\n\n".join(chunk.content for chunk in chunks)
+            messages.append(
+                Message(
+                    role="system",
+                    content=f"Context:\n{context}\n\nUse this context to answer the following question.",
+                )
             )
 
-            # Return response with metadata
-            return {
-                "response": response.text,
-                "usage": response.usage,
-                "metadata": {
-                    "model": response.model,
-                    "finish_reason": response.finish_reason,
-                    "num_documents": len(documents),
-                    "document_scores": [result.score for result in documents],
-                },
-            }
+            # Add user query
+            messages.append(Message(role="user", content=query))
+
+            # Create prompt
+            prompt = Prompt(
+                messages=messages,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+                stop=self.config.stop,
+                metadata=metadata or {},
+            )
+
+            # TODO: Call LLM provider to generate response
+            # This should be implemented by the provider
+            raise PepperpyError("Generation not implemented")
 
         except Exception as e:
-            raise PipelineStageError(f"Error generating response: {str(e)}") from e
+            raise PepperpyError(f"Error in generation stage: {e}")
+
+
+# Export all classes
+__all__ = [
+    "GenerationStageConfig",
+    "GenerationProvider",
+    "GenerationStage",
+    "GenerationResult",
+]

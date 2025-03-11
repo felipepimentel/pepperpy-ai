@@ -51,6 +51,14 @@ from pepperpy.http.errors import (
     ServerError,
     TimeoutError,
 )
+from pepperpy.http.utils import (
+    check_status_code,
+    format_headers,
+    get_content_type,
+    is_json_content,
+    parse_json,
+    parse_query_params,
+)
 
 # Try to import server components, but make them optional
 try:
@@ -127,6 +135,13 @@ __all__ = [
     "RoutingError",
     "ServerError",
     "TimeoutError",
+    # Utils
+    "check_status_code",
+    "format_headers",
+    "get_content_type",
+    "is_json_content",
+    "parse_json",
+    "parse_query_params",
 ]
 
 # Add server components to __all__ if available

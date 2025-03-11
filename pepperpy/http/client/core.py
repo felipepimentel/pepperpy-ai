@@ -5,7 +5,6 @@ including request handling, response parsing, and session management.
 """
 
 import asyncio
-import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Tuple
@@ -16,9 +15,9 @@ from pepperpy.http.errors import (
     ClientError,
     ConnectionError,
     RequestError,
-    ResponseError,
     TimeoutError,
 )
+from pepperpy.http.utils import check_status_code, parse_json
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module
@@ -64,13 +63,13 @@ class Response:
 
     Attributes:
         status_code: The HTTP status code
-        headers: The response headers
-        cookies: The response cookies
-        content: The raw response content
-        text: The response content as text
-        json: The response content as JSON
-        url: The URL of the response
-        elapsed: The time elapsed for the request in seconds
+        headers: Dict[str, str]
+        cookies: Dict[str, str]
+        content: bytes
+        text: str
+        url: str
+        elapsed: float
+        _json: Optional[Any] = None
     """
 
     status_code: int
@@ -93,14 +92,7 @@ class Response:
             ResponseError: If the response content is not valid JSON
         """
         if self._json is None:
-            try:
-                self._json = json.loads(self.text)
-            except json.JSONDecodeError as e:
-                raise ResponseError(
-                    f"Failed to parse response as JSON: {e}",
-                    status_code=self.status_code,
-                )
-
+            self._json = parse_json(self.text, self.status_code)
         return self._json
 
     def raise_for_status(self) -> None:
@@ -109,16 +101,7 @@ class Response:
         Raises:
             ResponseError: If the response status code indicates an error
         """
-        if 400 <= self.status_code < 500:
-            raise ResponseError(
-                f"Client error: {self.status_code}",
-                status_code=self.status_code,
-            )
-        elif 500 <= self.status_code < 600:
-            raise ResponseError(
-                f"Server error: {self.status_code}",
-                status_code=self.status_code,
-            )
+        check_status_code(self.status_code)
 
 
 class HTTPClient(ABC):

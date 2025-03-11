@@ -7,29 +7,23 @@ It provides the foundation for all other modules in the framework.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
-# Configure logging
+# Configure root logger with a basic format
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 
-
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger with the given name.
-
-    Args:
-        name: The name of the logger
-
-    Returns:
-        The logger
-    """
-    return logging.getLogger(name)
+# Now using get_logger from utils module instead
+# See pepperpy.utils.logging for the implementation
 
 
 class PepperPyError(Exception):
-    """Base class for all PepperPy exceptions."""
+    """Base class for all PepperPy exceptions.
+
+    All exceptions in the PepperPy framework should inherit from this class.
+    """
 
     def __init__(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Initialize the exception.
@@ -40,13 +34,16 @@ class PepperPyError(Exception):
             **kwargs: Additional keyword arguments
         """
         self.message = message
+        self.details = kwargs
         super().__init__(message, *args)
-        self.details = kwargs.get("details", {})
-        self.code = kwargs.get("code", "UNKNOWN_ERROR")
 
     def __str__(self) -> str:
-        """Return a string representation of the exception."""
-        return f"{self.code}: {self.message}"
+        """Get a string representation of the exception.
+
+        Returns:
+            A string representation
+        """
+        return self.message
 
 
 class ConfigurationError(PepperPyError):
@@ -231,3 +228,39 @@ def ensure_dir(path: Union[str, Path]) -> Path:
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def get_logger(
+    name: str,
+    level: Optional[int] = None,
+    format_str: Optional[str] = None,
+) -> logging.Logger:
+    """Get a logger instance.
+
+    Args:
+        name: Logger name
+        level: Log level (default: INFO)
+        format_str: Log format string (default: standard format)
+
+    Returns:
+        Logger instance
+    """
+    logger = logging.getLogger(name)
+
+    if level is None:
+        level = logging.INFO
+    logger.setLevel(level)
+
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        if format_str is None:
+            format_str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        formatter = logging.Formatter(format_str)
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    return logger
+
+
+# Export all functions
+__all__ = ["get_logger"]

@@ -1,197 +1,160 @@
-"""Pipeline builder for RAG system.
+"""Pipeline builder for the RAG system."""
 
-This module provides functionality for building and configuring RAG pipelines.
-"""
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
-from typing import Any, Dict, List, Optional, Protocol, TypeVar
-
-from pepperpy.rag.errors import PipelineError
+from pepperpy.errors import PepperpyError
+from pepperpy.llm.utils import Response
 from pepperpy.rag.pipeline.stages.generation import (
-    GenerationProvider,
     GenerationStage,
     GenerationStageConfig,
 )
 from pepperpy.rag.pipeline.stages.reranking import (
-    RerankerProvider,
     RerankingStage,
     RerankingStageConfig,
 )
 from pepperpy.rag.pipeline.stages.retrieval import (
-    EmbeddingProvider,
     RetrievalStage,
     RetrievalStageConfig,
 )
-from pepperpy.rag.storage.core import VectorStore
-from pepperpy.utils.logging import get_logger
-
-# Logger for this module
-logger = get_logger(__name__)
-
-# Type variable for stage configurations
-T = TypeVar("T")
 
 
-class PipelineStage(Protocol):
-    """Protocol for pipeline stages."""
+@dataclass
+class RAGPipelineConfig:
+    """Configuration for the RAG pipeline."""
 
-    async def process(
-        self,
-        query: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Process a query with optional context.
-
-        Args:
-            query: The query to process
-            context: Optional context from previous stages
-
-        Returns:
-            Dictionary containing stage outputs
-        """
-        ...
+    retrieval: RetrievalStageConfig
+    reranking: Optional[RerankingStageConfig] = None
+    generation: Optional[GenerationStageConfig] = None
 
 
 class RAGPipeline:
-    """RAG pipeline for processing queries through multiple stages."""
+    """Pipeline for RAG processing."""
 
-    def __init__(self, stages: List[PipelineStage]):
-        """Initialize RAG pipeline.
+    def __init__(self, config: RAGPipelineConfig):
+        """Initialize the pipeline.
 
         Args:
-            stages: List of pipeline stages to execute in order
+            config: Pipeline configuration
         """
-        self.stages = stages
+        self.config = config
+        self.retrieval_stage = RetrievalStage(config.retrieval)
+        self.reranking_stage = (
+            RerankingStage(config.reranking) if config.reranking else None
+        )
+        self.generation_stage = (
+            GenerationStage(config.generation) if config.generation else None
+        )
 
     async def process(
         self,
         query: str,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
-        """Process a query through all pipeline stages.
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> Response:
+        """Process a query through the pipeline.
 
         Args:
-            query: The query to process
-            context: Optional initial context
+            query: User query
+            metadata: Optional metadata
 
         Returns:
-            Dictionary containing outputs from all stages
+            Generated response
 
         Raises:
-            PipelineError: If there is an error during pipeline execution
+            PepperpyError: If processing fails
         """
         try:
-            current_context = context or {}
+            # Retrieve relevant chunks
+            chunks = await self.retrieval_stage.process(query, metadata)
 
-            for stage in self.stages:
-                current_context = await stage.process(
-                    query=query,
-                    context=current_context,
-                )
+            # Rerank chunks if configured
+            if self.reranking_stage:
+                chunks = await self.reranking_stage.process(query, chunks, metadata)
 
-            return current_context
+            # Generate response if configured
+            if self.generation_stage:
+                return await self.generation_stage.process(query, chunks, metadata)
+
+            # Return empty response if no generation stage
+            return Response(
+                text="",
+                usage={"total_tokens": 0, "prompt_tokens": 0, "completion_tokens": 0},
+                metadata=metadata or {},
+            )
 
         except Exception as e:
-            raise PipelineError(f"Error in pipeline execution: {e}")
+            raise PepperpyError(f"Error in RAG pipeline: {e}")
 
 
 class RAGPipelineBuilder:
-    """Builder for constructing RAG pipelines.
-
-    This builder helps users configure and construct RAG pipelines with
-    the desired stages and configurations.
-    """
+    """Builder for RAG pipelines."""
 
     def __init__(self):
-        """Initialize pipeline builder."""
-        self.stages: List[PipelineStage] = []
-        self._retrieval_stage: Optional[RetrievalStage] = None
-        self._reranking_stage: Optional[RerankingStage] = None
-        self._generation_stage: Optional[GenerationStage] = None
+        """Initialize the builder."""
+        self.retrieval_config: Optional[RetrievalStageConfig] = None
+        self.reranking_config: Optional[RerankingStageConfig] = None
+        self.generation_config: Optional[GenerationStageConfig] = None
 
-    def with_retrieval(
-        self,
-        vector_store: VectorStore,
-        embedding_provider: EmbeddingProvider,
-        config: Optional[RetrievalStageConfig] = None,
-    ) -> "RAGPipelineBuilder":
-        """Add retrieval stage to pipeline.
+    def with_retrieval(self, config: RetrievalStageConfig) -> "RAGPipelineBuilder":
+        """Add retrieval stage.
 
         Args:
-            vector_store: Vector store for document retrieval
-            embedding_provider: Provider for generating embeddings
-            config: Optional stage configuration
+            config: Stage configuration
 
         Returns:
-            Self for method chaining
+            Self for chaining
         """
-        self._retrieval_stage = RetrievalStage(
-            vector_store=vector_store,
-            embedding_provider=embedding_provider,
-            config=config,
-        )
+        self.retrieval_config = config
         return self
 
-    def with_reranking(
-        self,
-        reranker: RerankerProvider,
-        config: Optional[RerankingStageConfig] = None,
-    ) -> "RAGPipelineBuilder":
-        """Add reranking stage to pipeline.
+    def with_reranking(self, config: RerankingStageConfig) -> "RAGPipelineBuilder":
+        """Add reranking stage.
 
         Args:
-            reranker: Provider for reranking documents
-            config: Optional stage configuration
+            config: Stage configuration
 
         Returns:
-            Self for method chaining
+            Self for chaining
         """
-        self._reranking_stage = RerankingStage(
-            reranker=reranker,
-            config=config,
-        )
+        self.reranking_config = config
         return self
 
-    def with_generation(
-        self,
-        generator: GenerationProvider,
-        config: Optional[GenerationStageConfig] = None,
-    ) -> "RAGPipelineBuilder":
-        """Add generation stage to pipeline.
+    def with_generation(self, config: GenerationStageConfig) -> "RAGPipelineBuilder":
+        """Add generation stage.
 
         Args:
-            generator: Provider for generating responses
-            config: Optional stage configuration
+            config: Stage configuration
 
         Returns:
-            Self for method chaining
+            Self for chaining
         """
-        self._generation_stage = GenerationStage(
-            generator=generator,
-            config=config,
-        )
+        self.generation_config = config
         return self
 
     def build(self) -> RAGPipeline:
-        """Build the configured pipeline.
+        """Build the pipeline.
 
         Returns:
-            Configured RAG pipeline
+            Configured pipeline
 
         Raises:
-            PipelineError: If pipeline configuration is invalid
+            PepperpyError: If configuration is invalid
         """
-        if not self._retrieval_stage:
-            raise PipelineError("Retrieval stage is required")
+        if not self.retrieval_config:
+            raise PepperpyError("Retrieval stage is required")
 
-        if not self._generation_stage:
-            raise PipelineError("Generation stage is required")
+        config = RAGPipelineConfig(
+            retrieval=self.retrieval_config,
+            reranking=self.reranking_config,
+            generation=self.generation_config,
+        )
 
-        # Build stages list in order
-        stages = [self._retrieval_stage]
+        return RAGPipeline(config)
 
-        if self._reranking_stage:
-            stages.append(self._reranking_stage)
 
-        stages.append(self._generation_stage)
-
-        return RAGPipeline(stages=stages)
+# Export all classes
+__all__ = [
+    "RAGPipelineConfig",
+    "RAGPipeline",
+    "RAGPipelineBuilder",
+]

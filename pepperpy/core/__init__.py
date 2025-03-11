@@ -28,7 +28,19 @@ from pepperpy.core.core import (
     get_output_dir,
     get_project_root,
 )
-from pepperpy.core.public import *
+from pepperpy.core.public import (
+    BaseProvider,
+    ProviderRegistry,
+    Registry,
+    RegistryError,
+    TypeRegistry,
+    provider_registry,
+    registry_of_registries,
+    BaseManager,
+    ManagerError,
+    manager_registry,
+)
+from pepperpy.errors.core import PepperPyError
 
 # Re-export everything
 __all__ = [
@@ -50,4 +62,17 @@ __all__ = [
     "get_data_dir",
     "get_output_dir",
     "ensure_dir",
+    # Provider classes
+    "BaseProvider",
+    "ProviderRegistry",
+    "provider_registry",
+    # Registry classes
+    "Registry",
+    "TypeRegistry",
+    "RegistryError",
+    "registry_of_registries",
+    # Manager classes
+    "BaseManager",
+    "ManagerError",
+    "manager_registry",
 ]

@@ -1,4 +1,4 @@
-"""Provider registry for PepperPy.
+"""Provider registry functions for PepperPy.
 
 This module provides functions for registering and retrieving providers
 in the PepperPy framework.
@@ -6,11 +6,11 @@ in the PepperPy framework.
 
 from typing import Any, Dict, List, Optional, Type
 
-from pepperpy.core.interfaces import Provider, ProviderConfig
-from pepperpy.providers.base import provider_registry
+from pepperpy.core.base_provider import BaseProvider, provider_registry
+from pepperpy.core.interfaces import ProviderConfig
 
 
-def register_provider(provider_type: str, provider_class: Type[Provider]) -> None:
+def register_provider(provider_type: str, provider_class: Type[BaseProvider]) -> None:
     """Register a provider class for a provider type.
 
     Args:
@@ -18,12 +18,12 @@ def register_provider(provider_type: str, provider_class: Type[Provider]) -> Non
         provider_class: The provider class to register
 
     Raises:
-        ValueError: If a provider class is already registered for the provider type
+        ProviderError: If a provider class is already registered for the provider type
     """
     provider_registry.register(provider_type, provider_class)
 
 
-def get_provider_class(provider_type: str) -> Optional[Type[Provider]]:
+def get_provider_class(provider_type: str) -> Optional[Type[BaseProvider]]:
     """Get the provider class for a provider type.
 
     Args:
@@ -35,7 +35,26 @@ def get_provider_class(provider_type: str) -> Optional[Type[Provider]]:
     return provider_registry.get(provider_type)
 
 
-def create_provider(config: ProviderConfig) -> Provider:
+def get_provider(
+    provider_type: str, provider_name: Optional[str] = None, **kwargs: Any
+) -> BaseProvider:
+    """Create a provider instance from a provider type and settings.
+
+    Args:
+        provider_type: The type of the provider
+        provider_name: Optional specific name for this provider
+        **kwargs: Provider-specific configuration
+
+    Returns:
+        A provider instance
+
+    Raises:
+        ProviderError: If the provider type is not registered
+    """
+    return provider_registry.create(provider_type, provider_name, **kwargs)
+
+
+def create_provider(config: ProviderConfig) -> BaseProvider:
     """Create a provider instance from a configuration.
 
     Args:
@@ -45,14 +64,14 @@ def create_provider(config: ProviderConfig) -> Provider:
         A provider instance
 
     Raises:
-        ValueError: If the provider type is not registered
+        ProviderError: If the provider type is not registered
     """
-    return provider_registry.create(config)
+    return get_provider(config.provider_type, None, **config.settings)
 
 
 def create_provider_from_dict(
     provider_type: str, settings: Optional[Dict[str, Any]] = None
-) -> Provider:
+) -> BaseProvider:
     """Create a provider instance from a provider type and settings.
 
     Args:
@@ -63,9 +82,9 @@ def create_provider_from_dict(
         A provider instance
 
     Raises:
-        ValueError: If the provider type is not registered
+        ProviderError: If the provider type is not registered
     """
-    config = ProviderConfig(provider_type, settings)
+    config = ProviderConfig(provider_type, settings or {})
     return create_provider(config)
 
 

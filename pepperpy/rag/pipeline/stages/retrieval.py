@@ -1,198 +1,117 @@
-"""Retrieval stage implementation.
+"""Retrieval stage for the RAG pipeline."""
 
-This module provides functionality for retrieving relevant documents from a vector store.
-"""
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
-from typing import Any, Dict, List, Optional, Protocol, Union
-
-from pepperpy.rag.errors import PipelineStageError
-from pepperpy.rag.pipeline.base import BasePipelineStage
-from pepperpy.rag.storage.base import BaseVectorStore
-from pepperpy.rag.storage.types import Document, SearchResult
+from pepperpy.errors import PepperpyError
+from pepperpy.rag.document.core import DocumentChunk
 
 
-# Protocol for embedding providers
-class EmbeddingProvider(Protocol):
-    """Protocol for embedding providers."""
+@dataclass
+class RetrievalResult:
+    """Result from the retrieval stage."""
 
-    async def embed_query(self, text: str) -> List[float]:
-        """Embed a query text.
+    chunks: List[DocumentChunk]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    scores: Optional[List[float]] = None
+
+
+@dataclass
+class RetrievalStageConfig:
+    """Configuration for the retrieval stage."""
+
+    provider: str
+    top_k: int = 3
+    similarity_threshold: float = 0.7
+    metadata_filters: Optional[Dict[str, Any]] = None
+
+
+class EmbeddingProvider(ABC):
+    """Base class for embedding providers."""
+
+    @abstractmethod
+    async def embed_query(
+        self,
+        query: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[float]:
+        """Embed a query.
 
         Args:
-            text: The text to embed
+            query: Query to embed
+            metadata: Optional metadata
 
         Returns:
-            The embedding vector
+            Query embedding
+
+        Raises:
+            PepperpyError: If embedding fails
         """
-        ...
+        pass
 
-
-# Configuration for retrieval stage
-class RetrievalStageConfig:
-    """Configuration for retrieval stage."""
-
-    def __init__(
+    @abstractmethod
+    async def embed_documents(
         self,
-        collection_name: str,
-        limit: int = 10,
-        min_score: Optional[float] = None,
-        filter: Optional[Dict[str, Any]] = None,
-    ):
-        """Initialize retrieval stage configuration.
+        documents: List[str],
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[List[float]]:
+        """Embed documents.
 
         Args:
-            collection_name: Name of the collection to search.
-            limit: Maximum number of documents to retrieve.
-            min_score: Minimum score for documents to be included.
-            filter: Filter to apply to the search.
+            documents: Documents to embed
+            metadata: Optional metadata
+
+        Returns:
+            Document embeddings
+
+        Raises:
+            PepperpyError: If embedding fails
         """
-        self.collection_name = collection_name
-        self.limit = limit
-        self.min_score = min_score
-        self.filter = filter
+        pass
 
 
-class RetrievalStage(BasePipelineStage):
-    """Retrieval stage for finding relevant documents.
+class RetrievalStage:
+    """Stage for retrieving relevant document chunks."""
 
-    This stage takes a query vector and retrieves relevant documents from a
-    vector store based on similarity search.
-    """
-
-    def __init__(
-        self,
-        vector_store: BaseVectorStore,
-        collection_name: str,
-        limit: int = 10,
-        min_score: Optional[float] = None,
-        filter: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the retrieval stage.
+    def __init__(self, config: RetrievalStageConfig):
+        """Initialize the stage.
 
         Args:
-            vector_store: Vector store to retrieve documents from.
-            collection_name: Name of the collection to search in.
-            limit: Maximum number of documents to retrieve.
-            min_score: Minimum similarity score for retrieved documents.
-            filter: Metadata filter criteria.
-            **kwargs: Additional keyword arguments.
+            config: Stage configuration
         """
-        super().__init__(**kwargs)
-        self.vector_store = vector_store
-        self.collection_name = collection_name
-        self.limit = limit
-        self.min_score = min_score
-        self.filter = filter
+        self.config = config
 
     async def process(
         self,
-        query_vector: List[float],
-        **kwargs: Any,
-    ) -> List[SearchResult]:
-        """Process a query vector to retrieve relevant documents.
+        query: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[DocumentChunk]:
+        """Process the query to retrieve relevant chunks.
 
         Args:
-            query_vector: Query vector to search with.
-            **kwargs: Additional arguments passed to the vector store.
+            query: User query
+            metadata: Optional metadata
 
         Returns:
-            List of search results sorted by relevance.
+            List of retrieved document chunks
 
         Raises:
-            PipelineStageError: If retrieval fails.
+            PepperpyError: If retrieval fails
         """
         try:
-            # Merge stage filter with any additional filter from kwargs
-            filter = {**(self.filter or {}), **(kwargs.pop("filter", {}) or {})}
-
-            # Search for similar documents
-            results = await self.vector_store.search(
-                collection_name=self.collection_name,
-                query_vector=query_vector,
-                limit=kwargs.pop("limit", self.limit),
-                min_score=kwargs.pop("min_score", self.min_score),
-                filter=filter or None,
-                **kwargs,
-            )
-
-            return results
+            # TODO: Call retrieval provider to get relevant chunks
+            # This should be implemented by the provider
+            raise PepperpyError("Retrieval not implemented")
 
         except Exception as e:
-            raise PipelineStageError(f"Error retrieving documents: {str(e)}") from e
+            raise PepperpyError(f"Error in retrieval stage: {e}")
 
-    async def add(
-        self,
-        documents: Union[Document, List[Document]],
-        **kwargs: Any,
-    ) -> List[str]:
-        """Add documents to the vector store.
 
-        Args:
-            documents: Document or list of documents to add.
-            **kwargs: Additional arguments passed to the vector store.
-
-        Returns:
-            List of document IDs.
-
-        Raises:
-            PipelineStageError: If adding documents fails.
-        """
-        try:
-            return await self.vector_store.add(
-                collection_name=self.collection_name,
-                documents=documents,
-                **kwargs,
-            )
-
-        except Exception as e:
-            raise PipelineStageError(f"Error adding documents: {str(e)}") from e
-
-    async def delete(
-        self,
-        doc_ids: Union[str, List[str]],
-        **kwargs: Any,
-    ) -> List[str]:
-        """Delete documents from the vector store.
-
-        Args:
-            doc_ids: Document ID or list of document IDs to delete.
-            **kwargs: Additional arguments passed to the vector store.
-
-        Returns:
-            List of successfully deleted document IDs.
-
-        Raises:
-            PipelineStageError: If deleting documents fails.
-        """
-        try:
-            return await self.vector_store.delete(
-                collection_name=self.collection_name,
-                doc_ids=doc_ids,
-                **kwargs,
-            )
-
-        except Exception as e:
-            raise PipelineStageError(f"Error deleting documents: {str(e)}") from e
-
-    async def clear(self, **kwargs: Any) -> None:
-        """Clear all documents from the vector store collection.
-
-        Args:
-            **kwargs: Additional arguments passed to the vector store.
-
-        Raises:
-            PipelineStageError: If clearing documents fails.
-        """
-        try:
-            await self.vector_store.delete_collection(
-                collection_name=self.collection_name,
-                **kwargs,
-            )
-            await self.vector_store.create_collection(
-                collection_name=self.collection_name,
-                **kwargs,
-            )
-
-        except Exception as e:
-            raise PipelineStageError(f"Error clearing documents: {str(e)}") from e
+# Export all classes
+__all__ = [
+    "RetrievalStageConfig",
+    "EmbeddingProvider",
+    "RetrievalStage",
+    "RetrievalResult",
+]

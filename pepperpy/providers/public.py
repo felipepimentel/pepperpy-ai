@@ -1,31 +1,28 @@
-"""Public interfaces for PepperPy Providers module.
+"""Public API for the PepperPy providers module.
 
-This module provides a stable public interface for the providers functionality.
-It exposes the core provider abstractions and implementations that are
-considered part of the public API.
+This module exports the public API for the PepperPy providers module.
+It includes base provider classes and registry functionality.
 """
 
-from pepperpy.core.interfaces import Provider, ProviderCapability, ProviderConfig
-from pepperpy.providers.base import BaseProvider
+from pepperpy.core.base_provider import (
+    BaseProvider,
+    ProviderRegistry,
+    provider_registry,
+)
 from pepperpy.providers.registry import (
-    create_provider,
-    create_provider_from_dict,
-    get_provider_class,
+    get_provider,
     list_provider_types,
     register_provider,
 )
 
-# Re-export everything
 __all__ = [
-    # Classes
+    # Base classes
     "BaseProvider",
-    "Provider",
-    "ProviderCapability",
-    "ProviderConfig",
-    # Functions
-    "create_provider",
-    "create_provider_from_dict",
-    "get_provider_class",
-    "list_provider_types",
+    "ProviderRegistry",
+    # Global instances
+    "provider_registry",
+    # Registry functions
     "register_provider",
+    "get_provider",
+    "list_provider_types",
 ]

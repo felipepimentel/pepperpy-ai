@@ -5,6 +5,14 @@ It exposes the core type definitions and utilities that are considered part
 of the public API.
 """
 
+from pepperpy.types.common import (
+    Context,
+    Document,
+    Identifiable,
+    Metadata,
+    Result,
+    VectorEmbedding,
+)
 from pepperpy.types.core import (
     ClassInfo,
     DataType,
@@ -30,7 +38,14 @@ from pepperpy.types.core import (
 
 # Re-export everything
 __all__ = [
-    # Classes
+    # Common classes
+    "Context",
+    "Document",
+    "Identifiable",
+    "Metadata",
+    "Result",
+    "VectorEmbedding",
+    # Core classes
     "ClassInfo",
     "DataType",
     # Type aliases

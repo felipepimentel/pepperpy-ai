@@ -1,31 +1,43 @@
 """Core functionality for the PepperPy CLI.
 
-This module provides the core functionality for the PepperPy command-line interface,
-including command registration, argument parsing, and execution.
+This module provides the core functionality for the PepperPy CLI,
+including the command registry, argument parsing, and command execution.
 """
 
 import argparse
-import importlib
-import inspect
 import os
 import sys
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Type
 
+# Import version information to resolve linter error
 from pepperpy.utils.logging import configure_logging, get_logger
+
+# Configure logging
+configure_logging(level=os.environ.get("PEPPERPY_LOG_LEVEL", "INFO"))
 
 # Logger for this module
 logger = get_logger(__name__)
 
-# Registry of commands
-_commands: Dict[str, "Command"] = {}
+# Command registry
+COMMANDS: Dict[str, Type["Command"]] = {}
+
+
+def register_command(cls: Type["Command"]) -> Type["Command"]:
+    """Register a command class.
+
+    Args:
+        cls: The command class to register
+
+    Returns:
+        The command class
+    """
+    COMMANDS[cls.name] = cls
+    return cls
 
 
 class Command(ABC):
-    """Base class for CLI commands.
-
-    A command is a subcommand of the PepperPy CLI, such as "run" or "init".
-    """
+    """Base class for CLI commands."""
 
     name: str = ""
     description: str = ""
@@ -53,186 +65,102 @@ class Command(ABC):
         pass
 
 
-def register_command(command_class: Type[Command]) -> Type[Command]:
-    """Register a command with the CLI.
-
-    Args:
-        command_class: The command class to register
-
-    Returns:
-        The command class
-
-    Raises:
-        ValueError: If a command with the same name is already registered
-    """
-    command = command_class()
-
-    if not command.name:
-        raise ValueError(f"Command {command_class.__name__} has no name")
-
-    if command.name in _commands:
-        raise ValueError(f"Command {command.name} is already registered")
-
-    _commands[command.name] = command
-
-    return command_class
-
-
-def get_command(name: str) -> Optional[Command]:
-    """Get a command by name.
-
-    Args:
-        name: The name of the command
-
-    Returns:
-        The command, or None if not found
-    """
-    return _commands.get(name)
-
-
-def list_commands() -> List[Command]:
-    """List all registered commands.
-
-    Returns:
-        A list of registered commands
-    """
-    return list(_commands.values())
-
-
 def create_parser() -> argparse.ArgumentParser:
-    """Create the argument parser for the CLI.
+    """Create the command-line argument parser.
 
     Returns:
         The argument parser
     """
     parser = argparse.ArgumentParser(
         prog="pepperpy",
-        description="PepperPy: A Python framework for building AI applications",
+        description="PepperPy command-line interface",
     )
 
     # Add global arguments
     parser.add_argument(
-        "--log-level",
-        choices=["debug", "info", "warning", "error", "critical"],
-        default="info",
-        help="Set the log level",
+        "--version",
+        action="store_true",
+        help="Show the PepperPy version",
     )
 
     parser.add_argument(
-        "--log-file",
-        help="Path to the log file",
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Set the log level",
     )
 
-    # Add subparsers for commands
+    # Add command subparsers
     subparsers = parser.add_subparsers(
         dest="command",
-        title="commands",
-        description="Available commands",
         help="Command to execute",
     )
 
-    # Add command-specific parsers
-    for command in _commands.values():
+    # Add commands
+    for name, cls in COMMANDS.items():
         command_parser = subparsers.add_parser(
-            command.name,
-            description=command.description,
-            help=command.help,
+            name,
+            description=cls.description,
+            help=cls.help,
         )
-
-        command.add_arguments(command_parser)
+        cls().add_arguments(command_parser)
 
     return parser
 
 
-def execute_command(args: argparse.Namespace) -> int:
-    """Execute a command.
+def run_cli(args: Optional[List[str]] = None) -> int:
+    """Run the CLI.
 
     Args:
-        args: The parsed command-line arguments
+        args: The command-line arguments, or None to use sys.argv
 
     Returns:
         The exit code (0 for success, non-zero for failure)
     """
-    if not args.command:
-        return 1
-
-    command = get_command(args.command)
-    if not command:
-        logger.error(f"Unknown command: {args.command}")
-        return 1
-
-    try:
-        return command.execute(args)
-    except Exception as e:
-        logger.error(f"Error executing command {args.command}: {str(e)}")
-        logger.debug("Exception details:", exc_info=True)
-        return 1
-
-
-def main() -> int:
-    """Main entry point for the CLI.
-
-    Returns:
-        The exit code (0 for success, non-zero for failure)
-    """
-    # Create the parser
-    parser = create_parser()
-
     # Parse arguments
-    args = parser.parse_args()
+    parser = create_parser()
+    parsed_args = parser.parse_args(args)
 
-    # Configure logging
-    configure_logging(
-        level=args.log_level.upper(),
-        log_file=args.log_file,
-    )
+    # Set the log level
+    if parsed_args.log_level:
+        os.environ["PEPPERPY_LOG_LEVEL"] = parsed_args.log_level
+        configure_logging(level=parsed_args.log_level)
 
-    # If no command is specified, show help
-    if not args.command:
+    # Show version and exit
+    if hasattr(parsed_args, "version") and parsed_args.version:
+        try:
+            # Try to get version by importing
+            from pepperpy import __version__
+
+            print(f"PepperPy {__version__}")
+        except ImportError:
+            # If version is not available, show unknown
+            print("PepperPy (version unknown)")
+        return 0
+
+    # Run the command
+    if parsed_args.command:
+        if parsed_args.command in COMMANDS:
+            try:
+                return COMMANDS[parsed_args.command]().execute(parsed_args)
+            except Exception as e:
+                logger.error(f"Error executing command: {str(e)}")
+                logger.debug("Exception details:", exc_info=True)
+                return 1
+        else:
+            logger.error(f"Unknown command: {parsed_args.command}")
+            return 1
+    else:
         parser.print_help()
         return 0
 
-    # Execute the command
-    return execute_command(args)
 
+def main() -> int:
+    """Run the CLI with sys.argv.
 
-def discover_commands(package_name: str) -> None:
-    """Discover and register commands from a package.
-
-    Args:
-        package_name: The name of the package to discover commands from
+    Returns:
+        The exit code (0 for success, non-zero for failure)
     """
-    try:
-        package = importlib.import_module(package_name)
-
-        # Get the package directory
-        package_dir = os.path.dirname(package.__file__ or "")
-        if not package_dir:
-            logger.warning(f"Package {package_name} has no directory")
-            return
-
-        # Iterate over Python files in the package
-        for filename in os.listdir(package_dir):
-            if filename.endswith(".py") and not filename.startswith("__"):
-                module_name = f"{package_name}.{filename[:-3]}"
-
-                try:
-                    module = importlib.import_module(module_name)
-
-                    # Find Command subclasses in the module
-                    for name, obj in inspect.getmembers(module):
-                        if (
-                            inspect.isclass(obj)
-                            and issubclass(obj, Command)
-                            and obj is not Command
-                            and not inspect.isabstract(obj)
-                        ):
-                            # Register the command
-                            register_command(obj)
-                except ImportError as e:
-                    logger.warning(f"Failed to import module {module_name}: {str(e)}")
-    except ImportError as e:
-        logger.warning(f"Failed to import package {package_name}: {str(e)}")
+    return run_cli(None)
 
 
 if __name__ == "__main__":

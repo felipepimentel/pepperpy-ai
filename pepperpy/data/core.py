@@ -7,8 +7,8 @@ including schema validation, data transformation, and persistence.
 from typing import Any, List, Optional, TypeVar
 
 from pepperpy.data.persistence.core import get_provider
-from pepperpy.data.schema.core import validate
-from pepperpy.data.transform.core import transform
+from pepperpy.data.schema import validate
+from pepperpy.data.transform import transform
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module

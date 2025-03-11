@@ -1,31 +1,28 @@
-"""Public interfaces for PepperPy CLI module.
+"""Public API for the PepperPy CLI module.
 
-This module provides a stable public interface for the CLI functionality.
-It exposes the core CLI abstractions and implementations that are
-considered part of the public API.
+This module exports the public API for the PepperPy CLI module.
+It includes the command-line interface, command classes, and utility functions.
 """
 
-from pepperpy.cli.core import (
-    Command,
-    create_parser,
-    discover_commands,
-    execute_command,
-    get_command,
-    list_commands,
-    main,
-    register_command,
-)
+# Import core functionality
+from pepperpy.cli.core import Command, create_parser, main, register_command, run_cli
 
-# Re-export everything
+# Re-export core functionality
 __all__ = [
-    # Classes
+    # Core functionality
     "Command",
-    # Functions
-    "create_parser",
-    "discover_commands",
-    "execute_command",
-    "get_command",
-    "list_commands",
-    "main",
     "register_command",
+    "create_parser",
+    "run_cli",
+    "main",
+]
+
+# Import commands after CLI core is set up to avoid circular imports
+from pepperpy.cli.commands import InitCommand, RunCommand
+
+# Add commands to exports
+__all__ += [
+    # Commands
+    "InitCommand",
+    "RunCommand",
 ]

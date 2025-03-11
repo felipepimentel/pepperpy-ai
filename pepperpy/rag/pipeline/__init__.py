@@ -1,31 +1,61 @@
-"""Pipeline module for RAG.
+"""
+PepperPy RAG Pipeline Module.
 
-This module provides functionality for RAG pipelines,
-including pipeline stages, pipeline execution, and query processing.
+Este módulo contém os componentes para construir pipelines RAG.
 """
 
+from __future__ import annotations
+
+from pepperpy.rag.pipeline.builder import RAGPipeline, RAGPipelineBuilder
 from pepperpy.rag.pipeline.core import (
-    GenerationStage,
     Pipeline,
-    PipelineManager,
+    PipelineConfig,
+    PipelineInput,
+    PipelineOutput,
+    PipelineStep,
+)
+from pepperpy.rag.pipeline.stages import (
+    EmbeddingProvider,
+    GenerationProvider,
+    GenerationResult,
+    GenerationStage,
+    GenerationStageConfig,
     PipelineStage,
-    Query,
-    QueryExpansionStage,
-    QueryResult,
+    RerankerProvider,
+    RerankingResult,
     RerankingStage,
+    RerankingStageConfig,
+    RetrievalResult,
     RetrievalStage,
-    get_pipeline_manager,
+    RetrievalStageConfig,
+    StageConfig,
 )
 
 __all__ = [
-    "GenerationStage",
+    # Core
     "Pipeline",
-    "PipelineManager",
+    "PipelineConfig",
+    "PipelineInput",
+    "PipelineOutput",
+    "PipelineStep",
+    "RAGPipeline",
+    "RAGPipelineBuilder",
+    # Stages
     "PipelineStage",
-    "Query",
-    "QueryExpansionStage",
-    "QueryResult",
-    "RerankingStage",
+    "StageConfig",
+    # Retrieval
     "RetrievalStage",
-    "get_pipeline_manager",
-] 
+    "RetrievalStageConfig",
+    "RetrievalResult",
+    "EmbeddingProvider",
+    # Reranking
+    "RerankingStage",
+    "RerankingStageConfig",
+    "RerankingResult",
+    "RerankerProvider",
+    # Generation
+    "GenerationStage",
+    "GenerationStageConfig",
+    "GenerationResult",
+    "GenerationProvider",
+]

@@ -3,6 +3,14 @@
 This module provides functionality for serving HTTP requests.
 """
 
+from pepperpy.http.server.auth import (
+    AuthCredentials,
+    AuthenticationBackend,
+    AuthenticationError,
+    AuthenticationMiddleware,
+    SimpleUser,
+    UnauthenticatedUser,
+)
 from pepperpy.http.server.core import (
     FunctionHandler,
     Handler,
@@ -24,8 +32,16 @@ from pepperpy.http.server.core import (
     start,
     stop,
 )
+from pepperpy.http.server.middleware import (
+    CORSMiddleware,
+    GZipMiddleware,
+    HTTPSRedirectMiddleware,
+    Middleware,
+    TrustedHostMiddleware,
+)
 
 __all__ = [
+    # Core
     "FunctionHandler",
     "Handler",
     "JSONHandler",
@@ -45,4 +61,17 @@ __all__ = [
     "set_server",
     "start",
     "stop",
+    # Auth
+    "AuthCredentials",
+    "AuthenticationBackend",
+    "AuthenticationError",
+    "AuthenticationMiddleware",
+    "SimpleUser",
+    "UnauthenticatedUser",
+    # Middleware
+    "Middleware",
+    "CORSMiddleware",
+    "GZipMiddleware",
+    "HTTPSRedirectMiddleware",
+    "TrustedHostMiddleware",
 ]
