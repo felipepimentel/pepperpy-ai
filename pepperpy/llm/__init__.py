@@ -1,38 +1,33 @@
 """LLM module for PepperPy.
 
-This module provides integration with various Large Language Models (LLMs),
-including OpenAI, Anthropic, and local models. It includes functionality for
-prompt management, response handling, and error handling.
+This module provides functionality for working with Large Language Models
+in the PepperPy framework. It offers a unified interface for generating text
+and embeddings using various LLM providers.
+
+Example:
+    >>> import pepperpy as pp
+    >>> result = await pp.llm.generate("Explain quantum computing in simple terms")
+    >>> print(result.data)
+    Quantum computing is like regular computing but instead of using bits...
 """
 
-# Import public API
-from pepperpy.llm.errors import (
-    LLMAPIError,
-    LLMAuthenticationError,
-    LLMConfigError,
-    LLMContextLengthError,
-    LLMError,
-    LLMInvalidRequestError,
-    LLMRateLimitError,
-    LLMTimeoutError,
+# Import provider module
+from pepperpy.llm import providers
+from pepperpy.llm.public import (
+    embed,
+    generate,
+    get_provider,
+    list_providers,
+    register_provider,
 )
-from pepperpy.llm.utils import Message, Prompt, RateLimiter, retry, validate_prompt
 
-# Define public API
 __all__ = [
-    # Errors
-    "LLMError",
-    "LLMConfigError",
-    "LLMAuthenticationError",
-    "LLMRateLimitError",
-    "LLMContextLengthError",
-    "LLMInvalidRequestError",
-    "LLMAPIError",
-    "LLMTimeoutError",
-    # Utils
-    "Message",
-    "Prompt",
-    "RateLimiter",
-    "retry",
-    "validate_prompt",
+    # Public API
+    "embed",
+    "generate",
+    "get_provider",
+    "list_providers",
+    "register_provider",
+    # Modules
+    "providers",
 ]

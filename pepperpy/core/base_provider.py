@@ -1,12 +1,11 @@
-"""Base provider functionality for PepperPy.
+"""Base Provider interfaces and implementations for PepperPy.
 
-This module provides the base functionality for providers in PepperPy.
-Providers are responsible for implementing specific services or integrations,
-such as LLM models, storage backends, or external APIs.
+This module defines the base Provider interface that all providers must implement,
+along with common provider functionality.
 """
 
-import abc
-from typing import Any, Dict, List, Optional, Set, Type, TypeVar
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Type, TypeVar
 
 from pepperpy.errors.core import ProviderError
 from pepperpy.types import Identifiable
@@ -16,110 +15,90 @@ from pepperpy.utils.logging import get_logger
 logger = get_logger(__name__)
 
 # Type variable for provider types
-T = TypeVar("T")
+T = TypeVar("T", bound="BaseProvider")
 
 
-class BaseProvider(abc.ABC):
-    """Base class for all providers in the framework.
+class BaseProvider(ABC):
+    """Base class for all PepperPy providers.
 
-    This class provides common functionality that all providers should implement,
-    including configuration, capability management, and validation.
+    A Provider is a component that connects PepperPy to external services or resources.
+    All providers must implement this interface.
+
+    Attributes:
+        name: Provider name
+        is_initialized: Whether the provider has been initialized
     """
 
-    def __init__(
-        self,
-        provider_type: str,
-        provider_name: Optional[str] = None,
-        model_name: Optional[str] = None,
-        **kwargs: Any,
-    ):
-        """Initialize the provider.
+    def __init__(self, name: str, **kwargs: Any) -> None:
+        """Initialize a new provider.
 
         Args:
-            provider_type: The type of this provider
-            provider_name: Optional specific name for this provider
-            model_name: Optional model name used by this provider
-            **kwargs: Provider-specific configuration
+            name: Provider name
+            **kwargs: Additional provider-specific configuration
         """
-        self.provider_type = provider_type
-        self.provider_name = provider_name or self.__class__.__name__
-        self.model_name = model_name
-        self.config = kwargs
-        self._capabilities: Set[str] = set()
+        self.name = name
+        self.is_initialized = False
+        self._config = kwargs
 
-    def add_capability(self, capability: str) -> None:
-        """Add a capability to the provider.
-
-        Args:
-            capability: The capability to add
-        """
-        self._capabilities.add(capability)
-
-    def has_capability(self, capability: str) -> bool:
-        """Check if the provider has a capability.
-
-        Args:
-            capability: The name of the capability to check
-
-        Returns:
-            True if the provider has the capability, False otherwise
-        """
-        return capability in self._capabilities
-
-    def get_capabilities(self) -> Set[str]:
-        """Get the capabilities of the provider.
-
-        Returns:
-            The set of capability names
-        """
-        return self._capabilities.copy()
-
-    async def validate(self) -> None:
-        """Validate the provider configuration.
-
-        This method should be overridden by subclasses to perform
-        provider-specific validation.
-
-        Raises:
-            ProviderError: If the provider configuration is invalid
-        """
-        # Default implementation does nothing
-        pass
-
+    @abstractmethod
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        This method is called when the provider is first used.
-        It should establish any necessary connections or resources.
+        This method should be called before using the provider.
+        It should establish any necessary connections and validate configuration.
 
         Raises:
-            ProviderError: If the provider initialization fails
+            ProviderError: If initialization fails
         """
-        # Default implementation does nothing
-        pass
+        self.is_initialized = True
 
+    @abstractmethod
     async def close(self) -> None:
         """Close the provider and release resources.
 
-        This method is called when the provider is no longer needed.
-        It should release any resources used by the provider.
-
-        Raises:
-            ProviderError: If the provider close fails
+        This method should be called when the provider is no longer needed.
+        It should clean up any resources and close connections.
         """
-        # Default implementation does nothing
-        pass
+        self.is_initialized = False
 
-    def __repr__(self) -> str:
-        """Get a string representation of the provider.
+    async def __aenter__(self) -> "BaseProvider":
+        """Enter async context manager."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit async context manager."""
+        await self.close()
+
+    @abstractmethod
+    def get_config(self) -> Dict[str, Any]:
+        """Get the provider configuration.
 
         Returns:
-            A string representation
+            Dict with provider configuration
         """
-        type_str = f"type='{self.provider_type}'"
-        name_str = f", name='{self.provider_name}'" if self.provider_name else ""
-        model_str = f", model='{self.model_name}'" if self.model_name else ""
-        return f"{self.__class__.__name__}({type_str}{name_str}{model_str})"
+        return self._config.copy()
+
+    @abstractmethod
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get the provider capabilities.
+
+        Returns:
+            Dict with provider capabilities
+        """
+        pass
+
+    @classmethod
+    def create(cls: Type[T], **kwargs: Any) -> T:
+        """Factory method to create a provider instance.
+
+        Args:
+            **kwargs: Provider configuration
+
+        Returns:
+            Provider instance
+        """
+        return cls(**kwargs)
 
 
 class ProviderRegistry(Identifiable):

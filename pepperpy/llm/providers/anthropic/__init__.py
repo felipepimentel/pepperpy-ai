@@ -1,9 +1,10 @@
-"""Anthropic provider for PepperPy LLM module.
+"""Anthropic provider for PepperPy.
 
-This module provides integration with Anthropic's language models,
-including Claude and its variants.
+This module provides backward compatibility for the Anthropic provider.
+The actual implementation has been moved to pepperpy.llm.providers.rest.
 """
 
-from pepperpy.llm.providers.anthropic.provider import AnthropicProvider
+# Import from new location for backward compatibility
+from pepperpy.llm.providers.rest import AnthropicProvider
 
 __all__ = ["AnthropicProvider"]

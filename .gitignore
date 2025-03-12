@@ -90,3 +90,5 @@ outputs/
 *.jpeg
 *.gif
 examples/outputs/
+
+.specstory

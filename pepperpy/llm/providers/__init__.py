@@ -12,10 +12,22 @@ from pepperpy.llm.providers.registry import (
     register_provider,
 )
 
+# Import provider implementations
+from pepperpy.llm.providers.rest import (
+    AnthropicProvider,
+    OpenAIProvider,
+    RESTLLMProvider,
+)
+
 __all__ = [
+    # Registry functions
     "create_provider",
     "create_provider_from_dict",
     "get_provider_class",
     "list_provider_types",
     "register_provider",
+    # Provider implementations
+    "AnthropicProvider",
+    "OpenAIProvider",
+    "RESTLLMProvider",
 ]

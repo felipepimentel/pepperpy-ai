@@ -3,12 +3,20 @@
 This module provides functionality for HTTP client and server.
 """
 
+# Connection pooling
 from pepperpy.http.client import (
     HTTPClient,
+    HTTPClientContext,
+    HTTPConnectionPool,
+    HTTPPoolConfig,
     HTTPXClient,
     RequestOptions,
+    create_http_pool,
     get_http_client,
-    set_http_client,
+    get_http_pool,
+    http_client,
+    initialize_default_http_pool,
+    release_http_client,
 )
 from pepperpy.http.client import (
     Response as ClientResponse,
@@ -121,7 +129,15 @@ __all__ = [
     "client_put",
     "client_request",
     "get_http_client",
-    "set_http_client",
+    # Connection pooling
+    "HTTPClientContext",
+    "HTTPConnectionPool",
+    "HTTPPoolConfig",
+    "create_http_pool",
+    "get_http_pool",
+    "http_client",
+    "initialize_default_http_pool",
+    "release_http_client",
     # Errors
     "AuthenticationError",
     "AuthorizationError",

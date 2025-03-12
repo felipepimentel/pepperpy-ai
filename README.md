@@ -170,3 +170,4 @@ Contribuições são bem-vindas! Por favor, leia o [guia de contribuição](CONT
 ## Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para detalhes. 
+

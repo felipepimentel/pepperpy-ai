@@ -23,6 +23,20 @@ from pepperpy.utils.base import (
     slugify,
     truncate_string,
 )
+from pepperpy.utils.caching import (
+    AsyncCacheInvalidator,
+    CacheInvalidationRule,
+    CacheInvalidator,
+    CachePolicy,
+    DefaultCachePolicy,
+    DynamicTTLCachePolicy,
+    InvalidationStrategy,
+    SizeLimitedCachePolicy,
+    async_cached,
+    cached,
+    get_async_cache_invalidator,
+    get_cache_invalidator,
+)
 from pepperpy.utils.logging import configure_logging, get_logger, set_log_level
 
 __all__ = [
@@ -52,4 +66,17 @@ __all__ = [
     "configure_logging",
     "get_logger",
     "set_log_level",
+    # Caching utilities
+    "cached",
+    "async_cached",
+    "CacheInvalidationRule",
+    "CacheInvalidator",
+    "AsyncCacheInvalidator",
+    "CachePolicy",
+    "DefaultCachePolicy",
+    "SizeLimitedCachePolicy",
+    "DynamicTTLCachePolicy",
+    "InvalidationStrategy",
+    "get_cache_invalidator",
+    "get_async_cache_invalidator",
 ]

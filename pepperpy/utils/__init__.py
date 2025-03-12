@@ -13,7 +13,18 @@ from pepperpy.types import PathLike
 from pepperpy.utils.public import (
     # Type definitions
     JSON,
+    AsyncCacheInvalidator,
+    CacheInvalidationRule,
+    CacheInvalidator,
+    CachePolicy,
+    DefaultCachePolicy,
+    DynamicTTLCachePolicy,
+    InvalidationStrategy,
     PathType,
+    SizeLimitedCachePolicy,
+    async_cached,
+    # Caching utilities
+    cached,
     # Logging utilities
     configure_logging,
     # Object utilities
@@ -21,6 +32,8 @@ from pepperpy.utils.public import (
     # General utilities
     generate_id,
     generate_timestamp,
+    get_async_cache_invalidator,
+    get_cache_invalidator,
     get_file_extension,
     get_file_mime_type,
     get_file_size,
@@ -110,6 +123,20 @@ __all__ = [
     "configure_logging",
     "get_logger",
     "set_log_level",
+    # Path utilities
     "normalize_path",
     "read_file_content",
+    # Caching utilities
+    "cached",
+    "async_cached",
+    "CacheInvalidationRule",
+    "CacheInvalidator",
+    "AsyncCacheInvalidator",
+    "CachePolicy",
+    "DefaultCachePolicy",
+    "SizeLimitedCachePolicy",
+    "DynamicTTLCachePolicy",
+    "InvalidationStrategy",
+    "get_cache_invalidator",
+    "get_async_cache_invalidator",
 ]

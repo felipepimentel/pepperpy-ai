@@ -21,7 +21,18 @@ from typing import (
 
 # Type variables for generic types
 T = TypeVar("T")
-U = TypeVar("U")
+K = TypeVar("K")
+V = TypeVar("V")
+
+# Provider-related types
+ProviderType = str
+ProviderName = str
+ProviderConfig = Dict[str, Any]
+ProviderCapabilities = Dict[str, Any]
+
+# Common model types
+ModelName = str
+ModelConfig = Dict[str, Any]
 
 # -----------------------------------------------------------------------------
 # Metadata Structures

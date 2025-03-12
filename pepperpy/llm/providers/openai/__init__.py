@@ -1,9 +1,10 @@
-"""OpenAI provider for PepperPy LLM module.
+"""OpenAI provider for PepperPy.
 
-This module provides integration with OpenAI's language models,
-including GPT-3.5, GPT-4, and their variants.
+This module provides backward compatibility for the OpenAI provider.
+The actual implementation has been moved to pepperpy.llm.providers.rest.
 """
 
-from pepperpy.llm.providers.openai.provider import OpenAIProvider
+# Import from new location for backward compatibility
+from pepperpy.llm.providers.rest import OpenAIProvider
 
 __all__ = ["OpenAIProvider"]

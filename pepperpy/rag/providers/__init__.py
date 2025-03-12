@@ -1,12 +1,11 @@
-"""
-PepperPy RAG Providers Module.
+"""RAG Providers for PepperPy.
 
-Este módulo contém os provedores para o sistema RAG, incluindo embeddings, geração e reranking.
+This module provides implementations of various RAG providers for the PepperPy framework,
+including embedding, reranking, and generation providers.
 """
 
 from __future__ import annotations
 
-# Importa as classes base
 from pepperpy.rag.providers.base import (
     BaseEmbeddingProvider,
     BaseGenerationProvider,
@@ -14,22 +13,37 @@ from pepperpy.rag.providers.base import (
     BaseRerankingProvider,
 )
 
-# Importa os provedores de embedding
-from pepperpy.rag.providers.embedding import (
-    MockEmbeddingProvider,
-    OpenAIEmbeddingProvider,
+# Import REST-based providers
+from pepperpy.rag.providers.rest import (
+    RESTEmbeddingProvider,
+    RESTGenerationProvider,
+    RESTRerankingProvider,
 )
 
-# Importa os provedores de geração
-from pepperpy.rag.providers.generation import (
-    MockGenerationProvider,
-    OpenAIGenerationProvider,
-)
+# Try to import providers that depend on optional libraries
+try:
+    from pepperpy.rag.providers.embedding import (
+        MockEmbeddingProvider,
+        OpenAIEmbeddingProvider,
+    )
+except ImportError:
+    # If the optional dependencies are not installed, these providers won't be available
+    pass
 
-# Importa os provedores de reranking
-from pepperpy.rag.providers.reranking import (
-    MockRerankingProvider,
-)
+try:
+    from pepperpy.rag.providers.generation import (
+        MockGenerationProvider,
+        OpenAIGenerationProvider,
+    )
+except ImportError:
+    pass
+
+try:
+    from pepperpy.rag.providers.reranking import (
+        MockRerankingProvider,
+    )
+except ImportError:
+    pass
 
 # Tenta importar provedores que dependem de bibliotecas opcionais
 try:
@@ -41,19 +55,23 @@ except ImportError:
 
 # Exportação pública
 __all__ = [
-    # Classes base
+    # Base providers
     "BaseProvider",
     "BaseEmbeddingProvider",
     "BaseGenerationProvider",
     "BaseRerankingProvider",
-    # Provedores de embedding
+    # Embedding providers
     "MockEmbeddingProvider",
     "OpenAIEmbeddingProvider",
-    # Provedores de geração
+    # Generation providers
     "MockGenerationProvider",
     "OpenAIGenerationProvider",
-    # Provedores de reranking
+    # Reranking providers
     "MockRerankingProvider",
+    # REST-based providers
+    "RESTEmbeddingProvider",
+    "RESTGenerationProvider",
+    "RESTRerankingProvider",
 ]
 
 # Adiciona provedores opcionais ao __all__ se disponíveis

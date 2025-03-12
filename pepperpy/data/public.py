@@ -51,6 +51,26 @@ from pepperpy.data.transform import (
     transform,
 )
 
+# Import transform pipeline with validation hooks
+from pepperpy.data.transform_pipeline import (
+    ValidatedPipeline,
+    create_validated_pipeline,
+    execute_validated_pipeline,
+    get_validated_pipeline,
+    register_validated_pipeline,
+)
+
+# Import validation functions
+from pepperpy.data.validation import (
+    ValidationLevel,
+    ValidationResult,
+    ValidationStage,
+    Validator,
+    get_validator,
+    register_validator,
+    validate_with,
+)
+
 __all__ = [
     # Errors
     "ConnectionError",
@@ -84,4 +104,18 @@ __all__ = [
     "parse_date",
     "parse_datetime",
     "transform",
+    # Data validation
+    "ValidationLevel",
+    "ValidationResult",
+    "ValidationStage",
+    "Validator",
+    "get_validator",
+    "register_validator",
+    "validate_with",
+    # Transform pipeline with validation hooks
+    "ValidatedPipeline",
+    "create_validated_pipeline",
+    "execute_validated_pipeline",
+    "get_validated_pipeline",
+    "register_validated_pipeline",
 ]

@@ -1,19 +1,144 @@
 """Core functionality for the LLM module.
 
-This module provides the core functionality for working with Large Language Models,
-including model management, provider registration, and a unified interface for
-generating completions and embeddings.
+This module provides the core functionality for working with Large Language Models
+in the PepperPy framework. It defines the base classes and interfaces that are used
+throughout the LLM module.
 """
 
-from typing import AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.llm.errors import LLMError
-from pepperpy.llm.providers.base import LLMProvider, Response, StreamingResponse
-from pepperpy.llm.utils import Prompt
+from pepperpy.core.base_provider import BaseProvider
+from pepperpy.types.common import ModelName, Result
 from pepperpy.utils.logging import get_logger
 
-# Logger for this module
 logger = get_logger(__name__)
+
+
+class LLMResult(Result[str]):
+    """Result of an LLM operation.
+
+    This class extends the generic Result class to provide LLM-specific
+    result information.
+
+    Attributes:
+        success: Whether the operation was successful
+        data: The generated text (if successful)
+        error: Error message (if unsuccessful)
+        metadata: Additional metadata about the operation
+        model: The model used for generation
+        usage: Token usage information
+    """
+
+    def __init__(
+        self,
+        success: bool = True,
+        data: Optional[str] = None,
+        error: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        model: Optional[str] = None,
+        usage: Optional[Dict[str, int]] = None,
+    ) -> None:
+        """Initialize a new LLM result.
+
+        Args:
+            success: Whether the operation was successful
+            data: The generated text (if successful)
+            error: Error message (if unsuccessful)
+            metadata: Additional metadata about the operation
+            model: The model used for generation
+            usage: Token usage information
+        """
+        super().__init__(
+            success=success, data=data, error=error, metadata=metadata or {}
+        )
+        self.model = model
+        self.usage = usage or {}
+
+        if model:
+            self.metadata["model"] = model
+        if usage:
+            self.metadata["usage"] = usage
+
+
+class LLMProvider(BaseProvider):
+    """Base class for LLM providers.
+
+    This class defines the interface that all LLM providers must implement.
+    It extends the BaseProvider class to provide LLM-specific functionality.
+    """
+
+    def __init__(
+        self,
+        name: str,
+        default_model: ModelName,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize a new LLM provider.
+
+        Args:
+            name: Provider name
+            default_model: Default model to use
+            **kwargs: Additional provider-specific configuration
+        """
+        super().__init__(name=name, **kwargs)
+        self.default_model = default_model
+
+    async def generate(
+        self,
+        prompt: str,
+        model: Optional[ModelName] = None,
+        **kwargs: Any,
+    ) -> LLMResult:
+        """Generate text based on the prompt.
+
+        This is the main method for generating text using the LLM provider.
+
+        Args:
+            prompt: The prompt to generate text from
+            model: The model to use (defaults to the provider's default model)
+            **kwargs: Additional generation parameters
+
+        Returns:
+            LLMResult with the generated text
+
+        Raises:
+            ProviderError: If generation fails
+        """
+        raise NotImplementedError("Subclasses must implement generate")
+
+    async def embed(
+        self,
+        text: str,
+        model: Optional[ModelName] = None,
+        **kwargs: Any,
+    ) -> Result[List[float]]:
+        """Generate embeddings for the given text.
+
+        Args:
+            text: The text to generate embeddings for
+            model: The model to use (defaults to the provider's default model)
+            **kwargs: Additional embedding parameters
+
+        Returns:
+            Result with the embedding vector
+
+        Raises:
+            ProviderError: If embedding generation fails
+        """
+        raise NotImplementedError("Subclasses must implement embed")
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get the provider capabilities.
+
+        Returns:
+            Dict with provider capabilities
+        """
+        return {
+            "supports_generation": True,
+            "supports_embeddings": False,  # Override in subclasses
+            "supports_streaming": False,  # Override in subclasses
+            "default_model": self.default_model,
+        }
 
 
 class LLMManager:
