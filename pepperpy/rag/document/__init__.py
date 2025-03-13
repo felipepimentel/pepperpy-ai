@@ -6,7 +6,6 @@ Este módulo contém as classes e funções para trabalhar com documentos no sis
 
 from __future__ import annotations
 
-from pepperpy.rag.document.core import Document, Metadata
 from pepperpy.rag.document.loaders import (
     CSVLoader,
     DocumentLoader,
@@ -23,7 +22,8 @@ from pepperpy.rag.document.processors import (
     TextChunker,
     TextCleaner,
 )
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.models import Document, Metadata
+from pepperpy.rag.utils import (
     calculate_text_statistics,
     clean_markdown_formatting,
     clean_text,

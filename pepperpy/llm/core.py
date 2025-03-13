@@ -7,7 +7,7 @@ throughout the LLM module.
 
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.core.base_provider import BaseProvider
+from pepperpy.providers.base import BaseProvider
 from pepperpy.types.common import ModelName, Result
 from pepperpy.utils.logging import get_logger
 

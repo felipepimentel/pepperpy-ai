@@ -5,8 +5,8 @@ This module provides a specialized registry for managing type-safe components.
 
 from typing import Dict, List, Optional, Type, TypeVar
 
-from pepperpy.core.base_registry import Registry
 from pepperpy.errors import PepperpyError
+from pepperpy.registry.base import Registry
 
 # Type variable for registry item types
 T = TypeVar("T")

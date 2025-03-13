@@ -163,7 +163,7 @@ O módulo RAG (Retrieval Augmented Generation) fornece funcionalidades para proc
 ### Utilitários de Documento
 
 ```python
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.utils import (
     clean_text,
     remove_html_tags,
     clean_markdown_formatting,

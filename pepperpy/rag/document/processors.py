@@ -11,11 +11,11 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional
 
 import nltk
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from pepperpy.errors.core import PepperPyError
-from pepperpy.rag.document.core import Document, Metadata
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.models import Document, Metadata
+from pepperpy.rag.utils import (
     clean_markdown_formatting,
     clean_text,
     remove_html_tags,
@@ -299,21 +299,30 @@ class HTMLProcessor(DocumentProcessor):
                         element.decompose()
 
                 # Extrai o título se configurado
-                if self.extract_title and soup.title and soup.title.string:
-                    metadata.title = soup.title.string.strip()
+                if (
+                    self.extract_title
+                    and soup.title
+                    and isinstance(soup.title, Tag)
+                    and soup.title.string
+                ):
+                    metadata.title = str(soup.title.string).strip()
 
                 # Extrai metadados se configurado
                 if self.extract_metadata:
                     for meta_tag in soup.find_all("meta"):
-                        name = meta_tag.get("name", meta_tag.get("property", ""))
+                        if not isinstance(meta_tag, Tag):
+                            continue
+                        name = meta_tag.get("name") or meta_tag.get("property", "")
                         content = meta_tag.get("content", "")
                         if name and content:
-                            metadata.custom[f"meta_{name}"] = content
+                            metadata.custom[f"meta_{name}"] = str(content)
 
                 # Extrai o texto conforme as tags definidas
                 text_parts = []
                 for tag_name in self.tags_to_extract:
                     for tag in soup.find_all(tag_name):
+                        if not isinstance(tag, Tag):
+                            continue
                         if tag.get_text(strip=True):
                             text_parts.append(tag.get_text(strip=True))
 

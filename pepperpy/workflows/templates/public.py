@@ -4,9 +4,9 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
 
 from pepperpy.core.base_manager import BaseManager
-from pepperpy.core.base_provider import BaseProvider
-from pepperpy.core.base_registry import Registry
 from pepperpy.errors import PepperpyError
+from pepperpy.providers.base import BaseProvider
+from pepperpy.registry.base import Registry
 
 
 @dataclass

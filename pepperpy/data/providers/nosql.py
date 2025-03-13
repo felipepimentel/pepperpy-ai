@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional, Union
 import motor.motor_asyncio
 from pymongo.errors import PyMongoError
 
-from pepperpy.core.base_provider import BaseProvider
 from pepperpy.errors.core import ProviderError
+from pepperpy.providers.base import BaseProvider
 
 
 # Definir o erro PersistenceError para manter compatibilidade

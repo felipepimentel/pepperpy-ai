@@ -10,7 +10,7 @@ from pepperpy.http.utils import (
     get_content_type,
     is_json_content,
 )
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.utils import (
     clean_markdown_formatting,
     clean_text,
     extract_html_metadata,

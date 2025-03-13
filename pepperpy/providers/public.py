@@ -4,7 +4,7 @@ This module exports the public API for the PepperPy providers module.
 It includes base provider classes and registry functionality.
 """
 
-from pepperpy.core.base_provider import (
+from pepperpy.providers.base import (
     BaseProvider,
     ProviderRegistry,
     provider_registry,

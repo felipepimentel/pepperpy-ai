@@ -8,8 +8,8 @@ import abc
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.core.base_provider import BaseProvider
 from pepperpy.errors.core import PepperPyError
+from pepperpy.providers.base import BaseProvider, provider_registry
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module
@@ -212,6 +212,4 @@ class LLMProvider(BaseProvider, abc.ABC):
 
 
 # Register provider type with global registry
-from pepperpy.core.base_provider import provider_registry
-
 provider_registry.register("llm", LLMProvider)

@@ -1,4 +1,4 @@
-"""Utility functions for RAG document processing.
+"""Utility functions for RAG processing.
 
 This module provides utility functions for document processing in the RAG system,
 including text cleaning, HTML/Markdown formatting removal, text chunking,
@@ -7,10 +7,10 @@ and metadata extraction for improved retrieval and generation.
 
 import re
 import unicodedata
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Union, cast
 
 import nltk
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from pepperpy.utils.logging import get_logger
 
@@ -266,24 +266,36 @@ def extract_html_metadata(soup: BeautifulSoup) -> Dict[str, str]:
 
     # Extract title
     title_tag = soup.find("title")
-    if title_tag and title_tag.string:
-        metadata["title"] = title_tag.string.strip()
+    if title_tag and isinstance(title_tag, Tag) and title_tag.string:
+        metadata["title"] = str(title_tag.string).strip()
 
     # Extract meta tags
     for meta in soup.find_all("meta"):
-        name = meta.get("name", "").lower()
+        if not isinstance(meta, Tag):
+            continue
+            
+        name = meta.get("name", "")
+        if name:
+            name = str(name).lower()
+            
         content = meta.get("content", "")
-
+        
         if name and content:
-            metadata[name] = content
+            metadata[name] = str(content)
 
     # Extract Open Graph metadata
     for meta in soup.find_all("meta", property=re.compile(r"^og:")):
-        property_name = meta.get("property", "")[3:]  # Remove 'og:' prefix
+        if not isinstance(meta, Tag):
+            continue
+            
+        property_name = meta.get("property", "")
+        if property_name and isinstance(property_name, str):
+            property_name = property_name[3:]  # Remove 'og:' prefix
+            
         content = meta.get("content", "")
-
+        
         if property_name and content:
-            metadata[f"og_{property_name}"] = content
+            metadata[f"og_{property_name}"] = str(content)
 
     return metadata
 

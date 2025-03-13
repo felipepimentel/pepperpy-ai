@@ -7,8 +7,8 @@ allowing providers to be registered, discovered, and instantiated dynamically.
 
 from typing import Any, Dict, List, Optional, Type, TypeVar
 
-from pepperpy.core.base_provider import BaseProvider
 from pepperpy.errors.core import ProviderError
+from pepperpy.providers.base import BaseProvider
 from pepperpy.utils.logging import get_logger
 
 logger = get_logger(__name__)

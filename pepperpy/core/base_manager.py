@@ -7,9 +7,9 @@ such as LLM models, storage backends, or external APIs.
 
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar
 
-from pepperpy.core.base_provider import BaseProvider
 from pepperpy.core.base_registry import Registry
 from pepperpy.errors.core import PepperPyError
+from pepperpy.providers.base import BaseProvider
 from pepperpy.types import Identifiable
 from pepperpy.utils.logging import get_logger
 

@@ -10,8 +10,6 @@ from pepperpy.core.base_manager import (
     ManagerError,
     manager_registry,
 )
-from pepperpy.core.base_provider import BaseProvider, ProviderRegistry, provider_registry
-from pepperpy.core.base_registry import Registry, RegistryError, TypeRegistry, registry_of_registries
 from pepperpy.core.core import (
     AuthenticationError,
     AuthorizationError,
@@ -28,6 +26,13 @@ from pepperpy.core.core import (
     get_env_var,
     get_output_dir,
     get_project_root,
+)
+from pepperpy.providers.base import BaseProvider, ProviderRegistry, provider_registry
+from pepperpy.registry.base import (
+    Registry,
+    RegistryError,
+    TypeRegistry,
+    registry_of_registries,
 )
 from pepperpy.utils import (
     JSON,
@@ -59,27 +64,22 @@ __all__ = [
     "TimeoutError",
     "RateLimitError",
     "ServiceUnavailableError",
-    
     # Provider classes
     "BaseProvider",
     "ProviderRegistry",
     "provider_registry",
-    
     # Registry classes
     "Registry",
     "TypeRegistry",
     "RegistryError",
     "registry_of_registries",
-    
     # Manager classes
     "BaseManager",
     "ManagerError",
     "manager_registry",
-    
     # Type definitions
     "JSON",
     "PathType",
-    
     # Utility functions
     "get_logger",
     "generate_id",

@@ -6,8 +6,8 @@ in the PepperPy framework.
 
 from typing import Any, Dict, List, Optional, Type
 
-from pepperpy.core.base_provider import BaseProvider, provider_registry
 from pepperpy.core.interfaces import ProviderConfig
+from pepperpy.providers.base import BaseProvider, provider_registry
 
 
 def register_provider(provider_type: str, provider_class: Type[BaseProvider]) -> None:

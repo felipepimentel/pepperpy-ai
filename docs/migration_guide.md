@@ -98,7 +98,7 @@ from pepperpy.rag.document.formatters.utils import clean_markdown
 **Depois:**
 ```python
 # Funções consolidadas em um único módulo de utilidades
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.utils import (
     clean_text,
     remove_html_tags,
     clean_markdown_formatting,
@@ -180,7 +180,7 @@ formatted = formatter.format(processed)
 ```python
 from pepperpy.rag.document.loaders import TextLoader
 from pepperpy.rag.document.processors import TextProcessor
-from pepperpy.rag.document.utils import clean_markdown_formatting
+from pepperpy.rag.utils import clean_markdown_formatting
 
 loader = TextLoader()
 processor = TextProcessor()

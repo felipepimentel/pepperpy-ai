@@ -9,8 +9,8 @@ from typing import Any, Dict, Optional
 
 import httpx
 
-from pepperpy.core.base_provider import BaseProvider
 from pepperpy.errors.core import ProviderError
+from pepperpy.providers.base import BaseProvider
 from pepperpy.utils.decorators import retry
 from pepperpy.utils.logging import get_logger
 

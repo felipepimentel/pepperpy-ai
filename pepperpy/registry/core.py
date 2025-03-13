@@ -7,6 +7,7 @@ including registration, discovery, and management of components.
 from typing import Any, Dict, Generic, List, Optional, Type, TypeVar, Union
 
 from pepperpy.errors import NotFoundError, ValidationError
+from pepperpy.registry.base import Registry as BaseRegistry
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module
@@ -62,7 +63,6 @@ class ComponentId:
         """
         if not isinstance(other, ComponentId):
             return False
-
         return (
             self.name == other.name
             and self.version == other.version
@@ -70,10 +70,10 @@ class ComponentId:
         )
 
     def __hash__(self) -> int:
-        """Get a hash of the component ID.
+        """Get a hash of this component ID.
 
         Returns:
-            A hash of the component ID
+            A hash of this component ID
         """
         return hash((self.name, self.version, self.namespace))
 
@@ -85,22 +85,23 @@ class ComponentId:
             id_str: The string to parse
 
         Returns:
-            The parsed component ID
+            A component ID
 
         Raises:
-            ValueError: If the string is not a valid component ID
+            ValueError: If the string cannot be parsed
         """
-        # Check for namespace
+        # Split namespace and rest
         if "/" in id_str:
-            namespace, id_str = id_str.split("/", 1)
+            namespace, rest = id_str.split("/", 1)
         else:
             namespace = None
+            rest = id_str
 
-        # Check for version
-        if "@" in id_str:
-            name, version = id_str.split("@", 1)
+        # Split name and version
+        if "@" in rest:
+            name, version = rest.split("@", 1)
         else:
-            name = id_str
+            name = rest
             version = None
 
         return cls(name=name, version=version, namespace=namespace)
@@ -109,8 +110,8 @@ class ComponentId:
 class ComponentMetadata:
     """Metadata for a component.
 
-    Component metadata provides additional information about a component,
-    such as its name, description, and dependencies.
+    Component metadata includes information about a component such as its
+    description, dependencies, and other metadata.
     """
 
     def __init__(
@@ -123,7 +124,7 @@ class ComponentMetadata:
         """Initialize component metadata.
 
         Args:
-            id: The ID of the component
+            id: The component ID
             description: A description of the component
             dependencies: The dependencies of the component
             metadata: Additional metadata for the component
@@ -139,19 +140,16 @@ class ComponentMetadata:
         Returns:
             A string representation of the component metadata
         """
-        return f"{self.id}: {self.description or 'No description'}"
+        return f"ComponentMetadata(id={self.id}, description={self.description})"
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the component metadata to a dictionary.
 
         Returns:
-            The component metadata as a dictionary
+            A dictionary representation of the component metadata
         """
         return {
             "id": str(self.id),
-            "name": self.id.name,
-            "version": self.id.version,
-            "namespace": self.id.namespace,
             "description": self.description,
             "dependencies": [str(dep) for dep in self.dependencies],
             "metadata": self.metadata,
@@ -162,47 +160,36 @@ class ComponentMetadata:
         """Create component metadata from a dictionary.
 
         Args:
-            data: The dictionary to create the component metadata from
+            data: The dictionary to create the metadata from
 
         Returns:
-            The created component metadata
+            Component metadata
+
+        Raises:
+            ValueError: If the dictionary is invalid
         """
-        # Parse the ID
-        if "id" in data:
+        try:
             id = ComponentId.parse(data["id"])
-        else:
-            id = ComponentId(
-                name=data["name"],
-                version=data.get("version"),
-                namespace=data.get("namespace"),
+            description = data.get("description")
+            dependencies = [
+                ComponentId.parse(dep) for dep in data.get("dependencies", [])
+            ]
+            metadata = data.get("metadata", {})
+
+            return cls(
+                id=id,
+                description=description,
+                dependencies=dependencies,
+                metadata=metadata,
             )
-
-        # Parse dependencies
-        dependencies = []
-        for dep in data.get("dependencies", []):
-            if isinstance(dep, str):
-                dependencies.append(ComponentId.parse(dep))
-            elif isinstance(dep, dict):
-                dependencies.append(
-                    ComponentId(
-                        name=dep["name"],
-                        version=dep.get("version"),
-                        namespace=dep.get("namespace"),
-                    )
-                )
-
-        return cls(
-            id=id,
-            description=data.get("description"),
-            dependencies=dependencies,
-            metadata=data.get("metadata", {}),
-        )
+        except Exception as e:
+            raise ValueError(f"Invalid component metadata: {e}")
 
 
 class Component(Generic[T]):
-    """A registered component.
+    """A component in the registry.
 
-    A component is a registered object or class in the registry.
+    A component is a registered object with associated metadata.
     """
 
     def __init__(
@@ -213,7 +200,7 @@ class Component(Generic[T]):
         """Initialize a component.
 
         Args:
-            component: The component object or class
+            component: The component object
             metadata: The component metadata
         """
         self.component = component
@@ -225,10 +212,10 @@ class Component(Generic[T]):
         Returns:
             A string representation of the component
         """
-        return f"{self.metadata.id}: {self.component}"
+        return f"Component(id={self.metadata.id})"
 
 
-class Registry(Generic[T]):
+class Registry(BaseRegistry[T]):
     """Registry for components.
 
     A registry manages components of a specific type, allowing for registration,
@@ -241,9 +228,12 @@ class Registry(Generic[T]):
         Args:
             component_type: The type of components in the registry
         """
+        super().__init__(
+            registry_name=f"{component_type.__name__}_registry",
+            registry_type=component_type.__name__,
+        )
         self.component_type = component_type
         self.components: Dict[ComponentId, Component[T]] = {}
-        self.type_name = self.component_type.__name__
 
     def register(
         self,
@@ -272,9 +262,9 @@ class Registry(Generic[T]):
         # Check component type
         if not isinstance(component, self.component_type):
             raise ValidationError(
-                f"Component must be an instance of {self.type_name}",
+                f"Component must be an instance of {self.component_type.__name__}",
                 errors={
-                    "component": f"Expected {self.type_name}, got {type(component).__name__}"
+                    "component": f"Expected {self.component_type.__name__}, got {type(component).__name__}"
                 },
             )
 
@@ -289,33 +279,36 @@ class Registry(Generic[T]):
             raise ValueError(f"Component {component_id} is already registered")
 
         # Parse dependencies
-        parsed_dependencies = []
         if dependencies:
+            parsed_deps = []
             for dep in dependencies:
                 if isinstance(dep, str):
-                    parsed_dependencies.append(ComponentId.parse(dep))
+                    parsed_deps.append(ComponentId.parse(dep))
                 else:
-                    parsed_dependencies.append(dep)
+                    parsed_deps.append(dep)
+        else:
+            parsed_deps = []
 
         # Create component metadata
         component_metadata = ComponentMetadata(
             id=component_id,
             description=description,
-            dependencies=parsed_dependencies,
+            dependencies=parsed_deps,
             metadata=metadata,
         )
 
-        # Create and register the component
-        registered_component = Component(
+        # Create component
+        component_wrapper = Component(
             component=component,
             metadata=component_metadata,
         )
 
-        self.components[component_id] = registered_component
+        # Register component
+        self.components[component_id] = component_wrapper
 
-        logger.info(f"Registered {self.type_name} component: {component_id}")
+        logger.info(f"Registered component {component_id}")
 
-        return registered_component
+        return component_wrapper
 
     def unregister(self, id: Union[str, ComponentId]) -> None:
         """Unregister a component.
@@ -332,14 +325,14 @@ class Registry(Generic[T]):
         else:
             component_id = id
 
-        # Check if the component is registered
+        # Check if the component exists
         if component_id not in self.components:
-            raise NotFoundError(f"Component {component_id} is not registered")
+            raise NotFoundError(f"Component {component_id} not found")
 
         # Unregister the component
         del self.components[component_id]
 
-        logger.info(f"Unregistered {self.type_name} component: {component_id}")
+        logger.info(f"Unregistered component {component_id}")
 
     def get(self, id: Union[str, ComponentId]) -> T:
         """Get a component.
@@ -359,12 +352,12 @@ class Registry(Generic[T]):
         else:
             component_id = id
 
-        # Check if the component is registered
-        if component_id not in self.components:
-            raise NotFoundError(f"Component {component_id} is not registered")
-
         # Get the component
-        return self.components[component_id].component
+        component = self.components.get(component_id)
+        if component is None:
+            raise NotFoundError(f"Component {component_id} not found")
+
+        return component.component
 
     def get_metadata(self, id: Union[str, ComponentId]) -> ComponentMetadata:
         """Get component metadata.
@@ -384,15 +377,15 @@ class Registry(Generic[T]):
         else:
             component_id = id
 
-        # Check if the component is registered
-        if component_id not in self.components:
-            raise NotFoundError(f"Component {component_id} is not registered")
+        # Get the component
+        component = self.components.get(component_id)
+        if component is None:
+            raise NotFoundError(f"Component {component_id} not found")
 
-        # Get the component metadata
-        return self.components[component_id].metadata
+        return component.metadata
 
     def list(self) -> List[ComponentId]:
-        """List all registered component IDs.
+        """List registered component IDs.
 
         Returns:
             A list of registered component IDs
@@ -413,7 +406,7 @@ class Registry(Generic[T]):
         This removes all registered components from the registry.
         """
         self.components.clear()
-        logger.info(f"Cleared {self.type_name} registry")
+        logger.info(f"Cleared {self.component_type.__name__} registry")
 
 
 class RegistryManager:
@@ -527,7 +520,7 @@ class RegistryManager:
         return registry.get_metadata(id)
 
     def list(self, component_type: Type) -> List[ComponentId]:
-        """List all registered component IDs for a component type.
+        """List registered component IDs.
 
         Args:
             component_type: The component type
@@ -576,15 +569,19 @@ class RegistryManager:
             registry.clear()
 
 
-# Create a global registry manager
-_registry_manager = RegistryManager()
+# Global registry manager instance
+_registry_manager: Optional[RegistryManager] = None
 
 
-# Get the global registry manager
 def get_registry_manager() -> RegistryManager:
-    """Get the global registry manager.
+    """Get the global registry manager instance.
 
     Returns:
-        The global registry manager
+        The global registry manager instance
     """
+    global _registry_manager
+
+    if _registry_manager is None:
+        _registry_manager = RegistryManager()
+
     return _registry_manager

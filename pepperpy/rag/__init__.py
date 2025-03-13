@@ -1,128 +1,110 @@
 """RAG (Retrieval Augmented Generation) module.
 
-This module provides functionality for building and using RAG systems.
-It includes components for document storage, retrieval, reranking,
-and generation, along with a flexible pipeline system.
-
-Example usage:
-    ```python
-    from pepperpy.rag import RAGPipelineBuilder
-    from pepperpy.rag.providers.embedding import OpenAIEmbeddingProvider
-    from pepperpy.rag.providers.reranking import CrossEncoderProvider
-    from pepperpy.rag.providers.generation import OpenAIGenerationProvider
-    from pepperpy.rag.storage import ChromaVectorStore
-
-    # Initialize components
-    vector_store = ChromaVectorStore(...)
-    embedding_provider = OpenAIEmbeddingProvider(...)
-    reranker = CrossEncoderProvider(...)
-    generator = OpenAIGenerationProvider(...)
-
-    # Build pipeline
-    pipeline = (
-        RAGPipelineBuilder()
-        .with_retrieval(vector_store, embedding_provider)
-        .with_reranking(reranker)
-        .with_generation(generator)
-        .build()
-    )
-
-    # Process query
-    result = await pipeline.process("What is the capital of France?")
-    print(result["response"])
-    ```
+This module provides functionality for implementing RAG systems,
+including document processing, retrieval, and generation.
 """
 
-from pepperpy.rag.document.core import DocumentChunk
-from pepperpy.rag.errors import (
-    EmbeddingError,
-    GenerationError,
-    PipelineError,
-    PipelineStageError,
-    RerankingError,
-    VectorStoreError,
-)
-from pepperpy.rag.pipeline.builder import RAGPipeline, RAGPipelineBuilder
-from pepperpy.rag.pipeline.stages import (
-    GenerationStage,
-    GenerationStageConfig,
-    RerankingStage,
-    RerankingStageConfig,
-    RetrievalStage,
-    RetrievalStageConfig,
-)
-from pepperpy.rag.providers.embedding import (
-    BaseEmbeddingProvider,
-    MockEmbeddingProvider,
-    OpenAIEmbeddingProvider,
-)
-from pepperpy.rag.providers.generation import (
-    BaseGenerationProvider,
-    MockGenerationProvider,
-    OpenAIGenerationProvider,
-)
-
-# Import reranking providers, making torch-dependent ones optional
-from pepperpy.rag.providers.reranking import (
-    BaseRerankingProvider,
-    MockRerankingProvider,
-)
-
-# Try to import torch-dependent providers
-try:
-    from pepperpy.rag.providers.reranking import CrossEncoderProvider
-
-    _has_torch = True
-except ImportError:
-    _has_torch = False
-
-from pepperpy.rag.storage import (
-    ChromaVectorStore,
-    FileVectorStore,
-    MemoryVectorStore,
+from pepperpy.rag.interfaces import (
+    DocumentLoader,
+    DocumentProcessor,
+    DocumentStore,
+    DocumentTransformer,
+    EmbeddingProvider,
+    GenerationProvider,
+    MetadataExtractor,
+    PipelineStage,
+    RerankerProvider,
+    SearchProvider,
     VectorStore,
+)
+from pepperpy.rag.models import (
+    # Chunking models
+    ChunkingConfig,
+    ChunkingStrategy,
+    ChunkMetadata,
+    # Document models
+    Document,
+    DocumentChunk,
+    GenerationResult,
+    Metadata,
+    # Metadata models
+    MetadataExtractorConfig,
+    MetadataType,
+    RerankingResult,
+    # Result models
+    RetrievalResult,
+    # Transformation models
+    TransformationConfig,
+    TransformationType,
+)
+from pepperpy.rag.pipeline.core import (
+    RAGPipeline,
+    create_default_pipeline,
+    create_metadata_focused_pipeline,
+    create_simple_pipeline,
+    process_document,
+    process_documents,
+)
+from pepperpy.rag.pipeline.stages.generation import GenerationStage
+from pepperpy.rag.pipeline.stages.reranking import RerankingStage
+from pepperpy.rag.pipeline.stages.retrieval import RetrievalStage
+from pepperpy.rag.utils import (
+    calculate_text_statistics,
+    clean_markdown_formatting,
+    clean_text,
+    extract_html_metadata,
+    remove_html_tags,
+    split_text_by_char,
+    split_text_by_separator,
 )
 
 __all__ = [
-    # Core types
+    # Core document types
+    "Document",
     "DocumentChunk",
+    "Metadata",
+    # Chunking models
+    "ChunkingConfig",
+    "ChunkingStrategy",
+    "ChunkMetadata",
+    # Transformation models
+    "TransformationConfig",
+    "TransformationType",
+    # Metadata models
+    "MetadataExtractorConfig",
+    "MetadataType",
+    # Interfaces
+    "DocumentLoader",
+    "DocumentProcessor",
+    "DocumentStore",
+    "DocumentTransformer",
+    "EmbeddingProvider",
+    "GenerationProvider",
+    "MetadataExtractor",
+    "PipelineStage",
+    "RerankerProvider",
+    "SearchProvider",
     "VectorStore",
     # Pipeline
     "RAGPipeline",
-    "RAGPipelineBuilder",
-    # Stage classes
+    "create_default_pipeline",
+    "create_simple_pipeline",
+    "create_metadata_focused_pipeline",
+    "process_document",
+    "process_documents",
+    # Pipeline stages
     "RetrievalStage",
+    "RetrievalResult",
     "RerankingStage",
+    "RerankingResult",
     "GenerationStage",
-    # Stage configs
-    "RetrievalStageConfig",
-    "RerankingStageConfig",
-    "GenerationStageConfig",
-    # Provider base classes
-    "BaseEmbeddingProvider",
-    "BaseRerankingProvider",
-    "BaseGenerationProvider",
-    # Embedding providers
-    "MockEmbeddingProvider",
-    "OpenAIEmbeddingProvider",
-    # Reranking providers
-    "MockRerankingProvider",
-    # Generation providers
-    "MockGenerationProvider",
-    "OpenAIGenerationProvider",
-    # Vector stores
-    "MemoryVectorStore",
-    "FileVectorStore",
-    "ChromaVectorStore",
-    # Errors
-    "EmbeddingError",
-    "GenerationError",
-    "PipelineError",
-    "PipelineStageError",
-    "RerankingError",
-    "VectorStoreError",
+    "GenerationResult",
+    # Utility functions
+    "calculate_text_statistics",
+    "clean_markdown_formatting",
+    "clean_text",
+    "extract_html_metadata",
+    "remove_html_tags",
+    "split_text_by_char",
+    "split_text_by_separator",
 ]
-
-# Add torch-dependent providers to __all__ if available
-if _has_torch:
-    __all__.append("CrossEncoderProvider")

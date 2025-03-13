@@ -56,7 +56,7 @@ await server.start(host="0.0.0.0", port=8000)
 Funcionalidades para processamento de documentos, recuperação e geração:
 
 ```python
-from pepperpy.rag.document.utils import clean_text, remove_html_tags
+from pepperpy.rag.utils import clean_text, remove_html_tags
 from pepperpy.rag.document.loaders import TextLoader
 from pepperpy.rag.pipeline.builder import RAGPipelineBuilder
 from pepperpy.rag.pipeline.stages import RetrievalStage, GenerationStage

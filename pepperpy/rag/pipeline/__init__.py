@@ -1,61 +1,39 @@
-"""
-PepperPy RAG Pipeline Module.
+"""RAG Pipeline system.
 
-Este módulo contém os componentes para construir pipelines RAG.
+This module provides the RAG pipeline system that orchestrates document processing
+through multiple stages including transformation, metadata extraction, chunking,
+retrieval, reranking, and generation.
 """
 
 from __future__ import annotations
 
-from pepperpy.rag.pipeline.builder import RAGPipeline, RAGPipelineBuilder
 from pepperpy.rag.pipeline.core import (
-    Pipeline,
+    AbstractPipeline,
+    AbstractPipelineStage,
     PipelineConfig,
-    PipelineInput,
-    PipelineOutput,
-    PipelineStep,
-)
-from pepperpy.rag.pipeline.stages import (
-    EmbeddingProvider,
-    GenerationProvider,
-    GenerationResult,
-    GenerationStage,
-    GenerationStageConfig,
     PipelineStage,
-    RerankerProvider,
-    RerankingResult,
-    RerankingStage,
-    RerankingStageConfig,
-    RetrievalResult,
-    RetrievalStage,
-    RetrievalStageConfig,
-    StageConfig,
+    RAGPipeline,
+    RAGPipelineBuilder,
+    create_default_pipeline,
+    create_metadata_focused_pipeline,
+    create_simple_pipeline,
+    process_document,
+    process_documents,
 )
 
 __all__ = [
-    # Core
-    "Pipeline",
+    # Base classes
+    "AbstractPipeline",
+    "AbstractPipelineStage",
     "PipelineConfig",
-    "PipelineInput",
-    "PipelineOutput",
-    "PipelineStep",
+    "PipelineStage",
+    # Pipeline implementation
     "RAGPipeline",
     "RAGPipelineBuilder",
-    # Stages
-    "PipelineStage",
-    "StageConfig",
-    # Retrieval
-    "RetrievalStage",
-    "RetrievalStageConfig",
-    "RetrievalResult",
-    "EmbeddingProvider",
-    # Reranking
-    "RerankingStage",
-    "RerankingStageConfig",
-    "RerankingResult",
-    "RerankerProvider",
-    # Generation
-    "GenerationStage",
-    "GenerationStageConfig",
-    "GenerationResult",
-    "GenerationProvider",
+    # Helper functions
+    "create_default_pipeline",
+    "create_metadata_focused_pipeline",
+    "create_simple_pipeline",
+    "process_document",
+    "process_documents",
 ]

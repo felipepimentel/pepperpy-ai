@@ -5,7 +5,7 @@ This example shows how to use the document utility functions from the PepperPy f
 to process and prepare text for RAG (Retrieval Augmented Generation) systems.
 """
 
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.utils import (
     clean_markdown_formatting,
     clean_text,
     remove_html_tags,

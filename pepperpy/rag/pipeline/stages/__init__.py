@@ -1,43 +1,51 @@
-"""Pipeline stages for the RAG system."""
+"""RAG Pipeline stages.
 
-from pepperpy.rag.pipeline.core import PipelineConfig as StageConfig
-from pepperpy.rag.pipeline.core import PipelineStage
-from pepperpy.rag.pipeline.stages.generation import (
+This module provides the stages used in the RAG pipeline,
+including retrieval, reranking, and generation stages.
+"""
+
+from pepperpy.rag.interfaces import (
+    EmbeddingProvider,
     GenerationProvider,
+    PipelineStage,
+    RerankerProvider,
+)
+from pepperpy.rag.models import (
     GenerationResult,
+    RerankingResult,
+    RetrievalResult,
+)
+from pepperpy.rag.pipeline.stages.base import StageConfig
+from pepperpy.rag.pipeline.stages.generation import (
     GenerationStage,
     GenerationStageConfig,
 )
 from pepperpy.rag.pipeline.stages.reranking import (
-    RerankerProvider,
-    RerankingResult,
     RerankingStage,
     RerankingStageConfig,
 )
 from pepperpy.rag.pipeline.stages.retrieval import (
-    EmbeddingProvider,
-    RetrievalResult,
     RetrievalStage,
     RetrievalStageConfig,
 )
 
 __all__ = [
-    # Core
+    # Base classes
     "PipelineStage",
     "StageConfig",
-    # Generation
-    "GenerationProvider",
-    "GenerationStage",
-    "GenerationStageConfig",
-    "GenerationResult",
-    # Retrieval
-    "EmbeddingProvider",
+    # Retrieval stage
     "RetrievalStage",
     "RetrievalStageConfig",
     "RetrievalResult",
-    # Reranking
-    "RerankerProvider",
+    "EmbeddingProvider",
+    # Reranking stage
     "RerankingStage",
     "RerankingStageConfig",
     "RerankingResult",
+    "RerankerProvider",
+    # Generation stage
+    "GenerationStage",
+    "GenerationStageConfig",
+    "GenerationResult",
+    "GenerationProvider",
 ]

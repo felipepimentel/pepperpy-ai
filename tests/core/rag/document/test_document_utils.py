@@ -4,7 +4,7 @@ import unicodedata
 
 from bs4 import BeautifulSoup
 
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.utils import (
     calculate_text_statistics,
     clean_markdown_formatting,
     clean_text,

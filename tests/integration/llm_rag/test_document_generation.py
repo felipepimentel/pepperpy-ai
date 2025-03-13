@@ -9,7 +9,7 @@ from pepperpy.llm.utils import (
     format_prompt_for_provider,
     truncate_prompt,
 )
-from pepperpy.rag.document.utils import (
+from pepperpy.rag.utils import (
     clean_markdown_formatting,
     clean_text,
     split_text_by_separator,
