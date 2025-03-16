@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Type
 
 from pepperpy.core.base_manager import BaseManager
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.providers.base import BaseProvider
 from pepperpy.registry.base import Registry
 
@@ -32,9 +32,9 @@ class TemplateProvider(BaseProvider):
             Loaded template
 
         Raises:
-            PepperpyError: If template cannot be loaded
+            PepperPyError: If template cannot be loaded
         """
-        raise PepperpyError("Not implemented")
+        raise PepperPyError("Not implemented")
 
     async def save_template(self, template: Template) -> str:
         """Save a template.
@@ -46,9 +46,9 @@ class TemplateProvider(BaseProvider):
             Template identifier
 
         Raises:
-            PepperpyError: If template cannot be saved
+            PepperPyError: If template cannot be saved
         """
-        raise PepperpyError("Not implemented")
+        raise PepperPyError("Not implemented")
 
     async def list_templates(self) -> List[str]:
         """List available template IDs.
@@ -57,9 +57,9 @@ class TemplateProvider(BaseProvider):
             List of template IDs
 
         Raises:
-            PepperpyError: If templates cannot be listed
+            PepperPyError: If templates cannot be listed
         """
-        raise PepperpyError("Not implemented")
+        raise PepperPyError("Not implemented")
 
 
 class TemplateManager(BaseManager[TemplateProvider]):
@@ -85,7 +85,7 @@ class TemplateManager(BaseManager[TemplateProvider]):
             Loaded template
 
         Raises:
-            PepperpyError: If template cannot be loaded
+            PepperPyError: If template cannot be loaded
         """
         provider = await self.get_provider(provider_id)
         return await provider.load_template(template_id)
@@ -105,7 +105,7 @@ class TemplateManager(BaseManager[TemplateProvider]):
             Template identifier
 
         Raises:
-            PepperpyError: If template cannot be saved
+            PepperPyError: If template cannot be saved
         """
         provider = await self.get_provider(provider_id)
         return await provider.save_template(template)
@@ -123,7 +123,7 @@ class TemplateManager(BaseManager[TemplateProvider]):
             List of template IDs
 
         Raises:
-            PepperpyError: If templates cannot be listed
+            PepperPyError: If templates cannot be listed
         """
         provider = await self.get_provider(provider_id)
         return await provider.list_templates()

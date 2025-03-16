@@ -8,7 +8,8 @@ import os
 from pathlib import Path
 from typing import Union
 
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
+from pepperpy.infra.logging import configure_logging, get_logger, set_log_level
 from pepperpy.types import PathLike
 from pepperpy.utils.public import (
     # Type definitions
@@ -16,28 +17,19 @@ from pepperpy.utils.public import (
     AsyncCacheInvalidator,
     CacheInvalidationRule,
     CacheInvalidator,
-    CachePolicy,
-    DefaultCachePolicy,
-    DynamicTTLCachePolicy,
     InvalidationStrategy,
     PathType,
-    SizeLimitedCachePolicy,
     async_cached,
     # Caching utilities
     cached,
-    # Logging utilities
-    configure_logging,
     # Object utilities
     dict_to_object,
     # General utilities
     generate_id,
     generate_timestamp,
-    get_async_cache_invalidator,
-    get_cache_invalidator,
     get_file_extension,
     get_file_mime_type,
     get_file_size,
-    get_logger,
     hash_string,
     # Validation utilities
     is_valid_email,
@@ -47,7 +39,6 @@ from pepperpy.utils.public import (
     object_to_dict,
     retry,
     save_json,
-    set_log_level,
     slugify,
     truncate_string,
 )
@@ -72,7 +63,7 @@ def normalize_path(path: PathLike) -> Path:
             path = Path(path)
         return path.resolve()
     except Exception as e:
-        raise PepperpyError(f"Invalid path: {e}")
+        raise PepperPyError(f"Invalid path: {e}")
 
 
 def read_file_content(path: PathLike, encoding: str = "utf-8") -> str:
@@ -93,7 +84,7 @@ def read_file_content(path: PathLike, encoding: str = "utf-8") -> str:
         with open(path, "r", encoding=encoding) as f:
             return f.read()
     except Exception as e:
-        raise PepperpyError(f"Error reading file: {e}")
+        raise PepperPyError(f"Error reading file: {e}")
 
 
 __all__ = [
@@ -132,11 +123,5 @@ __all__ = [
     "CacheInvalidationRule",
     "CacheInvalidator",
     "AsyncCacheInvalidator",
-    "CachePolicy",
-    "DefaultCachePolicy",
-    "SizeLimitedCachePolicy",
-    "DynamicTTLCachePolicy",
     "InvalidationStrategy",
-    "get_cache_invalidator",
-    "get_async_cache_invalidator",
 ]

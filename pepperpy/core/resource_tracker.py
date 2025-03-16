@@ -169,6 +169,7 @@ class ResourceTracker:
 
     _instance = None
     _lock = threading.RLock()
+    _initialized: bool = False
 
     def __new__(cls):
         """Create a new ResourceTracker instance.

@@ -1,10 +1,8 @@
-"""
-PepperPy RAG Document Module.
+"""Document module for RAG.
 
-Este módulo contém as classes e funções para trabalhar com documentos no sistema RAG.
+This module provides functionality for working with documents in RAG,
+including loading, processing, and transformation.
 """
-
-from __future__ import annotations
 
 from pepperpy.rag.document.loaders import (
     CSVLoader,
@@ -22,20 +20,12 @@ from pepperpy.rag.document.processors import (
     TextChunker,
     TextCleaner,
 )
-from pepperpy.rag.models import Document, Metadata
-from pepperpy.rag.utils import (
-    calculate_text_statistics,
-    clean_markdown_formatting,
-    clean_text,
-    extract_html_metadata,
-    remove_html_tags,
-    split_text_by_char,
-    split_text_by_separator,
-)
+from pepperpy.rag.models import Document, DocumentChunk, Metadata
 
 __all__ = [
-    # Core
+    # Core document models imported from models.py
     "Document",
+    "DocumentChunk",
     "Metadata",
     # Loaders
     "DocumentLoader",
@@ -51,12 +41,4 @@ __all__ = [
     "MarkdownProcessor",
     "LanguageProcessor",
     "MetadataProcessor",
-    # Utils
-    "calculate_text_statistics",
-    "clean_markdown_formatting",
-    "clean_text",
-    "extract_html_metadata",
-    "remove_html_tags",
-    "split_text_by_char",
-    "split_text_by_separator",
 ]

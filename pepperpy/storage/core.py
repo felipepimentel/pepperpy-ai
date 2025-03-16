@@ -8,7 +8,7 @@ import json
 import os
 from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar
 
-from pepperpy.errors import PepperPyError
+from pepperpy.core.errors import PepperPyError
 
 T = TypeVar("T")
 

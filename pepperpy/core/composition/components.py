@@ -3,16 +3,21 @@
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Protocol, TypeVar
 
-# Type variables
+# Type variables with variance
+T_co = TypeVar("T_co", covariant=True)
+T_contra = TypeVar("T_contra", contravariant=True)
+U_co = TypeVar("U_co", covariant=True)
+
+# Regular type variables for methods
 T = TypeVar("T")
 U = TypeVar("U")
 
 
-class Source(Protocol[T]):
+class Source(Protocol[T_co]):
     """Protocol for data sources."""
 
     @abstractmethod
-    async def get_data(self, metadata: Optional[Dict[str, Any]] = None) -> T:
+    async def get_data(self, metadata: Optional[Dict[str, Any]] = None) -> T_co:
         """Get data from the source.
 
         Args:
@@ -24,15 +29,15 @@ class Source(Protocol[T]):
         pass
 
 
-class Processor(Protocol[T, U]):
+class Processor(Protocol[T_contra, U_co]):
     """Protocol for data processors."""
 
     @abstractmethod
     async def process_data(
         self,
-        input_data: T,
+        input_data: T_contra,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> U:
+    ) -> U_co:
         """Process input data.
 
         Args:
@@ -45,13 +50,13 @@ class Processor(Protocol[T, U]):
         pass
 
 
-class Output(Protocol[T]):
+class Output(Protocol[T_contra]):
     """Protocol for data outputs."""
 
     @abstractmethod
     async def write_data(
         self,
-        output_data: T,
+        output_data: T_contra,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Write data to the output.
@@ -74,7 +79,7 @@ class Sources:
             value: Value to use as source
 
         Returns:
-            Source component
+            Source component that returns the value
         """
 
         class ValueSource(Source[T]):

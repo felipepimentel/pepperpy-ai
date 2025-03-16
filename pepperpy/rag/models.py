@@ -1,8 +1,8 @@
 """Domain models for the RAG module.
 
 This module provides the core domain models used throughout the RAG module,
-including document representation, metadata, chunking, transformation, and
-other related models.
+including document representation, metadata, chunking, transformation, vector storage,
+and other related models.
 """
 
 from __future__ import annotations
@@ -248,54 +248,108 @@ class ChunkingConfig:
     respect_sentence_boundaries: bool = True  # Try to avoid breaking sentences
     respect_paragraph_boundaries: bool = True  # Try to avoid breaking paragraphs
     min_chunk_size: int = 100  # Minimum chunk size to avoid tiny chunks
-    max_chunk_size: Optional[int] = None  # Maximum chunk size (None = no limit)
-    custom_chunker: Optional[Callable[[str, "ChunkingConfig"], List[str]]] = None
-    metadata_config: Dict[str, Any] = field(
-        default_factory=dict
-    )  # Config for metadata extraction
+
+    # Additional parameters for specific strategies
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the chunking configuration to a dictionary.
+
+        Returns:
+            The chunking configuration as a dictionary
+        """
+        return {
+            "strategy": self.strategy.value,
+            "chunk_size": self.chunk_size,
+            "chunk_overlap": self.chunk_overlap,
+            "separator": self.separator,
+            "keep_separator": self.keep_separator,
+            "respect_sentence_boundaries": self.respect_sentence_boundaries,
+            "respect_paragraph_boundaries": self.respect_paragraph_boundaries,
+            "min_chunk_size": self.min_chunk_size,
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ChunkingConfig":
+        """Create chunking configuration from a dictionary.
+
+        Args:
+            data: The dictionary to create the chunking configuration from
+
+        Returns:
+            The created chunking configuration
+        """
+        strategy_value = data.get("strategy", ChunkingStrategy.FIXED_SIZE.value)
+        strategy = ChunkingStrategy(strategy_value)
+
+        return cls(
+            strategy=strategy,
+            chunk_size=data.get("chunk_size", 1000),
+            chunk_overlap=data.get("chunk_overlap", 200),
+            separator=data.get("separator", " "),
+            keep_separator=data.get("keep_separator", True),
+            respect_sentence_boundaries=data.get("respect_sentence_boundaries", True),
+            respect_paragraph_boundaries=data.get("respect_paragraph_boundaries", True),
+            min_chunk_size=data.get("min_chunk_size", 100),
+            params=data.get("params", {}),
+        )
 
 
-class ChunkMetadata(Dict[str, Any]):
-    """Metadata for document chunks.
+@dataclass
+class ChunkMetadata:
+    """Metadata for a document chunk.
 
-    This class extends the standard dictionary with properties for accessing
-    common chunk metadata.
+    This class defines the metadata for a document chunk, including
+    information about the chunking process and the original document.
     """
 
-    @property
-    def chunk_index(self) -> int:
-        """Get the index of this chunk in the document."""
-        return self.get("chunk_index", 0) or 0
+    strategy: ChunkingStrategy
+    chunk_size: int
+    chunk_overlap: int
+    chunk_index: int
+    total_chunks: int
+    original_document_id: str
+    custom: Dict[str, Any] = field(default_factory=dict)
 
-    @property
-    def total_chunks(self) -> int:
-        """Get the total number of chunks in the document."""
-        return self.get("total_chunks", 1) or 1
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the chunk metadata to a dictionary.
 
-    @property
-    def parent_id(self) -> Optional[str]:
-        """Get the ID of the parent document."""
-        return self.get("parent_id")
+        Returns:
+            The chunk metadata as a dictionary
+        """
+        return {
+            "strategy": self.strategy.value,
+            "chunk_size": self.chunk_size,
+            "chunk_overlap": self.chunk_overlap,
+            "chunk_index": self.chunk_index,
+            "total_chunks": self.total_chunks,
+            "original_document_id": self.original_document_id,
+            "custom": self.custom,
+        }
 
-    @property
-    def next_chunk_id(self) -> Optional[str]:
-        """Get the ID of the next chunk."""
-        return self.get("next_chunk_id")
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "ChunkMetadata":
+        """Create chunk metadata from a dictionary.
 
-    @property
-    def prev_chunk_id(self) -> Optional[str]:
-        """Get the ID of the previous chunk."""
-        return self.get("prev_chunk_id")
+        Args:
+            data: The dictionary to create the chunk metadata from
 
-    @property
-    def hierarchy_level(self) -> int:
-        """Get the hierarchy level of this chunk."""
-        return self.get("hierarchy_level", 0) or 0
+        Returns:
+            The created chunk metadata
+        """
+        strategy_value = data.get("strategy", ChunkingStrategy.FIXED_SIZE.value)
+        strategy = ChunkingStrategy(strategy_value)
 
-    @property
-    def is_summary(self) -> bool:
-        """Check if this chunk is a summary."""
-        return bool(self.get("is_summary", False))
+        return cls(
+            strategy=strategy,
+            chunk_size=data.get("chunk_size", 0),
+            chunk_overlap=data.get("chunk_overlap", 0),
+            chunk_index=data.get("chunk_index", 0),
+            total_chunks=data.get("total_chunks", 0),
+            original_document_id=data.get("original_document_id", ""),
+            custom=data.get("custom", {}),
+        )
 
 
 #
@@ -306,36 +360,69 @@ class ChunkMetadata(Dict[str, Any]):
 class TransformationType(Enum):
     """Types of document transformations."""
 
-    NORMALIZE = "normalize"  # Unicode normalization
-    CLEAN = "clean"  # Remove unwanted characters
-    LOWERCASE = "lowercase"  # Convert to lowercase
-    REMOVE_STOPWORDS = "remove_stopwords"  # Remove common stopwords
-    REMOVE_PUNCTUATION = "remove_punctuation"  # Remove punctuation
-    REMOVE_WHITESPACE = "remove_whitespace"  # Remove excess whitespace
-    REMOVE_HTML = "remove_html"  # Remove HTML tags
-    REMOVE_URLS = "remove_urls"  # Remove URLs
-    REMOVE_NUMBERS = "remove_numbers"  # Remove numeric values
-    STEM = "stem"  # Apply stemming
-    LEMMATIZE = "lemmatize"  # Apply lemmatization
-    CUSTOM = "custom"  # Custom transformation
+    CLEAN_TEXT = "clean_text"  # Basic text cleaning
+    REMOVE_HTML = "remove_html"  # HTML tag removal
+    NORMALIZE_WHITESPACE = "normalize_whitespace"  # Normalize whitespace
+    CLEAN_MARKDOWN = "clean_markdown"  # Markdown formatting removal
+    CUSTOM = "custom"  # Custom transformation using a provided function
 
 
 @dataclass
 class TransformationConfig:
-    """Configuration for document transformations.
+    """Configuration for document transformation.
 
-    This class defines the configuration for document transformations, including
-    which transformations to apply and their parameters.
+    This class defines the configuration for document transformation, including
+    the types of transformations to apply and any custom transformations.
     """
 
-    enabled: bool = True  # Whether transformations are enabled
-    include_types: Optional[List[TransformationType]] = None  # Types to include
-    exclude_types: Optional[List[TransformationType]] = None  # Types to exclude
-    preserve_original: bool = True  # Whether to preserve the original content
-    custom_transformers: Dict[str, Callable[[str], str]] = field(
+    types: List[TransformationType] = field(
+        default_factory=lambda: [
+            TransformationType.CLEAN_TEXT,
+            TransformationType.REMOVE_HTML,
+        ]
+    )
+    preserve_original_content: bool = True
+    custom_transformations: Dict[str, Callable[[str], str]] = field(
         default_factory=dict
-    )  # Custom transformers
-    params: Dict[str, Any] = field(default_factory=dict)  # Additional parameters
+    )
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the transformation configuration to a dictionary.
+
+        Returns:
+            The transformation configuration as a dictionary
+        """
+        return {
+            "types": [t.value for t in self.types],
+            "preserve_original_content": self.preserve_original_content,
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "TransformationConfig":
+        """Create transformation configuration from a dictionary.
+
+        Args:
+            data: The dictionary to create the transformation configuration from
+
+        Returns:
+            The created transformation configuration
+        """
+        types_values = data.get(
+            "types",
+            [
+                TransformationType.CLEAN_TEXT.value,
+                TransformationType.REMOVE_HTML.value,
+            ],
+        )
+        types = [TransformationType(t) for t in types_values]
+
+        return cls(
+            types=types,
+            preserve_original_content=data.get("preserve_original_content", True),
+            params=data.get("params", {}),
+        )
 
 
 #
@@ -344,36 +431,136 @@ class TransformationConfig:
 
 
 class MetadataType(Enum):
-    """Types of metadata that can be extracted from documents."""
+    """Types of metadata extraction."""
 
-    DATE = "date"  # Dates mentioned in the document
-    AUTHOR = "author"  # Author information
-    TOPIC = "topic"  # Topics or categories
-    ENTITY = "entity"  # Named entities (people, places, organizations)
-    KEYWORD = "keyword"  # Keywords or key phrases
-    LANGUAGE = "language"  # Document language
-    SENTIMENT = "sentiment"  # Sentiment analysis
-    SUMMARY = "summary"  # Document summary
-    CUSTOM = "custom"  # Custom metadata type
+    BASIC = "basic"  # Basic metadata (title, author, etc.)
+    HTML = "html"  # Metadata extraction from HTML
+    PDF = "pdf"  # Metadata extraction from PDF
+    TEXT = "text"  # Basic text statistics
+    NLP = "nlp"  # NLP-based metadata extraction
+    CUSTOM = "custom"  # Custom metadata extraction
 
 
 @dataclass
 class MetadataExtractorConfig:
-    """Configuration for metadata extractors.
+    """Configuration for metadata extraction.
 
-    This class defines the configuration for metadata extractors, including
-    extraction parameters and thresholds.
+    This class defines the configuration for metadata extraction, including
+    the types of metadata to extract and any custom extractors.
     """
 
-    enabled: bool = True  # Whether this extractor is enabled
-    confidence_threshold: float = 0.5  # Minimum confidence for extracted metadata
-    max_items: Optional[int] = None  # Maximum number of items to extract
-    include_types: Optional[List[MetadataType]] = None  # Types to include
-    exclude_types: Optional[List[MetadataType]] = None  # Types to exclude
-    custom_extractors: Dict[str, Callable[[str], Dict[str, Any]]] = field(
-        default_factory=dict
-    )  # Custom extractors
-    params: Dict[str, Any] = field(default_factory=dict)  # Additional parameters
+    types: List[MetadataType] = field(
+        default_factory=lambda: [
+            MetadataType.BASIC,
+            MetadataType.TEXT,
+        ]
+    )
+    confidence_threshold: float = 0.5
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the metadata extractor configuration to a dictionary.
+
+        Returns:
+            The metadata extractor configuration as a dictionary
+        """
+        return {
+            "types": [t.value for t in self.types],
+            "confidence_threshold": self.confidence_threshold,
+            "params": self.params,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "MetadataExtractorConfig":
+        """Create metadata extractor configuration from a dictionary.
+
+        Args:
+            data: The dictionary to create the metadata extractor configuration from
+
+        Returns:
+            The created metadata extractor configuration
+        """
+        types_values = data.get(
+            "types",
+            [
+                MetadataType.BASIC.value,
+                MetadataType.TEXT.value,
+            ],
+        )
+        types = [MetadataType(t) for t in types_values]
+
+        return cls(
+            types=types,
+            confidence_threshold=data.get("confidence_threshold", 0.5),
+            params=data.get("params", {}),
+        )
+
+
+#
+# Vector Storage Models
+#
+
+
+@dataclass
+class VectorEmbedding:
+    """A vector embedding for a document chunk.
+
+    Attributes:
+        vector: The vector embedding
+        document_id: The ID of the document this embedding belongs to
+        chunk_id: The ID of the document chunk this embedding belongs to
+        metadata: Additional metadata for the embedding
+        document: Optional reference to the full document
+    """
+
+    vector: List[float]
+    document_id: str
+    chunk_id: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    document: Optional[Document] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert the vector embedding to a dictionary.
+
+        Returns:
+            The vector embedding as a dictionary
+        """
+        return {
+            "vector": self.vector,
+            "document_id": self.document_id,
+            "chunk_id": self.chunk_id,
+            "metadata": self.metadata,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "VectorEmbedding":
+        """Create a vector embedding from a dictionary.
+
+        Args:
+            data: The dictionary to create the vector embedding from
+
+        Returns:
+            The created vector embedding
+        """
+        return cls(
+            vector=data.get("vector", []),
+            document_id=data.get("document_id", ""),
+            chunk_id=data.get("chunk_id", ""),
+            metadata=data.get("metadata", {}),
+        )
+
+
+@dataclass
+class ScoredChunk:
+    """A document chunk with a similarity score.
+
+    Attributes:
+        chunk: The document chunk
+        score: The similarity score
+    """
+
+    chunk: DocumentChunk
+    score: float
 
 
 #
@@ -383,28 +570,48 @@ class MetadataExtractorConfig:
 
 @dataclass
 class RetrievalResult:
-    """Result of a retrieval operation."""
+    """Result of a retrieval operation.
 
-    documents: List[Document]
+    Attributes:
+        chunks: The retrieved document chunks
+        query: The query used for retrieval
+        metadata: Additional metadata about the retrieval
+    """
+
+    chunks: List[ScoredChunk]
     query: str
-    query_embedding: Optional[List[float]] = None
-    scores: Optional[List[float]] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class RerankingResult:
-    """Result of a reranking operation."""
+    """Result of a reranking operation.
 
-    documents: List[Document]
+    Attributes:
+        chunks: The reranked document chunks
+        query: The query used for reranking
+        original_chunks: The original chunks before reranking
+        metadata: Additional metadata about the reranking
+    """
+
+    chunks: List[ScoredChunk]
     query: str
-    scores: Optional[List[float]] = None
+    original_chunks: List[ScoredChunk]
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class GenerationResult:
-    """Result of a generation operation."""
+    """Result of a generation operation.
 
-    response: str
-    documents: List[Document]
+    Attributes:
+        text: The generated text
+        chunks: The document chunks used for generation
+        query: The query used for generation
+        metadata: Additional metadata about the generation
+    """
+
+    text: str
+    chunks: List[ScoredChunk]
     query: str
-    prompt: str
+    metadata: Dict[str, Any] = field(default_factory=dict)

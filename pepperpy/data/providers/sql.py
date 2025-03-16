@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from pepperpy.errors.core import ProviderError
+from pepperpy.core.errors import ProviderError
 from pepperpy.providers.base import BaseProvider
 
 

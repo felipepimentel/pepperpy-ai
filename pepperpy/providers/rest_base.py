@@ -3,49 +3,41 @@ Base class for REST-based providers in PepperPy.
 
 This module provides a base implementation for providers that interact with REST APIs,
 handling common concerns like authentication, error handling, and retries.
+
+Example:
+    ```python
+    from pepperpy.providers.rest_base import RESTProvider
+
+    class MyAPIProvider(RESTProvider):
+        def _get_default_base_url(self) -> str:
+            return "https://api.example.com/v1"
+
+        async def get_data(self, resource_id: str) -> Dict[str, Any]:
+            response = await self._make_request(
+                method="GET",
+                endpoint=f"/resources/{resource_id}"
+            )
+            return response
+    ```
 """
 
 from typing import Any, Dict, Optional
 
 import httpx
 
-from pepperpy.errors.core import ProviderError
+from pepperpy.core.errors import (
+    AuthenticationError,
+    NetworkError,
+    ProviderError,
+    RateLimitError,
+    ServerError,
+    TimeoutError,
+)
 from pepperpy.providers.base import BaseProvider
 from pepperpy.utils.decorators import retry
 from pepperpy.utils.logging import get_logger
 
 logger = get_logger(__name__)
-
-
-# Define error classes if they don't exist in the errors module
-class ProviderAuthenticationError(ProviderError):
-    """Error raised when authentication fails."""
-
-    pass
-
-
-class ProviderConnectionError(ProviderError):
-    """Error raised when connection fails."""
-
-    pass
-
-
-class ProviderRateLimitError(ProviderError):
-    """Error raised when rate limit is exceeded."""
-
-    pass
-
-
-class ProviderServerError(ProviderError):
-    """Error raised when server returns an error."""
-
-    pass
-
-
-class ProviderTimeoutError(ProviderError):
-    """Error raised when request times out."""
-
-    pass
 
 
 class RESTProvider(BaseProvider):
@@ -86,7 +78,8 @@ class RESTProvider(BaseProvider):
         self.base_url = base_url or self._get_default_base_url()
         self.timeout = timeout
         self.max_retries = max_retries
-        self.client = None
+        self.client: Optional[httpx.AsyncClient] = None
+        self._initialized = False  # Use a private attribute instead of property
 
     def _get_default_base_url(self) -> str:
         """Get the default base URL for this provider.
@@ -116,7 +109,7 @@ class RESTProvider(BaseProvider):
             )
             # Optional validation request to check credentials
             await self._validate_credentials()
-            self.is_initialized = True
+            self._initialized = True  # Use private attribute
         except Exception as e:
             raise ProviderError(
                 f"Failed to initialize {self.name} provider: {str(e)}"
@@ -128,7 +121,7 @@ class RESTProvider(BaseProvider):
         Can be overridden by subclasses to perform validation.
 
         Raises:
-            ProviderAuthenticationError: If credentials are invalid
+            AuthenticationError: If credentials are invalid
         """
         pass
 
@@ -137,7 +130,7 @@ class RESTProvider(BaseProvider):
         if self.client is not None:
             await self.client.aclose()
             self.client = None
-        self.is_initialized = False
+        self._initialized = False  # Use private attribute
 
     def _get_headers(self) -> Dict[str, str]:
         """Get the default headers including authentication.
@@ -175,11 +168,11 @@ class RESTProvider(BaseProvider):
             Parsed JSON response
 
         Raises:
-            ProviderAuthenticationError: When authentication fails
-            ProviderConnectionError: When connection fails
-            ProviderRateLimitError: When rate limit is exceeded
-            ProviderServerError: When server returns an error
-            ProviderTimeoutError: When request times out
+            AuthenticationError: When authentication fails
+            NetworkError: When connection fails
+            RateLimitError: When rate limit is exceeded
+            ServerError: When server returns an error
+            TimeoutError: When request times out
             ProviderError: For other errors
         """
         # Ensure client is initialized
@@ -217,12 +210,10 @@ class RESTProvider(BaseProvider):
                 return {}  # Added to satisfy the linter
 
         except httpx.ConnectError as e:
-            raise ProviderConnectionError(
-                f"Failed to connect to {self.name} API: {str(e)}"
-            ) from e
+            raise NetworkError(f"Failed to connect to {self.name} API: {str(e)}") from e
 
         except httpx.ReadTimeout as e:
-            raise ProviderTimeoutError(
+            raise TimeoutError(
                 f"Request to {self.name} API timed out after {request_timeout}s"
             ) from e
 
@@ -248,7 +239,8 @@ class RESTProvider(BaseProvider):
             ProviderError: If response cannot be parsed
         """
         try:
-            return response.json()
+            result: Dict[str, Any] = response.json()
+            return result
         except Exception as e:
             raise ProviderError(
                 f"Failed to parse {self.name} API response: {str(e)}"
@@ -261,9 +253,9 @@ class RESTProvider(BaseProvider):
             response: HTTP response
 
         Raises:
-            ProviderAuthenticationError: When authentication fails
-            ProviderRateLimitError: When rate limit is exceeded
-            ProviderServerError: When server returns an error
+            AuthenticationError: When authentication fails
+            RateLimitError: When rate limit is exceeded
+            ServerError: When server returns an error
             ProviderError: For other errors
         """
         try:
@@ -274,38 +266,29 @@ class RESTProvider(BaseProvider):
         error_message = str(error_data.get("error", response.text or "Unknown error"))
 
         if response.status_code == 401:
-            raise ProviderAuthenticationError(
+            raise AuthenticationError(
                 f"Authentication failed with {self.name} API: {error_message}"
             )
         elif response.status_code == 429:
-            raise ProviderRateLimitError(
+            raise RateLimitError(
                 f"Rate limit exceeded for {self.name} API: {error_message}"
             )
         elif response.status_code >= 500:
-            raise ProviderServerError(
-                f"Server error from {self.name} API: {error_message}"
-            )
+            raise ServerError(f"Server error from {self.name} API: {error_message}")
         else:
             raise ProviderError(
                 f"{self.name} API error ({response.status_code}): {error_message}"
             )
 
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
+    # Override the property from the parent class
+    @property
+    def is_initialized(self) -> bool:
+        """Check if the provider is initialized.
 
         Returns:
-            Dict with provider configuration
+            True if initialized, False otherwise
         """
-        config = super().get_config()
-        config.update({
-            "base_url": self.base_url,
-            "timeout": self.timeout,
-            "max_retries": self.max_retries,
-        })
-        # Remove sensitive information
-        if "api_key" in config:
-            config["api_key"] = "***"
-        return config
+        return self._initialized and self.client is not None
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get the provider capabilities.

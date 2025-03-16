@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.rag.document.core import DocumentChunk
 
 
@@ -48,7 +48,7 @@ class RerankerProvider(ABC):
             Reranked document chunks
 
         Raises:
-            PepperpyError: If reranking fails
+            PepperPyError: If reranking fails
         """
         pass
 
@@ -81,15 +81,15 @@ class RerankingStage:
             List of reranked document chunks
 
         Raises:
-            PepperpyError: If reranking fails
+            PepperPyError: If reranking fails
         """
         try:
             # TODO: Call reranking provider to rerank chunks
             # This should be implemented by the provider
-            raise PepperpyError("Reranking not implemented")
+            raise PepperPyError("Reranking not implemented")
 
         except Exception as e:
-            raise PepperpyError(f"Error in reranking stage: {e}")
+            raise PepperPyError(f"Error in reranking stage: {e}")
 
 
 # Export all classes

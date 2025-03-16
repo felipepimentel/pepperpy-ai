@@ -1,11 +1,11 @@
 """Public interface for intent module."""
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from pepperpy.core.base_manager import BaseManager
-from pepperpy.core.base_registry import Registry
-from pepperpy.errors import PepperpyError
+from pepperpy.core.base_registry import Registry  # type: ignore
+from pepperpy.core.errors import PepperPyError
 from pepperpy.providers.base import BaseProvider
 
 
@@ -104,7 +104,7 @@ class IntentProvider(BaseProvider):
         Raises:
             PepperpyError: If recognition fails
         """
-        raise PepperpyError("Not implemented")
+        raise PepperPyError("Not implemented")
 
     async def train(
         self,
@@ -120,7 +120,7 @@ class IntentProvider(BaseProvider):
         Raises:
             PepperpyError: If training fails
         """
-        raise PepperpyError("Not implemented")
+        raise PepperPyError("Not implemented")
 
 
 class IntentManager(BaseManager[IntentProvider]):
@@ -202,7 +202,7 @@ async def process_intent(
         return await manager.recognize(text, provider_id, metadata)
 
     except Exception as e:
-        raise PepperpyError(f"Error processing intent: {e}")
+        raise PepperPyError(f"Error processing intent: {e}")
 
 
 # Export all classes and functions

@@ -89,7 +89,8 @@ class BaseConfig(BaseModel):
             ConfigValidationError: If the configuration is invalid.
         """
         try:
-            return cls(**config_dict)
+            # Use the validate method to create and validate the instance
+            return cls.validate(config_dict)
         except ValidationError as e:
             errors = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
             raise ConfigValidationError(
@@ -114,17 +115,63 @@ class BaseConfig(BaseModel):
         if prefix is None:
             prefix = cls.Config.env_prefix
 
-        # Get the field names and types from the model
-        fields = cls.__fields__
-
         # Create a dictionary of configuration values from environment variables
         config_dict = {}
-        for field_name, field in fields.items():
-            # Convert field name to uppercase for environment variables
-            env_name = f"{prefix}{field_name.upper()}"
-            env_value = os.environ.get(env_name)
-            if env_value is not None:
-                config_dict[field_name] = env_value
+
+        # Get field information in a way that works with different Pydantic versions
+        # Try different approaches to get the fields
+        if hasattr(cls, "__fields__"):  # Pydantic v1
+            fields_attr = cls.__fields__
+
+            # Check if fields_attr is a dictionary or a callable
+            if isinstance(fields_attr, dict):
+                for field_name, field in fields_attr.items():
+                    # Convert field name to uppercase for environment variables
+                    env_name = f"{prefix}{field_name.upper()}"
+                    env_value = os.environ.get(env_name)
+                    if env_value is not None:
+                        config_dict[field_name] = env_value
+            else:
+                # Fallback to using annotations
+                if hasattr(cls, "__annotations__"):
+                    for field_name in cls.__annotations__:
+                        # Convert field name to uppercase for environment variables
+                        env_name = f"{prefix}{field_name.upper()}"
+                        env_value = os.environ.get(env_name)
+                        if env_value is not None:
+                            config_dict[field_name] = env_value
+        elif hasattr(cls, "model_fields"):  # Pydantic v2
+            fields = cls.model_fields
+            for field_name, field in fields.items():
+                # Convert field name to uppercase for environment variables
+                env_name = f"{prefix}{field_name.upper()}"
+                env_value = os.environ.get(env_name)
+                if env_value is not None:
+                    config_dict[field_name] = env_value
+        else:
+            # Create a minimal temporary instance to inspect its structure
+            # This is a fallback method that should work with any version
+            try:
+                # Just create an empty instance with default values
+                temp_instance = cls()
+                for field_name in temp_instance.__dict__:
+                    if field_name.startswith("_"):
+                        continue
+                    # Convert field name to uppercase for environment variables
+                    env_name = f"{prefix}{field_name.upper()}"
+                    env_value = os.environ.get(env_name)
+                    if env_value is not None:
+                        config_dict[field_name] = env_value
+            except Exception:
+                # If we can't create a temporary instance, just try to use field names directly
+                # from class annotations
+                if hasattr(cls, "__annotations__"):
+                    for field_name in cls.__annotations__:
+                        # Convert field name to uppercase for environment variables
+                        env_name = f"{prefix}{field_name.upper()}"
+                        env_value = os.environ.get(env_name)
+                        if env_value is not None:
+                            config_dict[field_name] = env_value
 
         # Create the configuration model from the dictionary
         return cls.from_dict(config_dict)
@@ -137,23 +184,36 @@ class BaseConfig(BaseModel):
         """
         return self.dict()
 
-    def validate(self) -> None:
+    @classmethod
+    def validate(cls, value: Any) -> "BaseConfig":
         """Validate the configuration.
 
         This method validates the configuration model. It's called automatically
         when the model is created, but can be called explicitly to re-validate
         the configuration after changes.
 
+        Args:
+            value: The value to validate.
+
+        Returns:
+            A validated BaseConfig instance.
+
         Raises:
             ConfigValidationError: If the configuration is invalid.
         """
         try:
-            # Use dict() to trigger validation
-            self.dict()
+            # Create an instance of the model to trigger validation
+            if isinstance(value, cls):
+                # If already an instance, just validate it
+                value.dict()
+                return value
+            else:
+                # Create a new instance
+                return cls(**value)
         except ValidationError as e:
             errors = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
             raise ConfigValidationError(
-                f"Invalid configuration for {self.__class__.__name__}", errors
+                f"Invalid configuration for {cls.__name__}", errors
             )
 
 

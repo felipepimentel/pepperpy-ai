@@ -1,7 +1,7 @@
 """
-PepperPy RAG Storage Providers Module.
+Storage providers for the RAG module.
 
-Este módulo contém a implementação dos provedores de armazenamento para o sistema RAG.
+This module contains implementations of various vector stores for the RAG system.
 """
 
 from __future__ import annotations
@@ -11,13 +11,13 @@ import os
 import pickle
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 import aiofiles
 import numpy as np
 
-from pepperpy.rag.document.core import Document
-from pepperpy.rag.storage.core import ScoredChunk, VectorEmbedding, VectorStore
+from pepperpy.rag.interfaces import VectorStore
+from pepperpy.rag.models import Document, Metadata, VectorEmbedding
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module
@@ -644,6 +644,151 @@ class ChromaVectorStore(VectorStore):
 
         return self._collection
 
+    async def add_embedding(self, embedding: VectorEmbedding) -> None:
+        """Adiciona um único embedding ao armazenamento.
+
+        Args:
+            embedding: O embedding a ser adicionado
+
+        Raises:
+            Exception: Se ocorrer um erro ao adicionar o embedding
+        """
+        await self.add_embeddings([embedding])
+
+    async def get_embedding(self, chunk_id: str) -> Optional[VectorEmbedding]:
+        """Recupera um único embedding pelo ID.
+
+        Args:
+            chunk_id: ID do embedding a ser recuperado
+
+        Returns:
+            O embedding recuperado ou None se não encontrado
+
+        Raises:
+            StorageError: Se ocorrer um erro na recuperação
+        """
+        result = await self.get([chunk_id])
+        return result[0] if result else None
+
+    async def delete_embedding(self, chunk_id: str) -> None:
+        """Exclui um único embedding pelo ID.
+
+        Args:
+            chunk_id: ID do embedding a ser excluído
+
+        Raises:
+            StorageError: Se ocorrer um erro na exclusão
+        """
+        await self.delete(ids=[chunk_id])
+
+    async def delete_embeddings(self, document_id: str) -> None:
+        """Exclui todos os embeddings associados a um documento.
+
+        Args:
+            document_id: ID do documento cujos embeddings serão excluídos
+
+        Raises:
+            StorageError: Se ocorrer um erro na exclusão
+        """
+        # Para implementar esta função corretamente, precisamos primeiro
+        # encontrar os chunk_ids relacionados ao document_id
+        collection = await self._get_collection()
+
+        # ChromaDB não tem uma função direta para consultar metadados
+        # Então precisamos obter todos os embeddings com o document_id nos metadados
+        # Esta é uma implementação simples, mas pode não ser eficiente para grandes coleções
+        try:
+            # Busca por embeddings com o document_id nos metadados
+            where_filter = {"document_id": document_id}
+            results = collection.get(where=where_filter)
+
+            # Se encontrar embeddings, exclui
+            if results and "ids" in results and results["ids"]:
+                await self.delete(ids=results["ids"])
+        except Exception as e:
+            logger.error(f"Erro ao excluir embeddings do documento {document_id}: {e}")
+            raise
+
+    async def search(
+        self,
+        query_vector: List[float],
+        limit: int = 10,
+        min_score: float = 0.0,
+        filter_metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[Tuple[VectorEmbedding, float]]:
+        """Busca embeddings similares.
+
+        Args:
+            query_vector: Vetor de consulta
+            limit: Número máximo de resultados
+            min_score: Pontuação mínima de similaridade
+            filter_metadata: Filtro de metadados
+
+        Returns:
+            Lista de tuplas (embedding, score)
+
+        Raises:
+            StorageError: Se ocorrer um erro na busca
+        """
+        collection = await self._get_collection()
+
+        # Prepara o filtro de metadados se fornecido
+        where_filter = filter_metadata if filter_metadata else None
+
+        # Executa a pesquisa
+        results = collection.query(
+            query_embeddings=[query_vector], n_results=limit, where=where_filter
+        )
+
+        # Processa os resultados
+        output = []
+
+        # Extrai os resultados da primeira consulta
+        ids = results.get("ids", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        embeddings = results.get("embeddings", [[]])[0]
+        metadatas = (
+            results.get("metadatas", [[]])[0]
+            if "metadatas" in results
+            else [{}] * len(ids)
+        )
+
+        for i in range(len(ids)):
+            # Converte a distância em similaridade
+            score = 1.0 - (distances[i] / 2.0)
+
+            # Pula resultados abaixo do score mínimo
+            if score < min_score:
+                continue
+
+            # Cria o vetor embedding
+            vector_embedding = VectorEmbedding(
+                vector=embeddings[i] if i < len(embeddings) else [],
+                document_id=metadatas[i].get("document_id", "unknown")
+                if i < len(metadatas)
+                else "unknown",
+                chunk_id=ids[i],
+                metadata=metadatas[i] if i < len(metadatas) else {},
+            )
+
+            # Adiciona ao resultado
+            output.append((vector_embedding, score))
+
+        return output
+
+    async def clear(self) -> None:
+        """Limpa todo o armazenamento.
+
+        Raises:
+            StorageError: Se ocorrer um erro na limpeza
+        """
+        try:
+            collection = await self._get_collection()
+            collection.delete(where={})  # Exclui todos os documentos
+        except Exception as e:
+            logger.error(f"Erro ao limpar o armazenamento vetorial: {e}")
+            raise
+
     async def add_embeddings(
         self,
         embeddings: List[VectorEmbedding],
@@ -728,80 +873,6 @@ class ChromaVectorStore(VectorStore):
             ids.extend(batch_ids)
 
         return ids
-
-    async def search(
-        self,
-        query_embedding: List[float],
-        limit: int = 5,
-        collection_name: Optional[str] = None,
-        **kwargs,
-    ) -> List[ScoredChunk]:
-        """Pesquisa embeddings similares.
-
-        Args:
-            query_embedding: Embedding da consulta
-            limit: Número máximo de resultados
-            collection_name: Nome da coleção (usa o padrão se None)
-            **kwargs: Argumentos adicionais para a pesquisa
-
-        Returns:
-            Lista de chunks pontuados
-        """
-        # Usa a coleção especificada ou a padrão
-        if collection_name and collection_name != self.collection_name:
-            # Cria um novo armazenamento para a coleção específica
-            temp_store = ChromaVectorStore(
-                path=self.path,
-                collection_name=collection_name,
-                embedding_size=self.embedding_size,
-                create_if_missing=False,
-            )
-            try:
-                collection = await temp_store._get_collection()
-            except ValueError:
-                # Coleção não encontrada
-                return []
-        else:
-            # Usa a coleção padrão
-            collection = await self._get_collection()
-
-        # Executa a pesquisa no ChromaDB
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=limit,
-            **kwargs,
-        )
-
-        # Processa os resultados
-        scored_chunks = []
-
-        # Extrai os resultados da primeira consulta
-        ids = results.get("ids", [[]])[0]
-        distances = results.get("distances", [[]])[0]
-        documents = results.get("documents", [[]])[0]
-        metadatas = results.get("metadatas", [[]])[0]
-
-        for i in range(len(ids)):
-            # Converte a distância em similaridade (ChromaDB usa distância, não similaridade)
-            # A distância é no intervalo [0, 2], onde 0 é mais similar
-            # Convertemos para similaridade no intervalo [0, 1], onde 1 é mais similar
-            score = 1.0 - (distances[i] / 2.0)
-
-            # Cria o documento
-            doc = Document(
-                content=documents[i],
-                metadata=metadatas[i] if metadatas and i < len(metadatas) else {},
-            )
-
-            # Cria o resultado pontuado
-            scored_chunks.append(
-                ScoredChunk(
-                    chunk=doc,
-                    score=score,
-                )
-            )
-
-        return scored_chunks
 
     async def delete(
         self,
@@ -903,7 +974,9 @@ class ChromaVectorStore(VectorStore):
             # Cria o documento
             doc = Document(
                 content=retrieved_documents[i] if i < len(retrieved_documents) else "",
-                metadata=retrieved_metadatas[i] if i < len(retrieved_metadatas) else {},
+                metadata=Metadata.from_dict(
+                    retrieved_metadatas[i] if i < len(retrieved_metadatas) else {}
+                ),
             )
 
             # Cria o embedding
@@ -956,3 +1029,86 @@ class ChromaVectorStore(VectorStore):
 
         # Conta o número de embeddings
         return collection.count()
+
+    async def search_vectors(
+        self,
+        query_embedding: List[float],
+        limit: int = 5,
+        collection_name: Optional[str] = None,
+        **kwargs,
+    ) -> List[ScoredChunk]:
+        """Pesquisa embeddings similares e retorna como ScoredChunks.
+
+        Args:
+            query_embedding: Embedding da consulta
+            limit: Número máximo de resultados
+            collection_name: Nome da coleção (usa o padrão se None)
+            **kwargs: Argumentos adicionais para a pesquisa
+
+        Returns:
+            Lista de chunks pontuados
+        """
+        # Usa a coleção especificada ou a padrão
+        if collection_name and collection_name != self.collection_name:
+            # Cria um novo armazenamento para a coleção específica
+            temp_store = ChromaVectorStore(
+                path=self.path,
+                collection_name=collection_name,
+                embedding_size=self.embedding_size,
+                create_if_missing=False,
+            )
+            try:
+                collection = await temp_store._get_collection()
+            except ValueError:
+                # Coleção não encontrada
+                return []
+        else:
+            # Usa a coleção padrão
+            collection = await self._get_collection()
+
+        # Executa a pesquisa no ChromaDB
+        results = collection.query(
+            query_embeddings=[query_embedding],
+            n_results=limit,
+            **kwargs,
+        )
+
+        # Processa os resultados
+        scored_chunks = []
+
+        # Extrai os resultados da primeira consulta
+        ids = results.get("ids", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+
+        for i in range(len(ids)):
+            # Converte a distância em similaridade (ChromaDB usa distância, não similaridade)
+            # A distância é no intervalo [0, 2], onde 0 é mais similar
+            # Convertemos para similaridade no intervalo [0, 1], onde 1 é mais similar
+            score = 1.0 - (distances[i] / 2.0)
+
+            # Cria o documento
+            doc = Document(
+                content=documents[i],
+                metadata=Metadata.from_dict(
+                    metadatas[i] if metadatas and i < len(metadatas) else {}
+                ),
+            )
+
+            # Cria o resultado pontuado
+            scored_chunks.append(
+                ScoredChunk(
+                    chunk=DocumentChunk(
+                        content=documents[i],
+                        metadata=Metadata.from_dict(
+                            metadatas[i] if metadatas and i < len(metadatas) else {}
+                        ),
+                        document_id=ids[i],
+                        chunk_index=0,
+                    ),
+                    score=score,
+                )
+            )
+
+        return scored_chunks

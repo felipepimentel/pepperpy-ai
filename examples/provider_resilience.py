@@ -22,14 +22,14 @@ Usage:
        python provider_resilience.py
 """
 
-import logging
 import os
 import random
 import time
 from datetime import timedelta
 from typing import Any, Dict
 
-from pepperpy.core.resilience import (
+from pepperpy.infra.logging import configure_logging
+from pepperpy.infra.resilience import (
     CircuitBreakerConfig,
     CircuitBreakerError,
     ProviderFallbackError,
@@ -38,7 +38,7 @@ from pepperpy.core.resilience import (
     with_circuit_breaker,
     with_fallback,
 )
-from pepperpy.core.telemetry import (
+from pepperpy.infra.telemetry import (
     EventLevel,
     MetricType,
     get_provider_telemetry,
@@ -62,9 +62,9 @@ def load_env():
 
 def setup_logging():
     """Set up logging configuration."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    configure_logging(
+        level="INFO",
+        format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
 
 

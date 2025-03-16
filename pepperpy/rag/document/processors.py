@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import nltk
 from bs4 import BeautifulSoup, Tag
 
-from pepperpy.errors.core import PepperPyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.rag.models import Document, Metadata
 from pepperpy.rag.utils import (
     clean_markdown_formatting,

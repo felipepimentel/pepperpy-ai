@@ -10,6 +10,7 @@ de aplicações baseadas em IA, com foco em:
 
 Módulos Principais:
     llm: Interação com Large Language Models
+    embedding: Geração de embeddings para texto
     rag: Retrieval Augmented Generation
     data: Manipulação e persistência de dados
     apps: Templates de aplicações pré-configuradas
@@ -21,7 +22,18 @@ Exemplo Básico:
     >>> result = await app.process("Texto para processar")
 """
 
-from pepperpy import apps, cache, data, events, http, llm, rag, utils, workflows
+from pepperpy import (
+    apps,
+    cache,
+    data,
+    embedding,
+    events,
+    http,
+    llm,
+    rag,
+    utils,
+    workflows,
+)
 from pepperpy.core import composition
 from pepperpy.version import __version__
 
@@ -31,6 +43,7 @@ __all__ = [
     "cache",
     "composition",
     "data",
+    "embedding",
     "events",
     "http",
     "llm",

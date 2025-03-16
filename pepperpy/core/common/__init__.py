@@ -26,7 +26,7 @@ from pepperpy.core.common.types import (
 )
 
 # Import from utils module
-from pepperpy.core.common.utils import (
+from pepperpy.utils.base import (
     generate_id,
     generate_timestamp,
     get_file_extension,

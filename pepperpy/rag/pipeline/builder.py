@@ -1,9 +1,9 @@
 """Pipeline builder for the RAG system."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.llm.generation import GenerationProvider
 from pepperpy.llm.reranking import RerankerProvider
 from pepperpy.llm.utils import Response
@@ -28,9 +28,15 @@ from pepperpy.rag.pipeline.stages.retrieval import (
 class RAGPipelineConfig:
     """Configuration for the RAG pipeline."""
 
-    retrieval: RetrievalStageConfig
-    reranking: Optional[RerankingStageConfig] = None
-    generation: Optional[GenerationStageConfig] = None
+    name: str = "rag_pipeline"
+    type: str = "rag_pipeline"
+    enabled: bool = True
+    params: Dict[str, Any] = field(default_factory=dict)
+
+    # Stage configurations
+    retrieval_config: Optional[RetrievalStageConfig] = None
+    reranking_config: Optional[RerankingStageConfig] = None
+    generation_config: Optional[GenerationStageConfig] = None
 
 
 class RAGPipeline:
@@ -59,19 +65,19 @@ class RAGPipeline:
         self.retrieval_stage = RetrievalStage(
             embedding_provider=embedding_provider,
             document_store=document_store,
-            config=config.retrieval,
+            config=config.retrieval_config,
         )
 
         self.reranking_stage = None
-        if config.reranking and reranker_provider:
+        if config.reranking_config and reranker_provider:
             self.reranking_stage = RerankingStage(
-                reranker_provider=reranker_provider, config=config.reranking
+                reranker_provider=reranker_provider, config=config.reranking_config
             )
 
         self.generation_stage = None
-        if config.generation and generation_provider:
+        if config.generation_config and generation_provider:
             self.generation_stage = GenerationStage(
-                generation_provider=generation_provider, config=config.generation
+                generation_provider=generation_provider, config=config.generation_config
             )
 
     async def process(
@@ -89,7 +95,7 @@ class RAGPipeline:
             Generated response
 
         Raises:
-            PepperpyError: If processing fails
+            PepperPyError: If processing fails
         """
         try:
             # Retrieve relevant chunks
@@ -127,7 +133,7 @@ class RAGPipeline:
             )
 
         except Exception as e:
-            raise PepperpyError(f"Error in RAG pipeline: {e}")
+            raise PepperPyError(f"Error in RAG pipeline: {e}")
 
 
 class RAGPipelineBuilder:
@@ -207,21 +213,21 @@ class RAGPipelineBuilder:
             Configured pipeline
 
         Raises:
-            PepperpyError: If configuration is invalid
+            PepperPyError: If configuration is invalid
         """
         if not self.retrieval_config:
-            raise PepperpyError("Retrieval stage is required")
+            raise PepperPyError("Retrieval stage is required")
 
         if not self.embedding_provider:
-            raise PepperpyError("Embedding provider is required")
+            raise PepperPyError("Embedding provider is required")
 
         if not self.document_store:
-            raise PepperpyError("Document store is required")
+            raise PepperPyError("Document store is required")
 
         config = RAGPipelineConfig(
-            retrieval=self.retrieval_config,
-            reranking=self.reranking_config,
-            generation=self.generation_config,
+            retrieval_config=self.retrieval_config,
+            reranking_config=self.reranking_config,
+            generation_config=self.generation_config,
         )
 
         return RAGPipeline(

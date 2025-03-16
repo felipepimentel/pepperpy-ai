@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.rag.document.core import DocumentChunk
 
 
@@ -46,7 +46,7 @@ class EmbeddingProvider(ABC):
             Query embedding
 
         Raises:
-            PepperpyError: If embedding fails
+            PepperPyError: If embedding fails
         """
         pass
 
@@ -66,7 +66,7 @@ class EmbeddingProvider(ABC):
             Document embeddings
 
         Raises:
-            PepperpyError: If embedding fails
+            PepperPyError: If embedding fails
         """
         pass
 
@@ -97,15 +97,15 @@ class RetrievalStage:
             List of retrieved document chunks
 
         Raises:
-            PepperpyError: If retrieval fails
+            PepperPyError: If retrieval fails
         """
         try:
             # TODO: Call retrieval provider to get relevant chunks
             # This should be implemented by the provider
-            raise PepperpyError("Retrieval not implemented")
+            raise PepperPyError("Retrieval not implemented")
 
         except Exception as e:
-            raise PepperpyError(f"Error in retrieval stage: {e}")
+            raise PepperPyError(f"Error in retrieval stage: {e}")
 
 
 # Export all classes

@@ -782,7 +782,7 @@ def get_memory_usage() -> Dict[str, Any]:
         A dictionary with memory usage information
     """
     try:
-        import psutil
+        import psutil  # type: ignore
 
         process = psutil.Process()
         memory_info = process.memory_info()

@@ -4,23 +4,21 @@ This module provides functions and classes for schema validation,
 data transformation, and persistence.
 """
 
-# Keep legacy imports for backward compatibility
-from pepperpy.data.core import check, clear_data, list_keys
-
-# Import errors
-from pepperpy.data.errors import (
-    ConnectionError,
-    DataError,
-    PersistenceError,
-    SchemaError,
+# Core data functionality
+# Import errors from core
+from pepperpy.core.errors import (
+    NetworkError,
+    PepperPyError,
+    StorageError,
     ValidationError,
 )
+from pepperpy.data.core import check, clear_data, list_keys
 
-# Import from new providers directory
+# Import from providers directory
 from pepperpy.data.providers import (
-    BaseProvider,
     NoSQLProvider,
     ObjectStoreProvider,
+    RESTDataProvider,
     SQLProvider,
 )
 
@@ -70,18 +68,19 @@ from pepperpy.data.validation import (
     register_validator,
     validate_with,
 )
+from pepperpy.providers.base import Provider
 
 __all__ = [
     # Errors
-    "ConnectionError",
-    "DataError",
-    "PersistenceError",
-    "SchemaError",
+    "NetworkError",
+    "PepperPyError",
+    "StorageError",
     "ValidationError",
     # Providers
-    "BaseProvider",
+    "Provider",
     "NoSQLProvider",
     "ObjectStoreProvider",
+    "RESTDataProvider",
     "SQLProvider",
     # Schema validation
     "Schema",

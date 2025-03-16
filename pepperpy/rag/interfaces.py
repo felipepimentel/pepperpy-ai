@@ -7,9 +7,9 @@ providing a central location for all interface definitions.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, List, Optional, Protocol, TypeVar
+from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar
 
-from pepperpy.rag.document.core import Document
+from pepperpy.rag.models import Document, DocumentChunk, ScoredChunk, VectorEmbedding
 
 # Type variables for generic interfaces
 T = TypeVar("T")
@@ -27,15 +27,15 @@ class DocumentLoader(ABC):
     """
 
     @abstractmethod
-    def load(self, source: str, **kwargs: Any) -> List[Document]:
-        """Load documents from a source.
+    async def load(self, source: str, **kwargs: Any) -> Document:
+        """Load a document from a source.
 
         Args:
-            source: The source to load documents from
+            source: The source to load the document from
             **kwargs: Additional arguments for loading
 
         Returns:
-            List of loaded documents
+            The loaded document
 
         Raises:
             DocumentLoadError: If loading fails
@@ -46,20 +46,19 @@ class DocumentLoader(ABC):
 class DocumentProcessor(ABC):
     """Interface for document processors.
 
-    Document processors transform documents in some way, such as by
-    extracting text, cleaning content, or adding metadata.
+    Document processors are responsible for processing documents, such as
+    splitting them into chunks, extracting metadata, or transforming the content.
     """
 
     @abstractmethod
-    def process(self, document: Document, **kwargs: Any) -> Document:
+    async def process(self, document: Document) -> List[DocumentChunk]:
         """Process a document.
 
         Args:
             document: The document to process
-            **kwargs: Additional arguments for processing
 
         Returns:
-            The processed document
+            The processed document chunks
 
         Raises:
             DocumentProcessError: If processing fails
@@ -74,53 +73,101 @@ class DocumentStore(ABC):
     """
 
     @abstractmethod
-    def add(self, documents: List[Document], **kwargs: Any) -> List[str]:
-        """Add documents to the store.
+    async def add_document(self, document: Document) -> None:
+        """Add a document to the store.
 
         Args:
-            documents: The documents to add
-            **kwargs: Additional arguments for adding
-
-        Returns:
-            List of document IDs
+            document: The document to add
 
         Raises:
-            DocumentStoreError: If adding fails
+            StorageError: If adding fails
         """
         pass
 
     @abstractmethod
-    def get(self, document_id: str, **kwargs: Any) -> Optional[Document]:
+    async def add_chunks(self, chunks: List[DocumentChunk]) -> None:
+        """Add document chunks to the store.
+
+        Args:
+            chunks: The document chunks to add
+
+        Raises:
+            StorageError: If adding fails
+        """
+        pass
+
+    @abstractmethod
+    async def get_document(self, document_id: str) -> Optional[Document]:
         """Get a document by ID.
 
         Args:
             document_id: The ID of the document to get
-            **kwargs: Additional arguments for getting
 
         Returns:
             The document, or None if not found
 
         Raises:
-            DocumentStoreError: If getting fails
+            StorageError: If getting fails
         """
         pass
 
     @abstractmethod
-    def search(
-        self, query_embedding: List[float], top_k: int = 5, **kwargs: Any
-    ) -> tuple[List[Document], List[float]]:
-        """Search for documents by embedding.
+    async def get_chunks(self, document_id: str) -> List[DocumentChunk]:
+        """Get document chunks by document ID.
 
         Args:
-            query_embedding: The query embedding to search with
-            top_k: The number of results to return
-            **kwargs: Additional arguments for searching
+            document_id: The ID of the document to get chunks for
 
         Returns:
-            Tuple of (documents, scores)
+            The document chunks
 
         Raises:
-            DocumentStoreError: If searching fails
+            StorageError: If getting fails
+        """
+        pass
+
+    @abstractmethod
+    async def delete_document(self, document_id: str) -> None:
+        """Delete a document from the store.
+
+        Args:
+            document_id: The ID of the document to delete
+
+        Raises:
+            StorageError: If deletion fails
+        """
+        pass
+
+    @abstractmethod
+    async def delete_chunks(self, document_id: str) -> None:
+        """Delete document chunks from the store.
+
+        Args:
+            document_id: The ID of the document to delete chunks for
+
+        Raises:
+            StorageError: If deletion fails
+        """
+        pass
+
+    @abstractmethod
+    async def list_documents(self) -> List[Document]:
+        """List all documents in the store.
+
+        Returns:
+            List of all documents
+
+        Raises:
+            StorageError: If listing fails
+        """
+        pass
+
+    @abstractmethod
+    async def clear(self) -> None:
+        """Clear the store.
+
+        Raises:
+            StorageError: If clearing fails
         """
         pass
 
@@ -134,90 +181,214 @@ class VectorStore(ABC):
     """
 
     @abstractmethod
-    def add_embeddings(
-        self, embeddings: List[List[float]], documents: List[Document], **kwargs: Any
-    ) -> List[str]:
-        """Add embeddings and documents to the store.
+    async def add_embedding(self, embedding: VectorEmbedding) -> None:
+        """Add an embedding to the store.
+
+        Args:
+            embedding: The embedding to add
+
+        Raises:
+            StorageError: If adding fails
+        """
+        pass
+
+    @abstractmethod
+    async def add_embeddings(self, embeddings: List[VectorEmbedding]) -> None:
+        """Add embeddings to the store.
 
         Args:
             embeddings: The embeddings to add
-            documents: The documents to add
-            **kwargs: Additional arguments for adding
-
-        Returns:
-            List of document IDs
 
         Raises:
-            VectorStoreError: If adding fails
+            StorageError: If adding fails
         """
         pass
 
     @abstractmethod
-    def similarity_search(
-        self, query_embedding: List[float], top_k: int = 5, **kwargs: Any
-    ) -> tuple[List[Document], List[float]]:
-        """Search for similar documents by embedding.
+    async def get_embedding(self, chunk_id: str) -> Optional[VectorEmbedding]:
+        """Get an embedding by chunk ID.
 
         Args:
-            query_embedding: The query embedding to search with
-            top_k: The number of results to return
+            chunk_id: The ID of the chunk to get the embedding for
+
+        Returns:
+            The embedding, or None if not found
+
+        Raises:
+            StorageError: If getting fails
+        """
+        pass
+
+    @abstractmethod
+    async def delete_embedding(self, chunk_id: str) -> None:
+        """Delete an embedding from the store.
+
+        Args:
+            chunk_id: The ID of the chunk to delete the embedding for
+
+        Raises:
+            StorageError: If deletion fails
+        """
+        pass
+
+    @abstractmethod
+    async def delete_embeddings(self, document_id: str) -> None:
+        """Delete embeddings from the store.
+
+        Args:
+            document_id: The ID of the document to delete embeddings for
+
+        Raises:
+            StorageError: If deletion fails
+        """
+        pass
+
+    @abstractmethod
+    async def search(
+        self,
+        query_vector: List[float],
+        limit: int = 10,
+        min_score: float = 0.0,
+        filter_metadata: Optional[Dict[str, Any]] = None,
+    ) -> List[Tuple[VectorEmbedding, float]]:
+        """Search for similar embeddings.
+
+        Args:
+            query_vector: The query vector to search with
+            limit: The maximum number of results to return
+            min_score: The minimum similarity score to include
+            filter_metadata: Optional metadata filters to apply
+
+        Returns:
+            List of (embedding, score) tuples, ordered by similarity
+
+        Raises:
+            StorageError: If searching fails
+        """
+        pass
+
+    @abstractmethod
+    async def clear(self) -> None:
+        """Clear the store.
+
+        Raises:
+            StorageError: If clearing fails
+        """
+        pass
+
+
+# Provider interfaces
+class SearchProvider(ABC):
+    """Interface for search providers.
+
+    Search providers are responsible for searching for documents
+    based on a query.
+    """
+
+    @abstractmethod
+    async def search(self, query: str, **kwargs: Any) -> List[Document]:
+        """Search for documents.
+
+        Args:
+            query: The search query
             **kwargs: Additional arguments for searching
 
         Returns:
-            Tuple of (documents, scores)
+            List of matching documents
 
         Raises:
-            VectorStoreError: If searching fails
+            SearchError: If searching fails
         """
         pass
 
 
-# Transformation interfaces
-class DocumentTransformer(ABC):
-    """Interface for document transformers.
+class EmbeddingProvider(ABC):
+    """Interface for embedding providers.
 
-    Document transformers apply transformations to documents,
-    such as text extraction, HTML cleaning, or language detection.
+    Embedding providers are responsible for generating embeddings
+    for text.
     """
 
     @abstractmethod
-    def transform(self, document: Document, **kwargs: Any) -> Document:
-        """Transform a document.
+    async def embed(self, text: str, **kwargs: Any) -> List[float]:
+        """Generate an embedding for text.
 
         Args:
-            document: The document to transform
-            **kwargs: Additional arguments for transformation
+            text: The text to embed
+            **kwargs: Additional arguments for embedding
 
         Returns:
-            The transformed document
+            The embedding vector
 
         Raises:
-            TransformError: If transformation fails
+            EmbeddingError: If embedding fails
+        """
+        pass
+
+    @abstractmethod
+    async def embed_batch(self, texts: List[str], **kwargs: Any) -> List[List[float]]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: The texts to embed
+            **kwargs: Additional arguments for embedding
+
+        Returns:
+            List of embedding vectors
+
+        Raises:
+            EmbeddingError: If embedding fails
         """
         pass
 
 
-# Metadata interfaces
-class MetadataExtractor(ABC):
-    """Interface for metadata extractors.
+class RerankerProvider(ABC):
+    """Interface for reranker providers.
 
-    Metadata extractors extract metadata from documents,
-    such as authors, creation dates, or keywords.
+    Reranker providers are responsible for reranking search results
+    based on a query.
     """
 
     @abstractmethod
-    def extract(self, document: Document, **kwargs: Any) -> Dict[str, Any]:
-        """Extract metadata from a document.
+    async def rerank(
+        self, query: str, documents: List[Document], **kwargs: Any
+    ) -> List[ScoredChunk]:
+        """Rerank documents based on a query.
 
         Args:
-            document: The document to extract metadata from
-            **kwargs: Additional arguments for extraction
+            query: The query to rerank for
+            documents: The documents to rerank
+            **kwargs: Additional arguments for reranking
 
         Returns:
-            Dictionary of extracted metadata
+            List of reranked documents with scores
 
         Raises:
-            MetadataExtractionError: If extraction fails
+            RerankError: If reranking fails
+        """
+        pass
+
+
+class GenerationProvider(ABC):
+    """Interface for generation providers.
+
+    Generation providers are responsible for generating text
+    based on a prompt.
+    """
+
+    @abstractmethod
+    async def generate(self, prompt: str, **kwargs: Any) -> str:
+        """Generate text.
+
+        Args:
+            prompt: The prompt to generate from
+            **kwargs: Additional arguments for generation
+
+        Returns:
+            The generated text
+
+        Raises:
+            GenerationError: If generation fails
         """
         pass
 
@@ -231,11 +402,12 @@ class PipelineStage(ABC):
     """
 
     @abstractmethod
-    def process(self, inputs: Any) -> Any:
+    async def process(self, inputs: Any, **kwargs: Any) -> Any:
         """Process the stage inputs.
 
         Args:
             inputs: The stage inputs
+            **kwargs: Additional arguments for processing
 
         Returns:
             The stage outputs
@@ -249,160 +421,21 @@ class PipelineStage(ABC):
 class AbstractPipelineStage(Generic[Input, Output], ABC):
     """Generic interface for pipeline stages.
 
-    This interface provides a more strongly typed version of PipelineStage.
+    This is a more strongly typed version of the PipelineStage interface.
     """
 
     @abstractmethod
-    async def process(
-        self,
-        input_data: Input,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Output:
-        """Process input data.
+    async def process(self, inputs: Input, **kwargs: Any) -> Output:
+        """Process the stage inputs.
 
         Args:
-            input_data: The input data to process
-            metadata: Optional metadata to include with the processing
+            inputs: The stage inputs
+            **kwargs: Additional arguments for processing
 
         Returns:
-            The processed output data
+            The stage outputs
 
         Raises:
             PipelineError: If processing fails
-        """
-        pass
-
-    @abstractmethod
-    def validate(self) -> bool:
-        """Validate the stage configuration.
-
-        Returns:
-            True if the configuration is valid, False otherwise
-        """
-        pass
-
-
-# Provider interfaces
-class EmbeddingProvider(Protocol):
-    """Interface for embedding providers.
-
-    Embedding providers convert text into vector embeddings.
-    """
-
-    def embed_query(self, query: str) -> List[float]:
-        """Embed a query.
-
-        Args:
-            query: The query to embed
-
-        Returns:
-            The query embedding
-        """
-        ...
-
-    def embed_documents(self, documents: List[Document]) -> List[List[float]]:
-        """Embed documents.
-
-        Args:
-            documents: The documents to embed
-
-        Returns:
-            The document embeddings
-        """
-        ...
-
-
-class RerankerProvider(Protocol):
-    """Interface for reranker providers.
-
-    Reranker providers rerank documents based on relevance to a query.
-    """
-
-    def rerank(self, query: str, documents: List[Document]) -> List[Document]:
-        """Rerank documents based on a query.
-
-        Args:
-            query: The query for reranking
-            documents: The documents to rerank
-
-        Returns:
-            The reranked documents
-        """
-        ...
-
-    def get_scores(self, query: str, documents: List[Document]) -> List[float]:
-        """Get reranking scores for documents.
-
-        Args:
-            query: The query for reranking
-            documents: The documents to score
-
-        Returns:
-            The scores for each document
-        """
-        ...
-
-
-class GenerationProvider(Protocol):
-    """Interface for generation providers.
-
-    Generation providers generate text based on a prompt.
-    """
-
-    def generate(self, prompt: str, **kwargs: Any) -> str:
-        """Generate text based on a prompt.
-
-        Args:
-            prompt: The prompt for generation
-            **kwargs: Additional arguments for generation
-
-        Returns:
-            The generated text
-        """
-        ...
-
-
-class SearchProvider(Protocol):
-    """Interface for search providers.
-
-    Search providers search for documents based on a query.
-    """
-
-    def search(self, query: str, **kwargs: Any) -> List[Document]:
-        """Search for documents based on a query.
-
-        Args:
-            query: The query to search for
-            **kwargs: Additional arguments for searching
-
-        Returns:
-            List of matching documents
-        """
-        ...
-
-
-# Reranking interfaces
-class Reranker(ABC):
-    """Interface for rerankers.
-
-    Rerankers reorder documents based on relevance to a query.
-    """
-
-    @abstractmethod
-    def rerank(
-        self, query: str, documents: List[Document], **kwargs: Any
-    ) -> List[Document]:
-        """Rerank documents based on a query.
-
-        Args:
-            query: The query for reranking
-            documents: The documents to rerank
-            **kwargs: Additional arguments for reranking
-
-        Returns:
-            The reranked documents
-
-        Raises:
-            RerankingError: If reranking fails
         """
         pass

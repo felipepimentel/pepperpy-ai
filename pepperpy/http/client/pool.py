@@ -14,7 +14,7 @@ from pepperpy.core.connection_pool import (
     get_pool,
     register_pool,
 )
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.http.client.core import HTTPXClient, RequestOptions, Response
 
 
@@ -68,7 +68,7 @@ class HTTPConnectionPool(ConnectionPool[HTTPXClient, HTTPPoolConfig]):
             New HTTP client
 
         Raises:
-            PepperpyError: If client creation fails
+            PepperPyError: If client creation fails
         """
         try:
             # Get configuration values
@@ -121,7 +121,7 @@ class HTTPConnectionPool(ConnectionPool[HTTPXClient, HTTPPoolConfig]):
 
             return client
         except Exception as e:
-            raise PepperpyError(f"Failed to create HTTP client: {e}") from e
+            raise PepperPyError(f"Failed to create HTTP client: {e}") from e
 
     async def _close_connection(self, connection: HTTPXClient) -> None:
         """Close an HTTP client.
@@ -130,12 +130,12 @@ class HTTPConnectionPool(ConnectionPool[HTTPXClient, HTTPPoolConfig]):
             connection: HTTP client to close
 
         Raises:
-            PepperpyError: If client closure fails
+            PepperPyError: If client closure fails
         """
         try:
             await connection.client.aclose()
         except Exception as e:
-            raise PepperpyError(f"Failed to close HTTP client: {e}") from e
+            raise PepperPyError(f"Failed to close HTTP client: {e}") from e
 
     async def _validate_connection(self, connection: HTTPXClient) -> bool:
         """Validate an HTTP client.
@@ -178,7 +178,7 @@ def create_http_pool(
         HTTP connection pool
 
     Raises:
-        PepperpyError: If a pool with the same name is already registered
+        PepperPyError: If a pool with the same name is already registered
     """
     pool = HTTPConnectionPool(name, config)
     register_pool(pool)
@@ -195,11 +195,11 @@ def get_http_pool(name: str = _default_pool_name) -> HTTPConnectionPool:
         HTTP connection pool
 
     Raises:
-        PepperpyError: If the pool is not registered
+        PepperPyError: If the pool is not registered
     """
     pool = get_pool(name)
     if not isinstance(pool, HTTPConnectionPool):
-        raise PepperpyError(f"Pool '{name}' is not an HTTP connection pool")
+        raise PepperPyError(f"Pool '{name}' is not an HTTP connection pool")
     return pool
 
 
@@ -210,11 +210,11 @@ async def initialize_default_http_pool() -> None:
     if it doesn't exist.
 
     Raises:
-        PepperpyError: If initialization fails
+        PepperPyError: If initialization fails
     """
     try:
         get_http_pool()
-    except PepperpyError:
+    except PepperPyError:
         # Create default pool
         pool = create_http_pool(_default_pool_name)
         await pool.initialize()
@@ -230,7 +230,7 @@ async def get_http_client(pool_name: str = _default_pool_name) -> HTTPXClient:
         HTTP client from the pool
 
     Raises:
-        PepperpyError: If the pool is not registered or a client cannot be acquired
+        PepperPyError: If the pool is not registered or a client cannot be acquired
     """
     pool = get_http_pool(pool_name)
     return await pool.acquire()
@@ -247,7 +247,7 @@ async def release_http_client(
         pool_name: Name of the pool
 
     Raises:
-        PepperpyError: If the pool is not registered or the client is not in use
+        PepperPyError: If the pool is not registered or the client is not in use
     """
     pool = get_http_pool(pool_name)
     await pool.release(client)
@@ -276,7 +276,7 @@ class HTTPClientContext:
             HTTP client from the pool
 
         Raises:
-            PepperpyError: If a client cannot be acquired
+            PepperPyError: If a client cannot be acquired
         """
         self.client = await get_http_client(self.pool_name)
         return self.client
@@ -336,7 +336,7 @@ async def request(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     async with HTTPClientContext(pool_name) as client:
         return await client.request(method, url, options)
@@ -358,7 +358,7 @@ async def get(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("GET", url, options, pool_name)
 
@@ -379,7 +379,7 @@ async def post(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("POST", url, options, pool_name)
 
@@ -400,7 +400,7 @@ async def put(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("PUT", url, options, pool_name)
 
@@ -421,7 +421,7 @@ async def delete(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("DELETE", url, options, pool_name)
 
@@ -442,7 +442,7 @@ async def head(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("HEAD", url, options, pool_name)
 
@@ -463,7 +463,7 @@ async def options(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("OPTIONS", url, options, pool_name)
 
@@ -484,6 +484,6 @@ async def patch(
         HTTP response
 
     Raises:
-        PepperpyError: If the request fails
+        PepperPyError: If the request fails
     """
     return await request("PATCH", url, options, pool_name)

@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 import motor.motor_asyncio
 from pymongo.errors import PyMongoError
 
-from pepperpy.errors import PersistenceError
+from pepperpy.core.errors import StorageError
 
 
 class NoSQLProvider:
@@ -67,7 +67,7 @@ class NoSQLProvider:
             self._db = db
 
         except PyMongoError as e:
-            raise PersistenceError(f"Error connecting to database: {str(e)}") from e
+            raise StorageError(f"Error connecting to database: {str(e)}") from e
 
     async def disconnect(self) -> None:
         """Disconnect from the database.
@@ -82,9 +82,7 @@ class NoSQLProvider:
                 self._db = None
 
         except PyMongoError as e:
-            raise PersistenceError(
-                f"Error disconnecting from database: {str(e)}"
-            ) from e
+            raise StorageError(f"Error disconnecting from database: {str(e)}") from e
 
     async def list_collections(self) -> List[str]:
         """List all collections.
@@ -97,7 +95,7 @@ class NoSQLProvider:
         """
         try:
             if not self._db:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             collections = await self._db.list_collection_names()
             return list(collections)

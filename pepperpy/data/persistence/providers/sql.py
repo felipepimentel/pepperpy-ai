@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
-from pepperpy.errors import PersistenceError
+from pepperpy.core.errors import StorageError
 
 
 class Base(DeclarativeBase):
@@ -77,7 +77,7 @@ class SQLProvider:
             )
 
         except Exception as e:
-            raise PersistenceError(f"Error connecting to database: {str(e)}") from e
+            raise StorageError(f"Error connecting to database: {str(e)}") from e
 
     async def disconnect(self) -> None:
         """Disconnect from the database.
@@ -92,9 +92,7 @@ class SQLProvider:
                 self._session_factory = None
 
         except Exception as e:
-            raise PersistenceError(
-                f"Error disconnecting from database: {str(e)}"
-            ) from e
+            raise StorageError(f"Error disconnecting from database: {str(e)}") from e
 
     async def create_tables(self) -> None:
         """Create all tables.
@@ -104,13 +102,13 @@ class SQLProvider:
         """
         try:
             if not self._engine:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             async with self._engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
 
         except Exception as e:
-            raise PersistenceError(f"Error creating tables: {str(e)}") from e
+            raise StorageError(f"Error creating tables: {str(e)}") from e
 
     async def drop_tables(self) -> None:
         """Drop all tables.
@@ -120,13 +118,13 @@ class SQLProvider:
         """
         try:
             if not self._engine:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             async with self._engine.begin() as conn:
                 await conn.run_sync(Base.metadata.drop_all)
 
         except Exception as e:
-            raise PersistenceError(f"Error dropping tables: {str(e)}") from e
+            raise StorageError(f"Error dropping tables: {str(e)}") from e
 
     async def execute(
         self,
@@ -147,7 +145,7 @@ class SQLProvider:
         """
         try:
             if not self._session_factory:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             async with self._session_factory() as session:
                 if isinstance(query, str):
@@ -168,7 +166,7 @@ class SQLProvider:
                 return rows
 
         except Exception as e:
-            raise PersistenceError(f"Error executing query: {str(e)}") from e
+            raise StorageError(f"Error executing query: {str(e)}") from e
 
     async def insert(
         self,
@@ -189,7 +187,7 @@ class SQLProvider:
         """
         try:
             if not self._session_factory:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             # Convert single item to list
             items = [data] if isinstance(data, dict) else data
@@ -211,7 +209,7 @@ class SQLProvider:
                 return rows
 
         except Exception as e:
-            raise PersistenceError(f"Error inserting data: {str(e)}") from e
+            raise StorageError(f"Error inserting data: {str(e)}") from e
 
     async def update(
         self,
@@ -234,7 +232,7 @@ class SQLProvider:
         """
         try:
             if not self._session_factory:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             # Create update statement
             stmt = sa.update(sa.table(table)).values(data)
@@ -265,7 +263,7 @@ class SQLProvider:
                 return rows
 
         except Exception as e:
-            raise PersistenceError(f"Error updating data: {str(e)}") from e
+            raise StorageError(f"Error updating data: {str(e)}") from e
 
     async def delete(
         self,
@@ -286,7 +284,7 @@ class SQLProvider:
         """
         try:
             if not self._session_factory:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             # Create delete statement
             stmt = sa.delete(sa.table(table))
@@ -317,7 +315,7 @@ class SQLProvider:
                 return rows
 
         except Exception as e:
-            raise PersistenceError(f"Error deleting data: {str(e)}") from e
+            raise StorageError(f"Error deleting data: {str(e)}") from e
 
     async def truncate(self, table: str) -> None:
         """Truncate a table.
@@ -330,7 +328,7 @@ class SQLProvider:
         """
         try:
             if not self._session_factory:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             # Create truncate statement
             stmt = f"TRUNCATE TABLE {table}"
@@ -341,7 +339,7 @@ class SQLProvider:
                 await session.commit()
 
         except Exception as e:
-            raise PersistenceError(f"Error truncating table: {str(e)}") from e
+            raise StorageError(f"Error truncating table: {str(e)}") from e
 
     async def list_tables(self) -> List[str]:
         """List all tables.
@@ -354,13 +352,13 @@ class SQLProvider:
         """
         try:
             if not self._engine:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             # Get table names from metadata
             return list(Base.metadata.tables.keys())
 
         except Exception as e:
-            raise PersistenceError(f"Error listing tables: {str(e)}") from e
+            raise StorageError(f"Error listing tables: {str(e)}") from e
 
     async def get_table_schema(self, table: str) -> Dict[str, Any]:
         """Get table schema.
@@ -376,12 +374,12 @@ class SQLProvider:
         """
         try:
             if not self._engine:
-                raise PersistenceError("Not connected to database")
+                raise StorageError("Not connected to database")
 
             # Get table from metadata
             table_obj = Base.metadata.tables.get(table)
             if not table_obj:
-                raise PersistenceError(f"Table {table} not found")
+                raise StorageError(f"Table {table} not found")
 
             # Extract schema information
             columns = {}
@@ -418,4 +416,4 @@ class SQLProvider:
             }
 
         except Exception as e:
-            raise PersistenceError(f"Error getting table schema: {str(e)}") from e
+            raise StorageError(f"Error getting table schema: {str(e)}") from e

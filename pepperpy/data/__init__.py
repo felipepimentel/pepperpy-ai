@@ -4,20 +4,20 @@ This module provides functionality for data handling, including schema validatio
 data transformation, and persistence.
 """
 
-from pepperpy.data.errors import (
-    ConnectionError,
-    DataError,
-    PersistenceError,
+from pepperpy.core.errors import (
+    NetworkError,
+    PepperPyError,
     QueryError,
     SchemaError,
+    StorageError,
     TransformError,
     ValidationError,
 )
 
 __all__ = [
-    "ConnectionError",
-    "DataError",
-    "PersistenceError",
+    "NetworkError",
+    "PepperPyError",
+    "StorageError",
     "QueryError",
     "SchemaError",
     "TransformError",

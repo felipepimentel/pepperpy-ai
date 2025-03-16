@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Union
 import motor.motor_asyncio
 from pymongo.errors import PyMongoError
 
-from pepperpy.errors.core import ProviderError
+from pepperpy.core.errors import ProviderError
 from pepperpy.providers.base import BaseProvider
 
 

@@ -5,7 +5,7 @@ This module defines error classes specific to HTTP operations.
 
 from typing import Any, Dict, Optional
 
-from pepperpy.errors import PepperPyError
+from pepperpy.core.errors import PepperPyError
 
 
 class HTTPError(PepperPyError):

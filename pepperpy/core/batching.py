@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum, auto
 from typing import (
+    Awaitable,
     Callable,
     Dict,
     Generic,
@@ -19,10 +20,11 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
+    cast,
 )
 
 from pepperpy.core.decorators import profile
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module
@@ -121,7 +123,7 @@ class BatchProcessor(Generic[T, R], ABC):
             The processed results
 
         Raises:
-            PepperpyError: If processing fails
+            PepperPyError: If processing fails
         """
         try:
             # Convert items to a list if it's not already
@@ -141,7 +143,7 @@ class BatchProcessor(Generic[T, R], ABC):
             return results
 
         except Exception as e:
-            raise PepperpyError(f"Error processing items in batches: {e}")
+            raise PepperPyError(f"Error processing items in batches: {e}")
 
     @profile(level="debug")
     async def _process_batch_with_retry(self, batch: List[T]) -> List[R]:
@@ -154,7 +156,7 @@ class BatchProcessor(Generic[T, R], ABC):
             The processed results
 
         Raises:
-            PepperpyError: If processing fails after all retries
+            PepperPyError: If processing fails after all retries
         """
         retries = 0
         last_error = None
@@ -185,12 +187,12 @@ class BatchProcessor(Generic[T, R], ABC):
                     await asyncio.sleep(delay)
                 else:
                     # All retries exhausted
-                    raise PepperpyError(
+                    raise PepperPyError(
                         f"Batch processing failed after {retries} attempts: {last_error}"
                     ) from last_error
 
         # This should never be reached, but just in case
-        raise PepperpyError("Unexpected error in batch processing retry logic")
+        raise PepperPyError("Unexpected error in batch processing retry logic")
 
     def _calculate_retry_delay(self, retry_count: int) -> float:
         """Calculate the delay before the next retry.
@@ -207,10 +209,10 @@ class BatchProcessor(Generic[T, R], ABC):
             # Add jitter to avoid thundering herd problem
             delay = delay * (0.5 + 0.5 * (hash(str(time.time())) % 1000) / 1000)
             # Cap at max retry delay
-            return min(delay, self.config.max_retry_delay)
+            return cast(float, min(delay, self.config.max_retry_delay))
         else:
             # Use fixed delay
-            return self.config.retry_delay
+            return cast(float, self.config.retry_delay)
 
     def _update_statistics(self, batch_size: int, processing_time: float) -> None:
         """Update processing statistics.
@@ -510,17 +512,17 @@ def create_batches(
 
 async def process_in_batches(
     items: List[T],
-    processor: Callable[[List[T]], R],
+    processor: Callable[[List[T]], Awaitable[R]],
     batch_size: int = 100,
     concurrency: int = 1,
 ) -> List[R]:
-    """Process items in batches with optional concurrency.
+    """Process items in batches.
 
     Args:
         items: The items to process
         processor: The function to process each batch
-        batch_size: The size of each batch
-        concurrency: The number of batches to process concurrently
+        batch_size: The maximum batch size
+        concurrency: The maximum number of concurrent batch processing tasks
 
     Returns:
         The processed results
@@ -535,7 +537,7 @@ async def process_in_batches(
     if concurrency <= 1:
         # Process batches sequentially
         for batch in batches:
-            result = await processor(batch)
+            result = cast(R, await processor(batch))
             results.append(result)
     else:
         # Process batches concurrently with limited concurrency
@@ -543,7 +545,7 @@ async def process_in_batches(
 
         async def process_batch(batch: List[T]) -> R:
             async with semaphore:
-                return await processor(batch)
+                return cast(R, await processor(batch))
 
         # Create tasks for all batches
         tasks = [process_batch(batch) for batch in batches]
@@ -554,34 +556,33 @@ async def process_in_batches(
 
 async def process_keyed_items_in_batches(
     items: Dict[K, T],
-    processor: Callable[[Dict[K, T]], Dict[K, R]],
+    processor: Callable[[Dict[K, T]], Awaitable[Dict[K, R]]],
     batch_size: int = 100,
     concurrency: int = 1,
 ) -> Dict[K, R]:
-    """Process keyed items in batches with optional concurrency.
+    """Process keyed items in batches.
 
     Args:
         items: The keyed items to process
         processor: The function to process each batch
-        batch_size: The size of each batch
-        concurrency: The number of batches to process concurrently
+        batch_size: The maximum batch size
+        concurrency: The maximum number of concurrent batch processing tasks
 
     Returns:
-        The processed results with keys
+        The processed results
     """
     if not items:
         return {}
 
     # Create batches of keys
-    keys = list(items.keys())
-    key_batches = create_batches(keys, batch_size)
+    key_batches = create_batches(list(items.keys()), batch_size)
     results: Dict[K, R] = {}
 
     if concurrency <= 1:
         # Process batches sequentially
         for key_batch in key_batches:
             batch_items = {key: items[key] for key in key_batch}
-            batch_results = await processor(batch_items)
+            batch_results = cast(Dict[K, R], await processor(batch_items))
             results.update(batch_results)
     else:
         # Process batches concurrently with limited concurrency
@@ -590,7 +591,7 @@ async def process_keyed_items_in_batches(
         async def process_batch(key_batch: List[K]) -> Dict[K, R]:
             async with semaphore:
                 batch_items = {key: items[key] for key in key_batch}
-                return await processor(batch_items)
+                return cast(Dict[K, R], await processor(batch_items))
 
         # Create tasks for all batches
         tasks = [process_batch(key_batch) for key_batch in key_batches]

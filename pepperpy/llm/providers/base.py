@@ -1,14 +1,29 @@
-"""Base interfaces and types for LLM providers.
+"""Base classes for LLM providers in PepperPy.
 
-This module defines the base interfaces and types that all LLM providers must implement.
-It ensures consistent behavior across different LLM implementations.
+This module provides the base classes for LLM providers in PepperPy.
+It defines the interface that all LLM providers must implement.
 """
 
-from abc import ABC, abstractmethod
+import abc
 from dataclasses import dataclass, field
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.interfaces import Provider
+from pepperpy.core.base import BaseProvider
+from pepperpy.core.errors import PepperPyError
+from pepperpy.core.registry import Registry
+from pepperpy.utils.logging import get_logger
+
+# Logger for this module
+logger = get_logger(__name__)
+
+# Create a registry for LLM providers
+provider_registry = Registry[Any]("llm_provider_registry", "llm_provider")
+
+
+class LLMError(PepperPyError):
+    """Error raised by LLM providers."""
+
+    pass
 
 
 @dataclass
@@ -77,104 +92,123 @@ class StreamingResponse:
     metadata: Dict[str, Any] = field(default_factory=dict)
 
 
-class LLMProvider(Provider, ABC):
+@dataclass
+class LLMResult:
+    """Result of a language model generation.
+
+    Attributes:
+        text: The generated text
+        model_name: The name of the model used
+        usage: Token usage information
+        metadata: Additional metadata about the generation
+    """
+
+    text: str
+    model_name: str
+    usage: Dict[str, int]
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class LLMProvider(BaseProvider, abc.ABC):
     """Base class for LLM providers.
 
     All LLM providers must implement this interface to ensure consistent behavior
     across different implementations.
     """
 
-    @abstractmethod
-    async def complete(self, prompt: Union[str, Prompt]) -> Response:
-        """Generate a completion for the given prompt.
+    def __init__(
+        self,
+        provider_name: Optional[str] = None,
+        model_name: Optional[str] = None,
+        **kwargs: Any,
+    ):
+        """Initialize the LLM provider.
 
         Args:
-            prompt: The prompt to generate a completion for
+            provider_name: Optional specific name for this provider
+            model_name: Name of the LLM model
+            **kwargs: Provider-specific configuration
+        """
+        name = provider_name or f"{self.__class__.__name__}_{id(self)}"
+        super().__init__(name=name, **kwargs)
+        self.provider_type = "llm"
+        self.model_name = model_name
+
+        # Initialize capabilities
+        self._capabilities = set()
+
+        # Add default capabilities
+        self.add_capability("text_generation")
+
+    def add_capability(self, capability: str) -> None:
+        """Add a capability to this provider.
+
+        Args:
+            capability: The capability to add
+        """
+        self._capabilities.add(capability)
+
+    def has_capability(self, capability: str) -> bool:
+        """Check if this provider has a specific capability.
+
+        Args:
+            capability: The capability to check for
 
         Returns:
-            The generated completion
+            Whether the provider has this capability
+        """
+        return capability in self._capabilities
+
+    @abc.abstractmethod
+    async def generate(self, prompt: Union[str, List[Message]], **options) -> LLMResult:
+        """Generate text using the provider's API.
+
+        Args:
+            prompt: The prompt to generate text from (string or list of messages)
+            **options: Additional options for generation
+
+        Returns:
+            The generated text result
 
         Raises:
-            LLMError: If there is an error generating the completion
+            LLMError: If generation fails
         """
         pass
 
-    @abstractmethod
-    async def stream_complete(
-        self, prompt: Union[str, Prompt]
-    ) -> AsyncIterator[StreamingResponse]:
-        """Generate a streaming completion for the given prompt.
+    @abc.abstractmethod
+    async def generate_stream(
+        self, prompt: Union[str, List[Message]], **options
+    ) -> AsyncIterator[LLMResult]:
+        """Generate text in a streaming fashion.
 
         Args:
-            prompt: The prompt to generate a completion for
+            prompt: The prompt to generate text from (string or list of messages)
+            **options: Additional options for generation
 
-        Returns:
-            An async iterator of response chunks
+        Yields:
+            The generated text chunks
 
         Raises:
-            LLMError: If there is an error generating the completion
+            LLMError: If generation fails
         """
         pass
 
-    @abstractmethod
-    async def embed(self, text: str) -> List[float]:
-        """Generate embeddings for the given text.
-
-        Args:
-            text: The text to generate embeddings for
-
-        Returns:
-            The generated embeddings
-
-        Raises:
-            LLMError: If there is an error generating the embeddings
-        """
-        pass
-
-    @abstractmethod
-    async def tokenize(self, text: str) -> List[str]:
-        """Tokenize the given text.
-
-        Args:
-            text: The text to tokenize
-
-        Returns:
-            The list of tokens
-
-        Raises:
-            LLMError: If there is an error tokenizing the text
-        """
-        pass
-
-    @abstractmethod
-    async def count_tokens(self, text: str) -> int:
-        """Count the number of tokens in the given text.
-
-        Args:
-            text: The text to count tokens in
-
-        Returns:
-            The number of tokens
-
-        Raises:
-            LLMError: If there is an error counting tokens
-        """
-        pass
-
-    @abstractmethod
     def get_config(self) -> Dict[str, Any]:
         """Get the provider configuration.
 
         Returns:
             The provider configuration
         """
-        pass
+        return self.config.copy()
 
-    @abstractmethod
     def get_capabilities(self) -> Dict[str, Any]:
         """Get the provider capabilities.
 
         Returns:
-            The provider capabilities
+            A dictionary of provider capabilities
         """
-        pass
+        return {"capabilities": list(self._capabilities)}
+
+
+# Register provider type with global registry
+provider_registry.register("llm", LLMProvider)

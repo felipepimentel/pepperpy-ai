@@ -6,7 +6,11 @@ This module implements LLM providers that use REST APIs, like OpenAI and Anthrop
 
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.llm.providers.base import LLMProvider, Prompt, Response, StreamingResponse
+from pepperpy.llm.providers.base import (
+    LLMProvider,
+    LLMResult,
+    Message,
+)
 from pepperpy.providers.rest_base import RESTProvider
 from pepperpy.utils.logging import get_logger
 
@@ -17,18 +21,18 @@ class RESTLLMProvider(RESTProvider, LLMProvider):
     """Base class for REST-based LLM providers.
 
     This class extends both RESTProvider and LLMProvider to provide
-    a foundation for LLM providers that use REST APIs.
+    a foundation for providers that use REST APIs.
     """
 
     def __init__(
         self,
         name: str,
         api_key: str,
-        default_model: str,
+        default_model: Optional[str] = None,
         base_url: Optional[str] = None,
-        timeout: int = 60,  # Longer timeout for LLM requests
+        timeout: int = 30,
         max_retries: int = 3,
-        **kwargs: Any,
+        **kwargs,
     ) -> None:
         """Initialize a new REST LLM provider.
 
@@ -42,7 +46,8 @@ class RESTLLMProvider(RESTProvider, LLMProvider):
             **kwargs: Additional provider-specific configuration
         """
         super().__init__(
-            name=name,
+            provider_name=name,
+            model_name=default_model,
             api_key=api_key,
             base_url=base_url,
             timeout=timeout,
@@ -51,61 +56,48 @@ class RESTLLMProvider(RESTProvider, LLMProvider):
         )
         self.default_model = default_model
 
-    async def complete(self, prompt: Union[str, Prompt]) -> Response:
-        """Generate a completion for the given prompt.
+    async def generate(self, prompt: Union[str, List[Message]], **options) -> LLMResult:
+        """Generate text using the provider's API.
 
         Args:
-            prompt: Text prompt or structured Prompt object
+            prompt: The prompt to generate text from
+            **options: Additional options for generation
 
         Returns:
-            Response with generated text
+            The generated text result
 
         Raises:
-            LLMError: If completion fails
+            LLMError: If generation fails
         """
-        raise NotImplementedError("Subclasses must implement complete")
+        raise NotImplementedError("Subclasses must implement generate")
 
-    async def stream_complete(
-        self, prompt: Union[str, Prompt]
-    ) -> AsyncIterator[StreamingResponse]:
-        """Generate a streaming completion for the given prompt.
+    async def generate_stream(
+        self, prompt: Union[str, List[Message]], **options
+    ) -> AsyncIterator[LLMResult]:
+        """Generate text in a streaming fashion.
 
         Args:
-            prompt: Text prompt or structured Prompt object
+            prompt: The prompt to generate text from
+            **options: Additional options for generation
 
         Yields:
-            StreamingResponse chunks with generated text
+            The generated text chunks
 
         Raises:
-            LLMError: If streaming completion fails
+            LLMError: If generation fails
         """
-        raise NotImplementedError("Subclasses must implement stream_complete")
-
-    async def embed(self, text: str) -> List[float]:
-        """Generate embeddings for the given text.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            List of embedding values
-
-        Raises:
-            LLMError: If embedding fails
-        """
-        raise NotImplementedError("Subclasses must implement embed")
+        raise NotImplementedError("Subclasses must implement generate_stream")
 
     def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
+        """Get the capabilities of this provider.
 
         Returns:
-            Dict with provider capabilities
+            A dictionary of capabilities
         """
         capabilities = super().get_capabilities()
         capabilities.update({
-            "supports_streaming": True,
-            "supports_embeddings": True,
-            "default_model": self.default_model,
+            "supports_streaming": False,
+            "chat_based": False,
         })
         return capabilities
 
@@ -164,69 +156,55 @@ class OpenAIProvider(RESTLLMProvider):
             headers["OpenAI-Organization"] = self.organization_id
         return headers
 
-    async def complete(self, prompt: Union[str, Prompt]) -> Response:
-        """Generate a completion using OpenAI's API.
+    async def generate(self, prompt: Union[str, List[Message]], **options) -> LLMResult:
+        """Generate text using OpenAI's API.
 
         Args:
-            prompt: Text prompt or structured Prompt object
+            prompt: Text prompt or list of messages
+            **options: Additional options for generation
 
         Returns:
-            Response with generated text
+            LLMResult with generated text
 
         Raises:
-            LLMError: If completion fails
+            LLMError: If generation fails
         """
         # This is a stub implementation to satisfy the linter
         # Actual implementation would make API calls to OpenAI
-        return Response(
+        return LLMResult(
             text="This is a stub response from OpenAI",
-            model=self.default_model,
+            model_name=self.default_model,
             usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            raw_response={},
+            metadata={},
         )
 
-    async def stream_complete(
-        self, prompt: Union[str, Prompt]
-    ) -> AsyncIterator[StreamingResponse]:
-        """Generate a streaming completion using OpenAI's API.
+    async def generate_stream(
+        self, prompt: Union[str, List[Message]], **options
+    ) -> AsyncIterator[LLMResult]:
+        """Generate text in a streaming fashion using OpenAI's API.
 
         Args:
-            prompt: Text prompt or structured Prompt object
+            prompt: Text prompt or list of messages
+            **options: Additional options for generation
 
         Yields:
-            StreamingResponse chunks with generated text
+            LLMResult chunks with generated text
 
         Raises:
-            LLMError: If streaming completion fails
+            LLMError: If generation fails
         """
 
         # This is a stub implementation to satisfy the linter
         # In a real implementation, this would be a proper async generator
         async def _stream_generator():
-            yield StreamingResponse(
+            yield LLMResult(
                 text="This is a stub streaming response from OpenAI",
-                model=self.default_model,
-                raw_response={},
-                is_finished=True,
+                model_name=self.default_model,
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                metadata={"is_finished": True},
             )
 
         return _stream_generator()
-
-    async def embed(self, text: str) -> List[float]:
-        """Generate embeddings using OpenAI's API.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            List of embedding values
-
-        Raises:
-            LLMError: If embedding fails
-        """
-        # This is a stub implementation to satisfy the linter
-        # Actual implementation would make API calls to OpenAI
-        return [0.0] * 1536  # Return a vector of zeros with typical embedding dimension
 
 
 class AnthropicProvider(RESTLLMProvider):
@@ -274,74 +252,56 @@ class AnthropicProvider(RESTLLMProvider):
         Returns:
             Dict with headers
         """
-        headers = {
-            "x-api-key": self.api_key,
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01",
-            "User-Agent": "PepperPy/1.0",
-        }
+        headers = super()._get_headers()
+        headers["anthropic-version"] = "2023-06-01"
         return headers
 
-    async def complete(self, prompt: Union[str, Prompt]) -> Response:
-        """Generate a completion using Anthropic's API.
+    async def generate(self, prompt: Union[str, List[Message]], **options) -> LLMResult:
+        """Generate text using Anthropic's API.
 
         Args:
-            prompt: Text prompt or structured Prompt object
+            prompt: Text prompt or list of messages
+            **options: Additional options for generation
 
         Returns:
-            Response with generated text
+            LLMResult with generated text
 
         Raises:
-            LLMError: If completion fails
+            LLMError: If generation fails
         """
         # This is a stub implementation to satisfy the linter
         # Actual implementation would make API calls to Anthropic
-        return Response(
+        return LLMResult(
             text="This is a stub response from Anthropic",
-            model=self.default_model,
+            model_name=self.default_model,
             usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            raw_response={},
+            metadata={},
         )
 
-    async def stream_complete(
-        self, prompt: Union[str, Prompt]
-    ) -> AsyncIterator[StreamingResponse]:
-        """Generate a streaming completion using Anthropic's API.
+    async def generate_stream(
+        self, prompt: Union[str, List[Message]], **options
+    ) -> AsyncIterator[LLMResult]:
+        """Generate text in a streaming fashion using Anthropic's API.
 
         Args:
-            prompt: Text prompt or structured Prompt object
+            prompt: Text prompt or list of messages
+            **options: Additional options for generation
 
         Yields:
-            StreamingResponse chunks with generated text
+            LLMResult chunks with generated text
 
         Raises:
-            LLMError: If streaming completion fails
+            LLMError: If generation fails
         """
 
         # This is a stub implementation to satisfy the linter
         # In a real implementation, this would be a proper async generator
         async def _stream_generator():
-            yield StreamingResponse(
+            yield LLMResult(
                 text="This is a stub streaming response from Anthropic",
-                model=self.default_model,
-                raw_response={},
-                is_finished=True,
+                model_name=self.default_model,
+                usage={"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+                metadata={"is_finished": True},
             )
 
         return _stream_generator()
-
-    async def embed(self, text: str) -> List[float]:
-        """Generate embeddings using Anthropic's API.
-
-        Args:
-            text: Text to embed
-
-        Returns:
-            List of embedding values
-
-        Raises:
-            LLMError: If embedding fails
-        """
-        # This is a stub implementation to satisfy the linter
-        # Actual implementation would make API calls to Anthropic
-        return [0.0] * 1024  # Return a vector of zeros with typical embedding dimension

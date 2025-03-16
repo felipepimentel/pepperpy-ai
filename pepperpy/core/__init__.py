@@ -9,17 +9,46 @@ The core module is the foundation of the PepperPy framework and is used by
 all other modules.
 """
 
-# Import directly from core.py to avoid circular imports
-from pepperpy.core.core import (
+# Import from consolidated base.py file
+from pepperpy.core.base import (
+    Analyzer,
+    BaseManager,
+    BaseProvider,
+    Cleanable,
+    Configurable,
+    Generator,
+    Identifiable,
+    Initializable,
+    ManagerError,
+    Processor,
+    Provider,
+    ProviderCapability,
+    ProviderConfig,
+    Registry,
+    Resource,
+    ResourceProvider,
+    Result,
+    Serializable,
+    Transformer,
+    Validator,
+)
+
+# Import from errors.py
+from pepperpy.core.errors import (
     AuthenticationError,
     AuthorizationError,
-    ConfigurationError,
+    ConfigError as ConfigurationError,
+    NotFoundError as ResourceNotFoundError,
     PepperPyError,
     RateLimitError,
-    ResourceNotFoundError,
+    ValidationError,
+)
+
+# Import utility functions from core.py
+# TODO[v2.0]: Move these utility functions to a dedicated utils.py file
+from pepperpy.core.core import (
     ServiceUnavailableError,
     TimeoutError,
-    ValidationError,
     ensure_dir,
     get_config_dir,
     get_data_dir,
@@ -28,22 +57,37 @@ from pepperpy.core.core import (
     get_output_dir,
     get_project_root,
 )
+
+# Import from public.py
+# TODO[v2.0]: Move these to base.py or registry.py
 from pepperpy.core.public import (
-    BaseProvider,
     ProviderRegistry,
-    Registry,
     RegistryError,
     TypeRegistry,
     provider_registry,
     registry_of_registries,
-    BaseManager,
-    ManagerError,
-    manager_registry,
 )
-from pepperpy.errors.core import PepperPyError
 
 # Re-export everything
 __all__ = [
+    # Core protocols and base classes
+    "Analyzer",
+    "BaseProvider",
+    "Cleanable",
+    "Configurable",
+    "Generator",
+    "Identifiable",
+    "Initializable",
+    "Processor",
+    "Provider",
+    "ProviderCapability",
+    "ProviderConfig",
+    "Resource",
+    "ResourceProvider",
+    "Result",
+    "Serializable",
+    "Transformer",
+    "Validator",
     # Errors
     "PepperPyError",
     "ConfigurationError",
@@ -74,5 +118,4 @@ __all__ = [
     # Manager classes
     "BaseManager",
     "ManagerError",
-    "manager_registry",
 ]

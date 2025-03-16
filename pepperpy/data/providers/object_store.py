@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import aioboto3
 
-from pepperpy.errors.core import ProviderError
+from pepperpy.core.errors import ProviderError
 from pepperpy.providers.base import BaseProvider
 
 

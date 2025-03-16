@@ -12,8 +12,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import aioboto3
 
-from pepperpy.errors import PersistenceError
-
 
 class ObjectStoreProvider:
     """Object Store persistence provider.

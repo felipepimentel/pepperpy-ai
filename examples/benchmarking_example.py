@@ -24,28 +24,23 @@ Usage:
 """
 
 import asyncio
-import gc
 import json
 import os
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import numpy as np
 
-from pepperpy.core.benchmarking import (
-    Benchmark,
-    BenchmarkResult,
-    BenchmarkSuite,
-    Profiler,
+from pepperpy.infra.logging import configure_logging, get_logger
+from pepperpy.infra.metrics import (
+    PerformanceResult,
+    PerformanceTracker,
     benchmark,
-    benchmark_context,
-    get_cpu_usage,
     get_memory_usage,
     get_system_info,
-    profile,
+    measure_time,
 )
-from pepperpy.utils.logging import configure_logging, get_logger
 
 # Configure logging
 configure_logging(level="INFO")
@@ -170,7 +165,7 @@ def python_sort(data: List[float]) -> List[float]:
     return result
 
 
-@profile(track_memory=True)
+@benchmark(track_memory=True)
 def cpu_intensive_task(size: int = 1000) -> float:
     """A CPU-intensive task for benchmarking.
 
@@ -184,7 +179,7 @@ def cpu_intensive_task(size: int = 1000) -> float:
     return float(np.sum(np.sin(arr)))
 
 
-@profile(track_memory=True)
+@benchmark(track_memory=True)
 def memory_intensive_task(size: int = 1000000) -> List[float]:
     """A memory-intensive task for benchmarking.
 
@@ -197,7 +192,7 @@ def memory_intensive_task(size: int = 1000000) -> List[float]:
     return [np.random.random() for _ in range(size)]
 
 
-@profile(track_memory=True)
+@benchmark(track_memory=True)
 async def async_task(delay: float = 0.1) -> None:
     """An asynchronous task for benchmarking.
 
@@ -211,73 +206,66 @@ def example_basic_benchmark() -> None:
     """Example of basic benchmarking."""
     logger.info("Running basic benchmark example")
 
-    # Create a benchmark
-    benchmark = Benchmark("Basic Example")
+    # Create a performance tracker
+    tracker = PerformanceTracker("Basic Example")
 
     # Run a simple benchmark
-    result = benchmark.run(
-        lambda: cpu_intensive_task(1000),
-        iterations=5,
-        warmup_iterations=1,
-        track_memory=True,
-    )
+    tracker.start(track_memory=True)
+    for _ in range(5):  # 5 iterations
+        cpu_intensive_task(1000)
+    result = tracker.stop(track_memory=True)
 
     # Print results
     logger.info("Basic benchmark results:")
-    logger.info(f"  Mean execution time: {result.execution_time.mean:.4f} seconds")
-    logger.info(f"  Mean memory usage: {result.memory_usage.mean / 1024:.2f} KB")
-    logger.info(f"  Standard deviation: {result.execution_time.std:.4f} seconds")
+    logger.info(f"  Execution time: {result.execution_time:.4f} seconds")
+    if result.memory_usage:
+        logger.info(f"  Memory usage: {result.memory_usage / 1024:.2f} KB")
+    logger.info(f"  Time per iteration: {result.time_per_iteration:.4f} seconds")
 
 
 def example_custom_metrics() -> None:
     """Example of using custom metrics in benchmarks."""
     logger.info("Running custom metrics example")
 
-    # Create a benchmark with custom metrics
-    benchmark = Benchmark("Custom Metrics Example")
+    # Create a performance tracker with custom metrics
+    tracker = PerformanceTracker("Custom Metrics Example")
 
-    def task_with_metrics() -> Dict[str, Any]:
-        start_memory = gc.get_stats()[0].size
-        result = memory_intensive_task(100000)
-        end_memory = gc.get_stats()[0].size
-        return {
-            "result_size": len(result),
-            "memory_increase": end_memory - start_memory,
-        }
+    # Start tracking
+    tracker.start(track_memory=True)
 
-    # Run benchmark with custom metrics
-    result = benchmark.run(
-        task_with_metrics,
-        iterations=3,
-        track_memory=True,
-    )
+    # Run task
+    result = memory_intensive_task(100000)
+
+    # Add custom metrics
+    tracker.add_custom_metric("result_size", len(result))
+
+    # Stop tracking
+    perf_result = tracker.stop(track_memory=True)
 
     # Print results including custom metrics
     logger.info("Custom metrics benchmark results:")
-    logger.info(f"  Mean execution time: {result.execution_time.mean:.4f} seconds")
-    for metric, values in result.metrics.items():
-        mean_value = sum(values) / len(values)
-        logger.info(f"  Mean {metric}: {mean_value:.2f}")
+    logger.info(f"  Execution time: {perf_result.execution_time:.4f} seconds")
+    for metric_name, metric_value in perf_result.custom_metrics.items():
+        logger.info(f"  {metric_name}: {metric_value}")
 
 
 async def example_async_benchmark() -> None:
     """Example of benchmarking asynchronous code."""
     logger.info("Running async benchmark example")
 
-    # Create a benchmark for async code
-    benchmark = Benchmark("Async Example")
+    # Create a performance tracker for async code
+    tracker = PerformanceTracker("Async Example")
 
     # Run async benchmark
-    result = await benchmark.run_async(
-        lambda: async_task(0.1),
-        iterations=5,
-    )
+    tracker.start()
+    for _ in range(5):  # 5 iterations
+        await async_task(0.1)
+    result = tracker.stop()
 
     # Print results
     logger.info("Async benchmark results:")
-    logger.info(f"  Mean execution time: {result.execution_time.mean:.4f} seconds")
-    logger.info(f"  Min execution time: {result.execution_time.min:.4f} seconds")
-    logger.info(f"  Max execution time: {result.execution_time.max:.4f} seconds")
+    logger.info(f"  Execution time: {result.execution_time:.4f} seconds")
+    logger.info(f"  Time per iteration: {result.time_per_iteration:.4f} seconds")
 
 
 def example_comparative_benchmark() -> None:
@@ -286,26 +274,26 @@ def example_comparative_benchmark() -> None:
 
     # Create benchmarks for different implementations
     sizes = [100, 1000, 10000]
-    results: Dict[str, List[BenchmarkResult]] = {
+    results: Dict[str, List[PerformanceResult]] = {
         "numpy": [],
         "python": [],
     }
 
     for size in sizes:
         # NumPy implementation
-        numpy_bench = Benchmark(f"NumPy (size={size})")
-        numpy_result = numpy_bench.run(
-            lambda: np.sum(np.sin(np.linspace(0, 10, size))),
-            iterations=5,
-        )
+        numpy_tracker = PerformanceTracker(f"NumPy (size={size})")
+        numpy_tracker.start()
+        for _ in range(5):  # 5 iterations
+            np.sum(np.sin(np.linspace(0, 10, size)))
+        numpy_result = numpy_tracker.stop()
         results["numpy"].append(numpy_result)
 
         # Pure Python implementation
-        python_bench = Benchmark(f"Python (size={size})")
-        python_result = python_bench.run(
-            lambda: sum(np.sin(x) for x in np.linspace(0, 10, size)),
-            iterations=5,
-        )
+        python_tracker = PerformanceTracker(f"Python (size={size})")
+        python_tracker.start()
+        for _ in range(5):  # 5 iterations
+            sum(np.sin(x) for x in np.linspace(0, 10, size))
+        python_result = python_tracker.stop()
         results["python"].append(python_result)
 
     # Print comparative results
@@ -315,19 +303,9 @@ def example_comparative_benchmark() -> None:
         for impl in ["numpy", "python"]:
             result = results[impl][size_idx]
             logger.info(
-                f"  {impl:6s}: {result.execution_time.mean:.6f} seconds "
-                f"(±{result.execution_time.std:.6f})"
+                f"  {impl:6s}: {result.execution_time:.6f} seconds "
+                f"(per iteration: {result.time_per_iteration:.6f})"
             )
-
-
-@profile(track_memory=True)
-def example_profile_decorator() -> None:
-    """Example of using the @profile decorator."""
-    logger.info("Running profile decorator example")
-
-    # Call the functions to see the profiling output
-    cpu_intensive_task(1000)
-    memory_intensive_task(1000)
 
 
 def example_benchmark_decorator() -> None:
@@ -363,9 +341,9 @@ def example_benchmark_decorator() -> None:
     logger.info(f"Memoized result: {memoized_result}")
 
 
-def example_benchmark_context() -> None:
-    """Example demonstrating the benchmark context manager."""
-    logger.info("=== Benchmark Context Manager Example ===")
+def example_context_managers() -> None:
+    """Example demonstrating the context managers."""
+    logger.info("=== Context Managers Example ===")
 
     # Benchmark sorting algorithms
     data_size = 1000
@@ -373,14 +351,17 @@ def example_benchmark_context() -> None:
 
     logger.info(f"Sorting {data_size} random numbers using different algorithms...")
 
-    with benchmark_context("bubble_sort", track_memory=True):
+    with measure_time("bubble_sort") as timer:
         bubble_sort_result = bubble_sort(data)
+    logger.info(f"Bubble sort took {timer.elapsed_time:.6f} seconds")
 
-    with benchmark_context("quick_sort", track_memory=True):
+    with measure_time("quick_sort") as timer:
         quick_sort_result = quick_sort(data)
+    logger.info(f"Quick sort took {timer.elapsed_time:.6f} seconds")
 
-    with benchmark_context("python_sort", track_memory=True):
+    with measure_time("python_sort") as timer:
         python_sort_result = python_sort(data)
+    logger.info(f"Python sort took {timer.elapsed_time:.6f} seconds")
 
     # Verify results
     logger.info(
@@ -388,42 +369,33 @@ def example_benchmark_context() -> None:
     )
 
 
-def example_benchmark_class() -> None:
-    """Example demonstrating the Benchmark class."""
-    logger.info("=== Benchmark Class Example ===")
+def example_performance_tracker() -> None:
+    """Example demonstrating the PerformanceTracker class."""
+    logger.info("=== Performance Tracker Example ===")
 
-    # Create benchmarks for sorting algorithms
+    # Create performance trackers for sorting algorithms
     data_size = 1000
     data = generate_random_data(data_size)
 
     logger.info(f"Benchmarking sorting algorithms with {data_size} random numbers...")
 
-    # Benchmark bubble sort
-    bubble_benchmark = Benchmark("bubble_sort")
-    bubble_result = bubble_benchmark.run(
-        lambda: bubble_sort(data),
-        iterations=3,
-        warmup_iterations=1,
-        track_memory=True,
-    )
+    # Track bubble sort performance
+    bubble_tracker = PerformanceTracker("bubble_sort")
+    bubble_tracker.start(track_memory=True)
+    bubble_sort(data)
+    bubble_result = bubble_tracker.stop(track_memory=True)
 
-    # Benchmark quick sort
-    quick_benchmark = Benchmark("quick_sort")
-    quick_result = quick_benchmark.run(
-        lambda: quick_sort(data),
-        iterations=3,
-        warmup_iterations=1,
-        track_memory=True,
-    )
+    # Track quick sort performance
+    quick_tracker = PerformanceTracker("quick_sort")
+    quick_tracker.start(track_memory=True)
+    quick_sort(data)
+    quick_result = quick_tracker.stop(track_memory=True)
 
-    # Benchmark Python's built-in sort
-    python_benchmark = Benchmark("python_sort")
-    python_result = python_benchmark.run(
-        lambda: python_sort(data),
-        iterations=3,
-        warmup_iterations=1,
-        track_memory=True,
-    )
+    # Track Python's built-in sort performance
+    python_tracker = PerformanceTracker("python_sort")
+    python_tracker.start(track_memory=True)
+    python_sort(data)
+    python_result = python_tracker.stop(track_memory=True)
 
     # Print results
     logger.info(f"Bubble sort: {bubble_result}")
@@ -436,110 +408,25 @@ def example_benchmark_class() -> None:
         json.dump(
             {
                 "bubble_sort": {
-                    "execution_time": bubble_result.execution_time.mean,
+                    "execution_time": bubble_result.execution_time,
                     "time_per_iteration": bubble_result.time_per_iteration,
-                    "memory_usage": bubble_result.memory_usage.mean,
+                    "memory_usage": bubble_result.memory_usage,
                 },
                 "quick_sort": {
-                    "execution_time": quick_result.execution_time.mean,
+                    "execution_time": quick_result.execution_time,
                     "time_per_iteration": quick_result.time_per_iteration,
-                    "memory_usage": quick_result.memory_usage.mean,
+                    "memory_usage": quick_result.memory_usage,
                 },
                 "python_sort": {
-                    "execution_time": python_result.execution_time.mean,
+                    "execution_time": python_result.execution_time,
                     "time_per_iteration": python_result.time_per_iteration,
-                    "memory_usage": python_result.memory_usage.mean,
+                    "memory_usage": python_result.memory_usage,
                 },
             },
             f,
             indent=2,
         )
     logger.info(f"Results saved to {result_path}")
-
-
-def example_benchmark_suite() -> None:
-    """Example demonstrating the BenchmarkSuite class."""
-    logger.info("=== Benchmark Suite Example ===")
-
-    # Create benchmark suite for Fibonacci algorithms
-    suite = BenchmarkSuite("fibonacci_algorithms")
-
-    n = 30
-    suite.add_benchmark("recursive", lambda: fibonacci_recursive(n))
-    suite.add_benchmark("iterative", lambda: fibonacci_iterative(n))
-    suite.add_benchmark("memoized", lambda: fibonacci_memoized(n))
-
-    # Run all benchmarks
-    logger.info(f"Running benchmark suite for Fibonacci({n})...")
-    results = suite.run_all(iterations=3, warmup_iterations=1, track_memory=True)
-
-    # Print results
-    suite.print_results()
-
-    # Print comparison (using iterative as baseline)
-    suite.print_comparison(baseline="iterative")
-
-    # Save results
-    result_path = output_dir / "fibonacci_benchmark_suite.json"
-    with open(result_path, "w") as f:
-        json.dump(
-            {
-                name: {
-                    "execution_time": result.execution_time.mean,
-                    "time_per_iteration": result.time_per_iteration,
-                    "memory_usage": result.memory_usage.mean,
-                }
-                for name, result in results.items()
-            },
-            f,
-            indent=2,
-        )
-    logger.info(f"Results saved to {result_path}")
-
-
-def example_profiler_class() -> None:
-    """Example demonstrating the Profiler class."""
-    logger.info("=== Profiler Class Example ===")
-
-    # Create profilers for sorting algorithms
-    data_size = 1000
-    data = generate_random_data(data_size)
-
-    logger.info(f"Profiling sorting algorithms with {data_size} random numbers...")
-
-    # Profile bubble sort
-    bubble_profiler = Profiler("bubble_sort")
-    bubble_result = bubble_profiler.run(
-        lambda: bubble_sort(data),
-        track_memory=True,
-    )
-
-    # Profile quick sort
-    quick_profiler = Profiler("quick_sort")
-    quick_result = quick_profiler.run(
-        lambda: quick_sort(data),
-        track_memory=True,
-    )
-
-    # Print results
-    logger.info("Bubble sort profile:")
-    bubble_result.print_stats(limit=10)
-
-    logger.info("Quick sort profile:")
-    quick_result.print_stats(limit=10)
-
-    # Save profile results
-    bubble_profile_path = output_dir / "bubble_sort_profile.txt"
-    with open(bubble_profile_path, "w") as f:
-        f.write(bubble_result.get_stats_as_string(limit=20))
-
-    quick_profile_path = output_dir / "quick_sort_profile.txt"
-    with open(quick_profile_path, "w") as f:
-        f.write(quick_result.get_stats_as_string(limit=20))
-
-    logger.info(
-        f"Profile results saved to {bubble_profile_path} and {quick_profile_path}"
-    )
 
 
 def example_system_info() -> None:
@@ -548,24 +435,45 @@ def example_system_info() -> None:
 
     # Get memory usage
     memory_usage = get_memory_usage()
-    logger.info(f"Memory usage: {memory_usage}")
-
-    # Get CPU usage
-    cpu_usage = get_cpu_usage()
-    logger.info(f"CPU usage: {cpu_usage}")
+    logger.info(f"Current memory usage: {memory_usage['current_formatted']}")
+    logger.info(f"Peak memory usage: {memory_usage['peak_formatted']}")
 
     # Get system information
     system_info = get_system_info()
-    logger.info(f"System information: {system_info}")
+    logger.info(f"Platform: {system_info['platform']}")
+    logger.info(f"Processor: {system_info['processor']}")
+    logger.info(f"Python version: {system_info['python_version']}")
+    logger.info(
+        f"Memory total: {system_info['memory_total_bytes'] / (1024 * 1024 * 1024):.2f} GB"
+    )
+    logger.info(
+        f"Memory available: {system_info['memory_available_bytes'] / (1024 * 1024 * 1024):.2f} GB"
+    )
+    logger.info(f"Memory used: {system_info['memory_used_percent']}%")
+    logger.info(f"CPU count: {system_info['cpu_count']}")
+    logger.info(f"CPU usage: {system_info['cpu_percent']}%")
 
     # Save system information
     info_path = output_dir / "system_info.json"
     with open(info_path, "w") as f:
         json.dump(
             {
-                "memory_usage": memory_usage,
-                "cpu_usage": cpu_usage,
-                "system_info": system_info,
+                "memory_usage": {
+                    "current_bytes": memory_usage["current_bytes"],
+                    "peak_bytes": memory_usage["peak_bytes"],
+                    "current_formatted": memory_usage["current_formatted"],
+                    "peak_formatted": memory_usage["peak_formatted"],
+                },
+                "system_info": {
+                    "platform": system_info["platform"],
+                    "processor": system_info["processor"],
+                    "python_version": system_info["python_version"],
+                    "memory_total_bytes": system_info["memory_total_bytes"],
+                    "memory_available_bytes": system_info["memory_available_bytes"],
+                    "memory_used_percent": system_info["memory_used_percent"],
+                    "cpu_count": system_info["cpu_count"],
+                    "cpu_percent": system_info["cpu_percent"],
+                },
             },
             f,
             indent=2,
@@ -582,12 +490,9 @@ async def main() -> None:
     example_custom_metrics()
     await example_async_benchmark()
     example_comparative_benchmark()
-    example_profile_decorator()
     example_benchmark_decorator()
-    example_benchmark_context()
-    example_benchmark_class()
-    example_benchmark_suite()
-    example_profiler_class()
+    example_context_managers()
+    example_performance_tracker()
     example_system_info()
 
     logger.info("All benchmarking and profiling examples completed!")

@@ -5,10 +5,10 @@ It includes core interfaces, base classes, and utilities that are
 used throughout the framework.
 """
 
+from pepperpy.core.base import BaseProvider
 from pepperpy.core.base_manager import (
     BaseManager,
     ManagerError,
-    manager_registry,
 )
 from pepperpy.core.core import (
     AuthenticationError,
@@ -24,10 +24,11 @@ from pepperpy.core.core import (
     get_config_dir,
     get_data_dir,
     get_env_var,
+    get_logger,
     get_output_dir,
     get_project_root,
 )
-from pepperpy.providers.base import BaseProvider, ProviderRegistry, provider_registry
+from pepperpy.core.registry import ProviderRegistry, provider_registry
 from pepperpy.registry.base import (
     Registry,
     RegistryError,
@@ -42,7 +43,6 @@ from pepperpy.utils import (
     get_file_extension,
     get_file_mime_type,
     get_file_size,
-    get_logger,
     hash_string,
     is_valid_email,
     is_valid_url,
@@ -76,7 +76,6 @@ __all__ = [
     # Manager classes
     "BaseManager",
     "ManagerError",
-    "manager_registry",
     # Type definitions
     "JSON",
     "PathType",
@@ -102,24 +101,3 @@ __all__ = [
     "get_file_mime_type",
     "get_file_size",
 ]
-
-# Remove the duplicated utility functions
-# Deprecated: Use pepperpy.utils instead
-ContentType = None
-Metadata = None
-OperationType = None
-Resource = None
-ResourceType = None
-Result = None
-StatusCode = None
-Configurable = None
-Initializable = None
-Cleanable = None
-Serializable = None
-Provider = None
-ResourceProvider = None
-Processor = None
-Transformer = None
-Analyzer = None
-Generator = None
-Validator = None

@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional, TypeVar
 
 from pepperpy.core.composition.components import Output, Processor, Source
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 
 # Type variables
 T = TypeVar("T")
@@ -26,7 +26,7 @@ async def compose(
         metadata: Optional metadata
 
     Raises:
-        PepperpyError: If composition fails
+        PepperPyError: If composition fails
     """
     try:
         # Get data from source
@@ -39,7 +39,7 @@ async def compose(
         await output.write_data(processed_data, metadata)
 
     except Exception as e:
-        raise PepperpyError(f"Error in composition: {e}")
+        raise PepperPyError(f"Error in composition: {e}")
 
 
 async def compose_parallel(
@@ -57,7 +57,7 @@ async def compose_parallel(
         metadata: Optional metadata
 
     Raises:
-        PepperpyError: If composition fails
+        PepperPyError: If composition fails
     """
     try:
         # Get data from all sources
@@ -73,7 +73,7 @@ async def compose_parallel(
         await output.write_data(processed_data, metadata)
 
     except Exception as e:
-        raise PepperpyError(f"Error in parallel composition: {e}")
+        raise PepperPyError(f"Error in parallel composition: {e}")
 
 
 # Export all functions

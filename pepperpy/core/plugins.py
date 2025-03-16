@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union, cast
 
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -193,9 +193,9 @@ class PluginManager:
         """
         path = Path(plugin_dir)
         if not path.exists():
-            raise PepperpyError(f"Plugin directory does not exist: {path}")
+            raise PepperPyError(f"Plugin directory does not exist: {path}")
         if not path.is_dir():
-            raise PepperpyError(f"Plugin directory is not a directory: {path}")
+            raise PepperPyError(f"Plugin directory is not a directory: {path}")
         if path not in self._plugin_dirs:
             self._plugin_dirs.append(path)
 
@@ -236,11 +236,11 @@ class PluginManager:
             plugin: The plugin to register
 
         Raises:
-            PepperpyError: If a plugin with the same name is already registered
+            PepperPyError: If a plugin with the same name is already registered
         """
         name = plugin.info.name
         if name in self._plugins:
-            raise PepperpyError(f"Plugin already registered: {name}")
+            raise PepperPyError(f"Plugin already registered: {name}")
 
         self._plugins[name] = plugin
         logger.info(f"Registered plugin: {name} (v{plugin.info.version})")
@@ -252,10 +252,10 @@ class PluginManager:
             name: The name of the plugin to unregister
 
         Raises:
-            PepperpyError: If the plugin is not registered
+            PepperPyError: If the plugin is not registered
         """
         if name not in self._plugins:
-            raise PepperpyError(f"Plugin not registered: {name}")
+            raise PepperPyError(f"Plugin not registered: {name}")
 
         plugin = self._plugins[name]
         if plugin.info.state == PluginState.ENABLED:
@@ -271,10 +271,10 @@ class PluginManager:
             name: The name of the plugin to enable
 
         Raises:
-            PepperpyError: If the plugin is not registered or already enabled
+            PepperPyError: If the plugin is not registered or already enabled
         """
         if name not in self._plugins:
-            raise PepperpyError(f"Plugin not registered: {name}")
+            raise PepperPyError(f"Plugin not registered: {name}")
 
         plugin = self._plugins[name]
         if plugin.info.state == PluginState.ENABLED:
@@ -300,7 +300,7 @@ class PluginManager:
             plugin.info.state = PluginState.ERROR
             plugin.info.error = str(e)
             logger.error(f"Failed to enable plugin {name}: {e}")
-            raise PepperpyError(f"Failed to enable plugin {name}: {e}")
+            raise PepperPyError(f"Failed to enable plugin {name}: {e}")
 
     def disable_plugin(self, name: str) -> None:
         """Disable a plugin.
@@ -309,10 +309,10 @@ class PluginManager:
             name: The name of the plugin to disable
 
         Raises:
-            PepperpyError: If the plugin is not registered or already disabled
+            PepperPyError: If the plugin is not registered or already disabled
         """
         if name not in self._plugins:
-            raise PepperpyError(f"Plugin not registered: {name}")
+            raise PepperPyError(f"Plugin not registered: {name}")
 
         plugin = self._plugins[name]
         if plugin.info.state == PluginState.DISABLED:
@@ -339,7 +339,7 @@ class PluginManager:
             plugin.info.state = PluginState.ERROR
             plugin.info.error = str(e)
             logger.error(f"Failed to disable plugin {name}: {e}")
-            raise PepperpyError(f"Failed to disable plugin {name}: {e}")
+            raise PepperPyError(f"Failed to disable plugin {name}: {e}")
 
     def get_plugin(self, name: str) -> Plugin:
         """Get a plugin by name.
@@ -351,10 +351,10 @@ class PluginManager:
             The plugin instance
 
         Raises:
-            PepperpyError: If the plugin is not registered
+            PepperPyError: If the plugin is not registered
         """
         if name not in self._plugins:
-            raise PepperpyError(f"Plugin not registered: {name}")
+            raise PepperPyError(f"Plugin not registered: {name}")
         return self._plugins[name]
 
     def has_plugin(self, name: str) -> bool:
@@ -378,10 +378,10 @@ class PluginManager:
             True if the plugin is enabled, False otherwise
 
         Raises:
-            PepperpyError: If the plugin is not registered
+            PepperPyError: If the plugin is not registered
         """
         if name not in self._plugins:
-            raise PepperpyError(f"Plugin not registered: {name}")
+            raise PepperPyError(f"Plugin not registered: {name}")
         return self._plugins[name].info.state == PluginState.ENABLED
 
     def get_hooks(self, hook_name: str) -> List[Callable]:
@@ -414,12 +414,12 @@ class PluginManager:
             callable_func: The callable to unregister for the hook
 
         Raises:
-            PepperpyError: If the hook is not registered
+            PepperPyError: If the hook is not registered
         """
         if hook_name not in self._hooks:
-            raise PepperpyError(f"Hook not registered: {hook_name}")
+            raise PepperPyError(f"Hook not registered: {hook_name}")
         if callable_func not in self._hooks[hook_name]:
-            raise PepperpyError(f"Callable not registered for hook: {hook_name}")
+            raise PepperPyError(f"Callable not registered for hook: {hook_name}")
         self._hooks[hook_name].remove(callable_func)
 
     def call_hooks(self, hook_name: str, *args: Any, **kwargs: Any) -> List[Any]:
@@ -783,7 +783,7 @@ class PluginDecorator:
                         self.on_shutdown()
 
                 def register_hooks(self) -> Dict[str, List[Callable]]:
-                    return self.decorator.hooks
+                    return cast(Dict[str, List[Callable]], self.decorator.hooks)
 
             PluginWrapper.decorator = self
             return PluginWrapper

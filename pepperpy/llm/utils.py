@@ -9,14 +9,14 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Coroutine, Dict, List, Optional, TypeVar, Union
 
-from pepperpy.errors import PepperpyError
-from pepperpy.errors.core import PepperPyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.utils.logging import get_logger
 
 # Logger for this module
 logger = get_logger(__name__)
 
 T = TypeVar("T")
+R = TypeVar("R")
 
 
 class RateLimiter:
@@ -57,11 +57,11 @@ def retry(
     max_retries: int = 3,
     base_delay: float = 1.0,
     max_delay: float = 60.0,
-    exceptions: tuple = (PepperpyError,),
-) -> Callable[
-    [Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]
-]:
+    exceptions: tuple = (PepperPyError,),
+):
     """Retry decorator with exponential backoff.
+
+    Works with both regular async functions and async generators.
 
     Args:
         max_retries: Maximum number of retries
@@ -73,10 +73,8 @@ def retry(
         Decorated function
     """
 
-    def decorator(
-        func: Callable[..., Coroutine[Any, Any, T]],
-    ) -> Callable[..., Coroutine[Any, Any, T]]:
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
+    def decorator(func):
+        async def wrapper(*args: Any, **kwargs: Any):
             last_exception = None
             for attempt in range(max_retries + 1):
                 try:
@@ -87,7 +85,7 @@ def retry(
                         raise
                     delay = min(base_delay * (2**attempt), max_delay)
                     await asyncio.sleep(delay)
-            raise last_exception  # type: ignore
+            raise last_exception  # pragma: no cover
 
         return wrapper
 
@@ -468,6 +466,32 @@ def truncate_prompt(
         raise PepperPyError(f"Error truncating prompt: {e}")
 
 
+async def with_timeout(
+    func: Callable[..., Coroutine[Any, Any, R]],
+    timeout: float,
+    *args: Any,
+    **kwargs: Any,
+) -> R:
+    """Execute an async function with a timeout.
+
+    Args:
+        func: The async function to execute
+        timeout: The timeout in seconds
+        *args: Positional arguments to pass to the function
+        **kwargs: Keyword arguments to pass to the function
+
+    Returns:
+        The result of the function
+
+    Raises:
+        PepperPyError: If the function times out
+    """
+    try:
+        return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout)
+    except asyncio.TimeoutError:
+        raise PepperPyError(f"Operation timed out after {timeout} seconds")
+
+
 # Export all classes and functions
 __all__ = [
     "Message",
@@ -481,4 +505,5 @@ __all__ = [
     "format_prompt_for_provider",
     "calculate_token_usage",
     "truncate_prompt",
+    "with_timeout",
 ]

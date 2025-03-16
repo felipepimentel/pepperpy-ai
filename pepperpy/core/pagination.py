@@ -22,9 +22,6 @@ from typing import (
     runtime_checkable,
 )
 from typing import (
-    AsyncIterator as AsyncIteratorType,
-)
-from typing import (
     Iterator as IteratorType,
 )
 
@@ -623,7 +620,7 @@ class AsyncPageIterator(Generic[T], AsyncIterator[Page[T]]):
         self.current_page: Optional[Page[T]] = None
         self.page_count = 0
 
-    def __aiter__(self) -> AsyncIteratorType[Page[T]]:
+    def __aiter__(self) -> AsyncIterator[Page[T]]:
         """Get an asynchronous iterator.
 
         Returns:
@@ -764,7 +761,7 @@ class AsyncItemIterator(Generic[T], AsyncIterator[T]):
         self.current_index = 0
         self.item_count = 0
 
-    def __aiter__(self) -> AsyncIteratorType[T]:
+    def __aiter__(self) -> AsyncIterator[T]:
         """Get an asynchronous iterator.
 
         Returns:

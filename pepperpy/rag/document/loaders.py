@@ -15,8 +15,8 @@ from bs4 import BeautifulSoup
 from PyPDF2 import PdfReader
 from typing_extensions import TypedDict
 
-from pepperpy.errors import PepperpyValueError
-from pepperpy.rag.document.core import Document, Metadata
+from pepperpy.core.errors import ValidationError
+from pepperpy.rag.models import Document, Metadata
 from pepperpy.types import PathLike
 from pepperpy.utils import normalize_path, read_file_content
 
@@ -34,19 +34,6 @@ class DocumentLoader(ABC):
 
         Returns:
             List[Document]: Lista de documentos carregados.
-        """
-        pass
-
-    @abstractmethod
-    def load_and_split(self, chunk_size: int, chunk_overlap: int) -> List[Document]:
-        """Carrega e divide documentos em chunks.
-
-        Args:
-            chunk_size (int): Tamanho do chunk em caracteres.
-            chunk_overlap (int): Sobreposição entre chunks em caracteres.
-
-        Returns:
-            List[Document]: Lista de documentos divididos em chunks.
         """
         pass
 
@@ -104,25 +91,7 @@ class TextLoader(DocumentLoader):
 
             return [Document(content=content, metadata=metadata_obj)]
         except Exception as e:
-            raise PepperpyValueError(f"Erro ao carregar o arquivo de texto: {e}")
-
-    def load_and_split(
-        self, chunk_size: int = 1000, chunk_overlap: int = 200
-    ) -> List[Document]:
-        """Carrega e divide o documento em chunks.
-
-        Args:
-            chunk_size (int, optional): Tamanho do chunk. Defaults to 1000.
-            chunk_overlap (int, optional): Sobreposição entre chunks. Defaults to 200.
-
-        Returns:
-            List[Document]: Lista de documentos divididos.
-        """
-        from pepperpy.rag.document.processors import TextChunker
-
-        docs = self.load()
-        chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        return chunker.process_documents(docs)
+            raise ValidationError(f"Erro ao carregar o arquivo de texto: {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -210,7 +179,7 @@ class CSVLoader(DocumentLoader):
 
             return pd.read_csv(self.file_path, encoding=self.encoding, **csv_args)
         except Exception as e:
-            raise PepperpyValueError(f"Erro ao ler arquivo CSV: {e}")
+            raise ValidationError(f"Erro ao ler arquivo CSV: {e}")
 
     def load(self) -> List[Document]:
         """Carrega documentos a partir do arquivo CSV.
@@ -289,24 +258,6 @@ class CSVLoader(DocumentLoader):
                 documents.append(Document(content=content, metadata=doc_metadata))
 
         return documents
-
-    def load_and_split(
-        self, chunk_size: int = 1000, chunk_overlap: int = 200
-    ) -> List[Document]:
-        """Carrega e divide os documentos em chunks.
-
-        Args:
-            chunk_size (int, optional): Tamanho do chunk. Defaults to 1000.
-            chunk_overlap (int, optional): Sobreposição entre chunks. Defaults to 200.
-
-        Returns:
-            List[Document]: Lista de documentos divididos.
-        """
-        from pepperpy.rag.document.processors import TextChunker
-
-        docs = self.load()
-        chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        return chunker.process_documents(docs)
 
 
 # -----------------------------------------------------------------------------
@@ -403,25 +354,7 @@ class PDFLoader(DocumentLoader):
             return documents
 
         except Exception as e:
-            raise PepperpyValueError(f"Erro ao processar arquivo PDF: {e}")
-
-    def load_and_split(
-        self, chunk_size: int = 1000, chunk_overlap: int = 200
-    ) -> List[Document]:
-        """Carrega e divide os documentos em chunks.
-
-        Args:
-            chunk_size (int, optional): Tamanho do chunk. Defaults to 1000.
-            chunk_overlap (int, optional): Sobreposição entre chunks. Defaults to 200.
-
-        Returns:
-            List[Document]: Lista de documentos divididos.
-        """
-        from pepperpy.rag.document.processors import TextChunker
-
-        docs = self.load()
-        chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        return chunker.process_documents(docs)
+            raise ValidationError(f"Erro ao processar arquivo PDF: {e}")
 
 
 # -----------------------------------------------------------------------------
@@ -434,73 +367,48 @@ class HTMLLoader(DocumentLoader):
 
     def __init__(
         self,
-        file_path: PathLike = None,
-        html_content: str = None,
-        url: str = None,
+        file_path: PathLike = "",
+        html_content: str = "",
+        url: str = "",
         encoding: str = "utf-8",
-        tags_to_extract: List[str] = None,
-        remove_selectors: List[str] = None,
+        tags_to_extract: Optional[List[str]] = None,
+        remove_selectors: Optional[List[str]] = None,
         metadata: Optional[Dict[str, Any]] = None,
     ):
         """Inicializa o carregador de HTML.
 
         Args:
-            file_path (PathLike, optional): Caminho para o arquivo HTML. Defaults to None.
-            html_content (str, optional): Conteúdo HTML direto. Defaults to None.
-            url (str, optional): URL para baixar HTML. Defaults to None.
-            encoding (str, optional): Codificação do arquivo. Defaults to "utf-8".
-            tags_to_extract (List[str], optional): Tags HTML a extrair. Defaults to None.
-            remove_selectors (List[str], optional): Seletores CSS a remover. Defaults to None.
-            metadata (Optional[Dict[str, Any]], optional): Metadados adicionais. Defaults to None.
+            file_path: Caminho para o arquivo HTML
+            html_content: Conteúdo HTML como string
+            url: URL para carregar o HTML
+            encoding: Codificação do arquivo
+            tags_to_extract: Lista de tags HTML para extrair (e.g., ['p', 'h1'])
+            remove_selectors: Lista de seletores CSS para remover
+            metadata: Metadados adicionais para o documento
         """
-        if sum(1 for source in [file_path, html_content, url] if source) != 1:
-            raise PepperpyValueError(
-                "Especifique exatamente uma fonte: file_path, html_content ou url"
-            )
-
-        self.file_path = normalize_path(file_path) if file_path else None
+        self.file_path = file_path
         self.html_content = html_content
         self.url = url
         self.encoding = encoding
-        self.tags_to_extract = tags_to_extract or [
-            "p",
-            "h1",
-            "h2",
-            "h3",
-            "h4",
-            "h5",
-            "h6",
-            "li",
-            "div",
-            "span",
-            "article",
-        ]
-        self.remove_selectors = remove_selectors or [
-            "nav",
-            "header",
-            "footer",
-            "script",
-            "style",
-            "noscript",
-            "svg",
-        ]
-        self.metadata_dict = metadata or {}
+        self.tags_to_extract = tags_to_extract or []
+        self.remove_selectors = remove_selectors or []
+        self.metadata = metadata or {}
 
         # Adiciona metadados padrões
-        if not self.metadata_dict.get("source") and (self.file_path or self.url):
-            self.metadata_dict["source"] = str(self.file_path or self.url)
+        if not self.metadata.get("source") and (self.file_path or self.url):
+            self.metadata["source"] = str(self.file_path or self.url)
 
-        if not self.metadata_dict.get("file_type"):
-            self.metadata_dict["file_type"] = "html"
+        if not self.metadata.get("file_type"):
+            self.metadata["file_type"] = "html"
 
-        if self.file_path and not self.metadata_dict.get("file_path"):
-            self.metadata_dict["file_path"] = str(self.file_path)
+        if self.file_path and not self.metadata.get("file_path"):
+            self.metadata["file_path"] = str(self.file_path)
 
-        if self.file_path and not self.metadata_dict.get("file_name"):
-            self.metadata_dict["file_name"] = os.path.basename(str(self.file_path))
+        if self.file_path and not self.metadata.get("file_name"):
+            self.metadata["file_name"] = os.path.basename(str(self.file_path))
 
-        if self.url and not self.metadata_dict.get("url"):
-            self.metadata_dict["url"] = self.url
+        if self.url and not self.metadata.get("url"):
+            self.metadata["url"] = self.url
 
     def _get_html_content(self) -> str:
         """Obtém o conteúdo HTML da fonte especificada.
@@ -522,9 +430,9 @@ class HTMLLoader(DocumentLoader):
                 response.raise_for_status()
                 return response.text
             except Exception as e:
-                raise PepperpyValueError(f"Erro ao baixar HTML da URL {self.url}: {e}")
+                raise ValidationError(f"Erro ao baixar HTML da URL {self.url}: {e}")
 
-        raise PepperpyValueError("Nenhuma fonte HTML válida fornecida")
+        raise ValidationError("Nenhuma fonte HTML válida fornecida")
 
     def _clean_html(self, html: str) -> BeautifulSoup:
         """Limpa e prepara o HTML para extração.
@@ -559,25 +467,25 @@ class HTMLLoader(DocumentLoader):
 
             # Tenta obter o título
             title_tag = soup.find("title")
-            if title_tag and title_tag.string:
-                html_metadata["title"] = title_tag.string.strip()
+            if title_tag and title_tag.string:  # type: ignore
+                html_metadata["title"] = title_tag.string.strip()  # type: ignore
 
             # Tenta obter meta description
             meta_desc = soup.find("meta", attrs={"name": "description"})
-            if meta_desc and meta_desc.get("content"):
-                html_metadata["description"] = meta_desc["content"]
+            if meta_desc and meta_desc.get("content"):  # type: ignore
+                html_metadata["description"] = meta_desc["content"]  # type: ignore
 
             # Tenta obter outras meta tags importantes
             for meta_name in ["author", "keywords", "viewport"]:
                 meta_tag = soup.find("meta", attrs={"name": meta_name})
-                if meta_tag and meta_tag.get("content"):
-                    html_metadata[meta_name] = meta_tag["content"]
+                if meta_tag and meta_tag.get("content"):  # type: ignore
+                    html_metadata[meta_name] = meta_tag["content"]  # type: ignore
 
             # Cria objeto de metadados
             doc_metadata = Metadata()
 
             # Adiciona metadados base
-            for key, value in self.metadata_dict.items():
+            for key, value in self.metadata.items():
                 doc_metadata.custom[key] = value
 
             # Adiciona metadados HTML
@@ -603,22 +511,4 @@ class HTMLLoader(DocumentLoader):
             return [Document(content=full_text, metadata=doc_metadata)]
 
         except Exception as e:
-            raise PepperpyValueError(f"Erro ao processar HTML: {e}")
-
-    def load_and_split(
-        self, chunk_size: int = 1000, chunk_overlap: int = 200
-    ) -> List[Document]:
-        """Carrega e divide os documentos em chunks.
-
-        Args:
-            chunk_size (int, optional): Tamanho do chunk. Defaults to 1000.
-            chunk_overlap (int, optional): Sobreposição entre chunks. Defaults to 200.
-
-        Returns:
-            List[Document]: Lista de documentos divididos.
-        """
-        from pepperpy.rag.document.processors import TextChunker
-
-        docs = self.load()
-        chunker = TextChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        return chunker.process_documents(docs)
+            raise ValidationError(f"Erro ao processar HTML: {e}")

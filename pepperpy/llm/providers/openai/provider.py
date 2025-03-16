@@ -4,7 +4,7 @@ This module provides an implementation of the OpenAI provider for the PepperPy L
 """
 
 import json
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, Optional, Union
 
 import httpx
 
@@ -125,7 +125,11 @@ class OpenAIProvider(LLMProvider):
                 },
             )
         except httpx.HTTPStatusError as e:
+            # Handle OpenAI-specific errors
             handle_openai_error(e)
+            # This line will never be reached as handle_openai_error always raises an exception,
+            # but we include it to satisfy the type checker
+            raise LLMError(f"Error handling HTTP status: {e}", provider="openai")
         except httpx.RequestError as e:
             raise LLMError(
                 f"Error making request to OpenAI API: {e}",
@@ -236,129 +240,6 @@ class OpenAIProvider(LLMProvider):
                 provider="openai",
             )
 
-    @retry(max_retries=3)
-    async def embed(self, text: str) -> List[float]:
-        """Generate embeddings for the given text.
-
-        Args:
-            text: The text to generate embeddings for
-
-        Returns:
-            The generated embeddings
-
-        Raises:
-            LLMError: If there is an error generating the embeddings
-        """
-        try:
-            # Make the API request
-            response = await with_timeout(
-                self.client.post,
-                self.config.timeout,
-                "/embeddings",
-                json={
-                    "model": "text-embedding-ada-002",
-                    "input": text,
-                },
-            )
-
-            # Check for errors
-            response.raise_for_status()
-
-            # Parse the response
-            data = response.json()
-
-            # Extract the embeddings
-            embeddings = data.get("data", [])
-            if not embeddings:
-                raise LLMError(
-                    "No embeddings returned",
-                    provider="openai",
-                )
-
-            # Get the first embedding
-            embedding = embeddings[0]
-
-            return embedding.get("embedding", [])
-        except httpx.HTTPStatusError as e:
-            handle_openai_error(e)
-        except httpx.RequestError as e:
-            raise LLMError(
-                f"Error making request to OpenAI API: {e}",
-                provider="openai",
-            )
-        except Exception as e:
-            raise LLMError(
-                f"Unexpected error with OpenAI API: {e}",
-                provider="openai",
-            )
-
-    async def tokenize(self, text: str) -> List[str]:
-        """Tokenize the given text.
-
-        Args:
-            text: The text to tokenize
-
-        Returns:
-            The list of tokens
-
-        Raises:
-            LLMError: If there is an error tokenizing the text
-        """
-        # OpenAI doesn't provide a tokenization API, so we use tiktoken
-        try:
-            import tiktoken
-
-            # Get the encoding for the default model
-            encoding = tiktoken.encoding_for_model(self.config.default_model)
-
-            # Tokenize the text
-            token_ids = encoding.encode(text)
-
-            # Convert token IDs to strings
-            return [str(token_id) for token_id in token_ids]
-        except ImportError:
-            raise LLMError(
-                "Tiktoken is required for tokenization with OpenAI",
-                provider="openai",
-            )
-        except Exception as e:
-            raise LLMError(
-                f"Error tokenizing text with OpenAI: {e}",
-                provider="openai",
-            )
-
-    async def count_tokens(self, text: str) -> int:
-        """Count the number of tokens in the given text.
-
-        Args:
-            text: The text to count tokens in
-
-        Returns:
-            The number of tokens
-
-        Raises:
-            LLMError: If there is an error counting tokens
-        """
-        # OpenAI doesn't provide a token counting API, so we use tiktoken
-        try:
-            import tiktoken
-
-            # Get the encoding for the default model
-            encoding = tiktoken.encoding_for_model(self.config.default_model)
-
-            # Count the tokens
-            return len(encoding.encode(text))
-        except ImportError:
-            raise LLMError(
-                "Tiktoken is required for token counting with OpenAI",
-                provider="openai",
-            )
-        except Exception as e:
-            raise LLMError(
-                f"Error counting tokens with OpenAI: {e}",
-                provider="openai",
-            )
-
     def get_config(self) -> Dict[str, Any]:
         """Get the provider configuration.
 
@@ -388,13 +269,6 @@ class OpenAIProvider(LLMProvider):
         return {
             "provider": "openai",
             "supports_streaming": True,
-            "supports_embeddings": True,
-            "supports_tokenization": True,
-            "supports_token_counting": True,
-            "supports_functions": any(
-                model.supports_functions for model in self.config.models.values()
-            ),
-            "supports_vision": any(
-                model.supports_vision for model in self.config.models.values()
-            ),
+            "chat_based": True,
+            "default_model": self.config.default_model,
         }

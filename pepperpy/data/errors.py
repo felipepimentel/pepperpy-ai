@@ -5,7 +5,7 @@ This module contains error classes for the data module.
 
 from typing import Any, Dict, Optional
 
-from pepperpy.errors import PepperPyError
+from pepperpy.core.errors import PepperPyError
 
 
 class DataError(PepperPyError):

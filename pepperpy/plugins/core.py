@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypeVar
 
-from pepperpy.errors import ValidationError
+from pepperpy.core.errors import ValidationError
 from pepperpy.events import Event, EventBus, get_event_bus
 from pepperpy.registry import ComponentId, RegistryManager, get_registry_manager
 from pepperpy.utils.logging import get_logger

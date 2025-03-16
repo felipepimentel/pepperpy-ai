@@ -7,7 +7,7 @@ This module provides the core implementation of the workflow functionality.
 import asyncio
 from typing import Any, Callable, Dict, Generic, List, Optional, TypeVar
 
-from pepperpy.errors import PepperPyError
+from pepperpy.core.errors import PepperPyError
 
 T = TypeVar("T")
 R = TypeVar("R")

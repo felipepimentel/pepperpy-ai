@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
-from pepperpy.errors import PepperpyError
+from pepperpy.core.errors import PepperPyError
 from pepperpy.llm.utils import Message, Prompt, Response
 from pepperpy.rag.document.core import DocumentChunk
 
@@ -117,10 +117,10 @@ class GenerationStage:
 
             # TODO: Call LLM provider to generate response
             # This should be implemented by the provider
-            raise PepperpyError("Generation not implemented")
+            raise PepperPyError("Generation not implemented")
 
         except Exception as e:
-            raise PepperpyError(f"Error in generation stage: {e}")
+            raise PepperPyError(f"Error in generation stage: {e}")
 
 
 # Export all classes

@@ -1,39 +1,46 @@
-"""RAG Pipeline system.
+"""Pipeline module for RAG.
 
-This module provides the RAG pipeline system that orchestrates document processing
-through multiple stages including transformation, metadata extraction, chunking,
-retrieval, reranking, and generation.
+This module provides the RAG pipeline functionality, which orchestrates
+the retrieval, reranking, and generation stages of the RAG process.
 """
 
-from __future__ import annotations
-
+from pepperpy.rag.pipeline.builder import (
+    RAGPipelineBuilder,
+)
 from pepperpy.rag.pipeline.core import (
     AbstractPipeline,
-    AbstractPipelineStage,
     PipelineConfig,
     PipelineStage,
     RAGPipeline,
-    RAGPipelineBuilder,
     create_default_pipeline,
     create_metadata_focused_pipeline,
     create_simple_pipeline,
     process_document,
     process_documents,
 )
+from pepperpy.rag.pipeline.stages import (
+    GenerationStage,
+    RerankingStage,
+    RetrievalStage,
+)
 
 __all__ = [
-    # Base classes
-    "AbstractPipeline",
-    "AbstractPipelineStage",
+    # Core pipeline classes
+    "RAGPipeline",
     "PipelineConfig",
     "PipelineStage",
-    # Pipeline implementation
-    "RAGPipeline",
+    "AbstractPipeline",
+    # Builder
     "RAGPipelineBuilder",
-    # Helper functions
+    # Factory functions
     "create_default_pipeline",
-    "create_metadata_focused_pipeline",
     "create_simple_pipeline",
+    "create_metadata_focused_pipeline",
+    # Processing functions
     "process_document",
     "process_documents",
+    # Pipeline stages
+    "RetrievalStage",
+    "RerankingStage",
+    "GenerationStage",
 ]
