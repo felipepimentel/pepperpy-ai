@@ -9,12 +9,11 @@ de aplicações baseadas em IA, com foco em:
 - Extensibilidade: Fácil adição de novos providers e funcionalidades
 
 Módulos Principais:
-    llm: Interação com Large Language Models
-    embedding: Geração de embeddings para texto
-    rag: Retrieval Augmented Generation
+    core: Funcionalidades centrais e utilitários
     data: Manipulação e persistência de dados
-    apps: Templates de aplicações pré-configuradas
-    workflows: Fluxos de trabalho compostos
+    http: Cliente HTTP e utilitários
+    infra: Infraestrutura e serviços compartilhados
+    utils: Funções utilitárias
 
 Exemplo Básico:
     >>> import pepperpy as pp
@@ -23,31 +22,21 @@ Exemplo Básico:
 """
 
 from pepperpy import (
-    apps,
-    cache,
+    core,
     data,
-    embedding,
-    events,
     http,
-    llm,
-    rag,
+    infra,
+    registry,
     utils,
-    workflows,
 )
-from pepperpy.core import composition
 from pepperpy.version import __version__
 
 __all__ = [
     "__version__",
-    "apps",
-    "cache",
-    "composition",
+    "core",
     "data",
-    "embedding",
-    "events",
     "http",
-    "llm",
-    "rag",
+    "infra",
+    "registry",
     "utils",
-    "workflows",
 ]

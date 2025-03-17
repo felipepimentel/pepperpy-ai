@@ -1,21 +1,28 @@
-"""HTTP connection pooling.
+"""HTTP client connection pool implementation.
 
-This module provides connection pooling for HTTP clients.
+This module provides an implementation of connection pooling for HTTP clients,
+which helps optimize HTTP requests by reusing existing connections.
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, Optional, Union
 
 import httpx
+from httpx import URL
 
 from pepperpy.core.connection_pool import (
-    ConnectionPool,
-    ConnectionPoolConfig,
     get_pool,
     register_pool,
 )
 from pepperpy.core.errors import PepperPyError
-from pepperpy.http.client.core import HTTPXClient, RequestOptions, Response
+from pepperpy.infra.connection import (
+    ConnectionPool,
+    ConnectionPoolConfig,
+)
+from pepperpy.utils.logging import get_logger
+
+# Logger for this module
+logger = get_logger(__name__)
 
 
 @dataclass
@@ -34,7 +41,57 @@ class HTTPPoolConfig(ConnectionPoolConfig):
     proxy: Optional[Union[str, Dict[str, str]]] = None
 
 
-class HTTPConnectionPool(ConnectionPool[HTTPXClient, HTTPPoolConfig]):
+# Forward reference for type hints
+class HTTPXClient:
+    """HTTP client implementation using HTTPX."""
+
+    def __init__(
+        self,
+        base_url: Optional[Union[str, URL]] = None,
+        default_options: Optional["RequestOptions"] = None,
+    ):
+        """Initialize the client."""
+        self.base_url = base_url
+        self.default_options = default_options
+        self.client = None
+
+    async def request(self, method: str, url: str, options=None):
+        """Make an HTTP request."""
+        pass
+
+    async def head(self, url: str, options=None):
+        """Make a HEAD request."""
+        pass
+
+
+class RequestOptions:
+    """Options for HTTP requests."""
+
+    def __init__(
+        self,
+        timeout: float = 60.0,
+        follow_redirects: bool = True,
+        verify_ssl: bool = True,
+        headers: Dict[str, str] = None,
+        cookies: Dict[str, str] = None,
+    ):
+        """Initialize request options."""
+        self.timeout = timeout
+        self.follow_redirects = follow_redirects
+        self.verify_ssl = verify_ssl
+        self.headers = headers or {}
+        self.cookies = cookies or {}
+
+
+class Response:
+    """HTTP response."""
+
+    def __init__(self, status_code: int, **kwargs):
+        """Initialize response."""
+        self.status_code = status_code
+
+
+class HTTPConnectionPool(ConnectionPool):
     """Connection pool for HTTP clients.
 
     This pool manages HTTPXClient instances for making HTTP requests.
@@ -108,7 +165,7 @@ class HTTPConnectionPool(ConnectionPool[HTTPXClient, HTTPPoolConfig]):
 
             # Set up the underlying HTTPX client with additional options
             client.client = httpx.AsyncClient(
-                base_url=base_url if base_url is not None else None,
+                base_url=URL(base_url) if base_url is not None else None,
                 timeout=timeout,
                 follow_redirects=follow_redirects,
                 verify=verify_ssl,

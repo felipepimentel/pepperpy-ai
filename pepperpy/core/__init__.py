@@ -33,19 +33,7 @@ from pepperpy.core.base import (
     Validator,
 )
 
-# Import from errors.py
-from pepperpy.core.errors import (
-    AuthenticationError,
-    AuthorizationError,
-    ConfigError as ConfigurationError,
-    NotFoundError as ResourceNotFoundError,
-    PepperPyError,
-    RateLimitError,
-    ValidationError,
-)
-
-# Import utility functions from core.py
-# TODO[v2.0]: Move these utility functions to a dedicated utils.py file
+# Import from core.py module
 from pepperpy.core.core import (
     ServiceUnavailableError,
     TimeoutError,
@@ -53,26 +41,62 @@ from pepperpy.core.core import (
     get_config_dir,
     get_data_dir,
     get_env_var,
-    get_logger,
     get_output_dir,
     get_project_root,
 )
 
-# Import from public.py
-# TODO[v2.0]: Move these to base.py or registry.py
-from pepperpy.core.public import (
-    ProviderRegistry,
+# Import from errors.py
+from pepperpy.core.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    PepperPyError,
+    RateLimitError,
+    ValidationError,
+)
+from pepperpy.core.errors import (
+    ConfigError as ConfigurationError,
+)
+from pepperpy.core.errors import (
+    NotFoundError as ResourceNotFoundError,
+)
+
+# Import from logging.py module
+from pepperpy.core.logging import LogLevel, configure_logging, get_logger, set_log_level
+
+# Import from registry module
+from pepperpy.core.registry import (
+    Registry,
     RegistryError,
     TypeRegistry,
-    provider_registry,
     registry_of_registries,
 )
 
-# Re-export everything
+# Import utility types and functions
+from pepperpy.utils.base import (
+    JSON,
+    PathType,
+    generate_id,
+    generate_timestamp,
+    get_file_extension,
+    get_file_mime_type,
+    get_file_size,
+    hash_string,
+    is_valid_email,
+    is_valid_url,
+    load_json,
+    retry,
+    save_json,
+    slugify,
+    truncate_string,
+)
+
+# Provider registry (to be defined after importing the required modules)
+provider_registry = None
+ProviderRegistry = None
+
 __all__ = [
-    # Core protocols and base classes
+    # Base interfaces and protocols
     "Analyzer",
-    "BaseProvider",
     "Cleanable",
     "Configurable",
     "Generator",
@@ -88,7 +112,7 @@ __all__ = [
     "Serializable",
     "Transformer",
     "Validator",
-    # Errors
+    # Error classes
     "PepperPyError",
     "ConfigurationError",
     "ValidationError",
@@ -118,4 +142,24 @@ __all__ = [
     # Manager classes
     "BaseManager",
     "ManagerError",
+    # Type definitions
+    "JSON",
+    "PathType",
+    # Utility functions
+    "generate_id",
+    "generate_timestamp",
+    "hash_string",
+    "load_json",
+    "save_json",
+    "slugify",
+    "truncate_string",
+    "retry",
+    "is_valid_email",
+    "is_valid_url",
+    "get_file_extension",
+    "get_file_mime_type",
+    "get_file_size",
+    "LogLevel",
+    "configure_logging",
+    "set_log_level",
 ]

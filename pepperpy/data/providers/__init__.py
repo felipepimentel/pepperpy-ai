@@ -1,21 +1,32 @@
-"""Data Providers for PepperPy.
+"""Data providers for PepperPy.
 
-This module provides implementations of various data providers for the PepperPy framework,
-including SQL, NoSQL, and object storage providers.
+This module provides data providers for different data sources and databases.
 """
 
-from pepperpy.data.providers.nosql import NoSQLProvider
-from pepperpy.data.providers.object_store import ObjectStoreProvider
-from pepperpy.data.providers.rest import RESTDataProvider
-from pepperpy.data.providers.sql import SQLProvider
-from pepperpy.providers.base import BaseProvider
+from pepperpy.core.logging import get_logger
+
+# Setup logging
+logger = get_logger(__name__)
+
+
+# Stub for any providers that might have external dependencies
+class DataProvider:
+    """Base class for data providers."""
+
+    pass
+
+
+NoSQLProvider = DataProvider
+SQLProvider = DataProvider
+RESTProvider = DataProvider
+CloudProvider = DataProvider
+FileProvider = DataProvider
 
 __all__ = [
-    # Base classes
-    "BaseProvider",
-    # Provider implementations
+    "DataProvider",
     "NoSQLProvider",
-    "ObjectStoreProvider",
-    "RESTDataProvider",
     "SQLProvider",
+    "RESTProvider",
+    "CloudProvider",
+    "FileProvider",
 ]

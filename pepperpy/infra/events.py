@@ -142,6 +142,96 @@ class Subscription:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
 
+# New EventSubscription class that wraps Subscription
+@dataclass
+class EventSubscription:
+    """A subscription to an event type with additional metadata."""
+
+    subscription: Subscription
+    active: bool = True
+
+    @property
+    def id(self) -> str:
+        """Get the subscription ID."""
+        return self.subscription.id
+
+    @property
+    def event_type(self) -> Type[Event]:
+        """Get the event type."""
+        return self.subscription.event_type
+
+    @property
+    def handler(self) -> EventHandler:
+        """Get the event handler."""
+        return self.subscription.handler
+
+    @property
+    def priority(self) -> EventPriority:
+        """Get the subscription priority."""
+        return self.subscription.priority
+
+
+# New EventListener class for component-based subscriptions
+class EventListener:
+    """A listener that can subscribe to multiple event types."""
+
+    def __init__(self, name: str):
+        """Initialize a new event listener.
+
+        Args:
+            name: The name of the listener
+        """
+        self.name = name
+        self.subscriptions: List[EventSubscription] = []
+
+    def subscribe(
+        self,
+        event_type: Type[EventType],
+        handler: EventHandler,
+        priority: EventPriority = EventPriority.NORMAL,
+        filter_func: Optional[EventFilter] = None,
+    ) -> EventSubscription:
+        """Subscribe to events of a specific type.
+
+        Args:
+            event_type: The type of event to subscribe to
+            handler: The function to call when the event occurs
+            priority: The priority of the subscription
+            filter_func: Optional function to filter events
+
+        Returns:
+            The subscription object
+        """
+        subscription_id = EventBus.subscribe(event_type, handler, priority, filter_func)
+        subscription = Subscription(
+            event_type, handler, priority, filter_func, subscription_id
+        )
+        event_sub = EventSubscription(subscription)
+        self.subscriptions.append(event_sub)
+        return event_sub
+
+    def unsubscribe(self, subscription: EventSubscription) -> bool:
+        """Unsubscribe from events.
+
+        Args:
+            subscription: The subscription to remove
+
+        Returns:
+            True if the subscription was removed, False otherwise
+        """
+        if subscription in self.subscriptions:
+            success = EventBus.unsubscribe(subscription.id)
+            if success:
+                self.subscriptions.remove(subscription)
+            return success
+        return False
+
+    def unsubscribe_all(self) -> None:
+        """Unsubscribe from all events."""
+        for subscription in list(self.subscriptions):
+            self.unsubscribe(subscription)
+
+
 class EventBusError(PepperPyError):
     """Error raised when there is an issue with the event bus."""
 
@@ -291,6 +381,67 @@ class EventBus:
         cls._enabled = False
 
 
+# EventDispatcher class that wraps EventBus for compatibility
+class EventDispatcher:
+    """Event dispatcher for the PepperPy framework.
+
+    This is a facade over the EventBus that provides a more object-oriented interface.
+    """
+
+    @staticmethod
+    def subscribe(
+        event_type: Type[EventType],
+        handler: EventHandler,
+        priority: EventPriority = EventPriority.NORMAL,
+        filter_func: Optional[EventFilter] = None,
+    ) -> str:
+        """Subscribe to events of a specific type.
+
+        Args:
+            event_type: The type of event to subscribe to
+            handler: The function to call when the event occurs
+            priority: The priority of the subscription
+            filter_func: Optional function to filter events
+
+        Returns:
+            The subscription ID
+        """
+        return EventBus.subscribe(event_type, handler, priority, filter_func)
+
+    @staticmethod
+    def unsubscribe(subscription_id: str) -> bool:
+        """Unsubscribe from events using the subscription ID.
+
+        Args:
+            subscription_id: The ID of the subscription to remove
+
+        Returns:
+            True if the subscription was removed, False otherwise
+        """
+        return EventBus.unsubscribe(subscription_id)
+
+    @staticmethod
+    def publish(event: Event) -> None:
+        """Publish an event to all subscribers.
+
+        Args:
+            event: The event to publish
+        """
+        EventBus.publish(event)
+
+    @staticmethod
+    def create_listener(name: str) -> EventListener:
+        """Create a new event listener.
+
+        Args:
+            name: The name of the listener
+
+        Returns:
+            A new event listener
+        """
+        return EventListener(name)
+
+
 # Common application events
 
 
@@ -400,6 +551,74 @@ class SlowOperationEvent(PerformanceEvent):
 
 
 # Event decorators and utilities
+
+
+# Function for event subscription
+def subscribe(
+    event_type: Type[EventType],
+    handler: EventHandler,
+    priority: EventPriority = EventPriority.NORMAL,
+    filter_func: Optional[EventFilter] = None,
+) -> str:
+    """Subscribe to events of a specific type.
+
+    Args:
+        event_type: The type of event to subscribe to
+        handler: The function to call when the event occurs
+        priority: The priority of the subscription
+        filter_func: Optional function to filter events
+
+    Returns:
+        The subscription ID
+    """
+    return EventBus.subscribe(event_type, handler, priority, filter_func)
+
+
+# Function for event unsubscription
+def unsubscribe(subscription_id: str) -> bool:
+    """Unsubscribe from events using the subscription ID.
+
+    Args:
+        subscription_id: The ID of the subscription to remove
+
+    Returns:
+        True if the subscription was removed, False otherwise
+    """
+    return EventBus.unsubscribe(subscription_id)
+
+
+# Function for event publishing
+def publish_event(event: Event) -> None:
+    """Publish an event to all subscribers.
+
+    Args:
+        event: The event to publish
+    """
+    EventBus.publish(event)
+
+
+# Event handler decorator
+def on_event(
+    event_type: Type[EventType],
+    priority: EventPriority = EventPriority.NORMAL,
+    filter_func: Optional[EventFilter] = None,
+):
+    """Decorator to register a function as an event handler.
+
+    Args:
+        event_type: The type of event to handle
+        priority: The priority of the handler
+        filter_func: Optional function to filter events
+
+    Returns:
+        The decorated function
+    """
+
+    def decorator(func):
+        EventBus.subscribe(event_type, func, priority, filter_func)
+        return func
+
+    return decorator
 
 
 def event_handler(

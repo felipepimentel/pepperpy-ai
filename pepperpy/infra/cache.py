@@ -39,12 +39,6 @@ from typing import (
     cast,
 )
 
-from pepperpy.cache import (
-    AsyncCacheManager,
-    CacheManager,
-    get_async_cache_manager,
-    get_cache_manager,
-)
 from pepperpy.infra.logging import get_logger
 
 # Logger for this module
@@ -54,6 +48,86 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 R = TypeVar("R")
 F = TypeVar("F", bound=Callable[..., Any])
+
+
+class CacheManager:
+    """Cache manager interface."""
+
+    def get(self, key: str, namespace: str = "default") -> Any:
+        """Get a value from the cache."""
+        raise NotImplementedError("Cache manager not implemented")
+
+    def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: Optional[int] = None,
+        namespace: str = "default",
+    ) -> None:
+        """Set a value in the cache."""
+        raise NotImplementedError("Cache manager not implemented")
+
+    def delete(self, key: str, namespace: str = "default") -> None:
+        """Delete a value from the cache."""
+        raise NotImplementedError("Cache manager not implemented")
+
+    def clear(self, namespace: str = "default") -> None:
+        """Clear the cache."""
+        raise NotImplementedError("Cache manager not implemented")
+
+    def exists(self, key: str, namespace: str = "default") -> bool:
+        """Check if a key exists in the cache."""
+        raise NotImplementedError("Cache manager not implemented")
+
+    def get_keys(self, pattern: str = "*", namespace: str = "default") -> List[str]:
+        """Get keys matching a pattern."""
+        raise NotImplementedError("Cache manager not implemented")
+
+
+class AsyncCacheManager:
+    """Async cache manager interface."""
+
+    async def get(self, key: str, namespace: str = "default") -> Any:
+        """Get a value from the cache."""
+        raise NotImplementedError("Async cache manager not implemented")
+
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: Optional[int] = None,
+        namespace: str = "default",
+    ) -> None:
+        """Set a value in the cache."""
+        raise NotImplementedError("Async cache manager not implemented")
+
+    async def delete(self, key: str, namespace: str = "default") -> None:
+        """Delete a value from the cache."""
+        raise NotImplementedError("Async cache manager not implemented")
+
+    async def clear(self, namespace: str = "default") -> None:
+        """Clear the cache."""
+        raise NotImplementedError("Async cache manager not implemented")
+
+    async def exists(self, key: str, namespace: str = "default") -> bool:
+        """Check if a key exists in the cache."""
+        raise NotImplementedError("Async cache manager not implemented")
+
+    async def get_keys(
+        self, pattern: str = "*", namespace: str = "default"
+    ) -> List[str]:
+        """Get keys matching a pattern."""
+        raise NotImplementedError("Async cache manager not implemented")
+
+
+def get_cache_manager() -> CacheManager:
+    """Get the default cache manager."""
+    return CacheManager()
+
+
+def get_async_cache_manager() -> AsyncCacheManager:
+    """Get the default async cache manager."""
+    return AsyncCacheManager()
 
 
 class InvalidationStrategy(Enum):
@@ -136,7 +210,7 @@ class CacheInvalidator(Generic[T]):
             cache_manager: The cache manager to use, or None to use the global one
             namespace: The namespace to use for cache keys
         """
-        self.cache_manager = cache_manager or get_cache_manager()
+        self.cache_manager = cache_manager or CacheManager()
         self.namespace = namespace
         self.rules: Dict[str, CacheInvalidationRule] = {}
         self.dependencies: Dict[str, Set[str]] = {}
@@ -257,7 +331,7 @@ class CacheInvalidator(Generic[T]):
             return True
 
         full_key = f"{self.namespace}:{key}"
-        if not self.cache_manager.has(full_key):
+        if not self.cache_manager.exists(full_key):
             return False
 
         # We can't check the TTL directly, so we'll have to rely on the
@@ -338,7 +412,7 @@ class AsyncCacheInvalidator(Generic[T]):
             cache_manager: The cache manager to use, or None to use the global one
             namespace: The namespace to use for cache keys
         """
-        self.cache_manager = cache_manager or get_async_cache_manager()
+        self.cache_manager = cache_manager or AsyncCacheManager()
         self.namespace = namespace
         self.rules: Dict[str, CacheInvalidationRule] = {}
         self.dependencies: Dict[str, Set[str]] = {}
@@ -412,7 +486,7 @@ class AsyncCacheInvalidator(Generic[T]):
             key: The key to invalidate
         """
         full_key = f"{self.namespace}:{key}"
-        await self.cache_manager.adelete(full_key)
+        await self.cache_manager.delete(full_key)
 
         # Invalidate dependencies
         if key in self.dependencies:
@@ -459,7 +533,7 @@ class AsyncCacheInvalidator(Generic[T]):
             return True
 
         full_key = f"{self.namespace}:{key}"
-        if not await self.cache_manager.ahas(full_key):
+        if not await self.cache_manager.exists(full_key):
             return False
 
         # We can't check the TTL directly, so we'll have to rely on the
@@ -628,7 +702,7 @@ def cached(
             key = _create_key(func, args, kwargs, namespace, key_prefix, key_generator)
 
             # Get the cache manager
-            cm = cache_manager or get_cache_manager()
+            cm = cache_manager or CacheManager()
 
             # Check if the result is cached
             result = cm.get(key)
@@ -721,10 +795,10 @@ def async_cached(
             key = _create_key(func, args, kwargs, namespace, key_prefix, key_generator)
 
             # Get the cache manager
-            cm = cache_manager or get_async_cache_manager()
+            cm = cache_manager or AsyncCacheManager()
 
             # Check if the result is cached
-            result = await cm.aget(key)
+            result = await cm.get(key)
             if result is not None:
                 # Update LRU information
                 if invalidator is not None:
@@ -736,7 +810,7 @@ def async_cached(
             result = await func(*args, **kwargs)
 
             # Cache the result
-            await cm.aset(key, result, ttl)
+            await cm.set(key, result, ttl)
 
             # Add an invalidation rule if needed
             if invalidator is not None and invalidation_rule is not None:
@@ -762,16 +836,16 @@ def clear_cache(
     if cache_manager is None:
         # Try both synchronous and asynchronous cache managers
         try:
-            cache_manager = get_cache_manager()
+            cache_manager = CacheManager()
             cache_manager.clear()
         except Exception:
             pass
 
         try:
-            cache_manager = get_async_cache_manager()
+            cache_manager = AsyncCacheManager()
             # We can't await here, so we'll have to rely on the
             # cache manager's implementation
-            cache_manager.aclear()  # type: ignore
+            cache_manager.clear()  # type: ignore
         except Exception:
             pass
     else:
@@ -779,7 +853,7 @@ def clear_cache(
         if isinstance(cache_manager, AsyncCacheManager):
             # We can't await here, so we'll have to rely on the
             # cache manager's implementation
-            cache_manager.aclear()  # type: ignore
+            cache_manager.clear()  # type: ignore
         else:
             cache_manager.clear()
 
@@ -801,16 +875,16 @@ def invalidate_cache(
     if cache_manager is None:
         # Try both synchronous and asynchronous cache managers
         try:
-            cache_manager = get_cache_manager()
+            cache_manager = CacheManager()
             cache_manager.delete(full_key)
         except Exception:
             pass
 
         try:
-            cache_manager = get_async_cache_manager()
+            cache_manager = AsyncCacheManager()
             # We can't await here, so we'll have to rely on the
             # cache manager's implementation
-            cache_manager.adelete(full_key)  # type: ignore
+            cache_manager.delete(full_key)  # type: ignore
         except Exception:
             pass
     else:
@@ -818,7 +892,7 @@ def invalidate_cache(
         if isinstance(cache_manager, AsyncCacheManager):
             # We can't await here, so we'll have to rely on the
             # cache manager's implementation
-            cache_manager.adelete(full_key)  # type: ignore
+            cache_manager.delete(full_key)  # type: ignore
         else:
             cache_manager.delete(full_key)
 

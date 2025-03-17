@@ -29,10 +29,18 @@ Typical usage examples:
     def function_to_benchmark(arg1, arg2):
         # Function implementation
         return result
+
+    # Using metrics directly
+    counter = Counter("api_calls")
+    counter.increment()
+
+    gauge = Gauge("memory_usage")
+    gauge.set(process.memory_info().rss)
 """
 
 import functools
 import gc
+import threading
 import time
 import tracemalloc
 from contextlib import contextmanager
@@ -85,6 +93,235 @@ class PerformanceMetric(Enum):
     THROUGHPUT = auto()  # Operations per second
     LATENCY = auto()  # Time per operation
     CUSTOM = auto()  # Custom metric
+
+
+class Counter:
+    """A metric that represents a monotonically increasing counter.
+
+    Counters are used to track counts of events or operations. They only increase
+    and can be reset. They are typically used for tracking things like API calls,
+    error counts, or processed items.
+
+    Example:
+        ```python
+        # Create a counter
+        api_calls = Counter("api_calls")
+
+        # Increment the counter
+        api_calls.increment()
+
+        # Increment by a specific amount
+        api_calls.increment(5)
+
+        # Get the current count
+        count = api_calls.value
+        ```
+    """
+
+    def __init__(
+        self,
+        name: str,
+        description: str = "",
+        tags: Optional[Dict[str, str]] = None,
+        report_to_telemetry: bool = True,
+    ):
+        """Initialize a new counter.
+
+        Args:
+            name: The name of the counter
+            description: A description of what the counter measures
+            tags: Optional tags to associate with the counter
+            report_to_telemetry: Whether to report counter changes to telemetry
+        """
+        self.name = name
+        self.description = description
+        self.tags = tags or {}
+        self._value = 0
+        self._lock = threading.RLock()
+        self.report_to_telemetry = report_to_telemetry
+
+    @property
+    def value(self) -> int:
+        """Get the current value of the counter.
+
+        Returns:
+            The current counter value
+        """
+        with self._lock:
+            return self._value
+
+    def increment(self, value: int = 1) -> int:
+        """Increment the counter.
+
+        Args:
+            value: The amount to increment by (default: 1)
+
+        Returns:
+            The new counter value
+        """
+        with self._lock:
+            self._value += value
+            new_value = self._value
+
+        # Report to telemetry if enabled
+        if self.report_to_telemetry:
+            report_metric(
+                name=self.name,
+                value=float(new_value),
+                type=MetricType.COUNTER,
+                tags=self.tags,
+            )
+
+        return new_value
+
+    def reset(self) -> None:
+        """Reset the counter to zero."""
+        with self._lock:
+            self._value = 0
+
+        # Report reset to telemetry if enabled
+        if self.report_to_telemetry:
+            report_metric(
+                name=self.name,
+                value=0.0,
+                type=MetricType.COUNTER,
+                tags=self.tags,
+            )
+
+
+class Gauge:
+    """A metric that represents a single numerical value that can go up and down.
+
+    Gauges are used to track values that can increase or decrease, such as memory usage,
+    temperature, or queue length.
+
+    Example:
+        ```python
+        # Create a gauge
+        memory_usage = Gauge("memory_usage")
+
+        # Set the gauge value
+        memory_usage.set(process.memory_info().rss)
+
+        # Increment the gauge
+        memory_usage.increment(1024)
+
+        # Decrement the gauge
+        memory_usage.decrement(512)
+
+        # Get the current value
+        value = memory_usage.value
+        ```
+    """
+
+    def __init__(
+        self,
+        name: str,
+        description: str = "",
+        initial_value: float = 0.0,
+        tags: Optional[Dict[str, str]] = None,
+        report_to_telemetry: bool = True,
+    ):
+        """Initialize a new gauge.
+
+        Args:
+            name: The name of the gauge
+            description: A description of what the gauge measures
+            initial_value: The initial value of the gauge
+            tags: Optional tags to associate with the gauge
+            report_to_telemetry: Whether to report gauge changes to telemetry
+        """
+        self.name = name
+        self.description = description
+        self.tags = tags or {}
+        self._value = initial_value
+        self._lock = threading.RLock()
+        self.report_to_telemetry = report_to_telemetry
+
+        # Report initial value to telemetry if enabled
+        if report_to_telemetry and initial_value != 0.0:
+            report_metric(
+                name=self.name,
+                value=initial_value,
+                type=MetricType.GAUGE,
+                tags=self.tags,
+            )
+
+    @property
+    def value(self) -> float:
+        """Get the current value of the gauge.
+
+        Returns:
+            The current gauge value
+        """
+        with self._lock:
+            return self._value
+
+    def set(self, value: float) -> float:
+        """Set the gauge to a specific value.
+
+        Args:
+            value: The value to set
+
+        Returns:
+            The new gauge value
+        """
+        with self._lock:
+            self._value = value
+
+        # Report to telemetry if enabled
+        if self.report_to_telemetry:
+            report_metric(
+                name=self.name,
+                value=value,
+                type=MetricType.GAUGE,
+                tags=self.tags,
+            )
+
+        return value
+
+    def increment(self, value: float = 1.0) -> float:
+        """Increment the gauge.
+
+        Args:
+            value: The amount to increment by (default: 1.0)
+
+        Returns:
+            The new gauge value
+        """
+        with self._lock:
+            self._value += value
+            new_value = self._value
+
+        # Report to telemetry if enabled
+        if self.report_to_telemetry:
+            report_metric(
+                name=self.name,
+                value=new_value,
+                type=MetricType.GAUGE,
+                tags=self.tags,
+            )
+
+        return new_value
+
+    def decrement(self, value: float = 1.0) -> float:
+        """Decrement the gauge.
+
+        Args:
+            value: The amount to decrement by (default: 1.0)
+
+        Returns:
+            The new gauge value
+        """
+        return self.increment(-value)
+
+    def reset(self) -> float:
+        """Reset the gauge to zero.
+
+        Returns:
+            The new gauge value (0.0)
+        """
+        return self.set(0.0)
 
 
 @dataclass

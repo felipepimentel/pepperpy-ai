@@ -1,633 +1,161 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
-PepperPy Refactor Script
+PepperPy Refactoring CLI
 
-A comprehensive tool for automating the PepperPy library refactoring process.
-This script combines functionality from various existing scripts and implements
-new refactoring features to assist with the vertical restructuring task.
+A comprehensive CLI tool for automating the PepperPy library refactoring process.
+This script integrates all the refactoring tools into a single command-line interface.
 
 Usage:
     python scripts/refactor.py [command] [options]
 
 Commands:
-    update-imports     - Update import statements throughout the codebase
-    restructure-files  - Move files according to the new structure
-    consolidate        - Consolidate multiple files into a single module
-    validate           - Validate the project structure
-    find-unused        - Find potentially unused code
-    clean              - Remove empty directories and dead files
-    run-task           - Run a specific task from TASK-012
+    import-management:
+        update-imports    - Update import statements throughout the codebase
+        fix-imports       - Fix relative imports by converting to absolute imports
+
+    file-operations:
+        restructure-files - Move files according to the new structure
+        consolidate       - Consolidate multiple files into a single module
+        clean             - Remove empty directories and dead files
+
+    code-analysis:
+        validate          - Validate the project structure
+        find-unused       - Find potentially unused code
+        detect-circular   - Detect circular dependencies in the codebase
+        analyze-impact    - Analyze the impact of refactoring operations
+
+    code-modernization:
+        modernize         - Modernize code using current best practices
+        improve-types     - Improve type hints in the codebase
+        detect-smells     - Detect code smells in the codebase
+
+    ast-transformations:
+        extract-method    - Extract a code block into a new method
+        to-protocol       - Convert a class to a Protocol interface
+        func-to-class     - Convert a function to a class
+        extract-api       - Extract public API into __init__.py file
+        gen-factory       - Generate a Factory pattern implementation
+        analyze-cohesion  - Analyze module cohesion and suggest refactorings
+
+    code-generation:
+        gen-module        - Generate a new module from a template
+        gen-class         - Generate a new class from a template
+        gen-function      - Generate a new function from a template
+        gen-provider      - Generate a new LLM provider implementation
+
+    task-execution:
+        run-task          - Run a specific task from TASK-012
+        update-task-file  - Update the task file with refactor commands
+        run-phase         - Run all tasks in a specific phase
+
+    reporting:
+        gen-report        - Generate a progress report of refactoring tasks
+        gen-checklist     - Generate a checklist of refactoring tasks
+        update-task-md    - Update TASK-012.md with execution commands
 
 Examples:
-    python scripts/refactor.py update-imports --old "pepperpy.llm.errors" --new "pepperpy.core.errors"
-    python scripts/refactor.py restructure-files --mapping mapping.json
-    python scripts/refactor.py consolidate --files "file1.py,file2.py" --output "output.py"
-    python scripts/refactor.py validate
-    python scripts/refactor.py find-unused
-    python scripts/refactor.py clean
+    python scripts/refactor.py update-imports --map import_mapping.json --directory pepperpy
+    python scripts/refactor.py detect-circular --directory pepperpy
+    python scripts/refactor.py extract-method --file path/to/file.py --start 10 --end 20 --name new_method
     python scripts/refactor.py run-task --task "2.1.1"
 """
 
 import argparse
-import ast
-import importlib.util
-import json
-import logging
-import os
-import re
-import shutil
 import sys
 from pathlib import Path
-from typing import Dict, List
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+from refactoring_tools.ast_transformations import (
+    convert_to_protocol,
+    extract_method,
+    extract_public_api,
+    function_to_class,
+    generate_factory,
 )
-logger = logging.getLogger("refactor")
-
-# Define the project root
-PROJECT_ROOT = Path(__file__).parent.parent
-
-# Constants
-DEAD_FILES = ["public.py", "core.py"]
-REQUIRED_INIT = ["__init__.py"]
-
-# Task mapping - maps task IDs to functions that implement them
-TASK_MAP = {}
-
-
-def register_task(task_id):
-    """Decorator to register a function as a task handler."""
-
-    def decorator(func):
-        TASK_MAP[task_id] = func
-        return func
-
-    return decorator
-
-
-def update_imports(directory: str, old_import_map: Dict[str, str]) -> None:
-    """
-    Update imports in all Python files in a directory.
-
-    Args:
-        directory: Directory to process
-        old_import_map: Dictionary with {old_import: new_import}
-    """
-    logger.info(f"Updating imports in {directory}...")
-
-    files = Path(directory).glob("**/*.py")
-    for file in files:
-        content = file.read_text(encoding="utf-8")
-        updated = content
-
-        for old, new in old_import_map.items():
-            # Update direct imports (from x import y, import x)
-            pattern = rf"(from|import)\s+{re.escape(old)}(\s|\.|,|$)"
-            updated = re.sub(pattern, rf"\1 {new}\2", updated)
-
-        if content != updated:
-            file.write_text(updated, encoding="utf-8")
-            logger.info(f"Updated imports in: {file}")
-
-
-def restructure_files(file_mapping: Dict[str, str]) -> None:
-    """
-    Move files according to mapping and ensure __init__.py exists.
-
-    Args:
-        file_mapping: Dictionary with {old_path: new_path}
-    """
-    logger.info("Restructuring files according to mapping...")
-
-    for old_path, new_path in file_mapping.items():
-        old = Path(old_path)
-        new = Path(new_path)
-
-        if not old.exists():
-            logger.warning(f"Warning: {old} does not exist.")
-            continue
-
-        # Create intermediate directories
-        new.parent.mkdir(parents=True, exist_ok=True)
-
-        # Create __init__.py in each directory
-        for parent in new.parents:
-            init_file = parent / "__init__.py"
-            if not init_file.exists() and parent.name:
-                init_file.touch()
-                logger.info(f"Created: {init_file}")
-
-        # Move the file
-        shutil.copy2(old, new)
-        logger.info(f"Moved: {old} -> {new}")
-
-
-def consolidate_modules(
-    files_to_consolidate: List[str], output_file: str, header: str = ""
-) -> None:
-    """
-    Consolidate multiple files into a single file.
-
-    Args:
-        files_to_consolidate: List of file paths to consolidate
-        output_file: Path of the output file
-        header: Optional text to add at the beginning of the file
-    """
-    logger.info(f"Consolidating modules into {output_file}...")
-
-    output = Path(output_file)
-    content = header + "\n\n" if header else ""
-
-    for file in files_to_consolidate:
-        path = Path(file)
-        if not path.exists():
-            logger.warning(f"Warning: {path} does not exist.")
-            continue
-
-        file_content = path.read_text(encoding="utf-8")
-
-        content += f"# From {path}\n"
-        content += file_content
-        content += "\n\n"
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(content, encoding="utf-8")
-    logger.info(f"Consolidated into: {output}")
-
-
-def validate_structure(directory: str) -> None:
-    """
-    Validate the project structure after refactoring.
-
-    Args:
-        directory: Directory to validate
-    """
-    logger.info(f"Validating structure of {directory}...")
-
-    # Check for dead files
-    dead_files = []
-    for pattern in DEAD_FILES:
-        dead_files.extend(list(Path(directory).glob(f"**/{pattern}")))
-
-    if dead_files:
-        logger.warning("Found files that should be removed:")
-        for file in dead_files:
-            logger.warning(f"  - {file}")
-
-    # Test importability
-    try:
-        spec = importlib.util.find_spec(directory)
-        if spec:
-            logger.info(f"Module {directory} can be imported successfully.")
-        else:
-            logger.warning(f"Failed to find module {directory}.")
-    except Exception as e:
-        logger.error(f"Error importing {directory}: {e}")
-
-    # Check for empty directories
-    empty_dirs = []
-    for path in Path(directory).glob("**"):
-        if path.is_dir() and not list(path.iterdir()):
-            empty_dirs.append(path)
-
-    if empty_dirs:
-        logger.warning("Empty directories found:")
-        for dir_path in empty_dirs:
-            logger.warning(f"  - {dir_path}")
-
-
-def find_unused_code(directory: str) -> None:
-    """
-    Detect potentially unused code.
-
-    Args:
-        directory: Directory to analyze
-    """
-    logger.info(f"Finding potentially unused code in {directory}...")
-
-    # Collect all definitions and imports
-    all_definitions = {}
-    all_imports = {}
-
-    # Collect all usages
-    all_usages = set()
-
-    files = list(Path(directory).glob("**/*.py"))
-
-    # First pass: collect definitions
-    for file in files:
-        try:
-            with open(file, "r", encoding="utf-8") as f:
-                tree = ast.parse(f.read(), filename=str(file))
-
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-                    all_definitions[node.name] = str(file)
-                elif isinstance(node, ast.Import):
-                    for name in node.names:
-                        all_imports[name.name] = str(file)
-                elif isinstance(node, ast.ImportFrom):
-                    module = node.module if node.module else ""
-                    for name in node.names:
-                        all_imports[f"{module}.{name.name}"] = str(file)
-        except Exception as e:
-            logger.error(f"Error analyzing {file}: {e}")
-
-    # Second pass: collect usages
-    for file in files:
-        try:
-            with open(file, "r", encoding="utf-8") as f:
-                content = f.read()
-
-            for definition in all_definitions:
-                if definition in content:
-                    all_usages.add(definition)
-        except Exception as e:
-            logger.error(f"Error analyzing usages in {file}: {e}")
-
-    # Find unused code
-    unused = set(all_definitions.keys()) - all_usages
-
-    if unused:
-        logger.warning("Potentially unused code:")
-        for item in unused:
-            logger.warning(f"  - {item} in {all_definitions[item]}")
-
-
-def clean_directories(directory: str) -> None:
-    """
-    Remove empty directories and dead files.
-
-    Args:
-        directory: Directory to clean
-    """
-    logger.info(f"Cleaning {directory}...")
-
-    # Remove dead files
-    dead_files = []
-    for pattern in DEAD_FILES:
-        dead_files.extend(list(Path(directory).glob(f"**/{pattern}")))
-
-    for file in dead_files:
-        file.unlink()
-        logger.info(f"Removed dead file: {file}")
-
-    # Remove empty directories
-    for root, dirs, files in os.walk(directory, topdown=False):
-        for dir_name in dirs:
-            dir_path = os.path.join(root, dir_name)
-            if not os.listdir(dir_path):
-                os.rmdir(dir_path)
-                logger.info(f"Removed empty directory: {dir_path}")
-
-
-def fix_imports_legacy(directory: str) -> None:
-    """
-    Fix imports using patterns from the original fix_imports.py script.
-
-    Args:
-        directory: Directory to process
-    """
-    logger.info(f"Fixing imports in {directory} (legacy method)...")
-
-    # Get all Python files
-    python_files = list(Path(directory).glob("**/*.py"))
-    total_files = len(python_files)
-
-    # Patterns to replace (from original fix_imports.py)
-    patterns = [
-        (r"from pepperpy\.", r"from pepperpy."),  # Keep absolute imports
-        (r"import pepperpy\.", r"import pepperpy."),  # Keep absolute imports
-        (r"from \.\.", r"from pepperpy."),  # Replace relative imports with absolute
-        (r"from \.", r"from pepperpy."),  # Replace relative imports with absolute
-    ]
-
-    # Process each file
-    for i, file_path in enumerate(python_files):
-        logger.info(f"Processing file {i + 1}/{total_files}: {file_path}")
-
-        # Read the file
-        with open(file_path, "r", encoding="utf-8") as f:
-            content = f.read()
-
-        # Apply replacements
-        new_content = content
-        for pattern, replacement in patterns:
-            new_content = re.sub(pattern, replacement, new_content)
-
-        # Write the file if changes were made
-        if new_content != content:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.write(new_content)
-            logger.info(f"  Updated imports in {file_path}")
-
-
-# Register specific task implementations
-@register_task("1.1.1")
-def task_1_1_1():
-    """Task 1.1.1: Consolidate exceptions from various error files into core/errors.py"""
-    files_to_consolidate = [
-        "pepperpy/llm/errors.py",
-        "pepperpy/rag/errors.py",
-        # Add other error files as needed
-    ]
-    output_file = "pepperpy/core/errors.py"
-    header = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-Core exceptions for PepperPy.
-
-This module centralizes all exceptions used throughout the PepperPy framework.
-\"\"\"
-
-from typing import Any, Dict, Optional, Type, Union
-
-"""
-    consolidate_modules(files_to_consolidate, output_file, header)
-
-    # Update imports to reference the new error location
-    error_import_map = {
-        "pepperpy.llm.errors": "pepperpy.core.errors",
-        "pepperpy.rag.errors": "pepperpy.core.errors",
-        # Add other mappings as needed
-    }
-    update_imports("pepperpy", error_import_map)
-
-
-@register_task("1.2.1")
-def task_1_2_1():
-    """Task 1.2.1: Consolidate events functionality into infra/events.py"""
-    files_to_consolidate = [
-        "pepperpy/events/base.py",
-        "pepperpy/events/handlers.py",
-        "pepperpy/events/registry.py",
-        # Add other event files as needed
-    ]
-    output_file = "pepperpy/infra/events.py"
-    header = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-Event system for PepperPy.
-
-This module provides a centralized event system for the PepperPy framework.
-\"\"\"
-
-from typing import Any, Callable, Dict, List, Optional, Set, Type, Union
-
-"""
-    consolidate_modules(files_to_consolidate, output_file, header)
-
-    # Update imports to reference the new events location
-    events_import_map = {
-        "pepperpy.events": "pepperpy.infra.events",
-        # Add other mappings as needed
-    }
-    update_imports("pepperpy", events_import_map)
-
-
-@register_task("1.2.2")
-def task_1_2_2():
-    """Task 1.2.2: Consolidate streaming functionality into infra/streaming.py"""
-    files_to_consolidate = [
-        "pepperpy/streaming/base.py",
-        "pepperpy/streaming/handlers.py",
-        "pepperpy/streaming/processors.py",
-        # Add other streaming files as needed
-    ]
-    output_file = "pepperpy/infra/streaming.py"
-    header = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-Streaming functionality for PepperPy.
-
-This module provides streaming capabilities for the PepperPy framework.
-\"\"\"
-
-from typing import Any, Callable, Dict, Generator, Iterable, List, Optional, Union
-
-"""
-    consolidate_modules(files_to_consolidate, output_file, header)
-
-    # Update imports to reference the new streaming location
-    streaming_import_map = {
-        "pepperpy.streaming": "pepperpy.infra.streaming",
-        # Add other mappings as needed
-    }
-    update_imports("pepperpy", streaming_import_map)
-
-
-@register_task("2.1.1")
-def task_2_1_1():
-    """Task 2.1.1: Organize embedding functionality in llm/embedding.py"""
-    # This task requires organizing the embedding code
-    files_to_consolidate = [
-        "pepperpy/llm/embedding.py",
-        # Add other embedding files if they exist
-    ]
-    output_file = "pepperpy/llm/embedding.py"
-    header = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-Embedding functionality for LLM operations.
-
-This module provides embedding capabilities for the PepperPy framework.
-\"\"\"
-
-from typing import Any, Dict, List, Optional, Union
-
-"""
-    consolidate_modules(files_to_consolidate, output_file, header)
-
-
-@register_task("2.1.2")
-def task_2_1_2():
-    """Task 2.1.2: Implement LLM providers"""
-    # Create provider directory structure
-    providers_dir = Path("pepperpy/llm/providers")
-    providers_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create __init__.py with factory and API
-    init_content = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-LLM providers for PepperPy.
-
-This module provides access to various LLM providers through a unified API.
-\"\"\"
-
-from typing import Any, Dict, Optional, Type, Union
-
-from pepperpy.llm.providers.base import LLMProvider
-
-__all__ = ["create_model", "get_provider", "list_providers", "LLMProvider"]
-
-_PROVIDERS = {}  # Registry of providers
-
-def register_provider(name: str, provider_class: Type[LLMProvider]) -> None:
-    \"\"\"Register a new LLM provider.\"\"\"
-    _PROVIDERS[name] = provider_class
-
-def get_provider(name: str) -> Type[LLMProvider]:
-    \"\"\"Get a provider class by name.\"\"\"
-    if name not in _PROVIDERS:
-        raise ValueError(f"Provider {name} not found")
-    return _PROVIDERS[name]
-
-def list_providers() -> Dict[str, Type[LLMProvider]]:
-    \"\"\"List all available providers.\"\"\"
-    return _PROVIDERS.copy()
-
-def create_model(provider_name: str, **kwargs: Any) -> LLMProvider:
-    \"\"\"Create a new LLM model instance from the specified provider.\"\"\"
-    provider_class = get_provider(provider_name)
-    return provider_class(**kwargs)
-
-# Import and register all providers
-# This will be populated as providers are implemented
-"""
-    (providers_dir / "__init__.py").write_text(init_content, encoding="utf-8")
-
-    # Create base.py with provider base classes
-    base_content = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-Base classes for LLM providers.
-
-This module defines the base interfaces for LLM providers.
-\"\"\"
-
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Union
-
-class LLMProvider(ABC):
-    \"\"\"Base class for all LLM providers.\"\"\"
-    
-    @abstractmethod
-    def generate(self, prompt: str, **kwargs: Any) -> str:
-        \"\"\"Generate text from a prompt.\"\"\"
-        pass
-    
-    @abstractmethod
-    def generate_stream(self, prompt: str, **kwargs: Any) -> Any:
-        \"\"\"Generate text from a prompt as a stream.\"\"\"
-        pass
-    
-    @abstractmethod
-    def embed(self, text: str, **kwargs: Any) -> List[float]:
-        \"\"\"Generate embeddings for text.\"\"\"
-        pass
-"""
-    (providers_dir / "base.py").write_text(base_content, encoding="utf-8")
-
-
-@register_task("2.2.1")
-def task_2_2_1():
-    """Task 2.2.1: Finalize RAG models and essential functionality"""
-    files_to_consolidate = [
-        "pepperpy/rag/models.py",
-        # Add other relevant RAG model files
-    ]
-    output_file = "pepperpy/rag/models.py"
-    header = """#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-\"\"\"
-Core models for RAG operations.
-
-This module defines the core models and functionality for Retrieval Augmented Generation.
-\"\"\"
-
-from typing import Any, Dict, List, Optional, Union
-
-"""
-    consolidate_modules(files_to_consolidate, output_file, header)
-
-
-def run_task(task_id: str) -> None:
-    """
-    Run a specific task by ID.
-
-    Args:
-        task_id: The ID of the task to run
-    """
-    if task_id in TASK_MAP:
-        logger.info(f"Running task {task_id}...")
-        TASK_MAP[task_id]()
-        logger.info(f"Task {task_id} completed.")
-    else:
-        logger.error(
-            f"Task {task_id} not found. Available tasks: {', '.join(TASK_MAP.keys())}"
-        )
-
-
-def update_task_file(task_file: str) -> None:
-    """
-    Update the task file with refactor.py commands for each task.
-
-    Args:
-        task_file: Path to the task file
-    """
-    logger.info(f"Updating task file: {task_file}")
-
-    task_path = Path(task_file)
-    if not task_path.exists():
-        logger.error(f"Task file {task_file} not found.")
-        return
-
-    content = task_path.read_text(encoding="utf-8")
-
-    # Define patterns for tasks
-    task_patterns = [
-        (
-            r"- \[ \] \*\*(.+?)\*\* - (.+?)$",
-            r"- [ ] **\1** - \2\n  - `python scripts/refactor.py run-task --task \"{0}\"`",
-        ),
-    ]
-
-    # Apply replacements for each registered task
-    updated_content = content
-    for task_id, task_func in TASK_MAP.items():
-        for pattern, replacement in task_patterns:
-            updated_content = re.sub(
-                pattern,
-                replacement.format(task_id),
-                updated_content,
-                flags=re.MULTILINE,
-            )
-
-    # Write updated content
-    if content != updated_content:
-        task_path.write_text(updated_content, encoding="utf-8")
-        logger.info(f"Updated {task_file} with refactor.py commands.")
-    else:
-        logger.info(f"No updates needed for {task_file}.")
+from refactoring_tools.code_analysis import (
+    CodeSmellDetector,
+    analyze_cohesion,
+    detect_circular_dependencies,
+    find_unused_code,
+    validate_structure,
+)
+from refactoring_tools.code_generator import (
+    generate_module,
+    generate_provider,
+)
+
+# Import the refactoring tools modules
+from refactoring_tools.common import RefactoringContext, logger
+from refactoring_tools.file_operations import (
+    clean_directories,
+    consolidate_modules,
+    restructure_files,
+)
+from refactoring_tools.impact_analysis import (
+    analyze_file_move_impact,
+    analyze_import_update_impact,
+    analyze_phase_impact,
+    analyze_task_impact,
+)
+from refactoring_tools.imports_manager import (
+    fix_relative_imports,
+    update_imports_ast,
+    update_imports_regex,
+)
+from refactoring_tools.reporting import (
+    generate_progress_report,
+    generate_task_checklist,
+)
+from refactoring_tools.tasks_executor import run_phase, run_task, update_task_file
 
 
 def main() -> int:
-    """Main function."""
+    """Main function that parses arguments and dispatches to appropriate handlers."""
     parser = argparse.ArgumentParser(
-        description="PepperPy Refactor Script",
+        description="PepperPy Refactoring CLI",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
 
+    # Common arguments
+    parser.add_argument("--directory", "-d", type=str, help="Target directory")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument(
+        "--no-backup", action="store_true", help="Do not create backups"
+    )
+
+    # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
+    # Import Management Commands
+    # -------------------------------------------------------------------------
     # Update imports command
     update_imports_parser = subparsers.add_parser(
         "update-imports", help="Update import statements"
     )
     update_imports_parser.add_argument(
-        "--mapping", help="JSON file with old->new import mapping"
+        "--map", type=str, help="JSON file with old->new import mapping"
     )
     update_imports_parser.add_argument("--old", help="Old import path")
     update_imports_parser.add_argument("--new", help="New import path")
     update_imports_parser.add_argument(
-        "--directory", default="pepperpy", help="Directory to process"
+        "--use-ast",
+        action="store_true",
+        help="Use AST-based import updating (more precise)",
     )
 
+    # Fix imports command
+    fix_imports_parser = subparsers.add_parser(
+        "fix-imports", help="Fix relative imports by converting to absolute"
+    )
+
+    # File Operations Commands
+    # -------------------------------------------------------------------------
     # Restructure files command
     restructure_parser = subparsers.add_parser(
         "restructure-files", help="Restructure files"
@@ -646,41 +174,153 @@ def main() -> int:
         "--header", help="Optional header to add to the consolidated file"
     )
 
+    # Clean command
+    clean_parser = subparsers.add_parser("clean", help="Clean directories")
+
+    # Code Analysis Commands
+    # -------------------------------------------------------------------------
     # Validate command
     validate_parser = subparsers.add_parser("validate", help="Validate structure")
-    validate_parser.add_argument(
-        "--directory", default="pepperpy", help="Directory to validate"
-    )
 
     # Find unused code command
     unused_parser = subparsers.add_parser("find-unused", help="Find unused code")
-    unused_parser.add_argument(
-        "--directory", default="pepperpy", help="Directory to analyze"
+
+    # Detect circular dependencies command
+    circular_parser = subparsers.add_parser(
+        "detect-circular", help="Detect circular dependencies"
     )
 
-    # Clean command
-    clean_parser = subparsers.add_parser("clean", help="Clean directories")
-    clean_parser.add_argument(
-        "--directory", default="pepperpy", help="Directory to clean"
+    # Analyze impact command
+    impact_parser = subparsers.add_parser(
+        "analyze-impact", help="Analyze the impact of refactoring operations"
+    )
+    impact_parser.add_argument(
+        "--operation",
+        choices=["imports", "files", "task", "phase"],
+        required=True,
+        help="Type of operation to analyze",
+    )
+    impact_parser.add_argument("--task", help="Task ID to analyze")
+    impact_parser.add_argument("--phase", type=int, help="Phase number to analyze")
+    impact_parser.add_argument(
+        "--mapping", help="JSON file with mapping (for imports or files)"
     )
 
-    # Fix imports legacy command
-    fix_imports_parser = subparsers.add_parser(
-        "fix-imports", help="Fix imports (legacy method)"
+    # Detect code smells command
+    smells_parser = subparsers.add_parser("detect-smells", help="Detect code smells")
+    smells_parser.add_argument("--file", help="Specific file to analyze")
+
+    # Analyze cohesion command
+    cohesion_parser = subparsers.add_parser(
+        "analyze-cohesion", help="Analyze module cohesion"
     )
-    fix_imports_parser.add_argument(
-        "--directory", default="pepperpy", help="Directory to process"
+    cohesion_parser.add_argument("--file", required=True, help="File to analyze")
+
+    # AST Transformation Commands
+    # -------------------------------------------------------------------------
+    # Extract method command
+    extract_method_parser = subparsers.add_parser(
+        "extract-method", help="Extract method"
+    )
+    extract_method_parser.add_argument("--file", required=True, help="File to process")
+    extract_method_parser.add_argument(
+        "--start", type=int, required=True, help="Start line (1-indexed)"
+    )
+    extract_method_parser.add_argument(
+        "--end", type=int, required=True, help="End line (1-indexed)"
+    )
+    extract_method_parser.add_argument("--name", required=True, help="New method name")
+
+    # Convert to protocol command
+    protocol_parser = subparsers.add_parser(
+        "to-protocol", help="Convert class to Protocol"
+    )
+    protocol_parser.add_argument("--file", required=True, help="File to process")
+    protocol_parser.add_argument(
+        "--class", required=True, dest="class_name", help="Class name to convert"
     )
 
+    # Function to class command
+    func_to_class_parser = subparsers.add_parser(
+        "func-to-class", help="Convert function to class"
+    )
+    func_to_class_parser.add_argument("--file", required=True, help="File to process")
+    func_to_class_parser.add_argument(
+        "--function", required=True, help="Function name to convert"
+    )
+
+    # Extract public API command
+    api_parser = subparsers.add_parser("extract-api", help="Extract public API")
+    api_parser.add_argument("--module", required=True, help="Module directory")
+
+    # Generate factory command
+    factory_parser = subparsers.add_parser("gen-factory", help="Generate factory")
+    factory_parser.add_argument(
+        "--class", required=True, dest="class_name", help="Class name"
+    )
+    factory_parser.add_argument("--output", required=True, help="Output file path")
+
+    # Code Generation Commands
+    # -------------------------------------------------------------------------
+    # Generate module command
+    gen_module_parser = subparsers.add_parser(
+        "gen-module", help="Generate a new module"
+    )
+    gen_module_parser.add_argument("--output", required=True, help="Output file path")
+    gen_module_parser.add_argument("--desc", required=True, help="Module description")
+    gen_module_parser.add_argument("--imports", help="Comma-separated list of imports")
+
+    # Generate class command
+    gen_class_parser = subparsers.add_parser("gen-class", help="Generate a new class")
+    gen_class_parser.add_argument("--output", required=True, help="Output file path")
+    gen_class_parser.add_argument("--name", required=True, help="Class name")
+    gen_class_parser.add_argument("--desc", required=True, help="Class description")
+    gen_class_parser.add_argument("--init-args", default="", help="__init__ arguments")
+    gen_class_parser.add_argument("--init-body", default="pass", help="__init__ body")
+    gen_class_parser.add_argument("--methods", default="", help="Additional methods")
+
+    # Generate function command
+    gen_func_parser = subparsers.add_parser(
+        "gen-function", help="Generate a new function"
+    )
+    gen_func_parser.add_argument("--output", required=True, help="Output file path")
+    gen_func_parser.add_argument("--name", required=True, help="Function name")
+    gen_func_parser.add_argument("--desc", required=True, help="Function description")
+    gen_func_parser.add_argument("--args", default="", help="Function arguments")
+    gen_func_parser.add_argument("--return-type", default="", help="Return type")
+    gen_func_parser.add_argument("--body", default="pass", help="Function body")
+
+    # Generate provider command
+    gen_provider_parser = subparsers.add_parser(
+        "gen-provider", help="Generate a new LLM provider"
+    )
+    gen_provider_parser.add_argument("--output", required=True, help="Output file path")
+    gen_provider_parser.add_argument("--name", required=True, help="Provider name")
+    gen_provider_parser.add_argument(
+        "--desc", required=True, help="Provider description"
+    )
+    gen_provider_parser.add_argument(
+        "--init-args", default="", help="__init__ arguments"
+    )
+
+    # Task Execution Commands
+    # -------------------------------------------------------------------------
     # Run task command
-    task_parser = subparsers.add_parser(
-        "run-task", help="Run a specific task from TASK-012"
-    )
+    task_parser = subparsers.add_parser("run-task", help="Run a specific task")
     task_parser.add_argument("--task", required=True, help="Task ID to run")
+
+    # Run phase command
+    phase_parser = subparsers.add_parser(
+        "run-phase", help="Run all tasks in a specific phase"
+    )
+    phase_parser.add_argument(
+        "--phase", required=True, type=int, help="Phase number to run"
+    )
+    phase_parser.add_argument("--skip", help="Comma-separated list of task IDs to skip")
 
     # Update task file command
     update_task_parser = subparsers.add_parser(
-        "update-task-file", help="Update the task file with refactor commands"
+        "update-task-file", help="Update task file"
     )
     update_task_parser.add_argument(
         "--file",
@@ -688,51 +328,299 @@ def main() -> int:
         help="Path to the task file",
     )
 
+    # Reporting Commands
+    # -------------------------------------------------------------------------
+    # Generate progress report command
+    report_parser = subparsers.add_parser(
+        "gen-report", help="Generate a progress report"
+    )
+    report_parser.add_argument(
+        "--output",
+        default="reports/progress_report.md",
+        help="Output file path",
+    )
+
+    # Generate task checklist command
+    checklist_parser = subparsers.add_parser(
+        "gen-checklist", help="Generate a task checklist"
+    )
+    checklist_parser.add_argument(
+        "--output",
+        default="reports/task_checklist.md",
+        help="Output file path",
+    )
+
+    # Update TASK-012.md command
+    update_task_md_parser = subparsers.add_parser(
+        "update-task-md", help="Update TASK-012.md with execution commands"
+    )
+    update_task_md_parser.add_argument(
+        "--file",
+        default=".product/tasks/TASK-012/TASK-012.md",
+        help="Path to the task file",
+    )
+
+    # Parse arguments
     args = parser.parse_args()
 
-    if args.command == "update-imports":
-        import_map = {}
-        if args.mapping:
+    # If no arguments are provided, show help
+    if len(sys.argv) <= 1:
+        parser.print_help()
+        return 1
+
+    # Setup the refactoring context
+    context = RefactoringContext(
+        root_dir=Path(args.directory or "."),
+        dry_run=args.dry_run,
+        verbose=args.verbose,
+        backup=not args.no_backup,
+    )
+
+    try:
+        # Import Management Commands
+        # -------------------------------------------------------------------------
+        if args.command == "update-imports":
+            import_map = {}
+            import json
+
+            if args.map:
+                with open(args.map, "r", encoding="utf-8") as f:
+                    import_map = json.load(f)
+            elif args.old and args.new:
+                import_map = {args.old: args.new}
+            else:
+                logger.error("Either --map or both --old and --new are required")
+                return 1
+
+            if args.use_ast:
+                update_imports_ast(args.directory or ".", import_map, context)
+            else:
+                update_imports_regex(args.directory or ".", import_map, context)
+
+        elif args.command == "fix-imports":
+            fix_relative_imports(args.directory or ".", context)
+
+        # File Operations Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "restructure-files":
+            import json
+
             with open(args.mapping, "r", encoding="utf-8") as f:
-                import_map = json.load(f)
-        elif args.old and args.new:
-            import_map = {args.old: args.new}
+                file_mapping = json.load(f)
+            restructure_files(file_mapping, context)
+
+        elif args.command == "consolidate":
+            files = args.files.split(",")
+            consolidate_modules(files, args.output, args.header or "", context)
+
+        elif args.command == "clean":
+            clean_directories(args.directory or ".", context)
+
+        # Code Analysis Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "validate":
+            validate_structure(args.directory or ".", context)
+
+        elif args.command == "find-unused":
+            unused_code = find_unused_code(args.directory or ".", context)
+            if unused_code:
+                logger.warning(f"Found {len(unused_code)} potentially unused symbols")
+                for name, file_path in unused_code:
+                    logger.warning(f"  - {name} in {file_path}")
+
+        elif args.command == "detect-circular":
+            cycles = detect_circular_dependencies(args.directory or ".", context)
+            if cycles:
+                logger.warning(f"Found {len(cycles)} circular dependencies")
+                for cycle in cycles:
+                    logger.warning(f"  - {' -> '.join(cycle)}")
+            else:
+                logger.info("No circular dependencies found")
+
+        elif args.command == "analyze-impact":
+            import json
+
+            if args.operation == "imports":
+                if not args.mapping:
+                    logger.error("--mapping is required for import impact analysis")
+                    return 1
+
+                with open(args.mapping, "r", encoding="utf-8") as f:
+                    import_map = json.load(f)
+
+                analyze_import_update_impact(args.directory or ".", import_map, context)
+
+            elif args.operation == "files":
+                if not args.mapping:
+                    logger.error("--mapping is required for file move impact analysis")
+                    return 1
+
+                with open(args.mapping, "r", encoding="utf-8") as f:
+                    file_mapping = json.load(f)
+
+                analyze_file_move_impact(file_mapping, context)
+
+            elif args.operation == "task":
+                if not args.task:
+                    logger.error("--task is required for task impact analysis")
+                    return 1
+
+                analyze_task_impact(args.task, context)
+
+            elif args.operation == "phase":
+                if not args.phase:
+                    logger.error("--phase is required for phase impact analysis")
+                    return 1
+
+                analyze_phase_impact(args.phase, context)
+
+        elif args.command == "detect-smells":
+            detector = CodeSmellDetector(context)
+
+            if args.file:
+                # Analyze single file
+                file_path = Path(args.file)
+                smells = detector.detect_smells(file_path)
+                if smells:
+                    logger.warning(f"Found {len(smells)} code smells in {file_path}")
+                    for smell in smells:
+                        logger.warning(f"  - {smell}")
+                else:
+                    logger.info(f"No code smells found in {file_path}")
+            else:
+                # Analyze all files in directory
+                python_files = list(Path(args.directory or ".").glob("**/*.py"))
+                total_smells = 0
+                files_with_smells = 0
+
+                for file_path in python_files:
+                    smells = detector.detect_smells(file_path)
+                    if smells:
+                        files_with_smells += 1
+                        total_smells += len(smells)
+                        logger.warning(
+                            f"Found {len(smells)} code smells in {file_path}"
+                        )
+                        for smell in smells:
+                            logger.warning(f"  - {smell}")
+
+                logger.info(
+                    f"Analysis complete: {total_smells} code smells found in {files_with_smells} files (out of {len(python_files)} files)"
+                )
+
+        elif args.command == "analyze-cohesion":
+            metrics = analyze_cohesion(args.file, context)
+            logger.info("Cohesion Metrics:")
+            for metric_name, value in metrics.items():
+                logger.info(f"  - {metric_name}: {value}")
+
+        # AST Transformation Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "extract-method":
+            extract_method(args.file, args.start, args.end, args.name, context)
+
+        elif args.command == "to-protocol":
+            convert_to_protocol(args.file, args.class_name, context)
+
+        elif args.command == "func-to-class":
+            function_to_class(args.file, args.function, context)
+
+        elif args.command == "extract-api":
+            extract_public_api(args.module, context)
+
+        elif args.command == "gen-factory":
+            generate_factory(args.class_name, args.output, context)
+
+        # Code Generation Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "gen-module":
+            imports = args.imports.split(",") if args.imports else None
+            generate_module(
+                output_path=args.output,
+                module_description=args.desc,
+                imports=imports,
+                context=context,
+            )
+
+        elif args.command == "gen-class":
+            # Create a class definition
+            class_def = {
+                "name": args.name,
+                "description": args.desc,
+                "init_args": args.init_args,
+                "init_body": args.init_body,
+                "methods": args.methods,
+            }
+
+            # Generate module with just this class
+            generate_module(
+                output_path=args.output,
+                module_description=f"Module containing {args.name} class.",
+                classes=[class_def],
+                context=context,
+            )
+
+        elif args.command == "gen-function":
+            # Create a function definition
+            func_def = {
+                "name": args.name,
+                "description": args.desc,
+                "args": args.args,
+                "return_type": args.return_type,
+                "body": args.body,
+            }
+
+            # Generate module with just this function
+            generate_module(
+                output_path=args.output,
+                module_description=f"Module containing {args.name} function.",
+                functions=[func_def],
+                context=context,
+            )
+
+        elif args.command == "gen-provider":
+            generate_provider(
+                provider_name=args.name,
+                description=args.desc,
+                output_path=args.output,
+                init_args=args.init_args,
+                context=context,
+            )
+
+        # Task Execution Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "run-task":
+            run_task(args.task, context)
+
+        elif args.command == "run-phase":
+            skip_tasks = args.skip.split(",") if args.skip else []
+            run_phase(args.phase, skip_tasks, context)
+
+        elif args.command == "update-task-file":
+            update_task_file(args.file, context)
+
+        # Reporting Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "gen-report":
+            generate_progress_report(args.output, context)
+
+        elif args.command == "gen-checklist":
+            generate_task_checklist(args.output, context)
+
+        elif args.command == "update-task-md":
+            update_task_md(args.file, context)
+
         else:
-            logger.error("Either --mapping or both --old and --new are required")
+            parser.print_help()
             return 1
 
-        update_imports(args.directory, import_map)
+    except Exception as e:
+        logger.error(f"Error during execution: {e}")
+        if context.verbose:
+            import traceback
 
-    elif args.command == "restructure-files":
-        with open(args.mapping, "r", encoding="utf-8") as f:
-            file_mapping = json.load(f)
-
-        restructure_files(file_mapping)
-
-    elif args.command == "consolidate":
-        files = args.files.split(",")
-        consolidate_modules(files, args.output, args.header or "")
-
-    elif args.command == "validate":
-        validate_structure(args.directory)
-
-    elif args.command == "find-unused":
-        find_unused_code(args.directory)
-
-    elif args.command == "clean":
-        clean_directories(args.directory)
-
-    elif args.command == "fix-imports":
-        fix_imports_legacy(args.directory)
-
-    elif args.command == "run-task":
-        run_task(args.task)
-
-    elif args.command == "update-task-file":
-        update_task_file(args.file)
-
-    else:
-        parser.print_help()
+            traceback.print_exc()
+        return 1
 
     return 0
 

@@ -4,13 +4,14 @@ This module provides functionality for implementing RAG systems,
 including document processing, retrieval, and generation.
 """
 
+# Import core document processing components
 from pepperpy.rag.document import (
     TextChunker,
     TextCleaner,
     TextLoader,
-    chunk_document,
-    load_text_document,
 )
+
+# Import interfaces
 from pepperpy.rag.interfaces import (
     DocumentLoader,
     DocumentProcessor,
@@ -22,6 +23,8 @@ from pepperpy.rag.interfaces import (
     SearchProvider,
     VectorStore,
 )
+
+# Import models
 from pepperpy.rag.models import (
     # Chunking models
     ChunkingConfig,
@@ -44,20 +47,15 @@ from pepperpy.rag.models import (
     TransformationConfig,
     TransformationType,
 )
-from pepperpy.rag.pipeline import (
-    PipelineConfig,
-    RAGPipeline,
-    create_default_pipeline,
-    create_metadata_focused_pipeline,
-    create_simple_pipeline,
-    process_document,
-    process_documents,
-)
+
+# Import retrieval components
 from pepperpy.rag.retrieval import (
     RetrievalConfig,
     Retriever,
     retrieve_documents,
 )
+
+# Import pipeline stages
 from pepperpy.rag.stages import (
     GenerationStage,
     GenerationStageConfig,
@@ -67,6 +65,8 @@ from pepperpy.rag.stages import (
     RetrievalStageConfig,
     StageConfig,
 )
+
+# Import utility functions
 from pepperpy.rag.utils import (
     calculate_text_statistics,
     clean_markdown_formatting,
@@ -107,20 +107,10 @@ __all__ = [
     "TextLoader",
     "TextChunker",
     "TextCleaner",
-    "load_text_document",
-    "chunk_document",
     # Retrieval functionality
     "Retriever",
     "RetrievalConfig",
     "retrieve_documents",
-    # Pipeline
-    "PipelineConfig",
-    "RAGPipeline",
-    "create_default_pipeline",
-    "create_simple_pipeline",
-    "create_metadata_focused_pipeline",
-    "process_document",
-    "process_documents",
     # Pipeline stages
     "StageConfig",
     "RetrievalStage",

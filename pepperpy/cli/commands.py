@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import Dict
 
+# We need to import directly from a local import to avoid circular dependencies
+# since __init__.py imports from this file
 from pepperpy.cli.core import Command, register_command
 from pepperpy.utils.logging import get_logger
 

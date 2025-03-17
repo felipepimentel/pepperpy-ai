@@ -20,10 +20,62 @@ Typical usage:
 import logging
 import os
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import Dict, Optional, Union
 
 from pepperpy.infra.config import get_config
+
+
+class LogLevel(Enum):
+    """Log levels for the PepperPy framework.
+
+    This enum maps standard logging levels to human-readable names.
+    """
+
+    DEBUG = logging.DEBUG
+    INFO = logging.INFO
+    WARNING = logging.WARNING
+    ERROR = logging.ERROR
+    CRITICAL = logging.CRITICAL
+
+    @classmethod
+    def from_string(cls, level_name: str) -> "LogLevel":
+        """Convert a string level name to a LogLevel.
+
+        Args:
+            level_name: The level name as a string
+
+        Returns:
+            The corresponding LogLevel
+
+        Raises:
+            ValueError: If the level name is not valid
+        """
+        try:
+            return cls[level_name.upper()]
+        except KeyError:
+            raise ValueError(f"Invalid log level: {level_name}")
+
+    @classmethod
+    def to_int(cls, level: Union[str, int, "LogLevel"]) -> int:
+        """Convert a level to its integer value.
+
+        Args:
+            level: The level as a string, integer, or LogLevel
+
+        Returns:
+            The integer value of the level
+        """
+        if isinstance(level, cls):
+            return level.value
+        elif isinstance(level, str):
+            return cls.from_string(level).value
+        elif isinstance(level, int):
+            return level
+        else:
+            raise ValueError(f"Invalid log level type: {type(level)}")
+
 
 # Cache of loggers
 _loggers: Dict[str, logging.Logger] = {}

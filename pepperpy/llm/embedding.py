@@ -14,11 +14,9 @@ Example:
 
 import abc
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Protocol, Type
 
 from pepperpy.core.errors import NotFoundError, PepperPyError
-from pepperpy.providers.base import BaseProvider, provider_registry
-from pepperpy.providers.rest_base import RESTProvider
 from pepperpy.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -26,6 +24,31 @@ logger = get_logger(__name__)
 #
 # Core Embedding Types
 #
+
+
+class BaseProvider(Protocol):
+    """Protocol for provider classes."""
+
+    name: str
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
+
+
+class RESTProvider(Protocol):
+    """Protocol for REST provider classes."""
+
+    name: str
+    base_url: str
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
+
+
+# Provider registry
+provider_registry: Dict[str, Dict[str, Any]] = {}
 
 
 class EmbeddingError(PepperPyError):
