@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-PepperPy Refactoring CLI
+Refactoring tool for the PepperPy framework.
 
-A comprehensive CLI tool for automating the PepperPy library refactoring process.
-This script integrates all the refactoring tools into a single command-line interface.
+This script provides commands to refactor the codebase.
 
 Usage:
     python scripts/refactor.py [command] [options]
@@ -53,60 +52,243 @@ Commands:
         gen-report        - Generate a progress report of refactoring tasks
         gen-checklist     - Generate a checklist of refactoring tasks
         update-task-md    - Update TASK-012.md with execution commands
+        gen-consolidation - Generate a report of consolidated directories
+        gen-impact-report - Generate a report of the impact of consolidations
+
+    directory-management:
+        find-small-dirs   - Find directories with few Python files
+        auto-consolidate  - Automatically consolidate small directories
 
 Examples:
     python scripts/refactor.py update-imports --map import_mapping.json --directory pepperpy
     python scripts/refactor.py detect-circular --directory pepperpy
     python scripts/refactor.py extract-method --file path/to/file.py --start 10 --end 20 --name new_method
     python scripts/refactor.py run-task --task "2.1.1"
+    python scripts/refactor.py find-small-dirs --directory pepperpy --max-files 2
+    python scripts/refactor.py auto-consolidate --directory pepperpy --max-files 2
 """
 
 import argparse
+import json
+import logging
+import os
 import sys
 from pathlib import Path
 
-from refactoring_tools.ast_transformations import (
-    convert_to_protocol,
-    extract_method,
-    extract_public_api,
-    function_to_class,
-    generate_factory,
-)
-from refactoring_tools.code_analysis import (
-    CodeSmellDetector,
-    analyze_cohesion,
-    detect_circular_dependencies,
-    find_unused_code,
-    validate_structure,
-)
-from refactoring_tools.code_generator import (
-    generate_module,
-    generate_provider,
-)
+# Add the current directory to the path
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import the refactoring tools modules
-from refactoring_tools.common import RefactoringContext, logger
-from refactoring_tools.file_operations import (
-    clean_directories,
-    consolidate_modules,
-    restructure_files,
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-from refactoring_tools.impact_analysis import (
-    analyze_file_move_impact,
-    analyze_import_update_impact,
-    analyze_phase_impact,
-    analyze_task_impact,
-)
-from refactoring_tools.imports_manager import (
-    fix_relative_imports,
-    update_imports_ast,
-    update_imports_regex,
-)
-from refactoring_tools.reporting import (
-    generate_progress_report,
-    generate_task_checklist,
-)
-from refactoring_tools.tasks_executor import run_phase, run_task, update_task_file
+logger = logging.getLogger(__name__)
+
+# Try importing the required modules, with informative error messages
+try:
+    import astor
+except ImportError:
+    logger.warning("astor module not available. Some functionality will be limited.")
+    astor = None
+
+try:
+    import libcst
+except ImportError:
+    logger.warning("libcst module not available. Some functionality will be limited.")
+    libcst = None
+
+try:
+    import ast_decompiler
+except ImportError:
+    logger.warning(
+        "ast_decompiler module not available. Using alternative implementation."
+    )
+    ast_decompiler = None
+
+# Import refactoring tools
+try:
+    from scripts.refactoring_tools.common import RefactoringContext
+    from scripts.refactoring_tools.dir_consolidation import process_dir_consolidation
+    from scripts.refactoring_tools.impact_calculator import calculate_impact
+    from scripts.refactoring_tools.module_consolidation import consolidate_modules
+    from scripts.refactoring_tools.tasks_executor import (
+        run_phase,
+        run_task,
+        update_task_file,
+    )
+except ImportError as e:
+    print(f"Error importing refactoring tools: {e}")
+    print(f"Current sys.path: {sys.path}")
+    sys.exit(1)
+
+
+def find_small_directories(
+    directory: str, max_files: int, context: RefactoringContext
+) -> list:
+    """Find directories with few Python files.
+
+    Args:
+        directory: The directory to search in
+        max_files: The maximum number of Python files for a directory to be considered small
+        context: The refactoring context
+
+    Returns:
+        List of small directories
+    """
+    logger.info(f"Searching for directories with at most {max_files} Python files...")
+
+    root_path = Path(directory)
+    small_dirs = []
+
+    # Track all directories with their Python file count
+    dir_stats = {}
+
+    # Walk through the directory structure
+    for root, dirs, files in os.walk(root_path):
+        # Skip hidden directories and __pycache__
+        if (
+            any(part.startswith(".") for part in Path(root).parts)
+            or "__pycache__" in root
+        ):
+            continue
+
+        path = Path(root)
+
+        # Count Python files in this directory
+        py_files = [f for f in files if f.endswith(".py")]
+        py_file_count = len(py_files)
+
+        # Skip empty directories or those without Python files
+        if py_file_count == 0:
+            continue
+
+        # Skip directories that aren't part of a Python package
+        # unless they're the root directory itself
+        if not (path / "__init__.py").exists() and path != root_path:
+            continue
+
+        # Track this directory's stats
+        try:
+            rel_path = path.relative_to(root_path)
+        except ValueError:
+            # Handle case where path is not relative to root_path
+            continue
+
+        dir_path = str(rel_path) if rel_path != Path(".") else ""
+
+        dir_stats[dir_path] = {
+            "path": str(path),
+            "rel_path": dir_path,
+            "file_count": py_file_count,
+            "files": [str(Path(path) / f) for f in py_files],
+        }
+
+    # Filter for small directories
+    for dir_path, stats in dir_stats.items():
+        if 0 < stats["file_count"] <= max_files:
+            small_dirs.append(stats)
+
+    # Sort by file count (ascending) and then by path
+    small_dirs.sort(key=lambda x: (x["file_count"], x["path"]))
+
+    logger.info(f"Found {len(small_dirs)} small directories")
+
+    if context.verbose and small_dirs:
+        for dir_info in small_dirs:
+            logger.info(f"  - {dir_info['path']} ({dir_info['file_count']} files)")
+
+    return small_dirs
+
+
+def auto_consolidate_directories(
+    directory: str, max_files: int, context: RefactoringContext
+) -> None:
+    """Automatically consolidate small directories.
+
+    Args:
+        directory: The directory to search in
+        max_files: The maximum number of Python files for a directory to be considered small
+        context: The refactoring context
+    """
+    small_dirs = find_small_directories(directory, max_files, context)
+
+    if not small_dirs:
+        logger.info("No small directories found")
+        return
+
+    logger.info(f"Found {len(small_dirs)} small directories")
+
+    # Check if specific directories should be excluded
+    exclude_dirs = getattr(context, "exclude_dirs", [])
+    if exclude_dirs:
+        logger.info(f"Excluding directories: {', '.join(exclude_dirs)}")
+
+        # Filter out excluded directories
+        filtered_dirs = []
+        for dir_info in small_dirs:
+            excluded = False
+            dir_path = dir_info["path"]
+            for exclude in exclude_dirs:
+                if dir_path.startswith(exclude) or exclude in dir_path:
+                    excluded = True
+                    logger.info(f"Skipping excluded directory: {dir_path}")
+                    break
+            if not excluded:
+                filtered_dirs.append(dir_info)
+
+        small_dirs = filtered_dirs
+        logger.info(f"After exclusions: {len(small_dirs)} directories to consolidate")
+
+    for dir_info in small_dirs:
+        dir_path = dir_info["path"]
+        py_files = dir_info["files"]
+        file_count = dir_info["file_count"]
+
+        # Skip if no Python files
+        if not py_files:
+            continue
+
+        # Determine output file path
+        path = Path(dir_path)
+        parent_dir = path.parent
+        dir_name = path.name
+        output_file = parent_dir / f"{dir_name}.py"
+
+        # Check if output file already exists
+        if output_file.exists():
+            logger.warning(f"Output file already exists: {output_file}")
+            continue
+
+        # Generate header
+        header = f"Consolidated module from {dir_path}"
+
+        # Consolidate files
+        logger.info(
+            f"Consolidating {file_count} files from {dir_path} into {output_file}"
+        )
+
+        if not context.dry_run:
+            try:
+                consolidate_modules(py_files, str(output_file), header, context)
+
+                # Remove original directory if consolidation was successful
+                if output_file.exists():
+                    logger.info(f"Removing original directory: {dir_path}")
+                    # Make sure we're not deleting important stuff
+                    if dir_path.startswith(directory) and "__pycache__" not in dir_path:
+                        shutil.rmtree(dir_path)
+            except Exception as e:
+                logger.error(f"Failed to consolidate {dir_path}: {str(e)}")
+                if context.verbose:
+                    import traceback
+
+                    traceback.print_exc()
+        else:
+            logger.info(
+                f"[DRY RUN] Would consolidate {len(py_files)} files from {dir_path} into {output_file}"
+            )
 
 
 def main() -> int:
@@ -360,6 +542,72 @@ def main() -> int:
         help="Path to the task file",
     )
 
+    # Generate consolidation report command
+    consolidation_parser = subparsers.add_parser(
+        "gen-consolidation", help="Generate a consolidation report from the codebase"
+    )
+    consolidation_parser.add_argument(
+        "--output", required=True, help="Output file path for the report"
+    )
+    consolidation_parser.set_defaults(func=gen_consolidation_report)
+
+    # Create the consolidate-modules command
+    consolidate_modules_parser = subparsers.add_parser(
+        "consolidate-modules", help="Consolidate duplicate modules into a single module"
+    )
+    consolidate_modules_parser.add_argument(
+        "--sources", required=True, nargs="+", help="Source module paths to consolidate"
+    )
+    consolidate_modules_parser.add_argument(
+        "--target", required=True, help="Target path for the consolidated module"
+    )
+    consolidate_modules_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Do not make changes, only show what would happen",
+    )
+    consolidate_modules_parser.add_argument(
+        "--backup",
+        action="store_true",
+        help="Create backup files before making changes",
+    )
+    consolidate_modules_parser.set_defaults(func=run_consolidate_modules)
+
+    # Generate impact report command
+    impact_report_parser = subparsers.add_parser(
+        "gen-impact-report", help="Generate a report on the impact of consolidations"
+    )
+    impact_report_parser.add_argument(
+        "--output",
+        default="reports/impact_report.md",
+        help="Output file path",
+    )
+
+    # Directory Management Commands
+    # -------------------------------------------------------------------------
+    # Find small directories command
+    find_small_dirs_parser = subparsers.add_parser(
+        "find-small-dirs", help="Find directories with few Python files"
+    )
+    find_small_dirs_parser.add_argument(
+        "--max-files", type=int, default=2, help="Maximum number of Python files"
+    )
+    find_small_dirs_parser.add_argument(
+        "--output", help="Output file path for the list of small directories"
+    )
+
+    # Auto-consolidate command
+    auto_consolidate_parser = subparsers.add_parser(
+        "auto-consolidate", help="Automatically consolidate small directories"
+    )
+    auto_consolidate_parser.add_argument(
+        "--max-files", type=int, default=2, help="Maximum number of Python files"
+    )
+    auto_consolidate_parser.add_argument(
+        "--exclude",
+        help="Comma-separated list of directories to exclude from consolidation",
+    )
+
     # Parse arguments
     args = parser.parse_args()
 
@@ -381,7 +629,6 @@ def main() -> int:
         # -------------------------------------------------------------------------
         if args.command == "update-imports":
             import_map = {}
-            import json
 
             if args.map:
                 with open(args.map, "r", encoding="utf-8") as f:
@@ -403,8 +650,6 @@ def main() -> int:
         # File Operations Commands
         # -------------------------------------------------------------------------
         elif args.command == "restructure-files":
-            import json
-
             with open(args.mapping, "r", encoding="utf-8") as f:
                 file_mapping = json.load(f)
             restructure_files(file_mapping, context)
@@ -438,8 +683,6 @@ def main() -> int:
                 logger.info("No circular dependencies found")
 
         elif args.command == "analyze-impact":
-            import json
-
             if args.operation == "imports":
                 if not args.mapping:
                     logger.error("--mapping is required for import impact analysis")
@@ -610,6 +853,47 @@ def main() -> int:
         elif args.command == "update-task-md":
             update_task_md(args.file, context)
 
+        # Generate consolidation command
+        elif args.command == "gen-consolidation":
+            generate_consolidation_report(args.output, context)
+
+        # Generate impact report command
+        elif args.command == "gen-impact-report":
+            generate_impact_report(args.output, context)
+
+        # Directory Management Commands
+        # -------------------------------------------------------------------------
+        elif args.command == "find-small-dirs":
+            small_dirs = find_small_directories(
+                args.directory or ".", args.max_files, context
+            )
+
+            if small_dirs:
+                logger.info(f"Found {len(small_dirs)} small directories:")
+                for dir_info in small_dirs:
+                    logger.info(
+                        f"  - {dir_info['path']} ({dir_info['file_count']} files)"
+                    )
+
+                if args.output:
+                    with open(args.output, "w", encoding="utf-8") as f:
+                        json.dump(small_dirs, f, indent=2)
+                    logger.info(f"Small directories list saved to {args.output}")
+            else:
+                logger.info("No small directories found")
+
+        elif args.command == "auto-consolidate":
+            # Process exclude directories if provided
+            if args.exclude:
+                context.exclude_dirs = args.exclude.split(",")
+                logger.info(f"Excluding directories: {', '.join(context.exclude_dirs)}")
+
+            auto_consolidate_directories(args.directory or ".", args.max_files, context)
+
+        # Consolidate modules command
+        elif args.command == "consolidate-modules":
+            run_consolidate_modules(args)
+
         else:
             parser.print_help()
             return 1
@@ -623,6 +907,33 @@ def main() -> int:
         return 1
 
     return 0
+
+
+def run_consolidate_modules(args: argparse.Namespace) -> None:
+    """
+    Run module consolidation based on command line arguments.
+
+    Args:
+        args: Command line arguments
+    """
+    context = RefactoringContext(
+        root_dir=args.directory,
+        dry_run=args.dry_run,
+        backup=args.backup,
+        verbose=args.verbose,
+    )
+
+    sources = [os.path.join(args.directory, s) for s in args.sources]
+    target = os.path.join(args.directory, args.target)
+
+    logger.info(f"Consolidating modules: {sources} -> {target}")
+
+    consolidate_modules(sources, target, context)
+
+    if not context.dry_run:
+        logger.info(f"Successfully consolidated modules into {target}")
+    else:
+        logger.info("[DRY RUN] Would consolidate modules")
 
 
 if __name__ == "__main__":

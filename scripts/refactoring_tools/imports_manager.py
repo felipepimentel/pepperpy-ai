@@ -1,18 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-Import management functions.
+Import management utilities.
 
 This module provides functions for updating and fixing import statements
-in Python files, supporting both legacy and AST-based approaches.
+throughout the codebase.
 """
 
 import ast
+import os
 import re
 from pathlib import Path
 from typing import Dict, List, Set
 
-import ast_decompiler
+# Try to import ast_decompiler, but provide an alternative if not available
+try:
+    import ast_decompiler
+
+    AST_DECOMPILER_AVAILABLE = True
+except ImportError:
+    AST_DECOMPILER_AVAILABLE = False
+    print(
+        "Warning: ast_decompiler module not available. Using alternative implementation."
+    )
 
 from .common import RefactoringContext, logger
 
@@ -63,131 +73,294 @@ class ImportTransformer(ast.NodeTransformer):
         return node
 
 
-def update_imports_ast(
-    directory: str, import_map: Dict[str, str], context: RefactoringContext
-) -> None:
-    """
-    Update imports in all Python files using AST.
-
-    Args:
-        directory: Directory to process
-        import_map: Dictionary with {old_import: new_import}
-        context: Refactoring context
-    """
-    logger.info(f"Updating imports in {directory} using AST...")
-
-    files = Path(directory).glob("**/*.py")
-    for file in files:
-        try:
-            with open(file, "r", encoding="utf-8") as f:
-                tree = ast.parse(f.read())
-
-            transformer = ImportTransformer(context, import_map)
-            modified_tree = transformer.visit(tree)
-
-            if transformer.changes:
-                if context.verbose:
-                    for change in transformer.changes:
-                        logger.info(f"{file}: {change}")
-
-                modified_code = ast_decompiler.decompile(modified_tree)
-
-                if context.backup:
-                    backup_path = file.with_suffix(".py.bak")
-                    with open(backup_path, "w", encoding="utf-8") as f:
-                        f.write(modified_code)
-
-                if not context.dry_run:
-                    with open(file, "w", encoding="utf-8") as f:
-                        f.write(modified_code)
-
-                    logger.info(f"Updated imports in: {file}")
-        except Exception as e:
-            logger.error(f"Error processing {file}: {e}")
-
-
 def update_imports_regex(
-    directory: str, import_map: Dict[str, str], context: RefactoringContext
+    directory: str, import_mapping: Dict[str, str], context: "RefactoringContext"
 ) -> None:
     """
-    Update imports in all Python files using regex (simpler approach).
+    Update import statements in Python files using regex patterns.
 
     Args:
-        directory: Directory to process
-        import_map: Dictionary with {old_import: new_import}
-        context: Refactoring context
+        directory: The directory to process
+        import_mapping: A dictionary mapping old import paths to new ones
+        context: The refactoring context
     """
-    logger.info(f"Updating imports in {directory} using regex...")
+    logger.info(f"Updating imports in {directory} using regex")
 
-    files = Path(directory).glob("**/*.py")
-    for file in files:
+    # Generate regex patterns for each import type
+    patterns = {}
+    for old_import, new_import in import_mapping.items():
+        # Direct import pattern: import module.submodule
+        patterns[f"import\\s+{old_import}(\\s|$)"] = f"import {new_import}\\1"
+
+        # From import pattern: from module.submodule import X
+        patterns[f"from\\s+{old_import}\\s+import"] = f"from {new_import} import"
+
+        # Submodule import pattern: from module import submodule
+        old_parent = old_import.split(".")[0]
+        old_child = ".".join(old_import.split(".")[1:])
+        new_parent = new_import.split(".")[0]
+        new_child = ".".join(new_import.split(".")[1:])
+
+        if old_child and new_child:
+            patterns[f"from\\s+{old_parent}\\s+import\\s+{old_child}(\\s|$|,)"] = (
+                f"from {new_parent} import {new_child}\\1"
+            )
+
+    # Walk through the directory and update files
+    python_files = list(Path(directory).glob("**/*.py"))
+    logger.info(f"Found {len(python_files)} Python files to process")
+
+    for file_path in python_files:
+        if "__pycache__" in str(file_path):
+            continue
+
         try:
-            content = file.read_text(encoding="utf-8")
-            updated = content
+            # Read the file
+            content = file_path.read_text(encoding="utf-8")
+            original_content = content
 
-            for old, new in import_map.items():
-                # Update direct imports (from x import y, import x)
-                pattern = rf"(from|import)\s+{re.escape(old)}(\s|\.|,|$)"
-                updated = re.sub(pattern, rf"\1 {new}\2", updated)
+            # Apply each pattern
+            for pattern, replacement in patterns.items():
+                content = re.sub(pattern, replacement, content)
 
-            if content != updated:
-                if context.backup:
-                    backup_path = file.with_suffix(".py.bak")
-                    backup_path.write_text(content, encoding="utf-8")
+            # Only write if content changed
+            if content != original_content:
+                logger.info(f"Updating imports in {file_path}")
 
                 if not context.dry_run:
-                    file.write_text(updated, encoding="utf-8")
-                    logger.info(f"Updated imports in: {file}")
+                    # Create a backup if needed
+                    if context.backup:
+                        backup_path = file_path.with_suffix(".py.bak")
+                        backup_path.write_text(original_content, encoding="utf-8")
+                        logger.info(f"Created backup at {backup_path}")
+
+                    # Write updated content
+                    file_path.write_text(content, encoding="utf-8")
+                else:
+                    logger.info(f"Would update imports in {file_path}")
+
         except Exception as e:
-            logger.error(f"Error processing {file}: {e}")
+            logger.error(f"Error processing {file_path}: {e}")
 
 
-def fix_relative_imports(directory: str, context: RefactoringContext) -> None:
+def _format_node(node: ast.AST) -> str:
     """
-    Fix relative imports by converting them to absolute imports.
+    Format an AST node as a string without relying on ast_decompiler.
 
     Args:
-        directory: Directory to process
-        context: Refactoring context
+        node: The AST node to format
+
+    Returns:
+        A string representation of the node
     """
-    logger.info(f"Fixing relative imports in {directory}...")
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.Attribute):
+        return f"{_format_node(node.value)}.{node.attr}"
+    elif isinstance(node, ast.Alias):
+        if node.asname:
+            return f"{node.name} as {node.asname}"
+        return node.name
+    elif isinstance(node, ast.Import):
+        names = [_format_node(name) for name in node.names]
+        return f"import {', '.join(names)}"
+    elif isinstance(node, ast.ImportFrom):
+        names = [_format_node(name) for name in node.names]
+        level = "." * node.level
+        module = node.module or ""
+        return f"from {level}{module} import {', '.join(names)}"
+    return str(node)
 
-    # Patterns to replace
-    patterns = [
-        (r"from pepperpy\.", r"from pepperpy."),  # Keep absolute imports
-        (r"import pepperpy\.", r"import pepperpy."),  # Keep absolute imports
-        (r"from \.\.", r"from pepperpy."),  # Replace relative imports with absolute
-        (r"from \.", r"from pepperpy."),  # Replace relative imports with absolute
-    ]
 
-    # Process each file
+def update_imports_ast(
+    directory: str, import_mapping: Dict[str, str], context: "RefactoringContext"
+) -> None:
+    """
+    Update import statements in Python files using AST parsing.
+
+    Args:
+        directory: The directory to process
+        import_mapping: A dictionary mapping old import paths to new ones
+        context: The refactoring context
+    """
+    logger.info(f"Updating imports in {directory} using AST")
+
+    # Walk through the directory and update files
     python_files = list(Path(directory).glob("**/*.py"))
-    total_files = len(python_files)
+    logger.info(f"Found {len(python_files)} Python files to process")
 
-    for i, file_path in enumerate(python_files):
-        if context.verbose:
-            logger.info(f"Processing file {i + 1}/{total_files}: {file_path}")
-        else:
-            logger.debug(f"Processing file {i + 1}/{total_files}: {file_path}")
+    for file_path in python_files:
+        if "__pycache__" in str(file_path):
+            continue
 
         try:
             # Read the file
             content = file_path.read_text(encoding="utf-8")
 
-            # Apply replacements
-            new_content = content
-            for pattern, replacement in patterns:
-                new_content = re.sub(pattern, replacement, new_content)
+            # Parse the code
+            tree = ast.parse(content)
 
-            # Write the file if changes were made
-            if new_content != content:
-                if context.backup:
-                    backup_path = file_path.with_suffix(".py.bak")
-                    backup_path.write_text(content, encoding="utf-8")
+            # Find import statements
+            imports = []
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.Import, ast.ImportFrom)):
+                    imports.append(node)
+
+            # If no imports found, skip this file
+            if not imports:
+                continue
+
+            # Check if any imports need to be updated
+            updated = False
+            for node in imports:
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        if alias.name in import_mapping:
+                            alias.name = import_mapping[alias.name]
+                            updated = True
+
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module in import_mapping:
+                        node.module = import_mapping[node.module]
+                        updated = True
+
+                    # Check if the module prefix matches any keys in the mapping
+                    for old_import, new_import in import_mapping.items():
+                        if node.module and node.module.startswith(old_import + "."):
+                            suffix = node.module[len(old_import) :]
+                            node.module = new_import + suffix
+                            updated = True
+
+            # Only rewrite if needed
+            if updated:
+                logger.info(f"Updating imports in {file_path}")
 
                 if not context.dry_run:
+                    # Create a backup if needed
+                    if context.backup:
+                        backup_path = file_path.with_suffix(".py.bak")
+                        backup_path.write_text(content, encoding="utf-8")
+                        logger.info(f"Created backup at {backup_path}")
+
+                    # Format the new code
+                    if AST_DECOMPILER_AVAILABLE:
+                        new_content = ast_decompiler.decompile(tree)
+                    else:
+                        # Fall back to regex-based replacement
+                        new_content = content
+                        for old_import, new_import in import_mapping.items():
+                            new_content = re.sub(
+                                f"import\\s+{old_import}(\\s|$)",
+                                f"import {new_import}\\1",
+                                new_content,
+                            )
+                            new_content = re.sub(
+                                f"from\\s+{old_import}\\s+import",
+                                f"from {new_import} import",
+                                new_content,
+                            )
+
+                    # Write the new code
                     file_path.write_text(new_content, encoding="utf-8")
-                    logger.info(f"Updated imports in {file_path}")
+                else:
+                    logger.info(f"Would update imports in {file_path}")
+
+        except Exception as e:
+            logger.error(f"Error processing {file_path}: {e}")
+
+
+def fix_relative_imports(directory: str, context: "RefactoringContext") -> None:
+    """
+    Fix relative imports by converting them to absolute imports.
+
+    Args:
+        directory: The directory to process
+        context: The refactoring context
+    """
+    logger.info(f"Fixing relative imports in {directory}")
+
+    # Walk through the directory and update files
+    python_files = list(Path(directory).glob("**/*.py"))
+    logger.info(f"Found {len(python_files)} Python files to process")
+
+    package_name = os.path.basename(os.path.abspath(directory))
+
+    for file_path in python_files:
+        if "__pycache__" in str(file_path):
+            continue
+
+        try:
+            # Read the file
+            content = file_path.read_text(encoding="utf-8")
+
+            # Find relative imports
+            relative_import_pattern = r"from\s+\.\.?[.\w]*\s+import"
+            if not re.search(relative_import_pattern, content):
+                continue
+
+            # Parse the code
+            tree = ast.parse(content)
+
+            # Find all relative imports
+            imports = []
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.level > 0:
+                    imports.append(node)
+
+            # If no relative imports found, skip this file
+            if not imports:
+                continue
+
+            # Convert relative imports to absolute
+            updated = False
+            for node in imports:
+                # Calculate the absolute import path
+                rel_path = os.path.relpath(file_path.parent, directory)
+                if rel_path == ".":
+                    module_path = package_name
+                else:
+                    module_path = f"{package_name}.{rel_path.replace('/', '.')}"
+
+                # Calculate absolute import based on the level
+                path_parts = module_path.split(".")
+                if node.level <= len(path_parts):
+                    abs_prefix = ".".join(path_parts[: -node.level])
+
+                    if node.module:
+                        node.module = f"{abs_prefix}.{node.module}"
+                    else:
+                        node.module = abs_prefix
+
+                    node.level = 0
+                    updated = True
+
+            # Only rewrite if needed
+            if updated:
+                logger.info(f"Fixing relative imports in {file_path}")
+
+                if not context.dry_run:
+                    # Create a backup if needed
+                    if context.backup:
+                        backup_path = file_path.with_suffix(".py.bak")
+                        backup_path.write_text(content, encoding="utf-8")
+                        logger.info(f"Created backup at {backup_path}")
+
+                    # Format the new code
+                    if AST_DECOMPILER_AVAILABLE:
+                        new_content = ast_decompiler.decompile(tree)
+                    else:
+                        # This is a fallback, but won't actually fix the imports without
+                        # a proper decompiler or manual regex replacement specific to each file
+                        logger.warning(
+                            f"Unable to fully fix relative imports in {file_path} without ast_decompiler"
+                        )
+                        new_content = content
+
+                    # Write the new code
+                    file_path.write_text(new_content, encoding="utf-8")
+                else:
+                    logger.info(f"Would fix relative imports in {file_path}")
+
         except Exception as e:
             logger.error(f"Error processing {file_path}: {e}")
 

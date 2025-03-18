@@ -22,8 +22,10 @@ wheels/
 MANIFEST
 
 # Virtual Environment
-venv/
+.env
+.venv
 env/
+venv/
 ENV/
 
 # IDE
@@ -56,6 +58,7 @@ log/
 # Documentation
 docs/_build/
 docs/api/
+site/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -92,3 +95,5 @@ outputs/
 examples/outputs/
 
 .specstory
+reports
+mapping

@@ -2,6 +2,35 @@
 
 This module provides the core implementation of the RAG pipeline system,
 which orchestrates the retrieval, reranking, and generation stages.
+
+Note:
+    This module uses the unified pipeline framework from `pepperpy.core.pipeline`.
+    For new implementations, use the adapter pattern from `pepperpy.rag.pipeline.adapter`.
+
+Example:
+    >>> from pepperpy.rag.pipeline.adapter import RAGPipelineBuilderAdapter
+    >>> from pepperpy.rag.stages import RetrievalStage, GenerationStage
+    >>> from pepperpy.core.pipeline.base import PipelineContext
+    >>>
+    >>> # Create stages
+    >>> retrieval = RetrievalStage(...)
+    >>> generation = GenerationStage(...)
+    >>>
+    >>> # Create pipeline using the adapter
+    >>> builder = RAGPipelineBuilderAdapter()
+    >>> pipeline = await builder.create_simple_pipeline(
+    ...     retrieval_stage=retrieval,
+    ...     generation_stage=generation,
+    ...     name="my_rag"
+    ... )
+    >>>
+    >>> # Execute pipeline
+    >>> context = PipelineContext()
+    >>> result = await pipeline.execute(
+    ...     "What is RAG?",
+    ...     context
+    ... )
+    >>> print(result)  # Generated response
 """
 
 from dataclasses import dataclass, field
@@ -35,6 +64,34 @@ class PipelineConfig:
 
     This class defines the configuration for a RAG pipeline, including
     parameters for the retrieval, reranking, and generation stages.
+
+    Note:
+        This configuration class is used by both the legacy implementation
+        and the new unified framework through the adapter pattern.
+
+    Example:
+        >>> from pepperpy.rag.pipeline.adapter import RAGPipelineBuilderAdapter
+        >>> from pepperpy.rag.stages import RetrievalStage, GenerationStage
+        >>>
+        >>> # Create stages with configs
+        >>> retrieval_config = RetrievalStageConfig(...)
+        >>> generation_config = GenerationStageConfig(...)
+        >>>
+        >>> # Create pipeline config
+        >>> config = PipelineConfig(
+        ...     name="my_rag",
+        ...     description="Custom RAG pipeline",
+        ...     retrieval_config=retrieval_config,
+        ...     generation_config=generation_config,
+        ... )
+        >>>
+        >>> # Create pipeline with config
+        >>> builder = RAGPipelineBuilderAdapter()
+        >>> pipeline = await builder.create_simple_pipeline(
+        ...     retrieval_stage=RetrievalStage(retrieval_config),
+        ...     generation_stage=GenerationStage(generation_config),
+        ...     name=config.name,
+        ... )
     """
 
     # General pipeline parameters

@@ -8,19 +8,18 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from pepperpy.workflows.templates.public import (
+from pepperpy.workflows.public import (
     create_parameter,
     execute_template,
     get_template,
     list_templates,
     register_template,
 )
-from pepperpy.workflows.templates.types import (
+from pepperpy.workflows.types import (
     TemplateDefinition,
+    TemplateParameter,
     TemplateParameterType,
-    TemplateType,
 )
-from pepperpy.workflows.types import WorkflowResult
 
 
 class TestRegisterTemplate:
@@ -30,26 +29,23 @@ class TestRegisterTemplate:
         """Teste que register_template cria um template."""
         # Mock para o registro de templates
         with patch(
-            "pepperpy.workflows.templates.public.register_template"
+            "pepperpy.workflows.public._template_registry.register"
         ) as mock_register:
-            mock_register.return_value = TemplateDefinition(
+            # Create a template definition
+            template = TemplateDefinition(
                 name="test_template",
-                type=TemplateType.CONTENT_PROCESSING,
                 description="Test template",
                 parameters=[],
+                steps=[],
             )
 
-            template = register_template(
-                name="test_template",
-                template_type=TemplateType.CONTENT_PROCESSING,
-                description="Test template",
-                parameters=[],
-            )
+            # Register the template
+            register_template(template)
 
-            assert template is not None
-            assert template.name == "test_template"
-            assert template.type == TemplateType.CONTENT_PROCESSING
-            assert template.description == "Test template"
+            # Assert that the template was registered
+            mock_register.assert_called_once()
+            assert mock_register.call_args[0][0].name == "test_template"
+            assert mock_register.call_args[0][0].description == "Test template"
 
 
 class TestGetTemplate:
@@ -58,19 +54,20 @@ class TestGetTemplate:
     def test_get_template_returns_template(self):
         """Teste que get_template retorna um template."""
         # Mock para a recuperação de templates
-        with patch("pepperpy.workflows.templates.public.get_template") as mock_get:
-            mock_get.return_value = TemplateDefinition(
-                name="test_template",
-                type=TemplateType.CONTENT_PROCESSING,
-                description="Test template",
-                parameters=[],
-            )
+        with patch("pepperpy.workflows.public._template_registry.get") as mock_get:
+            # Setup the mock to return a template
+            mock_get.return_value = mock_template = AsyncMock()
+            mock_template.name = "test_template"
+            mock_template.description = "Test template"
+            mock_template.steps = []
+            mock_template.metadata = {"parameters": []}
 
+            # Get the template
             template = get_template("test_template")
 
+            # Assert that the template was returned
             assert template is not None
             assert template.name == "test_template"
-            assert template.type == TemplateType.CONTENT_PROCESSING
             assert template.description == "Test template"
 
 
@@ -80,7 +77,7 @@ class TestListTemplates:
     def test_list_templates_returns_template_names(self):
         """Teste que list_templates retorna nomes de templates."""
         # Mock para a listagem de templates
-        with patch("pepperpy.workflows.templates.public.list_templates") as mock_list:
+        with patch("pepperpy.workflows.public._template_registry.list") as mock_list:
             mock_list.return_value = ["template1", "template2", "template3"]
 
             templates = list_templates()
@@ -98,17 +95,31 @@ class TestExecuteTemplate:
     @pytest.mark.asyncio
     async def test_execute_template_runs_template(self):
         """Teste que execute_template executa um template."""
-        # Mock para a execução de templates
-        with patch(
-            "pepperpy.workflows.templates.public.execute_template",
-            new_callable=AsyncMock,
-        ) as mock_execute:
-            mock_execute.return_value = WorkflowResult(
-                status="success",
-                result={"output": "test_output.mp3"},
-                metadata={"duration": 120},
+        # Mock para a recuperação e execução de templates
+        with patch("pepperpy.workflows.public.get_template") as mock_get:
+            # Setup the mock to return a template
+            template = TemplateDefinition(
+                name="podcast_template",
+                description="Podcast template",
+                parameters=[
+                    TemplateParameter(
+                        name="source_url",
+                        description="URL da fonte de dados",
+                        type=TemplateParameterType.STRING,
+                        required=True,
+                    ),
+                    TemplateParameter(
+                        name="output_path",
+                        description="Caminho de saída",
+                        type=TemplateParameterType.STRING,
+                        required=True,
+                    ),
+                ],
+                steps=[],
             )
+            mock_get.return_value = template
 
+            # Execute the template
             result = await execute_template(
                 "podcast_template",
                 {
@@ -117,10 +128,12 @@ class TestExecuteTemplate:
                 },
             )
 
+            # Assert that the result was returned
             assert result is not None
-            assert result.status == "success"
-            assert result.result["output"] == "test_output.mp3"
-            assert result.metadata["duration"] == 120
+            assert result["status"] == "success"
+            assert result["template"] == "podcast_template"
+            assert result["parameters"]["source_url"] == "https://example.com/rss"
+            assert result["parameters"]["output_path"] == "test_output.mp3"
 
 
 class TestCreateParameter:
@@ -130,8 +143,8 @@ class TestCreateParameter:
         """Teste que create_parameter cria um parâmetro de template."""
         parameter = create_parameter(
             name="source_url",
-            parameter_type=TemplateParameterType.STRING,
             description="URL da fonte de dados",
+            param_type=TemplateParameterType.STRING,
             required=True,
         )
 

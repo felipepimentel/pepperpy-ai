@@ -1,147 +1,106 @@
-# Contributing to Pepperpy
+# Contributing to PepperPy
 
-First off, thank you for considering contributing to Pepperpy! It's people like you that make Pepperpy such a great tool.
+Thank you for your interest in contributing to PepperPy! This document provides guidelines and instructions for contributing to the project.
 
 ## Code of Conduct
 
-This project and everyone participating in it is governed by our Code of Conduct. By participating, you are expected to uphold this code.
+This project and everyone participating in it is governed by our [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
-## How Can I Contribute?
-
-### Reporting Bugs
-
-Before creating bug reports, please check the issue list as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
-
-* Use a clear and descriptive title
-* Describe the exact steps which reproduce the problem
-* Provide specific examples to demonstrate the steps
-* Describe the behavior you observed after following the steps
-* Explain which behavior you expected to see instead and why
-* Include any error messages and stack traces
-
-### Suggesting Enhancements
-
-Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
-
-* Use a clear and descriptive title
-* Provide a step-by-step description of the suggested enhancement
-* Provide specific examples to demonstrate the steps
-* Describe the current behavior and explain which behavior you expected to see instead
-* Explain why this enhancement would be useful
-
-### Pull Requests
-
-* Fill in the required template
-* Do not include issue numbers in the PR title
-* Include screenshots and animated GIFs in your pull request whenever possible
-* Follow the Python style guides
-* Include thoughtfully-worded, well-structured tests
-* Document new code based on the Documentation Styleguide
-* End all files with a newline
-
-## Development Process
+## How to Contribute
 
 1. Fork the repository
-2. Create a new branch for your feature
+2. Create a new branch for your feature or bugfix
 3. Make your changes
-4. Run the test suite
-5. Submit a Pull Request
+4. Write or update tests
+5. Run the test suite
+6. Submit a pull request
 
-### Setting Up Development Environment
+## Development Setup
 
-```bash
-# Clone your fork
-git clone https://github.com/your-username/pepperpy.git
-cd pepperpy
+1. Clone your fork:
+   ```bash
+   git clone https://github.com/yourusername/pepperpy.git
+   cd pepperpy
+   ```
 
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+2. Install dependencies:
+   ```bash
+   poetry install
+   ```
 
-# Install dependencies
-poetry install
+3. Run tests:
+   ```bash
+   poetry run pytest
+   ```
 
-# Install pre-commit hooks
-pre-commit install
-```
+4. Run linters:
+   ```bash
+   poetry run black .
+   poetry run isort .
+   poetry run mypy .
+   poetry run ruff check .
+   ```
 
-### Running Tests
+## Pull Request Process
 
-```bash
-# Run all tests
-pytest
+1. Update the README.md with details of changes to the interface
+2. Update the documentation if needed
+3. Add tests for new functionality
+4. Ensure all tests pass and linters are happy
+5. Update the CHANGELOG.md
+6. Submit the pull request
 
-# Run with coverage
-pytest --cov=pepperpy
+## Coding Standards
 
-# Run specific test file
-pytest tests/test_specific.py
-```
-
-### Code Style
-
-We use several tools to maintain code quality:
-
-* black for code formatting
-* isort for import sorting
-* mypy for type checking
-* flake8 for style guide enforcement
-* pylint for code analysis
-
-Run all checks:
-
-```bash
-# Format code
-black pepperpy/
-isort pepperpy/
-
-# Run type checking
-mypy pepperpy/
-
-# Run linters
-flake8 pepperpy/
-pylint pepperpy/
-```
+- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
+- Use [Google-style docstrings](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings)
+- Add type hints to all functions
+- Write tests for new functionality
+- Keep functions and methods focused and small
+- Use descriptive variable names
 
 ## Documentation
 
-We use MkDocs for documentation. To build the docs:
+- Update documentation for any changed functionality
+- Add docstrings to all public functions, classes, and methods
+- Include examples in docstrings
+- Keep documentation up to date with code changes
 
-```bash
-# Install documentation dependencies
-poetry install --with docs
+## Testing
 
-# Build documentation
-mkdocs build
+- Write unit tests for new functionality
+- Update existing tests when changing functionality
+- Aim for high test coverage
+- Use pytest fixtures and parametrize when appropriate
+- Test edge cases and error conditions
 
-# Serve documentation locally
-mkdocs serve
+## Git Commit Messages
+
+- Use the present tense ("Add feature" not "Added feature")
+- Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+- Limit the first line to 72 characters or less
+- Reference issues and pull requests liberally after the first line
+
+Example:
+```
+Add support for async pipeline stages
+
+- Implement async execution in Pipeline class
+- Update FunctionStage to support async functions
+- Add tests for async execution
+- Update documentation with async examples
+
+Fixes #123
 ```
 
-## Commit Messages
+## Questions or Problems?
 
-We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+If you have questions or run into problems, please:
 
-```
-<type>[optional scope]: <description>
+1. Check the [documentation](docs/)
+2. Search existing [issues](https://github.com/yourusername/pepperpy/issues)
+3. Open a new issue if needed
 
-[optional body]
+## License
 
-[optional footer(s)]
-```
-
-Types:
-* feat: A new feature
-* fix: A bug fix
-* docs: Documentation only changes
-* style: Changes that do not affect the meaning of the code
-* refactor: A code change that neither fixes a bug nor adds a feature
-* perf: A code change that improves performance
-* test: Adding missing tests or correcting existing tests
-* build: Changes that affect the build system or external dependencies
-* ci: Changes to our CI configuration files and scripts
-* chore: Other changes that don't modify src or test files
-
-## Questions?
-
-Feel free to open an issue with your question or contact the maintainers directly. 
+By contributing to PepperPy, you agree that your contributions will be licensed under its MIT License. 

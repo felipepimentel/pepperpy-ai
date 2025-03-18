@@ -1,4 +1,50 @@
-"""Pipeline builder for the RAG system."""
+"""Pipeline builder for the RAG system.
+
+This module provides builder classes for creating RAG pipelines with
+different configurations and components.
+
+Note:
+    For new code, use the adapter pattern from `pepperpy.rag.pipeline.adapter`
+    to create pipelines that are compatible with the unified framework.
+
+Example:
+    Using the new adapter pattern:
+    >>> from pepperpy.rag.pipeline.adapter import RAGPipelineBuilderAdapter
+    >>> from pepperpy.rag.stages import RetrievalStage, GenerationStage
+    >>> from pepperpy.core.pipeline.base import PipelineContext
+    >>>
+    >>> # Create stages
+    >>> retrieval = RetrievalStage(...)
+    >>> generation = GenerationStage(...)
+    >>>
+    >>> # Create pipeline using the adapter
+    >>> builder = RAGPipelineBuilderAdapter()
+    >>> pipeline = await builder.create_simple_pipeline(
+    ...     retrieval_stage=retrieval,
+    ...     generation_stage=generation,
+    ...     name="my_rag"
+    ... )
+    >>>
+    >>> # Execute pipeline
+    >>> context = PipelineContext()
+    >>> result = await pipeline.execute(
+    ...     "What is RAG?",
+    ...     context
+    ... )
+    >>> print(result)  # Generated response
+
+Migration Guide:
+    To migrate existing code to use the new framework:
+    1. Import the adapter builder:
+        from pepperpy.rag.pipeline.adapter import RAGPipelineBuilderAdapter
+    2. Create a builder instance:
+        builder = RAGPipelineBuilderAdapter()
+    3. Use the builder methods to create pipelines:
+        pipeline = await builder.create_simple_pipeline(...)
+    4. Execute with context:
+        context = PipelineContext()
+        result = await pipeline.execute(query, context)
+"""
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -26,7 +72,42 @@ from pepperpy.rag.pipeline.stages.retrieval import (
 
 @dataclass
 class RAGPipelineConfig:
-    """Configuration for the RAG pipeline."""
+    """Configuration for the RAG pipeline.
+
+    This class defines the configuration options for a RAG pipeline,
+    including its name, type, enabled state, and additional parameters.
+
+    Note:
+        For new code, use this configuration with the adapter pattern from
+        `pepperpy.rag.pipeline.adapter` to ensure compatibility with the
+        unified framework.
+
+    Example:
+        >>> from pepperpy.rag.pipeline.adapter import RAGPipelineBuilderAdapter
+        >>> from pepperpy.rag.stages import RetrievalStage, GenerationStage
+        >>>
+        >>> # Create pipeline config
+        >>> config = RAGPipelineConfig(
+        ...     name="custom_rag",
+        ...     type="qa_pipeline",
+        ...     params={
+        ...         "max_chunks": 5,
+        ...         "temperature": 0.7,
+        ...     }
+        ... )
+        >>>
+        >>> # Create stages with configs
+        >>> retrieval = RetrievalStage(RetrievalStageConfig(...))
+        >>> generation = GenerationStage(GenerationStageConfig(...))
+        >>>
+        >>> # Create pipeline using adapter
+        >>> builder = RAGPipelineBuilderAdapter()
+        >>> pipeline = await builder.create_simple_pipeline(
+        ...     retrieval_stage=retrieval,
+        ...     generation_stage=generation,
+        ...     name=config.name,
+        ... )
+    """
 
     name: str = "rag_pipeline"
     type: str = "rag_pipeline"

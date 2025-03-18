@@ -9,10 +9,55 @@ the Abstract Syntax Tree (AST) and other parsing tools.
 
 import ast
 from pathlib import Path
-from typing import Union
+from typing import Any, Union
 
-import astor
-import libcst as cst
+# Make imports more robust with fallbacks
+try:
+    import astor
+except ImportError:
+    # Define a dummy astor module for minimal functionality
+    class DummyAstor:
+        def to_source(self, ast_node):
+            return f"# Could not generate source from AST: astor module not available\n# AST: {ast_node}"
+
+    astor = DummyAstor()
+    print("Warning: astor module not available. Some functionality will be limited.")
+
+LIBCST_AVAILABLE = False
+try:
+    import libcst as cst
+
+    LIBCST_AVAILABLE = True
+except ImportError:
+    # Define a dummy cst module for minimal functionality
+    class DummyCst:
+        class CSTTransformer:
+            def leave_ClassDef(self, original_node, updated_node):
+                return updated_node
+
+        class ClassDef:
+            pass
+
+        class Arg:
+            pass
+
+        class Name:
+            pass
+
+        class IndentedBlock:
+            pass
+
+        class SimpleStatementLine:
+            pass
+
+        class Expr:
+            pass
+
+        class Ellipsis:
+            pass
+
+    cst = DummyCst()
+    print("Warning: libcst module not available. Some functionality will be limited.")
 
 from .common import RefactoringContext, logger
 
@@ -195,7 +240,7 @@ class MethodExtractor(ast.NodeTransformer):
         return self.generic_visit(node)
 
 
-class ProtocolTransformer(cst.CSTTransformer):
+class ProtocolTransformer(cst.CSTTransformer if LIBCST_AVAILABLE else object):
     """Converts classes to Protocol interfaces."""
 
     def __init__(self, class_name: str):
@@ -203,10 +248,12 @@ class ProtocolTransformer(cst.CSTTransformer):
         self.class_name = class_name
         self.found_class = False
 
-    def leave_ClassDef(
-        self, original_node: cst.ClassDef, updated_node: cst.ClassDef
-    ) -> cst.ClassDef:
+    def leave_ClassDef(self, original_node: Any, updated_node: Any) -> Any:
         """Process class definitions when leaving the node."""
+        if not LIBCST_AVAILABLE:
+            logger.error("Cannot convert to protocol: libcst module not available")
+            return updated_node
+
         if original_node.name.value == self.class_name:
             self.found_class = True
 
@@ -218,10 +265,6 @@ class ProtocolTransformer(cst.CSTTransformer):
                 bases = [protocol_base]
             else:
                 bases.append(protocol_base)
-
-            # Add Protocol import if not present
-            # Note: This is a simplification. A more complete solution would check
-            # if Protocol is already imported
 
             # Convert methods to protocol methods (removing implementation)
             new_body = []

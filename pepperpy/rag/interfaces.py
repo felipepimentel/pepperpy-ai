@@ -399,11 +399,43 @@ class PipelineStage(ABC):
 
     Pipeline stages are components in a processing pipeline
     that transform inputs into outputs.
+
+    Note:
+        This is a legacy interface. For new code, use
+        `pepperpy.core.pipeline.base.PipelineStage` instead.
+
+    Migration Guide:
+        To migrate to the new framework:
+        1. Import from pepperpy.core.pipeline.base instead:
+            from pepperpy.core.pipeline.base import PipelineStage
+        2. Create stages with proper type hints:
+            class MyStage(PipelineStage[Input, Output]):
+                async def process(self, data: Input, context: PipelineContext) -> Output:
+                    ...
+
+    Example:
+        >>> from pepperpy.core.pipeline.base import PipelineStage, PipelineContext
+        >>> from typing import List
+        >>>
+        >>> class TokenizerStage(PipelineStage[str, List[str]]):
+        ...     def __init__(self):
+        ...         super().__init__("tokenizer")
+        ...
+        ...     async def process(
+        ...         self,
+        ...         data: str,
+        ...         context: PipelineContext,
+        ...     ) -> List[str]:
+        ...         return data.split()
     """
 
     @abstractmethod
     async def process(self, inputs: Any, **kwargs: Any) -> Any:
         """Process the stage inputs.
+
+        Note:
+            This is a legacy method. For new code, use the new framework's
+            process method with proper type hints and context parameter.
 
         Args:
             inputs: The stage inputs

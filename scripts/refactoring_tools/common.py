@@ -9,8 +9,9 @@ including logging configuration and common data structures.
 
 import logging
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List
 
 # Configure logging
 logging.basicConfig(
@@ -127,3 +128,9 @@ class RefactoringContext:
     dry_run: bool = False
     verbose: bool = False
     backup: bool = True
+    exclude_dirs: List[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Initialize default values after initialization."""
+        if self.exclude_dirs is None:
+            self.exclude_dirs = []

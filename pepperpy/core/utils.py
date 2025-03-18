@@ -1,7 +1,12 @@
-"""Core utilities for PepperPy.
+"""Utility functions for PepperPy.
 
-This module provides core utility functions and classes used throughout the
-PepperPy framework, including logging, decorators, context managers, and more.
+This module provides utility functions used across the PepperPy framework.
+It includes functions for type checking, validation, and common operations.
+
+Example:
+    >>> from pepperpy.core.utils import validate_type
+    >>> validate_type("hello", str)  # No error
+    >>> validate_type(42, str)  # Raises TypeError
 """
 
 import contextlib
@@ -25,7 +30,12 @@ from typing import (
     TypeVar,
     Union,
     cast,
+    overload,
 )
+
+from pepperpy.core.pipeline.base import Pipeline as CorePipeline
+from pepperpy.core.pipeline.base import PipelineContext
+from pepperpy.core.pipeline.stages import FunctionStage
 
 # ---- Type Variables ----
 
@@ -33,6 +43,7 @@ from typing import (
 T = TypeVar("T")  # Input/value type
 R = TypeVar("R")  # Result/return type
 K = TypeVar("K")  # Key type
+V = TypeVar("V")  # Value type
 F = TypeVar("F", bound=Callable[..., Any])  # Function type
 
 # ---- Logging Utilities ----
@@ -729,62 +740,141 @@ class Pipeline(Generic[T, R]):
     """Pipeline for chaining operations.
 
     This class provides a pipeline for chaining operations together.
+    It is a backward-compatible wrapper around the new unified pipeline
+    framework, providing a simpler interface for basic use cases.
+
+    Note:
+        For new code or advanced use cases, use the unified pipeline
+        framework directly via `pepperpy.core.pipeline`.
+
+    Migration Guide:
+        To migrate to the new framework:
+        1. Import from pepperpy.core.pipeline instead:
+            from pepperpy.core.pipeline.base import Pipeline
+        2. Create stages with proper type hints:
+            from pepperpy.core.pipeline.stages import FunctionStage
+            stage = FunctionStage[str, str]("stage1", lambda x: x.upper())
+        3. Add stages to pipeline:
+            pipeline = Pipeline[str, str]("name")
+            pipeline.add_stage(stage)
+        4. Execute with context:
+            context = PipelineContext()
+            result = await pipeline.execute(data, context)
+
+    Example:
+        Using this wrapper:
+        >>> pipeline = Pipeline[str, str]("example")
+        >>> pipeline.add_step(lambda x: x.upper())
+        >>> pipeline.with_metadata("source", "user")
+        >>> result = await pipeline.execute("hello")
+        >>> assert result == "HELLO"
+
+        Using the unified framework:
+        >>> from pepperpy.core.pipeline.base import Pipeline, PipelineContext
+        >>> from pepperpy.core.pipeline.stages import FunctionStage
+        >>> pipeline = Pipeline[str, str]("example")
+        >>> stage = FunctionStage("upper", lambda x, ctx: x.upper())
+        >>> pipeline.add_stage(stage)
+        >>> context = PipelineContext()
+        >>> result = await pipeline.execute("hello", context)
+        >>> assert result == "HELLO"
     """
 
     def __init__(self, name: str):
         """Initialize the pipeline.
 
         Args:
-            name: The name of the pipeline
+            name (str): The name of the pipeline.
+                Used for identification and logging.
+
+        Example:
+            >>> pipeline = Pipeline[str, str]("example")
+            >>> assert pipeline.name == "example"
         """
         self._name = name
         self._steps: List[ChainableMethod] = []
         self._metadata: Dict[str, Any] = {}
+        self._pipeline = CorePipeline[T, R](name=name)
 
     def add_step(self, step: ChainableMethod) -> "Pipeline[T, R]":
         """Add a step to the pipeline.
 
+        This method wraps the step in a FunctionStage and adds it to
+        the underlying unified pipeline.
+
         Args:
-            step: The step to add
+            step (ChainableMethod): The step to add.
+                Must be a callable that takes input and returns output.
 
         Returns:
-            The pipeline, for method chaining
+            The pipeline instance for method chaining.
+
+        Example:
+            >>> pipeline = Pipeline[str, str]("example")
+            >>> pipeline.add_step(lambda x: x.upper())
+            >>> pipeline.add_step(lambda x: x + "!")
         """
         self._steps.append(step)
+        # Convert ChainableMethod to FunctionStage
+        stage = FunctionStage[Any, Any](
+            name=f"step_{len(self._steps)}", func=lambda data, context: step(data)
+        )
+        self._pipeline.add_stage(stage)
         return self
 
     def with_metadata(self, key: str, value: Any) -> "Pipeline[T, R]":
         """Add metadata to the pipeline.
 
+        This metadata will be added to the pipeline context when executing.
+
         Args:
-            key: The metadata key
-            value: The metadata value
+            key (str): The metadata key
+            value (Any): The metadata value
 
         Returns:
-            The pipeline, for method chaining
+            The pipeline instance for method chaining.
+
+        Example:
+            >>> pipeline = Pipeline[str, str]("example")
+            >>> pipeline.with_metadata("source", "user")
+            >>> pipeline.with_metadata("timestamp", "2024-03-18")
         """
         self._metadata[key] = value
         return self
 
-    def execute(self, input_value: T) -> R:
+    async def execute(self, input_value: T) -> R:
         """Execute the pipeline.
 
+        This method creates a pipeline context, adds metadata, and executes
+        the pipeline using the unified framework.
+
         Args:
-            input_value: The input value to the pipeline
+            input_value (T): The input value to process.
+                Must match the pipeline's input type.
 
         Returns:
-            The result of the pipeline
+            R: The pipeline's output after processing.
+                Will match the pipeline's output type.
+
+        Raises:
+            ValueError: If no steps have been added to the pipeline.
+
+        Example:
+            >>> pipeline = Pipeline[str, str]("example")
+            >>> pipeline.add_step(lambda x: x.upper())
+            >>> result = await pipeline.execute("hello")
+            >>> assert result == "HELLO"
         """
         if not self._steps:
             raise ValueError("Pipeline has no steps")
 
-        # Chain the steps together
-        current_step = self._steps[0]
-        for step in self._steps[1:]:
-            current_step.then(step)
-
         # Execute the pipeline
-        return cast(R, current_step(input_value))
+        context = PipelineContext()
+        for key, value in self._metadata.items():
+            context.set(key, value)
+
+        result = await self._pipeline.execute(input_value, context)
+        return cast(R, result)
 
 
 def create_pipeline(name: str) -> Pipeline[Any, Any]:
@@ -797,3 +887,271 @@ def create_pipeline(name: str) -> Pipeline[Any, Any]:
         A new pipeline
     """
     return Pipeline(name)
+
+
+def validate_type(value: Any, expected_type: Type[T]) -> T:
+    """Validate that a value is of the expected type.
+
+    Args:
+        value: The value to validate
+        expected_type: The expected type of the value
+
+    Returns:
+        The validated value, cast to the expected type
+
+    Raises:
+        TypeError: If the value is not of the expected type
+
+    Example:
+        >>> validate_type("hello", str)
+        'hello'
+        >>> validate_type(42, str)  # Raises TypeError
+        TypeError: Expected str but got int
+    """
+    if not isinstance(value, expected_type):
+        raise TypeError(
+            f"Expected {expected_type.__name__} but got {type(value).__name__}"
+        )
+    return value
+
+
+def validate_callable(func: Callable) -> Callable:
+    """Validate that a value is callable.
+
+    Args:
+        func: The value to validate
+
+    Returns:
+        The validated callable
+
+    Raises:
+        TypeError: If the value is not callable
+
+    Example:
+        >>> validate_callable(lambda x: x)  # No error
+        >>> validate_callable(42)  # Raises TypeError
+    """
+    if not callable(func):
+        raise TypeError(f"Expected callable but got {type(func).__name__}")
+    return func
+
+
+@overload
+def validate_dict(value: Any) -> Dict[Any, Any]: ...
+
+
+@overload
+def validate_dict(value: Any, key_type: Type[K]) -> Dict[K, Any]: ...
+
+
+@overload
+def validate_dict(value: Any, key_type: Type[K], value_type: Type[V]) -> Dict[K, V]: ...
+
+
+def validate_dict(
+    value: Any,
+    key_type: Optional[Type[Any]] = None,
+    value_type: Optional[Type[Any]] = None,
+) -> Dict[Any, Any]:
+    """Validate that a value is a dictionary with specific key and value types.
+
+    Args:
+        value: The value to validate
+        key_type: The expected type of dictionary keys (default: None)
+        value_type: The expected type of dictionary values (default: None)
+
+    Returns:
+        The validated dictionary
+
+    Raises:
+        TypeError: If the value is not a dictionary or if keys/values have wrong types
+
+    Example:
+        >>> validate_dict({"a": 1}, str, int)  # No error
+        >>> validate_dict({"a": "b"}, str, int)  # Raises TypeError
+    """
+    validate_type(value, dict)
+    if key_type is not None:
+        for k, v in value.items():
+            validate_type(k, key_type)
+    if value_type is not None:
+        for k, v in value.items():
+            validate_type(v, value_type)
+    return value
+
+
+@overload
+def validate_list(value: Any) -> List[Any]: ...
+
+
+@overload
+def validate_list(value: Any, item_type: Type[T]) -> List[T]: ...
+
+
+def validate_list(
+    value: Any,
+    item_type: Optional[Type[Any]] = None,
+) -> List[Any]:
+    """Validate that a value is a list with specific item type.
+
+    Args:
+        value: The value to validate
+        item_type: The expected type of list items (default: None)
+
+    Returns:
+        The validated list
+
+    Raises:
+        TypeError: If the value is not a list or if items have wrong type
+
+    Example:
+        >>> validate_list([1, 2, 3], int)  # No error
+        >>> validate_list([1, "2", 3], int)  # Raises TypeError
+    """
+    validate_type(value, list)
+    if item_type is not None:
+        for item in value:
+            validate_type(item, item_type)
+    return value
+
+
+def validate_optional(value: Any, expected_type: Type[T]) -> Optional[T]:
+    """Validate that a value is either None or of the expected type.
+
+    Args:
+        value: The value to validate
+        expected_type: The expected type of the value if not None
+
+    Returns:
+        The validated value
+
+    Raises:
+        TypeError: If the value is not None and not of the expected type
+
+    Example:
+        >>> validate_optional(None, str)  # No error
+        >>> validate_optional("hello", str)  # No error
+        >>> validate_optional(42, str)  # Raises TypeError
+    """
+    if value is not None:
+        return validate_type(value, expected_type)
+    return None
+
+
+def validate_union(value: Any, *types: Type) -> Any:
+    """Validate that a value is one of the expected types.
+
+    Args:
+        value: The value to validate
+        *types: The expected types
+
+    Returns:
+        The validated value
+
+    Raises:
+        TypeError: If the value is not one of the expected types
+
+    Example:
+        >>> validate_union(42, int, str)  # No error
+        >>> validate_union("hello", int, str)  # No error
+        >>> validate_union(True, int, str)  # Raises TypeError
+    """
+    for t in types:
+        if isinstance(value, t):
+            return value
+    type_names = " or ".join(t.__name__ for t in types)
+    raise TypeError(f"Expected {type_names} but got {type(value).__name__}")
+
+
+def get_metadata(context: Dict[str, Any], key: str) -> Any:
+    """Get metadata from a pipeline context.
+
+    Args:
+        context: The pipeline context dictionary
+        key: The metadata key to retrieve
+
+    Returns:
+        The metadata value
+
+    Raises:
+        KeyError: If the key does not exist in the context
+
+    Example:
+        >>> context = {"metadata": {"key": "value"}}
+        >>> get_metadata(context, "key")
+        'value'
+    """
+    if "metadata" not in context:
+        raise KeyError("No metadata in context")
+    if key not in context["metadata"]:
+        raise KeyError(f"No metadata for key '{key}'")
+    return context["metadata"][key]
+
+
+def set_metadata(context: Dict[str, Any], key: str, value: Any) -> None:
+    """Set metadata in a pipeline context.
+
+    Args:
+        context: The pipeline context dictionary
+        key: The metadata key to set
+        value: The metadata value to set
+
+    Example:
+        >>> context = {"metadata": {}}
+        >>> set_metadata(context, "key", "value")
+        >>> assert context["metadata"]["key"] == "value"
+    """
+    if "metadata" not in context:
+        context["metadata"] = {}
+    context["metadata"][key] = value
+
+
+def update_metadata(context: Dict[str, Any], updates: Dict[str, Any]) -> None:
+    """Update multiple metadata values in a pipeline context.
+
+    Args:
+        context: The pipeline context dictionary
+        updates: Dictionary of metadata updates
+
+    Example:
+        >>> context = {"metadata": {}}
+        >>> update_metadata(context, {"key1": "value1", "key2": "value2"})
+        >>> assert context["metadata"]["key1"] == "value1"
+        >>> assert context["metadata"]["key2"] == "value2"
+    """
+    if "metadata" not in context:
+        context["metadata"] = {}
+    context["metadata"].update(updates)
+
+
+def clear_metadata(context: Dict[str, Any]) -> None:
+    """Clear all metadata from a pipeline context.
+
+    Args:
+        context: The pipeline context dictionary
+
+    Example:
+        >>> context = {"metadata": {"key": "value"}}
+        >>> clear_metadata(context)
+        >>> assert context["metadata"] == {}
+    """
+    if "metadata" in context:
+        context["metadata"].clear()
+
+
+def has_metadata(context: Dict[str, Any], key: str) -> bool:
+    """Check if a metadata key exists in a pipeline context.
+
+    Args:
+        context: The pipeline context dictionary
+        key: The metadata key to check
+
+    Returns:
+        True if the key exists, False otherwise
+
+    Example:
+        >>> context = {"metadata": {"key": "value"}}
+        >>> assert has_metadata(context, "key")
+        >>> assert not has_metadata(context, "missing")
+    """
+    return "metadata" in context and key in context["metadata"]

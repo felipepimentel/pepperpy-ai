@@ -10,15 +10,14 @@ em conjunto.
 import asyncio
 import unittest
 from typing import Any, Dict
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from pepperpy.core.intent import (
     process_intent,
     recognize_intent,
     register_intent_handler,
 )
-from pepperpy.workflows.templates.public import execute_template
-from pepperpy.workflows.types import WorkflowResult
+from pepperpy.workflows.public import execute_template
 
 
 class TestIntentTemplateIntegration(unittest.TestCase):
@@ -30,15 +29,22 @@ class TestIntentTemplateIntegration(unittest.TestCase):
         self.mock_execute_template = AsyncMock()
 
         # Configurar resultado do mock
-        mock_result = MagicMock(spec=WorkflowResult)
-        mock_result.status = "success"
-        mock_result.result = {"output_path": "test_output/podcast.mp3"}
-        self.mock_execute_template.return_value = mock_result
+        self.mock_execute_template.return_value = {
+            "status": "success",
+            "template": "news_podcast",
+            "parameters": {
+                "source_url": "https://test.example.com",
+                "output_path": "test_output/podcast.mp3",
+                "voice": "en",
+                "max_articles": 5,
+                "summary_length": 150,
+            },
+        }
 
         # Patches
         self.patches = [
             patch(
-                "pepperpy.workflows.templates.public.execute_template",
+                "pepperpy.workflows.public.execute_template",
                 self.mock_execute_template,
             ),
         ]
@@ -73,9 +79,9 @@ class TestIntentTemplateIntegration(unittest.TestCase):
             result = await execute_template("news_podcast", template_params)
 
             return {
-                "status": result.status,
-                "output_path": result.result.get("output_path"),
-                "message": f"Podcast gerado com sucesso em {result.result.get('output_path')}",
+                "status": result["status"],
+                "output_path": result["parameters"]["output_path"],
+                "message": f"Podcast gerado com sucesso em {result['parameters']['output_path']}",
             }
 
         # Registrar o manipulador
