@@ -1,0 +1,211 @@
+<!--
+@title: AI Response Validation and Hallucination Prevention
+@description: Guidelines for validating AI-generated code, preventing inaccuracies, and ensuring consistency with project standards
+@glob: **/*
+@priority: 95
+-->
+
+# AI Response Validation and Hallucination Prevention
+
+## Overview
+
+This rule provides strategies to prevent AI hallucinations (fabricated or incorrect responses) and ensure AI-generated code adheres to project standards. Following these guidelines will reduce errors, inconsistencies, and inaccuracies in AI-assisted development.
+
+## Recognizing AI Hallucinations
+
+Common signs of AI hallucinations in code generation:
+
+1. **Referencing non-existent modules** or functions
+2. **Creating inconsistent interfaces** that don't match existing patterns
+3. **Inventing API methods** that don't exist in the framework
+4. **Generating incorrect import statements**
+5. **Producing code with syntax errors** or logical inconsistencies
+
+## Validation Process for AI-Generated Code
+
+### 1. Pre-Generation Context Setting
+
+Before requesting code from AI:
+
+```bash
+# Always scan the specific module first
+python scripts/refactor.py grep-search --query "related_function_name" --include_pattern "*.py"
+
+# Identify existing patterns
+python scripts/refactor.py analyze-cohesion --file path/to/similar/file.py
+```
+
+### 2. Post-Generation Validation
+
+After receiving AI-generated code:
+
+```bash
+# Validate imports
+python scripts/refactor.py validate --directory pepperpy
+
+# Check for circular dependencies
+python scripts/refactor.py detect-circular --directory pepperpy
+
+# Detect code smells
+python scripts/refactor.py detect-smells --file path/to/generated/file.py
+```
+
+## AI Response Verification Checklist
+
+For each AI-generated code sample, verify:
+
+1. **✓ All imports resolve** to actual modules
+2. **✓ Referenced functions exist** in the imported modules
+3. **✓ Type annotations match** the project's type system
+4. **✓ Error handling follows** project conventions
+5. **✓ Method signatures align** with existing patterns
+6. **✓ Naming conventions match** the codebase style
+
+## Progressive Implementation Approach
+
+Instead of generating large code blocks at once:
+
+1. **Start with skeleton structure**
+2. **Implement and validate one component** at a time
+3. **Verify each component** before proceeding
+4. **Integrate with existing code** incrementally
+
+Example workflow:
+```bash
+# First, generate and validate the interface
+python scripts/refactor.py gen-class --name MyInterface --output path/to/interface.py --desc "Description"
+
+# Then implement and validate the concrete implementation
+python scripts/refactor.py gen-class --name MyImplementation --output path/to/implementation.py
+```
+
+## Preventing Framework Inconsistencies
+
+### 1. Provide Explicit Context
+
+When requesting AI assistance:
+
+* **Share relevant file sections** to establish patterns
+* **Specify exact import paths** to use
+* **Reference similar implementations** as examples
+
+### 2. Use Template-Based Generation
+
+Always use the project's code generation tools instead of free-form generation:
+
+```bash
+# Generate new module with proper structure
+python scripts/refactor.py gen-module --output pepperpy/new_module.py --desc "Description"
+
+# Generate new provider implementation with proper structure
+python scripts/refactor.py gen-provider --name NewProvider --output path/to/provider.py --desc "Description"
+```
+
+### 3. Verify Framework Integration
+
+Test AI-generated code integration with the framework:
+
+```bash
+# Run specific tests for the generated component
+python -m pytest tests/path/to/relevant_test.py -v
+
+# Check for import errors
+python -c "import pepperpy.path.to.new_module"
+```
+
+## Common Hallucination Scenarios and Solutions
+
+### 1. Non-Existent Module References
+
+❌ **Hallucination:**
+```python
+from pepperpy.nonexistent_module import SomeClass  # This module doesn't exist
+```
+
+✅ **Prevention:**
+```bash
+# List actual modules to reference
+find pepperpy -type d -not -path "*/\.*" | sort
+```
+
+### 2. Incorrect API Usage
+
+❌ **Hallucination:**
+```python
+# Incorrect: Using API methods that don't exist
+result = retriever.search_documents(query)  # Method doesn't exist
+```
+
+✅ **Prevention:**
+```bash
+# Extract the actual API to reference
+python scripts/refactor.py extract-api --module pepperpy/rag
+```
+
+### 3. Inconsistent Parameter Names
+
+❌ **Hallucination:**
+```python
+# Inconsistent: Using different parameter names than the rest of the codebase
+def process(text_content, opts=None):  # Should be 'content' and 'options'
+    pass
+```
+
+✅ **Prevention:**
+```bash
+# Search for similar functions to match parameter names
+python scripts/refactor.py grep-search --query "def process" --include_pattern "*.py"
+```
+
+## Implementing Guard Rails
+
+Establish these preventive measures:
+
+1. **Create test fixtures** for new components
+2. **Implement runtime type checking** for critical interfaces
+3. **Add assertion statements** to verify assumptions
+4. **Document expected behavior** clearly in docstrings
+
+Example guard rails:
+```python
+def process_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Process the input data and return results.
+    
+    Args:
+        data: Input data with required 'id' and 'content' fields
+        
+    Returns:
+        Processed data with 'results' field
+        
+    Raises:
+        ValueError: If required fields are missing
+    """
+    # Guard rail: validate input
+    if not isinstance(data, dict):
+        raise TypeError(f"Expected dict, got {type(data).__name__}")
+        
+    # Guard rail: check required fields
+    if 'id' not in data or 'content' not in data:
+        raise ValueError("Missing required fields: 'id' and 'content'")
+    
+    # Implementation
+    # ...
+    
+    # Guard rail: validate output
+    result = {"results": [...]}
+    assert "results" in result, "Result must contain 'results' field"
+    return result
+```
+
+## Verification Automation
+
+Create automated verification for AI-generated code:
+
+```bash
+# Create a verification script for AI code
+python scripts/refactor.py gen-module --output scripts/verify_ai_code.py --desc "Verification tool for AI-generated code"
+```
+
+## Conclusion
+
+By following these AI response validation guidelines, you can prevent hallucinations, ensure accuracy, and maintain consistency in AI-generated code. Always verify AI outputs against actual project structures and use the project's refactoring tools to validate and integrate new code properly. 

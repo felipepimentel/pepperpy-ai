@@ -1,0 +1,188 @@
+<!--
+@title: Code Duplication Prevention
+@description: Strategies and tools to prevent code duplication, promote reuse, and maintain DRY principles
+@glob: **/*.py
+@priority: 80
+-->
+
+# Code Duplication Prevention
+
+## Overview
+
+This rule provides strategies and tools to detect and prevent code duplication in the PepperPy framework. Duplicate code increases maintenance burden, introduces inconsistencies, and hinders evolution of the codebase.
+
+## Identifying Duplication
+
+### Using Refactoring Tools
+
+Always use the refactoring tools to identify potential duplication before implementing new components:
+
+```bash
+python scripts/refactor.py detect-smells --directory pepperpy
+```
+
+For file-specific checks:
+
+```bash
+python scripts/refactor.py detect-smells --file path/to/file.py
+```
+
+### Common Duplication Patterns
+
+Watch for these common duplication patterns:
+
+1. **Copy-pasted utility functions** - Extract to common utility modules instead
+2. **Similar provider implementations** - Use inheritance or composition
+3. **Repeated validation logic** - Extract to shared validators
+4. **Duplicate configuration parsing** - Consolidate in configuration managers
+5. **Repeated HTTP/API call patterns** - Create reusable client abstractions
+
+## Prevention Strategies
+
+### 1. Mandatory Code Review Process
+
+Before implementing new functionality:
+
+1. Search the codebase for similar implementations:
+   ```bash
+   python scripts/refactor.py grep-search --query "function_pattern"
+   ```
+
+2. Check for cohesion with existing modules:
+   ```bash
+   python scripts/refactor.py analyze-cohesion --file path/to/file.py
+   ```
+
+### 2. Extract Shared Components
+
+When similar code is detected across multiple files:
+
+1. Extract common functionality:
+   ```bash
+   python scripts/refactor.py extract-method --file path/to/file.py --start 10 --end 20 --name new_method
+   ```
+
+2. Move the extracted code to appropriate utility modules:
+   ```bash
+   python scripts/refactor.py restructure-files --mapping file_moves.json
+   ```
+
+### 3. Consolidate Small Modules
+
+Identify and merge small, related modules:
+
+```bash
+python scripts/refactor.py find-small-dirs --directory pepperpy --max-files 2
+python scripts/refactor.py auto-consolidate --directory pepperpy --max-files 2 --exclude tests,examples
+```
+
+### 4. Composition Over Repetition
+
+Use these design patterns to avoid duplication:
+
+1. **Strategy Pattern** - For interchangeable algorithms
+2. **Template Method** - For common processes with varying steps
+3. **Decorator** - For adding behavior without repetition
+4. **Factory** - For standardized object creation
+
+Example of generating a factory:
+```bash
+python scripts/refactor.py gen-factory --class BaseProvider --output pepperpy/factory.py
+```
+
+## Refactoring Workflow
+
+When refactoring duplicate code:
+
+1. **Analyze impact before changes**:
+   ```bash
+   python scripts/refactor.py analyze-impact --operation files --mapping changes.json
+   ```
+
+2. **Create a regression test suite** for affected components
+
+3. **Implement refactoring** with appropriate design patterns
+
+4. **Update imports** across the codebase:
+   ```bash
+   python scripts/refactor.py update-imports --old old.module --new new.module
+   ```
+
+5. **Validate changes** with tests and integration checks
+
+## Monitoring
+
+Set up regular checks for duplication:
+
+1. Schedule weekly scans:
+   ```bash
+   python scripts/refactor.py detect-smells --directory pepperpy
+   ```
+
+2. Analyze module cohesion periodically:
+   ```bash
+   for file in $(find pepperpy -name "*.py"); do
+     python scripts/refactor.py analyze-cohesion --file $file
+   done
+   ```
+
+## Implementation Examples
+
+### Bad (Duplicate Code)
+
+```python
+# In file1.py
+def process_data(data):
+    if not data:
+        return None
+    cleaned = {k: v for k, v in data.items() if v is not None}
+    result = {}
+    for key, value in cleaned.items():
+        result[key.lower()] = str(value).strip()
+    return result
+
+# In file2.py (duplicate)
+def clean_input(input_data):
+    if not input_data:
+        return None
+    cleaned = {k: v for k, v in input_data.items() if v is not None}
+    result = {}
+    for key, value in cleaned.items():
+        result[key.lower()] = str(value).strip()
+    return result
+```
+
+### Good (Extracted Common Utility)
+
+```python
+# In pepperpy/utils/data.py
+def normalize_dict(data: Dict[str, Any]) -> Optional[Dict[str, str]]:
+    """Normalize dictionary by removing None values and standardizing keys/values.
+    
+    Args:
+        data: Input dictionary to normalize
+        
+    Returns:
+        Normalized dictionary or None if input is empty
+    """
+    if not data:
+        return None
+    cleaned = {k: v for k, v in data.items() if v is not None}
+    return {k.lower(): str(v).strip() for k, v in cleaned.items()}
+
+# In file1.py
+from pepperpy.utils.data import normalize_dict
+
+def process_data(data):
+    return normalize_dict(data)
+
+# In file2.py
+from pepperpy.utils.data import normalize_dict
+
+def clean_input(input_data):
+    return normalize_dict(input_data)
+```
+
+## Conclusion
+
+Following these duplication prevention strategies will ensure the codebase remains maintainable, consistent, and aligned with the DRY (Don't Repeat Yourself) principle. Use the refactoring tools regularly to detect and eliminate duplication. 

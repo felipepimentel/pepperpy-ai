@@ -1,0 +1,237 @@
+<!--
+@title: PepperPy Rules Management
+@description: Guidelines for creating, organizing, and updating Cursor rules for the PepperPy framework
+@glob: .cursor/rules/**/*.mdc
+@priority: 1100
+-->
+
+# PepperPy Rules Management
+
+## Overview
+
+This document defines standards for creating, organizing, and maintaining Cursor rules for the PepperPy framework. These rules ensure that AI tools have consistent, up-to-date information about the project structure, coding standards, and implementation patterns.
+
+## Rules System Architecture
+
+The PepperPy rules system follows a hierarchical numbering convention:
+
+```
+.cursor/rules/
+├── 000-framework-architecture.mdc    # Core framework architecture (highest priority)
+├── 001-coding-standards.mdc          # General coding standards 
+├── 002-file-management.mdc           # File organization and structure
+├── ...
+├── 100-rag-system.mdc                # Domain-specific: RAG
+├── 101-workflow-system.mdc           # Domain-specific: Workflows
+├── ...
+├── 200-rules-management.mdc          # Meta: Rules management (this file)
+├── 201-self-update-system.mdc        # Meta: Self-updating mechanisms
+├── ...
+├── auto-generated/                   # Auto-generated rules
+│   ├── module-map.mdc                # Generated module map
+│   ├── class-hierarchy.mdc           # Generated class hierarchy
+│   └── ...
+```
+
+### Rule Categories
+
+1. **000-099**: Core framework rules
+   - Architecture, standards, and general principles
+   - Highest priority and broadest application
+
+2. **100-199**: Domain-specific rules
+   - Rules for specific domains (RAG, workflows, etc.)
+   - Applied to specific subsets of the codebase
+
+3. **200-299**: Meta rules
+   - Rules about rules
+   - Self-management and update mechanisms
+
+4. **300-399**: Documentation rules
+   - Standards for documentation
+   - API documentation patterns
+
+5. **400-499**: Tooling rules
+   - CI/CD pipelines
+   - Development tools integration
+
+6. **500-599**: Extension rules
+   - Plugin development
+   - Extension patterns
+
+7. **auto-generated/**: Auto-generated rules
+   - Rules created by automated processes
+   - Updated when the codebase changes
+
+## Rule Structure
+
+Each rule file must follow this structure:
+
+```markdown
+<!--
+@title: Rule Title
+@description: Brief description of the rule
+@glob: Pattern matching files this rule applies to
+@priority: Numeric priority (higher values = higher priority)
+-->
+
+# Rule Title
+
+## Overview
+
+Brief description of the rule's purpose and scope.
+
+## Section 1
+
+Content for section 1...
+
+## Section 2
+
+Content for section 2...
+
+...
+
+## Conclusion
+
+Summary of the rule.
+```
+
+### Required Metadata
+
+- **@title**: Concise title describing the rule
+- **@description**: Brief summary for rule selection UI
+- **@glob**: Pattern(s) matching files the rule applies to
+- **@priority**: Numeric priority value (higher = more important)
+
+Optional metadata:
+- **@author**: Rule author(s)
+- **@version**: Rule version
+- **@last_updated**: Last update timestamp
+- **@related**: Related rule IDs
+
+## Rule Creation Guidelines
+
+When creating new rules:
+
+1. **Use the correct numbering**: Follow the numbering convention for the appropriate category
+2. **Set appropriate scope**: Use glob patterns to limit rule application to relevant files
+3. **Include examples**: Provide clear code examples
+4. **Keep focused**: Each rule should have a clear, specific purpose
+5. **Avoid duplication**: Check for overlap with existing rules
+6. **Include implementation patterns**: Show how to apply the rule in practice
+
+### Example Rule Creation Workflow
+
+1. Identify a need for a new rule
+2. Determine the appropriate category
+3. Find the next available number in that category
+4. Create a file with the appropriate name (`NNN-descriptive-name.mdc`)
+5. Include required metadata
+6. Structure the content with clear sections
+7. Add the rule to version control
+
+## Rule Update System
+
+The PepperPy rules system includes mechanisms for self-updating:
+
+### Automatic Updates
+
+Rules can be automatically generated or updated by:
+
+1. **Module scanner**: Scans the codebase and updates module maps
+2. **API analyzer**: Analyzes public APIs and updates interface documentation
+3. **Dependency tracker**: Tracks third-party dependencies and updates compatibility info
+
+### Manual Update Process
+
+For manual updates:
+
+1. Identify the rule(s) needing updates
+2. Make the necessary changes
+3. Update the `@last_updated` timestamp
+4. Increment the `@version` if applicable
+5. Commit the changes to version control
+
+### Update Triggers
+
+Rules should be updated when:
+
+1. Framework architecture changes
+2. New modules or domains are added
+3. Coding standards evolve
+4. Implementation patterns change
+5. Dependencies are updated
+6. Significant bugs are fixed
+
+## Rule Usage Patterns
+
+AI tools should use these rules as follows:
+
+1. **Before creating new files**: Consult relevant structure and naming rules
+2. **When writing code**: Follow coding standard rules
+3. **When implementing components**: Use domain-specific pattern rules
+4. **When refactoring**: Check impacts against architectural rules
+
+### Pattern for Code Generation
+
+When generating new code:
+
+```
+1. Identify the domain (e.g., RAG, LLM, Workflow)
+2. Check domain-specific rules
+3. Check file structure rules
+4. Check coding standard rules
+5. Generate code following all applicable rules
+6. Validate against examples
+```
+
+### Pattern for Code Modification
+
+When modifying existing code:
+
+```
+1. Identify the file's domain
+2. Check domain-specific rules
+3. Understand existing patterns in the file
+4. Make changes respecting both the rules and existing patterns
+5. Ensure backward compatibility if required
+```
+
+## Rule Maintenance Automation
+
+The `rules-updater.py` script automates rules maintenance:
+
+```python
+# Usage: python scripts/rules-updater.py [command]
+#
+# Commands:
+#   scan      - Scan codebase and update module maps
+#   validate  - Validate all rules for syntax and completeness
+#   generate  - Generate new rules from templates
+#   version   - Update version numbers and timestamps
+```
+
+This script can be run:
+- Manually during development
+- As a pre-commit hook
+- In CI/CD pipelines
+
+## Self-Updating Mechanism
+
+The rules system includes self-updating capabilities through these tools:
+
+1. **Module Scanner**: Updates module structure information
+   - Runs: `python scripts/rules-updater.py scan`
+   - Updates: `auto-generated/module-map.mdc`
+
+2. **API Analyzer**: Updates interface documentation
+   - Runs: `python scripts/rules-updater.py analyze-api`
+   - Updates: `auto-generated/api-docs.mdc`
+
+3. **Rule Validator**: Ensures rules are properly formatted
+   - Runs: `python scripts/rules-updater.py validate`
+   - Reports: Validation issues with rules
+
+## Conclusion
+
+The PepperPy rules system provides a comprehensive framework for guiding AI-assisted development. By following these standards for rule creation, organization, and updating, we ensure that AI tools have access to accurate, consistent information about the project. 

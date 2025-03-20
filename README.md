@@ -110,6 +110,36 @@ id = await provider.create("collection", {"key": "value"})
    - Integration test providers
    - End-to-end test flows
 
+## Cursor Rules System
+
+This project uses Cursor rules to ensure consistency and quality in AI-assisted development. The rules provide guidance on architecture, coding standards, and implementation patterns.
+
+### Initialize Rules System
+
+To initialize the rules system:
+
+```bash
+# Make the initialization script executable
+chmod +x scripts/initialize-rules.sh
+
+# Run the initialization script
+./scripts/initialize-rules.sh
+```
+
+This will:
+1. Backup any existing rules
+2. Set up the new rules structure
+3. Create auto-generated rules
+
+### Rule Management Tools
+
+The project includes tools for managing rules:
+
+- **Rules Updater**: `scripts/rules-updater.py` - Scan codebase, validate rules, generate new rules
+- **Rules Initialization**: `scripts/initialize-rules.sh` - Initialize the rules system
+
+For more information, see [.cursor/rules/README.md](.cursor/rules/README.md)
+
 ## Contributing
 
 1. Fork the repository

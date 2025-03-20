@@ -1,0 +1,414 @@
+<!--
+@title: PepperPy RAG System
+@description: Guidelines for implementing and extending the Retrieval Augmented Generation system in PepperPy
+@glob: pepperpy/rag/**/*.py
+@priority: 700
+-->
+
+# PepperPy RAG System
+
+## Overview
+
+The Retrieval Augmented Generation (RAG) module in PepperPy provides a comprehensive system for document ingestion, embedding, storage, retrieval, and generation. This rule provides guidelines for implementing and extending the RAG system.
+
+## Architecture
+
+The RAG system is organized into several key components:
+
+```
+pepperpy/rag/
+├── __init__.py               # Public API exports
+├── provider.py               # RAG provider interface
+├── models.py                 # Core domain models
+├── exceptions.py             # Domain-specific exceptions
+├── utils.py                  # Utility functions
+│
+├── document/                 # Document handling
+│   ├── __init__.py
+│   ├── loaders.py            # Document loaders for various formats
+│   ├── processors.py         # Text processing utilities
+│   └── splitters.py          # Text splitting algorithms
+│
+├── embedding/                # Embedding functionality
+│   ├── __init__.py
+│   ├── provider.py           # Embedding provider interface
+│   └── providers/            # Embedding implementations
+│       ├── __init__.py
+│       ├── openai.py         # OpenAI embeddings
+│       ├── huggingface.py    # HuggingFace embeddings
+│       └── sentence_transformers.py  # Sentence Transformers
+│
+├── retrieval/                # Document retrieval
+│   ├── __init__.py
+│   ├── provider.py           # Retrieval provider interface
+│   ├── query.py              # Query processing
+│   ├── reranking.py          # Result reranking
+│   └── providers/            # Retrieval implementations
+│       ├── __init__.py
+│       ├── chroma.py         # ChromaDB retrieval
+│       ├── pinecone.py       # Pinecone retrieval
+│       └── faiss.py          # FAISS retrieval
+│
+└── providers/                # Complete RAG implementations
+    ├── __init__.py
+    ├── basic.py              # Simple RAG implementation
+    ├── hybrid.py             # Hybrid search implementation
+    └── advanced.py           # Advanced RAG with reranking
+```
+
+## Core Models
+
+The RAG system is built around these core domain models:
+
+```python
+class Document:
+    """Represents a document in the RAG system."""
+    id: str
+    content: str
+    metadata: dict[str, Any]
+    embedding: Optional[list[float]]
+    chunks: list[DocumentChunk]
+    
+class DocumentChunk:
+    """Represents a chunk of a document."""
+    id: str
+    content: str
+    metadata: dict[str, Any]
+    embedding: Optional[list[float]]
+    document_id: str
+    
+class EmbeddingVector(TypedDict):
+    """Embedding vector with metadata."""
+    id: str
+    values: list[float]
+    metadata: dict[str, Any]
+    
+class RetrievalResult:
+    """Result of a retrieval operation."""
+    document: Document
+    score: float
+    metadata: dict[str, Any]
+```
+
+## Provider Interfaces
+
+### RAG Provider
+
+The main RAG provider interface:
+
+```python
+class RAGProvider(BaseProvider):
+    """Provider interface for RAG functionality."""
+    
+    async def add_document(self, document: Document) -> str:
+        """Add a document to the RAG system."""
+        ...
+        
+    async def retrieve(
+        self, 
+        query: str,
+        top_k: int = 5,
+        filters: Optional[dict[str, Any]] = None
+    ) -> list[RetrievalResult]:
+        """Retrieve documents based on a query."""
+        ...
+        
+    async def generate(
+        self,
+        query: str,
+        top_k: int = 5,
+        system_prompt: Optional[str] = None,
+        filters: Optional[dict[str, Any]] = None
+    ) -> str:
+        """Generate a response based on retrieved documents."""
+        ...
+```
+
+### Embedding Provider
+
+```python
+class EmbeddingProvider(BaseProvider):
+    """Provider interface for text embeddings."""
+    
+    async def embed_text(self, text: str) -> list[float]:
+        """Generate embeddings for text."""
+        ...
+        
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings for multiple texts."""
+        ...
+```
+
+### Retrieval Provider
+
+```python
+class RetrievalProvider(BaseProvider):
+    """Provider interface for document retrieval."""
+    
+    async def add_vectors(self, vectors: list[EmbeddingVector]) -> list[str]:
+        """Add vectors to the retrieval system."""
+        ...
+        
+    async def search(
+        self,
+        query_vector: list[float],
+        top_k: int = 5,
+        filters: Optional[dict[str, Any]] = None
+    ) -> list[RetrievalResult]:
+        """Search for vectors similar to the query vector."""
+        ...
+```
+
+## Implementation Patterns
+
+### Document Processing Pipeline
+
+The document processing pipeline follows these steps:
+
+1. **Loading**: Load documents from various sources
+2. **Preprocessing**: Clean and normalize text
+3. **Chunking**: Split into manageable chunks
+4. **Embedding**: Generate vector representations
+5. **Indexing**: Store in a vector database
+
+Implementation should follow this pattern:
+
+```python
+async def process_document(self, document: Document) -> Document:
+    """Process a document through the RAG pipeline."""
+    # 1. Preprocess document
+    preprocessed = self._preprocess_document(document)
+    
+    # 2. Split into chunks
+    chunks = self._split_document(preprocessed)
+    preprocessed.chunks = chunks
+    
+    # 3. Generate embeddings
+    if self._embedding_provider:
+        # Embed document if needed
+        if self.config.embed_documents:
+            preprocessed.embedding = await self._embedding_provider.embed_text(
+                preprocessed.content
+            )
+        
+        # Embed chunks
+        chunk_texts = [chunk.content for chunk in chunks]
+        chunk_embeddings = await self._embedding_provider.embed_texts(chunk_texts)
+        
+        for chunk, embedding in zip(chunks, chunk_embeddings):
+            chunk.embedding = embedding
+    
+    # 4. Store in vector database
+    if self._retrieval_provider:
+        chunk_vectors = [
+            {
+                "id": chunk.id,
+                "values": chunk.embedding,
+                "metadata": {
+                    "content": chunk.content,
+                    "document_id": document.id,
+                    **chunk.metadata
+                }
+            }
+            for chunk in chunks if chunk.embedding is not None
+        ]
+        
+        await self._retrieval_provider.add_vectors(chunk_vectors)
+    
+    return preprocessed
+```
+
+### Query Processing Pipeline
+
+The query processing pipeline follows these steps:
+
+1. **Preprocessing**: Clean and normalize query
+2. **Embedding**: Generate vector representation
+3. **Retrieval**: Find relevant documents/chunks
+4. **Reranking**: (Optional) Rerank results for relevance
+5. **Generation**: Create response using retrieved context
+
+```python
+async def process_query(self, query: str) -> str:
+    """Process a query through the RAG pipeline."""
+    # 1. Preprocess query
+    processed_query = self._preprocess_query(query)
+    
+    # 2. Generate query embedding
+    query_embedding = await self._embedding_provider.embed_text(processed_query)
+    
+    # 3. Retrieve relevant chunks
+    results = await self._retrieval_provider.search(
+        query_vector=query_embedding,
+        top_k=self.config.top_k,
+        filters=self.config.filters
+    )
+    
+    # 4. Optional reranking
+    if self._reranker:
+        results = await self._reranker.rerank(processed_query, results)
+    
+    # 5. Format context for generation
+    context = self._format_context_from_results(results)
+    
+    # 6. Generate response
+    prompt = self._create_prompt(processed_query, context)
+    response = await self._llm_provider.generate(prompt)
+    
+    return response
+```
+
+## Extension Guidelines
+
+### Adding a New Document Loader
+
+To add a new document loader:
+
+1. Create a new class in `document/loaders.py` that implements the `DocumentLoader` interface
+2. Implement the required methods for loading a specific file format
+3. Register it in the document loader registry
+
+```python
+class PDFDocumentLoader(DocumentLoader):
+    """Loader for PDF documents."""
+    
+    async def load(self, source: str) -> Document:
+        """Load a PDF document from a file path or URL."""
+        # Implementation details...
+```
+
+### Adding a New Embedding Provider
+
+To add a new embedding provider:
+
+1. Create a new file in `embedding/providers/` (e.g., `cohere.py`)
+2. Implement the `EmbeddingProvider` interface
+3. Register it in the provider registry
+
+```python
+class CohereEmbeddingProvider(EmbeddingProvider):
+    """Cohere embedding provider implementation."""
+    
+    def __init__(self, api_key: str, model: str = "embed-english-v3.0"):
+        self.client = cohere.Client(api_key)
+        self.model = model
+    
+    async def embed_text(self, text: str) -> list[float]:
+        """Generate embeddings for text using Cohere."""
+        response = await self.client.embed([text], model=self.model)
+        return response.embeddings[0]
+    
+    async def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        """Generate embeddings for multiple texts using Cohere."""
+        response = await self.client.embed(texts, model=self.model)
+        return response.embeddings
+```
+
+### Adding a New Retrieval Provider
+
+To add a new retrieval provider:
+
+1. Create a new file in `retrieval/providers/` (e.g., `weaviate.py`)
+2. Implement the `RetrievalProvider` interface
+3. Register it in the provider registry
+
+```python
+class WeaviateProvider(RetrievalProvider):
+    """Weaviate vector database provider."""
+    
+    def __init__(self, url: str, api_key: Optional[str] = None):
+        import weaviate
+        
+        auth_config = weaviate.auth.AuthApiKey(api_key) if api_key else None
+        self.client = weaviate.Client(url=url, auth_client_secret=auth_config)
+        
+    async def add_vectors(self, vectors: list[EmbeddingVector]) -> list[str]:
+        """Add vectors to Weaviate."""
+        # Implementation details...
+        
+    async def search(
+        self,
+        query_vector: list[float],
+        top_k: int = 5,
+        filters: Optional[dict[str, Any]] = None
+    ) -> list[RetrievalResult]:
+        """Search for similar vectors in Weaviate."""
+        # Implementation details...
+```
+
+## Configuration Patterns
+
+The RAG system uses a configuration pattern for customizing behavior:
+
+```python
+class RAGConfig(BaseSettings):
+    """Configuration for the RAG system."""
+    
+    # Embedding settings
+    embedding_model: str = "text-embedding-3-small"
+    embedding_batch_size: int = 32
+    
+    # Chunking settings
+    chunk_size: int = 1000
+    chunk_overlap: int = 200
+    
+    # Retrieval settings
+    top_k: int = 5
+    similarity_threshold: float = 0.7
+    
+    # LLM settings
+    llm_model: str = "gpt-4o"
+    temperature: float = 0.7
+    system_prompt: str = "..."
+    
+    # Processing flags
+    rerank_results: bool = False
+    embed_documents: bool = False
+```
+
+## Testing Guidelines
+
+When testing RAG components:
+
+1. Use mock providers for external services
+2. Test each component in isolation
+3. Create fixtures for common document types
+4. Validate retrieval quality with test queries
+5. Benchmark performance for large datasets
+
+## Performance Considerations
+
+For optimal RAG performance:
+
+1. Use batching for embedding operations
+2. Implement caching for frequent queries
+3. Consider approximate search for large collections
+4. Optimize chunk size for retrieval quality
+5. Use preprocessing to improve text quality
+
+## Error Handling
+
+RAG-specific error handling should follow these patterns:
+
+```python
+try:
+    documents = await self.load_documents(sources)
+    for document in documents:
+        await self.process_document(document)
+except DocumentLoadError as e:
+    # Handle document loading errors
+    logger.error(f"Failed to load document: {e}")
+    raise
+except EmbeddingError as e:
+    # Handle embedding errors
+    logger.error(f"Failed to generate embeddings: {e}")
+    raise
+except IndexingError as e:
+    # Handle vector database errors
+    logger.error(f"Failed to index document: {e}")
+    raise
+```
+
+## Conclusion
+
+The RAG system in PepperPy provides a flexible and extensible framework for building retrieval-augmented generation applications. Following these guidelines ensures consistent implementation and integration with the broader framework. 

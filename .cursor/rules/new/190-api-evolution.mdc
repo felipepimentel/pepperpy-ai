@@ -1,0 +1,231 @@
+<!--
+@title: API Evolution and Backward Compatibility
+@description: Guidelines for evolving APIs safely while maintaining backward compatibility and preventing breaking changes
+@glob: **/*.py
+@priority: 90
+-->
+
+# API Evolution and Backward Compatibility
+
+## Overview
+
+This rule defines strategies for evolving the PepperPy framework APIs while maintaining backward compatibility. Safe API evolution requires careful planning, clear versioning, and proper deprecation processes.
+
+## API Evolution Principles
+
+### 1. Versioning Strategy
+
+The PepperPy framework follows Semantic Versioning (SemVer):
+
+1. **MAJOR** version: Incompatible API changes
+2. **MINOR** version: Backward-compatible functionality
+3. **PATCH** version: Backward-compatible bug fixes
+
+### 2. Backward Compatibility Requirements
+
+All changes must maintain backward compatibility within a major version:
+
+- Public method signatures must not change
+- Return values must remain compatible
+- Parameter order must be preserved
+- Default parameter values must not be removed
+
+### 3. Deprecation Process
+
+When functionality needs to change or be removed:
+
+1. **Mark as deprecated** first (don't remove immediately)
+2. **Document alternatives** clearly
+3. **Provide migration path** for users
+4. **Remove only in major version** changes
+
+## API Analysis Tools
+
+Use these tools to analyze API impact:
+
+```bash
+# Analyze impact of API changes
+python scripts/refactor.py analyze-impact --operation task --task "API change"
+
+# Extract current public API surface
+python scripts/refactor.py extract-api --module pepperpy/module_name
+```
+
+## Safe API Evolution Patterns
+
+### 1. Parameter Extension Pattern
+
+Add new parameters with defaults:
+
+```python
+# Before
+def process_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    # Implementation
+    
+# After - Safe evolution
+def process_data(data: Dict[str, Any], options: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    options = options or {}
+    # Implementation with options support
+```
+
+### 2. Response Extension Pattern
+
+Extend return values without breaking existing code:
+
+```python
+# Before
+def get_result() -> Dict[str, str]:
+    return {"status": "success"}
+    
+# After - Safe evolution
+def get_result() -> Dict[str, Any]:
+    return {
+        "status": "success",
+        "details": {  # New information
+            "timestamp": datetime.now().isoformat()
+        }
+    }
+```
+
+### 3. Method Deprecation Pattern
+
+```python
+from pepperpy.utils.deprecation import deprecated
+
+@deprecated(
+    version="1.5.0",
+    removal_version="2.0.0",
+    alternative="new_method_name"
+)
+def old_method(param: str) -> None:
+    """Legacy method that will be removed in version 2.0.0.
+    
+    Use new_method_name instead.
+    """
+    return new_method_name(param)
+```
+
+### 4. Class Extension Pattern
+
+```python
+# Before
+class Provider:
+    def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        # Implementation
+        
+# After - Safe evolution
+class Provider:
+    def process(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        # Call new implementation with backward compatibility
+        return self._process_impl(data)
+        
+    def _process_impl(self, data: Dict[str, Any], **options) -> Dict[str, Any]:
+        # New implementation with more flexibility
+        # Implementation
+```
+
+## API Refactoring Workflow
+
+When evolving APIs:
+
+1. **Analyze current usage** with impact tools:
+   ```bash
+   python scripts/refactor.py analyze-impact --operation files --mapping changes.json
+   ```
+
+2. **Design compatible evolution** path
+
+3. **Implement with backward compatibility** layer
+
+4. **Add deprecation warnings** if needed
+
+5. **Document changes** clearly in CHANGELOG.md
+
+6. **Update tests** to verify both old and new behaviors
+
+## Common API Evolution Mistakes
+
+### 1. Breaking Changes Without Major Version
+
+❌ **Before:**
+```python
+def process_data(format_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    # Implementation
+```
+
+❌ **After (breaking):**
+```python
+def process_data(data: Dict[str, Any], format_type: str = "default") -> Dict[str, Any]:
+    # Implementation
+```
+
+✅ **Correct approach:**
+```python
+@deprecated(version="1.5.0", removal_version="2.0.0")
+def process_data(format_type: str, data: Dict[str, Any]) -> Dict[str, Any]:
+    # Forward to new implementation
+    return process_data_v2(data, format_type)
+
+def process_data_v2(data: Dict[str, Any], format_type: str = "default") -> Dict[str, Any]:
+    # New implementation
+```
+
+### 2. Changing Return Types
+
+❌ **Before:**
+```python
+def get_config() -> Dict[str, str]:
+    return {"name": "value"}
+```
+
+❌ **After (breaking):**
+```python
+def get_config() -> List[Dict[str, str]]:
+    return [{"name": "value"}]
+```
+
+✅ **Correct approach:**
+```python
+def get_config() -> Dict[str, Any]:
+    result = [{"name": "value"}]
+    # Maintain backward compatibility
+    if os.environ.get("PEPPERPY_LEGACY_CONFIG", "0") != "1":
+        # Warn about future change
+        warnings.warn("Return type will change in version 2.0", DeprecationWarning)
+        # Convert to previous format
+        return {"name": "value"}
+    return result
+```
+
+## Monitoring API Health
+
+Regularly check API consistency:
+
+```bash
+# Validate current APIs
+python scripts/refactor.py validate --directory pepperpy
+
+# Check for circular dependencies
+python scripts/refactor.py detect-circular --directory pepperpy
+```
+
+## Testing API Evolution
+
+Create specific tests for API compatibility:
+
+```python
+def test_api_backward_compatibility():
+    """Ensure API changes maintain backward compatibility."""
+    # Test with old usage pattern
+    result_old = old_api_usage()
+    
+    # Test with new usage pattern
+    result_new = new_api_usage()
+    
+    # Verify compatibility
+    assert result_old == result_new
+```
+
+## Conclusion
+
+Following these API evolution guidelines ensures that changes to the PepperPy framework maintain backward compatibility, provide clear migration paths, and prevent unexpected breakages. Always analyze the impact of API changes before implementation and follow the proper deprecation process when removing or changing functionality. 

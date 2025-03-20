@@ -1,0 +1,172 @@
+<!--
+@title: Evolução e Auto-correção de Regras
+@description: Processos para atualização de regras quando falhas são identificadas, usando o script de refatoração unificado
+@glob: .cursor/rules/**/*
+@priority: 95
+-->
+
+# Evolução e Auto-correção de Regras
+
+## Visão Geral
+
+Esta regra define processos para evolução e auto-correção do sistema de regras, garantindo que quando falhas forem identificadas, as regras sejam atualizadas para prevenir recorrências. Todas as operações de gerenciamento de regras são realizadas através do script `refactor.py` unificado.
+
+## Princípio de Ferramenta Única
+
+O PepperPy adota o princípio de **ferramenta única** para manutenção e refatoração de código:
+
+- **Todas as funcionalidades** são incorporadas no script `refactor.py`
+- **Nenhum script auxiliar** deve ser criado para funções relacionadas
+- **Extensões ocorrem via subcomandos** no script principal
+
+## Ciclo de Feedback e Evolução de Regras
+
+### 1. Captura de Falhas
+
+Quando uma falha na geração de código for identificada:
+
+```bash
+# Registrar a falha com detalhes
+python scripts/refactor.py rule-management --register-issue --rule 195 --description "Descrição da falha" --example "Código com falha"
+```
+
+### 2. Análise de Causa Raiz
+
+Realize análise para determinar:
+- Qual regra deveria ter prevenido o problema
+- Por que a regra não foi suficiente
+- Como a regra pode ser melhorada
+
+Use análises integradas:
+
+```bash
+# Analisar cobertura de regras para o tipo de problema
+python scripts/refactor.py rule-management --analyze-coverage --issue-type "duplicação"
+```
+
+### 3. Atualização de Regras
+
+```bash
+# Atualizar a regra específica
+python scripts/refactor.py rule-management --update --rule 195 --section "Cenários Comuns" --add-example "exemplo_novo"
+```
+
+### 4. Validação de Melhorias
+
+Verificar se a regra atualizada previne o problema original:
+
+```bash
+# Teste de regressão para verificar melhoria
+python scripts/refactor.py rule-management --verify --rule 195 --test-case "caso_problema"
+```
+
+## Integrando Gerenciamento de Regras no refactor.py
+
+Todos os comandos relacionados ao gerenciamento de regras são implementados como subcomandos `rule-management`:
+
+```bash
+# Exemplo de uso
+python scripts/refactor.py rule-management --help
+
+# Comandos disponíveis:
+# --scan            : Analisar e atualizar mapeamentos de módulos
+# --validate        : Validar todas as regras
+# --generate        : Gerar nova regra a partir de template
+# --update          : Atualizar regra existente
+# --version         : Atualizar versões e timestamps
+# --analyze-coverage: Analisar cobertura de regras
+# --register-issue  : Registrar problema identificado
+# --verify          : Verificar eficácia de regra
+# --audit           : Auditar eficácia de regras
+```
+
+## Processo de Revisão Periódica
+
+### Auditoria Trimestral
+
+Programar revisões regulares:
+
+```bash
+# Gerar relatório de eficácia das regras
+python scripts/refactor.py rule-management --audit --period "last-3-months"
+```
+
+Analisar:
+1. Frequência de cada tipo de falha
+2. Regras menos eficazes
+3. Padrões emergentes não cobertos
+
+## Implementação de Subcomandos no refactor.py
+
+Para estender o `refactor.py` com funcionalidades de gerenciamento de regras:
+
+```python
+# No arquivo scripts/refactor.py
+
+# Adicionar novo subparser para rule-management
+rule_management_parser = subparsers.add_parser(
+    "rule-management", help="Gerenciar regras do Cursor"
+)
+rule_management_parser.add_argument(
+    "--scan", action="store_true", help="Analisar codebase e atualizar mapas de módulos"
+)
+rule_management_parser.add_argument(
+    "--validate", action="store_true", help="Validar todas as regras"
+)
+rule_management_parser.add_argument(
+    "--generate", action="store_true", help="Gerar nova regra"
+)
+rule_management_parser.add_argument(
+    "--name", help="Nome da regra a ser gerada"
+)
+rule_management_parser.add_argument(
+    "--category", type=int, help="Categoria da regra (ex: 100, 200)"
+)
+rule_management_parser.add_argument(
+    "--update", action="store_true", help="Atualizar regra existente"
+)
+rule_management_parser.add_argument(
+    "--rule", type=int, help="Número da regra a ser atualizada"
+)
+rule_management_parser.add_argument(
+    "--section", help="Seção da regra a ser atualizada"
+)
+rule_management_parser.add_argument(
+    "--add-example", help="Exemplo a ser adicionado"
+)
+# Outros argumentos relevantes
+```
+
+## Atualizando Regras Após Erros da IA
+
+Processo a seguir quando a IA cometer erros:
+
+1. **Identificar a categoria do erro**:
+   - Estrutura de projeto incorreta
+   - Alucinação de API inexistente
+   - Duplicação de código
+   - Violação de compatibilidade de API
+
+2. **Localizar a regra correspondente**:
+   ```bash
+   python scripts/refactor.py rule-management --find-rule --issue-type "alucinação"
+   ```
+
+3. **Registrar o problema**:
+   ```bash
+   python scripts/refactor.py rule-management --register-issue --rule 195 --description "IA gerou import inexistente" --example "from pepperpy.nonexistent import Class"
+   ```
+
+4. **Atualizar a regra com contraexemplo**:
+   ```bash
+   python scripts/refactor.py rule-management --update --rule 195 --section "Cenários Comuns" --add-example "contraexemplo"
+   ```
+
+5. **Validar a regra atualizada**:
+   ```bash
+   python scripts/refactor.py rule-management --verify --rule 195
+   ```
+
+## Conclusão
+
+Seguindo o princípio de ferramenta única com todas as funcionalidades consolidadas no `refactor.py`, garantimos uma experiência consistente e simplificada para manutenção do código e das regras. Este processo de auto-correção das regras assegura que o sistema evolui continuamente, aprendendo com falhas para prevenir recorrências futuras. 
