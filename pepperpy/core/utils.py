@@ -1,1157 +1,258 @@
-"""Utility functions for PepperPy.
+"""Utilities Module.
 
-This module provides utility functions used across the PepperPy framework.
-It includes functions for type checking, validation, and common operations.
+This module provides common utility functions used across the PepperPy
+framework. It includes functions for type checking, data validation,
+string manipulation, and other general-purpose operations.
 
 Example:
-    >>> from pepperpy.core.utils import validate_type
-    >>> validate_type("hello", str)  # No error
-    >>> validate_type(42, str)  # Raises TypeError
+    >>> from pepperpy.core.utils import validate_type, truncate_text
+    >>> validate_type("test", str, "name")  # No error
+    >>> truncate_text("Long text...", max_length=10)  # "Long tex..."
 """
 
-import contextlib
-import functools
+import importlib
+import inspect
 import logging
-import os
-import sys
-import time
-import traceback
-from pathlib import Path
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    overload,
-)
+from functools import wraps
+from typing import Any, Callable, Dict, List, Type, TypeVar, Union, cast
 
-from pepperpy.core.pipeline.base import Pipeline as CorePipeline
-from pepperpy.core.pipeline.base import PipelineContext
-from pepperpy.core.pipeline.stages import FunctionStage
+logger = logging.getLogger(__name__)
 
-# ---- Type Variables ----
+T = TypeVar("T")
 
-# Type variables for generic utilities
-T = TypeVar("T")  # Input/value type
-R = TypeVar("R")  # Result/return type
-K = TypeVar("K")  # Key type
-V = TypeVar("V")  # Value type
-F = TypeVar("F", bound=Callable[..., Any])  # Function type
 
-# ---- Logging Utilities ----
-
-# Cache of loggers
-_loggers: Dict[str, logging.Logger] = {}
-
-# Default log format
-DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-
-
-def configure_logging(
-    level: Optional[Union[int, str]] = None,
-    format_string: Optional[str] = None,
-    log_file: Optional[str] = None,
-    console: bool = True,
-) -> None:
-    """Configure the logging system.
-
-    This should be called once at the start of your application.
-
-    Args:
-        level: The log level (e.g., "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-        format_string: The format string for log messages
-        log_file: The path to the log file
-        console: Whether to log to the console
-    """
-    # Convert string level to int if needed
-    numeric_level: int
-    if level is None:
-        # Get level from environment variable or default to INFO
-        level_str = os.environ.get("PEPPERPY_LOG_LEVEL", "INFO")
-        numeric_level = getattr(logging, level_str.upper(), logging.INFO)
-    elif isinstance(level, str):
-        numeric_level = getattr(logging, level.upper(), logging.INFO)
-    else:
-        numeric_level = level
-
-    # Get format string from environment variable or use default
-    if format_string is None:
-        format_string = os.environ.get("PEPPERPY_LOG_FORMAT", DEFAULT_LOG_FORMAT)
-
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(numeric_level)
-
-    # Remove existing handlers
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Create formatter
-    formatter = logging.Formatter(format_string)
-
-    # Add console handler if requested
-    if console:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(formatter)
-        root_logger.addHandler(console_handler)
-
-    # Add file handler if requested
-    if log_file:
-        # Create directory if it doesn't exist
-        log_path = Path(log_file)
-        if not log_path.parent.exists():
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(formatter)
-        root_logger.addHandler(file_handler)
-
-
-def get_logger(name: str) -> logging.Logger:
-    """Get a logger with the given name.
-
-    If a logger with the given name already exists, it will be returned.
-    Otherwise, a new logger will be created.
-
-    Args:
-        name: The name of the logger
-
-    Returns:
-        The logger
-    """
-    if name in _loggers:
-        return _loggers[name]
-
-    logger = logging.getLogger(name)
-    _loggers[name] = logger
-    return logger
-
-
-def set_log_level(level: Union[int, str], logger_name: Optional[str] = None) -> None:
-    """Set the log level for a logger.
-
-    Args:
-        level: The log level (e.g., "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
-        logger_name: The name of the logger, or None for the root logger
-    """
-    # Convert string level to int if needed
-    numeric_level: int
-    if isinstance(level, str):
-        numeric_level = getattr(logging, level.upper(), logging.INFO)
-    else:
-        numeric_level = level
-
-    # Get the logger
-    logger = logging.getLogger(logger_name) if logger_name else logging.getLogger()
-    logger.setLevel(numeric_level)
-
-
-# ---- Decorator Utilities ----
-
-
-def log_entry_exit(
-    level: str = "debug", include_args: bool = True, include_result: bool = True
-) -> Callable[[F], F]:
-    """Decorator for logging function entry and exit.
-
-    Args:
-        level: The logging level to use (debug, info, warning, error, critical)
-        include_args: Whether to include function arguments in the log
-        include_result: Whether to include the function result in the log
-
-    Returns:
-        A decorator function
-    """
-
-    def decorator(func: F) -> F:
-        """Decorator function.
-
-        Args:
-            func: The function to decorate
-
-        Returns:
-            The decorated function
-        """
-        func_name = func.__name__
-        module_name = func.__module__
-        logger = get_logger(module_name)
-        log_func = getattr(logger, level.lower())
-
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrapper function.
-
-            Args:
-                *args: Positional arguments
-                **kwargs: Keyword arguments
-
-            Returns:
-                The result of the function
-            """
-            # Log function entry
-            if include_args:
-                arg_str = ", ".join(
-                    [str(arg) for arg in args] + [f"{k}={v}" for k, v in kwargs.items()]
-                )
-                log_func(f"Entering {func_name}({arg_str})")
-            else:
-                log_func(f"Entering {func_name}")
-
-            # Call the function
-            try:
-                result = func(*args, **kwargs)
-                # Log function exit
-                if include_result:
-                    log_func(f"Exiting {func_name} -> {result}")
-                else:
-                    log_func(f"Exiting {func_name}")
-                return result
-            except Exception as e:
-                log_func(f"Exception in {func_name}: {e}")
-                raise
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
-def memoize(
-    maxsize: int = 128, typed: bool = False, ttl: Optional[float] = None
-) -> Callable[[F], F]:
-    """Decorator for memoizing function results.
-
-    Args:
-        maxsize: Maximum size of the cache
-        typed: Whether to cache based on argument types
-        ttl: Time-to-live for cache entries (in seconds)
-
-    Returns:
-        A decorator function
-    """
-
-    def decorator(func: F) -> F:
-        """Decorator function.
-
-        Args:
-            func: The function to decorate
-
-        Returns:
-            The decorated function
-        """
-        cache: Dict[Any, Tuple[Any, float]] = {}
-        func_name = func.__name__
-        logger = get_logger(func.__module__)
-
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrapper function.
-
-            Args:
-                *args: Positional arguments
-                **kwargs: Keyword arguments
-
-            Returns:
-                The result of the function
-            """
-            # Create a key for the cache
-            key_parts = list(args)
-            if typed:
-                key_parts.extend([type(arg) for arg in args])
-
-            # Sort kwargs by key to ensure consistent ordering
-            sorted_kwargs = sorted(kwargs.items())
-            key_parts.extend(sorted_kwargs)
-            if typed:
-                key_parts.extend([type(v) for _, v in sorted_kwargs])
-
-            key = tuple(key_parts)
-
-            # Check if the result is in the cache
-            now = time.time()
-            if key in cache:
-                result, timestamp = cache[key]
-                # Check if the result is still valid
-                if ttl is None or now - timestamp < ttl:
-                    logger.debug(f"Cache hit for {func_name}")
-                    return result
-                logger.debug(f"Cache expired for {func_name}")
-            else:
-                logger.debug(f"Cache miss for {func_name}")
-
-            # Call the function and cache the result
-            result = func(*args, **kwargs)
-            cache[key] = (result, now)
-
-            # Limit the cache size
-            if maxsize > 0 and len(cache) > maxsize:
-                # Remove the oldest entry
-                oldest_key = min(cache.keys(), key=lambda k: cache[k][1])
-                del cache[oldest_key]
-
-            return result
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
-def retry_on_exception(
-    exceptions: Union[Type[BaseException], List[Type[BaseException]]] = Exception,
-    max_retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    logger_level: str = "warning",
-) -> Callable[[F], F]:
-    """Decorator for retrying functions on exception.
-
-    Args:
-        exceptions: The exception types to catch and retry
-        max_retries: The maximum number of retries
-        delay: The initial delay between retries, in seconds
-        backoff: The backoff factor for increasing the delay
-        logger_level: The logging level to use for retry messages
-
-    Returns:
-        A decorator function
-    """
-    # Convert to tuple for isinstance check
-    if isinstance(exceptions, list):
-        exceptions_tuple = tuple(exceptions)
-    elif not isinstance(exceptions, tuple):
-        exceptions_tuple = (exceptions,)
-    else:
-        exceptions_tuple = exceptions
-
-    def decorator(func: F) -> F:
-        """Decorator function.
-
-        Args:
-            func: The function to decorate
-
-        Returns:
-            The decorated function
-        """
-        func_name = func.__name__
-        logger = get_logger(func.__module__)
-        log_func = getattr(logger, logger_level.lower())
-
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrapper function.
-
-            Args:
-                *args: Positional arguments
-                **kwargs: Keyword arguments
-
-            Returns:
-                The result of the function
-            """
-            current_delay = delay
-            last_exception = None
-
-            for attempt in range(max_retries + 1):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions_tuple as e:
-                    last_exception = e
-                    if attempt < max_retries:
-                        log_func(
-                            f"Attempt {attempt + 1}/{max_retries + 1} for {func_name} "
-                            f"failed with {type(e).__name__}: {e}. "
-                            f"Retrying in {current_delay:.2f}s..."
-                        )
-                        time.sleep(current_delay)
-                        current_delay *= backoff
-                    else:
-                        log_func(
-                            f"All {max_retries + 1} attempts for {func_name} failed. "
-                            f"Last error: {type(e).__name__}: {e}"
-                        )
-
-            # If we get here, all retries failed
-            assert last_exception is not None
-            raise last_exception
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
-def profile(
-    level: str = "debug", threshold: Optional[float] = None
-) -> Callable[[F], F]:
-    """Decorator for profiling function execution time.
-
-    Args:
-        level: The logging level to use
-        threshold: Only log if execution time exceeds this threshold (in seconds)
-
-    Returns:
-        A decorator function
-    """
-
-    def decorator(func: F) -> F:
-        """Decorator function.
-
-        Args:
-            func: The function to decorate
-
-        Returns:
-            The decorated function
-        """
-        func_name = func.__name__
-        logger = get_logger(func.__module__)
-        log_func = getattr(logger, level.lower())
-
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrapper function.
-
-            Args:
-                *args: Positional arguments
-                **kwargs: Keyword arguments
-
-            Returns:
-                The result of the function
-            """
-            start_time = time.time()
-            try:
-                result = func(*args, **kwargs)
-                return result
-            finally:
-                elapsed_time = time.time() - start_time
-                if threshold is None or elapsed_time >= threshold:
-                    log_func(f"{func_name} took {elapsed_time:.6f}s to execute")
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
-# ---- Context Manager Utilities ----
-
-
-@contextlib.contextmanager
-def timed_context(name: str = "operation") -> Iterator["TimedContext"]:
-    """Context manager for timing operations.
-
-    Args:
-        name: The name of the operation
-
-    Yields:
-        A TimedContext object
-    """
-    context = TimedContext(name)
-    try:
-        context.__enter__()
-        yield context
-    finally:
-        context.__exit__(None, None, None)
-
-
-class TimedContext:
-    """Context manager for timing operations.
-
-    This class provides a context manager for timing operations.
-    """
-
-    def __init__(self, name: str = "operation"):
-        """Initialize the timed context.
-
-        Args:
-            name: The name of the operation
-        """
-        self._name = name
-        self._start_time = 0.0
-        self._end_time = 0.0
-
-    def __enter__(self) -> "TimedContext":
-        """Enter the context.
-
-        Returns:
-            The context object
-        """
-        self._start_time = time.time()
-        return self
-
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit the context.
-
-        Args:
-            exc_type: The exception type, if an exception was raised
-            exc_val: The exception value, if an exception was raised
-            exc_tb: The exception traceback, if an exception was raised
-        """
-        self._end_time = time.time()
-
-    @property
-    def elapsed(self) -> float:
-        """Get the elapsed time.
-
-        Returns:
-            The elapsed time in seconds
-        """
-        if self._end_time > 0:
-            return self._end_time - self._start_time
-        return time.time() - self._start_time
-
-    @property
-    def name(self) -> str:
-        """Get the name of the operation.
-
-        Returns:
-            The name of the operation
-        """
-        return self._name
-
-
-@contextlib.contextmanager
-def retry_context(
-    max_retries: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: Union[Type[Exception], List[Type[Exception]]] = Exception,
-) -> Iterator["RetryContext"]:
-    """Context manager for retrying operations.
-
-    Args:
-        max_retries: Maximum number of retries
-        delay: Initial delay between retries (in seconds)
-        backoff: Backoff factor for the delay
-        exceptions: The exception(s) to catch and retry on
-
-    Yields:
-        A RetryContext object
-    """
-    context = RetryContext(max_retries, delay, backoff, exceptions)
-    try:
-        context.__enter__()
-        yield context
-    except Exception as e:
-        if not context.__exit__(type(e), e, traceback.extract_tb(sys.exc_info()[2])):
-            raise
-    else:
-        context.__exit__(None, None, None)
-
-
-class RetryContext:
-    """Context manager for retrying operations.
-
-    This class provides a context manager for retrying operations that may fail.
-    """
-
-    def __init__(
-        self,
-        max_retries: int = 3,
-        delay: float = 1.0,
-        backoff: float = 2.0,
-        exceptions: Union[Type[Exception], List[Type[Exception]]] = Exception,
-    ):
-        """Initialize the retry context.
-
-        Args:
-            max_retries: Maximum number of retries
-            delay: Initial delay between retries (in seconds)
-            backoff: Backoff factor for the delay
-            exceptions: The exception(s) to catch and retry on
-        """
-        self._max_retries = max_retries
-        self._delay = delay
-        self._backoff = backoff
-        self._exceptions = exceptions
-        self._retry_count = 0
-        self._last_exception: Optional[Exception] = None
-
-    def __enter__(self) -> "RetryContext":
-        """Enter the context.
-
-        Returns:
-            The context object
-        """
-        return self
-
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> bool:
-        """Exit the context.
-
-        Args:
-            exc_type: The exception type, if an exception was raised
-            exc_val: The exception value, if an exception was raised
-            exc_tb: The exception traceback, if an exception was raised
-
-        Returns:
-            True if the exception was handled, False otherwise
-        """
-        if exc_type is None:
-            return False
-
-        # Check if the exception is one we should retry on
-        if isinstance(self._exceptions, list):
-            if not any(isinstance(exc_val, exc_type) for exc_type in self._exceptions):
-                return False
-        else:
-            if not isinstance(exc_val, self._exceptions):
-                return False
-
-        # Store the exception
-        self._last_exception = exc_val
-
-        # Check if we've reached the maximum number of retries
-        if self._retry_count >= self._max_retries:
-            return False
-
-        # Increment the retry count
-        self._retry_count += 1
-
-        # Sleep before the next retry
-        current_delay = self._delay * (self._backoff ** (self._retry_count - 1))
-        time.sleep(current_delay)
-
-        # Indicate that we've handled the exception
-        return True
-
-    @property
-    def retry_count(self) -> int:
-        """Get the number of retries.
-
-        Returns:
-            The number of retries
-        """
-        return self._retry_count
-
-    @property
-    def last_exception(self) -> Optional[Exception]:
-        """Get the last exception.
-
-        Returns:
-            The last exception, or None if no exception has been caught
-        """
-        return self._last_exception
-
-
-# ---- Chainable API Utilities ----
-
-
-class ChainableMethod(Generic[T, R]):
-    """Chainable method wrapper.
-
-    This class wraps a method to make it chainable, allowing it to be composed
-    with other methods in a pipeline.
-    """
-
-    def __init__(
-        self,
-        func: Callable[[T], R],
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-    ):
-        """Initialize the chainable method.
-
-        Args:
-            func: The function to wrap
-            name: Optional name for the method
-            description: Optional description of what the method does
-        """
-        self.func = func
-        self.name = name or func.__name__
-        self.description = description or func.__doc__ or ""
-        self._next: Optional[ChainableMethod] = None
-
-    def __call__(self, value: T) -> Union[R, Any]:
-        """Call the method with the given value.
-
-        Args:
-            value: The input value
-
-        Returns:
-            The result of the method, or the result of the next method in the chain
-        """
-        result = self.func(value)
-        if self._next is not None:
-            return self._next(result)
-        return result
-
-    def then(self, next_method: "ChainableMethod") -> "ChainableMethod":
-        """Chain this method with another method.
-
-        Args:
-            next_method: The next method in the chain
-
-        Returns:
-            The next method, for further chaining
-        """
-        self._next = next_method
-        return next_method
-
-
-def chainable(
-    name: Optional[str] = None, description: Optional[str] = None
-) -> Callable[[F], F]:
-    """Decorator for creating chainable methods.
-
-    Args:
-        name: The name of the chainable method
-        description: The description of the chainable method
-
-    Returns:
-        A decorator function
-    """
-
-    def decorator(func: F) -> F:
-        """Decorator function.
-
-        Args:
-            func: The function to decorate
-
-        Returns:
-            The decorated function
-        """
-
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            """Wrapper function.
-
-            Args:
-                *args: Positional arguments
-                **kwargs: Keyword arguments
-
-            Returns:
-                The result of the function
-            """
-            # Create a chainable method
-            method: ChainableMethod = ChainableMethod(
-                lambda x: func(x, *args, **kwargs), name, description
-            )
-            return method
-
-        return cast(F, wrapper)
-
-    return decorator
-
-
-class Pipeline(Generic[T, R]):
-    """Pipeline for chaining operations.
-
-    This class provides a pipeline for chaining operations together.
-    It is a backward-compatible wrapper around the new unified pipeline
-    framework, providing a simpler interface for basic use cases.
-
-    Note:
-        For new code or advanced use cases, use the unified pipeline
-        framework directly via `pepperpy.core.pipeline`.
-
-    Migration Guide:
-        To migrate to the new framework:
-        1. Import from pepperpy.core.pipeline instead:
-            from pepperpy.core.pipeline.base import Pipeline
-        2. Create stages with proper type hints:
-            from pepperpy.core.pipeline.stages import FunctionStage
-            stage = FunctionStage[str, str]("stage1", lambda x: x.upper())
-        3. Add stages to pipeline:
-            pipeline = Pipeline[str, str]("name")
-            pipeline.add_stage(stage)
-        4. Execute with context:
-            context = PipelineContext()
-            result = await pipeline.execute(data, context)
-
-    Example:
-        Using this wrapper:
-        >>> pipeline = Pipeline[str, str]("example")
-        >>> pipeline.add_step(lambda x: x.upper())
-        >>> pipeline.with_metadata("source", "user")
-        >>> result = await pipeline.execute("hello")
-        >>> assert result == "HELLO"
-
-        Using the unified framework:
-        >>> from pepperpy.core.pipeline.base import Pipeline, PipelineContext
-        >>> from pepperpy.core.pipeline.stages import FunctionStage
-        >>> pipeline = Pipeline[str, str]("example")
-        >>> stage = FunctionStage("upper", lambda x, ctx: x.upper())
-        >>> pipeline.add_stage(stage)
-        >>> context = PipelineContext()
-        >>> result = await pipeline.execute("hello", context)
-        >>> assert result == "HELLO"
-    """
-
-    def __init__(self, name: str):
-        """Initialize the pipeline.
-
-        Args:
-            name (str): The name of the pipeline.
-                Used for identification and logging.
-
-        Example:
-            >>> pipeline = Pipeline[str, str]("example")
-            >>> assert pipeline.name == "example"
-        """
-        self._name = name
-        self._steps: List[ChainableMethod] = []
-        self._metadata: Dict[str, Any] = {}
-        self._pipeline = CorePipeline[T, R](name=name)
-
-    def add_step(self, step: ChainableMethod) -> "Pipeline[T, R]":
-        """Add a step to the pipeline.
-
-        This method wraps the step in a FunctionStage and adds it to
-        the underlying unified pipeline.
-
-        Args:
-            step (ChainableMethod): The step to add.
-                Must be a callable that takes input and returns output.
-
-        Returns:
-            The pipeline instance for method chaining.
-
-        Example:
-            >>> pipeline = Pipeline[str, str]("example")
-            >>> pipeline.add_step(lambda x: x.upper())
-            >>> pipeline.add_step(lambda x: x + "!")
-        """
-        self._steps.append(step)
-        # Convert ChainableMethod to FunctionStage
-        stage = FunctionStage[Any, Any](
-            name=f"step_{len(self._steps)}", func=lambda data, context: step(data)
-        )
-        self._pipeline.add_stage(stage)
-        return self
-
-    def with_metadata(self, key: str, value: Any) -> "Pipeline[T, R]":
-        """Add metadata to the pipeline.
-
-        This metadata will be added to the pipeline context when executing.
-
-        Args:
-            key (str): The metadata key
-            value (Any): The metadata value
-
-        Returns:
-            The pipeline instance for method chaining.
-
-        Example:
-            >>> pipeline = Pipeline[str, str]("example")
-            >>> pipeline.with_metadata("source", "user")
-            >>> pipeline.with_metadata("timestamp", "2024-03-18")
-        """
-        self._metadata[key] = value
-        return self
-
-    async def execute(self, input_value: T) -> R:
-        """Execute the pipeline.
-
-        This method creates a pipeline context, adds metadata, and executes
-        the pipeline using the unified framework.
-
-        Args:
-            input_value (T): The input value to process.
-                Must match the pipeline's input type.
-
-        Returns:
-            R: The pipeline's output after processing.
-                Will match the pipeline's output type.
-
-        Raises:
-            ValueError: If no steps have been added to the pipeline.
-
-        Example:
-            >>> pipeline = Pipeline[str, str]("example")
-            >>> pipeline.add_step(lambda x: x.upper())
-            >>> result = await pipeline.execute("hello")
-            >>> assert result == "HELLO"
-        """
-        if not self._steps:
-            raise ValueError("Pipeline has no steps")
-
-        # Execute the pipeline
-        context = PipelineContext()
-        for key, value in self._metadata.items():
-            context.set(key, value)
-
-        result = await self._pipeline.execute(input_value, context)
-        return cast(R, result)
-
-
-def create_pipeline(name: str) -> Pipeline[Any, Any]:
-    """Create a new pipeline.
-
-    Args:
-        name: The name of the pipeline
-
-    Returns:
-        A new pipeline
-    """
-    return Pipeline(name)
-
-
-def validate_type(value: Any, expected_type: Type[T]) -> T:
+def validate_type(value: Any, expected_type: Type[T], param_name: str) -> T:
     """Validate that a value is of the expected type.
 
     Args:
         value: The value to validate
-        expected_type: The expected type of the value
+        expected_type: The expected type
+        param_name: Name of the parameter (for error messages)
 
     Returns:
-        The validated value, cast to the expected type
+        The validated value
 
     Raises:
-        TypeError: If the value is not of the expected type
+        TypeError: If value is not of expected_type
 
     Example:
-        >>> validate_type("hello", str)
-        'hello'
-        >>> validate_type(42, str)  # Raises TypeError
-        TypeError: Expected str but got int
+        >>> value = validate_type("test", str, "name")
+        >>> assert isinstance(value, str)
+        >>> validate_type(123, str, "name")  # Raises TypeError
     """
     if not isinstance(value, expected_type):
         raise TypeError(
-            f"Expected {expected_type.__name__} but got {type(value).__name__}"
+            f"Parameter '{param_name}' must be of type {expected_type.__name__}, "
+            f"got {type(value).__name__}"
         )
     return value
 
 
-def validate_callable(func: Callable) -> Callable:
-    """Validate that a value is callable.
+def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
+    """Truncate text to a maximum length.
 
     Args:
-        func: The value to validate
+        text: Text to truncate
+        max_length: Maximum length (including suffix)
+        suffix: String to append when truncating
 
     Returns:
-        The validated callable
+        Truncated text
+
+    Example:
+        >>> text = "This is a very long text that needs truncating"
+        >>> truncate_text(text, max_length=20)
+        'This is a very lon...'
+    """
+    if len(text) <= max_length:
+        return text
+    return text[: max_length - len(suffix)] + suffix
+
+
+def retry(
+    max_attempts: int = 3,
+    exceptions: Union[Type[Exception], tuple[Type[Exception], ...]] = Exception,
+    delay: float = 0,
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """Decorator to retry a function on failure.
+
+    Args:
+        max_attempts: Maximum number of retry attempts
+        exceptions: Exception(s) to catch and retry on
+        delay: Delay between retries in seconds
+
+    Returns:
+        Decorated function
+
+    Example:
+        >>> @retry(max_attempts=3, exceptions=ValueError)
+        ... def unstable_function():
+        ...     if random.random() < 0.5:
+        ...         raise ValueError("Random failure")
+        ...     return "success"
+    """
+    import time
+
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            last_exception = None
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    last_exception = e
+                    if attempt < max_attempts - 1:
+                        logger.warning(
+                            f"Attempt {attempt + 1}/{max_attempts} failed: {e}",
+                            extra={"data": {"function": func.__name__}},
+                        )
+                        if delay:
+                            time.sleep(delay)
+                    continue
+            if last_exception:
+                raise last_exception
+            return cast(T, None)  # Should never reach here
+
+        return wrapper
+
+    return decorator
+
+
+def import_string(import_name: str) -> Any:
+    """Import an object based on a string.
+
+    This function imports a module or object using a string path.
+    It supports both module imports and attribute access.
+
+    Args:
+        import_name: Dotted path to the object
+
+    Returns:
+        The imported object
 
     Raises:
-        TypeError: If the value is not callable
+        ImportError: If the object cannot be imported
 
     Example:
-        >>> validate_callable(lambda x: x)  # No error
-        >>> validate_callable(42)  # Raises TypeError
+        >>> json = import_string("json")
+        >>> dumps = import_string("json.dumps")
+        >>> assert callable(dumps)
     """
-    if not callable(func):
-        raise TypeError(f"Expected callable but got {type(func).__name__}")
-    return func
+    module_name, obj_name = (
+        import_name.rsplit(".", 1) if "." in import_name else (import_name, None)
+    )
+    try:
+        module = importlib.import_module(module_name)
+        if obj_name:
+            try:
+                return getattr(module, obj_name)
+            except AttributeError as e:
+                raise ImportError(
+                    f"Module '{module_name}' has no attribute '{obj_name}'"
+                ) from e
+        return module
+    except ImportError as e:
+        raise ImportError(f"Could not import '{import_name}': {e}") from e
 
 
-@overload
-def validate_dict(value: Any) -> Dict[Any, Any]: ...
+def get_class_attributes(cls: Type[Any]) -> Dict[str, Any]:
+    """Get all attributes of a class.
 
-
-@overload
-def validate_dict(value: Any, key_type: Type[K]) -> Dict[K, Any]: ...
-
-
-@overload
-def validate_dict(value: Any, key_type: Type[K], value_type: Type[V]) -> Dict[K, V]: ...
-
-
-def validate_dict(
-    value: Any,
-    key_type: Optional[Type[Any]] = None,
-    value_type: Optional[Type[Any]] = None,
-) -> Dict[Any, Any]:
-    """Validate that a value is a dictionary with specific key and value types.
+    This function returns a dictionary of all attributes defined in a class,
+    including properties and methods, but excluding built-in attributes.
 
     Args:
-        value: The value to validate
-        key_type: The expected type of dictionary keys (default: None)
-        value_type: The expected type of dictionary values (default: None)
+        cls: The class to inspect
 
     Returns:
-        The validated dictionary
-
-    Raises:
-        TypeError: If the value is not a dictionary or if keys/values have wrong types
+        Dictionary of attribute names and values
 
     Example:
-        >>> validate_dict({"a": 1}, str, int)  # No error
-        >>> validate_dict({"a": "b"}, str, int)  # Raises TypeError
+        >>> class Example:
+        ...     x = 1
+        ...     def method(self): pass
+        ...     @property
+        ...     def prop(self): return 2
+        >>> attrs = get_class_attributes(Example)
+        >>> assert "x" in attrs and "method" in attrs
     """
-    validate_type(value, dict)
-    if key_type is not None:
-        for k, v in value.items():
-            validate_type(k, key_type)
-    if value_type is not None:
-        for k, v in value.items():
-            validate_type(v, value_type)
-    return value
+    return {
+        name: value
+        for name, value in inspect.getmembers(cls)
+        if not name.startswith("_")
+        and not inspect.isbuiltin(value)
+        and not inspect.ismodule(value)
+    }
 
 
-@overload
-def validate_list(value: Any) -> List[Any]: ...
+def flatten_dict(
+    d: Dict[str, Any],
+    parent_key: str = "",
+    sep: str = ".",
+) -> Dict[str, Any]:
+    """Flatten a nested dictionary.
 
-
-@overload
-def validate_list(value: Any, item_type: Type[T]) -> List[T]: ...
-
-
-def validate_list(
-    value: Any,
-    item_type: Optional[Type[Any]] = None,
-) -> List[Any]:
-    """Validate that a value is a list with specific item type.
+    This function converts a nested dictionary into a flat dictionary
+    with keys joined by a separator.
 
     Args:
-        value: The value to validate
-        item_type: The expected type of list items (default: None)
+        d: Dictionary to flatten
+        parent_key: Key of parent dictionary (used in recursion)
+        sep: Separator for nested keys
 
     Returns:
-        The validated list
-
-    Raises:
-        TypeError: If the value is not a list or if items have wrong type
+        Flattened dictionary
 
     Example:
-        >>> validate_list([1, 2, 3], int)  # No error
-        >>> validate_list([1, "2", 3], int)  # Raises TypeError
+        >>> d = {"a": 1, "b": {"c": 2, "d": {"e": 3}}}
+        >>> flat = flatten_dict(d)
+        >>> assert flat == {"a": 1, "b.c": 2, "b.d.e": 3}
     """
-    validate_type(value, list)
-    if item_type is not None:
-        for item in value:
-            validate_type(item, item_type)
-    return value
+    items: List[tuple[str, Any]] = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
 
 
-def validate_optional(value: Any, expected_type: Type[T]) -> Optional[T]:
-    """Validate that a value is either None or of the expected type.
+def unflatten_dict(d: Dict[str, Any], sep: str = ".") -> Dict[str, Any]:
+    """Convert a flattened dictionary back to nested form.
+
+    This function is the inverse of flatten_dict, converting a flat
+    dictionary with separated keys back into a nested dictionary.
 
     Args:
-        value: The value to validate
-        expected_type: The expected type of the value if not None
+        d: Flattened dictionary
+        sep: Separator used in keys
 
     Returns:
-        The validated value
-
-    Raises:
-        TypeError: If the value is not None and not of the expected type
+        Nested dictionary
 
     Example:
-        >>> validate_optional(None, str)  # No error
-        >>> validate_optional("hello", str)  # No error
-        >>> validate_optional(42, str)  # Raises TypeError
+        >>> flat = {"a": 1, "b.c": 2, "b.d.e": 3}
+        >>> nested = unflatten_dict(flat)
+        >>> assert nested == {"a": 1, "b": {"c": 2, "d": {"e": 3}}}
     """
-    if value is not None:
-        return validate_type(value, expected_type)
-    return None
+    result: Dict[str, Any] = {}
+    for key, value in d.items():
+        parts = key.split(sep)
+        target = result
+        for part in parts[:-1]:
+            target = target.setdefault(part, {})
+        target[parts[-1]] = value
+    return result
 
 
-def validate_union(value: Any, *types: Type) -> Any:
-    """Validate that a value is one of the expected types.
-
-    Args:
-        value: The value to validate
-        *types: The expected types
-
-    Returns:
-        The validated value
-
-    Raises:
-        TypeError: If the value is not one of the expected types
-
-    Example:
-        >>> validate_union(42, int, str)  # No error
-        >>> validate_union("hello", int, str)  # No error
-        >>> validate_union(True, int, str)  # Raises TypeError
-    """
-    for t in types:
-        if isinstance(value, t):
-            return value
-    type_names = " or ".join(t.__name__ for t in types)
-    raise TypeError(f"Expected {type_names} but got {type(value).__name__}")
-
-
-def get_metadata(context: Dict[str, Any], key: str) -> Any:
-    """Get metadata from a pipeline context.
-
-    Args:
-        context: The pipeline context dictionary
-        key: The metadata key to retrieve
-
-    Returns:
-        The metadata value
-
-    Raises:
-        KeyError: If the key does not exist in the context
-
-    Example:
-        >>> context = {"metadata": {"key": "value"}}
-        >>> get_metadata(context, "key")
-        'value'
-    """
-    if "metadata" not in context:
-        raise KeyError("No metadata in context")
-    if key not in context["metadata"]:
-        raise KeyError(f"No metadata for key '{key}'")
-    return context["metadata"][key]
-
-
-def set_metadata(context: Dict[str, Any], key: str, value: Any) -> None:
-    """Set metadata in a pipeline context.
-
-    Args:
-        context: The pipeline context dictionary
-        key: The metadata key to set
-        value: The metadata value to set
-
-    Example:
-        >>> context = {"metadata": {}}
-        >>> set_metadata(context, "key", "value")
-        >>> assert context["metadata"]["key"] == "value"
-    """
-    if "metadata" not in context:
-        context["metadata"] = {}
-    context["metadata"][key] = value
-
-
-def update_metadata(context: Dict[str, Any], updates: Dict[str, Any]) -> None:
-    """Update multiple metadata values in a pipeline context.
-
-    Args:
-        context: The pipeline context dictionary
-        updates: Dictionary of metadata updates
-
-    Example:
-        >>> context = {"metadata": {}}
-        >>> update_metadata(context, {"key1": "value1", "key2": "value2"})
-        >>> assert context["metadata"]["key1"] == "value1"
-        >>> assert context["metadata"]["key2"] == "value2"
-    """
-    if "metadata" not in context:
-        context["metadata"] = {}
-    context["metadata"].update(updates)
-
-
-def clear_metadata(context: Dict[str, Any]) -> None:
-    """Clear all metadata from a pipeline context.
-
-    Args:
-        context: The pipeline context dictionary
-
-    Example:
-        >>> context = {"metadata": {"key": "value"}}
-        >>> clear_metadata(context)
-        >>> assert context["metadata"] == {}
-    """
-    if "metadata" in context:
-        context["metadata"].clear()
-
-
-def has_metadata(context: Dict[str, Any], key: str) -> bool:
-    """Check if a metadata key exists in a pipeline context.
-
-    Args:
-        context: The pipeline context dictionary
-        key: The metadata key to check
-
-    Returns:
-        True if the key exists, False otherwise
-
-    Example:
-        >>> context = {"metadata": {"key": "value"}}
-        >>> assert has_metadata(context, "key")
-        >>> assert not has_metadata(context, "missing")
-    """
-    return "metadata" in context and key in context["metadata"]
+__all__ = [
+    "validate_type",
+    "truncate_text",
+    "retry",
+    "import_string",
+    "get_class_attributes",
+    "flatten_dict",
+    "unflatten_dict",
+]

@@ -1,93 +1,122 @@
 # PepperPy Framework
 
-PepperPy is a Python framework for building AI-powered applications. It provides tools and utilities for composing pipelines, processing data, and integrating with AI services.
+PepperPy is a modular Python framework for building AI-powered applications, with a focus on clean architecture and domain-driven design.
 
-## Features
+## Project Structure
 
-- **Pipeline Composition**: Build data processing pipelines with a fluent interface
-- **Intent Recognition**: Extract user intents from natural language
-- **RAG Support**: Build Retrieval Augmented Generation applications
-- **Workflow Management**: Orchestrate complex tasks and workflows
-- **Type Safety**: Full type hints and runtime type checking
-- **Extensible**: Easy to extend with custom components
+The framework is organized into vertical domains, each responsible for a specific business capability:
 
-## Installation
-
-```bash
-pip install pepperpy
+```
+pepperpy/
+├── llm/                  # Language Model Domain
+│   ├── __init__.py      
+│   ├── provider.py      # Core LLM interfaces
+│   └── providers/       # LLM implementations
+│       ├── openai/      # OpenAI integration
+│       ├── local/       # Local models
+│       └── rest/        # REST-based providers
+│
+├── rag/                  # RAG Domain
+│   ├── __init__.py
+│   ├── provider.py      # Core RAG interfaces
+│   └── providers/       # RAG implementations
+│       ├── openai/      # OpenAI embeddings
+│       ├── local/       # Local retrieval
+│       └── rest/        # REST-based providers
+│
+├── storage/             # Storage Domain
+│   ├── __init__.py
+│   ├── provider.py      # Core storage interfaces
+│   └── providers/       # Storage implementations
+│       ├── sql/        # SQL databases
+│       ├── nosql/      # NoSQL databases
+│       └── object/     # Object storage
+│
+├── core/               # Core Framework
+│   ├── __init__.py
+│   ├── capabilities/   # Capability management
+│   ├── errors/        # Error definitions
+│   └── base/          # Base classes
+│
+└── common/            # Shared Utilities
+    ├── __init__.py
+    ├── logging/
+    ├── config/
+    └── utils/
 ```
 
-Or with Poetry:
+## Domain Organization
 
-```bash
-poetry add pepperpy
-```
+Each domain follows these principles:
 
-## Quick Start
+1. **Vertical Slicing**: Each module represents a cohesive business domain
+2. **Module Independence**: Loose coupling between modules
+3. **Clean Interfaces**: Public interfaces exposed via `__init__.py`
+4. **Implementation Privacy**: Internal details kept private
+5. **Pragmatic Structure**: Structure grows based on actual needs
 
-Here's a simple example of using PepperPy to build a pipeline:
+## Core Principles
+
+1. **Domain-Driven Design**
+   - Clear domain boundaries
+   - Self-contained modules
+   - Domain-specific interfaces
+
+2. **Clean Architecture**
+   - Separation of concerns
+   - Dependency inversion
+   - Interface segregation
+
+3. **Modular Design**
+   - Pluggable components
+   - Extensible providers
+   - Clear dependencies
+
+## Usage
+
+Each domain provides a clean public interface through its `__init__.py`:
 
 ```python
-from pepperpy.core import compose, Sources, Processors, Outputs
+# LLM Domain
+from pepperpy.llm import LLMProvider, Message
+provider = LLMProvider(model_name="gpt-4")
+result = await provider.generate("Hello!")
 
-# Create a pipeline
-pipeline = compose("example")
+# RAG Domain
+from pepperpy.rag import RAGProvider, Document
+provider = RAGProvider()
+result = await provider.retrieve("query", top_k=3)
 
-# Add stages
-pipeline.source(Sources.text("hello"))
-pipeline.process(Processors.transform(str.upper))
-pipeline.output(Outputs.console())
-
-# Execute pipeline
-await pipeline.execute()  # Prints: HELLO
+# Storage Domain
+from pepperpy.storage import StorageProvider
+provider = StorageProvider[Dict[str, Any]]()
+id = await provider.create("collection", {"key": "value"})
 ```
-
-And here's an example of using intent recognition:
-
-```python
-from pepperpy.core import recognize_intent
-
-# Recognize intent from text
-intent = await recognize_intent("traduzir hello world")
-assert intent.name == "translate"
-assert intent.entities["text"] == "hello world"
-```
-
-## Documentation
-
-For more examples and detailed documentation, see:
-
-- [User Guide](docs/guide.md)
-- [API Reference](docs/api.md)
-- [Examples](examples/)
 
 ## Development
 
-To set up the development environment:
+1. **Adding Features**
+   - Add to appropriate domain
+   - Follow domain interfaces
+   - Maintain encapsulation
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/pepperpy.git
-cd pepperpy
+2. **Creating Providers**
+   - Implement domain interfaces
+   - Add domain-specific capabilities
+   - Follow provider patterns
 
-# Install dependencies
-poetry install
-
-# Run tests
-poetry run pytest
-
-# Run linters
-poetry run black .
-poetry run isort .
-poetry run mypy .
-poetry run ruff check .
-```
+3. **Testing**
+   - Unit test domain logic
+   - Integration test providers
+   - End-to-end test flows
 
 ## Contributing
 
-Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new features
+4. Submit a pull request
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
-
+This project is licensed under the MIT License - see the LICENSE file for details. 

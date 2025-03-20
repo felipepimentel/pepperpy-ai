@@ -1,451 +1,306 @@
-"""Configuration validation framework for PepperPy.
+"""Configuration Module.
 
-This module provides a unified configuration validation framework for PepperPy,
-allowing modules to define their configuration schemas and validate configuration
-at runtime. This helps ensure that configuration is valid before it's used and
-provides clear error messages when configuration is invalid.
+This module provides configuration management with validation and schema support.
+It handles loading, validating, and accessing configuration from various sources.
+
+Example:
+    >>> from pepperpy.core.internal.config import Config
+    >>> config = Config.from_file("config.yaml")
+    >>> api_key = config.get("api_key")
 """
 
-import os
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, Field, ValidationError, validator
+import yaml
 
-# Type for configuration dictionaries
-ConfigDict = Dict[str, Any]
+from .validation import ValidationError, ValidationSchema
 
 
-class ConfigValidationError(Exception):
-    """Exception raised when configuration validation fails."""
+class ConfigError(Exception):
+    """Error raised for configuration issues.
 
-    def __init__(self, message: str, errors: Optional[List[str]] = None):
-        """Initialize the exception.
+    This error is raised when configuration operations fail, such as
+    loading from file, validation, or accessing missing values.
+
+    Example:
+        >>> try:
+        ...     config = Config.from_file("missing.yaml")
+        ... except ConfigError as e:
+        ...     print(f"Config error: {e}")
+    """
+
+    pass
+
+
+class ConfigSchema(ValidationSchema):
+    """Schema for configuration validation.
+
+    This class extends ValidationSchema to provide configuration-specific
+    validation rules and defaults.
+
+    Example:
+        >>> schema = ConfigSchema({
+        ...     "api_key": {"type": str, "required": True},
+        ...     "timeout": {"type": int, "default": 30}
+        ... })
+    """
+
+    def __init__(self, schema: Dict[str, Any]):
+        """Initialize the config schema.
 
         Args:
-            message: The error message.
-            errors: Optional list of specific validation errors.
+            schema: Schema definition
         """
-        self.message = message
-        self.errors = errors or []
-        super().__init__(self.message)
+        super().__init__(schema)
+
+
+class Config:
+    """Configuration management with validation.
+
+    This class provides methods for loading, validating, and accessing
+    configuration values from various sources.
+
+    Args:
+        data: Configuration data
+        schema: Optional validation schema
+        **kwargs: Additional configuration options
+
+    Example:
+        >>> config = Config({
+        ...     "api_key": "secret",
+        ...     "timeout": 30
+        ... })
+        >>> print(config.get("timeout"))  # 30
+    """
+
+    def __init__(
+        self,
+        data: Dict[str, Any],
+        schema: Optional[ConfigSchema] = None,
+        **kwargs: Any,
+    ):
+        """Initialize the configuration.
+
+        Args:
+            data: Configuration data
+            schema: Optional validation schema
+            **kwargs: Additional configuration options
+
+        Raises:
+            ConfigError: If validation fails
+        """
+        self._data = data
+        self._schema = schema
+        self._options = kwargs
+
+        if schema:
+            try:
+                self._data = schema.validate(data)
+            except ValidationError as e:
+                raise ConfigError(f"Invalid configuration: {e}")
+
+    @classmethod
+    def from_file(
+        cls,
+        path: str,
+        schema: Optional[ConfigSchema] = None,
+        **kwargs: Any,
+    ) -> "Config":
+        """Load configuration from file.
+
+        Args:
+            path: Path to configuration file
+            schema: Optional validation schema
+            **kwargs: Additional configuration options
+
+        Returns:
+            Config instance
+
+        Raises:
+            ConfigError: If file cannot be loaded or validation fails
+
+        Example:
+            >>> config = Config.from_file(
+            ...     "config.yaml",
+            ...     schema=ConfigSchema({"api_key": str})
+            ... )
+        """
+        try:
+            with open(path) as f:
+                data = yaml.safe_load(f)
+            return cls(data, schema, **kwargs)
+        except Exception as e:
+            raise ConfigError(f"Failed to load config from {path}: {e}")
+
+    def get(
+        self,
+        key: str,
+        default: Any = None,
+    ) -> Any:
+        """Get configuration value.
+
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+
+        Returns:
+            Configuration value
+
+        Example:
+            >>> config = Config({"timeout": 30})
+            >>> timeout = config.get("timeout", 60)
+        """
+        return self._data.get(key, default)
+
+    def set(
+        self,
+        key: str,
+        value: Any,
+    ) -> None:
+        """Set configuration value.
+
+        Args:
+            key: Configuration key
+            value: Value to set
+
+        Raises:
+            ConfigError: If validation fails
+
+        Example:
+            >>> config = Config({})
+            >>> config.set("timeout", 30)
+        """
+        if self._schema:
+            try:
+                data = {**self._data, key: value}
+                self._data = self._schema.validate(data)
+            except ValidationError as e:
+                raise ConfigError(f"Invalid configuration: {e}")
+        else:
+            self._data[key] = value
+
+    def update(
+        self,
+        data: Dict[str, Any],
+    ) -> None:
+        """Update configuration with new data.
+
+        Args:
+            data: Configuration data to update
+
+        Raises:
+            ConfigError: If validation fails
+
+        Example:
+            >>> config = Config({})
+            >>> config.update({"timeout": 30, "retries": 3})
+        """
+        if self._schema:
+            try:
+                self._data = self._schema.validate({**self._data, **data})
+            except ValidationError as e:
+                raise ConfigError(f"Invalid configuration: {e}")
+        else:
+            self._data.update(data)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert configuration to dictionary.
+
+        Returns:
+            Configuration data
+
+        Example:
+            >>> config = Config({"timeout": 30})
+            >>> data = config.to_dict()
+        """
+        return dict(self._data)
+
+    def __getitem__(self, key: str) -> Any:
+        """Get configuration value by key.
+
+        Args:
+            key: Configuration key
+
+        Returns:
+            Configuration value
+
+        Raises:
+            KeyError: If key not found
+
+        Example:
+            >>> config = Config({"timeout": 30})
+            >>> timeout = config["timeout"]
+        """
+        return self._data[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set configuration value by key.
+
+        Args:
+            key: Configuration key
+            value: Value to set
+
+        Raises:
+            ConfigError: If validation fails
+
+        Example:
+            >>> config = Config({})
+            >>> config["timeout"] = 30
+        """
+        self.set(key, value)
+
+    def __contains__(self, key: str) -> bool:
+        """Check if key exists in configuration.
+
+        Args:
+            key: Configuration key
+
+        Returns:
+            True if key exists, False otherwise
+
+        Example:
+            >>> config = Config({"timeout": 30})
+            >>> "timeout" in config  # True
+        """
+        return key in self._data
+
+    def __len__(self) -> int:
+        """Get number of configuration items.
+
+        Returns:
+            Number of items
+
+        Example:
+            >>> config = Config({"timeout": 30, "retries": 3})
+            >>> len(config)  # 2
+        """
+        return len(self._data)
 
     def __str__(self) -> str:
-        """Return a string representation of the exception.
+        """Get string representation.
 
         Returns:
-            A string representation of the exception, including the list of errors.
+            String representation of configuration
+
+        Example:
+            >>> config = Config({"timeout": 30})
+            >>> str(config)  # "Config(items=1)"
         """
-        if not self.errors:
-            return self.message
+        return f"Config(items={len(self)})"
 
-        error_list = "\n".join(f"  - {error}" for error in self.errors)
-        return f"{self.message}:\n{error_list}"
-
-
-class BaseConfig(BaseModel):
-    """Base class for configuration models.
-
-    This class provides a base for all configuration models in PepperPy.
-    It includes common functionality for loading configuration from
-    environment variables and validating configuration.
-
-    Example:
-        ```python
-        class OpenAIConfig(BaseConfig):
-            api_key: str
-            model: str = "gpt-4"
-            temperature: float = 0.7
-            max_tokens: int = 1000
-
-            @validator("temperature")
-            def validate_temperature(cls, v):
-                if v < 0 or v > 1:
-                    raise ValueError("Temperature must be between 0 and 1")
-                return v
-        ```
-    """
-
-    class Config:
-        """Pydantic configuration."""
-
-        # Allow extra fields in the configuration
-        extra = "allow"
-        # Validate assignment to attributes
-        validate_assignment = True
-        # Use environment variables
-        env_prefix = "PEPPERPY_"
-
-    @classmethod
-    def from_dict(cls, config_dict: ConfigDict) -> "BaseConfig":
-        """Create a configuration model from a dictionary.
-
-        Args:
-            config_dict: The configuration dictionary.
+    def __repr__(self) -> str:
+        """Get detailed string representation.
 
         Returns:
-            A configuration model instance.
+            Detailed string representation of configuration
 
-        Raises:
-            ConfigValidationError: If the configuration is invalid.
+        Example:
+            >>> config = Config({"timeout": 30})
+            >>> repr(config)  # Contains all configuration details
         """
-        try:
-            # Use the validate method to create and validate the instance
-            return cls.validate(config_dict)
-        except ValidationError as e:
-            errors = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
-            raise ConfigValidationError(
-                f"Invalid configuration for {cls.__name__}", errors
-            )
-
-    @classmethod
-    def from_env(cls, prefix: Optional[str] = None) -> "BaseConfig":
-        """Create a configuration model from environment variables.
-
-        Args:
-            prefix: Optional prefix for environment variables. If not provided,
-                   the prefix from the Config class will be used.
-
-        Returns:
-            A configuration model instance.
-
-        Raises:
-            ConfigValidationError: If the configuration is invalid.
-        """
-        # Get the prefix from the Config class if not provided
-        if prefix is None:
-            prefix = cls.Config.env_prefix
-
-        # Create a dictionary of configuration values from environment variables
-        config_dict = {}
-
-        # Get field information in a way that works with different Pydantic versions
-        # Try different approaches to get the fields
-        if hasattr(cls, "__fields__"):  # Pydantic v1
-            fields_attr = cls.__fields__
-
-            # Check if fields_attr is a dictionary or a callable
-            if isinstance(fields_attr, dict):
-                for field_name, field in fields_attr.items():
-                    # Convert field name to uppercase for environment variables
-                    env_name = f"{prefix}{field_name.upper()}"
-                    env_value = os.environ.get(env_name)
-                    if env_value is not None:
-                        config_dict[field_name] = env_value
-            else:
-                # Fallback to using annotations
-                if hasattr(cls, "__annotations__"):
-                    for field_name in cls.__annotations__:
-                        # Convert field name to uppercase for environment variables
-                        env_name = f"{prefix}{field_name.upper()}"
-                        env_value = os.environ.get(env_name)
-                        if env_value is not None:
-                            config_dict[field_name] = env_value
-        elif hasattr(cls, "model_fields"):  # Pydantic v2
-            fields = cls.model_fields
-            for field_name, field in fields.items():
-                # Convert field name to uppercase for environment variables
-                env_name = f"{prefix}{field_name.upper()}"
-                env_value = os.environ.get(env_name)
-                if env_value is not None:
-                    config_dict[field_name] = env_value
-        else:
-            # Create a minimal temporary instance to inspect its structure
-            # This is a fallback method that should work with any version
-            try:
-                # Just create an empty instance with default values
-                temp_instance = cls()
-                for field_name in temp_instance.__dict__:
-                    if field_name.startswith("_"):
-                        continue
-                    # Convert field name to uppercase for environment variables
-                    env_name = f"{prefix}{field_name.upper()}"
-                    env_value = os.environ.get(env_name)
-                    if env_value is not None:
-                        config_dict[field_name] = env_value
-            except Exception:
-                # If we can't create a temporary instance, just try to use field names directly
-                # from class annotations
-                if hasattr(cls, "__annotations__"):
-                    for field_name in cls.__annotations__:
-                        # Convert field name to uppercase for environment variables
-                        env_name = f"{prefix}{field_name.upper()}"
-                        env_value = os.environ.get(env_name)
-                        if env_value is not None:
-                            config_dict[field_name] = env_value
-
-        # Create the configuration model from the dictionary
-        return cls.from_dict(config_dict)
-
-    def to_dict(self) -> ConfigDict:
-        """Convert the configuration model to a dictionary.
-
-        Returns:
-            A dictionary representation of the configuration model.
-        """
-        return self.dict()
-
-    @classmethod
-    def validate(cls, value: Any) -> "BaseConfig":
-        """Validate the configuration.
-
-        This method validates the configuration model. It's called automatically
-        when the model is created, but can be called explicitly to re-validate
-        the configuration after changes.
-
-        Args:
-            value: The value to validate.
-
-        Returns:
-            A validated BaseConfig instance.
-
-        Raises:
-            ConfigValidationError: If the configuration is invalid.
-        """
-        try:
-            # Create an instance of the model to trigger validation
-            if isinstance(value, cls):
-                # If already an instance, just validate it
-                value.dict()
-                return value
-            else:
-                # Create a new instance
-                return cls(**value)
-        except ValidationError as e:
-            errors = [f"{error['loc'][0]}: {error['msg']}" for error in e.errors()]
-            raise ConfigValidationError(
-                f"Invalid configuration for {cls.__name__}", errors
-            )
-
-
-class ConfigRegistry:
-    """Registry for configuration models.
-
-    This class provides a registry for configuration models, allowing modules
-    to register their configuration schemas and retrieve configuration instances.
-
-    Example:
-        ```python
-        # Register a configuration model
-        ConfigRegistry.register("openai", OpenAIConfig)
-
-        # Get a configuration instance
-        config = ConfigRegistry.get_config("openai")
-        ```
-    """
-
-    _registry: Dict[str, Type[BaseConfig]] = {}
-    _instances: Dict[str, BaseConfig] = {}
-
-    @classmethod
-    def register(cls, name: str, config_class: Type[BaseConfig]) -> None:
-        """Register a configuration model.
-
-        Args:
-            name: The name of the configuration model.
-            config_class: The configuration model class.
-        """
-        cls._registry[name] = config_class
-
-    @classmethod
-    def get_config_class(cls, name: str) -> Type[BaseConfig]:
-        """Get a configuration model class.
-
-        Args:
-            name: The name of the configuration model.
-
-        Returns:
-            The configuration model class.
-
-        Raises:
-            KeyError: If the configuration model is not registered.
-        """
-        if name not in cls._registry:
-            raise KeyError(f"Configuration model '{name}' is not registered")
-        return cls._registry[name]
-
-    @classmethod
-    def get_config(cls, name: str) -> BaseConfig:
-        """Get a configuration instance.
-
-        This method returns a configuration instance for the given name.
-        If an instance doesn't exist, it will be created from environment
-        variables.
-
-        Args:
-            name: The name of the configuration model.
-
-        Returns:
-            A configuration instance.
-
-        Raises:
-            KeyError: If the configuration model is not registered.
-            ConfigValidationError: If the configuration is invalid.
-        """
-        if name not in cls._instances:
-            config_class = cls.get_config_class(name)
-            cls._instances[name] = config_class.from_env()
-        return cls._instances[name]
-
-    @classmethod
-    def set_config(cls, name: str, config: Union[BaseConfig, ConfigDict]) -> None:
-        """Set a configuration instance.
-
-        Args:
-            name: The name of the configuration model.
-            config: The configuration instance or dictionary.
-
-        Raises:
-            KeyError: If the configuration model is not registered.
-            ConfigValidationError: If the configuration is invalid.
-        """
-        config_class = cls.get_config_class(name)
-        if isinstance(config, dict):
-            config = config_class.from_dict(config)
-        elif not isinstance(config, config_class):
-            raise TypeError(
-                f"Expected {config_class.__name__} or dict, got {type(config).__name__}"
-            )
-        cls._instances[name] = config
-
-    @classmethod
-    def reset(cls, name: Optional[str] = None) -> None:
-        """Reset the configuration registry.
-
-        Args:
-            name: Optional name of the configuration model to reset.
-                 If not provided, all configuration instances will be reset.
-        """
-        if name is None:
-            cls._instances.clear()
-        elif name in cls._instances:
-            del cls._instances[name]
-
-
-# Common configuration models
-
-
-class LoggingConfig(BaseConfig):
-    """Configuration for logging.
-
-    Attributes:
-        level: The logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
-        format: The logging format string.
-        file: Optional path to a log file.
-    """
-
-    level: str = "INFO"
-    format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    file: Optional[str] = None
-
-    @validator("level")
-    def validate_level(cls, v: str) -> str:
-        """Validate the logging level.
-
-        Args:
-            v: The logging level.
-
-        Returns:
-            The validated logging level.
-
-        Raises:
-            ValueError: If the logging level is invalid.
-        """
-        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-        if v.upper() not in valid_levels:
-            raise ValueError(
-                f"Invalid logging level: {v}. Must be one of {valid_levels}"
-            )
-        return v.upper()
-
-
-class APIKeyConfig(BaseConfig):
-    """Configuration for API keys.
-
-    Attributes:
-        openai: Optional OpenAI API key.
-        anthropic: Optional Anthropic API key.
-        pinecone: Optional Pinecone API key.
-        cohere: Optional Cohere API key.
-    """
-
-    openai: Optional[str] = None
-    anthropic: Optional[str] = None
-    pinecone: Optional[str] = None
-    cohere: Optional[str] = None
-
-
-class GlobalConfig(BaseConfig):
-    """Global configuration for PepperPy.
-
-    Attributes:
-        default_llm_provider: The default LLM provider to use.
-        default_rag_provider: The default RAG provider to use.
-        default_data_provider: The default data provider to use.
-        api_keys: Configuration for API keys.
-        logging: Configuration for logging.
-    """
-
-    default_llm_provider: str = "openai"
-    default_rag_provider: str = "basic"
-    default_data_provider: str = "memory"
-    api_keys: APIKeyConfig = Field(default_factory=APIKeyConfig)
-    logging: LoggingConfig = Field(default_factory=LoggingConfig)
-
-
-# Register common configuration models
-ConfigRegistry.register("global", GlobalConfig)
-ConfigRegistry.register("logging", LoggingConfig)
-ConfigRegistry.register("api_keys", APIKeyConfig)
-
-
-# Convenience functions
-
-
-def get_config(name: str) -> BaseConfig:
-    """Get a configuration instance.
-
-    Args:
-        name: The name of the configuration model.
-
-    Returns:
-        A configuration instance.
-
-    Raises:
-        KeyError: If the configuration model is not registered.
-        ConfigValidationError: If the configuration is invalid.
-    """
-    return ConfigRegistry.get_config(name)
-
-
-def set_config(name: str, config: Union[BaseConfig, ConfigDict]) -> None:
-    """Set a configuration instance.
-
-    Args:
-        name: The name of the configuration model.
-        config: The configuration instance or dictionary.
-
-    Raises:
-        KeyError: If the configuration model is not registered.
-        ConfigValidationError: If the configuration is invalid.
-    """
-    ConfigRegistry.set_config(name, config)
-
-
-def register_config(name: str, config_class: Type[BaseConfig]) -> None:
-    """Register a configuration model.
-
-    Args:
-        name: The name of the configuration model.
-        config_class: The configuration model class.
-    """
-    ConfigRegistry.register(name, config_class)
-
-
-def reset_config(name: Optional[str] = None) -> None:
-    """Reset the configuration registry.
-
-    Args:
-        name: Optional name of the configuration model to reset.
-             If not provided, all configuration instances will be reset.
-    """
-    ConfigRegistry.reset(name)
+        return (
+            f"{self.__class__.__name__}("
+            f"data={self._data}, "
+            f"schema={self._schema}, "
+            f"options={self._options})"
+        )

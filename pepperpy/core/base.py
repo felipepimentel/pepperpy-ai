@@ -1,105 +1,102 @@
-"""Essential base interfaces and classes for the PepperPy framework.
+"""Provider Base Module.
 
-This module defines the core interfaces and abstract classes that form the
-foundation of the PepperPy framework. These components are designed to be
-minimal, stable, and reusable across all other modules.
+This module defines the base provider interface and common functionality
+for all provider implementations across the framework.
+
+Example:
+    >>> from pepperpy.core.provider import BaseProvider
+    >>> class MyProvider(BaseProvider):
+    ...     def __init__(self, name: str, **kwargs):
+    ...         super().__init__(name, **kwargs)
+    ...         self.provider_type = "custom"
 """
 
-from typing import Any, Dict, Optional, Protocol, TypeVar, runtime_checkable
+from typing import Any, Dict, TypeVar
 
-T = TypeVar('T')
-ConfigType = Dict[str, Any]
+from .validation import ValidationError
 
-@runtime_checkable
-class Identifiable(Protocol):
-    """Protocol for objects that have a unique identifier."""
-    
-    @property
-    def id(self) -> str:
-        """Return the unique identifier for this object."""
+T = TypeVar("T", bound="BaseProvider")
+
+
+class BaseProvider:
+    """Base class for all providers.
+
+    This class defines the common interface and functionality that all
+    providers must implement. It provides basic provider lifecycle
+    management and capability introspection.
+
+    Args:
+        name: Provider name
+        **kwargs: Provider-specific configuration
+
+    Example:
+        >>> class MyProvider(BaseProvider):
+        ...     def __init__(self, name: str, **kwargs):
+        ...         super().__init__(name, **kwargs)
+        ...         self.provider_type = "custom"
         ...
+        >>> provider = MyProvider("my_provider")
+    """
 
-@runtime_checkable
-class Initializable(Protocol):
-    """Protocol for objects that require initialization."""
-    
-    async def initialize(self) -> None:
-        """Initialize the object."""
-        ...
+    def __init__(
+        self,
+        name: str,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the provider.
 
-@runtime_checkable
-class Configurable(Protocol):
-    """Protocol for objects that can be configured."""
-    
-    def configure(self, config: ConfigType) -> None:
-        """Configure the object with the provided configuration."""
-        ...
+        Args:
+            name: Provider name
+            **kwargs: Provider-specific configuration
 
-@runtime_checkable
-class Disposable(Protocol):
-    """Protocol for objects that need to be disposed of."""
-    
-    async def dispose(self) -> None:
-        """Release resources held by this object."""
-        ...
+        Raises:
+            ValidationError: If name is empty
+        """
+        if not name:
+            raise ValidationError("Provider name cannot be empty")
 
-@runtime_checkable
-class Resource(Initializable, Disposable, Protocol):
-    """Protocol for objects that represent a managed resource."""
-    
-    @property
-    def is_initialized(self) -> bool:
-        """Return whether the resource has been initialized."""
-        ...
+        self.name = name
+        self.provider_type = "base"
+        self._capabilities: Dict[str, Any] = {}
+        self._config = kwargs
 
-@runtime_checkable
-class Provider(Protocol[T]):
-    """Protocol for objects that provide a specific type of value."""
-    
-    async def provide(self) -> T:
-        """Provide an instance of the specified type."""
-        ...
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get provider capabilities.
 
-@runtime_checkable
-class Consumer(Protocol[T]):
-    """Protocol for objects that consume a specific type of value."""
-    
-    async def consume(self, value: T) -> None:
-        """Consume an instance of the specified type."""
-        ...
+        Returns:
+            Dict with provider capabilities including:
+                - name: Provider name
+                - type: Provider type
+                - capabilities: Provider-specific capabilities
 
-@runtime_checkable
-class Processor(Protocol[T]):
-    """Protocol for objects that process a specific type of value."""
-    
-    async def process(self, value: T) -> T:
-        """Process an instance of the specified type and return a new instance."""
-        ...
+        Example:
+            >>> provider = MyProvider("my_provider")
+            >>> caps = provider.get_capabilities()
+            >>> print(caps["name"])
+        """
+        return {
+            "name": self.name,
+            "type": self.provider_type,
+            "capabilities": self._capabilities,
+        }
 
-class BaseComponent(Initializable, Configurable, Disposable):
-    """Base class for components in the PepperPy framework."""
-    
-    def __init__(self, config: Optional[ConfigType] = None):
-        """Initialize the component with the provided configuration."""
-        self._initialized = False
-        self._config: ConfigType = {}
-        
-        if config:
-            self.configure(config)
-    
-    @property
-    def is_initialized(self) -> bool:
-        """Return whether the component has been initialized."""
-        return self._initialized
-    
-    def configure(self, config: ConfigType) -> None:
-        """Configure the component with the provided configuration."""
-        self._config.update(config)
-    
-    async def initialize(self) -> None:
-        """Initialize the component."""
-        self._initialized = True
-    
-    async def dispose(self) -> None:
-        """Release resources held by this component."""
-        self._initialized = False
+    def __str__(self) -> str:
+        """Get string representation.
+
+        Returns:
+            Provider name and type
+        """
+        return f"{self.name} ({self.provider_type})"
+
+    def __repr__(self) -> str:
+        """Get detailed string representation.
+
+        Returns:
+            Provider details including name, type and capabilities
+        """
+        return (
+            f"{self.__class__.__name__}("
+            f"name='{self.name}', "
+            f"type='{self.provider_type}', "
+            f"capabilities={self._capabilities})"
+        )

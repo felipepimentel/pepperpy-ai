@@ -1,6 +1,6 @@
 ---
 description: ALWAYS use when interacting with the PepperPy framework to ensure correct usage of APIs, proper module organization, and consistent patterns. This rule provides a high-level overview of the framework architecture and integration patterns.
-globs: ["pepperpy/**/*.py", "examples/**/*.py"]
+globs: ["pepperpy/**/*.py", "examples/*.py"]
 version: 1.0
 priority: critical
 tags: ["pepperpy", "framework", "architecture", "integration", "modules"]
