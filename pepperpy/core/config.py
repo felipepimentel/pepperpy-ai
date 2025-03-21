@@ -1,141 +1,214 @@
-"""Configuration management for PepperPy.
+"""Configuration module for PepperPy.
 
-This module provides configuration management functionality including:
-- Loading configuration from various sources
-- Environment variable handling
-- Configuration validation
-- Default configuration management
+This module provides configuration management functionality.
 """
 
-
+import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
 
-from pepperpy.utils.base import (
-    flatten_dict,
-    get_metadata_value,
-    merge_configs,
-    safe_import,
-    unflatten_dict,
-)
+import yaml
+
+from pepperpy.core.utils import merge_configs, unflatten_dict, validate_type
+
+from .validation import ValidationError
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
-    """Configuration manager for PepperPy.
+    """Configuration management class.
 
-    This class handles loading and managing configuration from various sources
-    including environment variables, files, and default values.
+    This class handles loading, validating, and accessing configuration values
+    from various sources including files, environment variables, and defaults.
+
+    Args:
+        config_path: Optional path to config file
+        env_prefix: Optional prefix for environment variables
+        defaults: Optional default configuration values
+        **kwargs: Additional configuration values
+
+    Example:
+        >>> config = Config(
+        ...     config_path="config.yaml",
+        ...     env_prefix="APP_",
+        ...     defaults={"debug": False},
+        ...     api_key="abc123"
+        ... )
+        >>> print(config.get("api_key"))
     """
 
     def __init__(
         self,
-        env_prefix: str = "PEPPERPY_",
-        config_file: Optional[str] = None,
-        **defaults: Any,
+        config_path: Optional[Union[str, Path]] = None,
+        env_prefix: str = "",
+        defaults: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize the configuration manager.
+        """Initialize configuration.
 
         Args:
-            env_prefix: Prefix for environment variables
-            config_file: Path to configuration file
-            **defaults: Default configuration values
+            config_path: Optional path to config file
+            env_prefix: Optional prefix for environment variables
+            defaults: Optional default configuration values
+            **kwargs: Additional configuration values
+
+        Raises:
+            ValidationError: If config file is invalid
         """
-        self.env_prefix = env_prefix
-        self.config_file = Path(config_file) if config_file else None
-        self.config: Dict[str, Any] = defaults.copy()
-        self._load_config()
+        self._config: Dict[str, Any] = {}
+        self._env_prefix = env_prefix
 
-    def _load_config(self) -> None:
-        """Load configuration from all sources."""
-        # Load from file if specified
-        if self.config_file and self.config_file.exists():
-            self._load_from_file()
+        # Load defaults
+        if defaults:
+            validate_type(defaults, dict)
+            self._config.update(defaults)
 
-        # Load from environment variables
-        self._load_from_env()
+        # Load from file
+        if config_path:
+            self._load_file(config_path)
 
-    def _load_from_file(self) -> None:
-        """Load configuration from file."""
-        if not self.config_file:
+        # Load from environment
+        self._load_env()
+
+        # Load from kwargs
+        self._config.update(kwargs)
+
+    def _load_file(self, path: Union[str, Path]) -> None:
+        """Load configuration from file.
+
+        Args:
+            path: Path to configuration file
+
+        Raises:
+            ValidationError: If file is invalid or cannot be read
+        """
+        try:
+            path = Path(path)
+            if not path.exists():
+                raise ValidationError(f"Config file not found: {path}")
+
+            with open(path) as f:
+                config = yaml.safe_load(f)
+
+            if not isinstance(config, dict):
+                raise ValidationError("Config file must contain a dictionary")
+
+            self._config.update(config)
+
+        except Exception as e:
+            raise ValidationError(f"Failed to load config file: {e}")
+
+    def _load_env(self) -> None:
+        """Load configuration from environment variables.
+
+        Environment variables are converted from uppercase with underscores
+        to lowercase with dots. For example:
+            APP_DATABASE_URL -> database.url
+        """
+        if not self._env_prefix:
             return
 
-        ext = self.config_file.suffix.lower()
-        if ext == ".json":
-            import json
-
-            with open(self.config_file) as f:
-                file_config = json.load(f)
-        elif ext in (".yaml", ".yml"):
-            yaml = safe_import("yaml")
-            if yaml:
-                with open(self.config_file) as f:
-                    file_config = yaml.safe_load(f)
-            else:
-                file_config = {}
-        else:
-            file_config = {}
-
-        self.config = merge_configs(self.config, file_config)
-
-    def _load_from_env(self) -> None:
-        """Load configuration from environment variables."""
+        prefix = self._env_prefix.rstrip("_").upper() + "_"
         env_config = {}
+
         for key, value in os.environ.items():
-            if key.startswith(self.env_prefix):
-                config_key = key[len(self.env_prefix) :].lower()
+            if key.startswith(prefix):
+                # Convert APP_DATABASE_URL to database.url
+                config_key = key[len(prefix) :].lower().replace("_", ".")
                 env_config[config_key] = value
 
-        self.config = merge_configs(self.config, unflatten_dict(env_config))
+        # Update config with flattened env vars
+        if env_config:
+            self._config.update(unflatten_dict(env_config))
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Get a configuration value.
+        """Get configuration value.
 
         Args:
-            key: Configuration key (can use dot notation)
+            key: Configuration key (supports dot notation)
             default: Default value if key not found
 
         Returns:
             Configuration value
+
+        Example:
+            >>> config.get("database.url", "sqlite:///db.sqlite3")
         """
-        return get_metadata_value(self.config, key, default)
+        try:
+            current = self._config
+            for part in key.split("."):
+                current = current[part]
+            return current
+        except (KeyError, TypeError):
+            return default
 
     def set(self, key: str, value: Any) -> None:
-        """Set a configuration value.
+        """Set configuration value.
 
         Args:
-            key: Configuration key (can use dot notation)
+            key: Configuration key (supports dot notation)
             value: Value to set
+
+        Example:
+            >>> config.set("database.url", "postgres://localhost/db")
         """
-        parts = key.split(".")
-        target = self.config
-        for part in parts[:-1]:
-            target = target.setdefault(part, {})
-        target[parts[-1]] = value
+        config = unflatten_dict({key: value})
+        self._config = merge_configs(self._config, config)
 
     def update(self, config: Dict[str, Any]) -> None:
-        """Update configuration with new values.
+        """Update configuration with dictionary.
 
         Args:
-            config: New configuration values
+            config: Configuration dictionary to merge
+
+        Example:
+            >>> config.update({"debug": True, "api": {"timeout": 30}})
         """
-        self.config = merge_configs(self.config, config)
+        validate_type(config, dict)
+        self._config = merge_configs(self._config, config)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Get configuration as dictionary.
+        """Convert configuration to dictionary.
 
         Returns:
             Configuration dictionary
-        """
-        return self.config.copy()
 
-    def to_env_dict(self) -> Dict[str, str]:
-        """Get configuration as environment variables.
+        Example:
+            >>> config_dict = config.to_dict()
+            >>> print(config_dict["database"]["url"])
+        """
+        return dict(self._config)
+
+    def __getitem__(self, key: str) -> Any:
+        """Get configuration value using dictionary syntax.
+
+        Args:
+            key: Configuration key
 
         Returns:
-            Dictionary of environment variables
+            Configuration value
+
+        Raises:
+            KeyError: If key not found
+
+        Example:
+            >>> api_key = config["api_key"]
         """
-        return {
-            f"{self.env_prefix}{k.upper()}": str(v)
-            for k, v in flatten_dict(self.config).items()
-        }
+        value = self.get(key)
+        if value is None:
+            raise KeyError(key)
+        return value
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Set configuration value using dictionary syntax.
+
+        Args:
+            key: Configuration key
+            value: Value to set
+
+        Example:
+            >>> config["api_key"] = "new_key"
+        """
+        self.set(key, value)

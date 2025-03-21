@@ -5,8 +5,8 @@ formatting options. It supports different log levels, handlers, and
 output formats.
 
 Example:
-    >>> from pepperpy.core.internal.logging import Logger
-    >>> logger = Logger.get_logger(__name__)
+    >>> from pepperpy.core.logging import get_logger
+    >>> logger = get_logger(__name__)
     >>> logger.info("Processing request", request_id="123")
 """
 
@@ -411,8 +411,27 @@ def setup_logging(
         root.addHandler(handler)
 
 
+def get_logger(name: str, **kwargs: Any) -> "Logger":
+    """Get a logger instance for the specified name.
+
+    This is a convenience function that returns a Logger instance
+    for the specified name. It's equivalent to calling
+    Logger.get_logger(name, **kwargs).
+
+    Args:
+        name: Name for the logger, typically __name__
+        **kwargs: Additional configuration options
+
+    Returns:
+        Logger instance
+    """
+    return Logger.get_logger(name, **kwargs)
+
+
 __all__ = [
     "LogLevel",
-    "LogRecord",
     "Logger",
+    "LogRecord",
+    "setup_logging",
+    "get_logger",
 ]

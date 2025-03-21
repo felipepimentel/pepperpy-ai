@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Type
 
 from pepperpy.core.errors import NotFoundError, PepperPyError
-from pepperpy.utils.logging import get_logger
+from pepperpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 

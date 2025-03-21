@@ -14,13 +14,24 @@ Example:
     >>> print(results[0].content)
 """
 
-from pepperpy.rag.base import Document, Query, RAGError, RAGProvider, RetrievalResult
+from pepperpy.rag.document import Document
+from pepperpy.rag.memory_optimization import (
+    DocumentChunk,
+    StreamingProcessor,
+    get_memory_usage,
+    optimize_memory_usage,
+    process_document_streaming,
+    stream_document,
+)
+from pepperpy.rag.provider import RAGError, RAGProvider
 from pepperpy.rag.providers import (
     ChromaRAGProvider,
     LocalRAGProvider,
     OpenAIRAGProvider,
     PineconeRAGProvider,
 )
+from pepperpy.rag.query import Query
+from pepperpy.rag.result import RetrievalResult
 
 __all__ = [
     # Core types
@@ -34,4 +45,11 @@ __all__ = [
     "LocalRAGProvider",
     "OpenAIRAGProvider",
     "PineconeRAGProvider",
+    # Memory optimization
+    "DocumentChunk",
+    "StreamingProcessor",
+    "get_memory_usage",
+    "optimize_memory_usage",
+    "process_document_streaming",
+    "stream_document",
 ]

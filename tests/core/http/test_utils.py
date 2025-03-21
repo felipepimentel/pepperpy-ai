@@ -3,7 +3,7 @@
 import pytest
 
 from pepperpy.http.errors import ResponseError
-from pepperpy.http.utils import (
+from pepperpy.http.helpers import (
     check_status_code,
     format_headers,
     get_content_type,
