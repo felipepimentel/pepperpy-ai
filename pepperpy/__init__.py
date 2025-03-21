@@ -21,22 +21,8 @@ Exemplo Básico:
     >>> result = await app.process("Texto para processar")
 """
 
-from pepperpy import (
-    core,
-    data,
-    http,
-    infra,
-    registry,
-    utils,
-)
 from pepperpy.version import __version__
 
 __all__ = [
     "__version__",
-    "core",
-    "data",
-    "http",
-    "infra",
-    "registry",
-    "utils",
 ]

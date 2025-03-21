@@ -1,49 +1,46 @@
-"""Utilities Module.
+"""Common utility functions used across the PepperPy framework.
 
-This module provides common utility functions used across the PepperPy
-framework. It includes functions for type checking, data validation,
-string manipulation, and other general-purpose operations.
-
-Example:
-    >>> from pepperpy.core.utils import validate_type, truncate_text
-    >>> validate_type("test", str, "name")  # No error
-    >>> truncate_text("Long text...", max_length=10)  # "Long tex..."
+This module provides essential utility functions for:
+- Type validation
+- Text manipulation
+- Retry logic
+- Dynamic imports
+- Class introspection
+- Dictionary manipulation
 """
 
 import importlib
 import inspect
 import logging
-from functools import wraps
-from typing import Any, Callable, Dict, List, Type, TypeVar, Union, cast
+import time
+from typing import Any, Callable, Dict, List, Optional, Type, TypeVar
+
+from pepperpy.core.types import Metadata
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 
-def validate_type(value: Any, expected_type: Type[T], param_name: str) -> T:
-    """Validate that a value is of the expected type.
+def validate_type(value: Any, expected_type: Type[T], allow_none: bool = False) -> T:
+    """Validate that a value matches the expected type.
 
     Args:
         value: The value to validate
         expected_type: The expected type
-        param_name: Name of the parameter (for error messages)
+        allow_none: Whether to allow None values
 
     Returns:
         The validated value
 
     Raises:
-        TypeError: If value is not of expected_type
-
-    Example:
-        >>> value = validate_type("test", str, "name")
-        >>> assert isinstance(value, str)
-        >>> validate_type(123, str, "name")  # Raises TypeError
+        TypeError: If the value is not of the expected type
     """
+    if allow_none and value is None:
+        return value
     if not isinstance(value, expected_type):
         raise TypeError(
-            f"Parameter '{param_name}' must be of type {expected_type.__name__}, "
-            f"got {type(value).__name__}"
+            f"Expected {expected_type.__name__}, got {type(value).__name__}"
         )
     return value
 
@@ -52,164 +49,107 @@ def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
     """Truncate text to a maximum length.
 
     Args:
-        text: Text to truncate
-        max_length: Maximum length (including suffix)
-        suffix: String to append when truncating
+        text: The text to truncate
+        max_length: Maximum length of the text
+        suffix: Suffix to add when truncated
 
     Returns:
         Truncated text
-
-    Example:
-        >>> text = "This is a very long text that needs truncating"
-        >>> truncate_text(text, max_length=20)
-        'This is a very lon...'
     """
     if len(text) <= max_length:
         return text
-    return text[: max_length - len(suffix)] + suffix
+    return text[:max_length] + suffix
 
 
 def retry(
+    func: Callable,
     max_attempts: int = 3,
-    exceptions: Union[Type[Exception], tuple[Type[Exception], ...]] = Exception,
-    delay: float = 0,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator to retry a function on failure.
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: tuple = (Exception,),
+) -> Any:
+    """Retry a function with exponential backoff.
 
     Args:
-        max_attempts: Maximum number of retry attempts
-        exceptions: Exception(s) to catch and retry on
-        delay: Delay between retries in seconds
+        func: The function to retry
+        max_attempts: Maximum number of attempts
+        delay: Initial delay between attempts
+        backoff: Multiplier for delay after each attempt
+        exceptions: Tuple of exceptions to catch
 
     Returns:
-        Decorated function
+        The result of the function
 
-    Example:
-        >>> @retry(max_attempts=3, exceptions=ValueError)
-        ... def unstable_function():
-        ...     if random.random() < 0.5:
-        ...         raise ValueError("Random failure")
-        ...     return "success"
+    Raises:
+        Exception: If all attempts fail
     """
-    import time
+    attempt = 0
+    current_delay = delay
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
-            last_exception = None
-            for attempt in range(max_attempts):
-                try:
-                    return func(*args, **kwargs)
-                except exceptions as e:
-                    last_exception = e
-                    if attempt < max_attempts - 1:
-                        logger.warning(
-                            f"Attempt {attempt + 1}/{max_attempts} failed: {e}",
-                            extra={"data": {"function": func.__name__}},
-                        )
-                        if delay:
-                            time.sleep(delay)
-                    continue
-            if last_exception:
-                raise last_exception
-            return cast(T, None)  # Should never reach here
-
-        return wrapper
-
-    return decorator
+    while attempt < max_attempts:
+        try:
+            return func()
+        except exceptions as e:
+            attempt += 1
+            if attempt == max_attempts:
+                raise
+            logger.warning(
+                f"Attempt {attempt} failed: {e}. Retrying in {current_delay}s..."
+            )
+            time.sleep(current_delay)
+            current_delay *= backoff
 
 
-def import_string(import_name: str) -> Any:
-    """Import an object based on a string.
-
-    This function imports a module or object using a string path.
-    It supports both module imports and attribute access.
+def import_string(import_path: str) -> Any:
+    """Import an object from a string path.
 
     Args:
-        import_name: Dotted path to the object
+        import_path: The import path (e.g. 'module.submodule:object')
 
     Returns:
         The imported object
 
     Raises:
-        ImportError: If the object cannot be imported
-
-    Example:
-        >>> json = import_string("json")
-        >>> dumps = import_string("json.dumps")
-        >>> assert callable(dumps)
+        ImportError: If the import fails
     """
-    module_name, obj_name = (
-        import_name.rsplit(".", 1) if "." in import_name else (import_name, None)
-    )
     try:
-        module = importlib.import_module(module_name)
-        if obj_name:
-            try:
-                return getattr(module, obj_name)
-            except AttributeError as e:
-                raise ImportError(
-                    f"Module '{module_name}' has no attribute '{obj_name}'"
-                ) from e
-        return module
-    except ImportError as e:
-        raise ImportError(f"Could not import '{import_name}': {e}") from e
+        module_path, object_name = import_path.split(":")
+        module = importlib.import_module(module_path)
+        return getattr(module, object_name)
+    except (ValueError, ImportError, AttributeError) as e:
+        raise ImportError(f"Failed to import {import_path}: {e}")
 
 
 def get_class_attributes(cls: Type[Any]) -> Dict[str, Any]:
     """Get all attributes of a class.
-
-    This function returns a dictionary of all attributes defined in a class,
-    including properties and methods, but excluding built-in attributes.
 
     Args:
         cls: The class to inspect
 
     Returns:
         Dictionary of attribute names and values
-
-    Example:
-        >>> class Example:
-        ...     x = 1
-        ...     def method(self): pass
-        ...     @property
-        ...     def prop(self): return 2
-        >>> attrs = get_class_attributes(Example)
-        >>> assert "x" in attrs and "method" in attrs
     """
     return {
         name: value
         for name, value in inspect.getmembers(cls)
         if not name.startswith("_")
-        and not inspect.isbuiltin(value)
-        and not inspect.ismodule(value)
     }
 
 
 def flatten_dict(
-    d: Dict[str, Any],
-    parent_key: str = "",
-    sep: str = ".",
+    d: Dict[str, Any], parent_key: str = "", sep: str = "."
 ) -> Dict[str, Any]:
     """Flatten a nested dictionary.
 
-    This function converts a nested dictionary into a flat dictionary
-    with keys joined by a separator.
-
     Args:
-        d: Dictionary to flatten
-        parent_key: Key of parent dictionary (used in recursion)
-        sep: Separator for nested keys
+        d: The dictionary to flatten
+        parent_key: The parent key for nested items
+        sep: The separator between keys
 
     Returns:
         Flattened dictionary
-
-    Example:
-        >>> d = {"a": 1, "b": {"c": 2, "d": {"e": 3}}}
-        >>> flat = flatten_dict(d)
-        >>> assert flat == {"a": 1, "b.c": 2, "b.d.e": 3}
     """
-    items: List[tuple[str, Any]] = []
+    items: List[tuple] = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         if isinstance(v, dict):
@@ -220,22 +160,14 @@ def flatten_dict(
 
 
 def unflatten_dict(d: Dict[str, Any], sep: str = ".") -> Dict[str, Any]:
-    """Convert a flattened dictionary back to nested form.
-
-    This function is the inverse of flatten_dict, converting a flat
-    dictionary with separated keys back into a nested dictionary.
+    """Unflatten a dictionary with dot notation.
 
     Args:
-        d: Flattened dictionary
-        sep: Separator used in keys
+        d: The dictionary to unflatten
+        sep: The separator between keys
 
     Returns:
-        Nested dictionary
-
-    Example:
-        >>> flat = {"a": 1, "b.c": 2, "b.d.e": 3}
-        >>> nested = unflatten_dict(flat)
-        >>> assert nested == {"a": 1, "b": {"c": 2, "d": {"e": 3}}}
+        Unflattened dictionary
     """
     result: Dict[str, Any] = {}
     for key, value in d.items():
@@ -247,12 +179,66 @@ def unflatten_dict(d: Dict[str, Any], sep: str = ".") -> Dict[str, Any]:
     return result
 
 
-__all__ = [
-    "validate_type",
-    "truncate_text",
-    "retry",
-    "import_string",
-    "get_class_attributes",
-    "flatten_dict",
-    "unflatten_dict",
-]
+def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge multiple configuration dictionaries.
+
+    Args:
+        *configs: Configuration dictionaries to merge
+
+    Returns:
+        Merged configuration dictionary
+    """
+    result: Dict[str, Any] = {}
+    for config in configs:
+        result.update(config)
+    return result
+
+
+def safe_import(module_name: str, default: Any = None) -> Any:
+    """Safely import a module or return a default value.
+
+    Args:
+        module_name: The module to import
+        default: Default value if import fails
+
+    Returns:
+        The imported module or default value
+    """
+    try:
+        return importlib.import_module(module_name)
+    except ImportError:
+        return default
+
+
+def convert_to_dict(obj: Any) -> Dict[str, Any]:
+    """Convert an object to a dictionary.
+
+    Args:
+        obj: The object to convert
+
+    Returns:
+        Dictionary representation of the object
+    """
+    if isinstance(obj, dict):
+        return obj
+    if hasattr(obj, "__dict__"):
+        return obj.__dict__
+    return {}
+
+
+def get_metadata_value(
+    metadata: Optional[Metadata], key: str, default: Any = None
+) -> Any:
+    """Get a value from metadata with a default fallback.
+
+    Args:
+        metadata: The metadata dictionary
+        key: The key to look up
+        default: Default value if key not found
+
+    Returns:
+        The metadata value or default
+    """
+    if not metadata:
+        return default
+    return metadata.get(key, default)

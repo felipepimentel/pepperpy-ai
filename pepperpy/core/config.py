@@ -1,306 +1,141 @@
-"""Configuration Module.
+"""Configuration management for PepperPy.
 
-This module provides configuration management with validation and schema support.
-It handles loading, validating, and accessing configuration from various sources.
-
-Example:
-    >>> from pepperpy.core.internal.config import Config
-    >>> config = Config.from_file("config.yaml")
-    >>> api_key = config.get("api_key")
+This module provides configuration management functionality including:
+- Loading configuration from various sources
+- Environment variable handling
+- Configuration validation
+- Default configuration management
 """
 
+
+import os
+from pathlib import Path
 from typing import Any, Dict, Optional
 
-import yaml
-
-from .validation import ValidationError, ValidationSchema
-
-
-class ConfigError(Exception):
-    """Error raised for configuration issues.
-
-    This error is raised when configuration operations fail, such as
-    loading from file, validation, or accessing missing values.
-
-    Example:
-        >>> try:
-        ...     config = Config.from_file("missing.yaml")
-        ... except ConfigError as e:
-        ...     print(f"Config error: {e}")
-    """
-
-    pass
-
-
-class ConfigSchema(ValidationSchema):
-    """Schema for configuration validation.
-
-    This class extends ValidationSchema to provide configuration-specific
-    validation rules and defaults.
-
-    Example:
-        >>> schema = ConfigSchema({
-        ...     "api_key": {"type": str, "required": True},
-        ...     "timeout": {"type": int, "default": 30}
-        ... })
-    """
-
-    def __init__(self, schema: Dict[str, Any]):
-        """Initialize the config schema.
-
-        Args:
-            schema: Schema definition
-        """
-        super().__init__(schema)
+from pepperpy.utils.base import (
+    flatten_dict,
+    get_metadata_value,
+    merge_configs,
+    safe_import,
+    unflatten_dict,
+)
 
 
 class Config:
-    """Configuration management with validation.
+    """Configuration manager for PepperPy.
 
-    This class provides methods for loading, validating, and accessing
-    configuration values from various sources.
-
-    Args:
-        data: Configuration data
-        schema: Optional validation schema
-        **kwargs: Additional configuration options
-
-    Example:
-        >>> config = Config({
-        ...     "api_key": "secret",
-        ...     "timeout": 30
-        ... })
-        >>> print(config.get("timeout"))  # 30
+    This class handles loading and managing configuration from various sources
+    including environment variables, files, and default values.
     """
 
     def __init__(
         self,
-        data: Dict[str, Any],
-        schema: Optional[ConfigSchema] = None,
-        **kwargs: Any,
-    ):
-        """Initialize the configuration.
+        env_prefix: str = "PEPPERPY_",
+        config_file: Optional[str] = None,
+        **defaults: Any,
+    ) -> None:
+        """Initialize the configuration manager.
 
         Args:
-            data: Configuration data
-            schema: Optional validation schema
-            **kwargs: Additional configuration options
-
-        Raises:
-            ConfigError: If validation fails
+            env_prefix: Prefix for environment variables
+            config_file: Path to configuration file
+            **defaults: Default configuration values
         """
-        self._data = data
-        self._schema = schema
-        self._options = kwargs
+        self.env_prefix = env_prefix
+        self.config_file = Path(config_file) if config_file else None
+        self.config: Dict[str, Any] = defaults.copy()
+        self._load_config()
 
-        if schema:
-            try:
-                self._data = schema.validate(data)
-            except ValidationError as e:
-                raise ConfigError(f"Invalid configuration: {e}")
+    def _load_config(self) -> None:
+        """Load configuration from all sources."""
+        # Load from file if specified
+        if self.config_file and self.config_file.exists():
+            self._load_from_file()
 
-    @classmethod
-    def from_file(
-        cls,
-        path: str,
-        schema: Optional[ConfigSchema] = None,
-        **kwargs: Any,
-    ) -> "Config":
-        """Load configuration from file.
+        # Load from environment variables
+        self._load_from_env()
+
+    def _load_from_file(self) -> None:
+        """Load configuration from file."""
+        if not self.config_file:
+            return
+
+        ext = self.config_file.suffix.lower()
+        if ext == ".json":
+            import json
+
+            with open(self.config_file) as f:
+                file_config = json.load(f)
+        elif ext in (".yaml", ".yml"):
+            yaml = safe_import("yaml")
+            if yaml:
+                with open(self.config_file) as f:
+                    file_config = yaml.safe_load(f)
+            else:
+                file_config = {}
+        else:
+            file_config = {}
+
+        self.config = merge_configs(self.config, file_config)
+
+    def _load_from_env(self) -> None:
+        """Load configuration from environment variables."""
+        env_config = {}
+        for key, value in os.environ.items():
+            if key.startswith(self.env_prefix):
+                config_key = key[len(self.env_prefix) :].lower()
+                env_config[config_key] = value
+
+        self.config = merge_configs(self.config, unflatten_dict(env_config))
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Get a configuration value.
 
         Args:
-            path: Path to configuration file
-            schema: Optional validation schema
-            **kwargs: Additional configuration options
-
-        Returns:
-            Config instance
-
-        Raises:
-            ConfigError: If file cannot be loaded or validation fails
-
-        Example:
-            >>> config = Config.from_file(
-            ...     "config.yaml",
-            ...     schema=ConfigSchema({"api_key": str})
-            ... )
-        """
-        try:
-            with open(path) as f:
-                data = yaml.safe_load(f)
-            return cls(data, schema, **kwargs)
-        except Exception as e:
-            raise ConfigError(f"Failed to load config from {path}: {e}")
-
-    def get(
-        self,
-        key: str,
-        default: Any = None,
-    ) -> Any:
-        """Get configuration value.
-
-        Args:
-            key: Configuration key
+            key: Configuration key (can use dot notation)
             default: Default value if key not found
 
         Returns:
             Configuration value
-
-        Example:
-            >>> config = Config({"timeout": 30})
-            >>> timeout = config.get("timeout", 60)
         """
-        return self._data.get(key, default)
+        return get_metadata_value(self.config, key, default)
 
-    def set(
-        self,
-        key: str,
-        value: Any,
-    ) -> None:
-        """Set configuration value.
+    def set(self, key: str, value: Any) -> None:
+        """Set a configuration value.
 
         Args:
-            key: Configuration key
+            key: Configuration key (can use dot notation)
             value: Value to set
-
-        Raises:
-            ConfigError: If validation fails
-
-        Example:
-            >>> config = Config({})
-            >>> config.set("timeout", 30)
         """
-        if self._schema:
-            try:
-                data = {**self._data, key: value}
-                self._data = self._schema.validate(data)
-            except ValidationError as e:
-                raise ConfigError(f"Invalid configuration: {e}")
-        else:
-            self._data[key] = value
+        parts = key.split(".")
+        target = self.config
+        for part in parts[:-1]:
+            target = target.setdefault(part, {})
+        target[parts[-1]] = value
 
-    def update(
-        self,
-        data: Dict[str, Any],
-    ) -> None:
-        """Update configuration with new data.
+    def update(self, config: Dict[str, Any]) -> None:
+        """Update configuration with new values.
 
         Args:
-            data: Configuration data to update
-
-        Raises:
-            ConfigError: If validation fails
-
-        Example:
-            >>> config = Config({})
-            >>> config.update({"timeout": 30, "retries": 3})
+            config: New configuration values
         """
-        if self._schema:
-            try:
-                self._data = self._schema.validate({**self._data, **data})
-            except ValidationError as e:
-                raise ConfigError(f"Invalid configuration: {e}")
-        else:
-            self._data.update(data)
+        self.config = merge_configs(self.config, config)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary.
+        """Get configuration as dictionary.
 
         Returns:
-            Configuration data
-
-        Example:
-            >>> config = Config({"timeout": 30})
-            >>> data = config.to_dict()
+            Configuration dictionary
         """
-        return dict(self._data)
+        return self.config.copy()
 
-    def __getitem__(self, key: str) -> Any:
-        """Get configuration value by key.
-
-        Args:
-            key: Configuration key
+    def to_env_dict(self) -> Dict[str, str]:
+        """Get configuration as environment variables.
 
         Returns:
-            Configuration value
-
-        Raises:
-            KeyError: If key not found
-
-        Example:
-            >>> config = Config({"timeout": 30})
-            >>> timeout = config["timeout"]
+            Dictionary of environment variables
         """
-        return self._data[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        """Set configuration value by key.
-
-        Args:
-            key: Configuration key
-            value: Value to set
-
-        Raises:
-            ConfigError: If validation fails
-
-        Example:
-            >>> config = Config({})
-            >>> config["timeout"] = 30
-        """
-        self.set(key, value)
-
-    def __contains__(self, key: str) -> bool:
-        """Check if key exists in configuration.
-
-        Args:
-            key: Configuration key
-
-        Returns:
-            True if key exists, False otherwise
-
-        Example:
-            >>> config = Config({"timeout": 30})
-            >>> "timeout" in config  # True
-        """
-        return key in self._data
-
-    def __len__(self) -> int:
-        """Get number of configuration items.
-
-        Returns:
-            Number of items
-
-        Example:
-            >>> config = Config({"timeout": 30, "retries": 3})
-            >>> len(config)  # 2
-        """
-        return len(self._data)
-
-    def __str__(self) -> str:
-        """Get string representation.
-
-        Returns:
-            String representation of configuration
-
-        Example:
-            >>> config = Config({"timeout": 30})
-            >>> str(config)  # "Config(items=1)"
-        """
-        return f"Config(items={len(self)})"
-
-    def __repr__(self) -> str:
-        """Get detailed string representation.
-
-        Returns:
-            Detailed string representation of configuration
-
-        Example:
-            >>> config = Config({"timeout": 30})
-            >>> repr(config)  # Contains all configuration details
-        """
-        return (
-            f"{self.__class__.__name__}("
-            f"data={self._data}, "
-            f"schema={self._schema}, "
-            f"options={self._options})"
-        )
+        return {
+            f"{self.env_prefix}{k.upper()}": str(v)
+            for k, v in flatten_dict(self.config).items()
+        }

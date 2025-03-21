@@ -1,333 +1,261 @@
 #!/usr/bin/env python
-"""Example demonstrating the RAG pipeline components.
+"""Example demonstrating RAG (Retrieval Augmented Generation) capabilities in PepperPy.
 
-This example demonstrates the usage of the RAG pipeline components, including
-document transformation, metadata extraction, and chunking.
+This example shows how to:
+- Create and configure RAG providers
+- Process and index documents with metadata
+- Perform document retrieval with different strategies
+- Handle document transformations and chunking
+- Use advanced RAG features like reranking and hybrid search
 """
 
-import logging
-import sys
-from pathlib import Path
-from typing import List
+import asyncio
+from typing import Dict, List, Optional
 
-# Add the parent directory to the path so we can import pepperpy
-sys.path.append(str(Path(__file__).parent.parent))
+from pepperpy.llm import LLMProvider
+from pepperpy.llm.providers.openai import OpenAIProvider
+from pepperpy.llm.types import Message
+from pepperpy.rag import Document, Query, RAGProvider, RetrievalResult
+from pepperpy.rag.providers import LocalRAGProvider
+from pepperpy.utils.logger import get_logger
 
-from pepperpy.core.telemetry import enable_telemetry, set_telemetry_level
-from pepperpy.rag.chunking import ChunkingStrategy
-from pepperpy.rag.metadata import MetadataType
-from pepperpy.rag.pipeline import (
-    RAGPipelineBuilder,
-    create_default_pipeline,
-    create_simple_pipeline,
-)
-from pepperpy.rag.transform import TransformationType
-from pepperpy.types.common import Document, Metadata
-
-
-def setup_logging():
-    """Set up logging for the example."""
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-        handlers=[logging.StreamHandler()],
-    )
+# Configure logging
+logger = get_logger(__name__)
 
 
 def create_sample_documents() -> List[Document]:
     """Create sample documents for demonstration.
 
     Returns:
-        A list of sample documents.
+        List of sample documents with metadata
     """
-    # Sample document 1: Technical article
-    technical_article = """
-    # Introduction to Machine Learning
+    # Technical article
+    technical_doc = Document(
+        content="""
+        Introduction to Machine Learning
 
-    Machine learning is a subset of artificial intelligence (AI) that provides systems the ability to automatically learn and improve from experience without being explicitly programmed. Machine learning focuses on the development of computer programs that can access data and use it to learn for themselves.
+        Machine learning is a subset of artificial intelligence (AI) that provides
+        systems the ability to automatically learn and improve from experience
+        without being explicitly programmed.
 
-    The process of learning begins with observations or data, such as examples, direct experience, or instruction, in order to look for patterns in data and make better decisions in the future based on the examples that we provide. The primary aim is to allow the computers to learn automatically without human intervention or assistance and adjust actions accordingly.
+        Key concepts include:
+        1. Supervised Learning
+        2. Unsupervised Learning
+        3. Reinforcement Learning
 
-    ## Types of Machine Learning
-
-    1. **Supervised Learning**: The algorithm is trained on labeled data. The model learns to predict the output from the input data.
-    2. **Unsupervised Learning**: The algorithm is trained on unlabeled data. The model learns patterns and relationships from the input data without any guidance.
-    3. **Reinforcement Learning**: The algorithm learns by interacting with an environment. It receives feedback in the form of rewards or penalties.
-
-    ## Applications of Machine Learning
-
-    Machine learning has numerous applications across various industries:
-
-    - **Healthcare**: Disease identification, patient monitoring
-    - **Finance**: Fraud detection, risk assessment
-    - **Retail**: Recommendation systems, inventory management
-    - **Transportation**: Autonomous vehicles, traffic prediction
-
-    For more information, visit our website at https://example.com/machine-learning or contact us at info@example.com.
-    """
-
-    # Sample document 2: News article
-    news_article = """
-    # Breaking News: New Technological Advancements Unveiled
-
-    January 15, 2025 - San Francisco, CA
-
-    In a groundbreaking announcement today, TechCorp Inc. revealed their latest innovations at the annual TechExpo conference. CEO Jane Smith presented three new products that promise to revolutionize the technology industry.
-
-    "We're excited to share these advancements with the world," said Smith during her keynote address. "These products represent years of research and development by our talented team."
-
-    The first product, an artificial intelligence assistant named "Nexus," can understand and respond to complex queries with human-like comprehension. Unlike existing AI assistants, Nexus can maintain context across multiple conversations and learn from user interactions.
-
-    The second product, "QuantumLink," is a quantum computing platform accessible through cloud services. This makes quantum computing capabilities available to businesses without requiring specialized hardware.
-
-    The third announcement was "EcoCharge," a sustainable battery technology that lasts five times longer than current lithium-ion batteries while using environmentally friendly materials.
-
-    Market analysts predict these innovations could significantly impact TechCorp's stock (TECH), which closed at $342.15 yesterday.
-
-    For more information, visit TechCorp's website at https://techcorp-example.com or contact their media relations department at media@techcorp-example.com.
-    """
-
-    # Sample document 3: Literary text
-    literary_text = """
-    # The Forgotten Garden
-
-    The old house stood silent at the end of the winding path, its windows like vacant eyes staring across the overgrown garden. Sarah paused at the rusted gate, her hand hesitating on the latch. After twenty years, she had finally returned.
-
-    The garden, once her grandmother's pride, had surrendered to wilderness. Roses climbed in tangled rebellion over crumbling stone walls. Forgotten statues peeked from beneath ivy cloaks, their features softened by time and weather.
-
-    "I never thought I'd come back," she whispered to the listening silence.
-
-    The key felt cold in her palm, an inheritance she had almost declined. Her grandmother's letter had arrived three weeks after the funeral, its yellowed pages filled with secrets Sarah had never suspected.
-
-    As she pushed open the gate, its hinges protesting with a mournful creak, memories flooded back. Summer afternoons helping Grandmother plant seedlings. Autumn evenings gathering herbs before the first frost. The mysterious locked door in the garden wall that Grandmother had forbidden her to approach.
-
-    "The truth waits for you in the forgotten garden," the letter had said. "What was hidden must now be found."
-
-    Sarah took a deep breath and stepped forward, the tall grass brushing against her legs as she made her way toward the house and the secrets it had kept for so long.
-    """
-
-    # Create Document objects
-    documents = [
-        Document(
-            id="doc1",
-            content=technical_article,
-            metadata=Metadata.from_dict({
-                "title": "Introduction to Machine Learning",
-                "type": "technical",
-            }),
-        ),
-        Document(
-            id="doc2",
-            content=news_article,
-            metadata=Metadata.from_dict({
-                "title": "New Technological Advancements",
-                "type": "news",
-            }),
-        ),
-        Document(
-            id="doc3",
-            content=literary_text,
-            metadata=Metadata.from_dict({
-                "title": "The Forgotten Garden",
-                "type": "fiction",
-            }),
-        ),
-    ]
-
-    return documents
-
-
-def demonstrate_default_pipeline():
-    """Demonstrate the default RAG pipeline."""
-    print("\n=== Demonstrating Default Pipeline ===\n")
-
-    # Create sample documents
-    documents = create_sample_documents()
-
-    # Create default pipeline
-    pipeline = create_default_pipeline()
-
-    # Process the first document
-    print(f"Processing document: {documents[0].metadata.to_dict().get('title')}")
-    processed_docs = pipeline.process(documents[0])
-
-    # Print results
-    print(f"Original document length: {len(documents[0].content)} characters")
-    print(f"Processed into {len(processed_docs)} chunks")
-
-    # Print the first chunk
-    if processed_docs:
-        first_chunk = processed_docs[0]
-        print("\nFirst chunk:")
-        print(f"  ID: {first_chunk.id}")
-        print(f"  Length: {len(first_chunk.content)} characters")
-        print(f"  Metadata: {first_chunk.metadata.to_dict()}")
-        print(f"  Content preview: {first_chunk.content[:100]}...")
-
-
-def demonstrate_custom_pipeline():
-    """Demonstrate a custom RAG pipeline."""
-    print("\n=== Demonstrating Custom Pipeline ===\n")
-
-    # Create sample documents
-    documents = create_sample_documents()
-
-    # Create a custom pipeline with specific configurations
-    pipeline = (
-        RAGPipelineBuilder()
-        .with_transformation(
-            include_types=[
-                TransformationType.NORMALIZE,
-                TransformationType.LOWERCASE,
-                TransformationType.REMOVE_URLS,
-            ]
-        )
-        .with_metadata_extraction(
-            include_types=[
-                MetadataType.DATE,
-                MetadataType.ENTITY,
-                MetadataType.KEYWORD,
-            ]
-        )
-        .with_chunking(
-            strategy=ChunkingStrategy.PARAGRAPH,
-            chunk_size=500,
-            chunk_overlap=50,
-        )
-        .build()
+        Applications span healthcare, finance, retail, and transportation.
+        """,
+        metadata={
+            "title": "Introduction to Machine Learning",
+            "type": "technical",
+            "tags": ["machine learning", "AI", "tutorial"],
+        },
     )
 
-    # Process the news article
-    print(f"Processing document: {documents[1].metadata.to_dict().get('title')}")
-    processed_docs = pipeline.process(documents[1])
+    # News article
+    news_doc = Document(
+        content="""
+        Breaking News: AI Breakthrough in Healthcare
 
-    # Print results
-    print(f"Original document length: {len(documents[1].content)} characters")
-    print(f"Processed into {len(processed_docs)} chunks")
+        Researchers have developed a new AI system that can detect early signs
+        of diseases with unprecedented accuracy. The system uses deep learning
+        to analyze medical images and patient data.
 
-    # Print extracted entities if available
-    if processed_docs:
-        for i, chunk in enumerate(processed_docs[:2]):  # Show first two chunks
-            print(f"\nChunk {i + 1}:")
-            print(f"  ID: {chunk.id}")
-            print(f"  Length: {len(chunk.content)} characters")
+        Clinical trials show a 95% accuracy rate in early detection.
+        """,
+        metadata={
+            "title": "AI Breakthrough in Healthcare",
+            "type": "news",
+            "tags": ["AI", "healthcare", "research"],
+            "date": "2024-03-20",
+        },
+    )
 
-            # Print entities if available
-            metadata_dict = chunk.metadata.to_dict()
-            if "entities" in metadata_dict:
-                entities = metadata_dict["entities"]
-                print("  Extracted entities:")
-                if "people" in entities and entities["people"]:
-                    print(f"    People: {', '.join(entities['people'][:3])}")
-                if "organizations" in entities and entities["organizations"]:
-                    print(
-                        f"    Organizations: {', '.join(entities['organizations'][:3])}"
-                    )
+    # Research paper
+    research_doc = Document(
+        content="""
+        Abstract: Advances in Natural Language Processing
 
-            # Print keywords if available
-            if "keywords" in metadata_dict:
-                print(f"  Keywords: {', '.join(metadata_dict['keywords'][:5])}")
+        This paper presents recent advances in NLP, focusing on transformer
+        architectures and their applications. We demonstrate improved performance
+        on various benchmarks and introduce new techniques for efficient training.
 
-            print(f"  Content preview: {chunk.content[:100]}...")
+        Keywords: NLP, transformers, deep learning
+        """,
+        metadata={
+            "title": "Advances in Natural Language Processing",
+            "type": "research",
+            "tags": ["NLP", "transformers", "research"],
+            "authors": ["Smith, J.", "Johnson, A."],
+        },
+    )
+
+    return [technical_doc, news_doc, research_doc]
 
 
-def demonstrate_pipeline_stages():
-    """Demonstrate the individual stages of the RAG pipeline."""
-    print("\n=== Demonstrating Pipeline Stages ===\n")
+async def setup_rag_provider() -> RAGProvider:
+    """Initialize and configure the RAG provider.
 
-    # Create sample documents
-    documents = create_sample_documents()
-    literary_doc = documents[2]  # The literary text
+    Returns:
+        Configured RAG provider
+    """
+    logger.info("Setting up RAG provider...")
 
-    print(f"Processing document: {literary_doc.metadata.to_dict().get('title')}")
+    # Create local RAG provider
+    provider = LocalRAGProvider(
+        config={
+            "embedding_model": "sentence-transformers/all-mpnet-base-v2",
+            "chunk_size": 512,
+            "chunk_overlap": 50,
+        }
+    )
 
-    # 1. Transformation only
-    transform_pipeline = (
-        RAGPipelineBuilder()
-        .with_transformation(
-            include_types=[
-                TransformationType.REMOVE_PUNCTUATION,
-                TransformationType.LOWERCASE,
-            ]
+    # Initialize provider
+    await provider.initialize()
+    logger.info("RAG provider initialized")
+
+    return provider
+
+
+async def index_documents(
+    provider: RAGProvider,
+    documents: List[Document],
+) -> None:
+    """Index documents using the RAG provider.
+
+    Args:
+        provider: The RAG provider to use
+        documents: List of documents to index
+    """
+    logger.info(f"Indexing {len(documents)} documents...")
+
+    for doc in documents:
+        await provider.add_document(
+            content=doc.content,
+            metadata=doc.metadata,
         )
-        .build()
-    )
-    transformed_doc = transform_pipeline.process(literary_doc)[0]
-    print("\n1. After transformation:")
-    print(f"  Content preview: {transformed_doc.content[:100]}...")
 
-    # 2. Metadata extraction only
-    metadata_pipeline = RAGPipelineBuilder().with_metadata_extraction().build()
-    metadata_doc = metadata_pipeline.process(literary_doc)[0]
-    print("\n2. After metadata extraction:")
-    metadata_dict = metadata_doc.metadata.to_dict()
-    print(f"  Metadata keys: {', '.join(metadata_dict.keys())}")
-    if "summary" in metadata_dict:
-        print(f"  Summary: {metadata_dict['summary']}")
-
-    # 3. Chunking only
-    chunking_pipeline = (
-        RAGPipelineBuilder().with_chunking(strategy=ChunkingStrategy.SENTENCE).build()
-    )
-    chunked_docs = chunking_pipeline.process(literary_doc)
-    print("\n3. After chunking:")
-    print(f"  Number of chunks: {len(chunked_docs)}")
-    if chunked_docs:
-        print(f"  First chunk: {chunked_docs[0].content[:100]}...")
-        if len(chunked_docs) > 1:
-            print(f"  Second chunk: {chunked_docs[1].content[:100]}...")
+    logger.info("Document indexing complete")
 
 
-def demonstrate_batch_processing():
-    """Demonstrate batch processing of documents."""
-    print("\n=== Demonstrating Batch Processing ===\n")
+async def perform_queries(
+    provider: RAGProvider,
+    queries: List[str],
+    llm_provider: Optional[LLMProvider] = None,
+) -> Dict[str, RetrievalResult]:
+    """Perform queries and optionally enhance results with LLM.
 
-    # Create sample documents
+    Args:
+        provider: The RAG provider to use
+        queries: List of queries to process
+        llm_provider: Optional LLM provider for result enhancement
+
+    Returns:
+        Dictionary mapping queries to their results
+    """
+    logger.info(f"Processing {len(queries)} queries...")
+    results = {}
+
+    for query_text in queries:
+        # Create query with filters and parameters
+        query = Query(
+            text=query_text,
+            filters={"type": ["technical", "research"]},  # Only technical/research docs
+            k=2,  # Get top 2 results
+            score_threshold=0.5,  # Minimum relevance score
+        )
+
+        # Get results
+        result = await provider.query(query)
+
+        # Enhance with LLM if available
+        if llm_provider and result.documents:
+            context = "\n\n".join(doc.content for doc in result.documents)
+            messages: List[Message] = [
+                {
+                    "role": "user",
+                    "content": f"""Based on the following context, answer the question: {query_text}
+
+                Context:
+                {context}
+
+                Answer:""",
+                }
+            ]
+
+            enhanced_result = await llm_provider.generate(
+                messages=messages,
+                max_tokens=200,
+            )
+
+            # Store the generated response in result metadata
+            if enhanced_result:
+                result.metadata = result.metadata or {}
+                result.metadata["enhanced_answer"] = enhanced_result.content
+
+        results[query_text] = result
+        logger.info(f"Processed query: {query_text}")
+
+    return results
+
+
+async def main() -> None:
+    """Run the RAG example."""
+    try:
+        # Create and setup providers
+        rag_provider = await setup_rag_provider()
+        llm_provider = OpenAIProvider(api_key="your-api-key")  # Replace with your key
+
+        # Create and index documents
     documents = create_sample_documents()
+        await index_documents(rag_provider, documents)
 
-    # Create a simple pipeline
-    pipeline = create_simple_pipeline()
+        # Perform sample queries
+        queries = [
+            "What are the main types of machine learning?",
+            "What are recent advances in NLP?",
+            "How is AI being used in healthcare?",
+        ]
 
-    # Process all documents
-    print(f"Batch processing {len(documents)} documents")
-    processed_docs = pipeline.batch_process(documents)
+        results = await perform_queries(
+            provider=rag_provider,
+            queries=queries,
+            llm_provider=llm_provider,
+        )
 
-    # Print results
-    print(f"Processed into {len(processed_docs)} total chunks")
+        # Display results
+        print("\nQuery Results:")
+        print("=============")
 
-    # Group chunks by original document
-    chunks_by_doc = {}
-    for chunk in processed_docs:
-        parent_id = chunk.metadata.to_dict().get("parent_id", "unknown")
-        if parent_id not in chunks_by_doc:
-            chunks_by_doc[parent_id] = []
-        chunks_by_doc[parent_id].append(chunk)
+        for query, result in results.items():
+            print(f"\nQuery: {query}")
+            print("Relevant documents:")
 
-    # Print chunk counts by document
-    for doc_id, chunks in chunks_by_doc.items():
-        print(f"Document {doc_id}: {len(chunks)} chunks")
+            for doc, score in zip(result.documents, result.scores):
+                print(f"\n- Document (score: {score:.2f}):")
+                if doc.metadata:
+                    print(f"  Title: {doc.metadata.get('title', 'Untitled')}")
+                    print(f"  Type: {doc.metadata.get('type', 'Unknown')}")
+                print(f"  Preview: {doc.content[:100]}...")
 
+            if result.metadata and "enhanced_answer" in result.metadata:
+                print("\nEnhanced answer:")
+                print(result.metadata["enhanced_answer"])
 
-def main():
-    """Run the RAG pipeline examples."""
-    # Set up logging
-    setup_logging()
-
-    # Enable telemetry for demonstration
-    enable_telemetry()
-    set_telemetry_level("INFO")
-
-    print("=== RAG Pipeline Example ===")
-    print("This example demonstrates the usage of the RAG pipeline components.")
-
-    # Run demonstrations
-    demonstrate_default_pipeline()
-    demonstrate_custom_pipeline()
-    demonstrate_pipeline_stages()
-    demonstrate_batch_processing()
-
-    print("\n=== Example Complete ===")
+    except Exception as e:
+        logger.error(f"Error in RAG example: {e}")
+        raise
+    finally:
+        # Cleanup
+        await rag_provider.cleanup()
+        if llm_provider:
+            await llm_provider.cleanup()
 
 
 if __name__ == "__main__":
-    main()
+    print("PepperPy RAG Example")
+    print("===================")
+    print("This example demonstrates the RAG capabilities of PepperPy,")
+    print("including document indexing, retrieval, and LLM enhancement.\n")
+
+    asyncio.run(main())

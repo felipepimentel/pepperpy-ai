@@ -1,370 +1,251 @@
 #!/usr/bin/env python
 """Example demonstrating advanced caching strategies in PepperPy.
 
-This example demonstrates the usage of advanced caching strategies with TTL
-and invalidation mechanisms in PepperPy.
+This example demonstrates various caching strategies available in PepperPy:
+- TTL-based caching
+- Tag-based invalidation
+- Metadata support
+- Async operations
+- Memory management
+
+Each strategy is demonstrated with practical examples and explanations.
 """
 
 import asyncio
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Set, Union
 
-from pepperpy.utils.caching import (
-    CacheInvalidationRule,
-    DynamicTTLCachePolicy,
-    InvalidationStrategy,
-    SizeLimitedCachePolicy,
-    async_cached,
-    cached,
-    get_cache_invalidator,
-)
-from pepperpy.utils.logging import get_logger
+from pepperpy.cache.providers.memory import MemoryCacheProvider
+from pepperpy.utils.logger import get_logger
 
-# Logger for this example
+# Configure logging
 logger = get_logger(__name__)
 
 
-# Example 1: Basic caching with TTL
-@cached(ttl=60)
-def fetch_user_data(user_id: str) -> Dict:
-    """Fetch user data from a simulated database.
+class UserCache:
+    """Example cache manager for user-related data."""
 
-    Args:
-        user_id: The ID of the user to fetch
+    def __init__(self) -> None:
+        """Initialize the user cache manager."""
+        self.cache = MemoryCacheProvider()
+        self.setup_cache()
 
-    Returns:
-        The user data
-    """
-    logger.info(f"Fetching user data for {user_id} from database")
-    # Simulate a database query
-    time.sleep(0.5)
-    return {
-        "id": user_id,
-        "name": f"User {user_id}",
-        "email": f"user{user_id}@example.com",
-        "created_at": time.time(),
-    }
+    def setup_cache(self) -> None:
+        """Set up cache configuration."""
+        # Configure cache provider
+        self.cache.configure({
+            "max_size": 1000,
+            "default_ttl": 300,  # 5 minutes
+        })
 
+    async def get_user_data(self, user_id: str) -> Dict[str, Union[str, float]]:
+        """Fetch user data with TTL caching.
 
-# Example 2: Caching with dynamic TTL
-def calculate_ttl(key: str, value: Dict) -> Optional[int]:
-    """Calculate TTL based on the value.
+        Args:
+            user_id: The unique identifier of the user
 
-    Args:
-        key: The cache key
-        value: The value to cache
+        Returns:
+            Dictionary containing user data
+        """
+        cache_key = f"user:{user_id}"
+        cached_data = await self.cache.get(cache_key)
 
-    Returns:
-        The TTL in seconds, or None for no expiration
-    """
-    # Use a longer TTL for premium users
-    if value.get("is_premium", False):
-        return 3600  # 1 hour
-    else:
-        return 300  # 5 minutes
+        if cached_data is not None:
+            logger.debug(f"Cache hit for user {user_id}")
+            return cached_data
 
+        logger.info(f"Fetching user data for {user_id}")
+        await asyncio.sleep(0.5)  # Simulate DB query
 
-@cached(policy=DynamicTTLCachePolicy(calculate_ttl))
-def fetch_user_profile(user_id: str, include_premium: bool = False) -> Dict:
-    """Fetch user profile from a simulated database.
-
-    Args:
-        user_id: The ID of the user to fetch
-        include_premium: Whether to include premium information
-
-    Returns:
-        The user profile
-    """
-    logger.info(f"Fetching user profile for {user_id} from database")
-    # Simulate a database query
-    time.sleep(0.5)
-    profile = {
-        "id": user_id,
-        "name": f"User {user_id}",
-        "bio": f"This is the bio for user {user_id}",
-        "avatar_url": f"https://example.com/avatars/{user_id}.jpg",
-        "is_premium": include_premium,
-    }
-    if include_premium:
-        profile["premium_features"] = ["feature1", "feature2", "feature3"]
-    return profile
-
-
-# Example 3: Caching with size limits
-@cached(policy=SizeLimitedCachePolicy(max_size=1000, ttl=300))
-def fetch_user_posts(user_id: str, limit: int = 10) -> List[Dict]:
-    """Fetch user posts from a simulated database.
-
-    Args:
-        user_id: The ID of the user to fetch posts for
-        limit: The maximum number of posts to fetch
-
-    Returns:
-        The user posts
-    """
-    logger.info(f"Fetching {limit} posts for user {user_id} from database")
-    # Simulate a database query
-    time.sleep(0.5)
-    return [
-        {
-            "id": f"post{i}",
-            "user_id": user_id,
-            "title": f"Post {i} by User {user_id}",
-            "content": f"This is the content of post {i} by user {user_id}",
-            "created_at": time.time() - i * 3600,
+        user_data = {
+            "id": user_id,
+            "name": f"User {user_id}",
+            "email": f"user{user_id}@example.com",
+            "created_at": time.time(),
         }
-        for i in range(limit)
-    ]
 
+        await self.cache.set(
+            key=cache_key,
+            value=user_data,
+            ttl=60,  # 1 minute TTL
+            tags={"user", f"user:{user_id}"},
+        )
 
-# Example 4: Caching with dependency invalidation
-def setup_dependency_invalidation():
-    """Set up dependency invalidation rules."""
-    # Get the cache invalidator
-    invalidator = get_cache_invalidator()
+        return user_data
 
-    # Add a rule for user data
-    invalidator.add_rule(
-        "fetch_user_data",
-        CacheInvalidationRule(
-            strategy=InvalidationStrategy.DEPENDENCY,
-            dependencies=["user"],
-        ),
-    )
+    async def get_user_profile(
+        self, user_id: str, include_premium: bool = False
+    ) -> Dict[str, Union[str, bool, List[str]]]:
+        """Fetch user profile with tag-based caching.
 
-    # Add a rule for user profile
-    invalidator.add_rule(
-        "fetch_user_profile",
-        CacheInvalidationRule(
-            strategy=InvalidationStrategy.DEPENDENCY,
-            dependencies=["user"],
-        ),
-    )
+        Args:
+            user_id: The unique identifier of the user
+            include_premium: Whether to include premium features
 
-    # Add a rule for user posts
-    invalidator.add_rule(
-        "fetch_user_posts",
-        CacheInvalidationRule(
-            strategy=InvalidationStrategy.DEPENDENCY,
-            dependencies=["user", "post"],
-        ),
-    )
+        Returns:
+            Dictionary containing user profile data
+        """
+        cache_key = f"profile:{user_id}"
+        if include_premium:
+            cache_key += ":premium"
 
+        cached_data = await self.cache.get(cache_key)
 
-@cached(invalidator=get_cache_invalidator())
-def update_user(user_id: str, data: Dict) -> Dict:
-    """Update user data in a simulated database.
+        if cached_data is not None:
+            logger.debug(f"Cache hit for profile {user_id}")
+            return cached_data
 
-    Args:
-        user_id: The ID of the user to update
-        data: The data to update
+        logger.info(f"Fetching profile for user {user_id}")
+        await asyncio.sleep(0.5)  # Simulate DB query
 
-    Returns:
-        The updated user data
-    """
-    logger.info(f"Updating user {user_id} in database")
-    # Simulate a database update
-    time.sleep(0.5)
-    # Invalidate user-related caches
-    invalidator = get_cache_invalidator()
-    invalidator.invalidate_by_dependency(f"user:{user_id}")
-    return {
-        "id": user_id,
-        "name": data.get("name", f"User {user_id}"),
-        "email": data.get("email", f"user{user_id}@example.com"),
-        "updated_at": time.time(),
-    }
-
-
-# Example 5: Asynchronous caching
-@async_cached(ttl=60)
-async def fetch_user_data_async(user_id: str) -> Dict:
-    """Fetch user data asynchronously from a simulated database.
-
-    Args:
-        user_id: The ID of the user to fetch
-
-    Returns:
-        The user data
-    """
-    logger.info(f"Fetching user data for {user_id} from database (async)")
-    # Simulate an asynchronous database query
-    await asyncio.sleep(0.5)
-    return {
-        "id": user_id,
-        "name": f"User {user_id}",
-        "email": f"user{user_id}@example.com",
-        "created_at": time.time(),
-    }
-
-
-# Example 6: Version-based invalidation
-def setup_version_invalidation():
-    """Set up version-based invalidation rules."""
-    # Get the cache invalidator
-    invalidator = get_cache_invalidator()
-
-    # Add a rule for API responses
-    invalidator.add_rule(
-        "fetch_api_data",
-        CacheInvalidationRule(
-            strategy=InvalidationStrategy.VERSION,
-            version="1.0",
-        ),
-    )
-
-
-@cached(key_prefix="api", invalidator=get_cache_invalidator())
-def fetch_api_data(endpoint: str) -> Dict:
-    """Fetch data from a simulated API.
-
-    Args:
-        endpoint: The API endpoint to fetch data from
-
-    Returns:
-        The API response
-    """
-    logger.info(f"Fetching data from API endpoint {endpoint}")
-    # Simulate an API request
-    time.sleep(0.5)
-    return {
-        "endpoint": endpoint,
-        "data": f"Data from {endpoint}",
-        "timestamp": time.time(),
-    }
-
-
-def update_api_version():
-    """Update the API version, invalidating all API caches."""
-    # Get the cache invalidator
-    invalidator = get_cache_invalidator()
-
-    # Update the version
-    invalidator.invalidate_by_version("fetch_api_data", "1.1")
-    logger.info("Updated API version to 1.1, invalidating all API caches")
-
-
-# Example 7: LRU-based invalidation
-def setup_lru_invalidation():
-    """Set up LRU-based invalidation rules."""
-    # Get the cache invalidator
-    invalidator = get_cache_invalidator()
-
-    # Add a rule for search results
-    invalidator.add_rule(
-        "search_results",
-        CacheInvalidationRule(
-            strategy=InvalidationStrategy.LRU,
-            max_size=5,
-        ),
-    )
-
-
-@cached(key_prefix="search", invalidator=get_cache_invalidator())
-def search(query: str) -> List[Dict]:
-    """Search for items matching a query.
-
-    Args:
-        query: The search query
-
-    Returns:
-        The search results
-    """
-    logger.info(f"Searching for '{query}'")
-    # Simulate a search
-    time.sleep(0.5)
-    return [
-        {
-            "id": f"result{i}",
-            "title": f"Result {i} for '{query}'",
-            "relevance": 1.0 - (i * 0.1),
+        profile = {
+            "id": user_id,
+            "name": f"User {user_id}",
+            "bio": f"Bio for user {user_id}",
+            "avatar_url": f"https://example.com/avatars/{user_id}.jpg",
+            "is_premium": include_premium,
         }
-        for i in range(10)
-    ]
+
+        if include_premium:
+            profile["premium_features"] = [
+                "advanced_analytics",
+                "priority_support",
+                "custom_themes",
+            ]
+
+        # Cache with appropriate tags
+        tags: Set[str] = {"profile", f"user:{user_id}"}
+        if include_premium:
+            tags.add("premium")
+
+        await self.cache.set(
+            key=cache_key,
+            value=profile,
+            ttl=3600
+            if include_premium
+            else 300,  # 1 hour for premium, 5 min for regular
+            tags=tags,
+        )
+
+        return profile
+
+    async def get_user_posts(
+        self, user_id: str, limit: int = 10
+    ) -> List[Dict[str, Union[str, float]]]:
+        """Fetch user posts with metadata support.
+
+        Args:
+            user_id: The unique identifier of the user
+            limit: Maximum number of posts to return
+
+        Returns:
+            List of user posts
+        """
+        cache_key = f"posts:{user_id}:{limit}"
+        cached_data = await self.cache.get(cache_key)
+
+        if cached_data is not None:
+            logger.debug(f"Cache hit for posts {user_id}")
+            return cached_data
+
+        logger.info(f"Fetching {limit} posts for user {user_id}")
+        await asyncio.sleep(0.5)  # Simulate DB query
+
+        posts = [
+            {
+                "id": f"post_{i}",
+                "user_id": user_id,
+                "title": f"Post {i} by User {user_id}",
+                "content": f"Content of post {i}",
+                "created_at": time.time() - (i * 3600),
+            }
+            for i in range(limit)
+        ]
+
+        await self.cache.set(
+            key=cache_key,
+            value=posts,
+            ttl=300,  # 5 minutes
+            tags={f"user:{user_id}", "posts"},
+            metadata={
+                "count": len(posts),
+                "last_updated": time.time(),
+            },
+        )
+
+        return posts
+
+    async def update_user(
+        self, user_id: str, data: Dict[str, str]
+    ) -> Dict[str, Union[str, float]]:
+        """Update user data and invalidate related caches.
+
+        Args:
+            user_id: The unique identifier of the user
+            data: New user data to update
+
+        Returns:
+            Updated user data
+        """
+        logger.info(f"Updating user {user_id}")
+        await asyncio.sleep(0.5)  # Simulate DB update
+
+        # Invalidate all caches related to this user
+        await self.cache.invalidate_tag(f"user:{user_id}")
+
+        return {
+            "id": user_id,
+            "name": data.get("name", f"User {user_id}"),
+            "email": data.get("email", f"user{user_id}@example.com"),
+            "updated_at": time.time(),
+        }
 
 
-async def main():
-    """Run the example."""
-    # Set up invalidation rules
-    setup_dependency_invalidation()
-    setup_version_invalidation()
-    setup_lru_invalidation()
+async def main() -> None:
+    """Run the caching examples."""
+    try:
+        logger.info("Starting PepperPy Advanced Caching Example")
 
-    # Example 1: Basic caching with TTL
-    logger.info("Example 1: Basic caching with TTL")
-    user1 = fetch_user_data("1")
-    logger.info(f"User 1: {user1}")
-    # This should use the cache
-    user1_again = fetch_user_data("1")
-    logger.info(f"User 1 (cached): {user1_again}")
+        # Initialize cache manager
+        user_cache = UserCache()
 
-    # Example 2: Caching with dynamic TTL
-    logger.info("\nExample 2: Caching with dynamic TTL")
-    profile1 = fetch_user_profile("1")
-    logger.info(f"Profile 1: {profile1}")
-    # This should use the cache
-    profile1_again = fetch_user_profile("1")
-    logger.info(f"Profile 1 (cached): {profile1_again}")
-    # This should use a different TTL
-    profile2 = fetch_user_profile("2", include_premium=True)
-    logger.info(f"Profile 2 (premium): {profile2}")
+        # Example 1: Basic TTL caching
+        user_id = "123"
+        logger.info("\n1. Basic TTL Caching Example:")
+        user_data = await user_cache.get_user_data(user_id)
+        logger.info(f"First call (cache miss): {user_data}")
 
-    # Example 3: Caching with size limits
-    logger.info("\nExample 3: Caching with size limits")
-    posts1 = fetch_user_posts("1", limit=5)
-    logger.info(f"Posts for user 1: {len(posts1)} posts")
-    # This should use the cache
-    posts1_again = fetch_user_posts("1", limit=5)
-    logger.info(f"Posts for user 1 (cached): {len(posts1_again)} posts")
+        cached_data = await user_cache.get_user_data(user_id)
+        logger.info(f"Second call (cache hit): {cached_data}")
 
-    # Example 4: Caching with dependency invalidation
-    logger.info("\nExample 4: Caching with dependency invalidation")
-    user2 = fetch_user_data("2")
-    logger.info(f"User 2: {user2}")
-    # Update the user, which should invalidate the cache
-    updated_user2 = update_user("2", {"name": "Updated User 2"})
-    logger.info(f"Updated user 2: {updated_user2}")
-    # This should not use the cache
-    user2_after_update = fetch_user_data("2")
-    logger.info(f"User 2 after update: {user2_after_update}")
+        # Example 2: Tag-based caching with different TTLs
+        logger.info("\n2. Tag-based Caching Example:")
+        regular_profile = await user_cache.get_user_profile(user_id)
+        logger.info(f"Regular user profile (5min TTL): {regular_profile}")
 
-    # Example 5: Asynchronous caching
-    logger.info("\nExample 5: Asynchronous caching")
-    user3 = await fetch_user_data_async("3")
-    logger.info(f"User 3 (async): {user3}")
-    # This should use the cache
-    user3_again = await fetch_user_data_async("3")
-    logger.info(f"User 3 (async, cached): {user3_again}")
+        premium_profile = await user_cache.get_user_profile(
+            user_id, include_premium=True
+        )
+        logger.info(f"Premium user profile (1h TTL): {premium_profile}")
 
-    # Example 6: Version-based invalidation
-    logger.info("\nExample 6: Version-based invalidation")
-    api_data1 = fetch_api_data("users")
-    logger.info(f"API data for 'users': {api_data1}")
-    # This should use the cache
-    api_data1_again = fetch_api_data("users")
-    logger.info(f"API data for 'users' (cached): {api_data1_again}")
-    # Update the API version, which should invalidate the cache
-    update_api_version()
-    # This should not use the cache
-    api_data1_after_update = fetch_api_data("users")
-    logger.info(f"API data for 'users' after version update: {api_data1_after_update}")
+        # Example 3: Caching with metadata
+        logger.info("\n3. Caching with Metadata Example:")
+        posts = await user_cache.get_user_posts(user_id, limit=5)
+        logger.info(f"User posts: {len(posts)} posts")
 
-    # Example 7: LRU-based invalidation
-    logger.info("\nExample 7: LRU-based invalidation")
-    # Perform several searches
-    for query in ["apple", "banana", "cherry", "date", "elderberry", "fig"]:
-        results = search(query)
-        logger.info(f"Search results for '{query}': {len(results)} results")
+        # Example 4: Cache invalidation
+        logger.info("\n4. Cache Invalidation Example:")
+        update_data = {"name": "Updated User 123"}
+        updated_user = await user_cache.update_user(user_id, update_data)
+        logger.info(f"Updated user data: {updated_user}")
 
-    # The first search should have been evicted
-    logger.info("Searching for 'apple' again (should not use cache):")
-    apple_results = search("apple")
-    logger.info(f"Search results for 'apple': {len(apple_results)} results")
+        # Verify cache invalidation
+        new_data = await user_cache.get_user_data(user_id)
+        logger.info(f"Fresh data after invalidation: {new_data}")
 
-    # The last search should still be in the cache
-    logger.info("Searching for 'fig' again (should use cache):")
-    fig_results = search("fig")
-    logger.info(f"Search results for 'fig': {len(fig_results)} results")
+    except Exception as e:
+        logger.error(f"Error in caching example: {e}")
+        raise
 
 
 if __name__ == "__main__":
