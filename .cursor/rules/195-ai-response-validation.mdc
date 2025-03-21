@@ -1,7 +1,9 @@
 ---
-description: Diretrizes para validação de código gerado por IA, prevenção de imprecisões e garantia de consistência com padrões do projeto
+title: AI Response Validation and Hallucination Prevention
+description: Apply this rule when validating AI-generated code to prevent hallucinations, ensure accuracy, and maintain consistency with project standards
 globs:
   - "**/*"
+priority: 195
 alwaysApply: true
 ---
 

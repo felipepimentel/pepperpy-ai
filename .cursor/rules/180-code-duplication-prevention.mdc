@@ -1,7 +1,9 @@
 ---
-description: Estratégias e ferramentas para prevenir duplicação de código, promover reuso e manter princípios DRY
+title: Code Duplication Prevention
+description: Apply this rule when implementing new features or refactoring code to prevent duplication, promote reuse, and maintain DRY principles
 globs:
   - "**/*.py"
+priority: 180
 alwaysApply: true
 ---
 

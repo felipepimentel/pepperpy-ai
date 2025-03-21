@@ -1,14 +1,11 @@
 ---
-description: 
+title: PepperPy RAG System
+description: Apply this rule when implementing, extending, or discussing any Retrieval Augmented Generation components in the PepperPy framework
 globs: 
+  - "pepperpy/rag/**/*.py"
+priority: 700
 alwaysApply: false
 ---
-<!--
-@title: PepperPy RAG System
-@description: Guidelines for implementing and extending the Retrieval Augmented Generation system in PepperPy
-@glob: pepperpy/rag/**/*.py
-@priority: 700
--->
 
 # PepperPy RAG System
 

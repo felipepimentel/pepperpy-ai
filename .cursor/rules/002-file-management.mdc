@@ -1,16 +1,15 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+title: PepperPy File Management
+description: Apply this rule when creating new files, organizing code, or restructuring the PepperPy codebase to maintain consistent file structure and naming conventions
+globs:
+  - "**/*.py"
+priority: 800
+alwaysApply: true
 ---
-<!--
-@title: PepperPy File Management
-@description: Guidelines for file creation, organization, and naming conventions in the PepperPy framework
-@glob: **/*.py
-@priority: 800
--->
 
 # PepperPy File Management
+
+> **Note**: This rule has some overlap with `185-file-organization.mdc`. Consider consolidating these rules in a future update.
 
 ## Overview
 

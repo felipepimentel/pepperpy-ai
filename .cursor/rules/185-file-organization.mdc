@@ -1,11 +1,15 @@
 ---
-description: Diretrizes para criação e organização de arquivos, mantendo consistência estrutural e prevenindo duplicação
+title: File Organization and Structure Consistency
+description: Apply this rule when creating or modifying file structures to maintain consistency, prevent duplication, and ensure proper organization
 globs:
   - "**/*"
+priority: 185
 alwaysApply: true
 ---
 
 # File Organization and Structure Consistency
+
+> **Note**: This rule has some overlap with `002-file-management.mdc`. Consider consolidating these rules in a future update.
 
 ## Overview
 
@@ -187,4 +191,4 @@ python scripts/refactor.py validate
 
 ## Conclusion
 
-Adherence to these file organization guidelines prevents duplication, ensures consistency, and maintains the architectural integrity of the PepperPy framework. Always analyze existing structures before creating new files, and use the provided tools to validate and maintain consistency. 
+Adherence to these file organization guidelines prevents duplication, ensures consistency, and maintains the architectural integrity of the PepperPy framework. Always analyze existing structures before creating new files, and use the provided tools to validate and maintain consistency.

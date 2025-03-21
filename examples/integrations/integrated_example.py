@@ -32,16 +32,17 @@ from datetime import datetime
 from typing import Any, Dict
 
 from pepperpy.core import validate_config
+from pepperpy.core.logging import Logger, LogLevel, setup_logging
 from pepperpy.llm import LLMProvider
 from pepperpy.llm.providers.openai import OpenAIProvider
 from pepperpy.rag import RAGProvider
 from pepperpy.rag.providers.basic import BasicRAGProvider
 from pepperpy.storage import StorageProvider
 from pepperpy.storage.providers.local import LocalStorageProvider
-from pepperpy.utils.logger import get_logger
 
 # Configure logging
-logger = get_logger(__name__)
+setup_logging(level=LogLevel.INFO.value)
+logger = Logger.get_logger(__name__)
 
 
 async def setup_environment() -> tuple[LLMProvider, RAGProvider, StorageProvider]:

@@ -1,7 +1,9 @@
 ---
-description: Diretrizes para uso seguro e eficaz das ferramentas de refatoração PepperPy para manter a qualidade do código
+title: Refactoring Tools Usage and Validation
+description: Apply this rule when performing code refactoring to ensure safe evolution, maintain quality, and effectively use the PepperPy refactoring tools
 globs:
   - "**/*.py"
+priority: 200
 alwaysApply: true
 ---
 

@@ -1,7 +1,9 @@
 ---
-description: Diretrizes para evolução segura de APIs mantendo compatibilidade e prevenindo mudanças incompatíveis
+title: API Evolution and Backward Compatibility
+description: Apply this rule when modifying, extending, or creating APIs to ensure backward compatibility, proper versioning, and safe evolution
 globs:
   - "**/*.py"
+priority: 190
 alwaysApply: true
 ---
 

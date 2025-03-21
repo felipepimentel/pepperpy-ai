@@ -1,14 +1,11 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+title: PepperPy Coding Standards
+description: Apply this rule when writing or modifying any Python code in the PepperPy framework to ensure consistency, maintainability, and adherence to project standards
+globs:
+  - "**/*.py"
+priority: 900
+alwaysApply: true
 ---
-<!--
-@title: PepperPy Coding Standards
-@description: Python coding standards and best practices for the PepperPy framework
-@glob: **/*.py
-@priority: 900
--->
 
 # PepperPy Coding Standards
 

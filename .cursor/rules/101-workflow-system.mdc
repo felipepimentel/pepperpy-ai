@@ -1,9 +1,11 @@
-<!--
-@title: PepperPy Workflow System
-@description: Guidelines for implementing and extending the Workflow system in PepperPy
-@glob: pepperpy/workflow/**/*.py
-@priority: 700
--->
+---
+title: PepperPy Workflow System
+description: Apply this rule when implementing, extending, or discussing any Workflow system components in the PepperPy framework
+globs:
+  - "pepperpy/workflow/**/*.py"
+priority: 700
+alwaysApply: false
+---
 
 # PepperPy Workflow System
 

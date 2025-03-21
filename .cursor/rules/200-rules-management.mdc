@@ -1,20 +1,17 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+title: PepperPy Rules Management and Evolution
+description: Apply this rule when creating, updating, or discussing Cursor rules for the PepperPy framework to ensure proper organization, evolution, and automatic feedback mechanisms
+globs:
+  - ".cursor/rules/**/*.mdc"
+priority: 1100
+alwaysApply: true
 ---
-<!--
-@title: PepperPy Rules Management
-@description: Guidelines for creating, organizing, and updating Cursor rules for the PepperPy framework
-@glob: .cursor/rules/**/*.mdc
-@priority: 1100
--->
 
-# PepperPy Rules Management
+# PepperPy Rules Management and Evolution
 
 ## Overview
 
-This document defines standards for creating, organizing, and maintaining Cursor rules for the PepperPy framework. These rules ensure that AI tools have consistent, up-to-date information about the project structure, coding standards, and implementation patterns.
+This document defines standards for creating, organizing, and maintaining Cursor rules for the PepperPy framework, including processes for rule evolution and auto-correction when failures are identified. These rules ensure that AI tools have consistent, up-to-date information about the project structure, coding standards, and implementation patterns.
 
 ## Rules System Architecture
 
@@ -29,8 +26,12 @@ The PepperPy rules system follows a hierarchical numbering convention:
 ├── 100-rag-system.mdc                # Domain-specific: RAG
 ├── 101-workflow-system.mdc           # Domain-specific: Workflows
 ├── ...
+├── 180-code-duplication-prevention.mdc # Code quality: Duplication prevention
+├── 185-file-organization.mdc         # Code quality: File organization
+├── 190-api-evolution.mdc             # Code quality: API evolution
+├── 195-ai-response-validation.mdc    # Code quality: AI validation
+├── ...
 ├── 200-rules-management.mdc          # Meta: Rules management (this file)
-├── 201-self-update-system.mdc        # Meta: Self-updating mechanisms
 ├── ...
 ├── auto-generated/                   # Auto-generated rules
 │   ├── module-map.mdc                # Generated module map
@@ -48,37 +49,26 @@ The PepperPy rules system follows a hierarchical numbering convention:
    - Rules for specific domains (RAG, workflows, etc.)
    - Applied to specific subsets of the codebase
 
-3. **200-299**: Meta rules
+3. **180-199**: Code quality rules
+   - Specific code quality concerns
+   - Applied across the codebase
+
+4. **200-299**: Meta rules
    - Rules about rules
    - Self-management and update mechanisms
 
-4. **300-399**: Documentation rules
-   - Standards for documentation
-   - API documentation patterns
-
-5. **400-499**: Tooling rules
-   - CI/CD pipelines
-   - Development tools integration
-
-6. **500-599**: Extension rules
-   - Plugin development
-   - Extension patterns
-
-7. **auto-generated/**: Auto-generated rules
-   - Rules created by automated processes
-   - Updated when the codebase changes
-
 ## Rule Structure
 
-Each rule file must follow this structure:
+Each rule file must follow this structure with YAML frontmatter:
 
 ```markdown
-<!--
-@title: Rule Title
-@description: Brief description of the rule
-@glob: Pattern matching files this rule applies to
-@priority: Numeric priority (higher values = higher priority)
--->
+---
+title: Rule Title
+description: Brief description of the rule
+globs: 
+  - "Pattern matching files this rule applies to"
+priority: 1000  # Numeric priority (higher values = higher priority)
+---
 
 # Rule Title
 
@@ -101,18 +91,37 @@ Content for section 2...
 Summary of the rule.
 ```
 
-### Required Metadata
+### Required Frontmatter Fields
 
-- **@title**: Concise title describing the rule
-- **@description**: Brief summary for rule selection UI
-- **@glob**: Pattern(s) matching files the rule applies to
-- **@priority**: Numeric priority value (higher = more important)
+- **title**: Concise title describing the rule
+- **description**: Brief summary for rule selection UI
+- **globs**: Pattern(s) matching files the rule applies to (as a YAML array)
+- **priority**: Numeric priority value (higher = more important)
 
-Optional metadata:
-- **@author**: Rule author(s)
-- **@version**: Rule version
-- **@last_updated**: Last update timestamp
-- **@related**: Related rule IDs
+## Unified Tool for Rule Management
+
+PepperPy adopts the principle of **single unified tool** for rule management:
+
+- **All rule management operations** are implemented in the `refactor.py` script
+- **No auxiliary scripts** should be created for related functions
+- **Extensions happen via subcommands** in the main script
+
+```bash
+# Example usage
+python scripts/refactor.py rule-management --help
+
+# Available commands:
+# --scan                  : Scan and update module mappings
+# --validate              : Validate all rules
+# --validate-frontmatter  : Verify YAML frontmatter format
+# --generate              : Generate new rule from template
+# --update                : Update existing rule
+# --version               : Update versions and timestamps
+# --analyze-coverage      : Analyze rule coverage
+# --register-issue        : Register identified issue
+# --verify                : Verify rule effectiveness
+# --audit                 : Audit rule effectiveness
+```
 
 ## Rule Creation Guidelines
 
@@ -131,13 +140,54 @@ When creating new rules:
 2. Determine the appropriate category
 3. Find the next available number in that category
 4. Create a file with the appropriate name (`NNN-descriptive-name.mdc`)
-5. Include required metadata
+5. Include required frontmatter
 6. Structure the content with clear sections
 7. Add the rule to version control
 
-## Rule Update System
+## Rule Feedback and Evolution Process
 
-The PepperPy rules system includes mechanisms for self-updating:
+### 1. Identifying Failures
+
+When a failure in code generation is identified:
+
+```bash
+# Register the failure with details
+python scripts/refactor.py rule-management --register-issue --rule 195 --description "Description of the failure" --example "Code with failure"
+```
+
+### 2. Root Cause Analysis
+
+Perform analysis to determine:
+- Which rule should have prevented the problem
+- Why the rule was insufficient
+- How the rule can be improved
+
+Use integrated analyses:
+
+```bash
+# Analyze rule coverage for the problem type
+python scripts/refactor.py rule-management --analyze-coverage --issue-type "duplication"
+```
+
+### 3. Rule Updates
+
+```bash
+# Update the specific rule
+python scripts/refactor.py rule-management --update --rule 195 --section "Common Scenarios" --add-example "new_example"
+```
+
+### 4. Improvement Validation
+
+Verify that the updated rule prevents the original problem:
+
+```bash
+# Regression test to verify improvement
+python scripts/refactor.py rule-management --verify --rule 195 --test-case "problem_case"
+```
+
+## Automatic Rule Maintenance
+
+The system includes mechanisms for rule self-updating:
 
 ### Automatic Updates
 
@@ -147,26 +197,50 @@ Rules can be automatically generated or updated by:
 2. **API analyzer**: Analyzes public APIs and updates interface documentation
 3. **Dependency tracker**: Tracks third-party dependencies and updates compatibility info
 
-### Manual Update Process
+### Scheduled Review Process
 
-For manual updates:
+Schedule regular rule reviews:
 
-1. Identify the rule(s) needing updates
-2. Make the necessary changes
-3. Update the `@last_updated` timestamp
-4. Increment the `@version` if applicable
-5. Commit the changes to version control
+```bash
+# Generate rule effectiveness report
+python scripts/refactor.py rule-management --audit --period "last-3-months"
+```
 
-### Update Triggers
+Analyze:
+1. Frequency of each failure type
+2. Least effective rules
+3. Emerging patterns not covered
 
-Rules should be updated when:
+## Process for Handling AI Errors
 
-1. Framework architecture changes
-2. New modules or domains are added
-3. Coding standards evolve
-4. Implementation patterns change
-5. Dependencies are updated
-6. Significant bugs are fixed
+Process to follow when AI commits errors:
+
+1. **Identify the error category**:
+   - Incorrect project structure
+   - API hallucination
+   - Code duplication
+   - API compatibility violation
+   - Incorrect frontmatter format
+
+2. **Locate the corresponding rule**:
+   ```bash
+   python scripts/refactor.py rule-management --find-rule --issue-type "hallucination"
+   ```
+
+3. **Register the issue**:
+   ```bash
+   python scripts/refactor.py rule-management --register-issue --rule 195 --description "AI generated non-existent import" --example "from pepperpy.nonexistent import Class"
+   ```
+
+4. **Update the rule with counter-example**:
+   ```bash
+   python scripts/refactor.py rule-management --update --rule 195 --section "Common Scenarios" --add-example "counter_example"
+   ```
+
+5. **Validate the updated rule**:
+   ```bash
+   python scripts/refactor.py rule-management --verify --rule 195
+   ```
 
 ## Rule Usage Patterns
 
@@ -202,41 +276,6 @@ When modifying existing code:
 5. Ensure backward compatibility if required
 ```
 
-## Rule Maintenance Automation
-
-The `rules-updater.py` script automates rules maintenance:
-
-```python
-# Usage: python scripts/rules-updater.py [command]
-#
-# Commands:
-#   scan      - Scan codebase and update module maps
-#   validate  - Validate all rules for syntax and completeness
-#   generate  - Generate new rules from templates
-#   version   - Update version numbers and timestamps
-```
-
-This script can be run:
-- Manually during development
-- As a pre-commit hook
-- In CI/CD pipelines
-
-## Self-Updating Mechanism
-
-The rules system includes self-updating capabilities through these tools:
-
-1. **Module Scanner**: Updates module structure information
-   - Runs: `python scripts/rules-updater.py scan`
-   - Updates: `auto-generated/module-map.mdc`
-
-2. **API Analyzer**: Updates interface documentation
-   - Runs: `python scripts/rules-updater.py analyze-api`
-   - Updates: `auto-generated/api-docs.mdc`
-
-3. **Rule Validator**: Ensures rules are properly formatted
-   - Runs: `python scripts/rules-updater.py validate`
-   - Reports: Validation issues with rules
-
 ## Conclusion
 
-The PepperPy rules system provides a comprehensive framework for guiding AI-assisted development. By following these standards for rule creation, organization, and updating, we ensure that AI tools have access to accurate, consistent information about the project. 
+The PepperPy rules system provides a comprehensive framework for guiding AI-assisted development. By following these standards for rule creation, organization, and updating, we ensure that AI tools have access to accurate, consistent information about the project. The self-correction mechanisms ensure the system evolves continuously, learning from failures to prevent future recurrences. 

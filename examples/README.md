@@ -1,113 +1,134 @@
 # PepperPy Examples
 
-This directory contains example scripts demonstrating how to use various features of the PepperPy framework.
+This directory contains comprehensive examples demonstrating the capabilities of the PepperPy framework. The examples are organized into three main categories:
 
-## Structure
+## 1. Scenarios
 
-```
-examples/
-├── basic/              # Basic usage examples
-│   └── simple_example.py
-├── advanced/           # Advanced features and optimizations
-│   ├── advanced_caching_example.py
-│   ├── benchmarking_example.py
-│   ├── data_compression_example.py
-│   ├── memory_optimization_example.py
-│   └── parallel_processing_example.py
-├── integrations/       # Integration examples
-│   ├── integrated_example.py
-│   ├── lifecycle_example.py
-│   └── monitoring_example.py
-└── features/          # Feature-specific examples
-    ├── api_versioning_example.py
-    ├── batching_example.py
-    ├── chainable_api_example.py
-    ├── connection_pooling_example.py
-    ├── context_managers_example.py
-    ├── data_integrity_example.py
-    ├── data_validation_pipeline_example.py
-    ├── decorator_patterns_example.py
-    ├── document_versioning_example.py
-    ├── fluent_interface_example.py
-    ├── http_utils_example.py
-    ├── hybrid_search_example.py
-    ├── metrics_example.py
-    ├── pagination_example.py
-    ├── plugin_system_example.py
-    ├── query_planning_example.py
-    ├── rag_example.py
-    ├── rag_pipeline_example.py
-    ├── reranking_example.py
-    ├── resource_management_example.py
-    ├── schema_migration_example.py
-    ├── security_example.py
-    ├── simplified_imports_example.py
-    ├── storage_example.py
-    ├── streaming_example.py
-    └── workflow_example.py
-```
+Complete, production-ready examples that demonstrate real-world use cases combining multiple PepperPy features:
 
-## Running Examples
+- `document_processing_pipeline.py`: Complete document processing pipeline combining RAG, memory optimization, caching, and monitoring
+- `search_engine_implementation.py`: Full-featured search engine with hybrid search, reranking, and streaming
+- `data_management_system.py`: Data management system with validation, versioning, and migration
+- `api_gateway_service.py`: API gateway service with connection pooling, batching, and security
+- `workflow_orchestration.py`: Workflow orchestration system with plugins and monitoring
 
-1. Install PepperPy:
+## 2. Integrations
+
+Examples showing how to integrate PepperPy with various external systems and services:
+
+- `enterprise_search/`: Integration with enterprise search systems
+  - Vector stores (Pinecone, Chroma)
+  - Full-text search engines
+  - Hybrid search implementations
+  
+- `document_management/`: Integration with document management systems
+  - Document storage providers
+  - Version control systems
+  - Content management systems
+  
+- `monitoring_stack/`: Integration with monitoring and observability tools
+  - Metrics collection and reporting
+  - Distributed tracing
+  - Log aggregation
+
+## 3. Tutorials
+
+Step-by-step tutorials to learn PepperPy features:
+
+1. `01_getting_started.py`: Basic concepts and setup
+2. `02_building_search.py`: Building a search system
+3. `03_document_processing.py`: Document processing and RAG
+4. `04_optimization.py`: Performance optimization techniques
+
+## Running the Examples
+
+### Prerequisites
+
+1. Install PepperPy with all optional dependencies:
+   ```bash
+   pip install pepperpy[all]
+   ```
+
+2. Set up required environment variables:
+   ```bash
+   export PEPPERPY_LOG_LEVEL=INFO
+   export PEPPERPY_STORAGE_PATH=./data
+   ```
+
+### Running Scenarios
+
+Each scenario is a self-contained example that can be run directly:
+
 ```bash
-pip install pepperpy
+# Run the document processing pipeline example
+python examples/scenarios/document_processing_pipeline.py
+
+# Run the search engine implementation example
+python examples/scenarios/search_engine_implementation.py
 ```
 
-2. Set up environment variables:
+### Running Integration Examples
+
+Integration examples may require additional setup:
+
+1. Install integration-specific dependencies:
+   ```bash
+   pip install -r examples/integrations/requirements.txt
+   ```
+
+2. Configure integration settings in `config.yaml`
+
+3. Run the example:
+   ```bash
+   python examples/integrations/enterprise_search/pinecone_example.py
+   ```
+
+### Following Tutorials
+
+Tutorials should be followed in order:
+
 ```bash
-cp .env.example .env
-# Edit .env with your API keys and configuration
+# Start with the basics
+python examples/tutorials/01_getting_started.py
+
+# Move on to search functionality
+python examples/tutorials/02_building_search.py
 ```
 
-3. Run an example:
-```bash
-# Run a basic example
-python examples/basic/simple_example.py
+## Example Structure
 
-# Run an advanced example
-python examples/advanced/benchmarking_example.py
+Each example follows a consistent structure:
 
-# Run an integration example
-python examples/integrations/monitoring_example.py
-```
+1. Comprehensive docstring explaining:
+   - Purpose and features demonstrated
+   - Architecture and design decisions
+   - Requirements and setup
 
-## Example Categories
+2. Code organization:
+   - Clear separation of concerns
+   - Proper error handling
+   - Performance considerations
+   - Monitoring and metrics
 
-### Basic Examples
-Simple examples demonstrating core functionality:
-- Basic usage patterns
-- Common use cases
-- Getting started guides
+3. Documentation:
+   - Inline comments explaining complex logic
+   - Usage examples
+   - Expected output
 
-### Advanced Examples
-Examples showcasing advanced features and optimizations:
-- Performance optimization
-- Memory management
-- Parallel processing
-- Caching strategies
-- Benchmarking
-
-### Integration Examples
-Examples demonstrating system integration:
-- Monitoring and logging
-- Lifecycle management
-- System integration patterns
-- End-to-end workflows
-
-### Feature Examples
-Examples for specific features and components:
-- RAG (Retrieval Augmented Generation)
-- Workflow management
-- API patterns
-- Data validation
-- Security features
-
-## Contributing
+## Contributing New Examples
 
 When adding new examples:
-1. Follow the [documentation guidelines](../docs/CONTRIBUTING.md)
-2. Include docstrings with clear explanations
-3. Add requirements if needed
-4. Update this README
-5. Place in appropriate category directory 
+
+1. Choose the appropriate category (scenarios/integrations/tutorials)
+2. Follow the established structure and coding style
+3. Include comprehensive documentation
+4. Add any necessary dependencies to requirements.txt
+5. Update this README.md if adding new categories or major examples
+
+## Support
+
+For questions about the examples:
+
+- Check the [documentation](https://pepperpy.readthedocs.io)
+- Open an issue on GitHub
+- Join our community Discord server 

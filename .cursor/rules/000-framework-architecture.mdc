@@ -1,14 +1,11 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+title: PepperPy Framework Architecture
+description: Apply this rule when discussing, planning, or implementing core architecture components of the PepperPy framework or when adding new functionality that must integrate with the existing architecture
+globs:
+  - "**/*.py"
+priority: 1000
+alwaysApply: true
 ---
-<!--
-@title: PepperPy Framework Architecture
-@description: Core architecture principles, module organization, and design patterns for the PepperPy framework
-@glob: **/*.py
-@priority: 1000
--->
 
 # PepperPy Framework Architecture
 
@@ -153,102 +150,3 @@ if LLMCapabilities.STREAM in provider.capabilities():
         # Process streaming chunks
         ...
 ```
-
-## Module Interaction Patterns
-
-### Dependencies and Imports
-
-1. **Follow clear dependency hierarchy**:
-   - Core modules (`core`, `utils`) should not depend on domain modules
-   - Domain modules can depend on core and utils
-   - No circular dependencies between domains
-
-2. **Import style**:
-   - Use absolute imports for external dependencies
-   - Use relative imports for internal module components
-
-```python
-# Good
-from pepperpy.core.base import BaseProvider  # Absolute for framework imports
-from .providers import OpenAIProvider        # Relative for internal imports
-
-# Avoid
-import pepperpy.core.base  # Too verbose
-from pepperpy.llm.providers.openai import OpenAIProvider  # Too brittle
-```
-
-### API Design
-
-1. **Public APIs**:
-   - Expose only what's needed through `__init__.py`
-   - Use strong typing for all public interfaces
-   - Provide clear docstrings with examples
-
-2. **Internal APIs**:
-   - Prefix private components with underscore
-   - Keep implementation details hidden
-   - Document internal components for maintainers
-
-## Documentation Standards
-
-Each module should provide:
-
-1. Clear module-level docstring explaining purpose and usage
-2. Class and function docstrings following Google style
-3. Type annotations for all public APIs
-4. Usage examples in docstrings
-
-## Error Handling
-
-Use domain-specific exception hierarchies:
-
-```python
-# Core exceptions
-class PepperPyError(Exception):
-    """Base exception for all framework errors."""
-    pass
-
-# Domain-specific exceptions
-class LLMError(PepperPyError):
-    """Base exception for LLM-related errors."""
-    pass
-
-class ProviderNotFoundError(PepperPyError):
-    """Raised when a requested provider is not found."""
-    pass
-```
-
-## Testing Strategy
-
-1. **Unit tests** for individual components
-2. **Integration tests** for provider implementations
-3. **End-to-end tests** for complete workflows
-4. Test utilities in each domain's `testing` module
-
-## Extension and Plugin System
-
-The framework provides extension points through:
-
-1. **Provider Registry**: Register custom providers
-2. **Capability Discovery**: Query for capabilities
-3. **Plugin System**: Load and register plugins
-
-## Future Evolution
-
-The framework is evolving toward:
-
-1. More flexible composition patterns
-2. Enhanced workflow capabilities
-3. Improved RAG and agent frameworks
-4. Better integration with external systems
-
-## Final Principles
-
-When working with the PepperPy framework:
-
-1. **Respect domain boundaries**
-2. **Follow the provider pattern**
-3. **Use clean interfaces**
-4. **Maintain backward compatibility**
-5. **Write comprehensive tests**
-6. **Document public APIs** 
