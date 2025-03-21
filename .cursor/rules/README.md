@@ -15,8 +15,13 @@ The rules are organized into a hierarchical numbering system:
 ├── 100-rag-system.mdc                # Domain-specific: RAG
 ├── 101-workflow-system.mdc           # Domain-specific: Workflows
 ├── ...
+├── 180-code-duplication-prevention.mdc # Code quality: Duplication prevention
+├── 185-file-organization.mdc         # Code quality: File organization
+├── 190-api-evolution.mdc             # Code quality: API evolution
+├── 195-ai-response-validation.mdc    # Code quality: AI response validation
+├── 200-refactoring-validation.mdc    # Code quality: Refactoring tools usage
 ├── 200-rules-management.mdc          # Meta: Rules management
-├── 201-self-update-system.mdc        # Meta: Self-updating mechanisms
+├── 205-rule-evolution.mdc            # Meta: Rules evolution and self-correction
 ├── ...
 ├── auto-generated/                   # Auto-generated rules
 │   ├── module-map.mdc                # Generated module map
@@ -34,23 +39,29 @@ The rules are organized into a hierarchical numbering system:
    - Rules for specific domains (RAG, workflows, etc.)
    - Applied to specific subsets of the codebase
 
-3. **200-299**: Meta rules
+3. **180-205**: Code quality and maintenance rules
+   - Rules for preventing duplication, maintaining structure
+   - Validation of AI-generated code
+   - API evolution and backward compatibility
+   - Self-correction of rules
+
+4. **200-299**: Meta rules
    - Rules about rules
    - Self-management and update mechanisms
 
-4. **300-399**: Documentation rules
+5. **300-399**: Documentation rules
    - Standards for documentation
    - API documentation patterns
 
-5. **400-499**: Tooling rules
+6. **400-499**: Tooling rules
    - CI/CD pipelines
    - Development tools integration
 
-6. **500-599**: Extension rules
+7. **500-599**: Extension rules
    - Plugin development
    - Extension patterns
 
-7. **auto-generated/**: Auto-generated rules
+8. **auto-generated/**: Auto-generated rules
    - Rules created by automated processes
    - Updated when the codebase changes
 
@@ -59,12 +70,12 @@ The rules are organized into a hierarchical numbering system:
 Each rule file follows this structure:
 
 ```markdown
-<!--
-@title: Rule Title
-@description: Brief description of the rule
-@glob: Pattern matching files this rule applies to
-@priority: Numeric priority (higher values = higher priority)
--->
+---
+description: Brief description of the rule
+globs:
+  - "**/*.py"  # Pattern matching files this rule applies to
+alwaysApply: true
+---
 
 # Rule Title
 
@@ -89,44 +100,34 @@ Summary of the rule.
 
 ## Rule Management Tools
 
-The PepperPy framework includes tools to manage rules:
+The PepperPy framework includes tools to manage rules using the single unified `refactor.py` script:
 
-### Rules Updater Script
+### Rule Management Commands
 
-The `scripts/rules-updater.py` script provides functionality for:
+The `scripts/refactor.py rule-management` command provides functionality for:
 
 - Scanning the codebase and updating module maps
 - Validating rules for syntax and completeness
 - Generating new rules from templates
 - Updating rule metadata (versions and timestamps)
 - Analyzing APIs and generating documentation
+- Registering and fixing AI hallucinations and errors
 
 Usage:
 ```bash
-python scripts/rules-updater.py [command]
+python scripts/refactor.py rule-management [command]
 ```
 
 Commands:
-- `scan`: Scan codebase and update module maps
-- `validate`: Validate all rules for syntax and completeness
-- `generate`: Generate new rules from templates
-- `version`: Update version numbers and timestamps
-- `analyze-api`: Analyze APIs and update documentation
-- `help`: Show help information
-
-### Rules Initialization Script
-
-The `scripts/initialize-rules.sh` script initializes the rules system by:
-
-1. Backing up existing rules
-2. Moving new rules into place
-3. Setting up the auto-generated directory
-4. Running the initial rule scan
-
-Usage:
-```bash
-./scripts/initialize-rules.sh
-```
+- `--scan`: Scan codebase and update module maps
+- `--validate`: Validate all rules for syntax and completeness
+- `--validate-frontmatter`: Verify YAML frontmatter format
+- `--generate`: Generate new rules from templates
+- `--update`: Update existing rules with new examples
+- `--version`: Update version numbers and timestamps
+- `--register-issue`: Register issues with AI-generated code
+- `--verify`: Test if rules prevent known issues
+- `--audit`: Audit rule effectiveness
 
 ## Self-Updating Mechanism
 
@@ -141,6 +142,10 @@ The rules system includes self-updating capabilities:
 3. **Rule Validator**: Ensures rules are properly formatted
    - Validates rule structure and required sections
 
+4. **Rule Evolution**: Updates rules based on AI errors
+   - Captures and analyzes AI hallucinations
+   - Updates rules to prevent recurrence
+
 ## Creating New Rules
 
 To create a new rule:
@@ -148,7 +153,7 @@ To create a new rule:
 1. Identify the appropriate category
 2. Use the generator:
    ```bash
-   python scripts/rules-updater.py generate --name "My Rule Name" --category 100
+   python scripts/refactor.py rule-management --generate --name "My Rule Name" --category 100
    ```
 3. Edit the generated file with domain-specific content
 4. Test the rule for compatibility
@@ -163,10 +168,11 @@ Rules should be updated when:
 4. Implementation patterns change
 5. Dependencies are updated
 6. Significant bugs are fixed
+7. AI makes errors or hallucinations
 
 To update all rule metadata (versions and timestamps):
 ```bash
-python scripts/rules-updater.py version
+python scripts/refactor.py rule-management --version
 ```
 
 ## Contributing
@@ -174,12 +180,13 @@ python scripts/rules-updater.py version
 When contributing to the rules system:
 
 1. Follow the established rule structure
-2. Validate your rules before committing:
+2. Use proper YAML frontmatter format
+3. Validate your rules before committing:
    ```bash
-   python scripts/rules-updater.py validate
+   python scripts/refactor.py rule-management --validate
    ```
-3. Update auto-generated content:
+4. Update auto-generated content:
    ```bash
-   python scripts/rules-updater.py scan
+   python scripts/refactor.py rule-management --scan
    ```
-4. Document your changes in the rule's metadata 
+5. Document your changes in the rule's metadata 

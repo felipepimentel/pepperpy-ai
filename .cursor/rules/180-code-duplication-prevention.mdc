@@ -1,9 +1,9 @@
-<!--
-@title: Code Duplication Prevention
-@description: Strategies and tools to prevent code duplication, promote reuse, and maintain DRY principles
-@glob: **/*.py
-@priority: 80
--->
+---
+description: Estratégias e ferramentas para prevenir duplicação de código, promover reuso e manter princípios DRY
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
 
 # Code Duplication Prevention
 

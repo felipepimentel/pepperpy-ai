@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 <!--
 @title: PepperPy Coding Standards
 @description: Python coding standards and best practices for the PepperPy framework
@@ -21,7 +26,7 @@ This document defines the coding standards and best practices for all Python cod
 
 ### Formatting
 
-- Follow [PEP 8](https://pep8.org/) with some project-specific adjustments
+- Follow [PEP 8](mdc:https:/pep8.org) with some project-specific adjustments
 - Use 4 spaces for indentation (no tabs)
 - Maximum line length of 100 characters
 - Use blank lines to separate logical sections of code

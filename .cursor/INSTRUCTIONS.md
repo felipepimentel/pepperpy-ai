@@ -6,19 +6,16 @@ This document provides instructions for setting up and using the PepperPy Cursor
 
 ### Initialize Rules System
 
-The rules system can be initialized with the following commands:
+The rules system can be initialized using the refactor.py script:
 
 ```bash
-# Make the initialization script executable
-chmod +x scripts/initialize-rules.sh
-
-# Run the initialization script
-./scripts/initialize-rules.sh
+# Initialize the rules system
+python scripts/refactor.py rule-management --init
 ```
 
 This process:
 1. Backs up any existing rules
-2. Sets up the new rules structure
+2. Sets up the rules structure
 3. Creates the auto-generated rules directory
 4. Performs an initial rule scan
 
@@ -152,6 +149,14 @@ To update version numbers and timestamps:
 python scripts/refactor.py rule-management --version
 ```
 
+### Validate Frontmatter Format
+
+To check if all rules use the correct YAML frontmatter format:
+
+```bash
+python scripts/refactor.py rule-management --validate-frontmatter
+```
+
 ### Handling AI Errors
 
 When the AI makes mistakes, update the rules to prevent recurrence:
@@ -165,6 +170,35 @@ python scripts/refactor.py rule-management --update --rule 195 --section "Common
 
 # Verify the rule prevents the issue
 python scripts/refactor.py rule-management --verify --rule 195 --test-case "test_case"
+```
+
+## Rule Format
+
+All rules must use the YAML frontmatter format:
+
+```markdown
+---
+description: Brief description of the rule
+globs:
+  - "**/*.py"  # Pattern matching files this rule applies to
+alwaysApply: true
+---
+
+# Rule Title
+
+## Overview
+...
+```
+
+Do not use the outdated HTML comment format:
+
+```markdown
+<!-- 
+@title: Rule Title
+@description: Description
+@glob: pattern
+@priority: number
+-->
 ```
 
 ## Using Rules with Refactoring Tools
@@ -206,10 +240,10 @@ The rules ensure that AI-generated code:
 
 ## Continuous Integration
 
-The rules system integrates with CI through GitHub Actions:
+The rules system integrates with CI:
 
-- Rules are validated on pull requests
-- Auto-generated rules are updated regularly
+- Rules are validated regularly
+- Auto-generated rules are updated automatically
 - Code quality checks use the standards defined in the rules
 
 ## Further Information

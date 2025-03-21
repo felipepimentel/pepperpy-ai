@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 <!--
 @title: PepperPy Rules Management
 @description: Guidelines for creating, organizing, and updating Cursor rules for the PepperPy framework

@@ -1,14 +1,9 @@
 ---
-description: 
-globs: 
-alwaysApply: false
+description: Processos para atualização de regras quando falhas são identificadas, usando o script de refatoração unificado
+globs:
+  - ".cursor/rules/**/*"
+alwaysApply: true
 ---
-<!--
-@title: Evolução e Auto-correção de Regras
-@description: Processos para atualização de regras quando falhas são identificadas, usando o script de refatoração unificado
-@glob: .cursor/rules/**/*
-@priority: 95
--->
 
 # Evolução e Auto-correção de Regras
 
@@ -23,6 +18,38 @@ O PepperPy adota o princípio de **ferramenta única** para manutenção e refat
 - **Todas as funcionalidades** são incorporadas no script `refactor.py`
 - **Nenhum script auxiliar** deve ser criado para funções relacionadas
 - **Extensões ocorrem via subcomandos** no script principal
+
+## Validação do Formato de Regras
+
+O formato correto para regras do Cursor deve usar YAML frontmatter:
+
+```yaml
+---
+description: Descrição da regra
+globs:
+  - "**/*.py"  # Padrões glob para aplicação da regra
+alwaysApply: true
+---
+```
+
+Nunca use o formato incorreto com comentários HTML:
+
+```
+<!-- 
+@title: Título
+@description: Descrição
+@glob: padrão
+@priority: número
+-->
+```
+
+### Validação de Frontmatter
+
+Use o comando de validação para verificar o formato de frontmatter:
+
+```bash
+python scripts/refactor.py rule-management --validate-frontmatter
+```
 
 ## Ciclo de Feedback e Evolução de Regras
 
@@ -74,15 +101,16 @@ Todos os comandos relacionados ao gerenciamento de regras são implementados com
 python scripts/refactor.py rule-management --help
 
 # Comandos disponíveis:
-# --scan            : Analisar e atualizar mapeamentos de módulos
-# --validate        : Validar todas as regras
-# --generate        : Gerar nova regra a partir de template
-# --update          : Atualizar regra existente
-# --version         : Atualizar versões e timestamps
-# --analyze-coverage: Analisar cobertura de regras
-# --register-issue  : Registrar problema identificado
-# --verify          : Verificar eficácia de regra
-# --audit           : Auditar eficácia de regras
+# --scan                  : Analisar e atualizar mapeamentos de módulos
+# --validate              : Validar todas as regras
+# --validate-frontmatter  : Verificar formato de frontmatter YAML
+# --generate              : Gerar nova regra a partir de template
+# --update                : Atualizar regra existente
+# --version               : Atualizar versões e timestamps
+# --analyze-coverage      : Analisar cobertura de regras
+# --register-issue        : Registrar problema identificado
+# --verify                : Verificar eficácia de regra
+# --audit                 : Auditar eficácia de regras
 ```
 
 ## Processo de Revisão Periódica
@@ -119,6 +147,10 @@ rule_management_parser.add_argument(
     "--validate", action="store_true", help="Validar todas as regras"
 )
 rule_management_parser.add_argument(
+    "--validate-frontmatter", action="store_true", 
+    help="Verificar formato de frontmatter YAML das regras"
+)
+rule_management_parser.add_argument(
     "--generate", action="store_true", help="Gerar nova regra"
 )
 rule_management_parser.add_argument(
@@ -151,6 +183,7 @@ Processo a seguir quando a IA cometer erros:
    - Alucinação de API inexistente
    - Duplicação de código
    - Violação de compatibilidade de API
+   - Formato incorreto de frontmatter
 
 2. **Localizar a regra correspondente**:
    ```bash

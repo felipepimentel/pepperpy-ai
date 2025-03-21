@@ -1,9 +1,9 @@
-<!--
-@title: Refactoring Tools Usage and Validation
-@description: Guidelines for using PepperPy refactoring tools safely and effectively to maintain code quality
-@glob: **/*.py
-@priority: 75
--->
+---
+description: Diretrizes para uso seguro e eficaz das ferramentas de refatoração PepperPy para manter a qualidade do código
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
 
 # Refactoring Tools Usage and Validation
 

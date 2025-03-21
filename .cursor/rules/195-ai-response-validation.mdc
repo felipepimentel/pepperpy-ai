@@ -1,9 +1,9 @@
-<!--
-@title: AI Response Validation and Hallucination Prevention
-@description: Guidelines for validating AI-generated code, preventing inaccuracies, and ensuring consistency with project standards
-@glob: **/*
-@priority: 95
--->
+---
+description: Diretrizes para validação de código gerado por IA, prevenção de imprecisões e garantia de consistência com padrões do projeto
+globs:
+  - "**/*"
+alwaysApply: true
+---
 
 # AI Response Validation and Hallucination Prevention
 
@@ -203,7 +203,7 @@ Create automated verification for AI-generated code:
 
 ```bash
 # Create a verification script for AI code
-python scripts/refactor.py gen-module --output scripts/verify_ai_code.py --desc "Verification tool for AI-generated code"
+python scripts/refactor.py rule-management --verify --rule 195 --test-case "new_component"
 ```
 
 ## Conclusion

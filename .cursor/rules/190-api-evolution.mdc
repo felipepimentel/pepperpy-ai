@@ -1,9 +1,9 @@
-<!--
-@title: API Evolution and Backward Compatibility
-@description: Guidelines for evolving APIs safely while maintaining backward compatibility and preventing breaking changes
-@glob: **/*.py
-@priority: 90
--->
+---
+description: Diretrizes para evolução segura de APIs mantendo compatibilidade e prevenindo mudanças incompatíveis
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
 
 # API Evolution and Backward Compatibility
 

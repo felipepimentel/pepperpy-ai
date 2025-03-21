@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 <!--
 @title: PepperPy File Management
 @description: Guidelines for file creation, organization, and naming conventions in the PepperPy framework

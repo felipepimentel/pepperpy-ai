@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 <!--
 @title: PepperPy Framework Architecture
 @description: Core architecture principles, module organization, and design patterns for the PepperPy framework

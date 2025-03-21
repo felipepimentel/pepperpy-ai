@@ -1,3 +1,8 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
 <!--
 @title: PepperPy RAG System
 @description: Guidelines for implementing and extending the Retrieval Augmented Generation system in PepperPy

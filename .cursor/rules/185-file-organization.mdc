@@ -1,9 +1,9 @@
-<!--
-@title: File Organization and Structure Consistency
-@description: Guidelines for creating and organizing files, maintaining project structure consistency, and preventing duplication
-@glob: **/*
-@priority: 85
--->
+---
+description: Diretrizes para criação e organização de arquivos, mantendo consistência estrutural e prevenindo duplicação
+globs:
+  - "**/*"
+alwaysApply: true
+---
 
 # File Organization and Structure Consistency
 
