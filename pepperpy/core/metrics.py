@@ -131,6 +131,94 @@ class TimeContext(BaseContext):
         )
 
 
+class Timer:
+    """Utility class for timing operations.
+
+    This class provides a simple interface for measuring execution time
+    of operations, with optional automatic reporting to the metrics collector.
+    """
+
+    def __init__(
+        self,
+        name: Optional[str] = None,
+        auto_record: bool = False,
+        tags: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize a new timer.
+
+        Args:
+            name: Optional name for the timer, used for metric recording
+            auto_record: Whether to automatically record the time when stop is called
+            tags: Optional tags to add to the recorded metric
+        """
+        self.name = name
+        self.auto_record = auto_record
+        self.tags = tags or {}
+        self.start_time = 0.0
+        self.end_time = 0.0
+        self.elapsed_ms = 0.0
+        self.running = False
+
+    def start(self) -> "Timer":
+        """Start the timer.
+
+        Returns:
+            Self for method chaining
+        """
+        self.start_time = time.time()
+        self.running = True
+        return self
+
+    def stop(self) -> float:
+        """Stop the timer and return the elapsed time in milliseconds.
+
+        Returns:
+            Elapsed time in milliseconds
+        """
+        if not self.running:
+            return self.elapsed_ms
+
+        self.end_time = time.time()
+        self.elapsed_ms = (self.end_time - self.start_time) * 1000
+        self.running = False
+
+        if self.auto_record and self.name:
+            collector = MetricsCollector()
+            collector.record_metric(
+                self.name,
+                self.elapsed_ms,
+                MetricCategory.PERFORMANCE,
+                self.tags,
+            )
+
+        return self.elapsed_ms
+
+    def reset(self) -> "Timer":
+        """Reset the timer.
+
+        Returns:
+            Self for method chaining
+        """
+        self.start_time = 0.0
+        self.end_time = 0.0
+        self.elapsed_ms = 0.0
+        self.running = False
+        return self
+
+    @property
+    def elapsed(self) -> float:
+        """Get the elapsed time in milliseconds.
+
+        If the timer is still running, returns the current elapsed time.
+
+        Returns:
+            Elapsed time in milliseconds
+        """
+        if self.running:
+            return (time.time() - self.start_time) * 1000
+        return self.elapsed_ms
+
+
 class MemoryContext(BaseContext):
     """Context for tracking memory usage."""
 

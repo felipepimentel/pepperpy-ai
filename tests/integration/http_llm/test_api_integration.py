@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from pepperpy.http.helpers import (
+from pepperpy.core.http import (
     format_headers,
     is_json_content,
     parse_json,

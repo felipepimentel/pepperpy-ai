@@ -10,11 +10,14 @@ This module provides core functionality for PepperPy, including:
 - Dependency injection
 - Utility functions
 - HTTP client and utilities
+- Error handling
+- Version information
 """
 
 from .base import BaseProvider
 from .config import Config
 from .di import Container
+from .errors import PepperpyError
 from .http import (
     ConnectionError,
     HTTPClient,
@@ -61,10 +64,15 @@ from .utils import (
     validate_type,
 )
 from .validation import ValidationError, validate_config
+from .version import __version__
 
 __all__ = [
+    # Version
+    "__version__",
     # Base
     "BaseProvider",
+    # Errors
+    "PepperpyError",
     # Config
     "Config",
     # DI

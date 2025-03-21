@@ -11,7 +11,7 @@ de aplicações baseadas em IA, com foco em:
 Módulos Principais:
     core: Funcionalidades centrais e utilitários
     data: Manipulação e persistência de dados
-    http: Cliente HTTP e utilitários
+    http: Cliente HTTP e utilitários (agora parte de core.http)
     infra: Infraestrutura e serviços compartilhados
     utils: Funções utilitárias
 
@@ -21,8 +21,11 @@ Exemplo Básico:
     >>> result = await app.process("Texto para processar")
 """
 
-from pepperpy.version import __version__
+# Re-export core components
+from pepperpy.core import PepperpyError, __version__
 
+# Export to __all__
 __all__ = [
     "__version__",
+    "PepperpyError",
 ]

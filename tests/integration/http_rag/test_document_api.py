@@ -5,7 +5,7 @@ import json
 import pytest
 from bs4 import BeautifulSoup
 
-from pepperpy.http.helpers import (
+from pepperpy.core.http import (
     format_headers,
     get_content_type,
     is_json_content,
