@@ -11,6 +11,7 @@ The rules are organized into a hierarchical numbering system:
 ├── 000-framework-architecture.mdc    # Core framework architecture (highest priority)
 ├── 001-coding-standards.mdc          # General coding standards 
 ├── 002-file-management.mdc           # File organization and structure
+├── 003-environment-variables.mdc     # Environment variable standardization
 ├── ...
 ├── 100-rag-system.mdc                # Domain-specific: RAG
 ├── 101-workflow-system.mdc           # Domain-specific: Workflows

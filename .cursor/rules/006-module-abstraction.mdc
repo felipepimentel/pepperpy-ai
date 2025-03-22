@@ -1,0 +1,221 @@
+---
+title: "Princípio de Abstração Total de Módulos"
+description: "Aplicar esta regra quando implementar novos módulos ou modificar os existentes para garantir que o desenvolvedor final precise apenas configurar as variáveis de ambiente e usar a interface pública, sem conhecimento das implementações específicas"
+globs: 
+  - "pepperpy/**/*.py"
+priority: 800  # Alta prioridade
+---
+
+# Princípio de Abstração Total de Módulos
+
+## Visão Geral
+
+O PepperPy adota o princípio de **abstração total**, onde os desenvolvedores finais devem apenas:
+1. Configurar variáveis de ambiente relevantes
+2. Usar a API pública do módulo
+3. Obter funcionalidade completa sem qualquer conhecimento da implementação subjacente
+
+Esta regra define como implementar e manter essa abstração em todos os módulos.
+
+## Diretrizes de Implementação
+
+### 1. Estrutura de Módulos
+
+Todos os módulos devem seguir esta estrutura:
+
+```
+módulo/
+├── __init__.py         # Exporta APENAS a API pública
+├── api.py              # API pública de alto nível
+├── provider.py         # Interface abstrata do provider
+├── factory.py          # Factory para criar providers concretos
+├── exceptions.py       # Exceções específicas do módulo
+└── providers/          # Implementações concretas (privadas)
+    ├── __init__.py
+    └── [provider].py   # Providers específicos
+```
+
+### 2. API Pública (`__init__.py`)
+
+- **Exportar apenas a API pública** e esconder todas as implementações
+- **Não expor** classes concretas de providers
+- **Documentar** claramente como configurar o módulo via variáveis de ambiente
+
+Exemplo:
+```python
+"""
+PepperPy [Módulo] - [Descrição].
+
+Este módulo fornece [funcionalidade] através de uma interface abstrata.
+"""
+
+__version__ = "0.1.0"
+
+# Exporta apenas a API pública
+from .api import função1, função2, função3
+from .exceptions import MóduloError
+
+__all__ = [
+    "função1",
+    "função2", 
+    "função3",
+    "MóduloError"
+]
+```
+
+### 3. API de Alto Nível (`api.py`)
+
+- Fornecer **funções simples de alto nível** que escondem a complexidade
+- **Detectar automaticamente** o provider baseado em variáveis de ambiente
+- Permitir **sobrescrita opcional** do provider via parâmetros
+- Manter **consistência** entre módulos na API
+
+Exemplo:
+```python
+"""
+API pública para o módulo [Módulo].
+"""
+
+async def função1(param1, param2, provider=None, **kwargs):
+    """Descrição da função.
+    
+    Args:
+        param1: Descrição do param1
+        param2: Descrição do param2 
+        provider: Provider opcional. Se None, usa configuração do ambiente.
+        **kwargs: Parâmetros adicionais específicos do provider
+        
+    Returns:
+        Resultados da função
+        
+    Raises:
+        MóduloError: Se ocorrer um erro
+    """
+    # Usar factory para obter provider baseado no ambiente
+    provider_instance = Factory.create_provider(provider)
+    
+    # Chamar a implementação do provider
+    return await provider_instance.método_correspondente(param1, param2, **kwargs)
+```
+
+### 4. Factory para Providers (`factory.py`)
+
+- Esconder detalhes de instanciação dos providers
+- Detectar automaticamente qual provider usar baseado em variáveis de ambiente
+- Lidar com erros de configuração de forma clara
+
+Exemplo:
+```python
+"""
+Factory para criar providers para [Módulo].
+"""
+
+import os
+from typing import Dict, Any, Optional
+
+class Factory:
+    """Factory para criar providers."""
+    
+    @classmethod
+    def create_provider(cls, provider_type=None, config=None):
+        """Criar instância de provider.
+        
+        Args:
+            provider_type: Tipo de provider. Se None, usa variável de ambiente.
+            config: Configuração opcional.
+            
+        Returns:
+            Instância do provider.
+            
+        Raises:
+            ConfigurationError: Se provider não for especificado no ambiente.
+            MóduloError: Se provider não for suportado.
+        """
+        if not provider_type:
+            provider_type = os.getenv("PEPPERPY_MÓDULO__PROVIDER")
+            if not provider_type:
+                raise ConfigurationError(
+                    "Provider não especificado. Passe provider_type ou "
+                    "configure a variável PEPPERPY_MÓDULO__PROVIDER."
+                )
+        
+        # Retornar provider apropriado
+        # ...
+```
+
+### 5. Variáveis de Ambiente
+
+Todos os módulos devem:
+
+- Usar o padrão `PEPPERPY_[MÓDULO]__[CONFIGURAÇÃO]`
+- Documentar todas as variáveis no `.env.example`
+- Ter uma variável principal `PEPPERPY_[MÓDULO]__PROVIDER` para selecionar o provider
+
+Exemplo:
+```
+# Exemplo para módulo TTS
+PEPPERPY_TTS__PROVIDER=elevenlabs
+PEPPERPY_TTS__ELEVENLABS_API_KEY=your-api-key
+```
+
+### 6. Tratamento de Erro
+
+- Fornecer hierarquia de exceções específica do módulo
+- Converter exceções específicas do provider em exceções do PepperPy
+- Fornecer mensagens de erro úteis que não vazam implementação
+
+Exemplo:
+```python
+from pepperpy.core.errors import PepperPyError
+
+class MóduloError(PepperPyError):
+    """Erro base para o módulo."""
+    pass
+
+class ProviderError(MóduloError):
+    """Erro do provider."""
+    pass
+```
+
+## Lista de Verificação de Implementação
+
+Ao implementar um novo módulo, garanta que:
+
+- [ ] API pública é abstrata e esconde detalhes de implementação
+- [ ] Factory detecta automaticamente o provider correto
+- [ ] Providers concretos implementam a interface abstrata
+- [ ] Variáveis de ambiente seguem o padrão `PEPPERPY_[MÓDULO]__[CONFIG]`
+- [ ] Documentação inclui informações apenas sobre a API pública
+- [ ] Exceções são convertidas para a hierarquia do PepperPy
+- [ ] Exemplo de uso mostra apenas a API pública, não detalhes de implementação
+
+## Exemplo de Uso para Desenvolvedor Final
+
+Depois de implementar corretamente, o código do desenvolvedor final deve ser simples:
+
+```python
+# Configuração via variáveis de ambiente
+import os
+os.environ["PEPPERPY_TTS__PROVIDER"] = "elevenlabs"
+os.environ["PEPPERPY_TTS__ELEVENLABS_API_KEY"] = "minha-chave-api"
+
+# Uso da API pública
+from pepperpy.tts import convert_text, save_audio
+
+async def minha_função():
+    # Uso sem conhecimento do provider subjacente
+    audio = await convert_text(
+        text="Olá, mundo!",
+        voice_id="voice-id-here"
+    )
+    save_audio(audio, "saida.mp3")
+```
+
+## Conclusão
+
+Aderindo a este princípio de abstração total, garantimos que os usuários do PepperPy possam:
+1. Focar na lógica de negócio, não na implementação
+2. Trocar providers sem mudar código
+3. Utilizar recursos avançados sem complexidade desnecessária
+
+Este princípio deve ser aplicado consistentemente em todos os módulos para criar uma experiência coesa e de alta qualidade para os desenvolvedores. 

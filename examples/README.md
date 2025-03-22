@@ -1,46 +1,32 @@
 # PepperPy Examples
 
-This directory contains comprehensive examples demonstrating the capabilities of the PepperPy framework. The examples are organized into three main categories:
+This directory contains examples demonstrating the capabilities of the PepperPy framework through practical, real-world use cases.
 
-## 1. Scenarios
+## Content Pipeline Example
 
-Complete, production-ready examples that demonstrate real-world use cases combining multiple PepperPy features:
+The main example `content_pipeline.py` demonstrates a complete content generation pipeline that:
 
-- `document_processing_pipeline.py`: Complete document processing pipeline combining RAG, memory optimization, caching, and monitoring
-- `search_engine_implementation.py`: Full-featured search engine with hybrid search, reranking, and streaming
-- `data_management_system.py`: Data management system with validation, versioning, and migration
-- `api_gateway_service.py`: API gateway service with connection pooling, batching, and security
-- `workflow_orchestration.py`: Workflow orchestration system with plugins and monitoring
+1. **Fetches and Analyzes News**
+   - Collects recent news articles about a specific topic
+   - Analyzes content for key themes and insights
+   - Identifies trends and patterns
 
-## 2. Integrations
+2. **Generates Structured Discussion**
+   - Creates a multi-perspective debate
+   - Synthesizes arguments and counterarguments
+   - Provides balanced analysis
 
-Examples showing how to integrate PepperPy with various external systems and services:
+3. **Creates Podcast Content**
+   - Transforms discussion into natural dialogue
+   - Adds proper transitions and flow
+   - Includes production cues and markers
 
-- `enterprise_search/`: Integration with enterprise search systems
-  - Vector stores (Pinecone, Chroma)
-  - Full-text search engines
-  - Hybrid search implementations
-  
-- `document_management/`: Integration with document management systems
-  - Document storage providers
-  - Version control systems
-  - Content management systems
-  
-- `monitoring_stack/`: Integration with monitoring and observability tools
-  - Metrics collection and reporting
-  - Distributed tracing
-  - Log aggregation
+4. **Produces Audio Output**
+   - Converts script to natural speech
+   - Handles multiple speakers
+   - Adds appropriate pacing and emphasis
 
-## 3. Tutorials
-
-Step-by-step tutorials to learn PepperPy features:
-
-1. `01_getting_started.py`: Basic concepts and setup
-2. `02_building_search.py`: Building a search system
-3. `03_document_processing.py`: Document processing and RAG
-4. `04_optimization.py`: Performance optimization techniques
-
-## Running the Examples
+## Running the Example
 
 ### Prerequisites
 
@@ -51,84 +37,58 @@ Step-by-step tutorials to learn PepperPy features:
 
 2. Set up required environment variables:
    ```bash
-   export PEPPERPY_LOG_LEVEL=INFO
-   export PEPPERPY_STORAGE_PATH=./data
+   export NEWSAPI_KEY=your_api_key  # Required for news fetching
+   export PEPPERPY_API_KEY=your_key  # Required for PepperPy services
    ```
 
-### Running Scenarios
-
-Each scenario is a self-contained example that can be run directly:
+### Running the Pipeline
 
 ```bash
-# Run the document processing pipeline example
-python examples/scenarios/document_processing_pipeline.py
-
-# Run the search engine implementation example
-python examples/scenarios/search_engine_implementation.py
+# Run the complete content pipeline
+python examples/content_pipeline.py
 ```
 
-### Running Integration Examples
+The pipeline will:
+- Fetch today's news about AI
+- Generate a comprehensive analysis
+- Create a podcast script
+- Produce an audio file
 
-Integration examples may require additional setup:
+## Example Output
 
-1. Install integration-specific dependencies:
-   ```bash
-   pip install -r examples/integrations/requirements.txt
+The example produces:
+
+1. **Console Output**
+   - Progress updates for each stage
+   - Timing information
+   - Summary statistics
+
+2. **Generated Files**
+   - Podcast script (text format)
+   - Audio file (MP3 format)
+
+## Customization
+
+You can customize the pipeline by:
+
+1. Changing the topic:
+   ```python
+   pipeline = ContentPipeline("Your topic here")
    ```
 
-2. Configure integration settings in `config.yaml`
-
-3. Run the example:
-   ```bash
-   python examples/integrations/enterprise_search/pinecone_example.py
+2. Modifying the time range for news:
+   ```python
+   articles = await pipeline.fetch_news(days=7)  # Last week's news
    ```
 
-### Following Tutorials
-
-Tutorials should be followed in order:
-
-```bash
-# Start with the basics
-python examples/tutorials/01_getting_started.py
-
-# Move on to search functionality
-python examples/tutorials/02_building_search.py
-```
-
-## Example Structure
-
-Each example follows a consistent structure:
-
-1. Comprehensive docstring explaining:
-   - Purpose and features demonstrated
-   - Architecture and design decisions
-   - Requirements and setup
-
-2. Code organization:
-   - Clear separation of concerns
-   - Proper error handling
-   - Performance considerations
-   - Monitoring and metrics
-
-3. Documentation:
-   - Inline comments explaining complex logic
-   - Usage examples
-   - Expected output
-
-## Contributing New Examples
-
-When adding new examples:
-
-1. Choose the appropriate category (scenarios/integrations/tutorials)
-2. Follow the established structure and coding style
-3. Include comprehensive documentation
-4. Add any necessary dependencies to requirements.txt
-5. Update this README.md if adding new categories or major examples
+3. Adjusting the perspectives:
+   ```python
+   perspectives = ["Your", "Custom", "Perspectives"]
+   ```
 
 ## Support
 
-For questions about the examples:
-
+For questions about the example:
 - Check the [documentation](https://pepperpy.readthedocs.io)
 - Open an issue on GitHub
 - Join our community Discord server 
