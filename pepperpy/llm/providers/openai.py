@@ -83,10 +83,12 @@ class OpenAIProvider(LLMProvider):
         # Initialize LLM provider
         config = config or {}
         config["api_key"] = api_key
-        super().__init__(
-            base_url="https://api.openai.com/v1",
-            config=config,
-        )
+        config["model"] = model
+        config["temperature"] = temperature
+        if max_tokens is not None:
+            config["max_tokens"] = max_tokens
+
+        super().__init__(config=config)
 
         self.model = model
         self.temperature = temperature
@@ -385,16 +387,18 @@ class OpenAIProvider(LLMProvider):
     def get_capabilities(self) -> Dict[str, Any]:
         """Get OpenAI provider capabilities."""
         capabilities = super().get_capabilities()
-        capabilities.update({
-            "embeddings": True,
-            "streaming": True,
-            "chat_based": True,
-            "function_calling": True,
-            "supported_models": [
-                "gpt-4",
-                "gpt-4-turbo-preview",
-                "gpt-3.5-turbo",
-            ],
-            "max_tokens": 4096,
-        })
+        capabilities.update(
+            {
+                "embeddings": True,
+                "streaming": True,
+                "chat_based": True,
+                "function_calling": True,
+                "supported_models": [
+                    "gpt-4",
+                    "gpt-4-turbo-preview",
+                    "gpt-3.5-turbo",
+                ],
+                "max_tokens": 4096,
+            }
+        )
         return capabilities

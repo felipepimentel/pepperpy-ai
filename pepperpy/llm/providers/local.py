@@ -14,7 +14,7 @@ Example:
     >>> print(result.content)
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from pepperpy.llm.base import (
     GenerationResult,
@@ -195,9 +195,11 @@ class LocalProvider(LLMProvider):
     def get_capabilities(self) -> Dict[str, Any]:
         """Get Local provider capabilities."""
         capabilities = super().get_capabilities()
-        capabilities.update({
-            "supported_models": ["llama2", "mistral", "phi"],
-            "max_tokens": 2048,
-            "streaming": True,
-        })
+        capabilities.update(
+            {
+                "supported_models": ["llama2", "mistral", "phi"],
+                "max_tokens": 2048,
+                "streaming": True,
+            }
+        )
         return capabilities

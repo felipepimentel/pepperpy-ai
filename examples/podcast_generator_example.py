@@ -5,7 +5,8 @@ Content Pipeline Example for PepperPy (Simplified Version).
 This example demonstrates a simplified content generation pipeline:
 1. Fetch news about a specific topic using NewsAPI
 2. Generate a basic summary of the articles
-3. Display the results in a format ready for further processing
+3. Create a podcast script from the summary
+4. Generate audio for the podcast using TTS
 
 Required Environment Variables:
 1. PEPPERPY_NEWS__NEWSAPI_API_KEY:
@@ -13,12 +14,15 @@ Required Environment Variables:
    - Sign up for an account
    - Go to https://newsapi.org/account
    - Copy your API key from the dashboard
-   - For example: PEPPERPY_NEWS__NEWSAPI_API_KEY=123456789abcdef
 
-   Free tier limitations:
-   - 100 requests per day
-   - Up to 100 articles per request
-   - Developer plan required for production use
+2. PEPPERPY_TTS__PROVIDER:
+   - Set to your preferred TTS provider (e.g., "murf")
+
+3. Provider-specific API keys:
+   - For Murf: PEPPERPY_TTS_MURF__API_KEY
+   - Get a key at https://murf.ai/api
+
+Free tier limitations may apply depending on the provider.
 """
 
 import asyncio
@@ -28,24 +32,12 @@ import urllib.parse
 from typing import Any, Dict, List
 
 from dotenv import load_dotenv
-from elevenlabs.client import ElevenLabs
 
 from pepperpy.core.http import HTTPClient
+from pepperpy.tts import convert_text, save_audio
 
 # Load environment variables
 load_dotenv()
-
-# Get ElevenLabs API key
-elevenlabs_api_key = os.getenv("PEPPERPY_TTS__ELEVENLABS_API_KEY", "")
-if not elevenlabs_api_key:
-    raise ValueError(
-        "PEPPERPY_TTS__ELEVENLABS_API_KEY environment variable is required.\n"
-        "Get a key at https://elevenlabs.io and set it as:\n"
-        "export PEPPERPY_TTS__ELEVENLABS_API_KEY=your-api-key"
-    )
-
-# Initialize ElevenLabs client
-eleven = ElevenLabs(api_key=elevenlabs_api_key)
 
 
 class ContentPipeline:
@@ -136,55 +128,41 @@ Fonte: {article['source']['name']}
             f.write(script)
         print(f"\nScript do podcast salvo em: {output_file}")
 
-    def generate_audio(self, script: str) -> None:
-        """Generate audio from the podcast script using ElevenLabs TTS."""
-        print("\n4. Gerando áudio do script...")
-
+    async def generate_audio(self, script: str) -> None:
+        """Generate audio from the script using TTS."""
         try:
-            # Generate audio for each segment to keep within API limits
-            segments = script.split("[SEGMENT")
-            intro = segments[0]
+            # Split the script into chunks of 2500 characters (leaving room for safety)
+            chunks = []
+            max_chunk_size = 2500
+            while script:
+                # Find the last complete sentence within the chunk size
+                chunk_end = min(max_chunk_size, len(script))
+                while chunk_end > 0 and script[chunk_end - 1] not in ".!?\n":
+                    chunk_end -= 1
+                if chunk_end == 0:  # No sentence break found, force split at max size
+                    chunk_end = min(max_chunk_size, len(script))
 
-            # Generate intro audio
-            print("Gerando áudio da introdução...")
-            intro_audio = eleven.text_to_speech.convert(
-                text=intro,
-                voice_id="21m00Tcm4TlvDq8ikWAM",  # Josh - Professional American male voice
-                model_id="eleven_multilingual_v2",
-                output_format="mp3_44100_128",
-            )
-            output_file = os.path.join(
-                "examples/output", f"{self.topic.replace(' ', '_')}_intro.mp3"
-            )
-            with open(output_file, "wb") as f:
-                for chunk in intro_audio:
-                    f.write(chunk)
-            print(f"Áudio da introdução salvo em: {output_file}")
+                chunks.append(script[:chunk_end])
+                script = script[chunk_end:].lstrip()
 
-            # Generate segment audios
-            for i, segment in enumerate(segments[1:], 1):
-                print(f"Gerando áudio do segmento {i}...")
-                segment_text = f"[SEGMENT{segment}"
-                try:
-                    segment_audio = eleven.text_to_speech.convert(
-                        text=segment_text,
-                        voice_id="21m00Tcm4TlvDq8ikWAM",  # Josh - Professional American male voice
-                        model_id="eleven_multilingual_v2",
-                        output_format="mp3_44100_128",
-                    )
-                    output_file = os.path.join(
-                        "examples/output",
-                        f"{self.topic.replace(' ', '_')}_segment_{i}.mp3",
-                    )
-                    with open(output_file, "wb") as f:
-                        for chunk in segment_audio:
-                            f.write(chunk)
-                    print(f"Áudio do segmento {i} salvo em: {output_file}")
-                except Exception as e:
-                    print(f"Erro ao gerar áudio do segmento {i}: {str(e)}")
-                    continue
+            print(f"\nSplit script into {len(chunks)} chunks for processing...")
+
+            # Process each chunk and combine the audio
+            all_audio = bytearray()
+            for i, chunk in enumerate(chunks, 1):
+                print(f"Processing chunk {i}/{len(chunks)}...")
+                audio_data = await convert_text(
+                    chunk,
+                    voice_id="pt-BR-heitor",  # Using Heitor's voice (middle-aged male) for Brazilian Portuguese
+                    output_format="mp3",
+                )
+                all_audio.extend(audio_data)
+
+            # Save the combined audio file
+            save_audio(bytes(all_audio), "examples/output/podcast_audio.mp3")
+            print("Audio file saved successfully!")
         except Exception as e:
-            print(f"Erro na geração de áudio: {str(e)}")
+            print(f"Error generating audio: {e}")
 
     async def run(self) -> None:
         """Run the content pipeline."""
@@ -196,9 +174,9 @@ Fonte: {article['source']['name']}
         self._save_script(script)
 
         # Generate audio files
-        self.generate_audio(script)
+        await self.generate_audio(script)
 
-        # Print example content
+        # Print example content for reference
         print("\nExample content (first 300 characters):")
         print("-" * 50)
         print(script[:300] + "...")

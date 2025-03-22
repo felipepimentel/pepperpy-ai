@@ -24,11 +24,11 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.common.providers import RestProvider
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core.errors import PepperpyError
+from pepperpy.core.providers import BaseProvider
 
 
-class LLMError(PepperPyError):
+class LLMError(PepperpyError):
     """Base exception for LLM-related errors."""
 
 
@@ -90,7 +90,7 @@ class GenerationChunk:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class LLMProvider(RestProvider, abc.ABC):
+class LLMProvider(BaseProvider, abc.ABC):
     """Base class for LLM providers.
 
     This class defines the interface that all LLM providers must implement.
@@ -101,16 +101,14 @@ class LLMProvider(RestProvider, abc.ABC):
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize LLM provider.
 
         Args:
-            base_url: Optional base URL for API calls
             config: Optional configuration dictionary
         """
-        super().__init__(base_url=base_url or "", config=config)
+        super().__init__(config=config)
         self.initialized = False
         self.last_used = None
 
