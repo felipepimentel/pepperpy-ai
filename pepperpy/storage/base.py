@@ -15,13 +15,12 @@ Example:
 """
 
 import logging
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.common.providers import RestProvider
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core.errors import PepperpyError
 
 logger = logging.getLogger(__name__)
 
@@ -78,27 +77,25 @@ class StorageStats:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class StorageError(PepperPyError):
+class StorageError(PepperpyError):
     """Base exception for storage-related errors."""
 
     pass
 
 
-class StorageProvider(RestProvider):
+class StorageProvider(ABC):
     """Base class for storage providers."""
 
     def __init__(
         self,
-        base_url: str,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize storage provider.
 
         Args:
-            base_url: Base URL for the REST API
             config: Optional configuration dictionary
         """
-        super().__init__(base_url=base_url, config=config)
+        self.config = config or {}
 
     @abstractmethod
     async def read(

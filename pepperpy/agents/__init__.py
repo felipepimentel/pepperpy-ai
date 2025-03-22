@@ -1,36 +1,18 @@
-"""Agent and Assistant capabilities for PepperPy.
+"""Agent capabilities for PepperPy.
 
-This module provides a unified interface for working with AI agents and assistants,
+This module provides a unified interface for working with AI agents,
 including intent recognition, memory management, and interaction patterns.
 
 Example:
-    >>> from pepperpy.agents import Agent, Assistant
-    >>> agent = Agent.from_config({
-    ...     "type": "chat",
-    ...     "model": "gpt-4",
-    ...     "system_prompt": "You are a helpful assistant."
-    ... })
-    >>> assistant = Assistant.from_config({
-    ...     "type": "task",
-    ...     "tools": ["search", "calculate"]
-    ... })
+    >>> from pepperpy.agents import Agent
+    >>> agent = Agent("assistant")
+    >>> agent.add_memory("User likes Python")
+    >>> response = agent.process("What language do I like?")
+    >>> assert "Python" in response
 """
 
-from pepperpy.agents.assistant import Assistant, AssistantConfig
-from pepperpy.agents.base import Agent, AgentConfig
-from pepperpy.agents.intent import Intent, IntentConfig
-from pepperpy.agents.memory import Memory, MemoryConfig
+from pepperpy.agents.base import Agent
 
 __all__ = [
-    # Base types
     "Agent",
-    "AgentConfig",
-    "Assistant",
-    "AssistantConfig",
-    # Intent management
-    "Intent",
-    "IntentConfig",
-    # Memory management
-    "Memory",
-    "MemoryConfig",
 ]

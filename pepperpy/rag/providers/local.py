@@ -4,12 +4,14 @@ This module provides a local implementation of the RAG provider interface,
 using sentence-transformers for document embeddings and retrieval.
 """
 
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
-from numpy.typing import NDArray
 
-from .. import Document, Query, RAGError, RAGProvider, RetrievalResult
+from ..document import Document
+from ..provider import RAGError, RAGProvider
+from ..query import Query
+from ..result import RetrievalResult
 
 
 class LocalRAGProvider(RAGProvider):
@@ -48,146 +50,107 @@ class LocalRAGProvider(RAGProvider):
         self.normalize = normalize_embeddings
         self.kwargs = kwargs
         self.documents: List[Document] = []
-        self.embeddings: List[NDArray[np.float32]] = []
+        self.model = SentenceTransformer(model, device=device)
 
-        try:
-            self.model = SentenceTransformer(model, device=device)
-        except Exception as e:
-            raise RAGError(f"Failed to load local model: {e}")
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        pass
 
-    def initialize(self) -> None:
-        """Initialize the provider.
+    async def shutdown(self) -> None:
+        """Shut down the provider."""
+        pass
 
-        Validates that the model is loaded and ready.
-        """
-        if not hasattr(self, "model"):
-            raise RAGError("Model not properly initialized")
+    async def add_documents(
+        self,
+        documents: Sequence[Document],
+        **kwargs: Any,
+    ) -> None:
+        """Add documents to the provider."""
+        for doc in documents:
+            if not doc.embeddings:
+                doc.embeddings = self.model.encode(
+                    doc.content,
+                    normalize_embeddings=self.normalize,
+                ).tolist()
+        self.documents.extend(documents)
 
-    def add_documents(self, documents: Sequence[Document], **kwargs: Any) -> None:
-        """Add documents to the retrieval collection.
+    async def remove_documents(
+        self,
+        document_ids: List[str],
+        **kwargs: Any,
+    ) -> None:
+        """Remove documents from the provider."""
+        self.documents = [
+            doc
+            for doc in self.documents
+            if not doc.metadata or doc.metadata.get("id") not in document_ids
+        ]
 
-        Args:
-            documents: Documents to add
-            **kwargs: Additional provider-specific arguments
+    async def search(
+        self,
+        query: Query,
+        limit: int = 10,
+        **kwargs: Any,
+    ) -> RetrievalResult:
+        """Search for documents matching a query."""
+        # Filter documents by metadata if specified
+        filtered_docs = self.documents
+        if query.metadata:
+            filtered_docs = [
+                doc
+                for doc in filtered_docs
+                if doc.metadata
+                and all(doc.metadata.get(k) == v for k, v in query.metadata.items())
+            ]
 
-        Raises:
-            ValidationError: If documents are invalid
-            RAGError: If document addition fails
-        """
-        try:
-            # Generate embeddings for documents
-            texts = [doc.content for doc in documents]
-            embeddings = self.model.encode(
-                texts, normalize_embeddings=self.normalize, **kwargs
-            )
+        # Get query embeddings
+        if not query.embeddings:
+            query.embeddings = self.model.encode(
+                query.text,
+                normalize_embeddings=self.normalize,
+            ).tolist()
 
-            # Store documents and embeddings
-            for doc, embedding in zip(documents, embeddings):
-                self.documents.append(doc)
-                self.embeddings.append(embedding.astype(np.float32))
+        # Calculate cosine similarity
+        query_emb = np.array(query.embeddings)
+        doc_embs = np.array([doc.embeddings for doc in filtered_docs])
+        scores = np.dot(doc_embs, query_emb) / (
+            np.linalg.norm(doc_embs, axis=1) * np.linalg.norm(query_emb)
+        )
 
-        except Exception as e:
-            raise RAGError(f"Failed to add documents: {e}")
+        # Sort by score and return top k
+        indices = np.argsort(scores)[::-1][:limit]
+        top_docs = [filtered_docs[i] for i in indices]
+        top_scores = scores[indices].tolist()
 
-    def retrieve(self, query: Union[str, Query], **kwargs: Any) -> RetrievalResult:
-        """Retrieve relevant documents for a query.
+        return RetrievalResult(
+            query=query,
+            documents=top_docs,
+            scores=top_scores,
+            metadata={
+                "total_docs": len(self.documents),
+                "filtered_docs": len(filtered_docs),
+            },
+        )
 
-        Args:
-            query: Query string or Query object
-            **kwargs: Additional provider-specific arguments
+    async def get_document(
+        self,
+        document_id: str,
+        **kwargs: Any,
+    ) -> Optional[Document]:
+        """Get a document by ID."""
+        for doc in self.documents:
+            if doc.metadata and doc.metadata.get("id") == document_id:
+                return doc
+        return None
 
-        Returns:
-            RetrievalResult containing matched documents and scores
-
-        Raises:
-            ValidationError: If query is invalid
-            RAGError: If retrieval fails
-        """
-        try:
-            # Convert query to Query object if string
-            if isinstance(query, str):
-                query = Query(text=query)
-
-            # Generate query embedding
-            query_embedding = self.model.encode(
-                query.text, normalize_embeddings=self.normalize, **kwargs
-            ).astype(np.float32)
-
-            # Calculate similarity scores
-            scores = []
-            for doc_embedding in self.embeddings:
-                if self.normalize:
-                    score = np.dot(query_embedding, doc_embedding)
-                else:
-                    score = np.dot(query_embedding, doc_embedding) / (
-                        np.linalg.norm(query_embedding) * np.linalg.norm(doc_embedding)
-                    )
-                scores.append(float(score))
-
-            # Sort by score and apply filters
-            results = list(zip(self.documents, scores))
-            results.sort(key=lambda x: x[1], reverse=True)
-
-            # Apply filters if specified
-            if query.filters:
-                results = [
-                    (doc, score)
-                    for doc, score in results
-                    if doc.metadata
-                    and all(doc.metadata.get(k) == v for k, v in query.filters.items())
-                ]
-
-            # Apply score threshold if specified
-            if query.score_threshold is not None:
-                results = [
-                    (doc, score)
-                    for doc, score in results
-                    if score >= query.score_threshold
-                ]
-
-            # Limit to k results
-            results = results[: query.k]
-
-            return RetrievalResult(
-                documents=[doc for doc, _ in results],
-                scores=[score for _, score in results],
-                metadata={
-                    "total_docs": len(self.documents),
-                    "filtered_docs": len(results),
-                    "model": self.model_name,
-                    "device": self.device,
-                },
-            )
-
-        except Exception as e:
-            raise RAGError(f"Failed to retrieve documents: {e}")
-
-    def delete_documents(self, document_ids: Sequence[str], **kwargs: Any) -> None:
-        """Delete documents from the retrieval collection.
-
-        Args:
-            document_ids: IDs of documents to delete
-            **kwargs: Additional provider-specific arguments
-
-        Raises:
-            ValidationError: If document IDs are invalid
-            RAGError: If document deletion fails
-        """
-        try:
-            # Find indices of documents to delete
-            indices_to_delete = []
-            for i, doc in enumerate(self.documents):
-                doc_id = doc.metadata.get("id") if doc.metadata else None
-                if doc_id and doc_id in document_ids:
-                    indices_to_delete.append(i)
-
-            # Delete documents and embeddings
-            for i in reversed(indices_to_delete):
-                del self.documents[i]
-                del self.embeddings[i]
-
-        except Exception as e:
-            raise RAGError(f"Failed to delete documents: {e}")
+    async def list_documents(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> List[Document]:
+        """List documents in the provider."""
+        return self.documents[offset : offset + limit]
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get Local RAG provider capabilities."""

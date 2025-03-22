@@ -1,7 +1,7 @@
 """Pinecone provider implementation for RAG capabilities.
 
 This module provides a Pinecone-based implementation of the RAG provider interface,
-using Pinecone for cloud-based vector storage and retrieval.
+using Pinecone for persistent vector storage and retrieval.
 
 Example:
     >>> from pepperpy.rag import RAGProvider, Document
@@ -19,12 +19,14 @@ Example:
     >>> results = provider.retrieve("What's the weather?")
 """
 
+import os
 import uuid
-from typing import Any, Dict, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence
 
-from pepperpy.core.validation import ValidationError
-
-from ...internal.provider import Document, Query, RAGError, RAGProvider, RetrievalResult
+from ..document import Document
+from ..provider import RAGError, RAGProvider
+from ..query import Query
+from ..result import RetrievalResult
 
 
 class PineconeRAGProvider(RAGProvider):
@@ -42,9 +44,9 @@ class PineconeRAGProvider(RAGProvider):
 
     def __init__(
         self,
-        api_key: str,
-        environment: str,
-        index_name: str,
+        api_key: Optional[str] = None,
+        environment: Optional[str] = None,
+        index_name: str = "pepperpy",
         namespace: Optional[str] = None,
         embedding_function: Optional[str] = None,
         **kwargs: Any,
@@ -52,16 +54,15 @@ class PineconeRAGProvider(RAGProvider):
         """Initialize the Pinecone RAG provider.
 
         Args:
-            api_key: Pinecone API key
-            environment: Pinecone environment (e.g., us-west1-gcp)
-            index_name: Name of the Pinecone index
-            namespace: Optional namespace within the index
+            api_key: Pinecone API key (default: None, uses env var)
+            environment: Pinecone environment (default: None, uses env var)
+            index_name: Name of the Pinecone index (default: pepperpy)
+            namespace: Optional namespace for vectors
             embedding_function: Name of embedding function (default: None, uses sentence-transformers)
             **kwargs: Additional configuration options
 
         Raises:
             RAGError: If required dependencies are not installed
-            ValidationError: If configuration is invalid
         """
         try:
             import pinecone
@@ -71,188 +72,198 @@ class PineconeRAGProvider(RAGProvider):
                 "Install with: pip install pinecone-client"
             )
 
-        if not api_key:
-            raise ValidationError("Pinecone API key is required")
-        if not environment:
-            raise ValidationError("Pinecone environment is required")
-        if not index_name:
-            raise ValidationError("Pinecone index name is required")
+        # Initialize Pinecone client
+        pinecone.init(
+            api_key=api_key or os.getenv("PINECONE_API_KEY"),
+            environment=environment or os.getenv("PINECONE_ENVIRONMENT"),
+        )
 
-        self.api_key = api_key
-        self.environment = environment
-        self.index_name = index_name
-        self.namespace = namespace
-        self.embedding_function = embedding_function
-        self.kwargs = kwargs
+        # Initialize embedding function
+        if embedding_function:
+            try:
+                from pinecone.embeddings import get_embedding_function
 
-        try:
-            # Initialize Pinecone client
-            pinecone.init(api_key=api_key, environment=environment)
+                self.embeddings = get_embedding_function(embedding_function)
+            except (ImportError, AttributeError) as e:
+                raise RAGError(f"Failed to initialize embedding function: {e}")
+        else:
+            try:
+                from sentence_transformers import SentenceTransformer
 
-            # Get or create index
-            if index_name not in pinecone.list_indexes():
+                model = SentenceTransformer("all-MiniLM-L6-v2")
+                self.embeddings = lambda x: model.encode(x).tolist()
+            except ImportError:
                 raise RAGError(
-                    f"Index {index_name} does not exist. "
-                    "Please create it first in the Pinecone console."
+                    "Default embedding function requires sentence-transformers. "
+                    "Install with: pip install sentence-transformers"
                 )
 
-            self.index = pinecone.Index(index_name)
-
-            # Set up embedding function
-            if embedding_function is None:
-                try:
-                    from sentence_transformers import SentenceTransformer
-
-                    self.model = SentenceTransformer("all-MiniLM-L6-v2")
-                except ImportError:
-                    raise RAGError(
-                        "Default embedding requires sentence-transformers. "
-                        "Install with: pip install sentence-transformers"
-                    )
-            else:
-                # TODO[v2.0]: Support other embedding functions
-                raise NotImplementedError(
-                    f"Embedding function {embedding_function} not supported yet"
-                )
-
-        except Exception as e:
-            raise RAGError(f"Failed to initialize Pinecone: {e}")
-
-    def initialize(self) -> None:
-        """Initialize the provider.
-
-        Validates that the index and embedding model are ready.
-
-        Raises:
-            RAGError: If provider is not properly initialized
-        """
-        if not hasattr(self, "index") or not hasattr(self, "model"):
-            raise RAGError("Pinecone index/model not properly initialized")
-
-    def add_documents(self, documents: Sequence[Document], **kwargs: Any) -> None:
-        """Add documents to the retrieval collection.
-
-        Args:
-            documents: Documents to add
-            **kwargs: Additional provider-specific arguments
-                - batch_size: Number of documents per batch (default: 100)
-
-        Raises:
-            ValidationError: If documents are invalid
-            RAGError: If document addition fails
-        """
-        try:
-            # Generate embeddings for documents
-            texts = [doc.content for doc in documents]
-            embeddings = self.model.encode(texts)
-
-            # Prepare document batches
-            vectors = []
-            for doc, embedding in zip(documents, embeddings):
-                # Generate ID if not provided
-                doc_id = doc.metadata.get("id") if doc.metadata else str(uuid.uuid4())
-                vectors.append({
-                    "id": doc_id,
-                    "values": embedding.tolist(),
-                    "metadata": {"text": doc.content, **(doc.metadata or {})},
-                })
-
-            # Upsert vectors in batches
-            batch_size = kwargs.get("batch_size", 100)
-            for i in range(0, len(vectors), batch_size):
-                batch = vectors[i : i + batch_size]
-                self.index.upsert(vectors=batch, namespace=self.namespace, **kwargs)
-
-        except Exception as e:
-            raise RAGError(f"Failed to add documents: {e}")
-
-    def retrieve(self, query: Union[str, Query], **kwargs: Any) -> RetrievalResult:
-        """Retrieve relevant documents for a query.
-
-        Args:
-            query: Query string or Query object
-            **kwargs: Additional provider-specific arguments
-                - include_values: Include vector values in response
-                - sparse_vector: Optional sparse vector for hybrid search
-
-        Returns:
-            RetrievalResult containing matched documents and scores
-
-        Raises:
-            ValidationError: If query is invalid
-            RAGError: If retrieval fails
-        """
-        try:
-            # Convert query to Query object if string
-            if isinstance(query, str):
-                query = Query(text=query)
-
-            # Generate query embedding
-            query_embedding = self.model.encode(query.text)
-
-            # Prepare query parameters
-            filter = {}
-            if query.filters:
-                filter = {k: {"$eq": v} for k, v in query.filters.items()}
-
-            # Query index
-            results = self.index.query(
-                vector=query_embedding.tolist(),
-                top_k=query.k,
-                namespace=self.namespace,
-                filter=filter or None,
-                include_metadata=True,
+        # Get or create index
+        if index_name not in pinecone.list_indexes():
+            pinecone.create_index(
+                name=index_name,
+                dimension=384,  # Default for all-MiniLM-L6-v2
+                metric="cosine",
                 **kwargs,
             )
 
-            # Convert results to documents
-            documents = []
-            scores = []
+        self.index = pinecone.Index(index_name)
+        self.namespace = namespace
 
-            for match in results.matches:
-                score = float(match.score)
-                if query.score_threshold is None or score >= query.score_threshold:
-                    metadata = dict(match.metadata)
-                    text = metadata.pop("text")
-                    metadata["id"] = match.id
-                    documents.append(Document(content=text, metadata=metadata))
-                    scores.append(score)
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        pass
 
-            return RetrievalResult(
-                documents=documents,
-                scores=scores,
-                metadata={
-                    "filtered_docs": len(documents),
-                    "index": self.index_name,
-                    "namespace": self.namespace,
-                    "environment": self.environment,
-                },
+    async def shutdown(self) -> None:
+        """Shut down the provider."""
+        pass
+
+    async def add_documents(
+        self,
+        documents: Sequence[Document],
+        **kwargs: Any,
+    ) -> None:
+        """Add documents to the provider."""
+        if not documents:
+            return
+
+        # Prepare documents for Pinecone
+        vectors = []
+        for doc in documents:
+            doc_id = str(uuid.uuid4())
+            if doc.metadata and "id" in doc.metadata:
+                doc_id = str(doc.metadata["id"])
+
+            if not doc.embeddings:
+                doc.embeddings = self.embeddings(doc.content)
+
+            vectors.append(
+                {
+                    "id": doc_id,
+                    "values": doc.embeddings,
+                    "metadata": {
+                        "content": doc.content,
+                        **(doc.metadata or {}),
+                    },
+                }
             )
 
-        except Exception as e:
-            raise RAGError(f"Failed to retrieve documents: {e}")
+        # Add to index
+        self.index.upsert(
+            vectors=vectors,
+            namespace=self.namespace,
+            **kwargs,
+        )
 
-    def delete_documents(self, document_ids: Sequence[str], **kwargs: Any) -> None:
-        """Delete documents from the retrieval collection.
+    async def remove_documents(
+        self,
+        document_ids: List[str],
+        **kwargs: Any,
+    ) -> None:
+        """Remove documents from the provider."""
+        self.index.delete(
+            ids=[str(doc_id) for doc_id in document_ids],
+            namespace=self.namespace,
+            **kwargs,
+        )
 
-        Args:
-            document_ids: IDs of documents to delete
-            **kwargs: Additional provider-specific arguments
-                - delete_all: Delete all documents in namespace
+    async def search(
+        self,
+        query: Query,
+        limit: int = 10,
+        **kwargs: Any,
+    ) -> RetrievalResult:
+        """Search for documents matching a query."""
+        # Get query embeddings
+        if not query.embeddings:
+            query.embeddings = self.embeddings(query.text)
 
-        Raises:
-            ValidationError: If document IDs are invalid
-            RAGError: If document deletion fails
-        """
+        # Prepare query parameters
+        filter = {}
+        if query.metadata:
+            filter.update(query.metadata)
+
+        # Search index
+        results = self.index.query(
+            vector=query.embeddings,
+            top_k=limit,
+            namespace=self.namespace,
+            filter=filter or None,
+            include_values=True,
+            include_metadata=True,
+            **kwargs,
+        )
+
+        # Convert results to documents
+        documents = []
+        scores = []
+        for match in results.matches:
+            doc = Document(
+                content=match.metadata.pop("content"),
+                metadata=match.metadata,
+                embeddings=match.values,
+            )
+            documents.append(doc)
+            scores.append(float(match.score))
+
+        return RetrievalResult(
+            query=query,
+            documents=documents,
+            scores=scores,
+            metadata={
+                "total_docs": self.index.describe_index_stats().total_vector_count,
+                "filtered_docs": len(documents),
+            },
+        )
+
+    async def get_document(
+        self,
+        document_id: str,
+        **kwargs: Any,
+    ) -> Optional[Document]:
+        """Get a document by ID."""
         try:
-            if kwargs.get("delete_all"):
-                self.index.delete(delete_all=True, namespace=self.namespace, **kwargs)
-            else:
-                self.index.delete(
-                    ids=list(document_ids), namespace=self.namespace, **kwargs
+            result = self.index.fetch(
+                ids=[str(document_id)],
+                namespace=self.namespace,
+                **kwargs,
+            )
+            if result.vectors:
+                vector = result.vectors[document_id]
+                return Document(
+                    content=vector.metadata.pop("content"),
+                    metadata=vector.metadata,
+                    embeddings=vector.values,
                 )
-        except Exception as e:
-            raise RAGError(f"Failed to delete documents: {e}")
+        except Exception:
+            pass
+        return None
+
+    async def list_documents(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        **kwargs: Any,
+    ) -> List[Document]:
+        """List documents in the provider."""
+        # Note: Pinecone doesn't support listing all vectors directly
+        # This is a workaround using a zero vector to get all documents
+        results = self.index.query(
+            vector=[0.0] * 384,  # Zero vector for all-MiniLM-L6-v2
+            top_k=limit,
+            namespace=self.namespace,
+            include_values=True,
+            include_metadata=True,
+            **kwargs,
+        )
+        return [
+            Document(
+                content=match.metadata.pop("content"),
+                metadata=match.metadata,
+                embeddings=match.values,
+            )
+            for match in results.matches[offset : offset + limit]
+        ]
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get Pinecone RAG provider capabilities.
@@ -271,7 +282,11 @@ class PineconeRAGProvider(RAGProvider):
             "max_docs": 100_000_000,  # Pinecone can handle 100M+ vectors
             "supports_filters": True,
             "supports_namespaces": True,
-            "embedding_function": (self.embedding_function or "sentence-transformers"),
+            "embedding_function": (
+                self.embeddings.__name__
+                if hasattr(self.embeddings, "__name__")
+                else "sentence-transformers"
+            ),
             "requires_api_key": True,
             "dimensions": {"all-MiniLM-L6-v2": 384},
         }
