@@ -20,10 +20,12 @@ from pepperpy.storage.base import (
     StorageProvider,
     StorageStats,
 )
+from pepperpy.storage.providers.local import LocalStorageProvider
 
 __all__ = [
     "StorageError",
     "StorageObject",
     "StorageProvider",
     "StorageStats",
+    "LocalStorageProvider",
 ]

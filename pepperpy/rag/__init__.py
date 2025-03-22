@@ -15,6 +15,7 @@ Example:
 """
 
 from pepperpy.rag.document import Document
+from pepperpy.rag.embeddings import HashEmbeddingFunction
 from pepperpy.rag.memory_optimization import (
     DocumentChunk,
     StreamingProcessor,
@@ -52,4 +53,6 @@ __all__ = [
     "optimize_memory_usage",
     "process_document_streaming",
     "stream_document",
+    # Embeddings
+    "HashEmbeddingFunction",
 ]
