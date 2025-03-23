@@ -22,7 +22,7 @@ import abc
 import enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Union, Protocol
 
 from pepperpy.core.errors import PepperpyError
 from pepperpy.core.providers import BaseProvider
@@ -88,6 +88,46 @@ class GenerationChunk:
     content: str
     finish_reason: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+
+
+class LLMProvider(Protocol):
+    """Interface for LLM providers."""
+
+    @property
+    def api_key(self) -> Optional[str]:
+        """Get the API key for the provider.
+        
+        Returns:
+            The API key if set, None otherwise.
+        """
+        ...
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
+
+    async def generate(self, prompt: str) -> str:
+        """Generate a response for the given prompt.
+        
+        Args:
+            prompt: The prompt to generate a response for.
+            
+        Returns:
+            The generated response.
+        """
+        ...
+
+    async def chat(self, messages: list[Dict[str, Any]]) -> str:
+        """Generate a response in a chat context.
+        
+        Args:
+            messages: List of messages in the chat history.
+                Each message should have 'role' and 'content' keys.
+            
+        Returns:
+            The generated response.
+        """
+        ...
 
 
 class LLMProvider(BaseProvider, abc.ABC):

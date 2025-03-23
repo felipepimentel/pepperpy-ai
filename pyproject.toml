@@ -58,27 +58,17 @@ asyncio_mode = "auto"
 [tool.poetry]
 name = "pepperpy"
 version = "0.1.0"
-description = "A modular framework for building AI-powered applications"
-authors = ["Gustavo Pimentel <gustavo.pimentel@pepperpy.com>"]
+description = "A Python framework for building AI-powered applications"
+authors = ["Jose Pimentel <jose@pimentel.co>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-pydantic = "^2.6.1"
-python-dotenv = "^1.0.1"
-openai = "^1.12.0"
-litellm = "^1.26.1"
-supabase = "^2.3.4"
-pyautogen = "^0.2.19"
-vecs = "^0.4.2"
-annoy = "^1.17.3"
-faiss-cpu = "^1.7.4"
-chromadb = "^0.4.22"
-pinecone-client = "^3.0.2"
-sentence-transformers = "^2.5.1"
-scikit-learn = "^1.4.1"
-numpy = "^1.26.4"
+python = "^3.10"
+httpx = "^0.27.0"
+radon = "^6.0.1"
+lizard = "^1.17.10"
+gitpython = "^3.1.40"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"

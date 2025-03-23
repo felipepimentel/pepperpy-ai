@@ -136,4 +136,123 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Usage
+
+### Agents Module
+
+The agents module provides functionality for creating and managing AI agents that can work together to solve tasks.
+
+#### Basic Example
+
+```python
+import asyncio
+import os
+
+from pepperpy.agents import AgentFactory, SimpleMemory
+from pepperpy.llm.providers.openrouter import OpenRouterProvider
+
+async def main():
+    # Get API key from environment
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        raise ValueError("OPENROUTER_API_KEY environment variable is required")
+
+    # Create LLM provider
+    llm = OpenRouterProvider(api_key=api_key)
+    await llm.initialize()
+
+    # Create memory
+    memory = SimpleMemory()
+
+    # Create agent factory
+    factory = AgentFactory()
+
+    # Create a single agent
+    agent = factory.create_agent(llm_provider=llm, memory=memory)
+    await agent.initialize()
+
+    # Execute a task with the agent
+    messages = await agent.execute_task(
+        "What are the three most significant developments in quantum computing?"
+    )
+    for msg in messages:
+        print(f"{msg.role}: {msg.content}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+#### Agent Groups
+
+You can also create groups of agents that work together:
+
+```python
+# Create an agent group
+group = factory.create_group(
+    llm_provider=llm,
+    group_config={
+        "agents": [
+            {
+                "name": "researcher",
+                "role": "assistant",
+                "description": "Researches and analyzes information",
+            },
+            {
+                "name": "critic",
+                "role": "assistant",
+                "description": "Reviews and critiques information",
+            },
+        ]
+    },
+    memory=memory,
+)
+await group.initialize()
+
+# Execute a task with the group
+messages = await group.execute_task(
+    "Analyze the potential impact of quantum computing on cryptography."
+)
+for msg in messages:
+    print(f"{msg.role}: {msg.content}")
+```
+
+### Environment Variables
+
+Create a `.env` file with your API keys:
+
+```bash
+# OpenRouter API Key
+# Get your API key from https://openrouter.ai/
+OPENROUTER_API_KEY=your-api-key-here
+```
+
+## Development
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/pimentel/pepperpy.git
+cd pepperpy
+```
+
+2. Install dependencies:
+```bash
+pip install poetry
+poetry install
+```
+
+3. Copy the example environment file:
+```bash
+cp .env.example .env
+```
+
+4. Edit `.env` and add your API keys.
+
+### Running Examples
+
+```bash
+poetry run python examples/agents_example.py
+``` 

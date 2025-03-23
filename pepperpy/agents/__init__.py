@@ -1,18 +1,22 @@
-"""Agent capabilities for PepperPy.
+"""PepperPy Agents Module.
 
-This module provides a unified interface for working with AI agents,
-including intent recognition, memory management, and interaction patterns.
-
-Example:
-    >>> from pepperpy.agents import Agent
-    >>> agent = Agent("assistant")
-    >>> agent.add_memory("User likes Python")
-    >>> response = agent.process("What language do I like?")
-    >>> assert "Python" in response
+This module provides agent-based functionality for the PepperPy framework.
 """
 
-from pepperpy.agents.base import Agent
+from .base import (
+    Agent,
+    AgentGroup,
+    AgentFactory,
+    Memory,
+    Message,
+)
+from .memory import SimpleMemory
 
 __all__ = [
     "Agent",
+    "AgentGroup",
+    "AgentFactory",
+    "Memory",
+    "Message",
+    "SimpleMemory",
 ]

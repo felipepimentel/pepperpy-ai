@@ -1,20 +1,8 @@
-"""Agent provider implementations for PepperPy.
+"""Provider implementations for the agents module."""
 
-This module provides concrete implementations of agent providers,
-supporting different types of AI agents and assistants.
-
-Example:
-    >>> from pepperpy.agents.providers import OpenAIAgent
-    >>> agent = OpenAIAgent(model="gpt-4")
-    >>> response = await agent.process("What's the weather?")
-"""
-
-from pepperpy.agents.providers.anthropic import AnthropicAgent
-from pepperpy.agents.providers.local import LocalAgent
-from pepperpy.agents.providers.openai import OpenAIAgent
+from .autogen import AutoGenAgent, AutoGenGroup
 
 __all__ = [
-    "OpenAIAgent",
-    "AnthropicAgent",
-    "LocalAgent",
+    "AutoGenAgent",
+    "AutoGenGroup",
 ]

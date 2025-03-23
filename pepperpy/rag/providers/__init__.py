@@ -51,5 +51,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from .supabase import SupabaseRAGProvider
+
+    __all__.append("SupabaseRAGProvider")
+except ImportError:
+    pass
+
 # Set default provider
 DEFAULT_PROVIDER = AnnoyRAGProvider

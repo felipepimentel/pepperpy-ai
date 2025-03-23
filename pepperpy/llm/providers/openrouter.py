@@ -21,6 +21,8 @@ Example:
 import logging
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
+import httpx
+
 from openai import AsyncOpenAI, OpenAI
 from openai.types.chat import ChatCompletion
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
@@ -48,85 +50,49 @@ class OpenRouterProvider(LLMProvider):
     name = "openrouter"
     base_url = "https://openrouter.ai/api/v1"
 
-    def __init__(
-        self,
-        api_key: str,
-        model: str = "openai/gpt-3.5-turbo",
-        temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize OpenRouter provider.
-
+    def __init__(self, api_key: str, model: str = "anthropic/claude-3-sonnet"):
+        """Initialize the OpenRouter provider.
+        
         Args:
-            api_key: OpenRouter API key
-            model: Model to use for text generation
-            temperature: Sampling temperature (0.0 to 1.0)
-            max_tokens: Maximum tokens to generate
-            config: Optional configuration dictionary
+            api_key: OpenRouter API key.
+            model: Model to use for generation.
         """
-        # Initialize LLM provider
-        config = config or {}
-        config["api_key"] = api_key
-        config["model"] = model
-        config["temperature"] = temperature
-        if max_tokens is not None:
-            config["max_tokens"] = max_tokens
-
-        super().__init__(config=config)
-
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         self._api_key = api_key
-        self._sync_client: Optional[OpenAI] = None
-        self._async_client: Optional[AsyncOpenAI] = None
+        self.model = model
+        self._client: Optional[httpx.AsyncClient] = None
+
+    @property
+    def api_key(self) -> Optional[str]:
+        """Get the API key for the provider.
+        
+        Returns:
+            The API key if set, None otherwise.
+        """
+        return self._api_key
 
     async def initialize(self) -> None:
-        """Initialize OpenRouter clients."""
-        await super().initialize()
-        await self._initialize_clients()
+        """Initialize the provider."""
+        if not self._client:
+            self._client = httpx.AsyncClient(
+                base_url="https://openrouter.ai/api/v1",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+                    "X-Title": "PepperPy Framework",
+                }
+            )
 
     async def cleanup(self) -> None:
         """Cleanup OpenRouter clients."""
         try:
-            if self._sync_client:
-                await self._sync_client.close()
+            if self._client:
+                await self._client.aclose()
         except Exception as e:
-            logger.warning(f"Error closing sync client: {e}")
+            logger.warning(f"Error closing client: {e}")
         finally:
-            self._sync_client = None
-
-        try:
-            if self._async_client:
-                await self._async_client.close()
-        except Exception as e:
-            logger.warning(f"Error closing async client: {e}")
-        finally:
-            self._async_client = None
+            self._client = None
 
         await super().cleanup()
-
-    async def _initialize_clients(self) -> None:
-        """Initialize OpenRouter clients."""
-        if not self._sync_client:
-            self._sync_client = OpenAI(
-                api_key=self._api_key,
-                base_url=self.base_url,
-                default_headers={
-                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
-                    "X-Title": "PepperPy Framework",
-                },
-            )
-        if not self._async_client:
-            self._async_client = AsyncOpenAI(
-                api_key=self._api_key,
-                base_url=self.base_url,
-                default_headers={
-                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
-                    "X-Title": "PepperPy Framework",
-                },
-            )
 
     def _convert_messages(
         self, messages: Union[str, List[Message]]
@@ -197,43 +163,64 @@ class OpenRouterProvider(LLMProvider):
             },
         )
 
-    async def generate(
-        self, messages: Union[str, List[Message]], **kwargs: Any
-    ) -> GenerationResult:
-        """Generate text using OpenRouter's chat completion API.
-
+    async def generate(self, prompt: str) -> str:
+        """Generate a response for the given prompt.
+        
         Args:
-            messages: String prompt or list of messages
-            **kwargs: Additional generation options
-                - temperature: Sampling temperature (0-2)
-                - max_tokens: Maximum tokens to generate
-                - stop: List of stop sequences
-                - presence_penalty: Presence penalty (-2 to 2)
-                - frequency_penalty: Frequency penalty (-2 to 2)
-
+            prompt: The prompt to generate a response for.
+            
         Returns:
-            GenerationResult containing the response
-
+            The generated response.
+            
         Raises:
-            LLMError: If generation fails
+            RuntimeError: If the provider is not initialized.
+            httpx.HTTPError: If the API request fails.
         """
-        if not self._async_client:
-            raise RuntimeError("OpenRouter client not initialized")
+        if not self._client:
+            raise RuntimeError("Provider not initialized")
 
-        try:
-            openrouter_messages = self._convert_messages(messages)
-            completion = await self._async_client.chat.completions.create(
-                model=self.model,
-                messages=openrouter_messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                **kwargs,
-            )
-            return self._create_generation_result(completion, openrouter_messages)
+        response = await self._client.post(
+            "/chat/completions",
+            json={
+                "model": self.model,
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ]
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
 
-        except Exception as e:
-            logger.error(f"OpenRouter generation failed: {e}")
-            raise LLMError(f"OpenRouter generation failed: {e}")
+        return data["choices"][0]["message"]["content"]
+
+    async def chat(self, messages: List[Dict[str, Any]]) -> str:
+        """Generate a response in a chat context.
+        
+        Args:
+            messages: List of messages in the chat history.
+                Each message should have 'role' and 'content' keys.
+            
+        Returns:
+            The generated response.
+            
+        Raises:
+            RuntimeError: If the provider is not initialized.
+            httpx.HTTPError: If the API request fails.
+        """
+        if not self._client:
+            raise RuntimeError("Provider not initialized")
+
+        response = await self._client.post(
+            "/chat/completions",
+            json={
+                "model": self.model,
+                "messages": messages
+            }
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        return data["choices"][0]["message"]["content"]
 
     async def stream(
         self, messages: Union[str, List[Message]], **kwargs: Any
@@ -255,16 +242,24 @@ class OpenRouterProvider(LLMProvider):
         Raises:
             LLMError: If generation fails
         """
-        if not self._async_client:
+        if not self._client:
             raise RuntimeError("OpenRouter client not initialized")
 
         try:
             openrouter_messages = self._convert_messages(messages)
-            stream = await self._async_client.chat.completions.create(
-                model=self.model,
-                messages=openrouter_messages,
-                stream=True,
-                **kwargs,
+            stream = await self._client.stream(
+                "POST",
+                "/chat/completions",
+                json={
+                    "model": self.model,
+                    "messages": openrouter_messages,
+                    "stream": True,
+                },
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+                    "X-Title": "PepperPy Framework",
+                }
             )
 
             async for chunk in stream:

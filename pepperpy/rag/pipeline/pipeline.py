@@ -71,6 +71,7 @@ class RAGPipeline:
 
         # Create retrieval result
         result = RetrievalResult(
+            query=query or Query(text=""),  # Use empty query if none provided
             documents=processed_docs,
             scores=[1.0] * len(processed_docs),  # TODO: Implement actual scoring
             metadata={
