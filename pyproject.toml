@@ -2,41 +2,6 @@
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
-[project]
-name = "pepperpy"
-version = "0.1.0"
-description = "Um framework moderno e flexível para aplicações de IA em Python"
-readme = "README.md"
-authors = [{ name = "PepperPy Team", email = "info@pepperpy.ai" }]
-license = { text = "MIT" }
-classifiers = [
-    "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-]
-keywords = ["ai", "framework", "pipeline", "composition", "templates"]
-dependencies = [
-    "aiohttp>=3.8.0",
-    "pydantic>=2.0.0",
-    "typing-extensions>=4.0.0",
-    "astor (>=0.8.1,<0.9.0)",
-    "elevenlabs (>=1.54.0,<2.0.0)",
-    "python-dotenv (>=1.0.1,<2.0.0)",
-]
-requires-python = ">=3.8"
-
-[project.urls]
-"Homepage" = "https://github.com/pepperpy/pepperpy"
-"Bug Tracker" = "https://github.com/pepperpy/pepperpy/issues"
-"Documentation" = "https://pepperpy.ai/docs"
-
-[tool.setuptools]
-packages = ["pepperpy"]
-
 [tool.black]
 line-length = 88
 target-version = ["py39"]
@@ -93,28 +58,31 @@ asyncio_mode = "auto"
 [tool.poetry]
 name = "pepperpy"
 version = "0.1.0"
-description = "A modular Python framework for building AI-powered applications"
-authors = ["Your Name <your.email@example.com>"]
-license = "MIT"
+description = "A modular framework for building AI-powered applications"
+authors = ["Gustavo Pimentel <gustavo.pimentel@pepperpy.com>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-httpx = "^0.25.0"
-pydantic = "^2.0.0"
-sqlalchemy = { extras = ["asyncio"], version = "^2.0.0" }
-motor = "^3.3.0"
-boto3 = "^1.28.0"
-openai = "^1.0.0"
-transformers = "^4.35.0"
-torch = "^2.1.0"
+python = ">=3.10,<4.0"
+pydantic = "^2.6.1"
+python-dotenv = "^1.0.1"
+openai = "^1.12.0"
+litellm = "^1.26.1"
+supabase = "^2.3.4"
+pyautogen = "^0.2.19"
+vecs = "^0.4.2"
+annoy = "^1.17.3"
+faiss-cpu = "^1.7.4"
+chromadb = "^0.4.22"
+pinecone-client = "^3.0.2"
+sentence-transformers = "^2.5.1"
+scikit-learn = "^1.4.1"
+numpy = "^1.26.4"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^7.4.0"
-pytest-asyncio = "^0.21.0"
-pytest-cov = "^4.1.0"
-black = "^23.7.0"
-isort = "^5.12.0"
-mypy = "^1.5.0"
-ruff = "^0.1.0"
+pytest = "^8.0.2"
+pytest-asyncio = "^0.23.5"
+black = "^24.2.0"
+isort = "^5.13.2"
+ruff = "^0.2.2"

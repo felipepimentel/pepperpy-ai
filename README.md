@@ -1,152 +1,139 @@
-# PepperPy Framework
+# PepperPy
 
-PepperPy is a modular Python framework for building AI-powered applications, with a focus on clean architecture and domain-driven design.
+A modular framework for building AI-powered applications.
 
-## Project Structure
+## Features
 
-The framework is organized into vertical domains, each responsible for a specific business capability:
+- 🤖 **Multi-Agent Collaboration**: Create groups of AI agents that work together to solve complex tasks
+- 🔍 **Retrieval Augmented Generation (RAG)**: Enhance AI responses with relevant information from your data
+- 🔌 **Modular Design**: Mix and match different LLM providers, vector stores, and agent architectures
+- 🛠️ **Easy to Use**: Simple, intuitive APIs for common AI tasks
+- 🔄 **Extensible**: Add your own providers and tools with minimal boilerplate
 
-```
-pepperpy/
-├── llm/                  # Language Model Domain
-│   ├── __init__.py      
-│   ├── provider.py      # Core LLM interfaces
-│   └── providers/       # LLM implementations
-│       ├── openai/      # OpenAI integration
-│       ├── local/       # Local models
-│       └── rest/        # REST-based providers
-│
-├── rag/                  # RAG Domain
-│   ├── __init__.py
-│   ├── provider.py      # Core RAG interfaces
-│   └── providers/       # RAG implementations
-│       ├── openai/      # OpenAI embeddings
-│       ├── local/       # Local retrieval
-│       └── rest/        # REST-based providers
-│
-├── storage/             # Storage Domain
-│   ├── __init__.py
-│   ├── provider.py      # Core storage interfaces
-│   └── providers/       # Storage implementations
-│       ├── sql/        # SQL databases
-│       ├── nosql/      # NoSQL databases
-│       └── object/     # Object storage
-│
-├── core/               # Core Framework
-│   ├── __init__.py
-│   ├── capabilities/   # Capability management
-│   ├── errors/        # Error definitions
-│   └── base/          # Base classes
-│
-└── common/            # Shared Utilities
-    ├── __init__.py
-    ├── logging/
-    ├── config/
-    └── utils/
-```
-
-## Domain Organization
-
-Each domain follows these principles:
-
-1. **Vertical Slicing**: Each module represents a cohesive business domain
-2. **Module Independence**: Loose coupling between modules
-3. **Clean Interfaces**: Public interfaces exposed via `__init__.py`
-4. **Implementation Privacy**: Internal details kept private
-5. **Pragmatic Structure**: Structure grows based on actual needs
-
-## Core Principles
-
-1. **Domain-Driven Design**
-   - Clear domain boundaries
-   - Self-contained modules
-   - Domain-specific interfaces
-
-2. **Clean Architecture**
-   - Separation of concerns
-   - Dependency inversion
-   - Interface segregation
-
-3. **Modular Design**
-   - Pluggable components
-   - Extensible providers
-   - Clear dependencies
-
-## Usage
-
-Each domain provides a clean public interface through its `__init__.py`:
-
-```python
-# LLM Domain
-from pepperpy.llm import LLMProvider, Message
-provider = LLMProvider(model_name="gpt-4")
-result = await provider.generate("Hello!")
-
-# RAG Domain
-from pepperpy.rag import RAGProvider, Document
-provider = RAGProvider()
-result = await provider.retrieve("query", top_k=3)
-
-# Storage Domain
-from pepperpy.storage import StorageProvider
-provider = StorageProvider[Dict[str, Any]]()
-id = await provider.create("collection", {"key": "value"})
-```
-
-## Development
-
-1. **Adding Features**
-   - Add to appropriate domain
-   - Follow domain interfaces
-   - Maintain encapsulation
-
-2. **Creating Providers**
-   - Implement domain interfaces
-   - Add domain-specific capabilities
-   - Follow provider patterns
-
-3. **Testing**
-   - Unit test domain logic
-   - Integration test providers
-   - End-to-end test flows
-
-## Cursor Rules System
-
-This project uses Cursor rules to ensure consistency and quality in AI-assisted development. The rules provide guidance on architecture, coding standards, and implementation patterns.
-
-### Initialize Rules System
-
-To initialize the rules system:
+## Installation
 
 ```bash
-# Make the initialization script executable
-chmod +x scripts/initialize-rules.sh
-
-# Run the initialization script
-./scripts/initialize-rules.sh
+pip install pepperpy
 ```
 
-This will:
-1. Backup any existing rules
-2. Set up the new rules structure
-3. Create auto-generated rules
+## Quick Start
 
-### Rule Management Tools
+### Using RAG
 
-The project includes tools for managing rules:
+```python
+from pepperpy.rag import SupabaseProvider
+from pepperpy.rag.config import SupabaseConfig
 
-- **Rules Updater**: `scripts/rules-updater.py` - Scan codebase, validate rules, generate new rules
-- **Rules Initialization**: `scripts/initialize-rules.sh` - Initialize the rules system
+# Initialize provider
+provider = SupabaseProvider(
+    config=SupabaseConfig(
+        url="your-supabase-url",
+        key="your-supabase-key",
+        collection="documents",
+    )
+)
 
-For more information, see [.cursor/rules/README.md](.cursor/rules/README.md)
+# Query documents
+results = await provider.query("What is machine learning?")
+for doc in results:
+    print(doc.content)
+
+# Clean up
+await provider.shutdown()
+```
+
+### Using LLM Providers
+
+```python
+from pepperpy.llm import OpenRouterProvider
+
+# Initialize provider
+provider = OpenRouterProvider(
+    api_key="your-api-key",
+    model="anthropic/claude-3-opus-20240229",
+)
+
+# Generate text
+response = await provider.generate(
+    prompt="Explain quantum computing in simple terms.",
+    max_tokens=500,
+)
+print(response.text)
+
+# Clean up
+await provider.cleanup()
+```
+
+### Combining RAG and Agents
+
+```python
+from pepperpy.agents import create_agent_group, execute_task, cleanup_group
+from pepperpy.llm import OpenRouterProvider
+from pepperpy.rag import SupabaseProvider
+from pepperpy.rag.config import SupabaseConfig
+
+# Initialize providers
+llm = OpenRouterProvider(
+    api_key="your-api-key",
+    model="anthropic/claude-3-opus-20240229",
+)
+
+rag = SupabaseProvider(
+    config=SupabaseConfig(
+        url="your-supabase-url",
+        key="your-supabase-key",
+        collection="documents",
+    )
+)
+
+# Create agent group
+group_id = await create_agent_group(
+    agents=[
+        {
+            "type": "assistant",
+            "name": "researcher",
+            "system_message": "You are a research assistant.",
+        },
+        {
+            "type": "user",
+            "name": "user",
+            "system_message": "You are the user requesting information.",
+        }
+    ],
+    name="research_team",
+    llm_config=llm.config,
+)
+
+try:
+    # Query RAG system
+    query = "What are the latest AI trends?"
+    context = await rag.query(query)
+
+    # Execute task with context
+    messages = await execute_task(
+        group_id=group_id,
+        task=query,
+        context={"documents": context},
+    )
+
+    # Process messages
+    for msg in messages:
+        print(f"{msg.role}: {msg.content}")
+
+finally:
+    # Clean up
+    await cleanup_group(group_id)
+    await rag.shutdown()
+```
+
+## Documentation
+
+For detailed documentation and examples, visit [docs.pepperpy.com](https://docs.pepperpy.com).
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new features
-4. Submit a pull request
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 

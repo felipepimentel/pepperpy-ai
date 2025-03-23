@@ -99,3 +99,7 @@ reports
 mapping
 
 .product
+examples/output/
+examples/input/
+
+.cache
