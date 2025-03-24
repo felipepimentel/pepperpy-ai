@@ -1,8 +1,8 @@
-"""Example demonstrating persistent storage with ChromaProvider."""
+"""Example using ChromaProvider with persistent storage."""
 
 import asyncio
 import os
-from pepperpy.rag.providers.chroma import ChromaProvider
+from pepperpy.rag import ChromaProvider
 
 async def main():
     # Create a persistent storage directory

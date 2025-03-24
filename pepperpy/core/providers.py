@@ -1,6 +1,6 @@
-"""Provider base classes for PepperPy.
+"""Provider implementations for PepperPy.
 
-This module defines the base provider interfaces used across the framework.
+This module provides concrete provider implementations for the PepperPy framework.
 These providers implement common patterns for local and remote services.
 
 Example:
@@ -10,128 +10,162 @@ Example:
     ...         return await self.get("/data")
 """
 
-import abc
 from typing import Any, Dict, Optional
 
-from pepperpy.core.config import Config
+from pepperpy.core.base import (
+    ConfigType,
+    HeadersType,
+    JsonType,
+    BaseProvider,
+    RemoteProvider,
+    LocalProvider,
+    RestProvider,
+)
+from pepperpy.core.http import HTTPClient
 
-
-class BaseProvider(abc.ABC):
-    """Base class for all providers."""
-
-    name: str = "base"
-
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        """Initialize the provider.
-
-        Args:
-            config: Optional configuration dictionary
-        """
-        self.config = Config(config or {})
-        self.initialized = False
-
-    async def initialize(self) -> None:
-        """Initialize the provider.
-
-        This method should be called before using the provider.
-        """
-        if not self.initialized:
-            await self._initialize()
-            self.initialized = True
-
-    async def cleanup(self) -> None:
-        """Clean up provider resources.
-
-        This method should be called when the provider is no longer needed.
-        """
-        if self.initialized:
-            await self._cleanup()
-            self.initialized = False
-
-    async def _initialize(self) -> None:
-        """Provider-specific initialization."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Provider-specific cleanup."""
-        pass
-
-
-class LocalProvider(BaseProvider):
-    """Base class for local providers."""
-
-    name = "local"
-
-
-class RemoteProvider(BaseProvider):
-    """Base class for remote providers."""
-
-    name = "remote"
+class FileProvider(LocalProvider):
+    """Provider for file system operations."""
 
     def __init__(
         self,
-        base_url: str,
-        config: Optional[Dict[str, Any]] = None,
+        name: str = "file",
+        base_path: Optional[str] = None,
+        config: Optional[ConfigType] = None,
+        **kwargs: Any,
     ) -> None:
-        """Initialize the remote provider.
+        """Initialize the file provider.
 
         Args:
+            name: Provider name
+            base_path: Optional base path for file operations
+            config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
+        """
+        super().__init__(name, config, **kwargs)
+        self.provider_type = "file"
+        self.base_path = base_path
+
+class HTTPProvider(RestProvider):
+    """Provider for HTTP operations."""
+
+    def __init__(
+        self,
+        name: str,
+        base_url: str,
+        config: Optional[ConfigType] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize the HTTP provider.
+
+        Args:
+            name: Provider name
             base_url: Base URL for API calls
             config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
         """
-        super().__init__(config)
-        self.base_url = base_url.rstrip("/")
+        super().__init__(name, base_url, config, **kwargs)
+        self.provider_type = "http"
+        self._client: Optional[HTTPClient] = None
 
+    async def _initialize(self) -> None:
+        """Initialize the HTTP client."""
+        self._client = HTTPClient(self.base_url)
+        await self._client.start()
 
-class RestProvider(RemoteProvider):
-    """Base class for REST API providers."""
+    async def _cleanup(self) -> None:
+        """Clean up the HTTP client."""
+        if self._client:
+            await self._client.stop()
+            self._client = None
 
-    name = "rest"
-
-    async def get(self, path: str, **kwargs: Any) -> Any:
+    async def get(
+        self,
+        path: str,
+        headers: Optional[HeadersType] = None,
+        **kwargs: Any,
+    ) -> JsonType:
         """Send GET request.
 
         Args:
             path: API endpoint path
+            headers: Optional request headers
             **kwargs: Additional request parameters
 
         Returns:
             Response data
         """
-        raise NotImplementedError
+        if not self._client:
+            raise RuntimeError("Provider not initialized")
 
-    async def post(self, path: str, **kwargs: Any) -> Any:
+        response = await self._client.get(path, headers=headers)
+        return response.json()
+
+    async def post(
+        self,
+        path: str,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[HeadersType] = None,
+        **kwargs: Any,
+    ) -> JsonType:
         """Send POST request.
 
         Args:
             path: API endpoint path
+            data: Optional request data
+            headers: Optional request headers
             **kwargs: Additional request parameters
 
         Returns:
             Response data
         """
-        raise NotImplementedError
+        if not self._client:
+            raise RuntimeError("Provider not initialized")
 
-    async def put(self, path: str, **kwargs: Any) -> Any:
+        response = await self._client.post(path, data=data, headers=headers)
+        return response.json()
+
+    async def put(
+        self,
+        path: str,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[HeadersType] = None,
+        **kwargs: Any,
+    ) -> JsonType:
         """Send PUT request.
 
         Args:
             path: API endpoint path
+            data: Optional request data
+            headers: Optional request headers
             **kwargs: Additional request parameters
 
         Returns:
             Response data
         """
-        raise NotImplementedError
+        if not self._client:
+            raise RuntimeError("Provider not initialized")
 
-    async def delete(self, path: str, **kwargs: Any) -> Any:
+        response = await self._client.put(path, data=data, headers=headers)
+        return response.json()
+
+    async def delete(
+        self,
+        path: str,
+        headers: Optional[HeadersType] = None,
+        **kwargs: Any,
+    ) -> JsonType:
         """Send DELETE request.
 
         Args:
             path: API endpoint path
+            headers: Optional request headers
             **kwargs: Additional request parameters
 
         Returns:
             Response data
         """
-        raise NotImplementedError
+        if not self._client:
+            raise RuntimeError("Provider not initialized")
+
+        response = await self._client.delete(path, headers=headers)
+        return response.json()

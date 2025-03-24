@@ -14,25 +14,18 @@ This module provides core functionality for PepperPy, including:
 - Version information
 """
 
-from .base import BaseProvider
-from .config import Config
-from .di import Container
-from .errors import PepperpyError
-from .http import (
-    ConnectionError,
-    HTTPClient,
+from .base import (
+    BaseProvider,
+    PepperpyError,
+    ProviderError,
     HTTPError,
-    HTTPResponse,
     RequestError,
     ResponseError,
+    ConnectionError,
     TimeoutError,
-    check_status_code,
-    format_headers,
-    get_content_type,
-    is_json_content,
-    parse_json,
-    parse_query_params,
 )
+from .config import Config
+from .di import Container
 from .logging import Logger, LogLevel, get_logger, setup_logging
 from .memory import BaseMemory, MemoryManager
 from .metrics import (
@@ -73,6 +66,7 @@ __all__ = [
     "BaseProvider",
     # Errors
     "PepperpyError",
+    "ProviderError",
     # Config
     "Config",
     # DI
@@ -98,19 +92,11 @@ __all__ = [
     "performance_tracker",
     "report_custom_metric",
     # HTTP
-    "HTTPClient",
-    "HTTPResponse",
     "HTTPError",
     "RequestError",
     "ResponseError",
     "ConnectionError",
     "TimeoutError",
-    "check_status_code",
-    "format_headers",
-    "get_content_type",
-    "is_json_content",
-    "parse_json",
-    "parse_query_params",
     # Types
     "Metadata",
     # Validation

@@ -1,320 +1,176 @@
-"""Chroma provider implementation for RAG capabilities.
+"""ChromaProvider implements RAG functionality using Chroma as the vector store.
 
-This module provides a Chroma-based implementation of the RAG provider interface,
-using ChromaDB for persistent vector storage and retrieval.
+This provider offers both in-memory and persistent storage options for vector embeddings,
+making it ideal for development, testing, and production use cases.
 """
 
-import hashlib
-import uuid
-from typing import Any, Dict, List, Optional, Sequence, Union, cast
+from typing import Any, Dict, List, Optional, Set
+import chromadb
+from chromadb.config import Settings
+from pepperpy.rag.providers.base import BaseRAGProvider, SearchResult
+from pepperpy.core import ProviderError
 
-from chromadb.api.types import (
-    Documents,
-    Embedding,
-    EmbeddingFunction,
-    Embeddings,
-    GetResult,
-    Metadata,
-    QueryResult,
-)
+class ChromaProvider(BaseRAGProvider):
+    """Chroma-based RAG provider for vector storage and retrieval.
+    
+    This provider implements vector storage and similarity search using Chroma,
+    a lightweight and efficient vector database that can run both in-memory
+    and with persistent storage.
 
-from ..document import Document
-from ..provider import RAGError, RAGProvider
-from ..query import Query
-from ..result import RetrievalResult
+    Args:
+        collection_name: Name of the collection to store vectors
+        persist_directory: Optional path to store vectors persistently
+    """
 
-
-def _to_dict(metadata: Optional[Metadata]) -> Dict[str, Any]:
-    """Convert metadata to dictionary."""
-    if metadata is None:
-        return {}
-    return {k: v for k, v in metadata.items()}
-
-
-def _to_embedding(embedding: Optional[Union[Embedding, List[float]]]) -> Optional[List[float]]:
-    """Convert embedding to list of floats."""
-    if embedding is None:
-        return None
-    if isinstance(embedding, list):
-        return embedding
-    return list(embedding)
-
-
-def _get_embeddings(result: Union[GetResult, QueryResult]) -> Optional[List[Embedding]]:
-    """Get embeddings from result."""
-    if "embeddings" not in result:
-        return None
-    embeddings = result.get("embeddings")
-    if not embeddings:
-        return None
-    return embeddings
-
-
-class HashEmbeddingFunction(EmbeddingFunction):
-    """Simple embedding function that uses SHA-256 hash for testing purposes."""
-
-    def __init__(self, dimension: int = 64) -> None:
-        """Initialize the hash embedding function.
+    def __init__(self, collection_name: str, persist_directory: Optional[str] = None):
+        """Initialize the ChromaProvider.
 
         Args:
-            dimension: Size of the embedding vector (default: 64)
+            collection_name: Name of the collection to store vectors
+            persist_directory: Optional path to store vectors persistently
         """
-        self.dimension = dimension
-
-    def __call__(self, texts: Documents) -> Embeddings:
-        """Convert texts to embeddings using SHA-256 hash.
-
-        Args:
-            texts: List of texts to convert to embeddings
-
-        Returns:
-            List of embedding vectors
-        """
-        embeddings = []
-        for text in texts:
-            # Get SHA-256 hash of text
-            hash_bytes = hashlib.sha256(str(text).encode()).digest()
-            
-            # Convert hash bytes to floats between -1 and 1
-            embedding = []
-            for i in range(self.dimension):
-                byte_val = hash_bytes[i % 32]  # Reuse hash bytes if needed
-                embedding.append((byte_val / 128.0) - 1.0)  # Scale to [-1, 1]
-            
-            embeddings.append(embedding)
-        return embeddings
-
-
-class ChromaRAGProvider(RAGProvider):
-    """Chroma implementation of the RAG provider interface using ChromaDB."""
-
-    name = "chroma"
-
-    def __init__(
-        self,
-        collection_name: str = "pepperpy",
-        persist_directory: Optional[str] = None,
-        embedding_function: Optional[Union[str, EmbeddingFunction]] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the Chroma RAG provider.
-
-        Args:
-            collection_name: Name of the ChromaDB collection (default: pepperpy)
-            persist_directory: Directory to persist vectors (default: None, in-memory)
-            embedding_function: Name or instance of embedding function (default: None, uses hash-based)
-            **kwargs: Additional configuration options
-
-        Raises:
-            RAGError: If required dependencies are not installed
-        """
-        try:
-            import chromadb
-            from chromadb.config import Settings
-        except ImportError:
-            raise RAGError(
-                "Chroma provider requires chromadb. Install with: pip install chromadb"
-            )
-
-        # Store persist_directory for capabilities
+        self.collection_name = collection_name
         self.persist_directory = persist_directory
+        self._client: Optional[chromadb.Client] = None
+        self._collection: Optional[Any] = None
 
-        # Initialize ChromaDB client
-        settings = Settings(
-            persist_directory=persist_directory,
-            anonymized_telemetry=False,
-            **kwargs,
-        )
-        self.client = chromadb.Client(settings)
-
-        # Initialize embedding function
-        if isinstance(embedding_function, str):
+    def _init_client(self) -> None:
+        """Initialize the Chroma client if not already initialized."""
+        if self._client is None:
             try:
-                from chromadb.utils import embedding_functions
-
-                self.embeddings = getattr(embedding_functions, embedding_function)()
-            except (ImportError, AttributeError) as e:
-                raise RAGError(f"Failed to initialize embedding function: {e}")
-        elif isinstance(embedding_function, EmbeddingFunction):
-            self.embeddings = embedding_function
-        else:
-            # Use simple hash-based embeddings by default
-            self.embeddings = HashEmbeddingFunction()
-
-        # Get or create collection
-        self.collection = self.client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=self.embeddings,
-            metadata={"hnsw:space": "cosine"},
-        )
+                settings = Settings()
+                if self.persist_directory:
+                    self._client = chromadb.PersistentClient(
+                        path=self.persist_directory, 
+                        settings=settings
+                    )
+                else:
+                    self._client = chromadb.EphemeralClient(settings=settings)
+            except Exception as e:
+                raise ProviderError(f"Failed to initialize Chroma client: {str(e)}") from e
 
     async def initialize(self) -> None:
-        """Initialize the provider."""
-        pass
+        """Initialize the provider and create/get the collection."""
+        try:
+            self._init_client()
+            if self._client:
+                self._collection = self._client.get_or_create_collection(
+                    name=self.collection_name
+                )
+        except Exception as e:
+            raise ProviderError(f"Failed to initialize collection: {str(e)}") from e
 
-    async def shutdown(self) -> None:
-        """Shut down the provider."""
-        pass
+    async def store(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> None:
+        """Store vectors in the collection.
 
-    async def add_documents(
-        self,
-        documents: Sequence[Document],
-        **kwargs: Any,
-    ) -> None:
-        """Add documents to the provider."""
-        if not documents:
-            return
+        Args:
+            vectors: List of vectors to store, each with 'values' and optional 'metadata'
+            batch_size: Number of vectors to process in each batch
 
-        # Prepare documents for ChromaDB
-        ids = []
-        texts = []
-        metadatas = []
-        embeddings = []
+        Raises:
+            ProviderError: If storing vectors fails
+        """
+        if not self._collection:
+            await self.initialize()
 
-        for doc in documents:
-            doc_id = str(uuid.uuid4())
-            if doc.metadata and "id" in doc.metadata:
-                doc_id = str(doc.metadata["id"])
-
-            ids.append(doc_id)
-            texts.append(doc.content)
-            metadatas.append(cast(Metadata, doc.metadata or {}))
-            if doc.embeddings:
-                embeddings.append(cast(Embedding, doc.embeddings))
-
-        # Add to collection
-        if embeddings and len(embeddings) == len(documents):
-            self.collection.add(
-                ids=ids,
-                documents=texts,
-                metadatas=metadatas,
-                embeddings=embeddings,
-                **kwargs,
-            )
-        else:
-            self.collection.add(
-                ids=ids,
-                documents=texts,
-                metadatas=metadatas,
-                **kwargs,
-            )
-
-    async def remove_documents(
-        self,
-        document_ids: List[str],
-        **kwargs: Any,
-    ) -> None:
-        """Remove documents from the provider."""
-        self.collection.delete(ids=[str(doc_id) for doc_id in document_ids], **kwargs)
+        if self._collection:
+            try:
+                # Process in batches
+                for i in range(0, len(vectors), batch_size):
+                    batch = vectors[i:i + batch_size]
+                    
+                    # Extract components from the vectors
+                    ids = [str(v.get("id", i)) for i, v in enumerate(batch)]
+                    embeddings = [v["values"] for v in batch]
+                    metadatas = [v.get("metadata", {}) for v in batch]
+                    
+                    # Add to collection
+                    self._collection.add(
+                        ids=ids,
+                        embeddings=embeddings,
+                        metadatas=metadatas
+                    )
+            except Exception as e:
+                raise ProviderError(f"Failed to store vectors: {str(e)}") from e
 
     async def search(
-        self,
-        query: Query,
-        limit: int = 10,
-        **kwargs: Any,
-    ) -> RetrievalResult:
-        """Search for documents matching a query."""
-        # Prepare query parameters
-        where = {}
-        if query.metadata:
-            where.update(query.metadata)
+        self, 
+        query_vector: List[float], 
+        top_k: int = 5, 
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[SearchResult]:
+        """Search for similar vectors in the collection.
 
-        # Search collection
-        results: QueryResult = self.collection.query(
-            query_texts=[query.text],
-            n_results=limit,
-            where=where or None,
-            **kwargs,
-        )
+        Args:
+            query_vector: Vector to search for
+            top_k: Number of results to return
+            filter: Optional metadata filter
 
-        # Convert results to documents
-        documents = []
-        scores = []
-        if results["ids"] and results["ids"][0]:
-            embeddings = _get_embeddings(results)
-            for i in range(len(results["ids"][0])):
-                doc = Document(
-                    content=results["documents"][0][i],
-                    metadata=_to_dict(results["metadatas"][0][i]),
-                    embeddings=_to_embedding(
-                        embeddings[0][i] if embeddings else None
-                    ),
+        Returns:
+            List of SearchResult objects ordered by similarity
+
+        Raises:
+            ProviderError: If search fails
+        """
+        if not self._collection:
+            await self.initialize()
+
+        if self._collection:
+            try:
+                # Perform the search
+                results = self._collection.query(
+                    query_embeddings=[query_vector],
+                    n_results=top_k,
+                    where=filter
                 )
-                documents.append(doc)
-                scores.append(float(results["distances"][0][i]))
 
-        return RetrievalResult(
-            query=query,
-            documents=documents,
-            scores=scores,
-            metadata={
-                "total_docs": self.collection.count(),
-                "filtered_docs": len(documents),
-            },
-        )
+                # Convert to SearchResult objects
+                search_results = []
+                for i in range(len(results['ids'][0])):
+                    search_results.append(
+                        SearchResult(
+                            id=results['ids'][0][i],
+                            score=float(results['distances'][0][i]),
+                            metadata=results['metadatas'][0][i] if results['metadatas'] else {}
+                        )
+                    )
 
-    async def get_document(
-        self,
-        document_id: str,
-        **kwargs: Any,
-    ) -> Optional[Document]:
-        """Get a document by ID."""
-        try:
-            result: GetResult = self.collection.get(ids=[str(document_id)], **kwargs)
-            if result["ids"] and result["ids"][0]:
-                embeddings = _get_embeddings(result)
-                return Document(
-                    content=result["documents"][0],
-                    metadata=_to_dict(result["metadatas"][0]),
-                    embeddings=_to_embedding(
-                        embeddings[0] if embeddings else None
-                    ),
-                )
-        except Exception:
-            pass
-        return None
+                return search_results
+            except Exception as e:
+                raise ProviderError(f"Failed to search vectors: {str(e)}") from e
+        return []
 
-    async def list_documents(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-        **kwargs: Any,
-    ) -> List[Document]:
-        """List documents in the provider."""
-        results: GetResult = self.collection.get(
-            limit=limit,
-            offset=offset,
-            **kwargs,
-        )
-        if not results["ids"]:
-            return []
+    def get_config(self) -> Dict[str, Any]:
+        """Get the provider configuration.
 
-        embeddings = _get_embeddings(results)
-        return [
-            Document(
-                content=doc,
-                metadata=_to_dict(meta),
-                embeddings=_to_embedding(
-                    emb if embeddings else None
-                ),
-            )
-            for doc, meta, emb in zip(
-                results["documents"],
-                results["metadatas"],
-                embeddings or [None] * len(results["documents"]),
-            )
-        ]
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get Chroma RAG provider capabilities."""
+        Returns:
+            Dictionary with provider configuration
+        """
         return {
-            "persistent": bool(self.persist_directory),
-            "max_docs": 1_000_000,  # ChromaDB can handle millions of vectors
-            "supports_filters": True,
-            "supports_persistence": True,
-            "embedding_function": (
-                self.embeddings.__class__.__name__
-                if self.embeddings
-                else "hash-based"
-            ),
+            "collection_name": self.collection_name,
+            "persist_directory": self.persist_directory
         }
+
+    def get_capabilities(self) -> Dict[str, bool]:
+        """Get the provider capabilities.
+
+        Returns:
+            Dictionary of supported capabilities
+        """
+        return {
+            "supports_metadata": True,
+            "supports_async": True,
+            "supports_batch_operations": True,
+            "supports_persistence": bool(self.persist_directory)
+        }
+
+    async def close(self) -> None:
+        """Close the provider and cleanup resources."""
+        if self._client:
+            try:
+                # No need to explicitly persist - ChromaDB handles this automatically
+                # for PersistentClient
+                self._client = None
+                self._collection = None
+            except Exception as e:
+                raise ProviderError(f"Failed to close provider: {str(e)}") from e 

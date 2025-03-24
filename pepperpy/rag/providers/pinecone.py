@@ -1,292 +1,179 @@
-"""Pinecone provider implementation for RAG capabilities.
+"""ChromaProvider implements RAG functionality using Chroma as the vector store.
 
-This module provides a Pinecone-based implementation of the RAG provider interface,
-using Pinecone for persistent vector storage and retrieval.
-
-Example:
-    >>> from pepperpy.rag import RAGProvider, Document
-    >>> provider = RAGProvider.from_config({
-    ...     "provider": "pinecone",
-    ...     "api_key": "your-api-key",
-    ...     "environment": "us-west1-gcp",
-    ...     "index_name": "my-index"
-    ... })
-    >>> docs = [
-    ...     Document("Weather is sunny", {"source": "api"}),
-    ...     Document("Temperature is 75°F", {"source": "sensor"})
-    ... ]
-    >>> provider.add_documents(docs)
-    >>> results = provider.retrieve("What's the weather?")
+This provider offers both in-memory and persistent storage options for vector embeddings,
+making it ideal for development, testing, and production use cases.
 """
 
-import os
-import uuid
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Set
+import chromadb
+from chromadb.config import Settings
+from chromadb.api.types import Collection
+from pepperpy.rag.providers.base import BaseRAGProvider
+from pepperpy.rag.models import SearchResult
+from pepperpy.core.errors import ProviderError
 
-from ..document import Document
-from ..provider import RAGError, RAGProvider
-from ..query import Query
-from ..result import RetrievalResult
+class ChromaProvider(BaseRAGProvider):
+    """Chroma-based RAG provider for vector storage and retrieval.
+    
+    This provider implements vector storage and similarity search using Chroma,
+    a lightweight and efficient vector database that can run both in-memory
+    and with persistent storage.
 
-
-class PineconeRAGProvider(RAGProvider):
-    """Pinecone implementation of the RAG provider interface.
-
-    This provider uses Pinecone for cloud-based vector storage and retrieval,
-    with support for:
-    - Multiple embedding models
-    - Metadata filtering
-    - Namespaced collections
-    - Batch operations
+    Args:
+        collection_name: Name of the collection to store vectors
+        persist_directory: Optional path to store vectors persistently
     """
 
-    name = "pinecone"
-
-    def __init__(
-        self,
-        api_key: Optional[str] = None,
-        environment: Optional[str] = None,
-        index_name: str = "pepperpy",
-        namespace: Optional[str] = None,
-        embedding_function: Optional[str] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the Pinecone RAG provider.
+    def __init__(self, collection_name: str, persist_directory: Optional[str] = None):
+        """Initialize the ChromaProvider.
 
         Args:
-            api_key: Pinecone API key (default: None, uses env var)
-            environment: Pinecone environment (default: None, uses env var)
-            index_name: Name of the Pinecone index (default: pepperpy)
-            namespace: Optional namespace for vectors
-            embedding_function: Name of embedding function (default: None, uses sentence-transformers)
-            **kwargs: Additional configuration options
-
-        Raises:
-            RAGError: If required dependencies are not installed
+            collection_name: Name of the collection to store vectors
+            persist_directory: Optional path to store vectors persistently
         """
-        try:
-            import pinecone
-        except ImportError:
-            raise RAGError(
-                "Pinecone provider requires pinecone-client. "
-                "Install with: pip install pinecone-client"
-            )
+        self.collection_name = collection_name
+        self.persist_directory = persist_directory
+        self._client: Optional[chromadb.Client] = None
+        self._collection: Optional[Collection] = None
 
-        # Initialize Pinecone client
-        pinecone.init(
-            api_key=api_key or os.getenv("PINECONE_API_KEY"),
-            environment=environment or os.getenv("PINECONE_ENVIRONMENT"),
-        )
-
-        # Initialize embedding function
-        if embedding_function:
+    def _init_client(self) -> None:
+        """Initialize the Chroma client if not already initialized."""
+        if self._client is None:
             try:
-                from pinecone.embeddings import get_embedding_function
-
-                self.embeddings = get_embedding_function(embedding_function)
-            except (ImportError, AttributeError) as e:
-                raise RAGError(f"Failed to initialize embedding function: {e}")
-        else:
-            try:
-                from sentence_transformers import SentenceTransformer
-
-                model = SentenceTransformer("all-MiniLM-L6-v2")
-                self.embeddings = lambda x: model.encode(x).tolist()
-            except ImportError:
-                raise RAGError(
-                    "Default embedding function requires sentence-transformers. "
-                    "Install with: pip install sentence-transformers"
-                )
-
-        # Get or create index
-        if index_name not in pinecone.list_indexes():
-            pinecone.create_index(
-                name=index_name,
-                dimension=384,  # Default for all-MiniLM-L6-v2
-                metric="cosine",
-                **kwargs,
-            )
-
-        self.index = pinecone.Index(index_name)
-        self.namespace = namespace
+                settings = Settings()
+                if self.persist_directory:
+                    self._client = chromadb.PersistentClient(
+                        path=self.persist_directory, 
+                        settings=settings
+                    )
+                else:
+                    self._client = chromadb.EphemeralClient(settings=settings)
+            except Exception as e:
+                raise ProviderError(f"Failed to initialize Chroma client: {str(e)}") from e
 
     async def initialize(self) -> None:
-        """Initialize the provider."""
-        pass
+        """Initialize the provider and create/get the collection."""
+        try:
+            self._init_client()
+            if self._client:
+                self._collection = self._client.get_or_create_collection(
+                    name=self.collection_name
+                )
+        except Exception as e:
+            raise ProviderError(f"Failed to initialize collection: {str(e)}") from e
 
-    async def shutdown(self) -> None:
-        """Shut down the provider."""
-        pass
+    async def store(self, vectors: List[Dict[str, Any]], batch_size: int = 100) -> None:
+        """Store vectors in the collection.
 
-    async def add_documents(
-        self,
-        documents: Sequence[Document],
-        **kwargs: Any,
-    ) -> None:
-        """Add documents to the provider."""
-        if not documents:
-            return
+        Args:
+            vectors: List of vectors to store, each with 'values' and optional 'metadata'
+            batch_size: Number of vectors to process in each batch
 
-        # Prepare documents for Pinecone
-        vectors = []
-        for doc in documents:
-            doc_id = str(uuid.uuid4())
-            if doc.metadata and "id" in doc.metadata:
-                doc_id = str(doc.metadata["id"])
+        Raises:
+            ProviderError: If storing vectors fails
+        """
+        if not self._collection:
+            await self.initialize()
 
-            if not doc.embeddings:
-                doc.embeddings = self.embeddings(doc.content)
-
-            vectors.append(
-                {
-                    "id": doc_id,
-                    "values": doc.embeddings,
-                    "metadata": {
-                        "content": doc.content,
-                        **(doc.metadata or {}),
-                    },
-                }
-            )
-
-        # Add to index
-        self.index.upsert(
-            vectors=vectors,
-            namespace=self.namespace,
-            **kwargs,
-        )
-
-    async def remove_documents(
-        self,
-        document_ids: List[str],
-        **kwargs: Any,
-    ) -> None:
-        """Remove documents from the provider."""
-        self.index.delete(
-            ids=[str(doc_id) for doc_id in document_ids],
-            namespace=self.namespace,
-            **kwargs,
-        )
+        if self._collection:
+            try:
+                # Process in batches
+                for i in range(0, len(vectors), batch_size):
+                    batch = vectors[i:i + batch_size]
+                    
+                    # Extract components from the vectors
+                    ids = [str(v.get("id", i)) for i, v in enumerate(batch)]
+                    embeddings = [v["values"] for v in batch]
+                    metadatas = [v.get("metadata", {}) for v in batch]
+                    
+                    # Add to collection
+                    self._collection.add(
+                        ids=ids,
+                        embeddings=embeddings,
+                        metadatas=metadatas
+                    )
+            except Exception as e:
+                raise ProviderError(f"Failed to store vectors: {str(e)}") from e
 
     async def search(
-        self,
-        query: Query,
-        limit: int = 10,
-        **kwargs: Any,
-    ) -> RetrievalResult:
-        """Search for documents matching a query."""
-        # Get query embeddings
-        if not query.embeddings:
-            query.embeddings = self.embeddings(query.text)
+        self, 
+        query_vector: List[float], 
+        top_k: int = 5, 
+        filter: Optional[Dict[str, Any]] = None
+    ) -> List[SearchResult]:
+        """Search for similar vectors in the collection.
 
-        # Prepare query parameters
-        filter = {}
-        if query.metadata:
-            filter.update(query.metadata)
-
-        # Search index
-        results = self.index.query(
-            vector=query.embeddings,
-            top_k=limit,
-            namespace=self.namespace,
-            filter=filter or None,
-            include_values=True,
-            include_metadata=True,
-            **kwargs,
-        )
-
-        # Convert results to documents
-        documents = []
-        scores = []
-        for match in results.matches:
-            doc = Document(
-                content=match.metadata.pop("content"),
-                metadata=match.metadata,
-                embeddings=match.values,
-            )
-            documents.append(doc)
-            scores.append(float(match.score))
-
-        return RetrievalResult(
-            query=query,
-            documents=documents,
-            scores=scores,
-            metadata={
-                "total_docs": self.index.describe_index_stats().total_vector_count,
-                "filtered_docs": len(documents),
-            },
-        )
-
-    async def get_document(
-        self,
-        document_id: str,
-        **kwargs: Any,
-    ) -> Optional[Document]:
-        """Get a document by ID."""
-        try:
-            result = self.index.fetch(
-                ids=[str(document_id)],
-                namespace=self.namespace,
-                **kwargs,
-            )
-            if result.vectors:
-                vector = result.vectors[document_id]
-                return Document(
-                    content=vector.metadata.pop("content"),
-                    metadata=vector.metadata,
-                    embeddings=vector.values,
-                )
-        except Exception:
-            pass
-        return None
-
-    async def list_documents(
-        self,
-        limit: int = 100,
-        offset: int = 0,
-        **kwargs: Any,
-    ) -> List[Document]:
-        """List documents in the provider."""
-        # Note: Pinecone doesn't support listing all vectors directly
-        # This is a workaround using a zero vector to get all documents
-        results = self.index.query(
-            vector=[0.0] * 384,  # Zero vector for all-MiniLM-L6-v2
-            top_k=limit,
-            namespace=self.namespace,
-            include_values=True,
-            include_metadata=True,
-            **kwargs,
-        )
-        return [
-            Document(
-                content=match.metadata.pop("content"),
-                metadata=match.metadata,
-                embeddings=match.values,
-            )
-            for match in results.matches[offset : offset + limit]
-        ]
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get Pinecone RAG provider capabilities.
+        Args:
+            query_vector: Vector to search for
+            top_k: Number of results to return
+            filter: Optional metadata filter
 
         Returns:
-            Dictionary of provider capabilities including:
-            - cloud_based: True for cloud providers
-            - max_docs: Maximum documents per index
-            - supports_filters: Whether filtering is supported
-            - supports_namespaces: Whether namespaces are supported
-            - embedding_function: Current embedding function
-            - requires_api_key: Whether API key is required
+            List of SearchResult objects ordered by similarity
+
+        Raises:
+            ProviderError: If search fails
+        """
+        if not self._collection:
+            await self.initialize()
+
+        if self._collection:
+            try:
+                # Perform the search
+                results = self._collection.query(
+                    query_embeddings=[query_vector],
+                    n_results=top_k,
+                    where=filter
+                )
+
+                # Convert to SearchResult objects
+                search_results = []
+                for i in range(len(results['ids'][0])):
+                    search_results.append(
+                        SearchResult(
+                            id=results['ids'][0][i],
+                            score=float(results['distances'][0][i]),
+                            metadata=results['metadatas'][0][i] if results['metadatas'] else {}
+                        )
+                    )
+
+                return search_results
+            except Exception as e:
+                raise ProviderError(f"Failed to search vectors: {str(e)}") from e
+        return []
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get the provider configuration.
+
+        Returns:
+            Dictionary with provider configuration
         """
         return {
-            "cloud_based": True,
-            "max_docs": 100_000_000,  # Pinecone can handle 100M+ vectors
-            "supports_filters": True,
-            "supports_namespaces": True,
-            "embedding_function": (
-                self.embeddings.__name__
-                if hasattr(self.embeddings, "__name__")
-                else "sentence-transformers"
-            ),
-            "requires_api_key": True,
-            "dimensions": {"all-MiniLM-L6-v2": 384},
+            "collection_name": self.collection_name,
+            "persist_directory": self.persist_directory
         }
+
+    def get_capabilities(self) -> Dict[str, bool]:
+        """Get the provider capabilities.
+
+        Returns:
+            Dictionary of supported capabilities
+        """
+        return {
+            "supports_metadata": True,
+            "supports_async": True,
+            "supports_batch_operations": True,
+            "supports_persistence": bool(self.persist_directory)
+        }
+
+    async def close(self) -> None:
+        """Close the provider and cleanup resources."""
+        if self._client:
+            try:
+                if self.persist_directory:
+                    # Ensure data is persisted
+                    self._client.persist()
+                self._client = None
+                self._collection = None
+            except Exception as e:
+                raise ProviderError(f"Failed to close provider: {str(e)}") from e 

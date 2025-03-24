@@ -13,21 +13,59 @@ import os
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Type
 
+from pepperpy.core.errors import PepperPyError
 
-class TTSError(Exception):
-    """Base class for all TTS-related errors."""
+
+class TTSError(PepperPyError):
+    """Base class for TTS errors."""
 
 
 class TTSProviderError(TTSError):
-    """Error raised when a TTS provider operation fails."""
+    """Error raised by TTS providers during initialization or execution."""
+
+    def __init__(
+        self,
+        message: str,
+        provider: Optional[str] = None,
+        operation: Optional[str] = None,
+        *args,
+        **kwargs
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.provider = provider
+        self.operation = operation
 
 
 class TTSConfigError(TTSError):
     """Error raised when TTS configuration is invalid."""
 
+    def __init__(
+        self,
+        message: str,
+        config_key: Optional[str] = None,
+        config_value: Optional[Any] = None,
+        *args,
+        **kwargs
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.config_key = config_key
+        self.config_value = config_value
+
 
 class TTSVoiceError(TTSError):
-    """Error raised when a voice is not found or invalid."""
+    """Error raised when voice configuration or selection fails."""
+
+    def __init__(
+        self,
+        message: str,
+        voice_id: Optional[str] = None,
+        voice_config: Optional[Dict[str, Any]] = None,
+        *args,
+        **kwargs
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.voice_id = voice_id
+        self.voice_config = voice_config or {}
 
 
 class TTSCapabilities(str, Enum):

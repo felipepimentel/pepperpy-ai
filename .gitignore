@@ -103,3 +103,8 @@ examples/output/
 examples/input/
 
 .cache
+data/vector_store/chroma.sqlite3
+data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/data_level0.bin
+data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/header.bin
+data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/length.bin
+data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/link_lists.bin

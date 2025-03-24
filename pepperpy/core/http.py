@@ -7,53 +7,25 @@ including a client, error handling, and helper functions.
 import asyncio
 import json
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Union
 from urllib.parse import urljoin
 
 import aiohttp
 
-
-# Error classes
-class HTTPError(Exception):
-    """Base class for HTTP errors."""
-
-    def __init__(self, message: str, status_code: Optional[int] = None):
-        """Initialize HTTP error.
-
-        Args:
-            message: Error message
-            status_code: Optional HTTP status code
-        """
-        super().__init__(message)
-        self.status_code = status_code
-
-
-class RequestError(HTTPError):
-    """Error during HTTP request preparation."""
-
-    pass
-
-
-class ResponseError(HTTPError):
-    """Error in HTTP response."""
-
-    pass
-
-
-class ConnectionError(HTTPError):
-    """Error connecting to HTTP server."""
-
-    pass
-
-
-class TimeoutError(HTTPError):
-    """HTTP request timeout."""
-
-    pass
-
+from pepperpy.core.base import (
+    ConfigType,
+    HeadersType,
+    QueryParamsType,
+    JsonType,
+    HTTPError,
+    RequestError,
+    ResponseError,
+    ConnectionError,
+    TimeoutError,
+)
 
 # Helper functions
-def parse_json(content: str) -> Any:
+def parse_json(content: str) -> JsonType:
     """Parse JSON string.
 
     Args:
@@ -70,11 +42,10 @@ def parse_json(content: str) -> Any:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON: {e}")
 
-
 def check_status_code(
     status_code: int,
     content: Optional[str] = None,
-    expected_codes: Tuple[int, ...] = (200,),
+    expected_codes: tuple[int, ...] = (200,),
 ) -> None:
     """Check HTTP status code.
 
@@ -94,8 +65,7 @@ def check_status_code(
                 message += "..."
         raise ResponseError(message, status_code=status_code)
 
-
-def get_content_type(headers: Dict[str, str]) -> Optional[str]:
+def get_content_type(headers: HeadersType) -> Optional[str]:
     """Get content type from headers.
 
     Args:
@@ -110,8 +80,7 @@ def get_content_type(headers: Dict[str, str]) -> Optional[str]:
         return content_type.split(";")[0].strip()
     return None
 
-
-def is_json_content(headers: Dict[str, str]) -> bool:
+def is_json_content(headers: HeadersType) -> bool:
     """Check if content type is JSON.
 
     Args:
@@ -129,8 +98,7 @@ def is_json_content(headers: Dict[str, str]) -> bool:
         )
     return False
 
-
-def format_headers(headers: Dict[str, str]) -> Dict[str, str]:
+def format_headers(headers: HeadersType) -> HeadersType:
     """Format HTTP headers.
 
     Args:
@@ -153,9 +121,8 @@ def format_headers(headers: Dict[str, str]) -> Dict[str, str]:
             formatted_headers[formatted_key] = value.strip()
     return formatted_headers
 
-
 def parse_query_params(
-    params: Optional[Union[Dict[str, Any], str]] = None,
+    params: Optional[QueryParamsType] = None,
 ) -> Dict[str, str]:
     """Parse query parameters.
 
@@ -181,7 +148,6 @@ def parse_query_params(
     # Convert all values to strings
     return {k: str(v) for k, v in params.items()}
 
-
 # HTTP Client classes
 class HTTPResponse:
     """HTTP response class.
@@ -189,7 +155,7 @@ class HTTPResponse:
     This class represents an HTTP response.
     """
 
-    def __init__(self, status: int, data: bytes, headers: Dict[str, str]):
+    def __init__(self, status: int, data: bytes, headers: HeadersType):
         """Initialize the response.
 
         Args:
@@ -211,7 +177,7 @@ class HTTPResponse:
         return self._status
 
     @property
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> HeadersType:
         """Get the headers.
 
         Returns:
@@ -219,41 +185,39 @@ class HTTPResponse:
         """
         return self._headers
 
-    def json(self) -> Any:
-        """Get the response data as JSON.
+    def json(self) -> JsonType:
+        """Get response data as JSON.
 
         Returns:
-            JSON data
+            Parsed JSON data
 
         Raises:
-            ValueError: If the response is not valid JSON
+            ValueError: If response is not valid JSON
         """
-        return parse_json(self.text())
+        return parse_json(self._data.decode())
 
     def text(self) -> str:
-        """Get the response data as text.
+        """Get response data as text.
 
         Returns:
             Response text
         """
-        return self._data.decode("utf-8")
-
+        return self._data.decode()
 
 class HTTPClient:
-    """HTTP client.
+    """HTTP client class.
 
-    This class provides HTTP client functionality.
+    This class provides a simple HTTP client with async support.
     """
 
     def __init__(self, base_url: Optional[str] = None):
         """Initialize the client.
 
         Args:
-            base_url: Optional base URL for requests
+            base_url: Optional base URL for all requests
         """
-        self._base_url = base_url
+        self.base_url = base_url
         self._session: Optional[aiohttp.ClientSession] = None
-        self._logger = logging.getLogger(__name__)
 
     async def start(self) -> None:
         """Start the client session."""
@@ -266,7 +230,7 @@ class HTTPClient:
             self._session = None
 
     def _get_url(self, url: str) -> str:
-        """Get the full URL.
+        """Get full URL.
 
         Args:
             url: URL path or full URL
@@ -274,94 +238,168 @@ class HTTPClient:
         Returns:
             Full URL
         """
-        if self._base_url and not url.startswith(("http://", "https://", "file://")):
-            return urljoin(self._base_url, url)
+        if self.base_url and not url.startswith(("http://", "https://")):
+            return urljoin(self.base_url, url)
         return url
 
     async def get(
         self,
         url: str,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[HeadersType] = None,
     ) -> HTTPResponse:
-        """Send a GET request.
+        """Send GET request.
 
         Args:
-            url: URL
-            headers: Optional headers
+            url: URL to request
+            headers: Optional request headers
 
         Returns:
             HTTP response
 
         Raises:
-            RequestError: If the request fails
-            ConnectionError: If the connection fails
-            TimeoutError: If the request times out
+            ConnectionError: If connection fails
+            TimeoutError: If request times out
+            RequestError: If request preparation fails
+            ResponseError: If response processing fails
         """
         if not self._session:
-            await self.start()
-            if not self._session:
-                raise RequestError("Failed to create session")
-
-        full_url = self._get_url(url)
-        formatted_headers = format_headers(headers or {})
+            raise ConnectionError("Client session not started")
 
         try:
             async with self._session.get(
-                full_url, headers=formatted_headers
+                self._get_url(url),
+                headers=format_headers(headers or {}),
             ) as response:
                 data = await response.read()
-                return HTTPResponse(response.status, data, dict(response.headers))
+                return HTTPResponse(
+                    response.status,
+                    data,
+                    dict(response.headers),
+                )
         except aiohttp.ClientError as e:
-            raise ConnectionError(f"Connection error: {e}")
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"Request to {full_url} timed out")
-        except Exception as e:
-            raise RequestError(f"Request error: {e}")
+            raise ConnectionError(str(e))
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(str(e))
 
     async def post(
         self,
         url: str,
         data: Optional[Dict[str, Any]] = None,
-        headers: Optional[Dict[str, str]] = None,
+        headers: Optional[HeadersType] = None,
     ) -> HTTPResponse:
-        """Send a POST request.
+        """Send POST request.
 
         Args:
-            url: URL
-            data: Optional JSON data
-            headers: Optional headers
+            url: URL to request
+            data: Optional request data
+            headers: Optional request headers
 
         Returns:
             HTTP response
 
         Raises:
-            RequestError: If the request fails
-            ConnectionError: If the connection fails
-            TimeoutError: If the request times out
+            ConnectionError: If connection fails
+            TimeoutError: If request times out
+            RequestError: If request preparation fails
+            ResponseError: If response processing fails
         """
         if not self._session:
-            await self.start()
-            if not self._session:
-                raise RequestError("Failed to create session")
-
-        full_url = self._get_url(url)
-        formatted_headers = format_headers(headers or {})
-
-        # Set content type if not specified
-        if data and "Content-Type" not in formatted_headers:
-            formatted_headers["Content-Type"] = "application/json"
+            raise ConnectionError("Client session not started")
 
         try:
             async with self._session.post(
-                full_url, json=data, headers=formatted_headers
+                self._get_url(url),
+                json=data,
+                headers=format_headers(headers or {}),
             ) as response:
-                response_data = await response.read()
+                data = await response.read()
                 return HTTPResponse(
-                    response.status, response_data, dict(response.headers)
+                    response.status,
+                    data,
+                    dict(response.headers),
                 )
         except aiohttp.ClientError as e:
-            raise ConnectionError(f"Connection error: {e}")
-        except asyncio.TimeoutError:
-            raise TimeoutError(f"Request to {full_url} timed out")
-        except Exception as e:
-            raise RequestError(f"Request error: {e}")
+            raise ConnectionError(str(e))
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(str(e))
+
+    async def put(
+        self,
+        url: str,
+        data: Optional[Dict[str, Any]] = None,
+        headers: Optional[HeadersType] = None,
+    ) -> HTTPResponse:
+        """Send PUT request.
+
+        Args:
+            url: URL to request
+            data: Optional request data
+            headers: Optional request headers
+
+        Returns:
+            HTTP response
+
+        Raises:
+            ConnectionError: If connection fails
+            TimeoutError: If request times out
+            RequestError: If request preparation fails
+            ResponseError: If response processing fails
+        """
+        if not self._session:
+            raise ConnectionError("Client session not started")
+
+        try:
+            async with self._session.put(
+                self._get_url(url),
+                json=data,
+                headers=format_headers(headers or {}),
+            ) as response:
+                data = await response.read()
+                return HTTPResponse(
+                    response.status,
+                    data,
+                    dict(response.headers),
+                )
+        except aiohttp.ClientError as e:
+            raise ConnectionError(str(e))
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(str(e))
+
+    async def delete(
+        self,
+        url: str,
+        headers: Optional[HeadersType] = None,
+    ) -> HTTPResponse:
+        """Send DELETE request.
+
+        Args:
+            url: URL to request
+            headers: Optional request headers
+
+        Returns:
+            HTTP response
+
+        Raises:
+            ConnectionError: If connection fails
+            TimeoutError: If request times out
+            RequestError: If request preparation fails
+            ResponseError: If response processing fails
+        """
+        if not self._session:
+            raise ConnectionError("Client session not started")
+
+        try:
+            async with self._session.delete(
+                self._get_url(url),
+                headers=format_headers(headers or {}),
+            ) as response:
+                data = await response.read()
+                return HTTPResponse(
+                    response.status,
+                    data,
+                    dict(response.headers),
+                )
+        except aiohttp.ClientError as e:
+            raise ConnectionError(str(e))
+        except asyncio.TimeoutError as e:
+            raise TimeoutError(str(e))

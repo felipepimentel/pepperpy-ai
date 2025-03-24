@@ -1,17 +1,11 @@
-"""Storage provider implementations for PepperPy.
+"""Storage provider implementations.
 
-This module provides concrete implementations of storage providers,
-supporting different storage backends and access patterns.
-
-Example:
-    >>> from pepperpy.storage.providers import LocalStorageProvider
-    >>> storage = LocalStorageProvider(config={"root_dir": "/tmp/data"})
-    >>> await storage.write("key", "value")
-    >>> value = await storage.read("key")
+This module provides concrete implementations of the StorageProvider interface.
 """
 
-from pepperpy.storage.providers.local import LocalStorageProvider
+from .chroma import ChromaStorageProvider, HashEmbeddingFunction
 
 __all__ = [
-    "LocalStorageProvider",
+    "ChromaStorageProvider",
+    "HashEmbeddingFunction",
 ]

@@ -1,7 +1,7 @@
-"""Example demonstrating basic usage of ChromaProvider."""
+"""Example using ChromaProvider for vector storage and similarity search."""
 
 import asyncio
-from pepperpy.rag.providers.chroma import ChromaProvider
+from pepperpy.rag import ChromaProvider
 
 async def main():
     # Initialize provider with in-memory storage

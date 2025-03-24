@@ -1,9 +1,9 @@
-"""Example demonstrating ChromaProvider with text embeddings."""
+"""Example using ChromaProvider with text embeddings."""
 
 import asyncio
 import numpy as np
 from typing import List, Dict
-from pepperpy.rag.providers.chroma import ChromaProvider
+from pepperpy.rag import ChromaProvider
 
 def create_mock_embeddings(text: str, dimension: int = 5) -> List[float]:
     """Create mock embeddings for demonstration purposes.
