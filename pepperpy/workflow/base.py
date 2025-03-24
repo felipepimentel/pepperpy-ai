@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
 
 # Importe a classe de erro do módulo correto com a grafia correta
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")
@@ -25,7 +25,7 @@ R = TypeVar("R")
 logger = logging.getLogger(__name__)
 
 
-class PipelineError(PepperPyError):
+class PipelineError(PepperpyError):
     """Error raised by pipeline operations."""
 
     pass

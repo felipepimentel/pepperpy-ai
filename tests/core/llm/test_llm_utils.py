@@ -5,7 +5,7 @@ from typing import Dict, List, cast
 
 import pytest
 
-from pepperpy.errors.core import PepperPyError
+from pepperpy.errors.core import PepperpyError
 from pepperpy.llm.utils import (
     Message,
     Prompt,
@@ -27,7 +27,7 @@ def test_message_dataclass():
     assert message.content == "Hello"
 
     # Test invalid role
-    with pytest.raises(PepperPyError):
+    with pytest.raises(PepperpyError):
         Message(role="invalid", content="Hello")
 
 
@@ -69,13 +69,13 @@ def test_validate_prompt():
     # Test invalid prompt (no user message)
     messages = [Message(role="system", content="You are a helpful assistant.")]
     prompt = Prompt(messages=messages)
-    with pytest.raises(PepperPyError):
+    with pytest.raises(PepperpyError):
         validate_prompt(prompt)
 
     # Test invalid prompt (empty content)
     messages = [Message(role="user", content="")]
     prompt = Prompt(messages=messages)
-    with pytest.raises(PepperPyError):
+    with pytest.raises(PepperpyError):
         validate_prompt(prompt)
 
 
@@ -151,7 +151,7 @@ def test_format_prompt_for_provider():
     assert "\n\nAssistant: " in anthropic_format
 
     # Test unknown provider
-    with pytest.raises(PepperPyError):
+    with pytest.raises(PepperpyError):
         format_prompt_for_provider(prompt, "unknown")
 
 
@@ -227,5 +227,5 @@ def test_truncate_prompt():
     assert token_usage <= 50
 
     # Test truncation with too small max_tokens
-    with pytest.raises(PepperPyError):
+    with pytest.raises(PepperpyError):
         truncate_prompt(prompt, max_tokens=10, provider="test", model="test-model")

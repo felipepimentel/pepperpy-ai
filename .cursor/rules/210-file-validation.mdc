@@ -76,7 +76,7 @@ MUST check before creating error-related code:
 2. **Check Domain Errors**
    ```python
    # In domain/base.py
-   from pepperpy.core.errors import PepperpyError
+   from pepperpy.core import PepperpyError
    class DomainError(PepperpyError): ...
    ```
 
@@ -91,7 +91,7 @@ class CustomError(Exception):
 ✅ **ALWAYS extend core errors**
 ```python
 # Correct: Extend from core
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core import PepperpyError
 
 class SpecificError(PepperpyError):
     pass

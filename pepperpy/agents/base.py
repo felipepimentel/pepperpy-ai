@@ -3,7 +3,7 @@
 from typing import Dict, List, Optional, Protocol, Any, cast
 from pathlib import Path
 
-from pepperpy.core.errors import ValidationError
+from pepperpy.core import ValidationError
 from pepperpy.llm.base import LLMProvider
 
 

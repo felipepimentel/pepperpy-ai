@@ -13,10 +13,10 @@ import os
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Type
 
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 
 
-class TTSError(PepperPyError):
+class TTSError(PepperpyError):
     """Base class for TTS errors."""
 
 

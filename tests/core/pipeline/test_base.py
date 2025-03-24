@@ -7,8 +7,8 @@ import pytest
 
 # Importe diretamente os itens necessários, evitando importar o módulo inteiro
 # que pode ter dependências complexas
-class MockPepperPyError(Exception):
-    """Mock para PepperPyError para evitar dependências complexas."""
+class MockPepperpyError(Exception):
+    """Mock para PepperpyError para evitar dependências complexas."""
 
     pass
 

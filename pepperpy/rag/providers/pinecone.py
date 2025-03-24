@@ -10,7 +10,7 @@ from chromadb.config import Settings
 from chromadb.api.types import Collection
 from pepperpy.rag.providers.base import BaseRAGProvider
 from pepperpy.rag.models import SearchResult
-from pepperpy.core.errors import ProviderError
+from pepperpy.core import ProviderError
 
 class ChromaProvider(BaseRAGProvider):
     """Chroma-based RAG provider for vector storage and retrieval.

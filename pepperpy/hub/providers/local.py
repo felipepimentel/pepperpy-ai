@@ -20,7 +20,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.errors import NotFoundError
+from pepperpy.core import NotFoundError
 from pepperpy.hub.provider import (
     Asset,
     AssetStatus,

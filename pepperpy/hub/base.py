@@ -26,7 +26,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.common.providers import RestProvider
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ class AssetVersion:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class HubError(PepperPyError):
+class HubError(PepperpyError):
     """Base exception for hub-related errors."""
 
     pass

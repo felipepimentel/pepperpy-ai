@@ -16,7 +16,7 @@ Example:
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.errors import ValidationError
+from pepperpy.core import ValidationError
 from pepperpy.storage.base import StorageProvider
 
 

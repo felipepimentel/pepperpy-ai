@@ -17,11 +17,11 @@ Example:
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 from pepperpy.workflow.base import ComponentType, WorkflowComponent
 
 
-class ComponentError(PepperPyError):
+class ComponentError(PepperpyError):
     """Base exception for component-related errors.
 
     Example:

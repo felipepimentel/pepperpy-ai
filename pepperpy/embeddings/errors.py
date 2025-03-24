@@ -5,10 +5,10 @@ This module defines embedding-specific errors for the PepperPy framework.
 
 from typing import Any, Optional
 
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 
 
-class EmbeddingError(PepperPyError):
+class EmbeddingError(PepperpyError):
     """Base class for embedding errors."""
 
     def __init__(

@@ -7,6 +7,7 @@ from pepperpy.rag.base import (
     BaseRAGProvider,
     RAGError,
 )
+from pepperpy.rag.context import RAGContext
 from pepperpy.rag.memory_optimization import (
     BaseMemoryOptimizer,
     MemoryOptimizationError,
@@ -26,4 +27,6 @@ __all__ = [
     "ChromaProvider",
     # Core types
     "RAGError",
+    # Context
+    "RAGContext",
 ]

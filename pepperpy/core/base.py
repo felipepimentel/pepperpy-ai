@@ -291,3 +291,64 @@ class RestProvider(RemoteProvider):
             Response data
         """
         raise NotImplementedError
+
+class ModelContext(Protocol[T]):
+    """Protocol defining the model context interface."""
+
+    @property
+    def model(self) -> T:
+        """Get the model instance."""
+        ...
+
+    @property
+    def context(self) -> Dict[str, Any]:
+        """Get the context dictionary."""
+        ...
+
+
+class BaseModelContext(ABC):
+    """Base implementation of the model context protocol."""
+
+    def __init__(
+        self,
+        model: Any,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the model context.
+
+        Args:
+            model: The model instance.
+            context: Optional context dictionary.
+        """
+        self._model = model
+        self._context = context or {}
+
+    @property
+    def model(self) -> Any:
+        """Get the model instance."""
+        return self._model
+
+    @property
+    def context(self) -> Dict[str, Any]:
+        """Get the context dictionary."""
+        return self._context
+
+    def update_context(self, **kwargs: Any) -> None:
+        """Update the context with new values.
+
+        Args:
+            **kwargs: Key-value pairs to update in the context.
+        """
+        self._context.update(kwargs)
+
+    def get_context_value(self, key: str, default: Any = None) -> Any:
+        """Get a value from the context.
+
+        Args:
+            key: The key to get.
+            default: Default value if key doesn't exist.
+
+        Returns:
+            The value from the context or the default.
+        """
+        return self._context.get(key, default)

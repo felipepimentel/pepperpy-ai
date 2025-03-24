@@ -14,7 +14,7 @@ import asyncio
 import logging
 import sys
 
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 from pepperpy.core.logging import setup_logging
 
 
@@ -244,7 +244,7 @@ class CLI:
         except NotImplementedError:
             self.logger.error("Command not implemented yet")
             sys.exit(1)
-        except PepperPyError as e:
+        except PepperpyError as e:
             self.logger.error(str(e))
             sys.exit(1)
         except Exception as e:

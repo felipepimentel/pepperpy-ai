@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Union, Protocol
 
-from pepperpy.core.errors import PepperpyError
+from pepperpy.core import PepperpyError
 from pepperpy.core.providers import BaseProvider
 
 

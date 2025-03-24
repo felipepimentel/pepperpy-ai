@@ -4,11 +4,12 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Union
 
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
+from pepperpy.core.base import BaseModelContext
 from pepperpy.embeddings.base import EmbeddingProvider
 
 
-class RAGError(PepperPyError):
+class RAGError(PepperpyError):
     """Base class for all RAG errors."""
 
     pass
@@ -21,7 +22,7 @@ class Document:
         self,
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
-        embeddings: Optional[List[float]] = None,
+        embeddings: Optional[Union[List[float], List[List[float]]]] = None,
         id: Optional[str] = None,
         created_at: Optional[datetime] = None,
     ) -> None:
@@ -82,7 +83,7 @@ class Query:
         self,
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
-        embeddings: Optional[List[float]] = None,
+        embeddings: Optional[Union[List[float], List[List[float]]]] = None,
         id: Optional[str] = None,
         created_at: Optional[datetime] = None,
     ) -> None:
@@ -291,3 +292,113 @@ class BaseRAGProvider(ABC):
             RAGError: If there is an error clearing the documents.
         """
         pass
+
+
+class RAGContext(BaseModelContext):
+    """Context for RAG operations."""
+
+    def __init__(
+        self,
+        provider: BaseRAGProvider,
+        embedding_provider: Optional[EmbeddingProvider] = None,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the RAG context.
+
+        Args:
+            provider: The RAG provider instance.
+            embedding_provider: Optional embedding provider.
+            context: Optional context dictionary.
+        """
+        super().__init__(provider, context)
+        self.embedding_provider = embedding_provider
+
+    @property
+    def provider(self) -> BaseRAGProvider:
+        """Get the RAG provider instance."""
+        return self.model
+
+    async def add_documents(
+        self, documents: Union[Document, list[Document]]
+    ) -> list[Document]:
+        """Add documents to the provider.
+
+        Args:
+            documents: A document or list of documents to add.
+
+        Returns:
+            The added documents.
+        """
+        if isinstance(documents, Document):
+            documents = [documents]
+
+        # If we have an embedding provider, generate embeddings for documents
+        # that don't have them
+        if self.embedding_provider:
+            for doc in documents:
+                if not doc.embeddings:
+                    content = doc.content
+                    doc.embeddings = await self.embedding_provider.embed_text(content)
+
+        return await self.provider.add_documents(documents)
+
+    async def search(
+        self,
+        query: Union[str, Query],
+        limit: int = 10,
+        min_score: Optional[float] = None,
+        **kwargs: Any,
+    ) -> RetrievalResult:
+        """Search for documents similar to the query.
+
+        Args:
+            query: The query string or Query object.
+            limit: Maximum number of results to return.
+            min_score: Minimum similarity score for results.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            A RetrievalResult containing the query and matching documents.
+        """
+        if isinstance(query, str):
+            query = Query(content=query)
+
+        # If we have an embedding provider and the query doesn't have embeddings,
+        # generate them
+        if self.embedding_provider and not query.embeddings:
+            query.embeddings = await self.embedding_provider.embed_text(query.content)
+
+        return await self.provider.search(query, limit, min_score, **kwargs)
+
+    async def delete_documents(self, document_ids: Union[str, list[str]]) -> None:
+        """Delete documents from the provider.
+
+        Args:
+            document_ids: A document ID or list of document IDs to delete.
+        """
+        await self.provider.delete_documents(document_ids)
+
+    async def get_documents(
+        self, document_ids: Union[str, list[str]]
+    ) -> list[Document]:
+        """Get documents by their IDs.
+
+        Args:
+            document_ids: A document ID or list of document IDs to retrieve.
+
+        Returns:
+            The requested documents.
+        """
+        return await self.provider.get_documents(document_ids)
+
+    async def list_documents(self) -> list[Document]:
+        """List all documents in the provider.
+
+        Returns:
+            All documents in the provider.
+        """
+        return await self.provider.list_documents()
+
+    async def clear(self) -> None:
+        """Clear all documents from the provider."""
+        await self.provider.clear()

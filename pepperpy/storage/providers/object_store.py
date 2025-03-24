@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import aioboto3
 
-from pepperpy.core.errors import ProviderError
+from pepperpy.core import ProviderError
 from pepperpy.core.validation import ValidationError
 from pepperpy.providers.base import BaseProvider
 

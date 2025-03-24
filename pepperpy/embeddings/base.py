@@ -3,17 +3,61 @@
 This module defines the base interfaces that all embedding providers must implement.
 """
 
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Union
+from abc import ABC, abstractmethod
 
 from .models import EmbeddingOptions, EmbeddingResult
+from pepperpy.core import PepperpyError
 
 
-class EmbeddingProvider(Protocol):
-    """Protocol for embedding providers.
+class EmbeddingError(PepperpyError):
+    """Base class for embedding errors."""
 
-    All embedding providers must implement this interface to ensure consistent behavior
-    across different implementations.
-    """
+    pass
+
+
+class EmbeddingProvider(ABC):
+    """Base class for embedding providers."""
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider.
+
+        Args:
+            **kwargs: Provider-specific arguments.
+        """
+        self.config = kwargs
+
+    @abstractmethod
+    async def embed_text(
+        self,
+        text: Union[str, List[str]],
+        **kwargs: Any,
+    ) -> Union[List[float], List[List[float]]]:
+        """Generate embeddings for text.
+
+        Args:
+            text: Text or list of texts to embed.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            A list of embeddings (one per text).
+
+        Raises:
+            EmbeddingError: If there is an error generating embeddings.
+        """
+        pass
+
+    @abstractmethod
+    async def get_dimensions(self) -> int:
+        """Get the dimensionality of the embeddings.
+
+        Returns:
+            The number of dimensions in the embeddings.
+
+        Raises:
+            EmbeddingError: If there is an error getting dimensions.
+        """
+        pass
 
     name: str
 

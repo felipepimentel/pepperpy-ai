@@ -3,11 +3,11 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Set, Union
 
-from pepperpy.core.errors import PepperPyError
+from pepperpy.core import PepperpyError
 from pepperpy.rag.base import Document, Query, RetrievalResult
 
 
-class MemoryOptimizationError(PepperPyError):
+class MemoryOptimizationError(PepperpyError):
     """Base class for memory optimization errors."""
 
     pass

@@ -58,6 +58,11 @@ from .utils import (
 )
 from .validation import ValidationError, validate_config
 from .version import __version__
+from pepperpy.core.context import (
+    BaseModelContext,
+    ContextError,
+    ModelContext,
+)
 
 __all__ = [
     # Version
@@ -115,4 +120,8 @@ __all__ = [
     "truncate_text",
     "unflatten_dict",
     "validate_type",
+    # Context
+    "BaseModelContext",
+    "ContextError",
+    "ModelContext",
 ]
