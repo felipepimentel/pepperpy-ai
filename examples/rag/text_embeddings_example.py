@@ -3,7 +3,7 @@
 import asyncio
 import numpy as np
 from typing import List, Dict
-from pepperpy.rag.providers.pinecone import ChromaProvider
+from pepperpy.rag.providers.chroma import ChromaProvider
 
 def create_mock_embeddings(text: str, dimension: int = 5) -> List[float]:
     """Create mock embeddings for demonstration purposes.

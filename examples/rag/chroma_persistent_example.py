@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from pepperpy.rag.providers.pinecone import ChromaProvider
+from pepperpy.rag.providers.chroma import ChromaProvider
 
 async def main():
     # Create a persistent storage directory
