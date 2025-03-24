@@ -1,0 +1,292 @@
+---
+title: File Validation and Pre-Creation Checks
+description: Apply this rule before creating any new files to ensure proper location, prevent duplication, and maintain consistency with the existing codebase
+globs:
+  - "pepperpy/**/*.py"
+priority: 1000
+---
+
+# File Validation and Pre-Creation Checks
+
+## Overview
+
+This rule defines mandatory checks that MUST be performed before creating any new files in the PepperPy framework. These checks help prevent duplication, ensure proper file location, and maintain consistency with the existing codebase.
+
+## Mandatory Pre-Creation Workflow
+
+### 1. Initial Search
+
+ALWAYS perform these searches before creating any file:
+
+```bash
+# Check core framework first
+ls pepperpy/core/
+
+# Search all modules
+find pepperpy -type f -name "*similar_name*"
+
+# Search by content
+grep -r "similar_pattern" pepperpy/
+```
+
+### 2. Module Structure Verification
+
+ALWAYS verify the module structure:
+
+```bash
+# List target module contents
+ls pepperpy/target_module/
+
+# Expected structure:
+module/
+├── __init__.py         # Public API
+├── base.py            # Domain interfaces
+├── providers/         # Implementations
+│   └── __init__.py
+└── utils/             # Module utilities
+    └── __init__.py
+```
+
+### 3. Core Framework Check
+
+ALWAYS check these core files first:
+
+```bash
+pepperpy/core/
+├── base.py      # Base classes and interfaces
+├── errors.py    # Framework exceptions
+├── config.py    # Configuration management
+└── utils.py     # Shared utilities
+```
+
+## File Type Specific Validation
+
+### 1. Error Classes
+
+MUST check before creating error-related code:
+
+1. **Check Core Errors First**
+   ```python
+   # In pepperpy/core/errors.py
+   class PepperpyError(Exception): ...
+   class ValidationError(PepperpyError): ...
+   class ProviderError(PepperpyError): ...
+   ```
+
+2. **Check Domain Errors**
+   ```python
+   # In domain/base.py
+   from pepperpy.core.errors import PepperpyError
+   class DomainError(PepperpyError): ...
+   ```
+
+❌ **NEVER create standalone error files**
+```python
+# WRONG: Creating new error file
+# new_errors.py  # WRONG - Should extend from core
+class CustomError(Exception):
+    pass
+```
+
+✅ **ALWAYS extend core errors**
+```python
+# Correct: Extend from core
+from pepperpy.core.errors import PepperpyError
+
+class SpecificError(PepperpyError):
+    pass
+```
+
+### 2. Provider Classes
+
+MUST check before creating provider implementations:
+
+1. **Check Base Interfaces**
+   ```python
+   # In pepperpy/core/base.py
+   class BaseProvider: ...
+   ```
+
+2. **Check Domain Interfaces**
+   ```python
+   # In domain/base.py
+   class DomainProvider(Protocol): ...
+   ```
+
+❌ **NEVER create standalone providers**
+```python
+# WRONG: Creating provider without interface
+class NewProvider:  # WRONG - Should implement interface
+    pass
+```
+
+✅ **ALWAYS implement interfaces**
+```python
+# Correct: Implement interface
+from ..base import DomainProvider
+
+class SpecificProvider(DomainProvider):
+    pass
+```
+
+### 3. Utility Functions
+
+MUST check before creating utility functions:
+
+1. **Check Core Utils**
+   ```python
+   # In pepperpy/core/utils.py
+   def shared_utility(): ...
+   ```
+
+2. **Check Domain Utils**
+   ```python
+   # In domain/utils.py
+   def domain_utility(): ...
+   ```
+
+❌ **NEVER duplicate utilities**
+```python
+# WRONG: Creating duplicate utility
+def format_string():  # WRONG - Check core/utils first
+    pass
+```
+
+✅ **ALWAYS use existing utilities**
+```python
+# Correct: Import existing utility
+from pepperpy.core.utils import format_string
+```
+
+## Location Validation
+
+### 1. Core Framework Files
+
+These files MUST be in `pepperpy/core/`:
+- Base exceptions (`errors.py`)
+- Core interfaces (`base.py`)
+- Shared utilities (`utils.py`)
+- Configuration (`config.py`)
+
+### 2. Domain-Specific Files
+
+These files MUST be in their respective domains:
+- Domain interfaces (`base.py`)
+- Provider implementations (`providers/`)
+- Domain-specific utilities (`utils/`)
+
+### 3. Provider Implementations
+
+These files MUST be in `providers/`:
+- Specific provider classes
+- Provider utilities
+- Provider configurations
+
+## Common Pitfalls
+
+### 1. Wrong File Location
+
+❌ **NEVER misplace files**
+```python
+# WRONG: Provider in root
+# domain/provider.py  # WRONG - Should be in providers/
+```
+
+✅ **ALWAYS use correct location**
+```python
+# Correct: Provider in providers/
+# domain/providers/specific_provider.py
+```
+
+### 2. Duplicate Files
+
+❌ **NEVER create duplicates**
+```python
+# WRONG: Creating duplicate functionality
+# new_memory.py  # WRONG - Check if exists in core/
+```
+
+✅ **ALWAYS check first**
+```bash
+# Correct: Search before creating
+find pepperpy -type f -name "*memory*.py"
+grep -r "class Memory" pepperpy/
+```
+
+### 3. Interface Duplication
+
+❌ **NEVER duplicate interfaces**
+```python
+# WRONG: Creating new interface
+class Provider:  # WRONG - Check base.py first
+    pass
+```
+
+✅ **ALWAYS use existing interfaces**
+```python
+# Correct: Use existing interface
+from pepperpy.core.base import BaseProvider
+```
+
+## Validation Process
+
+### 1. Initial Checks
+
+MUST perform these checks first:
+1. Search core framework
+2. Search all modules
+3. Check similar files
+
+### 2. Structure Analysis
+
+MUST verify structure:
+1. Check module organization
+2. Verify file locations
+3. Review naming patterns
+
+### 3. Content Review
+
+MUST review content:
+1. Check similar implementations
+2. Review interfaces
+3. Analyze dependencies
+
+### 4. Location Confirmation
+
+MUST confirm location:
+1. Verify correct directory
+2. Check module boundaries
+3. Validate naming conventions
+
+## Error Prevention
+
+### 1. Common Errors
+
+- Creating new error files instead of extending core
+- Duplicating utilities instead of importing
+- Misplacing providers outside providers/
+
+### 2. Prevention Steps
+
+1. ALWAYS check core first
+2. ALWAYS search for similar files
+3. ALWAYS verify module structure
+4. NEVER skip validation steps
+
+### 3. When in Doubt
+
+1. Ask for clarification
+2. Review similar implementations
+3. Check framework documentation
+4. Consult team members
+
+## Conclusion
+
+This rule MUST be followed before creating any new files. Following these validation steps ensures:
+1. No duplicate implementations
+2. Proper file location
+3. Consistent structure
+4. Code reusability
+5. Maintainable codebase
+
+NEVER skip these validation steps. When in doubt, gather more information before proceeding. 

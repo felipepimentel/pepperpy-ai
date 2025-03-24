@@ -2,189 +2,333 @@
 title: Code Duplication Prevention
 description: Apply this rule when implementing new features or refactoring code to prevent duplication, promote reuse, and maintain DRY principles
 globs:
-  - "**/*.py"
-priority: 180
-alwaysApply: true
+  - "pepperpy/**/*.py"
+priority: 500
 ---
 
 # Code Duplication Prevention
 
 ## Overview
 
-This rule provides strategies and tools to detect and prevent code duplication in the PepperPy framework. Duplicate code increases maintenance burden, introduces inconsistencies, and hinders evolution of the codebase.
+This rule focuses on preventing code duplication at the implementation level within the PepperPy framework. It emphasizes abstracting and reusing similar functionality to maintain a clean and maintainable codebase.
 
-## Identifying Duplication
+## Implementation Patterns
 
-### Using Refactoring Tools
+### 1. Base Class Inheritance
 
-Always use the refactoring tools to identify potential duplication before implementing new components:
-
-```bash
-python scripts/refactor.py detect-smells --directory pepperpy
-```
-
-For file-specific checks:
-
-```bash
-python scripts/refactor.py detect-smells --file path/to/file.py
-```
-
-### Common Duplication Patterns
-
-Watch for these common duplication patterns:
-
-1. **Copy-pasted utility functions** - Extract to common utility modules instead
-2. **Similar provider implementations** - Use inheritance or composition
-3. **Repeated validation logic** - Extract to shared validators
-4. **Duplicate configuration parsing** - Consolidate in configuration managers
-5. **Repeated HTTP/API call patterns** - Create reusable client abstractions
-
-## Prevention Strategies
-
-### 1. Mandatory Code Review Process
-
-Before implementing new functionality:
-
-1. Search the codebase for similar implementations:
-   ```bash
-   python scripts/refactor.py grep-search --query "function_pattern"
-   ```
-
-2. Check for cohesion with existing modules:
-   ```bash
-   python scripts/refactor.py analyze-cohesion --file path/to/file.py
-   ```
-
-### 2. Extract Shared Components
-
-When similar code is detected across multiple files:
-
-1. Extract common functionality:
-   ```bash
-   python scripts/refactor.py extract-method --file path/to/file.py --start 10 --end 20 --name new_method
-   ```
-
-2. Move the extracted code to appropriate utility modules:
-   ```bash
-   python scripts/refactor.py restructure-files --mapping file_moves.json
-   ```
-
-### 3. Consolidate Small Modules
-
-Identify and merge small, related modules:
-
-```bash
-python scripts/refactor.py find-small-dirs --directory pepperpy --max-files 2
-python scripts/refactor.py auto-consolidate --directory pepperpy --max-files 2 --exclude tests,examples
-```
-
-### 4. Composition Over Repetition
-
-Use these design patterns to avoid duplication:
-
-1. **Strategy Pattern** - For interchangeable algorithms
-2. **Template Method** - For common processes with varying steps
-3. **Decorator** - For adding behavior without repetition
-4. **Factory** - For standardized object creation
-
-Example of generating a factory:
-```bash
-python scripts/refactor.py gen-factory --class BaseProvider --output pepperpy/factory.py
-```
-
-## Refactoring Workflow
-
-When refactoring duplicate code:
-
-1. **Analyze impact before changes**:
-   ```bash
-   python scripts/refactor.py analyze-impact --operation files --mapping changes.json
-   ```
-
-2. **Create a regression test suite** for affected components
-
-3. **Implement refactoring** with appropriate design patterns
-
-4. **Update imports** across the codebase:
-   ```bash
-   python scripts/refactor.py update-imports --old old.module --new new.module
-   ```
-
-5. **Validate changes** with tests and integration checks
-
-## Monitoring
-
-Set up regular checks for duplication:
-
-1. Schedule weekly scans:
-   ```bash
-   python scripts/refactor.py detect-smells --directory pepperpy
-   ```
-
-2. Analyze module cohesion periodically:
-   ```bash
-   for file in $(find pepperpy -name "*.py"); do
-     python scripts/refactor.py analyze-cohesion --file $file
-   done
-   ```
-
-## Implementation Examples
-
-### Bad (Duplicate Code)
-
+❌ **NEVER duplicate base functionality**
 ```python
-# In file1.py
-def process_data(data):
-    if not data:
-        return None
-    cleaned = {k: v for k, v in data.items() if v is not None}
-    result = {}
-    for key, value in cleaned.items():
-        result[key.lower()] = str(value).strip()
-    return result
+# WRONG: Duplicating base functionality
+class OpenAIProvider:
+    def validate_response(self):  # WRONG - Should inherit
+        if not self.response:
+            raise ValueError("Empty response")
 
-# In file2.py (duplicate)
-def clean_input(input_data):
-    if not input_data:
-        return None
-    cleaned = {k: v for k, v in input_data.items() if v is not None}
-    result = {}
-    for key, value in cleaned.items():
-        result[key.lower()] = str(value).strip()
-    return result
+class AnthropicProvider:
+    def validate_response(self):  # WRONG - Duplicated code
+        if not self.response:
+            raise ValueError("Empty response")
 ```
 
-### Good (Extracted Common Utility)
-
+✅ **ALWAYS inherit common functionality**
 ```python
-# In pepperpy/utils/data.py
-def normalize_dict(data: Dict[str, Any]) -> Optional[Dict[str, str]]:
-    """Normalize dictionary by removing None values and standardizing keys/values.
-    
-    Args:
-        data: Input dictionary to normalize
-        
-    Returns:
-        Normalized dictionary or None if input is empty
-    """
+# Correct: Use base class
+class BaseProvider:
+    def validate_response(self):
+        if not self.response:
+            raise ValueError("Empty response")
+
+class OpenAIProvider(BaseProvider):
+    pass  # Inherits validate_response
+
+class AnthropicProvider(BaseProvider):
+    pass  # Inherits validate_response
+```
+
+### 2. Utility Functions
+
+❌ **NEVER duplicate utility code**
+```python
+# WRONG: Duplicating utility functions
+def format_prompt(text: str) -> str:  # WRONG - Should be shared
+    return text.strip().lower()
+
+def clean_prompt(text: str) -> str:  # WRONG - Same functionality
+    return text.strip().lower()
+```
+
+✅ **ALWAYS share utility functions**
+```python
+# Correct: Share utility function
+from pepperpy.core.utils import format_prompt
+
+# In different files:
+result1 = format_prompt(text1)
+result2 = format_prompt(text2)
+```
+
+### 3. Configuration Management
+
+❌ **NEVER duplicate config handling**
+```python
+# WRONG: Duplicating config handling
+class Provider1:
+    def __init__(self):
+        self.api_key = os.getenv("API_KEY")  # WRONG - Should use config
+        if not self.api_key:
+            raise ValueError("Missing API_KEY")
+
+class Provider2:
+    def __init__(self):  # WRONG - Same config handling
+        self.api_key = os.getenv("API_KEY")
+        if not self.api_key:
+            raise ValueError("Missing API_KEY")
+```
+
+✅ **ALWAYS use config management**
+```python
+# Correct: Use config management
+from pepperpy.core.config import get_config
+
+class Provider:
+    def __init__(self):
+        self.config = get_config()
+        self.api_key = self.config.get_api_key()
+```
+
+## Common Duplication Patterns
+
+### 1. Error Handling
+
+❌ **NEVER duplicate error handling**
+```python
+# WRONG: Duplicating error handling
+def process1():
+    try:  # WRONG - Should use decorator
+        response = api.call()
+        if not response:
+            raise ValueError("Empty response")
+    except Exception as e:
+        logger.error(f"API error: {e}")
+        raise
+
+def process2():  # WRONG - Same error handling
+    try:
+        response = api.call()
+        if not response:
+            raise ValueError("Empty response")
+    except Exception as e:
+        logger.error(f"API error: {e}")
+        raise
+```
+
+✅ **ALWAYS use decorators/utilities**
+```python
+# Correct: Use error handling decorator
+from pepperpy.core.decorators import handle_api_errors
+
+@handle_api_errors
+def process1():
+    response = api.call()
+    if not response:
+        raise ValueError("Empty response")
+
+@handle_api_errors
+def process2():
+    response = api.call()
+    if not response:
+        raise ValueError("Empty response")
+```
+
+### 2. Data Validation
+
+❌ **NEVER duplicate validation**
+```python
+# WRONG: Duplicating validation
+def process_user1(user: dict):  # WRONG - Should use validator
+    if not user.get("name"):
+        raise ValueError("Missing name")
+    if not user.get("email"):
+        raise ValueError("Missing email")
+
+def process_user2(user: dict):  # WRONG - Same validation
+    if not user.get("name"):
+        raise ValueError("Missing name")
+    if not user.get("email"):
+        raise ValueError("Missing email")
+```
+
+✅ **ALWAYS use validators**
+```python
+# Correct: Use shared validator
+from pepperpy.core.validators import validate_user
+
+def process_user1(user: dict):
+    validate_user(user)
+    # Process user
+
+def process_user2(user: dict):
+    validate_user(user)
+    # Process user
+```
+
+### 3. API Clients
+
+❌ **NEVER duplicate client code**
+```python
+# WRONG: Duplicating client code
+def call_api1():  # WRONG - Should use shared client
+    response = requests.post(
+        "https://api.example.com",
+        headers={"Authorization": "Bearer " + api_key},
+        timeout=30
+    )
+    return response.json()
+
+def call_api2():  # WRONG - Same client code
+    response = requests.post(
+        "https://api.example.com",
+        headers={"Authorization": "Bearer " + api_key},
+        timeout=30
+    )
+    return response.json()
+```
+
+✅ **ALWAYS use shared clients**
+```python
+# Correct: Use shared client
+from pepperpy.core.http import APIClient
+
+client = APIClient()
+result1 = client.post("/endpoint1", data=data1)
+result2 = client.post("/endpoint2", data=data2)
+```
+
+## Implementation Guidelines
+
+### 1. Before Adding New Code
+
+1. Search for similar functionality
+2. Check base classes
+3. Review utility modules
+4. Look for patterns
+
+### 2. When Finding Duplication
+
+1. Extract common code
+2. Create base classes
+3. Use decorators
+4. Share utilities
+
+### 3. Abstraction Factors
+
+Consider these factors:
+1. Usage frequency
+2. Complexity
+3. Maintenance cost
+4. Reusability
+
+## Refactoring Strategies
+
+### 1. Extract Method
+
+❌ **Before**
+```python
+def process():
+    # Complex logic repeated in multiple places
+    data = load_data()
     if not data:
-        return None
-    cleaned = {k: v for k, v in data.items() if v is not None}
-    return {k.lower(): str(v).strip() for k, v in cleaned.items()}
+        raise ValueError("No data")
+    result = transform(data)
+    save(result)
+```
 
-# In file1.py
-from pepperpy.utils.data import normalize_dict
-
+✅ **After**
+```python
 def process_data(data):
-    return normalize_dict(data)
+    """Extracted reusable method"""
+    if not data:
+        raise ValueError("No data")
+    result = transform(data)
+    save(result)
 
-# In file2.py
-from pepperpy.utils.data import normalize_dict
+def process():
+    data = load_data()
+    process_data(data)
+```
 
-def clean_input(input_data):
-    return normalize_dict(input_data)
+### 2. Template Method
+
+❌ **Before**
+```python
+class Provider1:
+    def process(self):
+        self.validate()
+        self.transform()
+        self.save()
+
+class Provider2:  # Duplicate structure
+    def process(self):
+        self.validate()
+        self.transform()
+        self.save()
+```
+
+✅ **After**
+```python
+class BaseProvider:
+    def process(self):
+        """Template method pattern"""
+        self.validate()
+        self.transform()
+        self.save()
+
+class Provider1(BaseProvider):
+    def transform(self):
+        # Specific implementation
+
+class Provider2(BaseProvider):
+    def transform(self):
+        # Specific implementation
+```
+
+### 3. Strategy Pattern
+
+❌ **Before**
+```python
+def process_data(type):
+    if type == "json":
+        # JSON processing logic
+    elif type == "xml":
+        # XML processing logic
+    elif type == "yaml":
+        # YAML processing logic
+```
+
+✅ **After**
+```python
+from pepperpy.core.processors import (
+    JSONProcessor,
+    XMLProcessor,
+    YAMLProcessor
+)
+
+def process_data(data, processor):
+    """Strategy pattern"""
+    return processor.process(data)
+
+# Usage:
+process_data(data, JSONProcessor())
+process_data(data, XMLProcessor())
 ```
 
 ## Conclusion
 
-Following these duplication prevention strategies will ensure the codebase remains maintainable, consistent, and aligned with the DRY (Don't Repeat Yourself) principle. Use the refactoring tools regularly to detect and eliminate duplication. 
+Following these guidelines ensures:
+1. Reduced code duplication
+2. Better maintainability
+3. Easier testing
+4. Consistent implementations
+5. Reusable components
+
+NEVER duplicate code when a shared solution exists. When in doubt, abstract and share functionality. 
