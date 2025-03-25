@@ -1,10 +1,9 @@
 ---
-title: PepperPy Framework Architecture
-description: Apply this rule when discussing, planning, or implementing core architecture components of the PepperPy framework or when adding new functionality that must integrate with the existing architecture
+title: Framework Architecture
+description: Core architecture principles and module organization for the PepperPy framework
 globs:
-  - "**/*.py"
+  - "pepperpy/**/*.py"
 priority: 1000
-alwaysApply: true
 ---
 
 # PepperPy Framework Architecture
@@ -20,133 +19,173 @@ The framework is organized into vertical domains, each responsible for a specifi
 ```
 pepperpy/
 ├── llm/                  # Language Model Domain
-│   ├── __init__.py      
-│   ├── provider.py      # Core LLM interfaces
-│   └── providers/       # LLM implementations
+│   ├── __init__.py      # Public API exports
+│   ├── base.py          # Core interfaces, types, and base implementations
+│   └── providers/       # Provider implementations
+│       ├── __init__.py
+│       └── openrouter.py
 │
 ├── rag/                  # RAG Domain
-│   ├── __init__.py
-│   ├── provider.py      # Core RAG interfaces
-│   └── providers/       # RAG implementations
+│   ├── __init__.py      # Public API exports
+│   ├── base.py          # Core interfaces, types, and base implementations
+│   └── providers/       # Provider implementations
+│       ├── __init__.py
+│       └── chroma.py
 │
 ├── storage/             # Storage Domain
-│   ├── __init__.py
-│   ├── provider.py      # Core storage interfaces
-│   └── providers/       # Storage implementations
+│   ├── __init__.py      # Public API exports
+│   ├── base.py          # Core interfaces, types, and base implementations
+│   └── providers/       # Provider implementations
+│       ├── __init__.py
+│       └── pinecone.py
 │
 ├── core/               # Core Framework
-│   ├── __init__.py
-│   ├── capabilities/   # Capability management
-│   ├── errors/        # Error definitions
-│   └── base/          # Base classes
+│   ├── __init__.py     # Public API exports
+│   ├── base.py         # Core interfaces, types, and base implementations
+│   ├── config.py       # Configuration management
+│   ├── di.py          # Dependency injection
+│   ├── http.py        # HTTP client utilities
+│   ├── providers.py   # Core provider implementations
+│   └── utils.py       # Shared utilities
 │
-├── cli/                # Command Line Interface
+├── tools/              # Framework Tools
 │   ├── __init__.py
-│   └── commands/       # CLI commands
-│
-├── workflow/           # Workflow Engine
-│   ├── __init__.py
-│   └── providers/      # Workflow implementations
-│
-├── hub/                # PepperHub Integration
-│   ├── __init__.py
-│   └── providers/      # Hub implementations
-│
-├── agents/             # Agent Framework
-│   ├── __init__.py
-│   └── providers/      # Agent implementations
-│
-├── cache/              # Caching System
-│   ├── __init__.py
-│   └── providers/      # Cache implementations
+│   └── repository/     # Repository analysis tools
+│       ├── __init__.py
+│       └── providers/
 │
 └── utils/              # Shared Utilities
     ├── __init__.py
-    ├── logging/
-    ├── config/
-    └── helpers/
+    ├── logging.py
+    └── validation.py
 ```
 
-## Domain Organization
+## Module Organization
 
-Each domain follows these principles:
+Each module follows these principles:
 
-1. **Vertical Slicing**: Each module represents a cohesive business domain
-2. **Module Independence**: Loose coupling between modules
-3. **Clean Interfaces**: Public interfaces exposed via `__init__.py`
-4. **Implementation Privacy**: Internal details kept private
-5. **Pragmatic Structure**: Structure grows based on actual needs
+1. **Single Base File**: All core functionality in `base.py`
+   - Interfaces (Protocols/ABC)
+   - Base implementations
+   - Data types and models
+   - Error definitions
+
+2. **Public API**: Clear exports in `__init__.py`
+   - Re-export public interfaces
+   - Re-export provider implementations
+   - Define module-level functions
+
+3. **Provider Pattern**: Implementations in `providers/`
+   - One file per provider
+   - Follow base interfaces
+   - Encapsulate implementation details
 
 ## Core Design Principles
 
-### 1. Domain-Driven Design
+### 1. Module Abstraction
 
-- Clear domain boundaries with self-contained modules
-- Domain-specific language and interfaces
-- Domain entities, value objects, and services
-- Aggregates with clear boundaries
+All module functionality is accessed through the public API:
 
-### 2. Clean Architecture
+```python
+# CORRECT: Access through public API
+from pepperpy.llm import LLMProvider
+from pepperpy.rag import RAGContext
 
-- Separation of concerns with distinct layers
-- Dependency inversion (dependencies point inward)
-- Interface segregation for clean APIs
-- Explicit and controlled dependencies
+# INCORRECT: Direct import of implementations
+from pepperpy.llm.providers.openrouter import OpenRouterProvider
+```
 
-### 3. Provider Pattern
+### 2. Provider Pattern
 
 All major framework capabilities follow the provider pattern:
 
 ```python
-# Core provider interface
-class BaseProvider(Protocol):
-    """Base provider interface for framework capabilities."""
-    
-    def capabilities(self) -> Set[str]:
-        """Return the set of capabilities supported by this provider."""
-        ...
+# Core provider interface in base.py
+class LLMProvider(Protocol):
+    """Interface for LLM providers."""
+    async def initialize(self) -> None: ...
+    async def generate(self, prompt: str) -> str: ...
 
-# Domain-specific provider (e.g., LLM)
-class LLMProvider(BaseProvider):
-    """Provider interface for language models."""
-    
-    async def generate(self, prompt: str, **kwargs) -> str:
-        """Generate text from a prompt."""
-        ...
-        
-    async def generate_stream(self, prompt: str, **kwargs) -> AsyncIterator[str]:
-        """Stream generated text from a prompt."""
-        ...
-
-# Implementation example
-class OpenAIProvider(LLMProvider):
-    """OpenAI implementation of LLMProvider."""
-    
-    def __init__(self, model_name: str, **kwargs):
-        self.model_name = model_name
-        self.client = OpenAI(**kwargs)
-        
-    async def generate(self, prompt: str, **kwargs) -> str:
+# Implementation in providers/openrouter.py
+class OpenRouterProvider(LLMProvider):
+    """OpenRouter implementation."""
+    async def generate(self, prompt: str) -> str:
         # Implementation details
         ...
 ```
 
-### 4. Capability System
+### 3. Configuration Management
 
-The framework uses a capability system to define and discover provider features:
+Configuration is handled through environment variables and config objects:
 
 ```python
-# Define capabilities
-class LLMCapabilities(str, Enum):
-    GENERATE = "generate"
-    STREAM = "stream"
-    EMBEDDING = "embedding"
-    FUNCTION_CALLING = "function_calling"
+# Environment variables
+PEPPERPY_LLM__API_KEY=sk-...
+PEPPERPY_LLM__MODEL=anthropic/claude-3-sonnet
 
-# Check for capabilities
-if LLMCapabilities.STREAM in provider.capabilities():
-    # Use streaming capability
-    async for chunk in provider.generate_stream(prompt):
-        # Process streaming chunks
-        ...
+# Configuration in code
+from pepperpy.core import Config
+config = Config(env_prefix="PEPPERPY_LLM_")
 ```
+
+### 4. Error Handling
+
+Consistent error hierarchy defined in base modules:
+
+```python
+# Core errors in core/base.py
+class PepperpyError(Exception): ...
+class ValidationError(PepperpyError): ...
+
+# Domain-specific errors in domain/base.py
+class LLMError(PepperpyError): ...
+```
+
+## Best Practices
+
+1. **Module Access**:
+   - Always import from module root (`pepperpy.llm`)
+   - Never import directly from implementations
+   - Use provided interfaces, not concrete classes
+
+2. **Provider Implementation**:
+   - Implement required interfaces from `base.py`
+   - Keep implementation details private
+   - Document public methods and classes
+
+3. **Configuration**:
+   - Use environment variables with module prefix
+   - Validate configuration at startup
+   - Provide sensible defaults
+
+4. **Error Handling**:
+   - Use domain-specific error classes
+   - Include context in error messages
+   - Handle cleanup in finally blocks
+
+## Example Usage
+
+```python
+from pepperpy.llm import LLMProvider
+from pepperpy.core import Config
+
+# Initialize from environment
+config = Config(env_prefix="PEPPERPY_LLM_")
+llm = LLMProvider(config)
+await llm.initialize()
+
+try:
+    result = await llm.generate("Hello!")
+finally:
+    await llm.cleanup()
+```
+
+## Conclusion
+
+This architecture ensures:
+1. Clear module boundaries
+2. Consistent interfaces
+3. Easy provider swapping
+4. Configuration flexibility
+5. Proper error handling
+6. Clean public APIs

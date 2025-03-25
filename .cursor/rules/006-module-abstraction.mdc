@@ -1,6 +1,6 @@
 ---
-title: Module Abstraction and Interface Organization
-description: Apply this rule when implementing new modules or modifying existing ones to ensure that the end developer only needs to configure environment variables and use the public interface, without knowledge of specific implementations
+title: Module Abstraction
+description: Guidelines for implementing and using modules in the PepperPy framework
 globs:
   - "pepperpy/**/*.py"
 priority: 600
@@ -16,171 +16,249 @@ This rule defines standards for organizing modules and interfaces in the PepperP
 
 ### File Organization
 
-Each module should follow this structure:
+Each module follows this structure:
 
 ```
 module/
-├── __init__.py         # Public API of the module
-├── base.py            # Interfaces and base classes
-├── providers/         # Specific implementations
-│   ├── __init__.py
-│   └── specific.py
-└── utils/             # Module utilities (optional)
-    └── __init__.py
+├── __init__.py         # Public API exports
+├── base.py            # Core interfaces, types, and implementations
+└── providers/         # Provider implementations
+    ├── __init__.py    # Provider exports
+    └── specific.py    # Specific provider
 ```
 
 ### File Responsibilities
 
 1. **base.py**:
-   - Main interfaces (Protocols/ABC)
-   - Abstract base classes
+   - Interfaces (Protocols/ABC)
+   - Base implementations
    - Data types and models
-   - Base configurations
+   - Error definitions
+   - Core functionality
 
 2. **__init__.py**:
-   - Public API of the module
+   - Public API exports
    - Re-export of types and interfaces
-   - High-level functions
+   - Re-export of providers
 
 3. **providers/**:
    - Concrete implementations
-   - Integrations with external services
+   - Provider-specific code
 
 ## Interface Patterns
 
-### 1. Interfaces in base.py
+### 1. Base Module Organization
 
 ✅ **Correct**:
 ```python
 # base.py
 from typing import Protocol
 
-class Provider(Protocol):
-    """Main provider interface."""
+class LLMError(PepperpyError):
+    """Domain-specific errors."""
+
+class Message:
+    """Domain data types."""
+    role: str
+    content: str
+
+class LLMProvider(Protocol):
+    """Core provider interface."""
     async def initialize(self) -> None: ...
-    async def process(self, data: dict) -> dict: ...
-
-class Config:
-    """Base configuration."""
-    def __init__(self, api_key: str): ...
+    async def generate(self, prompt: str) -> str: ...
 ```
 
 ❌ **Incorrect**:
 ```python
-# provider.py  # Don't create separate file for interfaces
-class Provider:
-    """Provider interface."""
-    pass
+# Scattered across multiple files
+# provider.py
+class LLMProvider: ...
 
-# base.py
-from .provider import Provider  # Don't import from separate file
+# types.py
+class Message: ...
+
+# errors.py
+class LLMError: ...
 ```
 
-### 2. Implementations in providers/
+### 2. Public API Organization
 
 ✅ **Correct**:
 ```python
-# providers/openai.py
-from ..base import Provider
+# __init__.py
+from .base import LLMProvider, Message, LLMError
+from .providers import OpenRouterProvider
 
-class OpenAIProvider(Provider):
-    """OpenAI implementation of the provider."""
-    async def initialize(self) -> None:
+__all__ = [
+    "LLMProvider",
+    "Message",
+    "LLMError",
+    "OpenRouterProvider"
+]
+```
+
+❌ **Incorrect**:
+```python
+# __init__.py
+# Don't expose internal details
+from .providers.openrouter import OpenRouterProvider
+from .base import _internal_function
+```
+
+### 3. Provider Implementation
+
+✅ **Correct**:
+```python
+# providers/openrouter.py
+from ..base import LLMProvider, Message, LLMError
+
+class OpenRouterProvider(LLMProvider):
+    """OpenRouter implementation."""
+    async def generate(self, prompt: str) -> str:
         # Implementation
-        pass
+        ...
 ```
 
 ❌ **Incorrect**:
 ```python
-# base.py
-class OpenAIProvider(Provider):  # Don't implement in base.py
+# Don't implement in base.py
+class OpenRouterProvider(LLMProvider):
+    pass
+
+# Don't create new interfaces in providers
+class CustomProvider(Protocol):
     pass
 ```
 
-### 3. Public API in __init__.py
+## Module Usage
+
+### 1. Importing Modules
 
 ✅ **Correct**:
 ```python
-# __init__.py
-from .base import Provider, Config
-from .providers.openai import OpenAIProvider
+# Import from module root
+from pepperpy.llm import LLMProvider
+from pepperpy.rag import RAGContext
 
-__all__ = ["Provider", "Config", "OpenAIProvider"]
-
-def create_provider(config: Config) -> Provider:
-    """Create provider instance."""
-    return OpenAIProvider(config)
+# Use interfaces, not implementations
+provider: LLMProvider = ...
 ```
 
 ❌ **Incorrect**:
 ```python
-# __init__.py
-from .provider import Provider  # Don't import from separate file
-from .base import Config  # Keep all interfaces in base.py
+# Don't import implementations directly
+from pepperpy.llm.providers.openrouter import OpenRouterProvider
+
+# Don't import from base
+from pepperpy.llm.base import LLMProvider
+```
+
+### 2. Configuration
+
+✅ **Correct**:
+```python
+from pepperpy.core import Config
+
+# Use environment variables
+config = Config(env_prefix="PEPPERPY_LLM_")
+provider = LLMProvider(config)
+```
+
+❌ **Incorrect**:
+```python
+# Don't hardcode configuration
+provider = OpenRouterProvider(
+    api_key="sk-...",
+    model="gpt-4"
+)
+```
+
+### 3. Error Handling
+
+✅ **Correct**:
+```python
+try:
+    result = await provider.generate(prompt)
+except LLMError as e:
+    # Handle domain-specific error
+    logger.error(f"LLM error: {e}")
+finally:
+    await provider.cleanup()
+```
+
+❌ **Incorrect**:
+```python
+# Don't catch generic exceptions
+try:
+    result = await provider.generate(prompt)
+except Exception as e:
+    pass
 ```
 
 ## Implementation Examples
 
-### Example: Agents Module
+### Example: RAG Module
 
 ```python
 # base.py
-from typing import Protocol, Dict, Any
+from typing import Protocol
 
-class Message:
-    """Message from an agent."""
-    role: str
+class RAGError(PepperpyError): ...
+
+class Document:
+    """Document for retrieval."""
     content: str
+    metadata: dict
 
-class AgentProvider(Protocol):
-    """Agent provider interface."""
-    async def initialize(self) -> None: ...
-    async def execute(self, task: str) -> List[Message]: ...
-
-# providers/autogen.py
-from ..base import AgentProvider, Message
-
-class AutoGenProvider(AgentProvider):
-    """Implementation using AutoGen."""
-    async def initialize(self) -> None:
-        # Implementation
-        pass
+class RAGProvider(Protocol):
+    """RAG provider interface."""
+    async def add_documents(self, docs: list[Document]) -> None: ...
+    async def query(self, text: str) -> list[Document]: ...
 
 # __init__.py
-from .base import AgentProvider, Message
-from .providers.autogen import AutoGenProvider
+from .base import RAGProvider, Document, RAGError
+from .providers import ChromaProvider
 
-async def create_agent(config: Dict[str, Any]) -> AgentProvider:
-    """Create an agent with the provided configuration."""
-    provider = AutoGenProvider(config)
-    await provider.initialize()
-    return provider
+__all__ = ["RAGProvider", "Document", "RAGError", "ChromaProvider"]
+
+# providers/chroma.py
+from ..base import RAGProvider, Document
+
+class ChromaProvider(RAGProvider):
+    """Chroma implementation."""
+    async def add_documents(self, docs: list[Document]) -> None:
+        # Implementation
+        ...
 ```
 
-## Validation
+## Best Practices
 
-Use these checks to validate module structure:
+1. **Module Organization**:
+   - Keep all core functionality in `base.py`
+   - Export public API through `__init__.py`
+   - Implement providers in `providers/`
 
-1. **Interfaces**:
-   - Should be in `base.py`
-   - Use `Protocol` or `ABC`
-   - Document with docstrings
+2. **Interface Design**:
+   - Use Protocol for interfaces
+   - Include domain-specific errors
+   - Define clear data types
 
-2. **Implementations**:
-   - Should be in `providers/`
-   - Implement interfaces from `base.py`
-   - Don't expose internal details
+3. **Provider Implementation**:
+   - Follow interface contracts
+   - Handle errors appropriately
+   - Clean up resources
 
-3. **Public API**:
-   - Expose only what's necessary in `__init__.py`
-   - Document the public API
-   - Maintain backward compatibility
+4. **Module Usage**:
+   - Import from module root
+   - Use interfaces in type hints
+   - Configure through environment
 
 ## Conclusion
 
-Following these module and interface organization patterns ensures:
-
-1. **Clarity**: Consistent and predictable structure
-2. **Maintainability**: Clear separation of responsibilities
-3. **Extensibility**: Easy addition of new implementations
-4. **Usability**: Clear and well-documented public API 
+Following these module abstraction patterns ensures:
+1. Clean and consistent APIs
+2. Clear separation of concerns
+3. Easy provider swapping
+4. Proper error handling
+5. Resource cleanup
+6. Configuration flexibility 
