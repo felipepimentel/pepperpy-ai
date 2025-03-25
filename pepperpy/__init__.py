@@ -1,12 +1,17 @@
 """
-PepperPy - Um framework moderno e flexível para aplicações de IA em Python.
+PepperPy - A versatile Python library for building AI-powered applications.
 
-PepperPy é um framework que oferece componentes modulares para construção
-de aplicações baseadas em IA, com foco em:
+PepperPy provides a comprehensive set of tools and capabilities for building
+AI-powered applications, leveraging Large Language Models (LLMs),
+Retrieval-Augmented Generation (RAG), and other AI technologies.
 
-- Composição: Combinação de diferentes componentes em pipelines
-- Reutilização: Componentes encapsulados e interfaces padronizadas
-- Extensibilidade: Fácil adição de novos providers e funcionalidades
+Various domain-specific modules are available:
+- llm: Large Language Model integrations
+- rag: Retrieval-Augmented Generation capabilities
+- storage: Storage system for vectors and documents
+- workflow: Workflow management
+- core: Core functionality and utilities
+- tools: Integrations with external services and platforms
 
 Módulos Principais:
     core: Funcionalidades centrais e utilitários
@@ -21,11 +26,23 @@ Exemplo Básico:
     >>> result = await app.process("Texto para processar")
 """
 
-# Re-export core components
-from pepperpy.core import PepperpyError, __version__
+# Core functionality
+from pepperpy.core import (
+    PepperpyError,
+    VerbosityLevel,
+    configure_logging,
+    get_logger,
+)
 
-# Export to __all__
+# Nota: As importações do módulo analysis foram removidas pois 
+# esse módulo foi substituído pelo módulo tools/repository
+
+__version__ = "0.1.0"
+
 __all__ = [
-    "__version__",
+    # Core
     "PepperpyError",
+    "VerbosityLevel",
+    "configure_logging",
+    "get_logger",
 ]

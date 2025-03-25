@@ -7,6 +7,11 @@ Example:
     >>> from pepperpy.tts import convert_text
     >>> audio = await convert_text("Hello world", voice_id="en-US-1")
     >>> save_audio(audio, "output.mp3")
+    
+    # Using the audio pipeline
+    >>> from pepperpy.tts import AudioPipeline
+    >>> pipeline = AudioPipeline()
+    >>> output = await pipeline.process_project("content.json")
 """
 
 import asyncio
@@ -20,6 +25,14 @@ from pepperpy.tts.base import (
     TTSProvider,
     TTSProviderError,
     TTSVoiceError,
+)
+
+from pepperpy.tts.audio_pipeline import (
+    AudioPipeline,
+    AudioProject,
+    AudioSegment,
+    AudioPipelineError,
+    VerbosityLevel,
 )
 
 # Import providers to register them
@@ -195,4 +208,10 @@ __all__ = [
     "TTSProvider",
     "TTSProviderError",
     "TTSVoiceError",
+    # Audio pipeline
+    "AudioPipeline",
+    "AudioProject",
+    "AudioSegment",
+    "AudioPipelineError",
+    "VerbosityLevel",
 ]

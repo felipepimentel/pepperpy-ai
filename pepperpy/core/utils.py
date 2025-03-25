@@ -13,10 +13,21 @@ import datetime
 import importlib
 import inspect
 import logging
+import os
 import time
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union, cast, get_type_hints
 
 from pepperpy.core.types import Metadata
+
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    # Mock load_dotenv if not available
+    def load_dotenv(dotenv_path=None, stream=None, verbose=False, override=False, **kwargs):
+        """Mock function for load_dotenv."""
+        print("Warning: python-dotenv not available, skipping environment loading")
+        return False
 
 logger = logging.getLogger(__name__)
 
@@ -302,3 +313,51 @@ def get_metadata_value(
         current = current[part]
 
     return current
+
+
+# Auto-load environment variables when utils is imported
+def auto_load_env(env_file: Optional[Union[str, Path]] = None, 
+                  override: bool = False, 
+                  fail_silently: bool = True) -> bool:
+    """Automatically load environment variables from .env file.
+    
+    This function is called automatically when the core module is imported.
+    
+    Args:
+        env_file: Path to .env file to load. If None, searches in current directory and parent directories.
+        override: Whether to override existing environment variables.
+        fail_silently: Whether to ignore errors if .env file is not found.
+        
+    Returns:
+        True if environment variables were loaded, False otherwise.
+    """
+    try:
+        if env_file is not None:
+            return load_dotenv(dotenv_path=env_file, override=override)
+        
+        # Try to find .env file in current directory and parent directories
+        cwd = Path.cwd()
+        env_paths = [cwd]
+        
+        # Add parent directories up to 3 levels
+        parent = cwd
+        for _ in range(3):
+            parent = parent.parent
+            env_paths.append(parent)
+        
+        # Try to load from each path
+        for path in env_paths:
+            env_file = path / ".env"
+            if env_file.exists():
+                return load_dotenv(dotenv_path=env_file, override=override)
+                
+        if not fail_silently:
+            print(f"Warning: No .env file found in {env_paths}")
+        return False
+    except Exception as e:
+        if not fail_silently:
+            print(f"Error loading environment variables: {e}")
+        return False
+
+# Call auto_load_env when module is imported
+auto_load_env()

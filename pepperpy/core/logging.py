@@ -11,10 +11,12 @@ Example:
 """
 
 import logging
+import os
 import sys
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional, Union
+from pathlib import Path
+from typing import Any, Dict, Optional, Union, TextIO
 
 from .validation import ValidationError
 
@@ -427,6 +429,214 @@ def get_logger(name: str, **kwargs: Any) -> "Logger":
     """
     return Logger.get_logger(name, **kwargs)
 
+
+# Create a verbosity level enum for consistent use across modules
+class VerbosityLevel(Enum):
+    """Verbosity levels for all PepperPy operations."""
+    SILENT = 0    # No output
+    ERROR = 1     # Only errors
+    INFO = 2      # Basic information
+    DEBUG = 3     # Detailed information
+    VERBOSE = 4   # Very detailed information
+
+    @classmethod
+    def from_string(cls, level_str: str) -> "VerbosityLevel":
+        """Convert string to VerbosityLevel.
+        
+        Args:
+            level_str: String representation of verbosity level
+
+        Returns:
+            Corresponding VerbosityLevel
+        """
+        level_map = {
+            "silent": cls.SILENT,
+            "error": cls.ERROR,
+            "info": cls.INFO,
+            "debug": cls.DEBUG,
+            "verbose": cls.VERBOSE
+        }
+        return level_map.get(level_str.lower(), cls.INFO)
+
+# Mapping from VerbosityLevel to logging level
+LEVEL_MAP = {
+    VerbosityLevel.SILENT: logging.CRITICAL,
+    VerbosityLevel.ERROR: logging.ERROR,
+    VerbosityLevel.INFO: logging.INFO,
+    VerbosityLevel.DEBUG: logging.DEBUG,
+    VerbosityLevel.VERBOSE: logging.DEBUG  # Python doesn't have a more verbose level
+}
+
+class LogManager:
+    """Centralized logging management for PepperPy."""
+    
+    _instance = None
+    _initialized = False
+    
+    def __new__(cls, *args, **kwargs):
+        """Create a singleton instance."""
+        if cls._instance is None:
+            cls._instance = super(LogManager, cls).__new__(cls)
+        return cls._instance
+        
+    def __init__(self, 
+                 verbosity: Union[VerbosityLevel, int, str] = VerbosityLevel.INFO,
+                 log_file: Optional[Union[str, Path]] = None,
+                 log_format: str = "%(levelname)s - %(message)s",
+                 **kwargs):
+        """Initialize the log manager if not already initialized.
+        
+        Args:
+            verbosity: Verbosity level for logging
+            log_file: Optional file to write logs to
+            log_format: Format for log messages
+            **kwargs: Additional configuration options
+        """
+        if LogManager._initialized:
+            return
+            
+        # Convert verbosity to VerbosityLevel if needed
+        if isinstance(verbosity, int):
+            try:
+                self.verbosity = VerbosityLevel(verbosity)
+            except ValueError:
+                self.verbosity = VerbosityLevel.INFO
+        elif isinstance(verbosity, str):
+            self.verbosity = VerbosityLevel.from_string(verbosity)
+        else:
+            self.verbosity = verbosity
+            
+        # Set up root logger
+        self.root_logger = logging.getLogger("pepperpy")
+        self.root_logger.setLevel(LEVEL_MAP[self.verbosity])
+        
+        # Remove existing handlers to avoid duplicates
+        for handler in self.root_logger.handlers[:]:
+            self.root_logger.removeHandler(handler)
+        
+        # Create console handler
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setFormatter(logging.Formatter(log_format))
+        self.root_logger.addHandler(console_handler)
+        
+        # Add file handler if specified
+        if log_file:
+            self.set_log_file(log_file, log_format)
+            
+        LogManager._initialized = True
+        
+    def set_verbosity(self, level: Union[VerbosityLevel, int, str]) -> None:
+        """Set the verbosity level.
+        
+        Args:
+            level: New verbosity level
+        """
+        if isinstance(level, int):
+            try:
+                self.verbosity = VerbosityLevel(level)
+            except ValueError:
+                self.verbosity = VerbosityLevel.INFO
+        elif isinstance(level, str):
+            self.verbosity = VerbosityLevel.from_string(level)
+        else:
+            self.verbosity = level
+            
+        self.root_logger.setLevel(LEVEL_MAP[self.verbosity])
+        
+    def set_log_file(self, file_path: Union[str, Path], log_format: Optional[str] = None) -> None:
+        """Set a log file for output.
+        
+        Args:
+            file_path: Path to log file
+            log_format: Optional format for log messages
+        """
+        # Ensure directory exists
+        path = Path(file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Remove existing file handlers
+        for handler in self.root_logger.handlers[:]:
+            if isinstance(handler, logging.FileHandler):
+                self.root_logger.removeHandler(handler)
+        
+        # Add new file handler
+        file_handler = logging.FileHandler(path)
+        file_handler.setFormatter(logging.Formatter(
+            log_format or "%(asctime)s - %(levelname)s - %(message)s"))
+        self.root_logger.addHandler(file_handler)
+        
+    def get_logger(self, name: str) -> logging.Logger:
+        """Get a logger for a specific module.
+        
+        Args:
+            name: Logger name (usually __name__)
+            
+        Returns:
+            Configured logger instance
+        """
+        return logging.getLogger(f"pepperpy.{name}")
+    
+    def log(self, level: VerbosityLevel, message: str, *args, **kwargs) -> None:
+        """Log a message at the specified level.
+        
+        Args:
+            level: Verbosity level
+            message: Message to log
+            *args: Additional args passed to logger
+            **kwargs: Additional kwargs passed to logger
+        """
+        if level.value <= self.verbosity.value:
+            if level == VerbosityLevel.SILENT:
+                return
+            elif level == VerbosityLevel.ERROR:
+                self.root_logger.error(message, *args, **kwargs)
+            elif level == VerbosityLevel.INFO:
+                self.root_logger.info(message, *args, **kwargs)
+            elif level == VerbosityLevel.DEBUG:
+                self.root_logger.debug(message, *args, **kwargs)
+            elif level == VerbosityLevel.VERBOSE:
+                self.root_logger.debug(f"[VERBOSE] {message}", *args, **kwargs)
+
+# Initialize the global log manager
+log_manager = LogManager()
+
+def get_log_manager() -> LogManager:
+    """Get the global log manager instance.
+    
+    Returns:
+        LogManager instance
+    """
+    return log_manager
+
+def configure_logging(
+    verbosity: Union[VerbosityLevel, int, str] = VerbosityLevel.INFO,
+    log_file: Optional[Union[str, Path]] = None,
+    log_format: str = "%(levelname)s - %(message)s"
+) -> LogManager:
+    """Configure global logging settings.
+    
+    Args:
+        verbosity: Verbosity level for logging
+        log_file: Optional file to write logs to
+        log_format: Format for log messages
+        
+    Returns:
+        Configured LogManager instance
+    """
+    global log_manager
+    log_manager = LogManager(verbosity=verbosity, log_file=log_file, log_format=log_format)
+    return log_manager
+
+def get_logger(name: str) -> logging.Logger:
+    """Get a logger for a specific module.
+    
+    Args:
+        name: Logger name (usually __name__)
+        
+    Returns:
+        Configured logger instance
+    """
+    return log_manager.get_logger(name)
 
 __all__ = [
     "LogLevel",
