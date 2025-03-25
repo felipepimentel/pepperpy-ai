@@ -31,7 +31,7 @@ from pepperpy.llm.base import (
     Message,
     MessageRole,
 )
-from pepperpy.core.utils.imports import lazy_provider_class, import_provider
+from pepperpy.core.utils.imports import lazy_provider_class
 
 logger = logging.getLogger(__name__)
 
@@ -63,12 +63,8 @@ class OpenRouterProvider(LLMProvider):
         """
         super().__init__(**kwargs)
         
-        # Import openrouter only when provider is instantiated
-        openrouter = import_provider('openrouter', 'llm', 'openrouter')
-        
         self._api_key = api_key or self._get_api_key()
         self.model = model
-        self.client = openrouter.OpenRouter(api_key=self._api_key)
         self._client: Optional[httpx.AsyncClient] = None
         self._config = {
             "provider": "openrouter",

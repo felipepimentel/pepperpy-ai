@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 from typing import Any, Dict, List, Optional, Set, Union
+from urllib.parse import urlparse
 
 # This is a placeholder. In a real implementation, you would use a GitHub API client
 # like PyGithub or the aiohttp library to make API calls
@@ -132,7 +133,7 @@ class GitHubProvider(RepositoryProvider):
         """Get repository data by identifier.
         
         Args:
-            repo_identifier: Repository identifier in format "username/repo"
+            repo_identifier: Repository identifier in format "username/repo" or GitHub URL
                 
         Returns:
             Repository data dictionary
@@ -145,6 +146,13 @@ class GitHubProvider(RepositoryProvider):
         
         try:
             self.logger.info(f"Getting repository data for {repo_identifier}")
+            
+            # Parse GitHub URL if provided
+            if repo_identifier.startswith('http'):
+                parsed = urlparse(repo_identifier)
+                if parsed.netloc != 'github.com':
+                    raise RepositoryError(f"Not a GitHub URL: {repo_identifier}")
+                repo_identifier = parsed.path.strip('/')
             
             # In a real implementation, you would retrieve the repository from GitHub
             # username, repo_name = repo_identifier.split('/')

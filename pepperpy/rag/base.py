@@ -2,11 +2,13 @@
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union, Protocol, Sequence, TypeVar
 
 from pepperpy.core import PepperpyError
-from pepperpy.core.base import BaseModelContext
+from pepperpy.core.base import BaseModelContext, BaseProvider as CoreBaseProvider
 from pepperpy.embeddings.base import EmbeddingProvider
+
+T = TypeVar("T")
 
 
 class RAGError(PepperpyError):
@@ -15,31 +17,17 @@ class RAGError(PepperpyError):
     pass
 
 
-class Document:
+class Document(Dict[str, Any]):
     """A document in the RAG system."""
 
-    def __init__(
-        self,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        embeddings: Optional[Union[List[float], List[List[float]]]] = None,
-        id: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-    ) -> None:
+    def __init__(self, text: str, metadata: Optional[Dict[str, Any]] = None) -> None:
         """Initialize a document.
 
         Args:
-            content: The content of the document.
-            metadata: Optional metadata associated with the document.
-            embeddings: Optional embeddings for the document.
-            id: Optional unique identifier for the document.
-            created_at: Optional creation timestamp.
+            text: The document text.
+            metadata: Optional metadata for the document.
         """
-        self.content = content
-        self.metadata = metadata or {}
-        self.embeddings = embeddings
-        self.id = id
-        self.created_at = created_at or datetime.now()
+        super().__init__(text=text, metadata=metadata or {})
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the document to a dictionary.
@@ -47,13 +35,7 @@ class Document:
         Returns:
             A dictionary representation of the document.
         """
-        return {
-            "content": self.content,
-            "metadata": self.metadata,
-            "embeddings": self.embeddings,
-            "id": self.id,
-            "created_at": self.created_at.isoformat(),
-        }
+        return dict(self)
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Document":
@@ -65,42 +47,19 @@ class Document:
         Returns:
             A new Document instance.
         """
-        return cls(
-            content=data["content"],
-            metadata=data.get("metadata"),
-            embeddings=data.get("embeddings"),
-            id=data.get("id"),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
-        )
+        return cls(text=data["text"], metadata=data.get("metadata", {}))
 
 
 class Query:
-    """A query in the RAG system."""
+    """A search query in the RAG system."""
 
-    def __init__(
-        self,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        embeddings: Optional[Union[List[float], List[List[float]]]] = None,
-        id: Optional[str] = None,
-        created_at: Optional[datetime] = None,
-    ) -> None:
+    def __init__(self, text: str) -> None:
         """Initialize a query.
 
         Args:
-            content: The content of the query.
-            metadata: Optional metadata associated with the query.
-            embeddings: Optional embeddings for the query.
-            id: Optional unique identifier for the query.
-            created_at: Optional creation timestamp.
+            text: The query text.
         """
-        self.content = content
-        self.metadata = metadata or {}
-        self.embeddings = embeddings
-        self.id = id
-        self.created_at = created_at or datetime.now()
+        self.text = text
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the query to a dictionary.
@@ -108,13 +67,7 @@ class Query:
         Returns:
             A dictionary representation of the query.
         """
-        return {
-            "content": self.content,
-            "metadata": self.metadata,
-            "embeddings": self.embeddings,
-            "id": self.id,
-            "created_at": self.created_at.isoformat(),
-        }
+        return {"text": self.text}
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Query":
@@ -126,15 +79,15 @@ class Query:
         Returns:
             A new Query instance.
         """
-        return cls(
-            content=data["content"],
-            metadata=data.get("metadata"),
-            embeddings=data.get("embeddings"),
-            id=data.get("id"),
-            created_at=datetime.fromisoformat(data["created_at"])
-            if data.get("created_at")
-            else None,
-        )
+        return cls(text=data["text"])
+
+    def __str__(self) -> str:
+        """Convert the query to a string.
+
+        Returns:
+            The query text.
+        """
+        return self.text
 
 
 class RetrievalResult:
@@ -191,105 +144,139 @@ class RetrievalResult:
         )
 
 
-class BaseRAGProvider(ABC):
+class BaseProvider(CoreBaseProvider, Protocol):
     """Base class for RAG providers."""
 
-    def __init__(self, embedding_provider: Optional[EmbeddingProvider] = None) -> None:
-        """Initialize the provider.
-
-        Args:
-            embedding_provider: Optional provider for generating embeddings.
-        """
-        self.embedding_provider = embedding_provider
-
     @abstractmethod
-    async def add_documents(
-        self, documents: Union[Document, List[Document]]
-    ) -> List[Document]:
-        """Add documents to the provider.
-
-        Args:
-            documents: A document or list of documents to add.
-
-        Returns:
-            The added documents.
-
-        Raises:
-            RAGError: If there is an error adding the documents.
-        """
-        pass
-
-    @abstractmethod
-    async def search(
+    def add_documents(
         self,
-        query: Query,
-        limit: int = 10,
-        min_score: Optional[float] = None,
+        documents: Sequence[Dict[str, Any]],
+        collection_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> RetrievalResult:
-        """Search for documents similar to the query.
+    ) -> List[str]:
+        """Add documents to the vector store.
 
         Args:
-            query: The query to search for.
-            limit: Maximum number of results to return.
-            min_score: Minimum similarity score for results.
+            documents: List of documents to add.
+                Each document must have at least 'text' and 'metadata' fields.
+            collection_name: Optional name of the collection to add documents to.
+                If not provided, uses the default collection.
             **kwargs: Additional provider-specific arguments.
 
         Returns:
-            A RetrievalResult containing the query and matching documents.
-
-        Raises:
-            RAGError: If there is an error performing the search.
+            List of document IDs.
         """
         pass
 
     @abstractmethod
-    async def delete_documents(self, document_ids: Union[str, List[str]]) -> None:
-        """Delete documents from the provider.
+    def search(
+        self,
+        query: str,
+        collection_name: Optional[str] = None,
+        top_k: int = 5,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Search for documents similar to the query.
 
         Args:
-            document_ids: A document ID or list of document IDs to delete.
+            query: The search query.
+            collection_name: Optional name of the collection to search in.
+                If not provided, uses the default collection.
+            top_k: Number of results to return.
+            **kwargs: Additional provider-specific arguments.
 
-        Raises:
-            RAGError: If there is an error deleting the documents.
+        Returns:
+            List of documents sorted by relevance.
         """
         pass
 
     @abstractmethod
-    async def get_documents(
-        self, document_ids: Union[str, List[str]]
-    ) -> List[Document]:
-        """Get documents by their IDs.
+    def delete_documents(
+        self,
+        document_ids: Union[str, List[str]],
+        collection_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Delete documents from the vector store.
 
         Args:
-            document_ids: A document ID or list of document IDs to retrieve.
-
-        Returns:
-            The requested documents.
-
-        Raises:
-            RAGError: If there is an error retrieving the documents.
+            document_ids: ID or list of IDs of documents to delete.
+            collection_name: Optional name of the collection to delete from.
+                If not provided, uses the default collection.
+            **kwargs: Additional provider-specific arguments.
         """
         pass
 
     @abstractmethod
-    async def list_documents(self) -> List[Document]:
-        """List all documents in the provider.
+    def get_document(
+        self,
+        document_id: str,
+        collection_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[Dict[str, Any]]:
+        """Get a document by ID.
+
+        Args:
+            document_id: ID of the document to get.
+            collection_name: Optional name of the collection to get from.
+                If not provided, uses the default collection.
+            **kwargs: Additional provider-specific arguments.
 
         Returns:
-            All documents in the provider.
-
-        Raises:
-            RAGError: If there is an error listing the documents.
+            The document if found, None otherwise.
         """
         pass
 
     @abstractmethod
-    async def clear(self) -> None:
-        """Clear all documents from the provider.
+    def get_documents(
+        self,
+        document_ids: Union[str, List[str]],
+        collection_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Get multiple documents by their IDs.
 
-        Raises:
-            RAGError: If there is an error clearing the documents.
+        Args:
+            document_ids: ID or list of IDs of documents to get.
+            collection_name: Optional name of the collection to get from.
+                If not provided, uses the default collection.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            List of documents.
+        """
+        pass
+
+    @abstractmethod
+    def list_documents(
+        self,
+        collection_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """List all documents in a collection.
+
+        Args:
+            collection_name: Optional name of the collection to list.
+                If not provided, uses the default collection.
+            **kwargs: Additional provider-specific arguments.
+
+        Returns:
+            List of all documents.
+        """
+        pass
+
+    @abstractmethod
+    def clear(
+        self,
+        collection_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Clear all documents from a collection.
+
+        Args:
+            collection_name: Optional name of the collection to clear.
+                If not provided, uses the default collection.
+            **kwargs: Additional provider-specific arguments.
         """
         pass
 
@@ -299,7 +286,7 @@ class RAGContext(BaseModelContext):
 
     def __init__(
         self,
-        provider: BaseRAGProvider,
+        provider: BaseProvider,
         embedding_provider: Optional[EmbeddingProvider] = None,
         context: Optional[Dict[str, Any]] = None,
     ) -> None:
@@ -314,91 +301,92 @@ class RAGContext(BaseModelContext):
         self.embedding_provider = embedding_provider
 
     @property
-    def provider(self) -> BaseRAGProvider:
+    def provider(self) -> BaseProvider:
         """Get the RAG provider instance."""
         return self.model
 
-    async def add_documents(
-        self, documents: Union[Document, list[Document]]
-    ) -> list[Document]:
+    def add_documents(
+        self,
+        documents: Union[Document, List[Document]],
+        **kwargs: Any,
+    ) -> List[str]:
         """Add documents to the provider.
 
         Args:
             documents: A document or list of documents to add.
-
-        Returns:
-            The added documents.
-        """
-        if isinstance(documents, Document):
-            documents = [documents]
-
-        # If we have an embedding provider, generate embeddings for documents
-        # that don't have them
-        if self.embedding_provider:
-            for doc in documents:
-                if not doc.embeddings:
-                    content = doc.content
-                    doc.embeddings = await self.embedding_provider.embed_text(content)
-
-        return await self.provider.add_documents(documents)
-
-    async def search(
-        self,
-        query: Union[str, Query],
-        limit: int = 10,
-        min_score: Optional[float] = None,
-        **kwargs: Any,
-    ) -> RetrievalResult:
-        """Search for documents similar to the query.
-
-        Args:
-            query: The query string or Query object.
-            limit: Maximum number of results to return.
-            min_score: Minimum similarity score for results.
             **kwargs: Additional provider-specific arguments.
 
         Returns:
-            A RetrievalResult containing the query and matching documents.
+            List of document IDs.
         """
-        if isinstance(query, str):
-            query = Query(content=query)
+        if isinstance(documents, Document):
+            documents = [documents]
+        return self.provider.add_documents([dict(doc) for doc in documents], **kwargs)
 
-        # If we have an embedding provider and the query doesn't have embeddings,
-        # generate them
-        if self.embedding_provider and not query.embeddings:
-            query.embeddings = await self.embedding_provider.embed_text(query.content)
+    def search(
+        self,
+        query: Union[str, Query],
+        top_k: int = 5,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Search for documents similar to the query.
 
-        return await self.provider.search(query, limit, min_score, **kwargs)
+        Args:
+            query: The search query.
+            top_k: Number of results to return.
+            **kwargs: Additional provider-specific arguments.
 
-    async def delete_documents(self, document_ids: Union[str, list[str]]) -> None:
+        Returns:
+            List of documents sorted by relevance.
+        """
+        if isinstance(query, Query):
+            query = str(query)
+        return self.provider.search(query, top_k=top_k, **kwargs)
+
+    def delete_documents(
+        self,
+        document_ids: Union[str, List[str]],
+        **kwargs: Any,
+    ) -> None:
         """Delete documents from the provider.
 
         Args:
             document_ids: A document ID or list of document IDs to delete.
+            **kwargs: Additional provider-specific arguments.
         """
-        await self.provider.delete_documents(document_ids)
+        self.provider.delete_documents(document_ids, **kwargs)
 
-    async def get_documents(
-        self, document_ids: Union[str, list[str]]
-    ) -> list[Document]:
+    def get_documents(
+        self,
+        document_ids: Union[str, List[str]],
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
         """Get documents by their IDs.
 
         Args:
             document_ids: A document ID or list of document IDs to retrieve.
+            **kwargs: Additional provider-specific arguments.
 
         Returns:
-            The requested documents.
+            List of documents.
         """
-        return await self.provider.get_documents(document_ids)
+        return self.provider.get_documents(document_ids, **kwargs)
 
-    async def list_documents(self) -> list[Document]:
+    def list_documents(self, **kwargs: Any) -> List[Dict[str, Any]]:
         """List all documents in the provider.
 
-        Returns:
-            All documents in the provider.
-        """
-        return await self.provider.list_documents()
+        Args:
+            **kwargs: Additional provider-specific arguments.
 
-    async def clear(self) -> None:
-        """Clear all documents from the provider."""
-        await self.provider.clear()
+        Returns:
+            List of all documents.
+        """
+        return self.provider.list_documents(**kwargs)
+
+    def clear(self, **kwargs: Any) -> None:
+        """Clear all documents from the provider.
+
+        Args:
+            **kwargs: Additional provider-specific arguments.
+        """
+        self.provider.clear(**kwargs)
