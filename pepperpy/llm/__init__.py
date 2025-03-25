@@ -1,12 +1,6 @@
-"""PepperPy LLM Module.
+"""LLM module."""
 
-This module provides language model functionality for the PepperPy framework.
-"""
+from .base import LLMProvider, Message, MessageRole
+from .component import LLMComponent
 
-from .base import LLMProvider
-from .providers import OpenRouterProvider
-
-__all__ = [
-    "LLMProvider",
-    "OpenRouterProvider",
-]
+__all__ = ["Message", "MessageRole", "LLMProvider", "LLMComponent"]

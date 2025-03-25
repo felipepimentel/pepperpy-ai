@@ -4,17 +4,20 @@ This provider offers both in-memory and persistent storage options for vector em
 making it ideal for development, testing, and production use cases.
 """
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
+
 import chromadb
-from chromadb.config import Settings
 from chromadb.api.types import Collection
-from pepperpy.rag.providers.base import BaseRAGProvider
-from pepperpy.rag.models import SearchResult
+from chromadb.config import Settings
+
 from pepperpy.core import ProviderError
+from pepperpy.rag.models import SearchResult
+from pepperpy.rag.providers.base import BaseRAGProvider
+
 
 class ChromaProvider(BaseRAGProvider):
     """Chroma-based RAG provider for vector storage and retrieval.
-    
+
     This provider implements vector storage and similarity search using Chroma,
     a lightweight and efficient vector database that can run both in-memory
     and with persistent storage.
@@ -43,13 +46,14 @@ class ChromaProvider(BaseRAGProvider):
                 settings = Settings()
                 if self.persist_directory:
                     self._client = chromadb.PersistentClient(
-                        path=self.persist_directory, 
-                        settings=settings
+                        path=self.persist_directory, settings=settings
                     )
                 else:
                     self._client = chromadb.EphemeralClient(settings=settings)
             except Exception as e:
-                raise ProviderError(f"Failed to initialize Chroma client: {str(e)}") from e
+                raise ProviderError(
+                    f"Failed to initialize Chroma client: {str(e)}"
+                ) from e
 
     async def initialize(self) -> None:
         """Initialize the provider and create/get the collection."""
@@ -79,27 +83,25 @@ class ChromaProvider(BaseRAGProvider):
             try:
                 # Process in batches
                 for i in range(0, len(vectors), batch_size):
-                    batch = vectors[i:i + batch_size]
-                    
+                    batch = vectors[i : i + batch_size]
+
                     # Extract components from the vectors
                     ids = [str(v.get("id", i)) for i, v in enumerate(batch)]
                     embeddings = [v["values"] for v in batch]
                     metadatas = [v.get("metadata", {}) for v in batch]
-                    
+
                     # Add to collection
                     self._collection.add(
-                        ids=ids,
-                        embeddings=embeddings,
-                        metadatas=metadatas
+                        ids=ids, embeddings=embeddings, metadatas=metadatas
                     )
             except Exception as e:
                 raise ProviderError(f"Failed to store vectors: {str(e)}") from e
 
     async def search(
-        self, 
-        query_vector: List[float], 
-        top_k: int = 5, 
-        filter: Optional[Dict[str, Any]] = None
+        self,
+        query_vector: List[float],
+        top_k: int = 5,
+        filter: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
         """Search for similar vectors in the collection.
 
@@ -121,19 +123,19 @@ class ChromaProvider(BaseRAGProvider):
             try:
                 # Perform the search
                 results = self._collection.query(
-                    query_embeddings=[query_vector],
-                    n_results=top_k,
-                    where=filter
+                    query_embeddings=[query_vector], n_results=top_k, where=filter
                 )
 
                 # Convert to SearchResult objects
                 search_results = []
-                for i in range(len(results['ids'][0])):
+                for i in range(len(results["ids"][0])):
                     search_results.append(
                         SearchResult(
-                            id=results['ids'][0][i],
-                            score=float(results['distances'][0][i]),
-                            metadata=results['metadatas'][0][i] if results['metadatas'] else {}
+                            id=results["ids"][0][i],
+                            score=float(results["distances"][0][i]),
+                            metadata=results["metadatas"][0][i]
+                            if results["metadatas"]
+                            else {},
                         )
                     )
 
@@ -150,7 +152,7 @@ class ChromaProvider(BaseRAGProvider):
         """
         return {
             "collection_name": self.collection_name,
-            "persist_directory": self.persist_directory
+            "persist_directory": self.persist_directory,
         }
 
     def get_capabilities(self) -> Dict[str, bool]:
@@ -163,7 +165,7 @@ class ChromaProvider(BaseRAGProvider):
             "supports_metadata": True,
             "supports_async": True,
             "supports_batch_operations": True,
-            "supports_persistence": bool(self.persist_directory)
+            "supports_persistence": bool(self.persist_directory),
         }
 
     async def close(self) -> None:
@@ -176,4 +178,4 @@ class ChromaProvider(BaseRAGProvider):
                 self._client = None
                 self._collection = None
             except Exception as e:
-                raise ProviderError(f"Failed to close provider: {str(e)}") from e 
+                raise ProviderError(f"Failed to close provider: {str(e)}") from e

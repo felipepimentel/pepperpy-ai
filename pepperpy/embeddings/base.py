@@ -3,13 +3,10 @@
 This module defines the base interfaces that all embedding providers must implement.
 """
 
-from typing import Any, Dict, List, Optional, Protocol, Union
-from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Protocol
 
 from pepperpy.core import PepperpyError
-
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
 
 
 class EmbeddingError(PepperpyError):
@@ -17,7 +14,7 @@ class EmbeddingError(PepperpyError):
 
     def __init__(self, message: str, *args: Any, **kwargs: Any) -> None:
         """Initialize a new embeddings error.
-        
+
         Args:
             message: Error message.
             *args: Additional positional arguments.
@@ -29,9 +26,11 @@ class EmbeddingError(PepperpyError):
 class EmbeddingConfigError(EmbeddingError):
     """Error related to configuration of embedding providers."""
 
-    def __init__(self, message: str, provider: Optional[str] = None, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, message: str, provider: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> None:
         """Initialize a new embedding configuration error.
-        
+
         Args:
             message: Error message.
             provider: The embedding provider name.
@@ -40,7 +39,7 @@ class EmbeddingConfigError(EmbeddingError):
         """
         self.provider = provider
         super().__init__(message, *args, **kwargs)
-        
+
     def __str__(self) -> str:
         """Return the string representation of the error."""
         if self.provider:
@@ -51,9 +50,11 @@ class EmbeddingConfigError(EmbeddingError):
 class EmbeddingProcessError(EmbeddingError):
     """Error related to the embedding process."""
 
-    def __init__(self, message: str, text: Optional[str] = None, *args: Any, **kwargs: Any) -> None:
+    def __init__(
+        self, message: str, text: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> None:
         """Initialize a new embedding process error.
-        
+
         Args:
             message: Error message.
             text: The text that failed to be embedded.
@@ -62,15 +63,16 @@ class EmbeddingProcessError(EmbeddingError):
         """
         self.text = text
         super().__init__(message, *args, **kwargs)
-        
+
     def __str__(self) -> str:
         """Return the string representation of the error."""
         if self.text:
             # Truncate text if too long
             text = self.text[:50] + "..." if len(self.text) > 50 else self.text
             return f"Embedding process error for text '{text}': {self.message}"
-        return f"Embedding process error: {self.message}" 
-    
+        return f"Embedding process error: {self.message}"
+
+
 @dataclass
 class EmbeddingOptions:
     """Options for embedding generation.
@@ -100,40 +102,42 @@ class EmbeddingResult:
 
     embedding: List[float]
     usage: Dict[str, int]
-    metadata: Dict[str, Any] = field(default_factory=dict) 
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
-class EmbeddingProvider(ABC):
-    """Base class for embedding providers."""
 
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the provider.
+class EmbeddingProvider(Protocol):
+    """Protocol for embedding providers."""
 
-        Args:
-            **kwargs: Provider-specific arguments.
-        """
-        self.config = kwargs
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
 
-    @abstractmethod
-    async def embed_text(
-        self,
-        text: Union[str, List[str]],
-        **kwargs: Any,
-    ) -> Union[List[float], List[List[float]]]:
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        ...
+
+    async def embed_text(self, text: str) -> List[float]:
         """Generate embeddings for text.
 
         Args:
-            text: Text or list of texts to embed.
-            **kwargs: Additional provider-specific arguments.
+            text: Text to embed.
 
         Returns:
-            A list of embeddings (one per text).
-
-        Raises:
-            EmbeddingError: If there is an error generating embeddings.
+            Text embeddings.
         """
-        pass
+        ...
 
-    @abstractmethod
+    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to embed.
+
+        Returns:
+            List of text embeddings.
+        """
+        ...
+
     async def get_dimensions(self) -> int:
         """Get the dimensionality of the embeddings.
 
@@ -146,14 +150,6 @@ class EmbeddingProvider(ABC):
         pass
 
     name: str
-
-    async def initialize(self) -> None:
-        """Initialize the provider.
-
-        This method should be called before using the provider to set up any
-        necessary resources or connections.
-        """
-        ...
 
     async def embed(
         self, text: str, options: Optional[EmbeddingOptions] = None
@@ -203,4 +199,4 @@ class EmbeddingProvider(ABC):
         Returns:
             A dictionary of provider capabilities
         """
-        ... 
+        ...

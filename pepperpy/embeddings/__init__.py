@@ -9,4 +9,4 @@ from .errors import EmbeddingError
 __all__ = [
     "EmbeddingProvider",
     "EmbeddingError",
-] 
+]

@@ -11,17 +11,15 @@ Example:
     ...         self.provider_type = "custom"
 """
 
-import abc
-from typing import Any, Dict, Optional, TypeVar, Union, Tuple, Protocol
-import json
-import os
 from abc import ABC
+from typing import Any, Dict, Optional, Protocol, TypeVar, Union
 
 # Type definitions
 ConfigType = Dict[str, Any]
 HeadersType = Dict[str, str]
 QueryParamsType = Union[Dict[str, Any], str]
 JsonType = Any
+
 
 # Base Exceptions
 class PepperpyError(Exception):
@@ -48,16 +46,17 @@ class PepperpyError(Exception):
         """
         return self.message
 
+
 class ProviderError(PepperpyError):
     """Error raised by providers during initialization or execution."""
-    
+
     def __init__(
         self,
         message: str,
         provider: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.provider = provider
@@ -71,6 +70,7 @@ class ProviderError(PepperpyError):
             parts.append(f"Operation: {self.operation}")
         return " | ".join(parts)
 
+
 class ValidationError(PepperpyError):
     """Error raised when validation fails."""
 
@@ -81,7 +81,7 @@ class ValidationError(PepperpyError):
         rule: Optional[str] = None,
         value: Optional[Any] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.field = field
@@ -98,16 +98,17 @@ class ValidationError(PepperpyError):
             parts.append(f"Value: {self.value}")
         return " | ".join(parts)
 
+
 class ConfigurationError(PepperpyError):
     """Raised when configuration is invalid or missing."""
-    
+
     def __init__(
         self,
         message: str,
         config_key: Optional[str] = None,
         config_value: Optional[Any] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.config_key = config_key
@@ -121,12 +122,14 @@ class ConfigurationError(PepperpyError):
             parts.append(f"Value: {self.config_value}")
         return " | ".join(parts)
 
+
 class HTTPError(PepperpyError):
     """Base class for HTTP errors."""
 
     def __init__(self, message: str, status_code: Optional[int] = None):
         super().__init__(message)
         self.status_code = status_code
+
 
 class RequestError(HTTPError):
     """Error during HTTP request preparation."""
@@ -135,12 +138,14 @@ class RequestError(HTTPError):
         super().__init__(message)
         self.request_info = request_info or {}
 
+
 class ResponseError(HTTPError):
     """Error processing HTTP response."""
 
     def __init__(self, message: str, response_info: Optional[Dict[str, Any]] = None):
         super().__init__(message)
         self.response_info = response_info or {}
+
 
 class ConnectionError(HTTPError):
     """Error connecting to HTTP server."""
@@ -149,6 +154,7 @@ class ConnectionError(HTTPError):
         super().__init__(message)
         self.host = host
 
+
 class TimeoutError(HTTPError):
     """Error when HTTP request times out."""
 
@@ -156,8 +162,10 @@ class TimeoutError(HTTPError):
         super().__init__(message)
         self.timeout = timeout
 
+
 # Provider Interfaces
 T = TypeVar("T", bound="BaseProvider")
+
 
 class BaseProvider(Protocol):
     """Base protocol for all providers.
@@ -191,6 +199,7 @@ class BaseProvider(Protocol):
             A dictionary of provider capabilities
         """
         ...
+
 
 class RemoteProvider(BaseProvider):
     """Base class for remote providers.
@@ -237,10 +246,12 @@ class RemoteProvider(BaseProvider):
         """
         return f"{self.base_url}/{path.lstrip('/')}"
 
+
 class LocalProvider(BaseProvider):
     """Base class for local providers."""
 
     name = "local"
+
 
 class RestProvider(RemoteProvider):
     """Base class for REST API providers."""
@@ -294,6 +305,7 @@ class RestProvider(RemoteProvider):
             Response data
         """
         raise NotImplementedError
+
 
 class ModelContext(Protocol[T]):
     """Protocol defining the model context interface."""
@@ -355,3 +367,175 @@ class BaseModelContext(ABC):
             The value from the context or the default.
         """
         return self._context.get(key, default)
+
+
+"""Base classes and interfaces for PepperPy."""
+
+from abc import ABC, abstractmethod
+from typing import Any, Dict, Optional, TypeVar
+
+T = TypeVar("T", bound="BaseComponent")
+
+
+class BaseComponent(ABC):
+    """Base class for all PepperPy components."""
+
+    def __init__(self) -> None:
+        """Initialize the component."""
+        self._initialized = False
+        self._options: Dict[str, Any] = {}
+
+    async def initialize(self) -> None:
+        """Initialize the component."""
+        if not self._initialized:
+            await self._initialize()
+            self._initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self._initialized:
+            await self._cleanup()
+            self._initialized = False
+
+    async def _initialize(self) -> None:
+        """Initialize implementation."""
+        pass
+
+    async def _cleanup(self) -> None:
+        """Cleanup implementation."""
+        pass
+
+    async def __aenter__(self) -> "BaseComponent":
+        """Enter async context."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context."""
+        await self.cleanup()
+
+    def configure(self: T, **options: Any) -> T:
+        """Configure the component.
+
+        Args:
+            **options: Configuration options
+
+        Returns:
+            Self for chaining
+        """
+        self._options.update(options)
+        return self
+
+
+class BaseBuilder(ABC):
+    """Base class for builders."""
+
+    def __init__(self) -> None:
+        """Initialize the builder."""
+        self._options: Dict[str, Any] = {}
+
+    def configure(self: T, **options: Any) -> T:
+        """Configure the builder.
+
+        Args:
+            **options: Configuration options
+
+        Returns:
+            Self for chaining
+        """
+        self._options.update(options)
+        return self
+
+    @abstractmethod
+    def build(self) -> Any:
+        """Build the component.
+
+        Returns:
+            Built component
+        """
+        pass
+
+
+class PepperPy:
+    """Main entry point for PepperPy framework."""
+
+    def __init__(self, config_path: Optional[str] = None) -> None:
+        """Initialize PepperPy.
+
+        Args:
+            config_path: Optional path to configuration file
+        """
+        from pepperpy.core import Config
+
+        self.config = Config(config_path=config_path)
+        self._components: Dict[str, BaseComponent] = {}
+
+    @classmethod
+    def create(cls, config_path: Optional[str] = None) -> "PepperPy":
+        """Create a new PepperPy instance.
+
+        Args:
+            config_path: Optional path to configuration file
+
+        Returns:
+            New PepperPy instance
+        """
+        return cls(config_path=config_path)
+
+    async def __aenter__(self) -> "PepperPy":
+        """Enter async context."""
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context."""
+        for component in self._components.values():
+            await component.cleanup()
+
+    @property
+    def llm(self) -> "LLMComponent":
+        """Get LLM component."""
+        from pepperpy.llm import LLMComponent
+
+        if "llm" not in self._components:
+            self._components["llm"] = LLMComponent(self.config)
+        return self._components["llm"]
+
+    @property
+    def embeddings(self) -> "EmbeddingComponent":
+        """Get embeddings component."""
+        from pepperpy.embeddings import EmbeddingComponent
+
+        if "embeddings" not in self._components:
+            self._components["embeddings"] = EmbeddingComponent(self.config)
+        return self._components["embeddings"]
+
+    @property
+    def rag(self) -> "RAGComponent":
+        """Get RAG component."""
+        from pepperpy.rag import RAGComponent
+
+        if "rag" not in self._components:
+            self._components["rag"] = RAGComponent(self.config)
+        return self._components["rag"]
+
+    @property
+    def github(self) -> "GitHubComponent":
+        """Get GitHub component."""
+        from pepperpy.github import GitHubComponent
+
+        if "github" not in self._components:
+            self._components["github"] = GitHubComponent(self.config)
+        return self._components["github"]
+
+    def create_assistant(self, name: Optional[str] = None) -> "AssistantBuilder":
+        """Create a new assistant builder.
+
+        Args:
+            name: Optional assistant name
+
+        Returns:
+            Assistant builder
+        """
+        from pepperpy.assistants import AssistantBuilder
+
+        return AssistantBuilder(self, name)
