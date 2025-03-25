@@ -13,18 +13,17 @@ This example demonstrates a comprehensive code repository analysis assistant tha
 
 import asyncio
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from pepperpy.core import Config, ValidationError
-from pepperpy.embeddings.providers.openai import OpenAIEmbeddingProvider
+from pepperpy.core import Config
+from pepperpy.embeddings import EmbeddingProvider
 from pepperpy.github import GitHubClient
 from pepperpy.llm.base import Message, MessageRole
-from pepperpy.llm.providers.openrouter import OpenRouterProvider
+from pepperpy.llm.provider import LLMProvider
 from pepperpy.rag import Document, Query, RAGContext
-from pepperpy.rag.providers.chroma import ChromaProvider
+from pepperpy.rag.provider import RAGProvider
 
 
 def _build_context_from_report(report: Dict) -> str:
@@ -96,7 +95,10 @@ async def analyze_repository(
 
 
 async def index_repository(
-    github: GitHubClient, repo_identifier: str
+    github: GitHubClient,
+    repo_identifier: str,
+    rag_provider: RAGProvider,
+    embedding_provider: EmbeddingProvider,
 ) -> Optional[RAGContext]:
     """Index repository content for RAG."""
     print("\nIndexing repository contents...")
@@ -128,19 +130,7 @@ async def index_repository(
                 except Exception as e:
                     print(f"Error indexing file {file['path']}: {e}")
 
-        # Initialize embedding provider
-        embedding_provider = OpenAIEmbeddingProvider(
-            api_key=os.getenv("PEPPERPY_EMBEDDINGS__OPENAI_API_KEY")
-        )
-        await embedding_provider.initialize()
-
-        # Initialize RAG provider and context
-        rag_provider = ChromaProvider(
-            collection_name=f"repo-{repo_identifier.replace('/', '-')}",
-            embedding_function=embedding_provider,
-        )
-        await rag_provider.initialize()
-
+        # Initialize RAG context
         rag_context = RAGContext(
             provider=rag_provider, embedding_provider=embedding_provider
         )
@@ -157,7 +147,7 @@ async def index_repository(
 
 
 async def ask_about_repository(
-    question: str, report: Dict, rag_context: RAGContext
+    question: str, report: Dict, rag_context: RAGContext, llm: LLMProvider
 ) -> Optional[str]:
     """Ask a question about the repository."""
     # First, retrieve relevant documents
@@ -172,18 +162,6 @@ async def ask_about_repository(
         context += f"\nFile: {result.metadata['file_path']}\n"
         content = result.text[:1000]
         context += f"Content: {content}...\n"
-
-    # Get API key from environment
-    api_key = os.getenv("PEPPERPY_LLM__API_KEY")
-    if not api_key:
-        raise ValidationError("PEPPERPY_LLM__API_KEY environment variable not set")
-
-    # Initialize LLM from environment configuration
-    llm = OpenRouterProvider(
-        api_key=os.getenv("PEPPERPY_LLM__OPENROUTER_API_KEY"),
-        model="anthropic/claude-3-sonnet",
-    )
-    await llm.initialize()
 
     try:
         # Generate response
@@ -207,8 +185,9 @@ Please answer the question based on the repository information and analysis.""",
 
         result = await llm.generate(messages)
         return result.content
-    finally:
-        await llm.cleanup()
+    except Exception as e:
+        print(f"Error generating response: {e}")
+        return None
 
 
 def _is_text_file(filename: str) -> bool:
@@ -247,57 +226,43 @@ def _is_text_file(filename: str) -> bool:
 class RepositoryChatAssistant:
     """Assistant for analyzing and chatting about repositories."""
 
-    def __init__(self, repo_url: str):
+    def __init__(
+        self,
+        repo_url: str,
+        llm: LLMProvider,
+        embedding_provider: EmbeddingProvider,
+        rag_provider: RAGProvider,
+        github: GitHubClient,
+    ):
         """Initialize the assistant.
 
         Args:
             repo_url: URL of the repository to analyze
+            llm: LLM provider instance
+            embedding_provider: Embedding provider instance
+            rag_provider: RAG provider instance
+            github: GitHub client instance
         """
         self.repo_url = repo_url
-        self.config = Config(env_prefix="PEPPERPY_")
-
-        # Initialize LLM provider from environment
-        self.llm = OpenRouterProvider(
-            api_key=os.getenv("PEPPERPY_LLM__OPENROUTER_API_KEY"),
-            model="anthropic/claude-3-sonnet",
-        )
-
-        # Initialize embedding provider
-        self.embedding_provider = OpenAIEmbeddingProvider(
-            api_key=os.getenv("PEPPERPY_EMBEDDINGS__OPENAI_API_KEY")
-        )
-
-        # Initialize RAG provider
-        self.rag_provider = ChromaProvider(
-            collection_name="repo_analysis",
-            persist_directory=".pepperpy/chroma",
-            embedding_function=self.embedding_provider,
-        )
-
-        # Initialize RAG context
-        self.rag_context = RAGContext(
-            provider=self.rag_provider, embedding_provider=self.embedding_provider
-        )
+        self.llm = llm
+        self.embedding_provider = embedding_provider
+        self.rag_provider = rag_provider
+        self.github = github
+        self.rag_context = None
 
     async def analyze(self) -> None:
         """Analyze the repository and index its content."""
-        # Initialize providers
-        await self.llm.initialize()
-        await self.embedding_provider.initialize()
-        await self.rag_provider.initialize()
-
-        # Initialize GitHub client
-        github = GitHubClient(token=os.getenv("PEPPERPY_TOOLS__GITHUB_API_KEY"))
-
         # Index repository for RAG
-        rag_context = await index_repository(github, self.repo_url)
-        if not rag_context:
+        self.rag_context = await index_repository(
+            self.github, self.repo_url, self.rag_provider, self.embedding_provider
+        )
+        if not self.rag_context:
             print("Error indexing repository, cannot analyze")
             return
 
         # Analyze repository
-        report, report_path, github = await analyze_repository(
-            github, self.repo_url, rag_context
+        report, report_path, _ = await analyze_repository(
+            self.github, self.repo_url, self.rag_context
         )
         if not report:
             print("Error analyzing repository")
@@ -347,10 +312,12 @@ class RepositoryChatAssistant:
         print("\n===== Repository Q&A =====")
         for question in questions:
             print(f"\nQ: {question}")
-            answer = await ask_about_repository(question, report, rag_context)
+            answer = await ask_about_repository(
+                question, report, self.rag_context, self.llm
+            )
             print(f"A: {answer}")
 
-    async def ask(self, question: str) -> str:
+    async def ask(self, question: str) -> Optional[str]:
         """Ask a question about the repository.
 
         Args:
@@ -359,6 +326,10 @@ class RepositoryChatAssistant:
         Returns:
             The answer to the question
         """
+        if not self.rag_context:
+            print("Repository not analyzed yet. Please run analyze() first.")
+            return None
+
         # Use RAG to find relevant context
         query = Query(question)
         results = await self.rag_context.search(query)
@@ -380,28 +351,62 @@ class RepositoryChatAssistant:
             ),
         ]
 
-        response = await self.llm.generate(messages)
-
-        return response.content
+        try:
+            response = await self.llm.generate(messages)
+            return response.content
+        except Exception as e:
+            print(f"Error generating response: {e}")
+            return None
 
 
 async def main():
     """Run the example."""
+    # Initialize providers using the framework's configuration system
+    config = Config()
+
+    # Get providers from the framework
+    llm = config.load_llm_provider()
+    embedding_provider = config.load_embedding_provider()
+    rag_provider = config.load_rag_provider(
+        collection_name="repo_analysis", persist_directory=".pepperpy/chroma"
+    )
+    github = config.load_github_client()
+
+    # Initialize all providers
+    await llm.initialize()
+    await embedding_provider.initialize()
+    await rag_provider.initialize()
+    await github.initialize()
+
     repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
-    assistant = RepositoryChatAssistant(repo_url)
+    assistant = RepositoryChatAssistant(
+        repo_url=repo_url,
+        llm=llm,
+        embedding_provider=embedding_provider,
+        rag_provider=rag_provider,
+        github=github,
+    )
 
-    # Analyze repository
-    await assistant.analyze()
+    try:
+        # Analyze repository
+        await assistant.analyze()
 
-    # Interactive mode
-    if "--interactive" in sys.argv:
-        while True:
-            question = input("Ask a question (or 'exit' to quit): ")
-            if question.lower() == "exit":
-                break
+        # Interactive mode
+        if "--interactive" in sys.argv:
+            while True:
+                question = input("Ask a question (or 'exit' to quit): ")
+                if question.lower() == "exit":
+                    break
 
-            answer = await assistant.ask(question)
-            print(f"\nAnswer: {answer}\n")
+                answer = await assistant.ask(question)
+                if answer:
+                    print(f"\nAnswer: {answer}\n")
+    finally:
+        # Cleanup
+        await llm.cleanup()
+        await embedding_provider.cleanup()
+        await rag_provider.cleanup()
+        await github.cleanup()
 
 
 if __name__ == "__main__":

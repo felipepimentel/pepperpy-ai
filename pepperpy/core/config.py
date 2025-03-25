@@ -11,6 +11,10 @@ from typing import Any, Dict, Optional, Union
 import yaml
 
 from pepperpy.core.utils import merge_configs, unflatten_dict, validate_type
+from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.github import GitHubClient
+from pepperpy.llm.base import LLMProvider
+from pepperpy.rag.base import BaseProvider as RAGProvider
 
 from .validation import ValidationError
 
@@ -42,7 +46,7 @@ class Config:
     def __init__(
         self,
         config_path: Optional[Union[str, Path, Dict[str, Any]]] = None,
-        env_prefix: str = "",
+        env_prefix: str = "PEPPERPY_",
         defaults: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> None:
@@ -217,3 +221,90 @@ class Config:
             >>> config["api_key"] = "new_key"
         """
         self.set(key, value)
+
+    def load_llm_provider(self) -> LLMProvider:
+        """Load LLM provider from configuration.
+
+        Returns:
+            Configured LLM provider instance
+        """
+        provider_type = self.get("llm.provider", "openrouter")
+        provider_config = self.get("llm.config", {})
+        provider = self._create_provider(LLMProvider, provider_type, **provider_config)
+        return provider
+
+    def load_embedding_provider(self) -> EmbeddingProvider:
+        """Load embedding provider from configuration.
+
+        Returns:
+            Configured embedding provider instance
+        """
+        provider_type = self.get("embeddings.provider", "openai")
+        provider_config = self.get("embeddings.config", {})
+        provider = self._create_provider(
+            EmbeddingProvider, provider_type, **provider_config
+        )
+        return provider
+
+    def load_rag_provider(
+        self, collection_name: str, persist_directory: str
+    ) -> RAGProvider:
+        """Load RAG provider from configuration.
+
+        Args:
+            collection_name: Name of the collection to use
+            persist_directory: Directory to persist data
+
+        Returns:
+            Configured RAG provider instance
+        """
+        provider_type = self.get("rag.provider", "chroma")
+        provider_config = self.get("rag.config", {})
+        provider = self._create_provider(
+            RAGProvider,
+            provider_type,
+            collection_name=collection_name,
+            persist_directory=persist_directory,
+            **provider_config,
+        )
+        return provider
+
+    def load_github_client(self) -> GitHubClient:
+        """Load GitHub client from configuration.
+
+        Returns:
+            Configured GitHub client instance
+        """
+        token = self.get("tools.github.api_key")
+        if not token:
+            token = os.environ.get("PEPPERPY_TOOLS__GITHUB_API_KEY")
+        if not token:
+            raise ValidationError("GitHub API token is required")
+        return GitHubClient(api_key=token)
+
+    def _create_provider(
+        self, provider_class: Any, provider_type: str, **kwargs: Any
+    ) -> Any:
+        """Create a provider instance.
+
+        Args:
+            provider_class: Provider class to instantiate
+            provider_type: Type of provider to create
+            **kwargs: Additional configuration options
+
+        Returns:
+            Provider instance
+        """
+        try:
+            # Import provider module
+            module_name = f"pepperpy.{provider_class.__module__.split('.')[-2]}.providers.{provider_type}"
+            module = __import__(module_name, fromlist=[""])
+
+            # Get provider class
+            provider_class_name = f"{provider_type.title()}Provider"
+            provider_class = getattr(module, provider_class_name)
+
+            # Create instance
+            return provider_class(**kwargs)
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(f"Failed to load provider {provider_type}: {e}")
