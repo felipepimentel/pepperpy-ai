@@ -4,19 +4,39 @@ import asyncio
 import functools
 import logging
 import time
-from typing import Any, Callable, Optional, Sequence, Type, TypeVar, Union
+from typing import Any, Callable, Optional, Sequence, Tuple, Type, TypeVar, Union, cast, overload
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+F = TypeVar("F", bound=Callable[..., Any])
+AsyncF = TypeVar("AsyncF", bound=Callable[..., Any])
+ExceptionType = Union[Type[Exception], Sequence[Type[Exception]]]
 
+@overload
+def retry(
+    max_attempts: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Optional[ExceptionType] = None,
+) -> Callable[[F], F]:
+    ...
+
+@overload
+def retry(
+    max_attempts: int = 3,
+    delay: float = 1.0,
+    backoff: float = 2.0,
+    exceptions: Optional[ExceptionType] = None,
+) -> Callable[[AsyncF], AsyncF]:
+    ...
 
 def retry(
     max_attempts: int = 3,
     delay: float = 1.0,
     backoff: float = 2.0,
-    exceptions: Optional[Union[Type[Exception], Sequence[Type[Exception]]]] = None,
-) -> Callable:
+    exceptions: Optional[ExceptionType] = None,
+) -> Callable[[F], F]:
     """Decorator for retrying operations that may fail.
 
     Args:
@@ -36,13 +56,13 @@ def retry(
         ...     return requests.get("http://example.com")
     """
     if exceptions is None:
-        exceptions = Exception
+        exceptions = (Exception,)
     elif not isinstance(exceptions, (tuple, list)):
-        exceptions = (exceptions,)
+        exceptions = (exceptions,)  # type: ignore
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(func: F) -> F:
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> T:
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             current_delay = delay
             last_exception = None
 
@@ -67,10 +87,10 @@ def retry(
             if last_exception is not None:
                 raise last_exception
 
-            return None  # type: ignore
+            return None
 
         @functools.wraps(func)
-        async def async_wrapper(*args: Any, **kwargs: Any) -> T:
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             current_delay = delay
             last_exception = None
 
@@ -95,8 +115,8 @@ def retry(
             if last_exception is not None:
                 raise last_exception
 
-            return None  # type: ignore
+            return None
 
-        return async_wrapper if asyncio.iscoroutinefunction(func) else wrapper
+        return cast(F, async_wrapper if asyncio.iscoroutinefunction(func) else wrapper)
 
     return decorator 

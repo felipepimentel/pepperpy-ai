@@ -2,7 +2,7 @@
 
 from functools import wraps
 from importlib import import_module
-from typing import Any, Callable, Dict, Optional, Type, TypeVar
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, Union, cast, overload
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,25 @@ class LazyImportError(ImportError):
         if original_error:
             message += f"\nOriginal error: {str(original_error)}"
         super().__init__(message)
+
+def safe_import(module_name: str, package: Optional[str] = None) -> Any:
+    """Safely import a module.
+
+    Args:
+        module_name: The name of the module to import.
+        package: Optional package name for relative imports.
+
+    Returns:
+        The imported module.
+
+    Raises:
+        ImportError: If the module cannot be imported.
+    """
+    try:
+        return import_module(module_name, package)
+    except ImportError as e:
+        logger.debug(f"Failed to import {module_name}: {e}")
+        raise ImportError(f"Failed to import {module_name}. Please install it with: pip install {module_name}") from e
 
 def lazy_provider_import(module: str, provider: str) -> Callable:
     """Decorator for lazy importing provider-specific dependencies.
