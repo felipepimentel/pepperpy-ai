@@ -1,293 +1,256 @@
-"""ChromaProvider implements RAG functionality using Chroma as the vector store.
+"""Chroma vector store provider for RAG capabilities.
 
-This provider offers both in-memory and persistent storage options for vector embeddings,
-making it ideal for development, testing, and production use cases.
+This module provides a ChromaDB-based implementation of the RAG provider interface,
+supporting vector storage and retrieval for RAG operations.
+
+Example:
+    >>> from pepperpy.rag import RAGProvider
+    >>> provider = RAGProvider.from_config({
+    ...     "provider": "chroma",
+    ...     "path": "./chroma_db"
+    ... })
+    >>> await provider.add_documents([
+    ...     Document(content="Example document", metadata={"source": "test"})
+    ... ])
+    >>> results = await provider.search("query", top_k=3)
 """
 
-from typing import Any, Dict, List, Optional, Set, Union
+import logging
+import os
+from typing import Any, Dict, List, Optional, Sequence, cast
 
-import chromadb
-from chromadb.config import Settings
+from pepperpy.core.utils.imports import lazy_provider_class, import_provider
+from pepperpy.rag.base import (
+    BaseProvider as RAGProvider,
+    Document,
+    RAGError,
+    SearchResult
+)
 
-from pepperpy.core import PepperpyError
-from pepperpy.rag.base import BaseRAGProvider, Document, Query, RetrievalResult
+logger = logging.getLogger(__name__)
 
-
-class ChromaProvider(BaseRAGProvider):
-    """Chroma-based RAG provider for vector storage and retrieval.
+@lazy_provider_class('rag', 'chroma')
+class ChromaProvider(RAGProvider):
+    """ChromaDB implementation of the RAG provider interface.
     
-    This provider implements vector storage and similarity search using Chroma,
-    a lightweight and efficient vector database that can run both in-memory
-    and with persistent storage.
-
-    Args:
-        collection_name: Name of the collection to store vectors
-        persist_directory: Optional path to store vectors persistently
+    This provider supports:
+    - Persistent vector storage
+    - Similarity search
+    - Metadata filtering
+    - Batch operations
     """
 
-    def __init__(self, collection_name: str, persist_directory: Optional[str] = None):
-        """Initialize the ChromaProvider.
+    name = "chroma"
 
+    def __init__(
+        self,
+        path: Optional[str] = None,
+        collection_name: str = "pepperpy",
+        embedding_function: Optional[Any] = None,
+        **kwargs: Any
+    ) -> None:
+        """Initialize ChromaDB provider.
+        
         Args:
-            collection_name: Name of the collection to store vectors
-            persist_directory: Optional path to store vectors persistently
+            path: Path to ChromaDB persistence directory
+            collection_name: Name of the collection to use
+            embedding_function: Optional custom embedding function
+            **kwargs: Additional configuration options
         """
-        super().__init__()
+        super().__init__(**kwargs)
+        
+        # Import chromadb only when provider is instantiated
+        chromadb = import_provider('chromadb', 'rag', 'chroma')
+        
+        self.path = path
         self.collection_name = collection_name
-        self.persist_directory = persist_directory
-        self._client: Optional[chromadb.Client] = None
-        self._collection: Optional[Any] = None
-
-    def _init_client(self) -> None:
-        """Initialize the Chroma client if not already initialized."""
-        if self._client is None:
-            try:
-                settings = Settings()
-                if self.persist_directory:
-                    self._client = chromadb.PersistentClient(
-                        path=self.persist_directory, 
-                        settings=settings
-                    )
-                else:
-                    self._client = chromadb.EphemeralClient(settings=settings)
-            except Exception as e:
-                raise PepperpyError(f"Failed to initialize Chroma client: {str(e)}")
-
-    async def initialize(self) -> None:
-        """Initialize the provider and create/get the collection."""
-        try:
-            self._init_client()
-            if self._client:
-                self._collection = self._client.get_or_create_collection(
-                    name=self.collection_name
-                )
-        except Exception as e:
-            raise PepperpyError(f"Failed to initialize collection: {str(e)}")
-
+        self._embedding_function = embedding_function
+        
+        # Initialize client with persistence if path provided
+        if path:
+            os.makedirs(path, exist_ok=True)
+            self.client = chromadb.PersistentClient(path=path)
+        else:
+            self.client = chromadb.Client()
+            
+        # Get or create collection
+        self.collection = self.client.get_or_create_collection(
+            name=collection_name,
+            embedding_function=embedding_function
+        )
+        
     async def add_documents(
-        self, documents: Union[Document, List[Document]]
-    ) -> List[Document]:
-        """Add documents to the provider.
-
+        self,
+        documents: Sequence[Document],
+        **kwargs: Any
+    ) -> List[str]:
+        """Add documents to the vector store.
+        
         Args:
-            documents: A document or list of documents to add.
-
+            documents: Sequence of documents to add
+            **kwargs: Additional options
+            
         Returns:
-            The added documents.
-
+            List of document IDs
+            
         Raises:
-            PepperpyError: If there is an error adding the documents.
+            RAGError: If adding documents fails
         """
-        if not self._collection:
-            await self.initialize()
-
-        if isinstance(documents, Document):
-            documents = [documents]
-
         try:
-            # Extract components from the documents
-            ids = [doc.id or str(i) for i, doc in enumerate(documents)]
-            embeddings = [doc.embeddings for doc in documents]
+            # Prepare document batches
+            ids = [str(doc.id) for doc in documents]  # Ensure IDs are strings
+            texts = [doc.content for doc in documents]
             metadatas = [doc.metadata for doc in documents]
-            contents = [doc.content for doc in documents]
-
-            # Add to collection
-            self._collection.add(
+            
+            # Add to ChromaDB
+            self.collection.add(
                 ids=ids,
-                embeddings=embeddings,
-                metadatas=metadatas,
-                documents=contents,
+                documents=texts,
+                metadatas=metadatas
             )
-
-            # Update document IDs
-            for doc, doc_id in zip(documents, ids):
-                doc.id = doc_id
-
-            return documents
+            
+            return ids
         except Exception as e:
-            raise PepperpyError(f"Failed to add documents: {str(e)}")
-
+            raise RAGError(f"Failed to add documents: {str(e)}")
+            
     async def search(
         self,
-        query: Query,
-        limit: int = 10,
-        min_score: Optional[float] = None,
-        **kwargs: Any,
-    ) -> RetrievalResult:
-        """Search for documents similar to the query.
-
+        query: str,
+        top_k: int = 3,
+        filter: Optional[Dict[str, Any]] = None,
+        **kwargs: Any
+    ) -> List[SearchResult]:
+        """Search for similar documents.
+        
         Args:
-            query: The query to search for.
-            limit: Maximum number of results to return.
-            min_score: Minimum similarity score for results.
-            **kwargs: Additional provider-specific arguments.
-
+            query: Search query
+            top_k: Number of results to return
+            filter: Optional metadata filter
+            **kwargs: Additional search options
+            
         Returns:
-            A RetrievalResult containing the query and matching documents.
-
+            List of search results
+            
         Raises:
-            PepperpyError: If there is an error performing the search.
+            RAGError: If search fails
         """
-        if not self._collection:
-            await self.initialize()
-
         try:
-            # Perform the search
-            results = self._collection.query(
-                query_embeddings=[query.embeddings],
-                n_results=limit,
-                where=query.metadata,
+            results = self.collection.query(
+                query_texts=[query],
+                n_results=top_k,
+                where=filter
             )
-
-            # Convert to Documents
-            documents = []
-            scores = []
-            for i in range(len(results["ids"][0])):
-                doc = Document(
-                    content=results["documents"][0][i],
-                    metadata=results["metadatas"][0][i] if results["metadatas"] else {},
-                    id=results["ids"][0][i],
-                    embeddings=query.embeddings,  # Use query embeddings as approximation
+            
+            search_results = []
+            for i, (doc_id, text, metadata, distance) in enumerate(zip(
+                results['ids'][0],
+                results['documents'][0],
+                results['metadatas'][0],
+                results['distances'][0]
+            )):
+                search_results.append(
+                    SearchResult(
+                        document=Document(
+                            id=doc_id,
+                            content=text,
+                            metadata=metadata
+                        ),
+                        score=1.0 - distance,  # Convert distance to similarity score
+                        rank=i + 1
+                    )
                 )
-                documents.append(doc)
-                scores.append(float(results["distances"][0][i]))
-
-            # Filter by min_score if provided
-            if min_score is not None:
-                filtered = [
-                    (doc, score)
-                    for doc, score in zip(documents, scores)
-                    if score >= min_score
-                ]
-                if filtered:
-                    documents, scores = zip(*filtered)
-                else:
-                    documents, scores = [], []
-
-            return RetrievalResult(
-                query=query,
-                documents=list(documents),
-                scores=list(scores),
+                
+            return search_results
+        except Exception as e:
+            raise RAGError(f"Search failed: {str(e)}")
+            
+    async def delete_documents(
+        self,
+        document_ids: List[str],
+        **kwargs: Any
+    ) -> None:
+        """Delete documents from the vector store.
+        
+        Args:
+            document_ids: List of document IDs to delete
+            **kwargs: Additional options
+            
+        Raises:
+            RAGError: If deletion fails
+        """
+        try:
+            self.collection.delete(ids=document_ids)
+        except Exception as e:
+            raise RAGError(f"Failed to delete documents: {str(e)}")
+            
+    async def get_document(
+        self,
+        document_id: str,
+        **kwargs: Any
+    ) -> Optional[Document]:
+        """Get a document by ID.
+        
+        Args:
+            document_id: Document ID to retrieve
+            **kwargs: Additional options
+            
+        Returns:
+            Document if found, None otherwise
+            
+        Raises:
+            RAGError: If retrieval fails
+        """
+        try:
+            result = self.collection.get(ids=[document_id])
+            
+            if not result['ids']:
+                return None
+                
+            return Document(
+                id=result['ids'][0],
+                content=result['documents'][0],
+                metadata=result['metadatas'][0]
             )
         except Exception as e:
-            raise PepperpyError(f"Failed to search documents: {str(e)}")
-
-    async def delete_documents(self, document_ids: Union[str, List[str]]) -> None:
-        """Delete documents from the provider.
-
+            raise RAGError(f"Failed to get document: {str(e)}")
+            
+    async def clear(self, **kwargs: Any) -> None:
+        """Clear all documents from the vector store.
+        
         Args:
-            document_ids: A document ID or list of document IDs to delete.
-
+            **kwargs: Additional options
+            
         Raises:
-            PepperpyError: If there is an error deleting the documents.
+            RAGError: If clearing fails
         """
-        if not self._collection:
-            await self.initialize()
-
-        if isinstance(document_ids, str):
-            document_ids = [document_ids]
-
         try:
-            self._collection.delete(ids=document_ids)
+            self.collection.delete()
+            self.collection = self.client.get_or_create_collection(
+                name=self.collection_name,
+                embedding_function=self._embedding_function
+            )
         except Exception as e:
-            raise PepperpyError(f"Failed to delete documents: {str(e)}")
-
-    async def get_documents(
-        self, document_ids: Union[str, List[str]]
-    ) -> List[Document]:
-        """Get documents by their IDs.
-
-        Args:
-            document_ids: A document ID or list of document IDs to retrieve.
-
+            raise RAGError(f"Failed to clear vector store: {str(e)}")
+            
+    def get_stats(self) -> Dict[str, Any]:
+        """Get statistics about the vector store.
+        
         Returns:
-            The requested documents.
-
-        Raises:
-            PepperpyError: If there is an error retrieving the documents.
+            Dictionary with statistics
         """
-        if not self._collection:
-            await self.initialize()
-
-        if isinstance(document_ids, str):
-            document_ids = [document_ids]
-
         try:
-            results = self._collection.get(ids=document_ids)
-            documents = []
-            for i in range(len(results["ids"])):
-                doc = Document(
-                    content=results["documents"][i],
-                    metadata=results["metadatas"][i] if results["metadatas"] else {},
-                    id=results["ids"][i],
-                    embeddings=results["embeddings"][i] if results["embeddings"] else None,
-                )
-                documents.append(doc)
-            return documents
+            count = self.collection.count()
+            return {
+                "document_count": count,
+                "provider": self.name,
+                "collection": self.collection_name,
+                "persistent": bool(self.path)
+            }
         except Exception as e:
-            raise PepperpyError(f"Failed to get documents: {str(e)}")
-
-    async def list_documents(self) -> List[Document]:
-        """List all documents in the provider.
-
-        Returns:
-            All documents in the provider.
-
-        Raises:
-            PepperpyError: If there is an error listing the documents.
-        """
-        if not self._collection:
-            await self.initialize()
-
-        try:
-            results = self._collection.get()
-            documents = []
-            for i in range(len(results["ids"])):
-                doc = Document(
-                    content=results["documents"][i],
-                    metadata=results["metadatas"][i] if results["metadatas"] else {},
-                    id=results["ids"][i],
-                    embeddings=results["embeddings"][i] if results["embeddings"] else None,
-                )
-                documents.append(doc)
-            return documents
-        except Exception as e:
-            raise PepperpyError(f"Failed to list documents: {str(e)}")
-
-    async def clear(self) -> None:
-        """Clear all documents from the provider.
-
-        Raises:
-            PepperpyError: If there is an error clearing the documents.
-        """
-        if not self._collection:
-            await self.initialize()
-
-        try:
-            self._collection.delete()
-        except Exception as e:
-            raise PepperpyError(f"Failed to clear documents: {str(e)}")
-
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
-
-        Returns:
-            Dictionary with provider configuration.
-        """
-        return {
-            "collection_name": self.collection_name,
-            "persist_directory": self.persist_directory,
-        }
-
-    def get_capabilities(self) -> Dict[str, bool]:
-        """Get the provider capabilities.
-
-        Returns:
-            Dictionary of supported capabilities.
-        """
-        return {
-            "supports_metadata": True,
-            "supports_async": True,
-            "supports_batch_operations": True,
-            "supports_persistence": bool(self.persist_directory),
-        } 
+            logger.warning(f"Failed to get stats: {str(e)}")
+            return {
+                "document_count": 0,
+                "provider": self.name,
+                "collection": self.collection_name,
+                "persistent": bool(self.path)
+            } 

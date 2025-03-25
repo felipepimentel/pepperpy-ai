@@ -64,7 +64,8 @@ readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.10,<4.0"
+pydantic = "^2.0.0"    # Core dependency
 httpx = "^0.27.0"
 radon = "^6.0.1"
 lizard = "^1.17.10"
@@ -76,3 +77,130 @@ pytest-asyncio = "^0.23.5"
 black = "^24.2.0"
 isort = "^5.13.2"
 ruff = "^0.2.2"
+
+# LLM Providers
+[tool.poetry.group.llm-openai]
+optional = true
+
+[tool.poetry.group.llm-openai.dependencies]
+openai = "^1.0.0"
+
+[tool.poetry.group.llm-anthropic]
+optional = true
+
+[tool.poetry.group.llm-anthropic.dependencies]
+anthropic = "^0.5.0"
+
+[tool.poetry.group.llm-openrouter]
+optional = true
+
+[tool.poetry.group.llm-openrouter.dependencies]
+llm-openrouter = "^0.4.0"
+
+# RAG Providers
+[tool.poetry.group.rag-chroma]
+optional = true
+
+[tool.poetry.group.rag-chroma.dependencies]
+chromadb = "^0.4.0"
+
+[tool.poetry.group.rag-weaviate]
+optional = true
+
+[tool.poetry.group.rag-weaviate.dependencies]
+weaviate-client = "^3.0.0"
+
+[tool.poetry.group.rag-pinecone]
+optional = true
+
+[tool.poetry.group.rag-pinecone.dependencies]
+pinecone-client = "^2.0.0"
+
+# Storage Providers
+[tool.poetry.group.storage-s3]
+optional = true
+
+[tool.poetry.group.storage-s3.dependencies]
+boto3 = "^1.26.0"
+
+[tool.poetry.group.storage-gcs]
+optional = true
+
+[tool.poetry.group.storage-gcs.dependencies]
+google-cloud-storage = "^2.0.0"
+
+[tool.poetry.group.storage-supabase]
+optional = true
+
+[tool.poetry.group.storage-supabase.dependencies]
+supabase = "^2.0.0"
+
+# TTS Providers
+[tool.poetry.group.tts-azure]
+optional = true
+
+[tool.poetry.group.tts-azure.dependencies]
+azure-cognitiveservices-speech = "^1.30.0"
+
+[tool.poetry.group.tts-google]
+optional = true
+
+[tool.poetry.group.tts-google.dependencies]
+gtts = "^2.3.0"
+
+# Workflow Providers
+[tool.poetry.group.workflow-prefect]
+optional = true
+
+[tool.poetry.group.workflow-prefect.dependencies]
+prefect = "^2.0.0"
+
+[tool.poetry.group.workflow-airflow]
+optional = true
+
+[tool.poetry.group.workflow-airflow.dependencies]
+apache-airflow = "^2.7.0"
+
+# Convenience groups for common combinations
+[tool.poetry.group.llm-all]
+optional = true
+
+[tool.poetry.group.llm-all.dependencies]
+openai = "^1.0.0"
+anthropic = "^0.5.0"
+llm-openrouter = "^0.4.0"
+
+[tool.poetry.group.rag-all]
+optional = true
+
+[tool.poetry.group.rag-all.dependencies]
+chromadb = "^0.4.0"
+weaviate-client = "^3.0.0"
+pinecone-client = "^2.0.0"
+
+[tool.poetry.group.storage-all]
+optional = true
+
+[tool.poetry.group.storage-all.dependencies]
+boto3 = "^1.26.0"
+google-cloud-storage = "^2.0.0"
+supabase = "^2.0.0"
+
+[tool.poetry.group.all]
+optional = true
+
+[tool.poetry.group.all.dependencies]
+# Include all provider dependencies here
+openai = "^1.0.0"
+anthropic = "^0.5.0"
+llm-openrouter = "^0.4.0"
+chromadb = "^0.4.0"
+weaviate-client = "^3.0.0"
+pinecone-client = "^2.0.0"
+boto3 = "^1.26.0"
+google-cloud-storage = "^2.0.0"
+supabase = "^2.0.0"
+azure-cognitiveservices-speech = "^1.30.0"
+gtts = "^2.3.0"
+prefect = "^2.0.0"
+apache-airflow = "^2.7.0"

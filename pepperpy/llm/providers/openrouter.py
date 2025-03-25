@@ -23,21 +23,19 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import httpx
 
-from openai import AsyncOpenAI, OpenAI
-from openai.types.chat import ChatCompletion
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-
 from pepperpy.llm.base import (
     GenerationChunk,
     GenerationResult,
     LLMError,
     LLMProvider,
     Message,
+    MessageRole,
 )
+from pepperpy.core.utils.imports import lazy_provider_class, import_provider
 
 logger = logging.getLogger(__name__)
 
-
+@lazy_provider_class('llm', 'openrouter')
 class OpenRouterProvider(LLMProvider):
     """OpenRouter implementation of the LLM provider interface.
 
@@ -50,25 +48,87 @@ class OpenRouterProvider(LLMProvider):
     name = "openrouter"
     base_url = "https://openrouter.ai/api/v1"
 
-    def __init__(self, api_key: str, model: str = "anthropic/claude-3-sonnet"):
-        """Initialize the OpenRouter provider.
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        model: str = "openai/gpt-3.5-turbo",
+        **kwargs: Any
+    ) -> None:
+        """Initialize OpenRouter provider.
         
         Args:
-            api_key: OpenRouter API key.
-            model: Model to use for generation.
+            api_key: OpenRouter API key
+            model: Model to use
+            **kwargs: Additional configuration
         """
-        self._api_key = api_key
+        super().__init__(**kwargs)
+        
+        # Import openrouter only when provider is instantiated
+        openrouter = import_provider('openrouter', 'llm', 'openrouter')
+        
+        self._api_key = api_key or self._get_api_key()
         self.model = model
+        self.client = openrouter.OpenRouter(api_key=self._api_key)
         self._client: Optional[httpx.AsyncClient] = None
+        self._config = {
+            "provider": "openrouter",
+            "api_key": self._api_key,
+            "model": self.model
+        }
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get the provider configuration.
+
+        Returns:
+            The provider configuration
+        """
+        return self._config
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get provider capabilities.
+
+        Returns:
+            Dictionary of provider capabilities including:
+            - supported_models: List of supported models
+            - max_tokens: Maximum tokens per request
+            - supports_streaming: Whether streaming is supported
+            - supports_embeddings: Whether embeddings are supported
+            - additional provider-specific capabilities
+        """
+        return {
+            "embeddings": False,
+            "streaming": True,
+            "chat_based": True,
+            "function_calling": False,
+            "supported_models": [
+                "anthropic/claude-3-sonnet",
+                "anthropic/claude-3-opus",
+                "anthropic/claude-2",
+                "openai/gpt-4",
+                "openai/gpt-3.5-turbo",
+                "google/palm-2",
+                "meta/llama-2-70b-chat",
+                "meta/llama-2-13b-chat",
+                "meta/llama-2-7b-chat"
+            ]
+        }
 
     @property
-    def api_key(self) -> Optional[str]:
-        """Get the API key for the provider.
-        
-        Returns:
-            The API key if set, None otherwise.
-        """
+    def api_key(self) -> str:
+        """Get the API key."""
         return self._api_key
+
+    def _get_api_key(self) -> str:
+        """Get API key from environment."""
+        import os
+        
+        api_key = os.environ.get("PEPPERPY_LLM__OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OpenRouter API key not found. Set PEPPERPY_LLM__OPENROUTER_API_KEY "
+                "environment variable or pass api_key to constructor."
+            )
+        return api_key
 
     async def initialize(self) -> None:
         """Initialize the provider."""
@@ -96,7 +156,7 @@ class OpenRouterProvider(LLMProvider):
 
     def _convert_messages(
         self, messages: Union[str, List[Message]]
-    ) -> List[ChatCompletionMessageParam]:
+    ) -> List[dict]:
         """Convert messages to OpenRouter format.
 
         Args:
@@ -117,7 +177,7 @@ class OpenRouterProvider(LLMProvider):
                 raise LLMError(f"Invalid message type: {type(msg)}")
 
             message_dict = {
-                "role": msg.role.value,
+                "role": msg.role if isinstance(msg.role, str) else msg.role.value,
                 "content": msg.content,
             }
             if hasattr(msg, "name") and msg.name:
@@ -129,8 +189,8 @@ class OpenRouterProvider(LLMProvider):
 
     def _create_generation_result(
         self,
-        completion: ChatCompletion,
-        messages: List[ChatCompletionMessageParam],
+        completion: dict,
+        messages: List[dict],
     ) -> GenerationResult:
         """Create a GenerationResult from OpenRouter completion.
 
@@ -141,7 +201,7 @@ class OpenRouterProvider(LLMProvider):
         Returns:
             GenerationResult with completion details
         """
-        content = completion.choices[0].message.content
+        content = completion["choices"][0]["message"]["content"]
         if content is None:
             content = ""
 
@@ -155,43 +215,49 @@ class OpenRouterProvider(LLMProvider):
                 )
                 for msg in messages
             ],
-            usage=completion.usage.model_dump() if completion.usage else None,
+            usage=completion["usage"]["model_dump"] if completion["usage"] else None,
             metadata={
-                "model": completion.model,
-                "created": completion.created,
-                "id": completion.id,
+                "model": completion["model"],
+                "created": completion["created"],
+                "id": completion["id"],
             },
         )
 
-    async def generate(self, prompt: str) -> str:
-        """Generate a response for the given prompt.
-        
+    async def generate(
+        self,
+        messages: Union[str, List[Message]],
+        **kwargs: Any,
+    ) -> GenerationResult:
+        """Generate text based on input messages.
+
         Args:
-            prompt: The prompt to generate a response for.
-            
+            messages: String prompt or list of messages
+            **kwargs: Additional generation options
+
         Returns:
-            The generated response.
-            
+            GenerationResult containing the response
+
         Raises:
-            RuntimeError: If the provider is not initialized.
-            httpx.HTTPError: If the API request fails.
+            LLMError: If generation fails
         """
         if not self._client:
             raise RuntimeError("Provider not initialized")
 
-        response = await self._client.post(
-            "/chat/completions",
-            json={
-                "model": self.model,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ]
-            }
-        )
-        response.raise_for_status()
-        data = response.json()
+        try:
+            openrouter_messages = self._convert_messages(messages)
+            response = await self._client.post(
+                "/chat/completions",
+                json={
+                    "model": self.model,
+                    "messages": openrouter_messages
+                }
+            )
+            response.raise_for_status()
+            data = response.json()
 
-        return data["choices"][0]["message"]["content"]
+            return self._create_generation_result(data, openrouter_messages)
+        except Exception as e:
+            raise LLMError(f"OpenRouter generation failed: {e}")
 
     async def chat(self, messages: List[Dict[str, Any]]) -> str:
         """Generate a response in a chat context.
@@ -263,36 +329,17 @@ class OpenRouterProvider(LLMProvider):
             )
 
             async for chunk in stream:
-                if chunk.choices[0].delta.content:
+                if chunk["choices"][0]["delta"]["content"]:
                     yield GenerationChunk(
-                        content=chunk.choices[0].delta.content,
-                        finish_reason=chunk.choices[0].finish_reason,
+                        content=chunk["choices"][0]["delta"]["content"],
+                        finish_reason=chunk["choices"][0]["finish_reason"],
                         metadata={
-                            "model": chunk.model,
-                            "created": chunk.created,
-                            "id": chunk.id,
+                            "model": chunk["model"],
+                            "created": chunk["created"],
+                            "id": chunk["id"],
                         },
                     )
 
         except Exception as e:
             logger.error(f"OpenRouter streaming failed: {e}")
             raise LLMError(f"OpenRouter streaming failed: {e}")
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get OpenRouter provider capabilities."""
-        capabilities = super().get_capabilities()
-        capabilities.update(
-            {
-                "streaming": True,
-                "chat_based": True,
-                "supported_models": [
-                    "openai/gpt-4",
-                    "openai/gpt-3.5-turbo",
-                    "anthropic/claude-2",
-                    "google/palm-2",
-                    "meta-llama/llama-2-70b-chat",
-                ],
-                "max_tokens": 4096,
-            }
-        )
-        return capabilities
