@@ -3,7 +3,7 @@ title: File Validation and Pre-Creation Checks
 description: Apply this rule before creating any new files to ensure proper location, prevent duplication, and maintain consistency with the existing codebase
 globs:
   - "pepperpy/**/*.py"
-priority: 1000
+priority: 210
 ---
 
 # File Validation and Pre-Creation Checks

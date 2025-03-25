@@ -1,0 +1,103 @@
+---
+title: PepperPy Rules System - Master Index
+description: The primary guide for understanding how to interpret and apply the PepperPy Cursor rules system
+globs:
+  - "**/*"
+priority: 2000
+alwaysApply: true
+---
+
+# PepperPy Rules System - Master Index
+
+## Overview
+
+This is the master index for the PepperPy Cursor rules system. It explains how rules are organized, their relationships, and how to resolve conflicts when they occur.
+
+## Rules Organization
+
+The PepperPy rules system follows a hierarchical numbering convention:
+
+```
+000-099: Core framework rules (architecture, standards, patterns)
+100-179: Domain-specific rules (RAG, Workflows, etc.)
+180-199: Code quality rules (duplication, organization, APIs)
+200+: Meta-rules (rules about rules, validation, refactoring)
+```
+
+### Priority System
+
+Rules with higher priority values take precedence when conflicts occur. The priority system follows these principles:
+
+1. Higher priority value = higher importance (overrides lower priority rules)
+2. Meta-rules (200+) can override specific implementation rules
+3. Core architecture rules provide foundational principles
+
+## Rule Relationships and Precedence
+
+When rules appear to conflict, apply these principles:
+
+1. **Specificity wins**: More specific rules override general rules
+2. **Recent rules win**: Newer rules (with specific examples) override older patterns
+3. **Higher priority wins**: Rules with higher priority values take precedence
+4. **Domain-specific context matters**: Apply domain-specific rules in their context
+
+## Core Framework Structure
+
+PepperPy follows a consistent structure across all modules:
+
+```
+pepperpy/
+├── module_name/        # e.g., llm, rag, storage
+│   ├── __init__.py     # Public API and exports
+│   ├── base.py         # Core interfaces and protocols
+│   └── providers/      # Implementations of interfaces
+│       ├── __init__.py
+│       └── specific.py # e.g., openai.py, chroma.py
+```
+
+All modules should follow this pattern to maintain consistency.
+
+## How to Apply Multiple Rules
+
+When implementing features, follow this workflow:
+
+1. **Understand Architecture**: Consult 000-099 rules for architectural principles
+2. **Apply Domain Knowledge**: Use 100-179 rules for domain-specific patterns
+3. **Ensure Code Quality**: Follow 180-199 rules for quality standards
+4. **Validate**: Use 200+ rules to validate your implementation
+
+## Resolving Rule Conflicts
+
+When rules appear to conflict:
+
+1. Check rule priorities - higher priority rules take precedence
+2. Consider rule specificity - more specific rules override general ones
+3. Look for explicit guidance in the rules about exceptions
+4. When no clear resolution exists, prefer:
+   - Project consistency over theoretical purity
+   - Existing patterns in the specific module
+   - Simpler implementations over complex ones
+
+## Current Rule Status
+
+These are the current active rules in the system:
+
+1. **000-framework-architecture.mdc**: Core architecture principles
+2. **001-coding-standards.mdc**: Python coding standards
+3. **002-file-management.mdc**: File organization guidelines
+4. **003-environment-variables.mdc**: Environment variable standards
+5. **006-module-abstraction.mdc**: Module interface design
+6. **100-rag-system.mdc**: RAG system patterns
+7. **101-workflow-system.mdc**: Workflow system patterns
+8. **180-code-duplication-prevention.mdc**: Prevention of code duplication
+9. **185-file-organization.mdc**: File structure consistency
+10. **190-api-evolution.mdc**: API evolution and compatibility
+11. **195-ai-response-validation.mdc**: AI validation guidelines
+12. **200-refactoring-validation.mdc**: Refactoring safety
+13. **200-rules-management.mdc**: Rules management process
+14. **205-rule-evolution.mdc**: Rule improvement process
+15. **210-file-validation.mdc**: Pre-creation file validation
+
+## Conclusion
+
+This master index provides the foundation for understanding and applying the PepperPy rules system. Always start with this rule to understand how the rules relate to each other and how to interpret them in context. 

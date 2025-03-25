@@ -1,105 +1,105 @@
 ---
 title: Module Abstraction and Interface Organization
-description: "Aplicar esta regra quando implementar novos módulos ou modificar os existentes para garantir que o desenvolvedor final precise apenas configurar as variáveis de ambiente e usar a interface pública, sem conhecimento das implementações específicas"
+description: Apply this rule when implementing new modules or modifying existing ones to ensure that the end developer only needs to configure environment variables and use the public interface, without knowledge of specific implementations
 globs:
   - "pepperpy/**/*.py"
 priority: 600
 ---
 
-# Abstração de Módulos e Organização de Interfaces
+# Module Abstraction and Interface Organization
 
-## Visão Geral
+## Overview
 
-Esta regra define os padrões para organização de módulos e interfaces no framework PepperPy, garantindo uma abstração clara entre a API pública e as implementações internas.
+This rule defines standards for organizing modules and interfaces in the PepperPy framework, ensuring a clear abstraction between the public API and internal implementations.
 
-## Estrutura de Módulos
+## Module Structure
 
-### Organização de Arquivos
+### File Organization
 
-Cada módulo deve seguir esta estrutura:
+Each module should follow this structure:
 
 ```
 module/
-├── __init__.py         # API pública do módulo
-├── base.py            # Interfaces e classes base
-├── providers/         # Implementações específicas
+├── __init__.py         # Public API of the module
+├── base.py            # Interfaces and base classes
+├── providers/         # Specific implementations
 │   ├── __init__.py
 │   └── specific.py
-└── utils/             # Utilitários do módulo (opcional)
+└── utils/             # Module utilities (optional)
     └── __init__.py
 ```
 
-### Responsabilidades dos Arquivos
+### File Responsibilities
 
 1. **base.py**:
-   - Interfaces principais (Protocols/ABC)
-   - Classes base abstratas
-   - Tipos e modelos de dados
-   - Configurações base
+   - Main interfaces (Protocols/ABC)
+   - Abstract base classes
+   - Data types and models
+   - Base configurations
 
 2. **__init__.py**:
-   - API pública do módulo
-   - Re-exportação de tipos e interfaces
-   - Funções de alto nível
+   - Public API of the module
+   - Re-export of types and interfaces
+   - High-level functions
 
 3. **providers/**:
-   - Implementações concretas
-   - Integrações com serviços externos
+   - Concrete implementations
+   - Integrations with external services
 
-## Padrões de Interface
+## Interface Patterns
 
-### 1. Interfaces em base.py
+### 1. Interfaces in base.py
 
-✅ **Correto**:
+✅ **Correct**:
 ```python
 # base.py
 from typing import Protocol
 
 class Provider(Protocol):
-    """Interface principal do provider."""
+    """Main provider interface."""
     async def initialize(self) -> None: ...
     async def process(self, data: dict) -> dict: ...
 
 class Config:
-    """Configuração base."""
+    """Base configuration."""
     def __init__(self, api_key: str): ...
 ```
 
-❌ **Incorreto**:
+❌ **Incorrect**:
 ```python
-# provider.py  # Não criar arquivo separado para interfaces
+# provider.py  # Don't create separate file for interfaces
 class Provider:
-    """Interface do provider."""
+    """Provider interface."""
     pass
 
 # base.py
-from .provider import Provider  # Não importar de arquivo separado
+from .provider import Provider  # Don't import from separate file
 ```
 
-### 2. Implementações em providers/
+### 2. Implementations in providers/
 
-✅ **Correto**:
+✅ **Correct**:
 ```python
 # providers/openai.py
 from ..base import Provider
 
 class OpenAIProvider(Provider):
-    """Implementação OpenAI do provider."""
+    """OpenAI implementation of the provider."""
     async def initialize(self) -> None:
-        # Implementação
+        # Implementation
         pass
 ```
 
-❌ **Incorreto**:
+❌ **Incorrect**:
 ```python
 # base.py
-class OpenAIProvider(Provider):  # Não implementar em base.py
+class OpenAIProvider(Provider):  # Don't implement in base.py
     pass
 ```
 
-### 3. API Pública em __init__.py
+### 3. Public API in __init__.py
 
-✅ **Correto**:
+✅ **Correct**:
 ```python
 # __init__.py
 from .base import Provider, Config
@@ -108,32 +108,32 @@ from .providers.openai import OpenAIProvider
 __all__ = ["Provider", "Config", "OpenAIProvider"]
 
 def create_provider(config: Config) -> Provider:
-    """Criar instância do provider."""
+    """Create provider instance."""
     return OpenAIProvider(config)
 ```
 
-❌ **Incorreto**:
+❌ **Incorrect**:
 ```python
 # __init__.py
-from .provider import Provider  # Não importar de arquivo separado
-from .base import Config  # Manter todas as interfaces em base.py
+from .provider import Provider  # Don't import from separate file
+from .base import Config  # Keep all interfaces in base.py
 ```
 
-## Exemplos de Implementação
+## Implementation Examples
 
-### Exemplo: Módulo de Agentes
+### Example: Agents Module
 
 ```python
 # base.py
 from typing import Protocol, Dict, Any
 
 class Message:
-    """Mensagem de um agente."""
+    """Message from an agent."""
     role: str
     content: str
 
 class AgentProvider(Protocol):
-    """Interface do provider de agentes."""
+    """Agent provider interface."""
     async def initialize(self) -> None: ...
     async def execute(self, task: str) -> List[Message]: ...
 
@@ -141,9 +141,9 @@ class AgentProvider(Protocol):
 from ..base import AgentProvider, Message
 
 class AutoGenProvider(AgentProvider):
-    """Implementação usando AutoGen."""
+    """Implementation using AutoGen."""
     async def initialize(self) -> None:
-        # Implementação
+        # Implementation
         pass
 
 # __init__.py
@@ -151,36 +151,36 @@ from .base import AgentProvider, Message
 from .providers.autogen import AutoGenProvider
 
 async def create_agent(config: Dict[str, Any]) -> AgentProvider:
-    """Criar um agente com a configuração fornecida."""
+    """Create an agent with the provided configuration."""
     provider = AutoGenProvider(config)
     await provider.initialize()
     return provider
 ```
 
-## Validação
+## Validation
 
-Use estas verificações para validar a estrutura do módulo:
+Use these checks to validate module structure:
 
 1. **Interfaces**:
-   - Devem estar em `base.py`
-   - Usar `Protocol` ou `ABC`
-   - Documentar com docstrings
+   - Should be in `base.py`
+   - Use `Protocol` or `ABC`
+   - Document with docstrings
 
-2. **Implementações**:
-   - Devem estar em `providers/`
-   - Implementar interfaces de `base.py`
-   - Não expor detalhes internos
+2. **Implementations**:
+   - Should be in `providers/`
+   - Implement interfaces from `base.py`
+   - Don't expose internal details
 
-3. **API Pública**:
-   - Expor apenas o necessário em `__init__.py`
-   - Documentar a API pública
-   - Manter retrocompatibilidade
+3. **Public API**:
+   - Expose only what's necessary in `__init__.py`
+   - Document the public API
+   - Maintain backward compatibility
 
-## Conclusão
+## Conclusion
 
-Seguindo estes padrões de organização de módulos e interfaces, garantimos:
+Following these module and interface organization patterns ensures:
 
-1. **Clareza**: Estrutura consistente e previsível
-2. **Manutenibilidade**: Separação clara de responsabilidades
-3. **Extensibilidade**: Fácil adição de novas implementações
-4. **Usabilidade**: API pública clara e bem documentada 
+1. **Clarity**: Consistent and predictable structure
+2. **Maintainability**: Clear separation of responsibilities
+3. **Extensibility**: Easy addition of new implementations
+4. **Usability**: Clear and well-documented public API 
