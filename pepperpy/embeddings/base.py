@@ -12,6 +12,65 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
+class EmbeddingError(PepperpyError):
+    """Base error for the embeddings module."""
+
+    def __init__(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new embeddings error.
+        
+        Args:
+            message: Error message.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        super().__init__(message, *args, **kwargs)
+
+
+class EmbeddingConfigError(EmbeddingError):
+    """Error related to configuration of embedding providers."""
+
+    def __init__(self, message: str, provider: Optional[str] = None, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new embedding configuration error.
+        
+        Args:
+            message: Error message.
+            provider: The embedding provider name.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        self.provider = provider
+        super().__init__(message, *args, **kwargs)
+        
+    def __str__(self) -> str:
+        """Return the string representation of the error."""
+        if self.provider:
+            return f"Configuration error for provider '{self.provider}': {self.message}"
+        return f"Configuration error: {self.message}"
+
+
+class EmbeddingProcessError(EmbeddingError):
+    """Error related to the embedding process."""
+
+    def __init__(self, message: str, text: Optional[str] = None, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new embedding process error.
+        
+        Args:
+            message: Error message.
+            text: The text that failed to be embedded.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        self.text = text
+        super().__init__(message, *args, **kwargs)
+        
+    def __str__(self) -> str:
+        """Return the string representation of the error."""
+        if self.text:
+            # Truncate text if too long
+            text = self.text[:50] + "..." if len(self.text) > 50 else self.text
+            return f"Embedding process error for text '{text}': {self.message}"
+        return f"Embedding process error: {self.message}" 
+    
 @dataclass
 class EmbeddingOptions:
     """Options for embedding generation.
@@ -42,11 +101,6 @@ class EmbeddingResult:
     embedding: List[float]
     usage: Dict[str, int]
     metadata: Dict[str, Any] = field(default_factory=dict) 
-class EmbeddingError(PepperpyError):
-    """Base class for embedding errors."""
-
-    pass
-
 
 class EmbeddingProvider(ABC):
     """Base class for embedding providers."""

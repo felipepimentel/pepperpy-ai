@@ -23,6 +23,8 @@ from .base import (
     ResponseError,
     ConnectionError,
     TimeoutError,
+    ModelContext,
+    BaseModelContext,
 )
 from .config import Config
 from .di import Container
@@ -58,11 +60,11 @@ from .utils import (
 )
 from .validation import ValidationError, validate_config
 from .version import __version__
-from pepperpy.core.context import (
-    BaseModelContext,
-    ContextError,
-    ModelContext,
-)
+
+# Definindo ContextError já que é usado na lista de __all__
+class ContextError(PepperpyError):
+    """Error related to context operations."""
+    pass
 
 __all__ = [
     # Version
