@@ -1,7 +1,7 @@
-"""ChromaDB vector store provider for RAG capabilities.
+"""ChromaDB provider implementation for RAG capabilities.
 
 This module provides a ChromaDB-based implementation of the RAG provider interface,
-supporting vector storage and retrieval for RAG operations.
+supporting persistent vector storage, similarity search, and metadata filtering.
 
 Example:
     >>> from pepperpy.rag import RAGProvider
@@ -17,11 +17,10 @@ Example:
 
 import logging
 import os
-import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.base import ProviderError
-from pepperpy.core.utils.imports import import_provider, lazy_provider_class
+from pepperpy.core.utils import import_provider, lazy_provider_class
 from pepperpy.rag.base import (
     BaseProvider,
     Document,

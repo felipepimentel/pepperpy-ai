@@ -23,19 +23,19 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import httpx
 
+from pepperpy.core.utils import lazy_provider_class
 from pepperpy.llm.base import (
     GenerationChunk,
     GenerationResult,
     LLMError,
     LLMProvider,
     Message,
-    MessageRole,
 )
-from pepperpy.core.utils.imports import lazy_provider_class
 
 logger = logging.getLogger(__name__)
 
-@lazy_provider_class('llm', 'openrouter')
+
+@lazy_provider_class("llm", "openrouter")
 class OpenRouterProvider(LLMProvider):
     """OpenRouter implementation of the LLM provider interface.
 
@@ -52,24 +52,24 @@ class OpenRouterProvider(LLMProvider):
         self,
         api_key: Optional[str] = None,
         model: str = "openai/gpt-3.5-turbo",
-        **kwargs: Any
+        **kwargs: Any,
     ) -> None:
         """Initialize OpenRouter provider.
-        
+
         Args:
             api_key: OpenRouter API key
             model: Model to use
             **kwargs: Additional configuration
         """
         super().__init__(**kwargs)
-        
+
         self._api_key = api_key or self._get_api_key()
         self.model = model
         self._client: Optional[httpx.AsyncClient] = None
         self._config = {
             "provider": "openrouter",
             "api_key": self._api_key,
-            "model": self.model
+            "model": self.model,
         }
 
     def get_config(self) -> Dict[str, Any]:
@@ -105,8 +105,8 @@ class OpenRouterProvider(LLMProvider):
                 "google/palm-2",
                 "meta/llama-2-70b-chat",
                 "meta/llama-2-13b-chat",
-                "meta/llama-2-7b-chat"
-            ]
+                "meta/llama-2-7b-chat",
+            ],
         }
 
     @property
@@ -117,7 +117,7 @@ class OpenRouterProvider(LLMProvider):
     def _get_api_key(self) -> str:
         """Get API key from environment."""
         import os
-        
+
         api_key = os.environ.get("PEPPERPY_LLM__OPENROUTER_API_KEY")
         if not api_key:
             raise ValueError(
@@ -135,7 +135,7 @@ class OpenRouterProvider(LLMProvider):
                     "Authorization": f"Bearer {self._api_key}",
                     "HTTP-Referer": "https://github.com/pimentel/pepperpy",
                     "X-Title": "PepperPy Framework",
-                }
+                },
             )
 
     async def cleanup(self) -> None:
@@ -150,9 +150,7 @@ class OpenRouterProvider(LLMProvider):
 
         await super().cleanup()
 
-    def _convert_messages(
-        self, messages: Union[str, List[Message]]
-    ) -> List[dict]:
+    def _convert_messages(self, messages: Union[str, List[Message]]) -> List[dict]:
         """Convert messages to OpenRouter format.
 
         Args:
@@ -243,10 +241,7 @@ class OpenRouterProvider(LLMProvider):
             openrouter_messages = self._convert_messages(messages)
             response = await self._client.post(
                 "/chat/completions",
-                json={
-                    "model": self.model,
-                    "messages": openrouter_messages
-                }
+                json={"model": self.model, "messages": openrouter_messages},
             )
             response.raise_for_status()
             data = response.json()
@@ -257,14 +252,14 @@ class OpenRouterProvider(LLMProvider):
 
     async def chat(self, messages: List[Dict[str, Any]]) -> str:
         """Generate a response in a chat context.
-        
+
         Args:
             messages: List of messages in the chat history.
                 Each message should have 'role' and 'content' keys.
-            
+
         Returns:
             The generated response.
-            
+
         Raises:
             RuntimeError: If the provider is not initialized.
             httpx.HTTPError: If the API request fails.
@@ -273,11 +268,7 @@ class OpenRouterProvider(LLMProvider):
             raise RuntimeError("Provider not initialized")
 
         response = await self._client.post(
-            "/chat/completions",
-            json={
-                "model": self.model,
-                "messages": messages
-            }
+            "/chat/completions", json={"model": self.model, "messages": messages}
         )
         response.raise_for_status()
         data = response.json()
@@ -321,7 +312,7 @@ class OpenRouterProvider(LLMProvider):
                     "Authorization": f"Bearer {self._api_key}",
                     "HTTP-Referer": "https://github.com/pimentel/pepperpy",
                     "X-Title": "PepperPy Framework",
-                }
+                },
             )
 
             async for chunk in stream:

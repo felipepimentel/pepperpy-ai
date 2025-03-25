@@ -59,7 +59,7 @@ asyncio_mode = "auto"
 name = "pepperpy"
 version = "0.1.0"
 description = "A Python framework for building AI-powered applications"
-authors = ["Jose Pimentel <jose@pimentel.co>"]
+authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
@@ -71,6 +71,19 @@ radon = "^6.0.1"
 lizard = "^1.17.20"
 gitpython = "^3.1.44"
 
+# Optional dependencies
+openai = { version = "^1.68.2", optional = true }
+anthropic = { version = "^0.49.0", optional = true }
+llm-openrouter = { version = "^0.4", optional = true }
+chromadb = { version = "^0.6.3", optional = true }
+weaviate-client = { version = "^4.11.3", optional = true }
+pinecone-client = { version = "^6.0.0", optional = true }
+boto3 = { version = "^1.37.19", optional = true }
+google-cloud-storage = { version = "^3.1.0", optional = true }
+supabase = { version = "^2.14.0", optional = true }
+azure-cognitiveservices-speech = { version = "^1.43.0", optional = true }
+gtts = { version = "^2.5.4", optional = true }
+
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
 pytest-asyncio = "^0.26.0"
@@ -78,129 +91,41 @@ black = "^25.1.0"
 isort = "^6.0.1"
 ruff = "^0.11.2"
 
+[tool.poetry.extras]
 # LLM Providers
-[tool.poetry.group.llm-openai]
-optional = true
-
-[tool.poetry.group.llm-openai.dependencies]
-openai = "^1.68.2"
-
-[tool.poetry.group.llm-anthropic]
-optional = true
-
-[tool.poetry.group.llm-anthropic.dependencies]
-anthropic = "^0.49.0"
-
-[tool.poetry.group.llm-openrouter]
-optional = true
-
-[tool.poetry.group.llm-openrouter.dependencies]
-llm-openrouter = "^0.4"
+openai = ["openai"]
+anthropic = ["anthropic"]
+openrouter = ["llm-openrouter"]
+llm-all = ["openai", "anthropic", "llm-openrouter"]
 
 # RAG Providers
-[tool.poetry.group.rag-chroma]
-optional = true
-
-[tool.poetry.group.rag-chroma.dependencies]
-chromadb = "^0.6.3"
-
-[tool.poetry.group.rag-weaviate]
-optional = true
-
-[tool.poetry.group.rag-weaviate.dependencies]
-weaviate-client = "^4.11.3"
-
-[tool.poetry.group.rag-pinecone]
-optional = true
-
-[tool.poetry.group.rag-pinecone.dependencies]
-pinecone-client = "^6.0.0"
+chroma = ["chromadb"]
+weaviate = ["weaviate-client"]
+pinecone = ["pinecone-client"]
+rag-all = ["chromadb", "weaviate-client", "pinecone-client"]
 
 # Storage Providers
-[tool.poetry.group.storage-s3]
-optional = true
-
-[tool.poetry.group.storage-s3.dependencies]
-boto3 = "^1.37.19"
-
-[tool.poetry.group.storage-gcs]
-optional = true
-
-[tool.poetry.group.storage-gcs.dependencies]
-google-cloud-storage = "^3.1.0"
-
-[tool.poetry.group.storage-supabase]
-optional = true
-
-[tool.poetry.group.storage-supabase.dependencies]
-supabase = "^2.14.0"
+s3 = ["boto3"]
+gcs = ["google-cloud-storage"]
+supabase = ["supabase"]
+storage-all = ["boto3", "google-cloud-storage", "supabase"]
 
 # TTS Providers
-[tool.poetry.group.tts-azure]
-optional = true
+azure-tts = ["azure-cognitiveservices-speech"]
+google-tts = ["gtts"]
+tts-all = ["azure-cognitiveservices-speech", "gtts"]
 
-[tool.poetry.group.tts-azure.dependencies]
-azure-cognitiveservices-speech = "^1.43.0"
-
-[tool.poetry.group.tts-google]
-optional = true
-
-[tool.poetry.group.tts-google.dependencies]
-gtts = "^2.5.4"
-
-# Workflow Providers
-[tool.poetry.group.workflow-prefect]
-optional = true
-
-[tool.poetry.group.workflow-prefect.dependencies]
-prefect = "^3.2.14"
-
-[tool.poetry.group.workflow-airflow]
-optional = true
-
-[tool.poetry.group.workflow-airflow.dependencies]
-apache-airflow = "^2.10.5"
-
-# Convenience groups for common combinations
-[tool.poetry.group.llm-all]
-optional = true
-
-[tool.poetry.group.llm-all.dependencies]
-openai = "^1.68.2"
-anthropic = "^0.49.0"
-llm-openrouter = "^0.4"
-
-[tool.poetry.group.rag-all]
-optional = true
-
-[tool.poetry.group.rag-all.dependencies]
-chromadb = "^0.6.3"
-weaviate-client = "^4.11.3"
-pinecone-client = "^6.0.0"
-
-[tool.poetry.group.storage-all]
-optional = true
-
-[tool.poetry.group.storage-all.dependencies]
-boto3 = "^1.37.19"
-google-cloud-storage = "^3.1.0"
-supabase = "^2.14.0"
-
-[tool.poetry.group.all]
-optional = true
-
-[tool.poetry.group.all.dependencies]
-# Include all provider dependencies here
-openai = "^1.68.2"
-anthropic = "^0.49.0"
-llm-openrouter = "^0.4"
-chromadb = "^0.6.3"
-weaviate-client = "^4.11.3"
-pinecone-client = "^6.0.0"
-boto3 = "^1.37.19"
-google-cloud-storage = "^3.1.0"
-supabase = "^2.14.0"
-azure-cognitiveservices-speech = "^1.43.0"
-gtts = "^2.5.4"
-prefect = "^3.2.14"
-apache-airflow = "^2.10.5"
+# All providers
+all = [
+    "openai",
+    "anthropic",
+    "llm-openrouter",
+    "chromadb",
+    "weaviate-client",
+    "pinecone-client",
+    "boto3",
+    "google-cloud-storage",
+    "supabase",
+    "azure-cognitiveservices-speech",
+    "gtts",
+]
