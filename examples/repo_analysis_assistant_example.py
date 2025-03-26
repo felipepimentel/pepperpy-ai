@@ -1,34 +1,25 @@
-"""Example of using the repository analysis recipe."""
+"""Example of using PepperPy for repository analysis."""
 
 import asyncio
 
-from pepperpy.core.base import PepperPy
-from pepperpy.workflow.recipes.code.repository import RepositoryAnalysisRecipe
+from pepperpy import PepperPy
 
 
-async def main():
-    """Run the example."""
-    try:
-        # Create PepperPy instance - all configuration is handled by the framework
-        pepperpy = (
-            PepperPy.create()
-            .with_llm()  # Uses PEPPERPY_LLM__ config
-            .with_rag()  # Uses PEPPERPY_RAG__ config
-            .with_github()  # Uses PEPPERPY_TOOLS__ config
-            .build()
-        )
+async def analyze_repository(repo_url: str) -> None:
+    """Analyze a repository and answer questions about it.
 
-        # Create recipe
-        recipe = RepositoryAnalysisRecipe(
-            name="repo-analyzer",
-            llm=pepperpy.llm,
-            rag=pepperpy.rag,
-            repository=pepperpy.github,
-        )
+    Args:
+        repo_url: Repository URL to analyze
+    """
+    async with PepperPy().with_llm().with_rag().with_repository() as assistant:
+        # Index repository contents
+        repo = assistant.repository
+        await repo.clone(repo_url)
 
-        # Analyze repository
-        repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
-        await recipe.analyze(repo_url)
+        files = await repo.list_files()
+        for file in files:
+            content = await repo.read_file(file)
+            await assistant.learn(content, metadata={"file": file})
 
         # Interactive mode
         print("\nEnter your questions about the repository (type 'exit' to quit):")
@@ -37,14 +28,17 @@ async def main():
             if question.lower() == "exit":
                 break
 
-            answer = await recipe.ask(question)
-            if answer:
-                print(f"\nAnswer: {answer}")
-            else:
-                print("\nError: Could not generate answer")
+            try:
+                answer = await assistant.ask(question)
+                print(f"\nAnswer: {answer.content}")
+            except Exception as e:
+                print(f"\nError: {e}")
 
-    except Exception as e:
-        print(f"Error: {e}")
+
+async def main() -> None:
+    """Run the example."""
+    repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
+    await analyze_repository(repo_url)
 
 
 if __name__ == "__main__":

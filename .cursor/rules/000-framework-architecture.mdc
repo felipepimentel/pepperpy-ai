@@ -180,6 +180,51 @@ finally:
     await llm.cleanup()
 ```
 
+## Framework Architecture Guidelines
+
+## API Design Principles
+
+### Fluent API and Builder Pattern
+
+PepperPy follows a fluent, builder-based API design that makes it easy to construct, configure, and use components:
+
+```python
+# Creating and configuring components with builder pattern
+pepperpy = (
+    PepperPy.create()
+    .with_rag(provider_type="annoy", data_dir="data")
+    .with_llm(model="gpt-4")
+    .build()
+)
+
+# Using async context manager for resource management
+async with PepperPy.create().with_rag() as pepperpy:
+    results = await pepperpy.rag.search("query")
+```
+
+All components MUST follow these API design principles:
+
+1. **Builder pattern** for component creation and configuration
+   - Use factory methods (e.g., `create()`) as entry points
+   - Method chaining with `return self` for fluent configuration
+   - Terminal `build()` method to complete the configuration
+
+2. **Context managers** for resource management
+   - Implement `__aenter__` and `__aexit__` for async context
+   - Handle resource initialization and cleanup automatically
+
+3. **Simplified method signatures**
+   - Provide helper methods with intuitive defaults
+   - Allow both simple and advanced usage patterns
+   - Avoid requiring low-level knowledge for common tasks
+
+4. **Automatic resource management**
+   - Handle directory creation and file management 
+   - Lazy initialization of resources when needed
+   - Proper cleanup of resources when done
+
+These principles must be consistently applied across all modules to provide a coherent, user-friendly developer experience.
+
 ## Conclusion
 
 This architecture ensures:

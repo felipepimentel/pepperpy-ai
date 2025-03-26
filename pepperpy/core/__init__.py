@@ -1,55 +1,48 @@
 """Core functionality for PepperPy.
 
-This module provides core functionality for PepperPy, including:
-- Base classes and interfaces
-- Configuration handling
-- Logging and monitoring
-- Memory management
-- Type definitions
-- Validation
-- Dependency injection
-- Utility functions
-- HTTP client and utilities
+This module provides the core functionality for PepperPy, including:
+- Base models and interfaces
 - Error handling
-- Version information
+- Configuration management
+- Validation utilities
+- Logging and metrics
+- Utility functions
 """
 
-from .base import (
+from pepperpy.core.base import (
     BaseProvider,
+    ConfigurationError,
+    ConnectionError,
+    Document,
+    GenerationResult,
+    HTTPError,
+    JsonDict,
+    JsonType,
+    JsonValue,
+    LLMProvider,
+    Metadata,
     PepperpyError,
     ProviderError,
-    HTTPError,
+    QueryParamsType,
+    RAGProvider,
     RequestError,
     ResponseError,
-    ConnectionError,
+    SearchResult,
+    StorageProvider,
     TimeoutError,
-    ModelContext,
-    BaseModelContext,
+    ValidationError,
+    WorkflowProvider,
 )
-from .config import Config
-from .di import Container
-from .logging import Logger, LogLevel, get_logger, setup_logging, VerbosityLevel, configure_logging, get_log_manager
-from .memory import BaseMemory, MemoryManager
-from .metrics import (
-    Metric,
-    MetricCategory,
-    MetricsCollector,
-    PerformanceTracker,
-    benchmark,
-    get_memory_usage,
-    get_system_info,
-    measure_memory,
-    measure_time,
-    performance_tracker,
-    report_custom_metric,
-)
-from .types import Metadata
-from .utils import (
+from pepperpy.core.config import Config
+from pepperpy.core.di import Container
+from pepperpy.core.logging import Logger, LogLevel, get_logger
+from pepperpy.core.memory import BaseMemory
+from pepperpy.core.metrics import MetricsCollector
+from pepperpy.core.utils import (
     convert_to_dict,
     flatten_dict,
     format_date,
     get_class_attributes,
-    get_metadata_value,
     import_string,
     merge_configs,
     retry,
@@ -57,50 +50,62 @@ from .utils import (
     truncate_text,
     unflatten_dict,
     validate_type,
-    auto_load_env,
 )
-from .validation import ValidationError, validate_config
-from .version import __version__
-
-# Definindo ContextError já que é usado na lista de __all__
-class ContextError(PepperpyError):
-    """Error raised by context operations."""
-    pass
+from pepperpy.core.validation import validate_config
+from pepperpy.core.version import __version__
 
 __all__ = [
-    # Errors
-    "PepperpyError",
-    "ProviderError",
-    "InvalidOperationError",
-    "ValidationError",
-    "ConfigError",
-    "AuthenticationError",
-    "ResourceNotFoundError",
-    "NotImplementedError",
-    "LimitExceededError",
+    # Base
+    "BaseProvider",
     # Config
     "Config",
-    # Storage
-    "StorageConfig",
-    "StorageError",
+    # DI
+    "Container",
+    # Errors
+    "ConfigurationError",
     "ConnectionError",
+    "HTTPError",
+    "PepperpyError",
+    "ProviderError",
+    "RequestError",
+    "ResponseError",
     "TimeoutError",
+    "ValidationError",
+    # Logging
+    "Logger",
+    "LogLevel",
+    "get_logger",
+    # Memory
+    "BaseMemory",
+    # Metrics
+    "MetricsCollector",
     # Types
+    "Document",
+    "GenerationResult",
+    "JsonDict",
+    "JsonType",
+    "JsonValue",
+    "LLMProvider",
     "Metadata",
-    # Validation
-    "validate_config",
+    "QueryParamsType",
+    "RAGProvider",
+    "SearchResult",
+    "StorageProvider",
+    "WorkflowProvider",
     # Utils
+    "convert_to_dict",
+    "flatten_dict",
+    "format_date",
+    "get_class_attributes",
+    "import_string",
+    "merge_configs",
+    "retry",
+    "safe_import",
+    "truncate_text",
     "unflatten_dict",
     "validate_type",
-    "auto_load_env",
-    # Logging
-    "VerbosityLevel",
-    "configure_logging",
-    "get_logger",
-    "get_log_manager",
-    # Context
-    "BaseModelContext",
-    "ContextError",
+    # Validation
+    "validate_config",
     # Version
     "__version__",
 ]

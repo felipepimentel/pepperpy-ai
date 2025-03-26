@@ -11,13 +11,13 @@ from typing import Any, Dict, List, Optional
 
 from annoy import AnnoyIndex
 
+from ..base import BaseProvider
 from ..document import Document
 from ..provider import RAGError
 from ..query import Query
-from ..result import RetrievalResult
 
 
-class AnnoyRAGProvider:
+class AnnoyRAGProvider(BaseProvider):
     """Lightweight RAG provider using Annoy for vector similarity search.
 
     This provider is designed to be lightweight and efficient for most use cases.
@@ -82,8 +82,8 @@ class AnnoyRAGProvider:
         except Exception as e:
             raise RAGError(f"Failed to initialize AnnoyRAGProvider: {str(e)}") from e
 
-    async def shutdown(self) -> None:
-        """Shut down the provider.
+    async def cleanup(self) -> None:
+        """Clean up resources.
 
         Saves current state to disk.
         """
@@ -105,21 +105,16 @@ class AnnoyRAGProvider:
                     )
 
         except Exception as e:
-            raise RAGError(f"Failed to shutdown AnnoyRAGProvider: {str(e)}") from e
+            raise RAGError(f"Failed to cleanup AnnoyRAGProvider: {str(e)}") from e
 
-    async def add_documents(
-        self,
-        documents: List[Document],
-        **kwargs: Any,
-    ) -> None:
-        """Add documents to the provider.
+    async def store(self, documents: List[Document]) -> None:
+        """Store documents in the RAG context.
 
         Args:
-            documents: List of documents to add
-            **kwargs: Additional arguments (unused)
+            documents: List of documents to store.
 
         Raises:
-            RAGError: If adding documents fails
+            RAGError: If storing documents fails
         """
         try:
             # Create new index if needed
@@ -151,89 +146,42 @@ class AnnoyRAGProvider:
                 self.index.build(self.n_trees)
 
         except Exception as e:
-            raise RAGError(f"Failed to add documents: {str(e)}") from e
+            raise RAGError(f"Failed to store documents: {str(e)}") from e
 
-    async def remove_documents(
-        self,
-        document_ids: List[str],
-        **kwargs: Any,
-    ) -> None:
-        """Remove documents from the provider.
-
-        Note: This requires rebuilding the index, which can be slow for large datasets.
+    async def search(self, query: Query) -> List[Document]:
+        """Search for relevant documents.
 
         Args:
-            document_ids: IDs of documents to remove
-            **kwargs: Additional arguments (unused)
-        """
-        try:
-            # Remove documents from mappings
-            docs_to_remove = set(document_ids)
-            remaining_docs = []
-
-            for doc_id, doc in self.documents.items():
-                if doc_id not in docs_to_remove:
-                    remaining_docs.append(doc)
-
-            # Clear current state
-            self.index = None
-            self.documents.clear()
-            self.doc_id_to_idx.clear()
-            self.idx_to_doc_id.clear()
-            self.next_idx = 0
-
-            # Re-add remaining documents
-            if remaining_docs:
-                await self.add_documents(remaining_docs)
-
-        except Exception as e:
-            raise RAGError(f"Failed to remove documents: {str(e)}") from e
-
-    async def search(
-        self,
-        query: Query,
-        limit: int = 10,
-        **kwargs: Any,
-    ) -> RetrievalResult:
-        """Search for documents matching a query.
-
-        Args:
-            query: Query to search for
-            limit: Maximum number of results to return
-            **kwargs: Additional arguments (unused)
+            query: Search query.
 
         Returns:
-            Search results with documents and scores
+            List of relevant documents.
 
         Raises:
             RAGError: If search fails
         """
         try:
             if not self.index:
-                return RetrievalResult(query=query, documents=[], scores=[])
+                return []
 
             if query.embeddings is None:
                 raise RAGError("Query has no embeddings")
 
             # Get nearest neighbors
             indices, distances = self.index.get_nns_by_vector(
-                query.embeddings, limit, include_distances=True
+                query.embeddings, 10, include_distances=True
             )
 
             # Convert to documents
             docs = []
-            scores = []
-
-            for idx, dist in zip(indices, distances):
+            for idx in indices:
                 doc_id = self.idx_to_doc_id.get(idx)
                 if doc_id:
                     doc = self.documents.get(doc_id)
                     if doc:
                         docs.append(doc)
-                        # Convert distance to similarity score (0-1)
-                        scores.append(1.0 / (1.0 + dist))
 
-            return RetrievalResult(query=query, documents=docs, scores=scores)
+            return docs
 
         except Exception as e:
             raise RAGError(f"Failed to search: {str(e)}") from e

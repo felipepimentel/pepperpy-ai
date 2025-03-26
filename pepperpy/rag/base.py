@@ -1,31 +1,27 @@
 """Base RAG module."""
 
-from typing import List, Protocol, TypeVar
+from abc import abstractmethod
+from typing import List, TypeVar
 
+from pepperpy.providers import BaseProvider
 from pepperpy.rag.types import Document, Query
 
 T = TypeVar("T")
 
 
-class BaseProvider(Protocol):
-    """Protocol for RAG providers."""
+class RAGProvider(BaseProvider):
+    """Base class for RAG providers."""
 
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        ...
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        ...
-
+    @abstractmethod
     async def store(self, documents: List[Document]) -> None:
         """Store documents in the RAG context.
 
         Args:
             documents: List of documents to store.
         """
-        ...
+        pass
 
+    @abstractmethod
     async def search(self, query: Query) -> List[Document]:
         """Search for relevant documents.
 
@@ -35,13 +31,13 @@ class BaseProvider(Protocol):
         Returns:
             List of relevant documents.
         """
-        ...
+        pass
 
 
 class RAGContext:
     """Context for RAG operations."""
 
-    def __init__(self, provider: BaseProvider) -> None:
+    def __init__(self, provider: RAGProvider) -> None:
         """Initialize the RAG context.
 
         Args:

@@ -1,48 +1,87 @@
-"""
-PepperPy - A versatile Python library for building AI-powered applications.
+"""PepperPy Framework.
 
-PepperPy provides a comprehensive set of tools and capabilities for building
-AI-powered applications, leveraging Large Language Models (LLMs),
-Retrieval-Augmented Generation (RAG), and other AI technologies.
+A modular framework for building AI-powered applications.
 
-Various domain-specific modules are available:
-- llm: Large Language Model integrations
-- rag: Retrieval-Augmented Generation capabilities
-- storage: Storage system for vectors and documents
-- workflow: Workflow management
-- core: Core functionality and utilities
-- tools: Integrations with external services and platforms
-
-Módulos Principais:
-    core: Funcionalidades centrais e utilitários
-    data: Manipulação e persistência de dados
-    http: Cliente HTTP e utilitários (agora parte de core.http)
-    infra: Infraestrutura e serviços compartilhados
-    utils: Funções utilitárias
-
-Exemplo Básico:
-    >>> import pepperpy as pp
-    >>> app = pp.apps.TextApp("minha_app")
-    >>> result = await app.process("Texto para processar")
+Example:
+    >>> from pepperpy import PepperPy
+    >>> async with PepperPy() as pepperpy:
+    ...     response = await pepperpy.send("What is Python?")
 """
 
-# Core functionality
-from pepperpy.core import (
+from typing import Any, Dict, List, Optional, Type, Union
+
+# Core exports
+from pepperpy.core.base import (
+    BaseProvider,
+    ConfigType,
+    ConfigurationError,
+    ConnectionError,
+    HeadersType,
+    HTTPError,
+    JsonDict,
+    JsonType,
+    JsonValue,
+    Metadata,
     PepperpyError,
-    VerbosityLevel,
-    configure_logging,
-    get_logger,
+    QueryParamsType,
+    RequestError,
+    ResponseError,
+    SearchResult,
+    TimeoutError,
+    ValidationError,
+    WorkflowProvider,
 )
+from pepperpy.core.config import Config
+from pepperpy.core.http import HTTPClient, HTTPResponse
 
-# Nota: As importações do módulo analysis foram removidas pois 
-# esse módulo foi substituído pelo módulo tools/repository
+# Provider interfaces
+from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
+
+# Main class
+from pepperpy.pepperpy import PepperPy
+from pepperpy.rag.base import Document, RAGProvider
+from pepperpy.rag.types import Query
+from pepperpy.storage.base import StorageProvider
+from pepperpy.tts.base import TTSProvider
 
 __version__ = "0.1.0"
-
 __all__ = [
+    # Main class
+    "PepperPy",
     # Core
+    "Config",
+    "BaseProvider",
+    "HTTPClient",
+    "HTTPResponse",
+    # Errors
     "PepperpyError",
-    "VerbosityLevel",
-    "configure_logging",
-    "get_logger",
+    "ValidationError",
+    "ConfigurationError",
+    "HTTPError",
+    "RequestError",
+    "ResponseError",
+    "ConnectionError",
+    "TimeoutError",
+    # Provider interfaces
+    "LLMProvider",
+    "RAGProvider",
+    "StorageProvider",
+    "EmbeddingProvider",
+    "WorkflowProvider",
+    "TTSProvider",
+    # Common types
+    "Document",
+    "SearchResult",
+    "GenerationResult",
+    "Message",
+    "MessageRole",
+    "Query",
+    "Metadata",
+    "JsonValue",
+    "JsonDict",
+    "JsonType",
+    "ConfigType",
+    "HeadersType",
+    "QueryParamsType",
 ]

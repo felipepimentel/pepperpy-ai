@@ -22,14 +22,74 @@ import abc
 import enum
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Union, Protocol
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.core import PepperpyError
-from pepperpy.core.providers import BaseProvider
+from pepperpy.core.base import PepperpyError
+from pepperpy.providers import BaseProvider
 
 
 class LLMError(PepperpyError):
-    """Base exception for LLM-related errors."""
+    """Base error for the LLM module."""
+
+    def __init__(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new LLM error.
+
+        Args:
+            message: Error message.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        super().__init__(message, *args, **kwargs)
+
+
+class LLMConfigError(LLMError):
+    """Error related to configuration of LLM providers."""
+
+    def __init__(
+        self, message: str, provider: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> None:
+        """Initialize a new LLM configuration error.
+
+        Args:
+            message: Error message.
+            provider: The LLM provider name.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        self.provider = provider
+        super().__init__(message, *args, **kwargs)
+
+    def __str__(self) -> str:
+        """Return the string representation of the error."""
+        if self.provider:
+            return f"Configuration error for provider '{self.provider}': {self.message}"
+        return f"Configuration error: {self.message}"
+
+
+class LLMProcessError(LLMError):
+    """Error related to the LLM process."""
+
+    def __init__(
+        self, message: str, prompt: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> None:
+        """Initialize a new LLM process error.
+
+        Args:
+            message: Error message.
+            prompt: The prompt that failed to be processed.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        self.prompt = prompt
+        super().__init__(message, *args, **kwargs)
+
+    def __str__(self) -> str:
+        """Return the string representation of the error."""
+        if self.prompt:
+            # Truncate prompt if too long
+            prompt = self.prompt[:50] + "..." if len(self.prompt) > 50 else self.prompt
+            return f"LLM process error for prompt '{prompt}': {self.message}"
+        return f"LLM process error: {self.message}"
 
 
 class MessageRole(str, enum.Enum):
@@ -90,46 +150,6 @@ class GenerationChunk:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class LLMProvider(Protocol):
-    """Interface for LLM providers."""
-
-    @property
-    def api_key(self) -> Optional[str]:
-        """Get the API key for the provider.
-        
-        Returns:
-            The API key if set, None otherwise.
-        """
-        ...
-
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        ...
-
-    async def generate(self, prompt: str) -> str:
-        """Generate a response for the given prompt.
-        
-        Args:
-            prompt: The prompt to generate a response for.
-            
-        Returns:
-            The generated response.
-        """
-        ...
-
-    async def chat(self, messages: list[Dict[str, Any]]) -> str:
-        """Generate a response in a chat context.
-        
-        Args:
-            messages: List of messages in the chat history.
-                Each message should have 'role' and 'content' keys.
-            
-        Returns:
-            The generated response.
-        """
-        ...
-
-
 class LLMProvider(BaseProvider, abc.ABC):
     """Base class for LLM providers.
 
@@ -141,16 +161,31 @@ class LLMProvider(BaseProvider, abc.ABC):
 
     def __init__(
         self,
+        name: str = "base",
         config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize LLM provider.
 
         Args:
+            name: Provider name
             config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
         """
-        super().__init__(config=config)
+        self.name = name
+        self._config = config or {}
+        self._config.update(kwargs)
         self.initialized = False
         self.last_used = None
+
+    @property
+    def api_key(self) -> Optional[str]:
+        """Get the API key for the provider.
+
+        Returns:
+            The API key if set, None otherwise.
+        """
+        return self._config.get("api_key")
 
     @abc.abstractmethod
     async def generate(
@@ -170,6 +205,7 @@ class LLMProvider(BaseProvider, abc.ABC):
         Raises:
             LLMError: If generation fails
         """
+        raise NotImplementedError("generate must be implemented by provider")
 
     @abc.abstractmethod
     async def stream(
@@ -189,6 +225,7 @@ class LLMProvider(BaseProvider, abc.ABC):
         Raises:
             LLMError: If generation fails
         """
+        raise NotImplementedError("stream must be implemented by provider")
 
     async def get_embeddings(
         self,
@@ -205,44 +242,123 @@ class LLMProvider(BaseProvider, abc.ABC):
             List of embedding vectors
 
         Raises:
-            LLMError: If embedding fails
-            NotImplementedError: If provider doesn't support embeddings
+            LLMError: If embedding generation fails
         """
-        raise NotImplementedError("Embeddings not supported by this provider")
+        raise NotImplementedError("get_embeddings must be implemented by provider")
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get provider capabilities.
 
         Returns:
-            Dictionary of provider capabilities including:
-            - supported_models: List of supported models
-            - max_tokens: Maximum tokens per request
-            - supports_streaming: Whether streaming is supported
-            - supports_embeddings: Whether embeddings are supported
-            - additional provider-specific capabilities
+            Dictionary of provider capabilities
         """
         return {
-            "embeddings": False,
-            "streaming": False,
-            "chat_based": True,
-            "function_calling": False,
+            "streaming": True,
+            "embeddings": True,
+            "function_calling": True,
+            "max_tokens": 4096,
+            "max_messages": 100,
         }
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
         This method should be called before using the provider.
-        It can be used to set up connections, load models, etc.
+        It can be used to set up any necessary resources or connections.
         """
-        await super().initialize()
-        self.initialized = True
-        self.last_used = datetime.now()
+        if not self.initialized:
+            self.initialized = True
+            self.last_used = datetime.now()
 
     async def cleanup(self) -> None:
         """Clean up provider resources.
 
         This method should be called when the provider is no longer needed.
-        It can be used to close connections, unload models, etc.
+        It can be used to clean up any resources or connections.
         """
-        await super().cleanup()
         self.initialized = False
+        self.last_used = None
+
+    # Utility methods for common operations
+
+    async def chat(
+        self,
+        messages: List[Dict[str, str]],
+        **kwargs: Any,
+    ) -> str:
+        """Chat with the model.
+
+        Args:
+            messages: List of message dictionaries
+            **kwargs: Additional provider options
+
+        Returns:
+            Model response
+
+        Raises:
+            LLMError: If chat fails
+        """
+        # Convert dict messages to Message objects
+        formatted_messages = [
+            Message(
+                role=msg.get("role", MessageRole.USER),
+                content=msg["content"],
+                name=msg.get("name"),
+            )
+            for msg in messages
+        ]
+
+        result = await self.generate(formatted_messages, **kwargs)
+        return result.content
+
+    async def summarize(
+        self,
+        text: str,
+        max_length: Optional[int] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Summarize text.
+
+        Args:
+            text: Text to summarize
+            max_length: Optional maximum length in words
+            **kwargs: Additional provider options
+
+        Returns:
+            Generated summary
+
+        Raises:
+            LLMError: If summarization fails
+        """
+        prompt = "Summarize the following text"
+        if max_length:
+            prompt += f" in {max_length} words or less"
+        prompt += f":\n\n{text}"
+
+        result = await self.generate(prompt, **kwargs)
+        return result.content
+
+    async def classify(
+        self,
+        text: str,
+        categories: List[str],
+        **kwargs: Any,
+    ) -> str:
+        """Classify text into predefined categories.
+
+        Args:
+            text: Text to classify
+            categories: List of possible categories
+            **kwargs: Additional provider options
+
+        Returns:
+            Selected category
+
+        Raises:
+            LLMError: If classification fails
+        """
+        categories_str = ", ".join(categories)
+        prompt = f"Classify the following text into one of these categories: {categories_str}\n\nText: {text}\n\nCategory:"
+
+        result = await self.generate(prompt, **kwargs)
+        return result.content

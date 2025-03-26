@@ -6,17 +6,15 @@ This module provides configuration management functionality.
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 
 import yaml
 
+from pepperpy.core.base import ValidationError
 from pepperpy.core.utils import merge_configs, unflatten_dict, validate_type
-from pepperpy.embeddings.base import EmbeddingProvider
-from pepperpy.llm.base import LLMProvider
-from pepperpy.rag.base import BaseProvider as RAGProvider
-from pepperpy.tools.repository.providers.github import GitHubProvider
 
-from .validation import ValidationError
+if TYPE_CHECKING:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -222,23 +220,31 @@ class Config:
         """
         self.set(key, value)
 
-    def load_llm_provider(self) -> LLMProvider:
+    def load_llm_provider(self, provider_type: str = "openai", **kwargs: Any) -> Any:
         """Load LLM provider from configuration.
 
         Returns:
             Configured LLM provider instance
         """
-        provider_type = self.get("llm.provider", "openrouter")
-        provider_config = self.get("llm.config", {})
-        provider = self._create_provider(LLMProvider, provider_type, **provider_config)
-        return provider
 
-    def load_embedding_provider(self) -> EmbeddingProvider:
+        provider_config = self.get("llm.config", {})
+        provider_config.update(kwargs)
+
+        try:
+            module = __import__(f"pepperpy.llm.{provider_type}", fromlist=[""])
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(**provider_config)
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(f"Failed to load LLM provider {provider_type}: {e}")
+
+    def load_embedding_provider(self) -> Any:
         """Load embedding provider from configuration.
 
         Returns:
             Configured embedding provider instance
         """
+        from pepperpy.embeddings.base import EmbeddingProvider
+
         provider_type = self.get("embeddings.provider", "openai")
         provider_config = self.get("embeddings.config", {})
         provider = self._create_provider(
@@ -247,29 +253,41 @@ class Config:
         return provider
 
     def load_rag_provider(
-        self, collection_name: str, persist_directory: str
-    ) -> RAGProvider:
+        self,
+        collection_name: str = "default",
+        persist_directory: str = ".pepperpy/rag",
+        provider_type: str = "chroma",
+        **kwargs: Any,
+    ) -> Any:
         """Load RAG provider from configuration.
 
         Args:
             collection_name: Name of the collection to use
             persist_directory: Directory to persist data
+            provider_type: Type of RAG provider (overrides config)
+            **kwargs: Additional provider options
 
         Returns:
             Configured RAG provider instance
         """
-        provider_type = self.get("rag.provider", "chroma")
-        provider_config = self.get("rag.config", {})
-        provider = self._create_provider(
-            RAGProvider,
-            provider_type,
-            collection_name=collection_name,
-            persist_directory=persist_directory,
-            **provider_config,
-        )
-        return provider
 
-    def load_github_client(self) -> GitHubProvider:
+        provider_config = self.get("rag.config", {})
+        provider_config.update(kwargs)
+
+        os.makedirs(persist_directory, exist_ok=True)
+
+        try:
+            module = __import__(f"pepperpy.rag.{provider_type}", fromlist=[""])
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(
+                collection_name=collection_name,
+                persist_directory=persist_directory,
+                **provider_config,
+            )
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(f"Failed to load RAG provider {provider_type}: {e}")
+
+    def load_github_client(self) -> Any:
         """Load GitHub client.
 
         Returns:
@@ -278,13 +296,40 @@ class Config:
         Raises:
             ValidationError: If GitHub configuration is invalid
         """
-        token = self.get("github.token")
-        if not token:
-            token = os.environ.get("PEPPERPY_GITHUB_TOKEN")
-        if not token:
-            raise ValidationError("GitHub token not found in config or environment")
+        from pepperpy.tools.repository.providers.github import GitHubProvider
 
-        return GitHubProvider(token=token)
+        return GitHubProvider(config=self)
+
+    def load_storage_provider(
+        self,
+        base_dir: str = ".pepperpy/storage",
+        provider_type: str = "local",
+        **kwargs: Any,
+    ) -> Any:
+        """Load storage provider from configuration.
+
+        Args:
+            base_dir: Base directory for storage
+            provider_type: Type of storage provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Configured storage provider instance
+        """
+
+        provider_config = self.get("storage.config", {})
+        provider_config.update(kwargs)
+
+        os.makedirs(base_dir, exist_ok=True)
+
+        try:
+            module = __import__(f"pepperpy.storage.{provider_type}", fromlist=[""])
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(base_dir=base_dir, **provider_config)
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(
+                f"Failed to load storage provider {provider_type}: {e}"
+            )
 
     def _create_provider(
         self, provider_class: Any, provider_type: str, **kwargs: Any

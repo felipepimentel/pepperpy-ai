@@ -1,349 +1,105 @@
 ---
 title: PepperPy Coding Standards
-description: Apply this rule when writing or modifying any Python code in the PepperPy framework to ensure consistency, maintainability, and adherence to project standards
-globs:
+description: Core coding standards for the PepperPy framework
+globs: 
   - "**/*.py"
-priority: 900
-alwaysApply: true
+priority: 1000
 ---
 
 # PepperPy Coding Standards
 
-## Overview
+## Core Principles
 
-This document defines the coding standards and best practices for all Python code in the PepperPy framework. Adherence to these standards ensures code consistency, maintainability, and quality across the project.
-
-## Python Version
-
-- PepperPy requires Python 3.10 or higher
-- Use Python 3.10+ features (match/case, union operators) where appropriate
-- Avoid deprecated Python features
+1. **Simplicity**: Write clear, concise code
+2. **Consistency**: Follow established patterns
+3. **Type Safety**: Use strong typing
+4. **Async First**: Design for async/await
+5. **Vertical Architecture**: Group by domain, not type
 
 ## Code Style
 
-### Formatting
+- Python 3.10+
+- Black + isort formatting
+- 100 char line length
+- 4 spaces indent
 
-- Follow [PEP 8](mdc:https:/pep8.org) with some project-specific adjustments
-- Use 4 spaces for indentation (no tabs)
-- Maximum line length of 100 characters
-- Use blank lines to separate logical sections of code
-- Use `isort` for import sorting and `black` for code formatting
+## Naming
 
-```python
-# Good
-def calculate_similarity(
-    document_a: Document,
-    document_b: Document,
-    method: SimilarityMethod = SimilarityMethod.COSINE
-) -> float:
-    """Calculate similarity between two documents."""
-    if method is SimilarityMethod.COSINE:
-        return cosine_similarity(document_a.embedding, document_b.embedding)
-    elif method is SimilarityMethod.EUCLIDEAN:
-        return euclidean_similarity(document_a.embedding, document_b.embedding)
-    else:
-        raise ValueError(f"Unsupported similarity method: {method}")
+- Modules: `lowercase`
+- Classes: `PascalCase`
+- Functions: `snake_case`
+- Constants: `UPPER_CASE`
+
+## Structure
+
+```
+pepperpy/
+├── domain/           # Domain module (e.g., rag, llm)
+│   ├── __init__.py  # Public API
+│   ├── base.py      # Core interfaces
+│   └── {impl}.py    # Implementations
 ```
 
-### Naming Conventions
-
-- **Packages/Modules**: Lowercase, short, no underscores (`pepperpy`, `core`, `llm`)
-- **Classes**: CamelCase (`DocumentProcessor`, `OpenAIProvider`)
-- **Functions/Methods**: Snake case (`process_document`, `calculate_similarity`)
-- **Variables**: Snake case (`document_list`, `model_name`)
-- **Constants**: Uppercase with underscores (`MAX_TOKENS`, `DEFAULT_TEMPERATURE`)
-- **Type Variables**: CamelCase with descriptive names (`T`, `DocumentT`, `ProviderT`)
+## Type Hints
 
 ```python
-# Good naming examples
-DEFAULT_CHUNK_SIZE = 1000
-MAX_TOKENS = 4096
+from typing import Any, Optional
 
-class DocumentProcessor:
-    def process_document(self, document: Document) -> list[DocumentChunk]:
-        chunk_size = self.config.chunk_size or DEFAULT_CHUNK_SIZE
-        return self._split_document(document, chunk_size)
-```
-
-## Type Annotations
-
-### Basic Usage
-
-- Annotate all function parameters and return types
-- Use generics for collections (`list[str]`, not `List[str]`)
-- Use `Optional[T]` (or `T | None` in Python 3.10+) for optional values
-- Use `Any` only when absolutely necessary
-
-```python
-# Good
-def chunk_text(
-    text: str,
-    chunk_size: int = 1000,
-    overlap: int = 100
+def process(
+    data: dict[str, Any],
+    config: Optional[dict[str, Any]] = None
 ) -> list[str]:
-    """Split text into chunks with optional overlap."""
-    if chunk_size <= 0:
-        raise ValueError("Chunk size must be positive")
-    
-    chunks = []
-    for i in range(0, len(text), chunk_size - overlap):
-        chunks.append(text[i:i + chunk_size])
-    
-    return chunks
-```
-
-### Advanced Types
-
-- Use `Protocol` for structural typing
-- Use `TypeVar` and constraints for generic functions
-- Use `Literal` for constrained string/numeric types
-- Use `@overload` for functions with multiple signatures
-
-```python
-# Advanced typing example
-T = TypeVar('T')
-DocumentT = TypeVar('DocumentT', bound=Document)
-
-class Storage(Protocol[T]):
-    async def get(self, id: str) -> T | None:
-        ...
-    
-    async def put(self, item: T) -> str:
-        ...
-
-def process_items(items: list[T]) -> dict[str, list[T]]:
-    """Process a list of items and group by type."""
-    results: dict[str, list[T]] = {}
-    for item in items:
-        item_type = type(item).__name__
-        if item_type not in results:
-            results[item_type] = []
-        results[item_type].append(item)
-    return results
+    """Process data with optional config."""
 ```
 
 ## Documentation
 
-### Docstrings
-
-- Use Google-style docstrings for all public modules, classes, and functions
-- Include parameter descriptions, return values, and exceptions
-- Provide examples for complex functions
-- Document edge cases and limitations
-
 ```python
-def embed_document(
-    document: Document,
-    batch_size: Optional[int] = None
-) -> Document:
-    """Compute embeddings for a document.
-    
-    This function processes the document text and computes embeddings
-    using the configured embedding model.
+def method(self, param: str) -> bool:
+    """One-line description.
     
     Args:
-        document: The document to embed.
-        batch_size: Optional batch size for processing large documents.
-            If None, uses the default batch size from configuration.
-            
+        param: Parameter description
+        
     Returns:
-        Document with embeddings populated.
+        Result description
         
     Raises:
-        EmbeddingError: If the embedding process fails.
-        
-    Example:
-        >>> doc = Document(text="This is a sample document.")
-        >>> embedded_doc = embed_document(doc)
-        >>> embedded_doc.has_embedding
-        True
+        Error: Error condition
     """
-```
-
-### Comments
-
-- Use comments sparingly to explain "why", not "what"
-- Comment complex algorithms or non-obvious decisions
-- Avoid commented-out code
-- Use TODO comments with issue references for future work
-
-```python
-# Good comment
-# Use approximate nearest neighbors for large collections (>100k documents)
-# as exact KNN becomes too slow and memory intensive
-if collection_size > 100_000:
-    return self._query_approximate_knn(query_vector, top_k)
-else:
-    return self._query_exact_knn(query_vector, top_k)
-
-# TODO(#123): Replace with more efficient algorithm once available
 ```
 
 ## Error Handling
 
-### Exceptions
-
-- Use framework-specific exception hierarchy
-- Provide descriptive error messages
-- Include context in exceptions (parameters, state)
-- Handle and convert external exceptions to framework exceptions
-
 ```python
 try:
-    response = await self.client.create_embedding(text=text, model=model_name)
-    return response.data[0].embedding
-except OpenAIError as e:
-    raise EmbeddingError(f"Failed to create embedding: {str(e)}") from e
+    result = await api.call()
+except ExternalError as e:
+    raise DomainError("Failed to call API", cause=e)
 ```
 
-### Validation
-
-- Validate inputs at API boundaries
-- Use assertions for internal consistency checks
-- Fail early with clear error messages
+## Async Pattern
 
 ```python
-def create_index(name: str, dimension: int) -> Index:
-    """Create a new vector index."""
-    if not name:
-        raise ValueError("Index name cannot be empty")
-    
-    if dimension <= 0:
-        raise ValueError(f"Dimension must be positive, got {dimension}")
-    
-    if self._index_exists(name):
-        raise IndexAlreadyExistsError(f"Index '{name}' already exists")
-    
-    return self._create_index_internal(name, dimension)
-```
-
-## Asynchronous Code
-
-### Best Practices
-
-- Use `async`/`await` for I/O-bound operations
-- Avoid blocking operations in async functions
-- Use `asyncio.gather` for parallel execution
-- Provide async and sync APIs when appropriate
-
-```python
-async def retrieve_documents(
-    query: str,
-    top_k: int = 5
-) -> list[Document]:
-    """Retrieve documents relevant to the query.
-    
-    This asynchronously embeds the query and searches the index.
-    """
-    query_embedding = await self.embed_text(query)
-    
-    results = await self.index.search(
-        vector=query_embedding,
-        top_k=top_k
-    )
-    
-    document_ids = [result.id for result in results]
-    documents = await asyncio.gather(
-        *[self.storage.get_document(doc_id) for doc_id in document_ids]
-    )
-    
-    return documents
-```
-
-### Context Management
-
-- Use async context managers for resource management
-- Ensure proper cleanup of resources
-
-```python
-async def process_batch(batch: list[Document]) -> list[Document]:
-    async with self.client_pool.get() as client:
-        results = []
-        for document in batch:
-            processed = await client.process(document)
-            results.append(processed)
-        return results
+class Component:
+    async def __aenter__(self) -> Self:
+        await self.initialize()
+        return self
+        
+    async def __aexit__(self, *_: Any) -> None:
+        await self.cleanup()
 ```
 
 ## Testing
 
-### Unit Tests
-
-- Write unit tests for all public functionality
-- Use pytest as the testing framework
-- Mock external dependencies
-- Test edge cases and error conditions
-
 ```python
-def test_document_chunking():
-    """Test document chunking with various parameters."""
+def test_feature():
     # Given
-    text = "A" * 1000 + "B" * 1000 + "C" * 1000
-    processor = DocumentProcessor(chunk_size=1000, overlap=200)
+    input = "test"
     
     # When
-    chunks = processor.chunk_text(text)
+    result = process(input)
     
     # Then
-    assert len(chunks) == 3
-    assert chunks[0] == "A" * 1000
-    assert chunks[1][:200] == "A" * 200
-    assert chunks[1][200:] == "B" * 800
-    assert "C" in chunks[2]
-```
-
-### Integration Tests
-
-- Test integration with external systems
-- Use configuration to control test environment
-- Clean up test resources after tests
-
-```python
-@pytest.mark.integration
-async def test_openai_embedding():
-    """Test integration with OpenAI embedding API."""
-    # Given
-    provider = OpenAIEmbeddingProvider(model_name="text-embedding-ada-002")
-    text = "This is a test document for embedding."
-    
-    # When
-    embedding = await provider.embed_text(text)
-    
-    # Then
-    assert len(embedding) == 1536  # Expected dimension for Ada 002
-    assert all(isinstance(x, float) for x in embedding)
-```
-
-## Performance Considerations
-
-- Profile code for bottlenecks
-- Use batching for external API calls
-- Implement caching for expensive operations
-- Consider memory usage for large datasets
-
-```python
-@cached(ttl=3600)  # Cache embeddings for 1 hour
-async def embed_text(self, text: str) -> list[float]:
-    """Generate embeddings for text with caching."""
-    return await self._embedding_provider.embed_text(text)
-```
-
-## Dependency Management
-
-- Use Poetry for dependency management
-- Pin direct dependency versions
-- Specify minimum Python version
-- Document dependency purpose
-
-```toml
-# pyproject.toml
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-pydantic = "^2.0.0"  # Data validation
-openai = "^1.0.0"    # OpenAI API integration
-tiktoken = "^0.5.0"  # Token counting
-```
-
-## Conclusion
-
-These coding standards help maintain high-quality, consistent, and maintainable code across the PepperPy framework. All contributors should adhere to these standards to ensure the framework remains clean, robust, and easy to understand. 
+    assert result == expected
+``` 

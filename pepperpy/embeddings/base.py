@@ -6,7 +6,7 @@ This module defines the base interfaces that all embedding providers must implem
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol
 
-from pepperpy.core import PepperpyError
+from pepperpy.core.base import PepperpyError
 
 
 class EmbeddingError(PepperpyError):
@@ -147,7 +147,7 @@ class EmbeddingProvider(Protocol):
         Raises:
             EmbeddingError: If there is an error getting dimensions.
         """
-        pass
+        raise NotImplementedError("get_dimensions must be implemented by provider")
 
     name: str
 

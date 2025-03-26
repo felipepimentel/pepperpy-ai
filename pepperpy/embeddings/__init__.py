@@ -3,8 +3,7 @@
 This module provides text-to-vector embedding capabilities for the PepperPy framework.
 """
 
-from .base import EmbeddingProvider
-from .errors import EmbeddingError
+from .base import EmbeddingError, EmbeddingProvider
 
 __all__ = [
     "EmbeddingProvider",

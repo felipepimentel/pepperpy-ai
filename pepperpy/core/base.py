@@ -1,6 +1,6 @@
 """Core Base Module.
 
-This module defines the core interfaces, types and errors used throughout
+This module defines the core interfaces, types, errors and factories used throughout
 the PepperPy framework. It provides the foundation for all other modules.
 
 Example:
@@ -12,21 +12,149 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Protocol, TypeVar, Union
+from dataclasses import dataclass
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    Type,
+    TypeVar,
+    Union,
+)
 
-from pepperpy.core.config import Config
-from pepperpy.llm.component import LLMComponent
-from pepperpy.rag.component import RAGComponent
-from pepperpy.tools.repository.providers.github import GitHubProvider
+T = TypeVar("T")
+P = TypeVar("P", bound="BaseProvider")
 
-# Type definitions
+
+# Common Types
+Metadata = Dict[str, Any]
+JsonValue = Union[str, int, float, bool, None, Dict[str, Any], list]
+JsonDict = Dict[str, JsonValue]
+JsonType = Union[Dict[str, Any], List[Any]]
+
+# Provider Types
 ConfigType = Dict[str, Any]
 HeadersType = Dict[str, str]
 QueryParamsType = Union[Dict[str, Any], str]
-JsonType = Any
 
 
-# Base Exceptions
+# Core Protocols and Base Classes
+class BaseProvider(ABC):
+    """Base class for all providers."""
+
+    def __init__(
+        self,
+        name: str = "base",
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize provider.
+
+        Args:
+            name: Provider name
+            config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
+        """
+        self.name = name
+        self._config = config or {}
+        self._config.update(kwargs)
+        self.initialized = False
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Get provider configuration.
+
+        Returns:
+            Configuration dictionary
+        """
+        return self._config
+
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        This method should be called before using the provider.
+        It can be used to set up any necessary resources or connections.
+        """
+        if not self.initialized:
+            await self._initialize()
+            self.initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method should be called when the provider is no longer needed.
+        It can be used to clean up any resources or connections.
+        """
+        if self.initialized:
+            await self._cleanup()
+            self.initialized = False
+
+    async def _initialize(self) -> None:
+        """Initialize implementation."""
+        pass
+
+    async def _cleanup(self) -> None:
+        """Cleanup implementation."""
+        pass
+
+    async def __aenter__(self) -> "BaseProvider":
+        """Enter async context."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context."""
+        await self.cleanup()
+
+    def configure(self, **options: Any) -> "BaseProvider":
+        """Configure the provider.
+
+        Args:
+            **options: Configuration options
+
+        Returns:
+            Self for chaining
+        """
+        self._config.update(options)
+        return self
+
+
+# Result Types
+@dataclass
+class GenerationResult:
+    """Result from an LLM generation."""
+
+    text: str
+    metadata: Optional[Metadata] = None
+
+
+@dataclass
+class SearchResult:
+    """Result from a search operation."""
+
+    document: "Document"
+    score: float
+    metadata: Optional[Metadata] = None
+
+
+@dataclass
+class Document:
+    """A document in the PepperPy framework.
+
+    This class represents a document that can be stored, retrieved, and processed
+    by the framework. It includes the document's content, metadata, and embeddings.
+    """
+
+    content: str
+    metadata: Optional[Metadata] = None
+    embeddings: Optional[List[float]] = None
+    id: Optional[str] = None
+
+
+# Core Exceptions
 class PepperpyError(Exception):
     """Base class for all PepperPy exceptions."""
 
@@ -168,150 +296,7 @@ class TimeoutError(HTTPError):
         self.timeout = timeout
 
 
-# Provider Interfaces
-T = TypeVar("T", bound="BaseProvider")
-
-
-class BaseProvider(Protocol):
-    """Base protocol for all providers.
-
-    All providers in PepperPy must implement this protocol to ensure consistent
-    behavior across different implementations.
-    """
-
-    name: str
-
-    async def initialize(self) -> None:
-        """Initialize the provider.
-
-        This method should be called before using the provider to set up any
-        necessary resources or connections.
-        """
-        ...
-
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
-
-        Returns:
-            The provider configuration
-        """
-        ...
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
-
-        Returns:
-            A dictionary of provider capabilities
-        """
-        ...
-
-
-class RemoteProvider(BaseProvider):
-    """Base class for remote providers.
-
-    This class extends BaseProvider with functionality specific to
-    remote services, such as base URL management and API versioning.
-
-    Args:
-        name: Provider name
-        base_url: Base URL for API calls
-        config: Optional configuration dictionary
-        **kwargs: Additional provider-specific configuration
-    """
-
-    def __init__(
-        self,
-        name: str,
-        base_url: str,
-        config: Optional[ConfigType] = None,
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the remote provider.
-
-        Args:
-            name: Provider name
-            base_url: Base URL for API calls
-            config: Optional configuration dictionary
-            **kwargs: Additional provider-specific configuration
-        """
-        self.name = name
-        self.provider_type = "remote"
-        self.base_url = base_url.rstrip("/")
-        self._config = config or {}
-        self._config.update(kwargs)
-
-    def get_endpoint(self, path: str) -> str:
-        """Get full endpoint URL.
-
-        Args:
-            path: Endpoint path
-
-        Returns:
-            Full endpoint URL
-        """
-        return f"{self.base_url}/{path.lstrip('/')}"
-
-
-class LocalProvider(BaseProvider):
-    """Base class for local providers."""
-
-    name = "local"
-
-
-class RestProvider(RemoteProvider):
-    """Base class for REST API providers."""
-
-    name = "rest"
-
-    async def get(self, path: str, **kwargs: Any) -> Any:
-        """Send GET request.
-
-        Args:
-            path: API endpoint path
-            **kwargs: Additional request parameters
-
-        Returns:
-            Response data
-        """
-        raise NotImplementedError
-
-    async def post(self, path: str, **kwargs: Any) -> Any:
-        """Send POST request.
-
-        Args:
-            path: API endpoint path
-            **kwargs: Additional request parameters
-
-        Returns:
-            Response data
-        """
-        raise NotImplementedError
-
-    async def put(self, path: str, **kwargs: Any) -> Any:
-        """Send PUT request.
-
-        Args:
-            path: API endpoint path
-            **kwargs: Additional request parameters
-
-        Returns:
-            Response data
-        """
-        raise NotImplementedError
-
-    async def delete(self, path: str, **kwargs: Any) -> Any:
-        """Send DELETE request.
-
-        Args:
-            path: API endpoint path
-            **kwargs: Additional request parameters
-
-        Returns:
-            Response data
-        """
-        raise NotImplementedError
-
-
+# Core Protocols and Base Classes
 class ModelContext(Protocol[T]):
     """Protocol defining the model context interface."""
 
@@ -374,156 +359,160 @@ class BaseModelContext(ABC):
         return self._context.get(key, default)
 
 
-"""Base classes and interfaces for PepperPy."""
-
-from abc import ABC
-from typing import Any, Dict, Optional, TypeVar
-
-T = TypeVar("T", bound="BaseComponent")
-
-
-class BaseComponent(ABC):
-    """Base class for all PepperPy components."""
-
-    def __init__(self) -> None:
-        """Initialize the component."""
-        self._initialized = False
-        self._options: Dict[str, Any] = {}
-
-    async def initialize(self) -> None:
-        """Initialize the component."""
-        if not self._initialized:
-            await self._initialize()
-            self._initialized = True
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if self._initialized:
-            await self._cleanup()
-            self._initialized = False
-
-    async def _initialize(self) -> None:
-        """Initialize implementation."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Cleanup implementation."""
-        pass
-
-    async def __aenter__(self) -> "BaseComponent":
-        """Enter async context."""
-        await self.initialize()
-        return self
-
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit async context."""
-        await self.cleanup()
-
-    def configure(self: T, **options: Any) -> T:
-        """Configure the component.
-
-        Args:
-            **options: Configuration options
-
-        Returns:
-            Self for chaining
-        """
-        self._options.update(options)
-        return self
-
-
-class BaseBuilder(ABC):
-    """Base class for builders."""
-
-    def __init__(self) -> None:
-        """Initialize the builder."""
-        self._options: Dict[str, Any] = {}
-
-    def configure(self: T, **options: Any) -> T:
-        """Configure the builder.
-
-        Args:
-            **options: Configuration options
-
-        Returns:
-            Self for chaining
-        """
-        self._options.update(options)
-        return self
+# Provider Interfaces
+class LLMProvider(BaseProvider):
+    """Base class for LLM providers."""
 
     @abstractmethod
-    def build(self) -> Any:
-        """Build the component.
+    async def chat(
+        self,
+        messages: List[Dict[str, str]],
+        **kwargs: Any,
+    ) -> GenerationResult:
+        """Generate a chat response."""
+        ...
 
-        Returns:
-            Built component
-        """
-        pass
+    @abstractmethod
+    async def stream_chat(
+        self,
+        messages: List[Dict[str, str]],
+        **kwargs: Any,
+    ) -> AsyncIterator[GenerationResult]:
+        """Stream a chat response."""
+        ...
 
 
-class PepperPy:
-    """Main entry point for PepperPy framework.
+class RAGProvider(BaseProvider):
+    """Base class for RAG providers."""
 
-    This class provides a fluent interface for creating and configuring
-    PepperPy components and workflows.
+    @abstractmethod
+    async def search(
+        self,
+        query: str,
+        **kwargs: Any,
+    ) -> List[SearchResult]:
+        """Search for relevant documents."""
+        ...
 
-    Example:
-        >>> pepperpy = (
-        ...     PepperPy.create()
-        ...     .with_llm()  # Uses PEPPERPY_LLM__ config
-        ...     .with_rag()  # Uses PEPPERPY_RAG__ config
-        ...     .with_github()  # Uses PEPPERPY_TOOLS__ config
-        ...     .build()
-        ... )
+    @abstractmethod
+    async def add_documents(
+        self,
+        documents: List[Document],
+        **kwargs: Any,
+    ) -> None:
+        """Add documents to the RAG system."""
+        ...
+
+
+class StorageProvider(BaseProvider):
+    """Base class for storage providers."""
+
+    @abstractmethod
+    async def load_document(
+        self,
+        path: str,
+        **kwargs: Any,
+    ) -> Document:
+        """Load a document from storage."""
+        ...
+
+    @abstractmethod
+    async def save_document(
+        self,
+        document: Document,
+        path: str,
+        **kwargs: Any,
+    ) -> None:
+        """Save a document to storage."""
+        ...
+
+
+class WorkflowProvider(BaseProvider):
+    """Base class for workflow providers."""
+
+    @abstractmethod
+    async def execute(
+        self,
+        workflow: Dict[str, Any],
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Execute a workflow."""
+        ...
+
+    @abstractmethod
+    async def get_status(
+        self,
+        workflow_id: str,
+        **kwargs: Any,
+    ) -> Dict[str, Any]:
+        """Get workflow status."""
+        ...
+
+
+# Factory Functions
+def create_provider(
+    provider_type: str,
+    provider_map: Dict[str, Type[P]],
+    config: Optional[Dict[str, Any]] = None,
+    **kwargs: Any,
+) -> P:
+    """Create a provider instance.
+
+    Args:
+        provider_type: Type of provider to create
+        provider_map: Mapping of provider types to classes
+        config: Optional configuration dictionary
+        **kwargs: Additional provider-specific configuration
+
+    Returns:
+        Provider instance
+
+    Raises:
+        ConfigurationError: If provider type is invalid
     """
+    if provider_type not in provider_map:
+        raise ConfigurationError(
+            f"Invalid provider type: {provider_type}. "
+            f"Valid types: {', '.join(provider_map.keys())}"
+        )
 
-    def __init__(self) -> None:
-        """Initialize PepperPy."""
-        self.llm: Optional[LLMComponent] = None
-        self.rag: Optional[RAGComponent] = None
-        self.github: Optional[GitHubProvider] = None
-        self.config = Config()
+    provider_class = provider_map[provider_type]
+    return provider_class(config=config, **kwargs)
 
-    @classmethod
-    def create(cls) -> "PepperPy":
-        """Create a new PepperPy instance.
 
-        Returns:
-            A new PepperPy instance
-        """
-        return cls()
-
-    def with_llm(self) -> "PepperPy":
-        """Configure LLM component using environment configuration.
-
-        Returns:
-            Self for chaining
-        """
-        self.llm = LLMComponent(self.config)
-        return self
-
-    def with_rag(self) -> "PepperPy":
-        """Configure RAG component using environment configuration.
-
-        Returns:
-            Self for chaining
-        """
-        self.rag = RAGComponent(self.config)
-        return self
-
-    def with_github(self) -> "PepperPy":
-        """Configure GitHub component using environment configuration.
-
-        Returns:
-            Self for chaining
-        """
-        self.github = GitHubProvider(self.config)
-        return self
-
-    def build(self) -> "PepperPy":
-        """Build and initialize components.
-
-        Returns:
-            Self with initialized components
-        """
-        return self
+# Exports
+__all__ = [
+    # Types
+    "Metadata",
+    "JsonValue",
+    "JsonDict",
+    "JsonType",
+    "ConfigType",
+    "HeadersType",
+    "QueryParamsType",
+    # Results
+    "GenerationResult",
+    "SearchResult",
+    "Document",
+    # Errors
+    "PepperpyError",
+    "ProviderError",
+    "ValidationError",
+    "ConfigurationError",
+    "HTTPError",
+    "RequestError",
+    "ResponseError",
+    "ConnectionError",
+    "TimeoutError",
+    # Protocols and Base Classes
+    "ModelContext",
+    "BaseModelContext",
+    "BaseProvider",
+    # Provider Interfaces
+    "LLMProvider",
+    "RAGProvider",
+    "StorageProvider",
+    "WorkflowProvider",
+    # Factory Functions
+    "create_provider",
+]

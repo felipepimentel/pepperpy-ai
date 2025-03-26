@@ -50,32 +50,44 @@ ignore_missing_imports = true
 module = "torch.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = ["annoy.*", "chromadb.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 asyncio_mode = "auto"
+addopts = "--cov=pepperpy --cov-report=term-missing"
 
 [tool.poetry]
 name = "pepperpy"
 version = "0.1.0"
-description = "A Python framework for building AI-powered applications"
-authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
+description = "A framework for building AI-powered applications with RAG and LLM capabilities"
+authors = ["Pimenta <pimentel@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 
 [tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-pydantic = "^2.10.6"   # Core dependency
+python = "^3.9"
+aiohttp = "^3.9.3"
+pydantic = "^2.6.3"
+python-dotenv = "^1.0.1"
+openai = "^1.12.0"
+numpy = "^1.26.4"
+annoy = "^1.17.3"
+chromadb = "^0.4.22"
+tiktoken = "^0.6.0"
+tenacity = "^8.2.3"
+loguru = "^0.7.2"
 httpx = "^0.28.1"
 radon = "^6.0.1"
 lizard = "^1.17.20"
 gitpython = "^3.1.44"
 
 # Optional dependencies
-openai = { version = "^1.68.2", optional = true }
 anthropic = { version = "^0.49.0", optional = true }
 llm-openrouter = { version = "^0.4", optional = true }
-chromadb = { version = "^0.6.3", optional = true }
 weaviate-client = { version = "^4.11.3", optional = true }
 pinecone-client = { version = "^6.0.0", optional = true }
 boto3 = { version = "^1.37.19", optional = true }
@@ -85,11 +97,13 @@ azure-cognitiveservices-speech = { version = "^1.43.0", optional = true }
 gtts = { version = "^2.5.4", optional = true }
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.3.5"
-pytest-asyncio = "^0.26.0"
-black = "^25.1.0"
-isort = "^6.0.1"
-ruff = "^0.11.2"
+pytest = "^8.0.2"
+pytest-asyncio = "^0.23.5"
+pytest-cov = "^4.1.0"
+black = "^24.2.0"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+ruff = "^0.2.2"
 
 [tool.poetry.extras]
 # LLM Providers
@@ -129,3 +143,38 @@ all = [
     "azure-cognitiveservices-speech",
     "gtts",
 ]
+
+[tool.coverage.run]
+source = ["pepperpy"]
+omit = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "C", # flake8-comprehensions
+    "B", # flake8-bugbear
+]
+ignore = [
+    "E501", # line too long, handled by black
+    "B008", # do not perform function calls in argument defaults
+    "C901", # too complex
+]
+
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]

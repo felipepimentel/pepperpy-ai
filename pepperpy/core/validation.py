@@ -1,7 +1,7 @@
-"""Validation Module.
+"""Validation utilities for PepperPy.
 
-This module provides validation utilities for the PepperPy framework,
-including configuration validation, input validation, and error handling.
+This module provides utilities for validating configuration, input data,
+and other aspects of the framework.
 
 Example:
     >>> from pepperpy.core.validation import validate_config
@@ -9,85 +9,67 @@ Example:
     >>> validate_config(config, required=["api_key"])
 """
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
 from pepperpy.core.base import ValidationError
+
+T = TypeVar("T")
 
 
 def validate_config(
     config: Dict[str, Any],
-    required: Optional[List[str]] = None,
-    optional: Optional[List[str]] = None,
+    required_fields: Optional[List[str]] = None,
+    optional_fields: Optional[List[str]] = None,
 ) -> None:
     """Validate configuration dictionary.
 
     Args:
-        config: Configuration to validate
-        required: List of required fields
-        optional: List of optional fields
+        config: Configuration dictionary to validate
+        required_fields: List of required field names
+        optional_fields: List of optional field names
 
     Raises:
         ValidationError: If validation fails
-
-    Example:
-        >>> config = {"api_key": "abc123", "timeout": 30}
-        >>> validate_config(
-        ...     config,
-        ...     required=["api_key"],
-        ...     optional=["timeout"]
-        ... )
     """
-    if not isinstance(config, dict):
-        raise ValidationError(
-            "Configuration must be a dictionary",
-            field="config",
-            rule="type",
-        )
-
-    # Check required fields
-    if required:
-        for field in required:
-            if field not in config:
-                raise ValidationError(
-                    f"Missing required field: {field}",
-                    field=field,
-                    rule="required",
-                )
-
-    # Check for unknown fields
-    if optional:
-        allowed_fields = set(required or []) | set(optional)
-        unknown_fields = set(config.keys()) - allowed_fields
-        if unknown_fields:
+    if required_fields:
+        missing = [f for f in required_fields if f not in config]
+        if missing:
             raise ValidationError(
-                f"Unknown fields: {', '.join(unknown_fields)}",
-                field="config",
-                rule="unknown_fields",
-                details={"fields": list(unknown_fields)},
+                f"Missing required configuration fields: {', '.join(missing)}"
             )
 
+    if optional_fields:
+        allowed_fields = set(required_fields or []) | set(optional_fields)
+        unknown = [f for f in config if f not in allowed_fields]
+        if unknown:
+            raise ValidationError(f"Unknown configuration fields: {', '.join(unknown)}")
 
-def validate_type(value: Any, expected_type: type) -> None:
-    """Validate value type.
+
+def validate_type(
+    value: Any,
+    expected_type: Union[Type[T], List[Type[T]]],
+    field_name: str = "value",
+) -> None:
+    """Validate that a value is of the expected type.
 
     Args:
         value: Value to validate
-        expected_type: Expected type
+        expected_type: Expected type or list of types
+        field_name: Name of the field being validated
 
     Raises:
-        ValidationError: If type validation fails
-
-    Example:
-        >>> validate_type("test", str)
-        >>> validate_type(123, int)
-        >>> validate_type({"key": "value"}, dict)
+        ValidationError: If validation fails
     """
-    if not isinstance(value, expected_type):
+    if isinstance(expected_type, list):
+        if not any(isinstance(value, t) for t in expected_type):
+            raise ValidationError(
+                f"Invalid type for {field_name}. Expected one of: "
+                f"{[t.__name__ for t in expected_type]}, got: {type(value).__name__}"
+            )
+    elif not isinstance(value, expected_type):
         raise ValidationError(
-            f"Expected type {expected_type.__name__}, got {type(value).__name__}",
-            field="value",
-            rule="type",
-            value=value,
+            f"Invalid type for {field_name}. "
+            f"Expected {expected_type.__name__}, got: {type(value).__name__}"
         )
 
 
@@ -95,61 +77,103 @@ def validate_range(
     value: Union[int, float],
     min_value: Optional[Union[int, float]] = None,
     max_value: Optional[Union[int, float]] = None,
+    field_name: str = "value",
 ) -> None:
-    """Validate numeric value range.
+    """Validate that a numeric value is within a range.
 
     Args:
         value: Value to validate
-        min_value: Optional minimum value (inclusive)
-        max_value: Optional maximum value (inclusive)
+        min_value: Minimum allowed value
+        max_value: Maximum allowed value
+        field_name: Name of the field being validated
 
     Raises:
-        ValidationError: If range validation fails
-
-    Example:
-        >>> validate_range(5, min_value=0, max_value=10)
-        >>> validate_range(3.14, min_value=0)
-        >>> validate_range(-1, max_value=0)
+        ValidationError: If validation fails
     """
     if min_value is not None and value < min_value:
         raise ValidationError(
-            f"Value {value} is less than minimum {min_value}",
-            field="value",
-            rule="min_value",
-            value=value,
+            f"Invalid value for {field_name}. "
+            f"Must be greater than or equal to {min_value}"
         )
 
     if max_value is not None and value > max_value:
         raise ValidationError(
-            f"Value {value} is greater than maximum {max_value}",
-            field="value",
-            rule="max_value",
-            value=value,
+            f"Invalid value for {field_name}. Must be less than or equal to {max_value}"
         )
 
 
-def validate_pattern(value: str, pattern: str) -> None:
-    """Validate string pattern.
+def validate_length(
+    value: Union[str, List[Any], Dict[Any, Any]],
+    min_length: Optional[int] = None,
+    max_length: Optional[int] = None,
+    field_name: str = "value",
+) -> None:
+    """Validate that a value's length is within a range.
+
+    Args:
+        value: Value to validate
+        min_length: Minimum allowed length
+        max_length: Maximum allowed length
+        field_name: Name of the field being validated
+
+    Raises:
+        ValidationError: If validation fails
+    """
+    length = len(value)
+
+    if min_length is not None and length < min_length:
+        raise ValidationError(
+            f"Invalid length for {field_name}. Must be at least {min_length} characters"
+        )
+
+    if max_length is not None and length > max_length:
+        raise ValidationError(
+            f"Invalid length for {field_name}. Must be at most {max_length} characters"
+        )
+
+
+def validate_pattern(
+    value: str,
+    pattern: str,
+    field_name: str = "value",
+) -> None:
+    """Validate that a string matches a pattern.
 
     Args:
         value: String to validate
         pattern: Regular expression pattern
+        field_name: Name of the field being validated
 
     Raises:
-        ValidationError: If pattern validation fails
-
-    Example:
-        >>> validate_pattern("test@example.com", r"^[^@]+@[^@]+\.[^@]+$")
-        >>> validate_pattern("123-456", r"^\d{3}-\d{3}$")
+        ValidationError: If validation fails
     """
     import re
 
     if not re.match(pattern, value):
         raise ValidationError(
-            f"Value does not match pattern: {pattern}",
-            field="value",
-            rule="pattern",
-            value=value,
+            f"Invalid format for {field_name}. Must match pattern: {pattern}"
+        )
+
+
+def validate_options(
+    value: Any,
+    options: List[Any],
+    field_name: str = "value",
+) -> None:
+    """Validate that a value is one of the allowed options.
+
+    Args:
+        value: Value to validate
+        options: List of allowed options
+        field_name: Name of the field being validated
+
+    Raises:
+        ValidationError: If validation fails
+    """
+    if value not in options:
+        raise ValidationError(
+            f"Invalid value for {field_name}. "
+            f"Must be one of: {', '.join(str(o) for o in options)}"
         )
 
 
@@ -183,6 +207,8 @@ __all__ = [
     "validate_config",
     "validate_type",
     "validate_range",
+    "validate_length",
     "validate_pattern",
+    "validate_options",
     "validate_path",
 ]

@@ -22,7 +22,7 @@ from importlib import import_module
 from pathlib import Path
 from typing import IO, Any, Callable, Dict, List, Optional, Type, TypeVar, Union
 
-from pepperpy.core.types import Metadata
+from pepperpy.core.base import Metadata
 
 try:
     from dotenv import load_dotenv
@@ -115,17 +115,15 @@ def lazy_provider_class(
     """Decorator for lazy loading provider classes."""
 
     def decorator(cls: Type[T]) -> Type[T]:
-        setattr(cls, "_provider_name", provider_name)
-        setattr(cls, "_provider_type", provider_type)
-        setattr(cls, "_required_packages", required_packages or {})
+        cls._provider_name = provider_name
+        cls._provider_type = provider_type
+        cls._required_packages = required_packages or {}
 
         original_init = cls.__init__
 
         @wraps(original_init)
         def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
-            for package_name, package_version in getattr(
-                cls, "_required_packages"
-            ).items():
+            for package_name, package_version in cls._required_packages.items():
                 try:
                     import_module(package_name)
                 except ImportError as e:

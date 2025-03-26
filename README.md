@@ -1,14 +1,14 @@
 # PepperPy
 
-A modular framework for building AI-powered applications.
+A framework for building AI-powered applications with RAG (Retrieval Augmented Generation) and LLM capabilities.
 
 ## Features
 
-- 🤖 **Multi-Agent Collaboration**: Create groups of AI agents that work together to solve complex tasks
-- 🔍 **Retrieval Augmented Generation (RAG)**: Enhance AI responses with relevant information from your data
-- 🔌 **Modular Design**: Mix and match different LLM providers, vector stores, and agent architectures
-- 🛠️ **Easy to Use**: Simple, intuitive APIs for common AI tasks
-- 🔄 **Extensible**: Add your own providers and tools with minimal boilerplate
+- 🔍 **RAG**: Semantic search and document retrieval
+- 🤖 **LLM**: Text generation and chat capabilities
+- 💾 **Storage**: File and document management
+- 🔄 **Composition**: Combine RAG and LLM operations
+- 🎯 **Tools**: Domain-specific utilities (e.g., PDI assistant)
 
 ## Installation
 
@@ -18,241 +18,150 @@ pip install pepperpy
 
 ## Quick Start
 
-### Using RAG
-
-```python
-from pepperpy.rag import SupabaseProvider
-from pepperpy.rag.config import SupabaseConfig
-
-# Initialize provider
-provider = SupabaseProvider(
-    config=SupabaseConfig(
-        url="your-supabase-url",
-        key="your-supabase-key",
-        collection="documents",
-    )
-)
-
-# Query documents
-results = await provider.query("What is machine learning?")
-for doc in results:
-    print(doc.content)
-
-# Clean up
-await provider.shutdown()
-```
-
-### Using LLM Providers
-
-```python
-from pepperpy.llm import OpenRouterProvider
-
-# Initialize provider
-provider = OpenRouterProvider(
-    api_key="your-api-key",
-    model="anthropic/claude-3-opus-20240229",
-)
-
-# Generate text
-response = await provider.generate(
-    prompt="Explain quantum computing in simple terms.",
-    max_tokens=500,
-)
-print(response.text)
-
-# Clean up
-await provider.cleanup()
-```
-
-### Combining RAG and Agents
-
-```python
-from pepperpy.agents import create_agent_group, execute_task, cleanup_group
-from pepperpy.llm import OpenRouterProvider
-from pepperpy.rag import SupabaseProvider
-from pepperpy.rag.config import SupabaseConfig
-
-# Initialize providers
-llm = OpenRouterProvider(
-    api_key="your-api-key",
-    model="anthropic/claude-3-opus-20240229",
-)
-
-rag = SupabaseProvider(
-    config=SupabaseConfig(
-        url="your-supabase-url",
-        key="your-supabase-key",
-        collection="documents",
-    )
-)
-
-# Create agent group
-group_id = await create_agent_group(
-    agents=[
-        {
-            "type": "assistant",
-            "name": "researcher",
-            "system_message": "You are a research assistant.",
-        },
-        {
-            "type": "user",
-            "name": "user",
-            "system_message": "You are the user requesting information.",
-        }
-    ],
-    name="research_team",
-    llm_config=llm.config,
-)
-
-try:
-    # Query RAG system
-    query = "What are the latest AI trends?"
-    context = await rag.query(query)
-
-    # Execute task with context
-    messages = await execute_task(
-        group_id=group_id,
-        task=query,
-        context={"documents": context},
-    )
-
-    # Process messages
-    for msg in messages:
-        print(f"{msg.role}: {msg.content}")
-
-finally:
-    # Clean up
-    await cleanup_group(group_id)
-    await rag.shutdown()
-```
-
-## Documentation
-
-For detailed documentation and examples, visit [docs.pepperpy.com](https://docs.pepperpy.com).
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Usage
-
-### Agents Module
-
-The agents module provides functionality for creating and managing AI agents that can work together to solve tasks.
-
-#### Basic Example
+### RAG Operations
 
 ```python
 import asyncio
-import os
-
-from pepperpy.agents import AgentFactory, SimpleMemory
-from pepperpy.llm.providers.openrouter import OpenRouterProvider
+from pepperpy import store_and_search, Document
 
 async def main():
-    # Get API key from environment
-    api_key = os.getenv("OPENROUTER_API_KEY")
-    if not api_key:
-        raise ValueError("OPENROUTER_API_KEY environment variable is required")
-
-    # Create LLM provider
-    llm = OpenRouterProvider(api_key=api_key)
-    await llm.initialize()
-
-    # Create memory
-    memory = SimpleMemory()
-
-    # Create agent factory
-    factory = AgentFactory()
-
-    # Create a single agent
-    agent = factory.create_agent(llm_provider=llm, memory=memory)
-    await agent.initialize()
-
-    # Execute a task with the agent
-    messages = await agent.execute_task(
-        "What are the three most significant developments in quantum computing?"
+    # Store and search documents in one operation
+    docs = [
+        Document(text="Python is a programming language"),
+        Document(text="Python is great for AI development")
+    ]
+    
+    results = await store_and_search(
+        documents=docs,
+        query="programming language",
+        provider_type="annoy"
     )
-    for msg in messages:
-        print(f"{msg.role}: {msg.content}")
+    
+    for doc in results:
+        print(doc.text)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+asyncio.run(main())
 ```
 
-#### Agent Groups
-
-You can also create groups of agents that work together:
+### LLM Operations
 
 ```python
-# Create an agent group
-group = factory.create_group(
-    llm_provider=llm,
-    group_config={
-        "agents": [
-            {
-                "name": "researcher",
-                "role": "assistant",
-                "description": "Researches and analyzes information",
-            },
-            {
-                "name": "critic",
-                "role": "assistant",
-                "description": "Reviews and critiques information",
-            },
-        ]
-    },
-    memory=memory,
+from pepperpy import generate, chat
+
+# Generate text
+response = await generate(
+    prompt="Explain what is RAG",
+    model="gpt-3.5-turbo"
 )
-await group.initialize()
 
-# Execute a task with the group
-messages = await group.execute_task(
-    "Analyze the potential impact of quantum computing on cryptography."
+# Chat with history
+messages = [
+    {"role": "user", "content": "What is Python?"},
+    {"role": "assistant", "content": "Python is a programming language."},
+    {"role": "user", "content": "What can I build with it?"}
+]
+
+response = await chat(messages)
+```
+
+### Storage Operations
+
+```python
+from pepperpy import save_json, load_json, store_as_document
+
+# Save and load JSON
+data = {"name": "John", "age": 30}
+await save_json("user.json", data)
+loaded = await load_json("user.json")
+
+# Store as searchable document
+await store_as_document(
+    "user.json",
+    data,
+    collection_name="users"
 )
-for msg in messages:
-    print(f"{msg.role}: {msg.content}")
 ```
 
-### Environment Variables
+### Composition
 
-Create a `.env` file with your API keys:
+```python
+from pepperpy import retrieve_and_generate, chat_with_context
 
-```bash
-# OpenRouter API Key
-# Get your API key from https://openrouter.ai/
-OPENROUTER_API_KEY=your-api-key-here
+# RAG + LLM
+response = await retrieve_and_generate(
+    query="How to use Python for AI?",
+    prompt_template="Based on this context: {context}\n\nAnswer: {query}"
+)
+
+# Chat with document context
+response = await chat_with_context(
+    query="Explain the code",
+    history=[{"role": "user", "content": "What is this code about?"}]
+)
 ```
 
-## Development
+### PDI Assistant Example
 
-### Setup
+```python
+from pepperpy import create_and_search_pdi
 
-1. Clone the repository:
-```bash
-git clone https://github.com/pimentel/pepperpy.git
-cd pepperpy
+# Create and search PDIs in one operation
+pdis = await create_and_search_pdi(
+    user_id="user123",
+    goals=[
+        "Learn Python programming",
+        "Build an AI application"
+    ],
+    search_query="programming goals",
+    output_dir="pdis"
+)
+
+for pdi in pdis:
+    print(f"User: {pdi['user_id']}")
+    print("Goals:", pdi["goals"])
 ```
 
-2. Install dependencies:
-```bash
-pip install poetry
-poetry install
+## Advanced Usage
+
+### Custom Provider
+
+```python
+from pepperpy import PepperPy
+
+async with PepperPy.create().with_rag(
+    provider_type="custom",
+    provider_class="my_module.CustomProvider",
+    **provider_options
+) as pepperpy:
+    await pepperpy.rag.add(documents)
+    results = await pepperpy.rag.search(query_text="search query")
 ```
 
-3. Copy the example environment file:
-```bash
-cp .env.example .env
+### Multiple Components
+
+```python
+from pepperpy import PepperPy
+
+async with PepperPy.create().with_rag(
+    provider_type="annoy",
+    collection_name="docs"
+).with_llm(
+    provider_type="openai",
+    model="gpt-4"
+) as pepperpy:
+    # Use both RAG and LLM
+    docs = await pepperpy.rag.search(query_text="search")
+    response = await pepperpy.llm.generate(prompt="generate")
 ```
 
-4. Edit `.env` and add your API keys.
+## Contributing
 
-### Running Examples
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
 
-```bash
-poetry run python examples/agents_example.py
-``` 
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
