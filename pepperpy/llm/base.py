@@ -24,8 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.core.base import PepperpyError
-from pepperpy.providers import BaseProvider
+from pepperpy.core.base import BaseProvider, PepperpyError
 
 
 class LLMError(PepperpyError):

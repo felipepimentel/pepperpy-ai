@@ -8,6 +8,7 @@ This module defines the core classes that make up the pipeline framework:
 - PipelineRegistry: Registry for storing and retrieving pipelines
 """
 
+import enum
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -23,6 +24,15 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
+
+
+class ComponentType(str, enum.Enum):
+    """Type of workflow component."""
+
+    SOURCE = "source"
+    PROCESSOR = "processor"
+    SINK = "sink"
+    AGENT = "agent"
 
 
 class PipelineError(PepperpyError):
@@ -210,7 +220,7 @@ class Pipeline(Generic[Input, Output]):
         """Get the stages of the pipeline.
 
         Returns:
-            The pipeline stages
+            The stages of the pipeline
         """
         return self._stages
 
@@ -223,22 +233,18 @@ class Pipeline(Generic[Input, Output]):
         """
         return self._config
 
-    def add_stage(self, stage: PipelineStage) -> "Pipeline":
+    def add_stage(self, stage: PipelineStage) -> None:
         """Add a stage to the pipeline.
 
         Args:
             stage: The stage to add
-
-        Returns:
-            The pipeline instance for chaining
         """
         self._stages.append(stage)
-        return self
 
-    def execute(
+    def process(
         self, input_data: Input, context: Optional[PipelineContext] = None
     ) -> Output:
-        """Execute the pipeline on the input data.
+        """Process data through the pipeline.
 
         Args:
             input_data: The input data to process
@@ -248,35 +254,17 @@ class Pipeline(Generic[Input, Output]):
             The processed output data
 
         Raises:
-            PipelineError: If an error occurs during execution
+            PipelineError: If an error occurs during processing
         """
         if context is None:
             context = PipelineContext()
 
-        # Store the pipeline name in the context
-        context.set_metadata("pipeline_name", self.name)
-
-        # Special case: empty pipeline
-        if not self._stages:
-            logger.warning(f"Pipeline {self.name} has no stages")
-            return cast(Output, input_data)
-
         try:
-            logger.info(f"Starting pipeline: {self.name}")
-            current_data = input_data
-
-            # Process each stage in sequence
-            for i, stage in enumerate(self._stages):
-                logger.debug(
-                    f"Pipeline {self.name}: executing stage {i + 1}/{len(self._stages)}: {stage.name}"
-                )
-                context.set_metadata("current_stage", stage.name)
-                context.set_metadata("stage_index", i)
-                current_data = stage(current_data, context)
-
-            logger.info(f"Pipeline {self.name} completed successfully")
-            return cast(Output, current_data)
-
+            logger.debug(f"Executing pipeline: {self.name}")
+            data = input_data
+            for stage in self._stages:
+                data = stage(data, context)
+            return cast(Output, data)
         except Exception as e:
             logger.error(f"Error in pipeline {self.name}: {str(e)}")
             raise PipelineError(f"Error in pipeline {self.name}: {str(e)}") from e
@@ -449,3 +437,34 @@ class Workflow(ABC):
     def __init__(self) -> None:
         """Initialize workflow."""
         pass
+
+
+class WorkflowComponent(ABC):
+    """Base class for workflow components.
+
+    A workflow component is a reusable unit of work that can be composed
+    into pipelines. Components can be sources, processors, or sinks.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        name: str,
+        type: ComponentType,
+        config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize a workflow component.
+
+        Args:
+            id: Component ID
+            name: Component name
+            type: Component type
+            config: Optional configuration dictionary
+            metadata: Optional metadata dictionary
+        """
+        self.id = id
+        self.name = name
+        self.type = type
+        self._config = config or {}
+        self._metadata = metadata or {}

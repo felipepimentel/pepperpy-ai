@@ -12,6 +12,9 @@ from pepperpy.core.types import Query
 from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
 from pepperpy.rag.base import Document, RAGProvider
 from pepperpy.storage.base import StorageProvider
+from pepperpy.tools.repository.base import RepositoryProvider
+from pepperpy.tts.base import TTSProvider
+from pepperpy.workflow.base import WorkflowProvider
 
 
 class PepperPy:
@@ -27,6 +30,9 @@ class PepperPy:
         self._llm: Optional[LLMProvider] = None
         self._rag: Optional[RAGProvider] = None
         self._storage: Optional[StorageProvider] = None
+        self._tts: Optional[TTSProvider] = None
+        self._repository: Optional[RepositoryProvider] = None
+        self._workflow: Optional[WorkflowProvider] = None
 
     def with_llm(self, provider_type: str = "openai", **kwargs: Any) -> "PepperPy":
         """Configure LLM provider.
@@ -69,6 +75,101 @@ class PepperPy:
         )
         return self
 
+    def with_tts(self, provider_type: str = "azure", **kwargs: Any) -> "PepperPy":
+        """Configure TTS provider.
+
+        Args:
+            provider_type: Type of TTS provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Self for chaining
+        """
+        self._tts = self.config.load_tts_provider(provider_type=provider_type, **kwargs)
+        return self
+
+    def with_repository(
+        self, provider_type: str = "github", **kwargs: Any
+    ) -> "PepperPy":
+        """Configure repository provider.
+
+        Args:
+            provider_type: Type of repository provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Self for chaining
+        """
+        self._repository = self.config.load_repository_provider(
+            provider_type=provider_type, **kwargs
+        )
+        return self
+
+    def with_workflow(
+        self, provider_type: str = "default", **kwargs: Any
+    ) -> "PepperPy":
+        """Configure workflow provider.
+
+        Args:
+            provider_type: Type of workflow provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Self for chaining
+        """
+        self._workflow = self.config.load_workflow_provider(
+            provider_type=provider_type, **kwargs
+        )
+        return self
+
+    @property
+    def llm(self) -> LLMProvider:
+        """Get LLM provider."""
+        if not self._llm:
+            raise ValueError("LLM provider not configured. Call with_llm() first.")
+        return self._llm
+
+    @property
+    def rag(self) -> RAGProvider:
+        """Get RAG provider."""
+        if not self._rag:
+            raise ValueError("RAG provider not configured. Call with_rag() first.")
+        return self._rag
+
+    @property
+    def storage(self) -> StorageProvider:
+        """Get storage provider."""
+        if not self._storage:
+            raise ValueError(
+                "Storage provider not configured. Call with_storage() first."
+            )
+        return self._storage
+
+    @property
+    def tts(self) -> TTSProvider:
+        """Get TTS provider."""
+        if not self._tts:
+            raise ValueError("TTS provider not configured. Call with_tts() first.")
+        return self._tts
+
+    @property
+    def repository(self) -> RepositoryProvider:
+        """Get repository provider."""
+        if not self._repository:
+            raise ValueError(
+                "Repository provider not configured. Call with_repository() first."
+            )
+        return self._repository
+
+    @property
+    def workflow(self) -> WorkflowProvider:
+        """Get workflow provider."""
+        if not self._workflow:
+            raise ValueError(
+                "Workflow provider not configured. Call with_workflow() first."
+            )
+        return self._workflow
+
     async def __aenter__(self) -> "PepperPy":
         """Enter async context."""
         if self._llm:
@@ -77,6 +178,12 @@ class PepperPy:
             await self._rag.initialize()
         if self._storage:
             await self._storage.initialize()
+        if self._tts:
+            await self._tts.initialize()
+        if self._repository:
+            await self._repository.initialize()
+        if self._workflow:
+            await self._workflow.initialize()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -87,27 +194,12 @@ class PepperPy:
             await self._rag.cleanup()
         if self._storage:
             await self._storage.cleanup()
-
-    @property
-    def llm(self) -> LLMProvider:
-        """Get LLM provider."""
-        if not self._llm:
-            raise RuntimeError("LLM provider not configured")
-        return self._llm
-
-    @property
-    def rag(self) -> RAGProvider:
-        """Get RAG provider."""
-        if not self._rag:
-            raise RuntimeError("RAG provider not configured")
-        return self._rag
-
-    @property
-    def storage(self) -> StorageProvider:
-        """Get storage provider."""
-        if not self._storage:
-            raise RuntimeError("Storage provider not configured")
-        return self._storage
+        if self._tts:
+            await self._tts.cleanup()
+        if self._repository:
+            await self._repository.cleanup()
+        if self._workflow:
+            await self._workflow.cleanup()
 
     async def send(self, message: str) -> GenerationResult:
         """Send a message to the LLM.

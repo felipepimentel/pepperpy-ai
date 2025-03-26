@@ -15,7 +15,13 @@ from urllib.parse import urlencode
 import aiohttp
 import requests
 
-from pepperpy.core.base import HeadersType, JsonType, QueryParamsType
+from pepperpy.core.base import (
+    HeadersType,
+    JsonType,
+    QueryParamsType,
+    RequestError,
+    TimeoutError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -155,9 +161,12 @@ class HTTPClient:
         if not self._session:
             await self.initialize()
 
+        if not self._session:
+            raise RequestError("Failed to initialize HTTP client session")
+
         url = self._build_url(path, params)
         headers = self._merge_headers(headers)
-        timeout = timeout or self.timeout
+        request_timeout = aiohttp.ClientTimeout(total=timeout or self.timeout)
 
         try:
             async with self._session.request(
@@ -166,7 +175,7 @@ class HTTPClient:
                 headers=headers,
                 json=json_data,
                 data=data,
-                timeout=timeout,
+                timeout=request_timeout,
                 ssl=self.verify_ssl,
             ) as response:
                 content = await response.read()
