@@ -1,67 +1,102 @@
-"""Repository assistant module."""
+"""Repository analysis workflow recipe."""
 
-from typing import Optional
+from typing import Dict, Optional
 
-from pepperpy.core.base import BaseComponent
-from pepperpy.github.component import GitHubComponent
 from pepperpy.llm.base import Message, MessageRole
 from pepperpy.llm.component import LLMComponent
 from pepperpy.rag import Document, Query
 from pepperpy.rag.component import RAGComponent
+from pepperpy.tools.repository.providers.github import GitHubProvider
+from pepperpy.workflow.base import Workflow
 
 
-class RepositoryAssistant(BaseComponent):
-    """Assistant for analyzing and chatting about repositories."""
+class RepositoryAnalysisRecipe(Workflow):
+    """Recipe for analyzing and interacting with code repositories.
+
+    This recipe combines LLM, RAG, and repository tools to provide:
+    - Repository analysis and indexing
+    - Code search and understanding
+    - Natural language Q&A about the codebase
+
+    Example:
+        >>> recipe = RepositoryAnalysisRecipe(
+        ...     name="repo-analyzer",
+        ...     llm=llm_component,
+        ...     rag=rag_component,
+        ...     repository=github_provider
+        ... )
+        >>> await recipe.analyze("https://github.com/user/repo")
+        >>> answer = await recipe.ask("How is error handling implemented?")
+    """
 
     def __init__(
         self,
         name: str,
         llm: LLMComponent,
         rag: RAGComponent,
-        github: GitHubComponent,
+        repository: GitHubProvider,
     ) -> None:
-        """Initialize repository assistant.
+        """Initialize repository analysis recipe.
 
         Args:
-            name: Assistant name
-            llm: LLM component
-            rag: RAG component
-            github: GitHub component
+            name: Recipe name
+            llm: LLM component for text generation
+            rag: RAG component for document storage and retrieval
+            repository: Repository provider for accessing code
         """
         super().__init__()
         self.name = name
         self.llm = llm
         self.rag = rag
-        self.github = github
+        self.repository = repository
         self._indexed = False
 
-    async def analyze_repository(self, repo_url: str) -> None:
+    async def analyze(self, repo_url: str) -> Dict:
         """Analyze a repository.
 
         Args:
             repo_url: Repository URL
+
+        Returns:
+            Analysis results including repository info, structure, and metrics
         """
         print(f"\nAnalyzing repository {repo_url}...")
 
         # Get repository info
-        repo = await self.github.get_repository(repo_url)
-        files = await self.github.get_files(repo_url)
+        repo = await self.repository.get_repository(repo_url)
+        if not repo:
+            print("Error: Could not fetch repository info")
+            return {
+                "repository_name": repo_url,
+                "error": "Could not fetch repository info",
+            }
+
+        files = await self.repository.get_files(repo_url)
+        if not files:
+            print("Error: Could not fetch repository files")
+            return {
+                "repository_name": repo_url,
+                "error": "Could not fetch repository files",
+            }
 
         # Index files
         documents = []
         for file in files:
             if self._is_text_file(file["name"]):
                 try:
-                    content = await self.github.get_file_content(repo_url, file["path"])
-                    doc = Document(
-                        text=content,
-                        metadata={
-                            "file_path": file["path"],
-                            "file_name": file["name"],
-                            "repo": repo_url,
-                        },
+                    content = await self.repository.get_file_content(
+                        repo_url, file["path"]
                     )
-                    documents.append(doc)
+                    if content:
+                        doc = Document(
+                            text=content,
+                            metadata={
+                                "file_path": file["path"],
+                                "file_name": file["name"],
+                                "repo": repo_url,
+                            },
+                        )
+                        documents.append(doc)
                 except Exception as e:
                     print(f"Error indexing file {file['path']}: {e}")
 
@@ -73,6 +108,8 @@ class RepositoryAssistant(BaseComponent):
         # Generate analysis
         query = Query("repository structure and architecture")
         results = await self.rag.search(query)
+        if not results:
+            results = []
 
         # Build report
         report = {
@@ -80,7 +117,10 @@ class RepositoryAssistant(BaseComponent):
             "description": repo.get("description", "No description available"),
             "files": [file["path"] for file in files],
             "relevant_files": [
-                {"path": result.metadata["file_path"], "content": result.text}
+                {
+                    "path": getattr(result.metadata, "file_path", "unknown"),
+                    "content": getattr(result, "text", ""),
+                }
                 for result in results
             ],
             "structure": {
@@ -126,6 +166,8 @@ class RepositoryAssistant(BaseComponent):
         for i, rec in enumerate(report["recommendations"][:3], 1):
             print(f"{i}. {rec}")
 
+        return report
+
     async def ask(self, question: str) -> Optional[str]:
         """Ask a question about the repository.
 
@@ -133,19 +175,22 @@ class RepositoryAssistant(BaseComponent):
             question: Question to ask
 
         Returns:
-            Answer to the question
+            Answer to the question or None if repository not analyzed
         """
         if not self._indexed:
-            print("Repository not analyzed yet. Please run analyze_repository() first.")
+            print("Repository not analyzed yet. Please run analyze() first.")
             return None
 
         # Get relevant context
         query = Query(question)
         results = await self.rag.search(query)
+        if not results:
+            results = []
 
         # Build context
         context = "\n\n".join(
-            f"File: {result.metadata['file_path']}\n{result.text}" for result in results
+            f"File: {getattr(result.metadata, 'file_path', 'unknown')}\n{getattr(result, 'text', '')}"
+            for result in results
         )
 
         # Generate response
@@ -162,6 +207,8 @@ class RepositoryAssistant(BaseComponent):
 
         try:
             response = await self.llm.generate(messages)
+            if not response:
+                return None
             return response.content
         except Exception as e:
             print(f"Error generating response: {e}")

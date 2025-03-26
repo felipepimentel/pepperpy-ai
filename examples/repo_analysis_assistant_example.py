@@ -1,55 +1,50 @@
-"""Repository Analysis Assistant Example.
-
-This example demonstrates a comprehensive code repository analysis assistant that:
-1. Analyzes repository structure and organization
-2. Evaluates code quality and maintainability
-3. Identifies issues and recommends improvements
-4. Generates documentation and diagrams
-5. Performs security vulnerability scanning
-6. Provides refactoring suggestions
-7. Analyzes test coverage and quality
-8. Allows interaction with the repository through natural language
-"""
+"""Example of using the repository analysis recipe."""
 
 import asyncio
-import sys
 
 from pepperpy.core.base import PepperPy
+from pepperpy.workflow.recipes.code.repository import RepositoryAnalysisRecipe
 
 
 async def main():
     """Run the example."""
-    repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
-
-    # Create assistant using fluent interface
-    async with PepperPy.create() as pepper:
-        assistant = (
-            pepper.create_assistant("repo-analyzer")
-            .with_llm()
-            .with_rag(
-                collection_name="repo_analysis", persist_directory=".pepperpy/chroma"
-            )
-            .with_github()
+    try:
+        # Create PepperPy instance - all configuration is handled by the framework
+        pepperpy = (
+            PepperPy.create()
+            .with_llm()  # Uses PEPPERPY_LLM__ config
+            .with_rag()  # Uses PEPPERPY_RAG__ config
+            .with_github()  # Uses PEPPERPY_TOOLS__ config
             .build()
         )
 
-        try:
-            # Analyze repository
-            await assistant.analyze_repository(repo_url)
+        # Create recipe
+        recipe = RepositoryAnalysisRecipe(
+            name="repo-analyzer",
+            llm=pepperpy.llm,
+            rag=pepperpy.rag,
+            repository=pepperpy.github,
+        )
 
-            # Interactive mode
-            if "--interactive" in sys.argv:
-                while True:
-                    question = input("Ask a question (or 'exit' to quit): ")
-                    if question.lower() == "exit":
-                        break
+        # Analyze repository
+        repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
+        await recipe.analyze(repo_url)
 
-                    answer = await assistant.ask(question)
-                    if answer:
-                        print(f"\nAnswer: {answer}\n")
+        # Interactive mode
+        print("\nEnter your questions about the repository (type 'exit' to quit):")
+        while True:
+            question = input("\nQuestion: ").strip()
+            if question.lower() == "exit":
+                break
 
-        except Exception as e:
-            print(f"Error: {e}")
+            answer = await recipe.ask(question)
+            if answer:
+                print(f"\nAnswer: {answer}")
+            else:
+                print("\nError: Could not generate answer")
+
+    except Exception as e:
+        print(f"Error: {e}")
 
 
 if __name__ == "__main__":

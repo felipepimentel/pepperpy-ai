@@ -11,8 +11,13 @@ Example:
     ...         self.provider_type = "custom"
 """
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Protocol, TypeVar, Union
+
+from pepperpy.core.config import Config
+from pepperpy.llm.component import LLMComponent
+from pepperpy.rag.component import RAGComponent
+from pepperpy.tools.repository.providers.github import GitHubProvider
 
 # Type definitions
 ConfigType = Dict[str, Any]
@@ -371,7 +376,7 @@ class BaseModelContext(ABC):
 
 """Base classes and interfaces for PepperPy."""
 
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Any, Dict, Optional, TypeVar
 
 T = TypeVar("T", bound="BaseComponent")
@@ -457,85 +462,68 @@ class BaseBuilder(ABC):
 
 
 class PepperPy:
-    """Main entry point for PepperPy framework."""
+    """Main entry point for PepperPy framework.
 
-    def __init__(self, config_path: Optional[str] = None) -> None:
-        """Initialize PepperPy.
+    This class provides a fluent interface for creating and configuring
+    PepperPy components and workflows.
 
-        Args:
-            config_path: Optional path to configuration file
-        """
-        from pepperpy.core import Config
+    Example:
+        >>> pepperpy = (
+        ...     PepperPy.create()
+        ...     .with_llm()  # Uses PEPPERPY_LLM__ config
+        ...     .with_rag()  # Uses PEPPERPY_RAG__ config
+        ...     .with_github()  # Uses PEPPERPY_TOOLS__ config
+        ...     .build()
+        ... )
+    """
 
-        self.config = Config(config_path=config_path)
-        self._components: Dict[str, BaseComponent] = {}
+    def __init__(self) -> None:
+        """Initialize PepperPy."""
+        self.llm: Optional[LLMComponent] = None
+        self.rag: Optional[RAGComponent] = None
+        self.github: Optional[GitHubProvider] = None
+        self.config = Config()
 
     @classmethod
-    def create(cls, config_path: Optional[str] = None) -> "PepperPy":
+    def create(cls) -> "PepperPy":
         """Create a new PepperPy instance.
 
-        Args:
-            config_path: Optional path to configuration file
+        Returns:
+            A new PepperPy instance
+        """
+        return cls()
+
+    def with_llm(self) -> "PepperPy":
+        """Configure LLM component using environment configuration.
 
         Returns:
-            New PepperPy instance
+            Self for chaining
         """
-        return cls(config_path=config_path)
-
-    async def __aenter__(self) -> "PepperPy":
-        """Enter async context."""
+        self.llm = LLMComponent(self.config)
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit async context."""
-        for component in self._components.values():
-            await component.cleanup()
-
-    @property
-    def llm(self) -> "LLMComponent":
-        """Get LLM component."""
-        from pepperpy.llm import LLMComponent
-
-        if "llm" not in self._components:
-            self._components["llm"] = LLMComponent(self.config)
-        return self._components["llm"]
-
-    @property
-    def embeddings(self) -> "EmbeddingComponent":
-        """Get embeddings component."""
-        from pepperpy.embeddings import EmbeddingComponent
-
-        if "embeddings" not in self._components:
-            self._components["embeddings"] = EmbeddingComponent(self.config)
-        return self._components["embeddings"]
-
-    @property
-    def rag(self) -> "RAGComponent":
-        """Get RAG component."""
-        from pepperpy.rag import RAGComponent
-
-        if "rag" not in self._components:
-            self._components["rag"] = RAGComponent(self.config)
-        return self._components["rag"]
-
-    @property
-    def github(self) -> "GitHubComponent":
-        """Get GitHub component."""
-        from pepperpy.github import GitHubComponent
-
-        if "github" not in self._components:
-            self._components["github"] = GitHubComponent(self.config)
-        return self._components["github"]
-
-    def create_assistant(self, name: Optional[str] = None) -> "AssistantBuilder":
-        """Create a new assistant builder.
-
-        Args:
-            name: Optional assistant name
+    def with_rag(self) -> "PepperPy":
+        """Configure RAG component using environment configuration.
 
         Returns:
-            Assistant builder
+            Self for chaining
         """
-        from pepperpy.assistants import AssistantBuilder
+        self.rag = RAGComponent(self.config)
+        return self
 
-        return AssistantBuilder(self, name)
+    def with_github(self) -> "PepperPy":
+        """Configure GitHub component using environment configuration.
+
+        Returns:
+            Self for chaining
+        """
+        self.github = GitHubProvider(self.config)
+        return self
+
+    def build(self) -> "PepperPy":
+        """Build and initialize components.
+
+        Returns:
+            Self with initialized components
+        """
+        return self

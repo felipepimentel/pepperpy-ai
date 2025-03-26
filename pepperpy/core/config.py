@@ -12,9 +12,9 @@ import yaml
 
 from pepperpy.core.utils import merge_configs, unflatten_dict, validate_type
 from pepperpy.embeddings.base import EmbeddingProvider
-from pepperpy.github import GitHubClient
 from pepperpy.llm.base import LLMProvider
 from pepperpy.rag.base import BaseProvider as RAGProvider
+from pepperpy.tools.repository.providers.github import GitHubProvider
 
 from .validation import ValidationError
 
@@ -269,18 +269,22 @@ class Config:
         )
         return provider
 
-    def load_github_client(self) -> GitHubClient:
-        """Load GitHub client from configuration.
+    def load_github_client(self) -> GitHubProvider:
+        """Load GitHub client.
 
         Returns:
-            Configured GitHub client instance
+            GitHub client instance
+
+        Raises:
+            ValidationError: If GitHub configuration is invalid
         """
-        token = self.get("tools.github.api_key")
+        token = self.get("github.token")
         if not token:
-            token = os.environ.get("PEPPERPY_TOOLS__GITHUB_API_KEY")
+            token = os.environ.get("PEPPERPY_GITHUB_TOKEN")
         if not token:
-            raise ValidationError("GitHub API token is required")
-        return GitHubClient(api_key=token)
+            raise ValidationError("GitHub token not found in config or environment")
+
+        return GitHubProvider(token=token)
 
     def _create_provider(
         self, provider_class: Any, provider_type: str, **kwargs: Any

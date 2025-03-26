@@ -432,3 +432,20 @@ def execute_pipeline(
     """
     pipeline = get_pipeline(name)
     return pipeline.execute(input_data, context)
+
+
+class Workflow(ABC):
+    """Base class for all workflows.
+
+    A workflow is a high-level abstraction that combines multiple components
+    to achieve a specific goal. Workflows are responsible for:
+    - Component orchestration
+    - State management
+    - Error handling
+    - Progress tracking
+    """
+
+    @abstractmethod
+    def __init__(self) -> None:
+        """Initialize workflow."""
+        pass

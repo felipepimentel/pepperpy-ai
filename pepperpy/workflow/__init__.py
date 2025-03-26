@@ -1,27 +1,17 @@
-"""Pipeline Domain Module.
+"""Workflow module for PepperPy framework.
 
-This module provides data processing pipeline capabilities for PepperPy,
-including pipeline stages, registries, and execution management.
+This module provides workflow abstractions for combining multiple components
+to achieve specific goals. Workflows are responsible for:
+- Component orchestration
+- State management
+- Error handling
+- Progress tracking
 
-Example:
-    >>> from pepperpy.pipeline import Pipeline, Stage
-    >>> pipeline = Pipeline()
-    >>> pipeline.add_stage(Stage("process"))
-    >>> result = pipeline.execute(data)
-
-Components:
-    - Pipeline: Core pipeline execution engine
-    - Stage: Individual processing stage
-    - Registry: Pipeline component registry
+Available workflows:
+- Base workflow: Base class for all workflows
+- Recipes: Ready-to-use workflow recipes for common use cases
 """
 
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from pepperpy.workflow.base import Workflow
 
-from .registry import Registry
-
-__all__ = [
-    "Registry",
-]
-
-# Type variables
-T = TypeVar("T")
+__all__ = ["Workflow"]
