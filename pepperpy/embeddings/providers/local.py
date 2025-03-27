@@ -7,7 +7,7 @@ from pepperpy.embeddings.base import EmbeddingProvider
 
 
 @lazy_provider_class("embeddings", "local")
-class LocalEmbeddingProvider(EmbeddingProvider):
+class LocalProvider(EmbeddingProvider):
     """Local implementation of embeddings provider using sentence-transformers.
 
     This provider runs completely offline without requiring any API keys.

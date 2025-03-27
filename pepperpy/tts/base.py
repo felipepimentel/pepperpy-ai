@@ -274,9 +274,9 @@ class TTSFactory:
 
 
 class TTSComponent(WorkflowComponent):
-    """Component for Text-to-Speech synthesis.
+    """Component for Text-to-Speech (TTS) operations.
 
-    This component handles the conversion of text to speech using a TTS provider.
+    This component handles text-to-speech conversion using a TTS provider.
     """
 
     def __init__(
@@ -297,12 +297,9 @@ class TTSComponent(WorkflowComponent):
             metadata: Optional metadata
         """
         super().__init__(
-            component_id=component_id,
-            name=name,
-            provider=provider,
-            config=config,
-            metadata=metadata,
+            component_id=component_id, name=name, config=config, metadata=metadata
         )
+        self.provider: TTSProvider = provider
 
     async def process(self, data: str) -> bytes:
         """Process input text and convert to speech.
@@ -316,14 +313,46 @@ class TTSComponent(WorkflowComponent):
         Raises:
             ValidationError: If input type is invalid
         """
+        # Perform TTS conversion
+        from pepperpy.core.base import ValidationError
+
         if not isinstance(data, str):
             raise ValidationError(
                 f"Invalid input type for TTS component: {type(data).__name__}. "
                 "Expected str."
             )
 
-        voice_id = self.config.get("voice_id")
-        if not voice_id:
-            raise ValidationError("voice_id not specified in component config")
+        voice_id = self.config.get("voice_id", "default")
+        return await self.provider.convert_text(data, voice_id=voice_id)
 
-        return await self.provider.convert_text(data, voice_id)
+
+def create_provider(provider_type: str = "azure", **config: Any) -> TTSProvider:
+    """Create a TTS provider based on type.
+
+    Args:
+        provider_type: Type of provider to create (default: azure)
+        **config: Provider configuration
+
+    Returns:
+        An instance of the specified TTSProvider
+
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        import importlib
+
+        # Import provider module
+        module_name = f"pepperpy.tts.{provider_type}"
+        module = importlib.import_module(module_name)
+
+        # Get provider class
+        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class = getattr(module, provider_class_name)
+
+        # Create provider instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        from pepperpy.core.base import ValidationError
+
+        raise ValidationError(f"Failed to create TTS provider '{provider_type}': {e}")

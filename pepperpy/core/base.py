@@ -12,7 +12,7 @@ Example:
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import (
     Any,
     AsyncIterator,
@@ -260,9 +260,9 @@ class Document:
     """
 
     content: str
-    metadata: Optional[Metadata] = None
-    embeddings: Optional[List[float]] = None
-    id: Optional[str] = None
+    metadata: Optional[Metadata] = field(default=None)
+    embeddings: Optional[List[float]] = field(default=None)
+    id: Optional[str] = field(default=None)
 
 
 # Core Exceptions

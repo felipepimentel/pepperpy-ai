@@ -128,3 +128,37 @@ class RepositoryProvider(BaseProvider):
             File content as string
         """
         pass
+
+
+def create_provider(provider_type: str = "github", **config: Any) -> RepositoryProvider:
+    """Create a Repository provider based on type.
+
+    Args:
+        provider_type: Type of provider to create (default: github)
+        **config: Provider configuration
+
+    Returns:
+        An instance of the specified RepositoryProvider
+
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        import importlib
+
+        # Import provider module
+        module_name = f"pepperpy.tools.repository.{provider_type}"
+        module = importlib.import_module(module_name)
+
+        # Get provider class
+        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class = getattr(module, provider_class_name)
+
+        # Create provider instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        from pepperpy.core.base import ValidationError
+
+        raise ValidationError(
+            f"Failed to create Repository provider '{provider_type}': {e}"
+        )

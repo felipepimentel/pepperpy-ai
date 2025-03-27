@@ -583,6 +583,40 @@ class WorkflowProvider(BaseProvider):
         """List all workflows.
 
         Returns:
-            List of workflow instances
+            List of workflows
         """
         pass
+
+
+def create_provider(provider_type: str = "default", **config: Any) -> WorkflowProvider:
+    """Create a Workflow provider based on type.
+
+    Args:
+        provider_type: Type of provider to create (default: default)
+        **config: Provider configuration
+
+    Returns:
+        An instance of the specified WorkflowProvider
+
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        import importlib
+
+        # Import provider module
+        module_name = f"pepperpy.workflow.{provider_type}"
+        module = importlib.import_module(module_name)
+
+        # Get provider class
+        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class = getattr(module, provider_class_name)
+
+        # Create provider instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        from pepperpy.core.base import ValidationError
+
+        raise ValidationError(
+            f"Failed to create Workflow provider '{provider_type}': {e}"
+        )

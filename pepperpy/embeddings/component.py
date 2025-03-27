@@ -1,10 +1,10 @@
 """Embeddings component module."""
 
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pepperpy.core.base import BaseComponent
 from pepperpy.core.config import Config
-from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.embeddings.base import EmbeddingProvider, create_provider
 
 
 class EmbeddingComponent(BaseComponent):
@@ -22,7 +22,9 @@ class EmbeddingComponent(BaseComponent):
 
     async def _initialize(self) -> None:
         """Initialize the embeddings provider."""
-        self._provider = self.config.load_embedding_provider()
+        provider_type = self.config.get("embeddings.provider", "openai")
+        provider_config = self.config.get("embeddings.config", {})
+        self._provider = create_provider(provider_type, **provider_config)
         await self._provider.initialize()
 
     async def _cleanup(self) -> None:
@@ -30,21 +32,46 @@ class EmbeddingComponent(BaseComponent):
         if self._provider:
             await self._provider.cleanup()
 
-    async def embed_text(self, text: str) -> List[float]:
-        """Generate embeddings for text.
+    async def embed_single_text(self, text: str) -> List[float]:
+        """Generate embeddings for a single text.
 
         Args:
             text: Text to embed
 
         Returns:
-            Text embeddings
+            Text embeddings as a list of float values
         """
         if not self._provider:
-            await self.initialize()
+            await self._initialize()
+
+        # Ensure provider is initialized
+        assert self._provider is not None
+
+        # Use embed_query which returns List[float] directly
+        return await self._provider.embed_query(text)
+
+    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
+        """Generate embeddings for text(s).
+
+        Args:
+            text: Text or list of texts to embed
+
+        Returns:
+            List of embedding vectors
+        """
+        if not self._provider:
+            await self._initialize()
+
+        # Ensure provider is initialized
+        assert self._provider is not None
+
+        # Forward directly to provider's implementation
         return await self._provider.embed_text(text)
 
-    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for multiple texts.
+
+        This is an alias for embed_text with a list of texts.
 
         Args:
             texts: List of texts to embed
@@ -52,6 +79,4 @@ class EmbeddingComponent(BaseComponent):
         Returns:
             List of text embeddings
         """
-        if not self._provider:
-            await self.initialize()
-        return await self._provider.embed_texts(texts)
+        return await self.embed_text(texts)

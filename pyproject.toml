@@ -99,6 +99,7 @@ gtts = { version = "^2.5.4", optional = true }
 psutil = "^7.0.0"
 spacy = "^3.8.4"
 nltk = "^3.9.1"
+sentence-transformers = {version = "^4.0.1", extras = ["embeddings-local"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"

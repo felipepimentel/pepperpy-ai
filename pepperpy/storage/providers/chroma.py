@@ -18,8 +18,7 @@ from chromadb.api.types import (
     QueryResult,
 )
 
-from ..base import StorageProvider
-from ..errors import StorageError
+from ..base import StorageError, StorageProvider
 
 
 def _to_dict(metadata: Optional[Metadata]) -> Dict[str, Any]:
@@ -29,7 +28,9 @@ def _to_dict(metadata: Optional[Metadata]) -> Dict[str, Any]:
     return {k: v for k, v in metadata.items()}
 
 
-def _to_embedding(embedding: Optional[Union[Embedding, List[float]]]) -> Optional[List[float]]:
+def _to_embedding(
+    embedding: Optional[Union[Embedding, List[float]]],
+) -> Optional[List[float]]:
     """Convert embedding to list of floats."""
     if embedding is None:
         return None
@@ -72,13 +73,13 @@ class HashEmbeddingFunction(EmbeddingFunction):
         for text in texts:
             # Get SHA-256 hash of text
             hash_bytes = hashlib.sha256(str(text).encode()).digest()
-            
+
             # Convert hash bytes to floats between -1 and 1
             embedding = []
             for i in range(self.dimension):
                 byte_val = hash_bytes[i % 32]  # Reuse hash bytes if needed
                 embedding.append((byte_val / 128.0) - 1.0)  # Scale to [-1, 1]
-            
+
             embeddings.append(embedding)
         return embeddings
 
@@ -242,7 +243,7 @@ class ChromaStorageProvider(StorageProvider):
         )
 
         vectors = []
-        for i, vector_id in enumerate(result["ids"][offset:offset + limit]):
+        for i, vector_id in enumerate(result["ids"][offset : offset + limit]):
             vectors.append({
                 "id": vector_id,
                 "vector": result["embeddings"][i],
@@ -258,8 +259,6 @@ class ChromaStorageProvider(StorageProvider):
             "supports_filters": True,
             "supports_persistence": True,
             "embedding_function": (
-                self.embeddings.__class__.__name__
-                if self.embeddings
-                else "hash-based"
+                self.embeddings.__class__.__name__ if self.embeddings else "hash-based"
             ),
         }

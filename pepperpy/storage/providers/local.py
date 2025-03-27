@@ -3,33 +3,37 @@
 This module provides a local filesystem implementation of the storage provider interface.
 """
 
+import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Union
+
+from pepperpy.rag.base import Document
 
 from ..base import StorageError, StorageObject, StorageProvider, StorageStats
 
 
-class LocalStorageProvider(StorageProvider):
+class LocalProvider(StorageProvider):
     """Local filesystem implementation of the storage provider interface."""
 
     def __init__(
         self,
+        base_dir: str = ".pepperpy/storage",
         config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize the local storage provider.
 
         Args:
-            config: Configuration dictionary with:
-                - root_dir: Base directory for storage (required)
-                - create_root: Create root directory if missing (default: True)
+            base_dir: Base directory for storage
+            config: Optional configuration dictionary
+            **kwargs: Additional configuration options
         """
-        super().__init__(config=config)
+        config = config or {}
+        config["root_dir"] = base_dir
+        super().__init__(name="local", config=config)
 
-        if not config or "root_dir" not in config:
-            raise StorageError("root_dir is required in config")
-
-        self.root_dir = Path(config["root_dir"])
+        self.root_dir = Path(base_dir)
         if config.get("create_root", True):
             self.root_dir.mkdir(parents=True, exist_ok=True)
 
@@ -180,3 +184,145 @@ class LocalStorageProvider(StorageProvider):
             "persistent": True,
             "root_dir": str(self.root_dir),
         }
+
+    async def store_vectors(
+        self,
+        vectors: Sequence[List[float]],
+        metadata: Optional[List[Dict[str, Any]]] = None,
+        **kwargs: Any,
+    ) -> List[str]:
+        """Store vectors with optional metadata.
+
+        Args:
+            vectors: List of vectors to store
+            metadata: Optional list of metadata for each vector
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            List of IDs for stored vectors
+        """
+        raise NotImplementedError("Vector operations not supported by local provider")
+
+    def _generate_id(self) -> str:
+        """Generate a unique ID for a document."""
+        return str(uuid.uuid4())
+
+    async def save_document(
+        self,
+        document: Document,
+        collection: str,
+        **kwargs: Any,
+    ) -> str:
+        """Save a document to storage.
+
+        Args:
+            document: Document to save
+            collection: Collection to save to
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Document ID
+        """
+        doc_id = document.get("id") or self._generate_id()
+        path = f"{collection}/{doc_id}"
+        await self.write(path, document.text, document.metadata, **kwargs)
+        document["id"] = doc_id
+        return path
+
+    async def load_document(
+        self,
+        path: str,
+        **kwargs: Any,
+    ) -> "Document":
+        """Load a document from storage.
+
+        Args:
+            path: Path to load document from
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            Loaded document
+        """
+        data = await self.read(path)
+        return Document(text=data.decode("utf-8"))
+
+    async def retrieve_vectors(
+        self,
+        vector_ids: List[str],
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve vectors by ID.
+
+        Args:
+            vector_ids: List of vector IDs to retrieve
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            List of dictionaries containing vectors and metadata
+
+        Raises:
+            StorageError: If retrieving vectors fails
+        """
+        raise NotImplementedError("Vector operations not supported by local provider")
+
+    async def delete_vectors(
+        self,
+        vector_ids: List[str],
+        **kwargs: Any,
+    ) -> None:
+        """Delete vectors by ID.
+
+        Args:
+            vector_ids: List of vector IDs to delete
+            **kwargs: Additional provider-specific arguments
+
+        Raises:
+            StorageError: If deleting vectors fails
+        """
+        raise NotImplementedError("Vector operations not supported by local provider")
+
+    async def search_vectors(
+        self,
+        query_vector: List[float],
+        limit: int = 10,
+        filter: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """Search for similar vectors.
+
+        Args:
+            query_vector: Vector to search for
+            limit: Maximum number of results to return
+            filter: Optional metadata filter
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            List of dictionaries containing vectors, metadata, and scores
+
+        Raises:
+            StorageError: If searching vectors fails
+        """
+        raise NotImplementedError("Vector operations not supported by local provider")
+
+    async def list_vectors(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        filter: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> List[Dict[str, Any]]:
+        """List stored vectors.
+
+        Args:
+            limit: Maximum number of results to return
+            offset: Number of results to skip
+            filter: Optional metadata filter
+            **kwargs: Additional provider-specific arguments
+
+        Returns:
+            List of dictionaries containing vectors and metadata
+
+        Raises:
+            StorageError: If listing vectors fails
+        """
+        raise NotImplementedError("Vector operations not supported by local provider")

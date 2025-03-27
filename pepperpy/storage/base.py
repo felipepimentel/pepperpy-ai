@@ -626,14 +626,15 @@ class StorageComponent:
     async def _initialize(self) -> None:
         """Initialize the storage provider."""
         try:
-            if hasattr(self.config, "load_storage_provider"):
-                self._provider = self.config.load_storage_provider(
-                    base_dir=self._base_dir,
-                    provider_type=getattr(self, "_provider_type", "local"),
-                    **getattr(self, "_provider_options", {}),
-                )
-                if self._provider:
-                    await self._provider.initialize()
+            from pepperpy.storage.base import create_provider
+
+            self._provider = create_provider(
+                base_dir=self._base_dir,
+                provider_type=getattr(self, "_provider_type", "local"),
+                **getattr(self, "_provider_options", {}),
+            )
+            if self._provider:
+                await self._provider.initialize()
         except Exception as e:
             print(f"Warning: Failed to initialize storage provider: {e}")
 
@@ -730,3 +731,44 @@ class StorageComponent:
             return []
 
         return [str(p.relative_to(path)) for p in path.glob(pattern) if p.is_file()]
+
+
+def create_provider(
+    provider_type: str = "local", base_dir: str = ".pepperpy/storage", **config: Any
+) -> StorageProvider:
+    """Create a Storage provider based on type.
+
+    Args:
+        provider_type: Type of provider to create (default: local)
+        base_dir: Base directory for storage
+        **config: Provider configuration
+
+    Returns:
+        An instance of the specified StorageProvider
+
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        # Ensure directory exists
+        import importlib
+        import os
+
+        os.makedirs(base_dir, exist_ok=True)
+
+        # Import provider module
+        module_name = f"pepperpy.storage.providers.{provider_type}"
+        module = importlib.import_module(module_name)
+
+        # Get provider class
+        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class = getattr(module, provider_class_name)
+
+        # Create provider instance
+        return provider_class(base_dir=base_dir, **config)
+    except (ImportError, AttributeError) as e:
+        from pepperpy.core.base import ValidationError
+
+        raise ValidationError(
+            f"Failed to create Storage provider '{provider_type}': {e}"
+        )

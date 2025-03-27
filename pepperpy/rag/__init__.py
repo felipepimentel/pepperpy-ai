@@ -7,6 +7,7 @@ from .base import (
     RAGContext,
     RAGProvider,
     RetrievalResult,
+    create_provider,
 )
 from .providers import ChromaProvider
 
@@ -17,5 +18,6 @@ __all__ = [
     "RAGProvider",
     "RAGComponent",
     "RAGContext",
+    "create_provider",
     "ChromaProvider",
 ]

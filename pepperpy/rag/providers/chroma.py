@@ -277,13 +277,11 @@ class ChromaProvider(RAGProvider):
         documents = []
 
         for i, doc_id in enumerate(results["ids"]):
-            documents.append(
-                {
-                    "id": doc_id,
-                    "text": results["documents"][i],
-                    "metadata": results["metadatas"][i],
-                }
-            )
+            documents.append({
+                "id": doc_id,
+                "text": results["documents"][i],
+                "metadata": results["metadatas"][i],
+            })
 
         return documents
 
@@ -305,13 +303,11 @@ class ChromaProvider(RAGProvider):
         documents = []
 
         for i, doc_id in enumerate(results["ids"]):
-            documents.append(
-                {
-                    "id": doc_id,
-                    "text": results["documents"][i],
-                    "metadata": results["metadatas"][i],
-                }
-            )
+            documents.append({
+                "id": doc_id,
+                "text": results["documents"][i],
+                "metadata": results["metadatas"][i],
+            })
 
         return documents
 

@@ -3,18 +3,11 @@
 import asyncio
 from typing import Any, Dict, List
 
-from pepperpy import (
-    Config,
-    Document,
-    PepperPy,
-    RAGProvider,
-    StorageProvider,
-)
+from pepperpy import PepperPy
 
 
 async def create_pdi(
-    storage: StorageProvider,
-    rag: RAGProvider,
+    pepperpy: PepperPy,
     user_id: str,
     goals: List[str],
     action_plan: List[str],
@@ -23,8 +16,7 @@ async def create_pdi(
     """Create a PDI document.
 
     Args:
-        storage: Storage provider
-        rag: RAG provider
+        pepperpy: PepperPy instance
         user_id: User ID
         goals: List of goals
         action_plan: List of action plan steps
@@ -41,30 +33,27 @@ async def create_pdi(
         "recommendations": recommendations,
     }
 
-    # Store PDI
-    doc = Document(content=str(pdi))
-    await storage.store_document("pdis", doc)
-    await rag.add([doc])
-
+    # Store PDI using learn method
+    await pepperpy.learn(pdi)
     return pdi
 
 
 async def main():
-    # Configure providers
-    config = Config({
-        "storage": {"provider": "local"},
-        "rag": {"provider": "annoy"},
-        "embeddings": {"provider": "openai"},
-    })
-
-    # Initialize PepperPy
-    async with PepperPy(config) as pepperpy:
-        pepperpy.with_rag().with_storage()
-
+    # Initialize PepperPy with context manager and configure providers
+    # Using lightweight providers by default for a minimal setup
+    async with (
+        PepperPy({
+            "storage": {"provider": "local"},
+            "rag": {"provider": "chroma"},
+            "embeddings": {"provider": "numpy"},  # Using numpy embeddings by default
+        })
+        .with_embeddings()
+        .with_rag()
+        .with_storage()
+    ) as pepperpy:
         # Create PDI
         pdi = await create_pdi(
-            storage=pepperpy.storage,
-            rag=pepperpy.rag,
+            pepperpy=pepperpy,
             user_id="user123",
             goals=[
                 "Learn Python programming",
@@ -83,21 +72,10 @@ async def main():
             ],
         )
 
-        # Search PDIs
-        results = await pepperpy.rag.search("programming goals")
-
-        # Print results
-        print("\nSearch results for 'programming goals':")
-        for doc in results:
-            pdi = eval(doc.content)  # Convert string back to dict
-            print(f"\nUser: {pdi['user_id']}")
-            print("Goals:", pdi["goals"])
-            print("\nAction Plan:")
-            for step in pdi["action_plan"]:
-                print(f"- {step}")
-            print("\nRecommendations:")
-            for rec in pdi["recommendations"]:
-                print(f"- {rec}")
+        # Search PDIs using ask method
+        result = await pepperpy.ask("What are the programming goals and action plan?")
+        print("\nSearch results:")
+        print(result.content)
 
 
 if __name__ == "__main__":

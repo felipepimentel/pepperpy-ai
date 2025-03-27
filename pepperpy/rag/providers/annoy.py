@@ -7,17 +7,18 @@ This module provides a lightweight RAG provider implementation using Annoy
 import os
 import pickle
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from annoy import AnnoyIndex
 
-from ..base import BaseProvider
-from ..document import Document
+from ..base import Document, Query, RAGProvider
 from ..provider import RAGError
-from ..query import Query
+
+# Valid metric types for Annoy
+ANNOY_METRICS = Literal["angular", "euclidean", "manhattan", "hamming", "dot"]
 
 
-class AnnoyRAGProvider(BaseProvider):
+class AnnoyRAGProvider(RAGProvider):
     """Lightweight RAG provider using Annoy for vector similarity search.
 
     This provider is designed to be lightweight and efficient for most use cases.
@@ -37,13 +38,14 @@ class AnnoyRAGProvider(BaseProvider):
         data_dir: str = ".pepperpy/annoy",
         embedding_dim: int = 1536,  # Default for OpenAI embeddings
         n_trees: int = 10,
-        metric: str = "angular",
+        metric: ANNOY_METRICS = "angular",
         **kwargs: Any,
     ) -> None:
+        super().__init__(name="annoy", config=kwargs)
         self.data_dir = Path(data_dir)
         self.embedding_dim = embedding_dim
         self.n_trees = n_trees
-        self.metric = metric
+        self.metric: ANNOY_METRICS = metric
 
         # Paths for storing data
         self.index_path = self.data_dir / "annoy.index"

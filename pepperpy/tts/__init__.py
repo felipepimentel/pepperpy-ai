@@ -33,6 +33,7 @@ from pepperpy.tts.base import (
     TTSProvider,
     TTSProviderError,
     TTSVoiceError,
+    create_provider,
 )
 from pepperpy.tts.providers.azure import AzureProvider
 
@@ -63,7 +64,7 @@ async def convert_text(
         TTSError: If conversion fails.
     """
     try:
-        tts_provider = TTSFactory.create_provider(provider)
+        tts_provider = create_provider(provider) if provider else create_provider()
         return await tts_provider.convert_text(text, voice_id, **kwargs)
     except Exception:
         # Simulated response for example
@@ -89,7 +90,7 @@ async def convert_text_stream(
         TTSError: If conversion fails.
     """
     try:
-        tts_provider = TTSFactory.create_provider(provider)
+        tts_provider = create_provider(provider) if provider else create_provider()
         async for chunk in tts_provider.convert_text_stream(text, voice_id, **kwargs):
             yield chunk
     except Exception:
@@ -113,7 +114,7 @@ async def get_voices(provider: Optional[str] = None, **kwargs) -> List[Dict[str,
         TTSError: If retrieving voices fails.
     """
     try:
-        tts_provider = TTSFactory.create_provider(provider)
+        tts_provider = create_provider(provider) if provider else create_provider()
         return await tts_provider.get_voices(**kwargs)
     except Exception:
         # Simulated response for example
@@ -141,7 +142,7 @@ async def clone_voice(
         TTSError: If voice cloning fails.
     """
     try:
-        tts_provider = TTSFactory.create_provider(provider)
+        tts_provider = create_provider(provider) if provider else create_provider()
         return await tts_provider.clone_voice(name, samples, **kwargs)
     except Exception:
         # Simulated response for example
@@ -210,6 +211,7 @@ __all__ = [
     "TTSProvider",
     "TTSProviderError",
     "TTSVoiceError",
+    "create_provider",
     # Audio pipeline
     "AudioPipeline",
     "AudioProject",

@@ -424,3 +424,40 @@ class LLMComponent(WorkflowComponent):
         """Clean up component resources."""
         if self.provider:
             await self.provider.cleanup()
+
+
+def create_provider(provider_type: str = "openai", **config: Any) -> LLMProvider:
+    """Create an LLM provider based on type.
+
+    Args:
+        provider_type: Type of provider to create (default: openai)
+        **config: Provider configuration
+
+    Returns:
+        An instance of the specified LLMProvider
+
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        # Import provider module
+        import importlib
+
+        module_name = f"pepperpy.llm.providers.{provider_type}"
+        module = importlib.import_module(module_name)
+
+        # Get provider class
+        provider_class_name = f"{provider_type.title()}Provider"
+
+        # Handle special cases
+        if provider_type == "openai":
+            provider_class = module.OpenAIProvider
+        elif provider_type == "openrouter":
+            provider_class = module.OpenRouterProvider
+        else:
+            provider_class = getattr(module, provider_class_name)
+
+        # Create provider instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        raise ValidationError(f"Failed to create LLM provider '{provider_type}': {e}")

@@ -1,5 +1,7 @@
 """Base interfaces and components for RAG functionality."""
 
+import importlib
+import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TypeVar, Union
@@ -81,6 +83,7 @@ class Query:
 
     text: str
     metadata: Dict[str, Any] = field(default_factory=dict)
+    embeddings: Optional[List[float]] = None
 
 
 class RetrievalResult:
@@ -228,3 +231,45 @@ class RAGComponent(WorkflowComponent):
         """Clean up component resources."""
         if self.provider:
             await self.provider.cleanup()
+
+
+def create_provider(
+    provider_type: str = "chroma",
+    collection_name: str = "default",
+    persist_directory: str = ".pepperpy/rag",
+    **config: Any,
+) -> RAGProvider:
+    """Create a RAG provider based on type.
+
+    Args:
+        provider_type: Type of provider to create (default: chroma)
+        collection_name: Name of the collection to use
+        persist_directory: Directory to persist data
+        **config: Provider configuration
+
+    Returns:
+        An instance of the specified RAGProvider
+
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        # Ensure directory exists
+        os.makedirs(persist_directory, exist_ok=True)
+
+        # Import provider module
+        module_name = f"pepperpy.rag.providers.{provider_type}"
+        module = importlib.import_module(module_name)
+
+        # Get provider class
+        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class = getattr(module, provider_class_name)
+
+        # Create provider instance
+        return provider_class(
+            collection_name=collection_name,
+            persist_directory=persist_directory,
+            **config,
+        )
+    except (ImportError, AttributeError) as e:
+        raise ValidationError(f"Failed to create RAG provider '{provider_type}': {e}")

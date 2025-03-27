@@ -2,8 +2,7 @@
 
 from typing import Any, Dict, List, cast
 
-from pepperpy.core.base import WorkflowProvider
-from pepperpy.exceptions import ValidationError
+from pepperpy.core.base import ValidationError, WorkflowProvider
 from pepperpy.workflow.base import Workflow, WorkflowComponent
 
 

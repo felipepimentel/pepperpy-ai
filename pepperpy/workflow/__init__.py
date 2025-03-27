@@ -12,6 +12,7 @@ Available workflows:
 - Recipes: Ready-to-use workflow recipes for common use cases
 """
 
-from pepperpy.workflow.base import Workflow
+from pepperpy.workflow.base import Workflow, WorkflowProvider, create_provider
+from pepperpy.workflow.default import DefaultProvider
 
-__all__ = ["Workflow"]
+__all__ = ["Workflow", "WorkflowProvider", "create_provider", "DefaultProvider"]

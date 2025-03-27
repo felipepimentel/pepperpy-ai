@@ -5,9 +5,9 @@ This module defines the base interfaces and types for embedding providers.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Protocol, Union
 
-from pepperpy.core.base import PepperpyError, Provider
+from pepperpy.core.base import BaseProvider, PepperpyError
 
 
 class EmbeddingError(PepperpyError):
@@ -104,7 +104,7 @@ class EmbeddingResult:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class EmbeddingProvider(Provider, ABC):
+class EmbeddingProvider(BaseProvider, ABC):
     """Base class for embedding providers."""
 
     name: str = "base"
@@ -221,3 +221,63 @@ class EmbeddingProvider(Provider, ABC):
             EmbeddingError: If there is an error generating the embeddings
         """
         ...
+
+
+class EmbeddingsProvider(Protocol):
+    """Base interface for embeddings providers."""
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        pass
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        pass
+
+    async def embed_text(self, text: str) -> List[float]:
+        """Create an embedding for the given text.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            Text embedding as a list of floats
+        """
+        pass
+
+    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Create embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of text embeddings
+        """
+        pass
+
+
+def create_provider(provider_type: str, **config: Dict[str, Any]) -> EmbeddingsProvider:
+    """Create an embeddings provider instance.
+
+    Args:
+        provider_type: Provider type to create
+        **config: Provider configuration
+
+    Returns:
+        Instantiated provider
+    """
+    if provider_type == "local":
+        from .providers import LocalProvider
+
+        return LocalProvider(**config)
+    elif provider_type == "numpy":
+        from .providers import NumpyProvider
+
+        return NumpyProvider(**config)
+    elif provider_type == "openai":
+        from .providers import OpenAIEmbeddingProvider
+
+        return OpenAIEmbeddingProvider(**config)
+    else:
+        raise ValueError(f"Unknown provider type: {provider_type}")

@@ -10,12 +10,19 @@ from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.config import Config
 from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.embeddings.base import create_provider as create_embeddings_provider
 from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
+from pepperpy.llm.base import create_provider as create_llm_provider
 from pepperpy.rag.base import Document, Query, RAGProvider
+from pepperpy.rag.base import create_provider as create_rag_provider
 from pepperpy.storage.base import StorageProvider
+from pepperpy.storage.base import create_provider as create_storage_provider
 from pepperpy.tools.repository.base import RepositoryProvider
+from pepperpy.tools.repository.base import create_provider as create_repository_provider
 from pepperpy.tts.base import TTSProvider
+from pepperpy.tts.base import create_provider as create_tts_provider
 from pepperpy.workflow.base import WorkflowProvider
+from pepperpy.workflow.base import create_provider as create_workflow_provider
 
 
 class PepperPy:
@@ -49,7 +56,10 @@ class PepperPy:
             Self for chaining
         """
         provider_type = provider_type or os.getenv("PEPPERPY_LLM__PROVIDER", "openai")
-        self._llm = self.config.load_llm_provider(provider_type=provider_type, **kwargs)
+        provider_config = self.config.get("llm.config", {})
+        provider_config.update(kwargs)
+
+        self._llm = create_llm_provider(provider_type=provider_type, **provider_config)
         return self
 
     def with_embeddings(
@@ -58,17 +68,22 @@ class PepperPy:
         """Configure embeddings provider.
 
         Args:
-            provider_type: Type of embeddings provider (defaults to PEPPERPY_EMBEDDINGS__PROVIDER)
+            provider_type: Type of embeddings provider (defaults to config or PEPPERPY_EMBEDDINGS__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
-        provider_type = provider_type or os.getenv(
-            "PEPPERPY_EMBEDDINGS__PROVIDER", "local"
+        provider_type = (
+            provider_type
+            or self.config.get("embeddings.provider")
+            or os.getenv("PEPPERPY_EMBEDDINGS__PROVIDER", "local")
         )
-        self._embeddings = self.config.load_embeddings_provider(
-            provider_type=provider_type, **kwargs
+        provider_config = self.config.get("embeddings.config", {})
+        provider_config.update(kwargs)
+
+        self._embeddings = create_embeddings_provider(
+            provider_type=provider_type, **provider_config
         )
         return self
 
@@ -85,10 +100,20 @@ class PepperPy:
             Self for chaining
         """
         provider_type = provider_type or os.getenv("PEPPERPY_RAG__PROVIDER", "chroma")
+        provider_config = self.config.get("rag.config", {})
+        provider_config.update(kwargs)
+
+        # Ensure embeddings provider is initialized first
         if not self._embeddings:
-            self.with_embeddings()  # Use default embeddings provider
-        kwargs["embedding_function"] = self._embeddings.get_embedding_function()
-        self._rag = self.config.load_rag_provider(provider_type=provider_type, **kwargs)
+            self.with_embeddings()
+
+        # At this point self._embeddings is guaranteed to be not None
+        assert self._embeddings is not None
+        provider_config["embedding_function"] = (
+            self._embeddings.get_embedding_function()
+        )
+
+        self._rag = create_rag_provider(provider_type=provider_type, **provider_config)
         return self
 
     def with_storage(
@@ -106,8 +131,11 @@ class PepperPy:
         provider_type = provider_type or os.getenv(
             "PEPPERPY_STORAGE__PROVIDER", "local"
         )
-        self._storage = self.config.load_storage_provider(
-            provider_type=provider_type, **kwargs
+        provider_config = self.config.get("storage.config", {})
+        provider_config.update(kwargs)
+
+        self._storage = create_storage_provider(
+            provider_type=provider_type, **provider_config
         )
         return self
 
@@ -124,7 +152,10 @@ class PepperPy:
             Self for chaining
         """
         provider_type = provider_type or os.getenv("PEPPERPY_TTS__PROVIDER", "azure")
-        self._tts = self.config.load_tts_provider(provider_type=provider_type, **kwargs)
+        provider_config = self.config.get("tts.config", {})
+        provider_config.update(kwargs)
+
+        self._tts = create_tts_provider(provider_type=provider_type, **provider_config)
         return self
 
     def with_repository(
@@ -142,8 +173,11 @@ class PepperPy:
         provider_type = provider_type or os.getenv(
             "PEPPERPY_REPOSITORY__PROVIDER", "github"
         )
-        self._repository = self.config.load_repository_provider(
-            provider_type=provider_type, **kwargs
+        provider_config = self.config.get("repository.config", {})
+        provider_config.update(kwargs)
+
+        self._repository = create_repository_provider(
+            provider_type=provider_type, **provider_config
         )
         return self
 
@@ -162,8 +196,11 @@ class PepperPy:
         provider_type = provider_type or os.getenv(
             "PEPPERPY_WORKFLOW__PROVIDER", "default"
         )
-        self._workflow = self.config.load_workflow_provider(
-            provider_type=provider_type, **kwargs
+        provider_config = self.config.get("workflow.config", {})
+        provider_config.update(kwargs)
+
+        self._workflow = create_workflow_provider(
+            provider_type=provider_type, **provider_config
         )
         return self
 
