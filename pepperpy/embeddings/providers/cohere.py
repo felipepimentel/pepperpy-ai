@@ -6,9 +6,7 @@ This module provides an implementation of the EmbeddingProvider interface for Co
 from typing import Any, Dict, List, Optional
 
 from ...core.http import HTTPClient
-from ..base import EmbeddingProvider
-from ..errors import EmbeddingError
-from ..models import EmbeddingOptions, EmbeddingResult
+from ..base import EmbeddingError, EmbeddingOptions, EmbeddingProvider, EmbeddingResult
 
 
 class CohereEmbeddingProvider(EmbeddingProvider):
@@ -166,4 +164,4 @@ class CohereEmbeddingProvider(EmbeddingProvider):
         return {
             "capabilities": ["text_embedding"],
             "models": [self.default_model],
-        } 
+        }

@@ -1,16 +1,17 @@
 ---
 title: Provider Configuration and Environment Variables
-description: Apply this rule when configuring or using providers to ensure proper environment variable handling and provider abstraction
+description: USE WHEN configuring or using providers to ensure proper environment variable handling and provider abstraction
 globs:
-  - "**/*.py"
+  - "pepperpy/**/providers/*.py"
+alwaysApply: false
 priority: 1000
 ---
 
-# Provider Configuration and Environment Variables
+# Provider Configuration
 
 ## Overview
 
-This rule defines standards for configuring and using providers in the PepperPy framework, ensuring proper environment variable handling and provider abstraction.
+This rule provides guidelines for implementing provider configurations in the PepperPy framework, with emphasis on environment variable handling, configuration objects, and provider abstraction.
 
 ## Key Principles
 

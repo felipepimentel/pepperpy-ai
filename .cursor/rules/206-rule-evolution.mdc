@@ -1,10 +1,10 @@
 ---
 title: Rule Evolution and Auto-correction
-description: Apply this rule when updating rules after identifying failures or when implementing processes for automatic rule evolution and feedback
+description: USE WHEN updating rules after identifying failures or when implementing processes for automatic rule evolution and feedback
 globs:
   - ".cursor/rules/**/*"
 priority: 205
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Rule Evolution and Auto-correction

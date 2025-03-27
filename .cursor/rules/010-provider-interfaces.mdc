@@ -1,0 +1,649 @@
+---
+title: Provider Configuration
+description: Standards for configuring and using providers in the PepperPy framework
+globs: 
+  - "pepperpy/**/*.py"
+priority: 900
+---
+
+# Provider Configuration
+
+## Overview
+
+This rule defines standards for configuring and using providers in the PepperPy framework, ensuring proper abstraction and configuration management. It builds upon the environment variable standards defined in `004-environment-variables.mdc`.
+
+## Key Principles
+
+1. **Provider Agnostic Code**: Never assume or hardcode specific providers
+2. **Environment-based Configuration**: Use environment variables for all provider settings
+3. **Automatic Provider Resolution**: Let the framework handle provider selection and configuration
+4. **Type Safety**: Use typed configuration classes
+
+## Provider Configuration
+
+### 1. Environment Variables
+
+Follow the standard pattern from `004-environment-variables.mdc`:
+
+```bash
+# Provider Selection
+PEPPERPY_LLM__PROVIDER=openrouter
+PEPPERPY_LLM__MODEL=openai/gpt-4
+
+# Provider Configuration
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
+PEPPERPY_LLM__TEMPERATURE=0.7
+PEPPERPY_LLM__MAX_TOKENS=2000
+```
+
+### 2. Configuration Classes
+
+Use typed configuration classes:
+
+```python
+@dataclass
+class ProviderConfig:
+    """Base provider configuration."""
+    provider: str
+    options: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class LLMConfig(ProviderConfig):
+    """LLM provider configuration."""
+    model: str
+    temperature: float = 0.7
+    max_tokens: int = 2000
+
+    @classmethod
+    def from_env(cls) -> "LLMConfig":
+        """Create from environment."""
+        return cls(
+            provider=Config.get_required("PEPPERPY_LLM__PROVIDER"),
+            model=Config.get_required("PEPPERPY_LLM__MODEL"),
+            temperature=Config.get_float("PEPPERPY_LLM__TEMPERATURE", 0.7),
+            max_tokens=Config.get_int("PEPPERPY_LLM__MAX_TOKENS", 2000),
+        )
+```
+
+## Provider Implementation
+
+### 1. Base Provider Interface
+
+Define provider interfaces in `base.py`:
+
+```python
+class Provider(Protocol):
+    """Base provider interface."""
+    
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        ...
+
+class LLMProvider(Provider, Protocol):
+    """LLM provider interface."""
+    
+    async def generate(self, prompt: str) -> str:
+        """Generate text from prompt."""
+        ...
+```
+
+### 2. Provider Implementation
+
+Implement providers in the `providers/` directory:
+
+```python
+class OpenRouterProvider(LLMProvider):
+    """OpenRouter LLM provider."""
+    
+    def __init__(self, config: LLMConfig):
+        self.config = config
+        self._client = None
+        
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        api_key = Config.get_required("PEPPERPY_LLM__OPENROUTER_API_KEY")
+        self._client = OpenRouterClient(api_key)
+        
+    async def generate(self, prompt: str) -> str:
+        """Generate text from prompt."""
+        if not self._client:
+            raise ProviderError("Provider not initialized")
+        return await self._client.generate(prompt)
+```
+
+## Provider Usage
+
+### 1. Provider Agnostic Code
+
+✅ **Correct**:
+```python
+# Let framework handle provider selection
+async with PepperPy.create() as pepper:
+    result = await pepper.llm.generate("Hello")
+
+# Use interfaces in type hints
+def process(llm: LLMProvider) -> None:
+    ...
+```
+
+❌ **Incorrect**:
+```python
+# Don't hardcode providers
+provider = OpenRouterProvider(api_key="sk-...")
+
+# Don't check for specific providers
+if os.getenv("PEPPERPY_LLM__PROVIDER") == "openai":
+    ...
+```
+
+### 2. Provider Resolution
+
+Let the framework handle provider resolution:
+
+```python
+from typing import Dict, Type, TypeVar
+
+T = TypeVar('T', bound=Provider)
+
+class ProviderRegistry:
+    """Provider registry for dependency injection."""
+    _providers: Dict[str, Dict[str, Type[Provider]]] = {}
+
+    @classmethod
+    def register(cls, domain: str, name: str, provider_cls: Type[Provider]) -> None:
+        """Register a provider."""
+        if domain not in cls._providers:
+            cls._providers[domain] = {}
+        cls._providers[domain][name] = provider_cls
+
+    @classmethod
+    def get_provider(cls, domain: str, config: ProviderConfig) -> Provider:
+        """Get provider instance from config."""
+        if domain not in cls._providers:
+            raise ProviderError(f"Unknown domain: {domain}")
+            
+        provider_map = cls._providers[domain]
+        provider_cls = provider_map.get(config.provider)
+        
+        if not provider_cls:
+            raise ProviderError(
+                f"Unknown provider '{config.provider}' for domain '{domain}'. "
+                f"Available providers: {', '.join(provider_map.keys())}"
+            )
+            
+        return provider_cls(config)
+
+# Register providers
+ProviderRegistry.register("llm", "openrouter", OpenRouterProvider)
+ProviderRegistry.register("llm", "openai", OpenAIProvider)
+ProviderRegistry.register("rag", "chroma", ChromaProvider)
+```
+
+### 3. Provider Factory Usage
+
+✅ **Correct**:
+```python
+class PepperPy:
+    def __init__(self):
+        self._llm: Optional[LLMProvider] = None
+        self._rag: Optional[RAGProvider] = None
+        
+    @classmethod
+    async def create(cls, **options) -> "PepperPy":
+        """Create a new PepperPy instance."""
+        pepper = cls()
+        await pepper.initialize(**options)
+        return pepper
+        
+    async def initialize(self, **options) -> None:
+        """Initialize providers."""
+        # Initialize LLM
+        llm_config = LLMConfig.from_env()
+        llm_config.options.update(options.get("llm", {}))
+        self._llm = ProviderRegistry.get_provider("llm", llm_config)
+        await self._llm.initialize()
+        
+        # Initialize RAG
+        rag_config = RAGConfig.from_env()
+        rag_config.options.update(options.get("rag", {}))
+        self._rag = ProviderRegistry.get_provider("rag", rag_config)
+        await self._rag.initialize()
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        if self._llm:
+            await self._llm.cleanup()
+        if self._rag:
+            await self._rag.cleanup()
+            
+    async def __aenter__(self) -> "PepperPy":
+        return self
+        
+    async def __aexit__(self, *args) -> None:
+        await self.cleanup()
+```
+
+❌ **Incorrect**:
+```python
+# Don't create providers directly
+provider = OpenRouterProvider(api_key="sk-...")
+
+# Don't use global provider instances
+_default_provider: Optional[Provider] = None
+
+def get_provider() -> Provider:
+    global _default_provider
+    if not _default_provider:
+        _default_provider = create_provider()
+    return _default_provider
+```
+
+## Best Practices
+
+1. **Configuration**:
+   - Use environment variables
+   - Create typed config classes
+   - Validate at startup
+
+2. **Provider Implementation**:
+   - Follow provider interfaces
+   - Handle initialization/cleanup
+   - Validate configuration
+
+3. **Provider Usage**:
+   - Stay provider-agnostic
+   - Use dependency injection
+   - Handle provider errors
+
+4. **Error Handling**:
+   - Use provider-specific errors
+   - Include helpful messages
+   - Clean up resources
+
+## Common Mistakes
+
+### 1. Hardcoding Providers
+
+❌ **Don't do this:**
+```python
+if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
+    raise ValueError("OpenAI key missing")
+```
+
+✅ **Do this instead:**
+```python
+config = LLMConfig.from_env()
+provider = get_provider(config)
+```
+
+### 2. Manual Provider Management
+
+❌ **Don't do this:**
+```python
+provider = OpenAIProvider()
+await provider.initialize()
+# ... use provider ...
+await provider.cleanup()  # Might be forgotten
+```
+
+✅ **Do this instead:**
+```python
+async with PepperPy.create() as pepper:
+    result = await pepper.llm.generate("Hello")
+```
+
+### 3. Provider-Specific Code
+
+❌ **Don't do this:**
+```python
+if config.provider == "openai":
+    # OpenAI-specific code
+elif config.provider == "anthropic":
+    # Anthropic-specific code
+```
+
+✅ **Do this instead:**
+```python
+# Use provider interface
+async def process(provider: LLMProvider, prompt: str) -> str:
+    return await provider.generate(prompt)
+```
+
+## Conclusion
+
+Following these provider configuration guidelines ensures:
+1. Clean provider abstraction
+2. Type-safe configuration
+3. Proper resource management
+4. Easy provider switching
+5. Consistent error handling
+6. Maintainable provider code
+
+---
+description: USE WHEN implementing provider interfaces and dependency injection
+globs: 
+  - "pepperpy/**/providers/*.py"
+  - "pepperpy/**/base.py"
+alwaysApply: false
+---
+
+# Provider Interface Implementation
+
+## Overview
+
+This rule defines standards for implementing provider interfaces in the PepperPy framework, ensuring proper abstraction and configuration management. It builds upon the provider configuration standards defined in `008-provider-configuration.mdc`.
+
+## Key Principles
+
+1. **Provider Agnostic Code**: Never assume or hardcode specific providers
+2. **Environment-based Configuration**: Use environment variables for all provider settings
+3. **Automatic Provider Resolution**: Let the framework handle provider selection and configuration
+4. **Type Safety**: Use typed configuration classes
+
+## Provider Configuration
+
+### 1. Environment Variables
+
+Follow the standard pattern from `004-environment-variables.mdc`:
+
+```bash
+# Provider Selection
+PEPPERPY_LLM__PROVIDER=openrouter
+PEPPERPY_LLM__MODEL=openai/gpt-4
+
+# Provider Configuration
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
+PEPPERPY_LLM__TEMPERATURE=0.7
+PEPPERPY_LLM__MAX_TOKENS=2000
+```
+
+### 2. Configuration Classes
+
+Use typed configuration classes:
+
+```python
+@dataclass
+class ProviderConfig:
+    """Base provider configuration."""
+    provider: str
+    options: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class LLMConfig(ProviderConfig):
+    """LLM provider configuration."""
+    model: str
+    temperature: float = 0.7
+    max_tokens: int = 2000
+
+    @classmethod
+    def from_env(cls) -> "LLMConfig":
+        """Create from environment."""
+        return cls(
+            provider=Config.get_required("PEPPERPY_LLM__PROVIDER"),
+            model=Config.get_required("PEPPERPY_LLM__MODEL"),
+            temperature=Config.get_float("PEPPERPY_LLM__TEMPERATURE", 0.7),
+            max_tokens=Config.get_int("PEPPERPY_LLM__MAX_TOKENS", 2000),
+        )
+```
+
+## Provider Implementation
+
+### 1. Base Provider Interface
+
+Define provider interfaces in `base.py`:
+
+```python
+class Provider(Protocol):
+    """Base provider interface."""
+    
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        ...
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        ...
+
+class LLMProvider(Provider, Protocol):
+    """LLM provider interface."""
+    
+    async def generate(self, prompt: str) -> str:
+        """Generate text from prompt."""
+        ...
+```
+
+### 2. Provider Implementation
+
+Implement providers in the `providers/` directory:
+
+```python
+class OpenRouterProvider(LLMProvider):
+    """OpenRouter LLM provider."""
+    
+    def __init__(self, config: LLMConfig):
+        self.config = config
+        self._client = None
+        
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        api_key = Config.get_required("PEPPERPY_LLM__OPENROUTER_API_KEY")
+        self._client = OpenRouterClient(api_key)
+        
+    async def generate(self, prompt: str) -> str:
+        """Generate text from prompt."""
+        if not self._client:
+            raise ProviderError("Provider not initialized")
+        return await self._client.generate(prompt)
+```
+
+## Provider Usage
+
+### 1. Provider Agnostic Code
+
+✅ **Correct**:
+```python
+# Let framework handle provider selection
+async with PepperPy.create() as pepper:
+    result = await pepper.llm.generate("Hello")
+
+# Use interfaces in type hints
+def process(llm: LLMProvider) -> None:
+    ...
+```
+
+❌ **Incorrect**:
+```python
+# Don't hardcode providers
+provider = OpenRouterProvider(api_key="sk-...")
+
+# Don't check for specific providers
+if os.getenv("PEPPERPY_LLM__PROVIDER") == "openai":
+    ...
+```
+
+### 2. Provider Resolution
+
+Let the framework handle provider resolution:
+
+```python
+from typing import Dict, Type, TypeVar
+
+T = TypeVar('T', bound=Provider)
+
+class ProviderRegistry:
+    """Provider registry for dependency injection."""
+    _providers: Dict[str, Dict[str, Type[Provider]]] = {}
+
+    @classmethod
+    def register(cls, domain: str, name: str, provider_cls: Type[Provider]) -> None:
+        """Register a provider."""
+        if domain not in cls._providers:
+            cls._providers[domain] = {}
+        cls._providers[domain][name] = provider_cls
+
+    @classmethod
+    def get_provider(cls, domain: str, config: ProviderConfig) -> Provider:
+        """Get provider instance from config."""
+        if domain not in cls._providers:
+            raise ProviderError(f"Unknown domain: {domain}")
+            
+        provider_map = cls._providers[domain]
+        provider_cls = provider_map.get(config.provider)
+        
+        if not provider_cls:
+            raise ProviderError(
+                f"Unknown provider '{config.provider}' for domain '{domain}'. "
+                f"Available providers: {', '.join(provider_map.keys())}"
+            )
+            
+        return provider_cls(config)
+
+# Register providers
+ProviderRegistry.register("llm", "openrouter", OpenRouterProvider)
+ProviderRegistry.register("llm", "openai", OpenAIProvider)
+ProviderRegistry.register("rag", "chroma", ChromaProvider)
+```
+
+### 3. Provider Factory Usage
+
+✅ **Correct**:
+```python
+class PepperPy:
+    def __init__(self):
+        self._llm: Optional[LLMProvider] = None
+        self._rag: Optional[RAGProvider] = None
+        
+    @classmethod
+    async def create(cls, **options) -> "PepperPy":
+        """Create a new PepperPy instance."""
+        pepper = cls()
+        await pepper.initialize(**options)
+        return pepper
+        
+    async def initialize(self, **options) -> None:
+        """Initialize providers."""
+        # Initialize LLM
+        llm_config = LLMConfig.from_env()
+        llm_config.options.update(options.get("llm", {}))
+        self._llm = ProviderRegistry.get_provider("llm", llm_config)
+        await self._llm.initialize()
+        
+        # Initialize RAG
+        rag_config = RAGConfig.from_env()
+        rag_config.options.update(options.get("rag", {}))
+        self._rag = ProviderRegistry.get_provider("rag", rag_config)
+        await self._rag.initialize()
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        if self._llm:
+            await self._llm.cleanup()
+        if self._rag:
+            await self._rag.cleanup()
+            
+    async def __aenter__(self) -> "PepperPy":
+        return self
+        
+    async def __aexit__(self, *args) -> None:
+        await self.cleanup()
+```
+
+❌ **Incorrect**:
+```python
+# Don't create providers directly
+provider = OpenRouterProvider(api_key="sk-...")
+
+# Don't use global provider instances
+_default_provider: Optional[Provider] = None
+
+def get_provider() -> Provider:
+    global _default_provider
+    if not _default_provider:
+        _default_provider = create_provider()
+    return _default_provider
+```
+
+## Best Practices
+
+1. **Configuration**:
+   - Use environment variables
+   - Create typed config classes
+   - Validate at startup
+
+2. **Provider Implementation**:
+   - Follow provider interfaces
+   - Handle initialization/cleanup
+   - Validate configuration
+
+3. **Provider Usage**:
+   - Stay provider-agnostic
+   - Use dependency injection
+   - Handle provider errors
+
+4. **Error Handling**:
+   - Use provider-specific errors
+   - Include helpful messages
+   - Clean up resources
+
+## Common Mistakes
+
+### 1. Hardcoding Providers
+
+❌ **Don't do this:**
+```python
+if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
+    raise ValueError("OpenAI key missing")
+```
+
+✅ **Do this instead:**
+```python
+config = LLMConfig.from_env()
+provider = get_provider(config)
+```
+
+### 2. Manual Provider Management
+
+❌ **Don't do this:**
+```python
+provider = OpenAIProvider()
+await provider.initialize()
+# ... use provider ...
+await provider.cleanup()  # Might be forgotten
+```
+
+✅ **Do this instead:**
+```python
+async with PepperPy.create() as pepper:
+    result = await pepper.llm.generate("Hello")
+```
+
+### 3. Provider-Specific Code
+
+❌ **Don't do this:**
+```python
+if config.provider == "openai":
+    # OpenAI-specific code
+elif config.provider == "anthropic":
+    # Anthropic-specific code
+```
+
+✅ **Do this instead:**
+```python
+# Use provider interface
+async def process(provider: LLMProvider, prompt: str) -> str:
+    return await provider.generate(prompt)
+```
+
+## Conclusion
+
+Following these provider configuration guidelines ensures:
+1. Clean provider abstraction
+2. Type-safe configuration
+3. Proper resource management
+4. Easy provider switching
+5. Consistent error handling
+6. Maintainable provider code 

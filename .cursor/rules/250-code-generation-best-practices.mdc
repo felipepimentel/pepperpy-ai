@@ -1,0 +1,142 @@
+---
+description: USE WHEN generating any code for the PepperPy project
+globs:
+  - "**/*.py"
+alwaysApply: true
+---
+
+# Code Generation Best Practices
+
+## Overview
+
+This rule provides essential guidelines for generating code in the PepperPy project to prevent common AI mistakes and ensure consistency with the project's architecture and patterns.
+
+## Before Generating ANY Code
+
+1. **ALWAYS check file existence first**:
+   ```bash
+   find pepperpy -name "*similar_name*.py"
+   ```
+
+2. **ALWAYS understand module structure**:
+   ```bash
+   ls -la pepperpy/target_module/
+   ```
+
+3. **ALWAYS find similar implementations**:
+   ```bash
+   grep -r "class SimilarClass" pepperpy/
+   ```
+
+## MUST READ Existing Code
+
+Before implementing anything:
+
+1. Read the base.py file in the relevant module
+2. Check at least 2 existing implementations
+3. Understand the configuration patterns
+
+## Core File Structure Rules
+
+NEVER violate these basic file structure rules:
+
+1. **Core interfaces** MUST be in `base.py`
+2. **Provider implementations** MUST be in `providers/` directory
+3. **Public exports** MUST be in `__init__.py`
+4. **Configuration** MUST follow existing patterns
+
+## Import Rules
+
+1. ALWAYS use absolute imports for external packages
+2. ALWAYS use relative imports for internal module components
+3. NEVER reference modules that don't exist
+4. NEVER create circular imports
+5. ONLY import from module root (__init__.py), NEVER from internal module files
+   ```python
+   # CORRECT
+   from pepperpy.llm import LLMProvider, create_provider
+   
+   # WRONG
+   from pepperpy.llm.base import LLMProvider  # VIOLATION!
+   from pepperpy.llm.providers.openai import OpenAIProvider  # VIOLATION!
+   ```
+
+## Provider Implementation Rules
+
+1. ALL providers MUST implement the base interface from base.py
+2. ALL providers MUST handle initialization and cleanup
+3. ALL providers MUST use configuration objects
+4. ALL providers MUST use environment variables for credentials
+
+## Common Hallucination Red Flags
+
+NEVER DO ANY OF THESE:
+
+1. **Create non-existing modules**:
+   ```python
+   from pepperpy.ai.models import AIModel  # WRONG! Module doesn't exist!
+   ```
+
+2. **Invent base classes**:
+   ```python
+   class MyProvider(ModelProvider):  # WRONG! Class doesn't exist!
+   ```
+
+3. **Invent methods**:
+   ```python
+   result = client.get_embedding_sync(text)  # WRONG! Method doesn't exist!
+   ```
+
+4. **Use incorrect parameter names**:
+   ```python
+   processor.process(text, flags=True)  # WRONG! Check parameter names!
+   ```
+
+## Verification Steps
+
+ALWAYS verify your generated code by:
+
+1. Checking all imports resolve to actual modules
+2. Ensuring all referenced classes/functions exist
+3. Following the same parameter names as existing code
+4. Maintaining the same error handling patterns
+
+## Incremental Implementation
+
+Instead of generating everything at once:
+
+1. Start with interfaces/skeletons
+2. Implement one method at a time
+3. Verify against existing patterns
+
+## Use Template-Based Generation
+
+ALWAYS use the code generation tools when available:
+
+```bash
+# Generate new module
+python scripts/refactor.py gen-module --output pepperpy/new_module.py --desc "Description"
+
+# Generate new provider 
+python scripts/refactor.py gen-provider --name NewProvider --output path/to/provider.py --desc "Description"
+```
+
+## Module Boundary Rules
+
+1. NEVER access internal components of other modules
+2. NEVER pass API keys or credentials directly between modules
+3. NEVER create a provider from another module directly
+4. ALWAYS use the module's public factory function to create its providers
+
+```python
+# CORRECT: Use module's public factory
+from pepperpy.llm import create_provider
+llm = create_provider("openai", api_key=config.get("api_key"))
+
+# WRONG: Direct instantiation across modules
+from pepperpy.llm.providers.openai import OpenAIProvider
+llm = OpenAIProvider(api_key=my_key)  # VIOLATION!
+
+# WRONG: Sharing credentials between modules
+tts_provider = TTSProvider(api_key=llm_module.api_key)  # VIOLATION!
+``` 

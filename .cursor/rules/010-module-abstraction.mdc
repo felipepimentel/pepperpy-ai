@@ -1,0 +1,275 @@
+---
+title: Module Abstraction and Dependency Inversion
+description: Ensure proper module abstraction and dependency inversion principles in the PepperPy framework
+globs:  
+  - "pepperpy/**/*.py"
+priority: 950
+---
+
+# Module Abstraction and Dependency Inversion
+
+## Overview
+
+This rule defines critical principles for maintaining proper module abstraction and dependency inversion in the PepperPy framework. It ensures that modules remain decoupled and that higher-level components don't depend on implementation details of lower-level components.
+
+## Core Principles
+
+1. **Dependency Inversion**: High-level modules MUST NOT depend on low-level modules. Both MUST depend on abstractions.
+2. **Module Boundaries**: Each module is responsible ONLY for its own domain and MUST NOT access internals of other modules.
+3. **Abstract Coupling**: Modules MUST be coupled ONLY through abstract interfaces.
+4. **Factory Encapsulation**: Creation of concrete implementations MUST be encapsulated within their own modules.
+5. **Configuration vs Implementation**: Configuration management MUST NEVER know about specific implementations.
+6. **Public API**: Other modules MUST access a module ONLY through its public API (__init__.py).
+
+## STRICT Module Boundary Rules
+
+### 1. Modules MUST only be accessed through __init__.py
+
+✅ **CORRECT**: Import only from the module root
+```python
+# CORRECT: Import through public API
+from pepperpy.llm import LLMProvider, create_provider
+from pepperpy.storage import StorageProvider
+```
+
+❌ **STRICTLY FORBIDDEN**: Direct imports from module internals
+```python
+# WRONG: Direct access to module internals
+from pepperpy.llm.providers.openai import OpenAIProvider  # VIOLATION!
+from pepperpy.llm.base import LLMProvider  # VIOLATION!
+from pepperpy.storage.utils.helpers import format_path  # VIOLATION!
+```
+
+### 2. Module Data MUST NOT be shared directly
+
+✅ **CORRECT**: Modules provide interfaces for necessary operations
+```python
+# CORRECT: Use the module's API for operations
+from pepperpy.llm import create_provider
+llm = create_provider("openai", **config)
+result = llm.generate("Hello")
+```
+
+❌ **STRICTLY FORBIDDEN**: Direct sharing of module data
+```python
+# WRONG: Accessing internal module data
+from pepperpy.llm import get_api_key  # VIOLATION!
+from pepperpy.storage import internal_config  # VIOLATION!
+
+# WRONG: Sharing keys between modules
+tts_provider = TTSProvider(api_key=llm_module.api_key)  # VIOLATION!
+```
+
+## Critical Design Rules
+
+### 1. Class/Object Creation Responsibility
+
+✅ **CORRECT**: Each module provides factory functions in base.py for creating its own providers
+
+```python
+# In pepperpy/llm/base.py
+def create_provider(provider_type: str, **config) -> LLMProvider:
+    """Create an LLM provider."""
+    module = importlib.import_module(f"pepperpy.llm.providers.{provider_type}")
+    provider_class = getattr(module, f"{provider_type.title()}Provider")
+    return provider_class(**config)
+
+# In application code
+from pepperpy.llm import create_provider  # CORRECT: Through public API
+provider = create_provider("openai", **config)
+```
+
+❌ **INCORRECT**: Core modules instantiate specific implementations from other modules
+
+```python
+# WRONG: Config class directly knows about and creates LLM providers
+class Config:
+    def load_llm_provider(self, provider_type: str):
+        module = __import__(f"pepperpy.llm.providers.{provider_type}", fromlist=[""])
+        provider_class = getattr(module, f"{provider_type.title()}Provider")
+        return provider_class(**kwargs)
+```
+
+### 2. Module Abstraction
+
+✅ **CORRECT**: Modules expose only their abstract interfaces to the outside
+
+```python
+# In pepperpy/llm/__init__.py
+from .base import LLMProvider, create_provider
+
+__all__ = ["LLMProvider", "create_provider"]
+```
+
+❌ **INCORRECT**: Concrete implementations exposed directly in public API
+
+```python
+# WRONG: Exposing implementations directly
+from .providers.openai import OpenAIProvider
+from .providers.anthropic import AnthropicProvider
+
+__all__ = ["OpenAIProvider", "AnthropicProvider"]
+```
+
+### 3. Factory Function Pattern
+
+Each domain MUST provide a factory function in base.py with:
+
+1. Logic to create concrete implementations
+2. Resolution of implementation details based on configuration
+3. Error handling specific to that domain
+
+```python
+# In base.py - NOT in a separate factory.py file
+def create_provider(
+    provider_type: str = "default",
+    **config: Any
+) -> BaseProvider:
+    """Create a provider instance.
+    
+    Args:
+        provider_type: Type of provider
+        **config: Provider configuration
+        
+    Returns:
+        Provider instance
+    """
+    try:
+        # Import provider module (lazy import)
+        module = importlib.import_module(f"{__package__}.providers.{provider_type}")
+        
+        # Get provider class
+        provider_class = getattr(module, f"{provider_type.title()}Provider")
+        
+        # Create instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        raise ValidationError(f"Failed to create provider: {e}")
+```
+
+### 4. Configuration Management
+
+Configuration management should:
+
+1. Manage **only** configuration values
+2. Not import concrete implementations
+3. Not create provider instances
+
+```python
+# CORRECT: Config only manages configuration
+class Config:
+    def get(self, key, default=None):
+        # Get configuration value
+        pass
+        
+    def set(self, key, value):
+        # Set configuration value
+        pass
+```
+
+## Implementation Guidelines
+
+### 1. Module Communication Pattern
+
+✅ **CORRECT**: Modules communicate through abstract interfaces
+
+```python
+# Module A consuming Module B's services
+from pepperpy.module_b import ServiceProvider
+
+class ComponentA:
+    def __init__(self, service_provider: ServiceProvider):
+        self.service = service_provider
+        
+    def process(self):
+        # Use service through abstract interface
+        result = self.service.perform_operation()
+```
+
+❌ **INCORRECT**: Modules with direct dependencies
+
+```python
+# WRONG: Direct dependency on implementation
+from pepperpy.module_b.providers.specific import SpecificProvider
+
+class ComponentA:
+    def __init__(self):
+        # Direct instantiation of another module's provider
+        self.service = SpecificProvider()  # VIOLATION!
+```
+
+### 2. Configuration and Environment Variables
+
+✅ **CORRECT**: Each module handles its own configuration
+
+```python
+# Module manages its own environment variables
+class LLMModule:
+    def __init__(self, config):
+        self.config = config
+        
+    def create_provider(self):
+        # Use own configuration
+        api_key = self.config.get("llm.api_key")
+        provider = self._create_provider_impl(api_key=api_key)
+```
+
+❌ **INCORRECT**: Cross-module configuration access
+
+```python
+# WRONG: Accessing another module's configuration
+class TTSModule:
+    def __init__(self, config):
+        self.config = config
+        
+    def create_provider(self):
+        # Directly accessing LLM configuration
+        llm_api_key = self.config.get("llm.api_key")  # VIOLATION!
+        provider = self._create_provider_impl(api_key=llm_api_key)
+```
+
+## File Structure Anti-patterns
+
+❌ **STRICTLY FORBIDDEN: Separate factory.py file**
+```
+pepperpy/module/
+├── __init__.py
+├── base.py
+├── factory.py    # WRONG: Don't create separate factory files
+└── providers/
+```
+
+✅ **REQUIRED: Factory function in base.py**
+```
+pepperpy/module/
+├── __init__.py  # Re-exports create_provider from base.py
+├── base.py      # Contains create_provider function
+└── providers/
+```
+
+### Avoiding Fragmentation
+
+Do not create separate files for closely related functionality:
+
+❌ **BAD: Excessive fragmentation**
+```
+module/
+├── __init__.py
+├── base.py
+├── factory.py    # WRONG: Should be in base.py
+├── types.py      # WRONG: Should be in base.py 
+├── constants.py  # WRONG: Should be in base.py
+└── providers/
+```
+
+✅ **GOOD: Consolidated structure**
+```
+module/
+├── __init__.py
+├── base.py       # Contains interfaces, types, constants, and factory function
+└── providers/
+```
+
+## Conclusion
+
+Maintaining proper module abstraction and following dependency inversion principles is critical for creating a maintainable, flexible, and testable codebase. Always ensure that configuration is separated from provider creation, and that modules remain responsible only for their own domain. 

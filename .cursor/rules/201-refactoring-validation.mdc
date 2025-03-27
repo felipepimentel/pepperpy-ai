@@ -1,10 +1,10 @@
 ---
 title: Refactoring Tools Usage and Validation
-description: Apply this rule when performing code refactoring to ensure safe evolution, maintain quality, and effectively use the PepperPy refactoring tools
+description: USE WHEN performing code refactoring to ensure safe evolution, maintain quality, and effectively use the PepperPy refactoring tools
 globs:
   - "**/*.py"
 priority: 200
-alwaysApply: true
+alwaysApply: false
 ---
 
 # Refactoring Tools Usage and Validation

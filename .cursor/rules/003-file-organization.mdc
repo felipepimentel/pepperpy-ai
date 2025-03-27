@@ -139,22 +139,21 @@ clientTest.py
 ```python
 """Module description."""
 
-from .base import BaseClass
-from .providers import Provider1, Provider2
+from .base import BaseClass, Provider, create_provider
 
 __all__ = [
     "BaseClass",
-    "Provider1",
-    "Provider2",
+    "Provider", 
+    "create_provider",
 ]
 ```
 
-### 2. Base Interfaces (`base.py`)
+### 2. Base Interfaces & Factory Functions (`base.py`)
 
 ```python
-"""Base interfaces for the module."""
+"""Base interfaces and factory functions for the module."""
 
-from typing import Protocol
+from typing import Protocol, Any, Dict, Type
 
 class BaseProvider(Protocol):
     """Base provider interface."""
@@ -162,6 +161,24 @@ class BaseProvider(Protocol):
     def method(self) -> None:
         """Method description."""
         pass
+
+# Factory function included directly in base.py, NOT in a separate factory.py file
+def create_provider(provider_type: str, **config: Dict[str, Any]) -> BaseProvider:
+    """Create a provider instance.
+    
+    Args:
+        provider_type: Provider type to create
+        **config: Provider configuration
+        
+    Returns:
+        Instantiated provider
+    """
+    # Import the specific provider only when needed (lazy import)
+    if provider_type == "specific":
+        from .providers.specific import SpecificProvider
+        return SpecificProvider(**config)
+    else:
+        raise ValueError(f"Unknown provider type: {provider_type}")
 ```
 
 ### 3. Provider Implementations
@@ -366,3 +383,66 @@ Adherence to these file organization guidelines ensures:
 6. Scalable architecture
 
 Always analyze existing structures before creating new files, and use the provided tools to validate and maintain consistency. 
+
+## File Structure Anti-patterns
+
+### 1. AVOID Separate Factory Files
+
+❌ **DO NOT create separate factory.py files:**
+
+```
+module/
+├── __init__.py
+├── base.py
+├── factory.py  # WRONG: Don't create separate factory files
+└── providers/
+```
+
+✅ **CORRECT: Include factory functions in base.py:**
+
+```
+module/
+├── __init__.py
+├── base.py     # RIGHT: Include create_provider function here
+└── providers/
+```
+
+The `create_provider` or similar factory functions should be in `base.py`, not in separate files:
+
+❌ **Wrong**:
+```python
+# factory.py - WRONG
+def create_provider(provider_type: str, **config):
+    # Logic to create provider
+```
+
+✅ **Correct**:
+```python
+# base.py - CORRECT
+def create_provider(provider_type: str, **config):
+    # Logic to create provider
+```
+
+### 2. AVOID Excessive File Fragmentation
+
+Don't create unnecessary files. Keep related functionality together:
+
+❌ **Too Fragmented**:
+```
+pepperpy/module/
+├── __init__.py
+├── base.py
+├── factory.py   # Unnecessary
+├── types.py     # Unnecessary
+├── errors.py    # Unless there are many specialized errors
+├── constants.py # Unnecessary
+└── providers/
+```
+
+✅ **Properly Organized**:
+```
+pepperpy/module/
+├── __init__.py  # Exports public API
+├── base.py      # Contains interfaces, types, factory functions, errors
+└── providers/   # Provider implementations
+``` 

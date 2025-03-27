@@ -4,12 +4,11 @@ This module provides an OpenAI implementation of the embedding provider interfac
 using OpenAI's text embedding models.
 """
 
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union, cast
 
 from openai import OpenAI
 
-from ..base import EmbeddingProvider
-from ..errors import EmbeddingError
+from ..base import EmbeddingError, EmbeddingProvider
 
 
 class OpenAIEmbeddingProvider(EmbeddingProvider):
@@ -33,7 +32,7 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
         Raises:
             EmbeddingError: If required dependencies are not installed
         """
-        super().__init__(name=name, **kwargs)
+        super().__init__(name=self.name, **kwargs)
         try:
             self.client = OpenAI(api_key=api_key)
         except Exception as e:
@@ -82,8 +81,15 @@ class OpenAIEmbeddingProvider(EmbeddingProvider):
                 raise EmbeddingError(f"Document missing {text_field} field")
             texts.append(doc[text_field])
 
-        # Get embeddings
-        return await self.embed_text(texts, **kwargs)
+        # Get embeddings and ensure we always return List[List[float]]
+        result = await self.embed_text(texts, **kwargs)
+        if isinstance(result, list):
+            if not result:
+                return []
+            if isinstance(result[0], float):
+                return [cast(List[float], result)]
+            return cast(List[List[float]], result)
+        return [result]
 
     def get_dimensions(self) -> int:
         """Get embedding dimensions."""

@@ -1,16 +1,14 @@
 """Hash-based embedding provider for testing.
 
 This module provides a simple hash-based embedding provider that converts text into vectors
-using hash values. It's useful for testing and development, but should not be used in 
+using hash values. It's useful for testing and development, but should not be used in
 production as it doesn't capture semantic meaning.
 """
 
 import hashlib
 from typing import Any, Dict, List, Optional
 
-from ..base import EmbeddingProvider
-from ..errors import EmbeddingError
-from ..models import EmbeddingOptions, EmbeddingResult
+from ..base import EmbeddingError, EmbeddingOptions, EmbeddingProvider, EmbeddingResult
 
 
 class HashEmbeddingProvider(EmbeddingProvider):
@@ -124,4 +122,4 @@ class HashEmbeddingProvider(EmbeddingProvider):
         return {
             "capabilities": ["text_embedding"],
             "dimensions": self.embedding_dim,
-        } 
+        }

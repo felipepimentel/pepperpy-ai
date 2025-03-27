@@ -1,9 +1,8 @@
 ---
-title: Module Abstraction and Organization
-description: Core guidelines for implementing and using modules in the PepperPy framework
+description: USE WHEN implementing or using modules in the PepperPy framework
 globs: 
   - "pepperpy/**/*.py"
-priority: 700
+alwaysApply: false
 ---
 
 # Module Abstraction and Organization
@@ -21,9 +20,9 @@ Each module MUST follow this structure:
 ```
 module_name/           # e.g., llm, rag, storage
 ├── __init__.py       # Public API exports
-├── base.py          # Core interfaces, types, and base implementations
-├── errors.py        # Domain-specific errors
-├── config.py        # Domain configuration
+├── base.py          # Core interfaces, types, base implementations, factory functions
+├── errors.py        # ONLY complex error hierarchies here (simple errors MUST be in base.py)
+├── config.py        # ONLY complex configuration (simple config MUST be in base.py)
 └── providers/       # Provider implementations
     ├── __init__.py  # Provider exports
     └── specific.py  # Specific provider implementation
@@ -36,23 +35,25 @@ module_name/           # e.g., llm, rag, storage
    - Base implementations
    - Data types and models
    - Core functionality
-   - Type definitions (previously in types.py)
+   - Type definitions 
+   - Factory functions like `create_provider()`
+   - Error types (only complex error hierarchies should go in errors.py)
 
 2. **__init__.py** - Public API:
    - Re-export public interfaces
+   - Re-export factory functions
    - Re-export provider implementations
    - Define module-level functions
-   - Type exports
+   - **CRITICAL**: This is the ONLY entry point other modules should use
 
-3. **errors.py** - Error Definitions:
-   - Domain-specific exceptions
-   - Error hierarchies
-   - Error utilities
+3. **errors.py** - Complex Error Definitions ONLY:
+   - ONLY complex domain-specific exception hierarchies
+   - Basic errors MUST be in base.py
 
-4. **config.py** - Configuration:
-   - Environment variable definitions
-   - Configuration classes
-   - Default values
+4. **config.py** - Complex Configuration ONLY:
+   - ONLY complex environment variable definitions
+   - ONLY complex configuration classes
+   - Basic configuration MUST be in base.py
 
 5. **providers/** - Implementations:
    - One file per provider
@@ -390,3 +391,54 @@ Following these module abstraction patterns ensures:
 6. Configuration flexibility
 7. Maintainable codebase
 8. Consistent module structure 
+
+## Anti-patterns to Avoid
+
+### 1. Hyperfragmentation of Files
+
+❌ **DO NOT create these unnecessary files**:
+- `factory.py` - Factory functions MUST be in `base.py`
+- `types.py` - Types MUST be in `base.py`
+- `constants.py` - Constants MUST be in `base.py`
+- Excessive small utility files - Consolidate related functionality
+
+### 2. Spreading Core Module Logic
+
+❌ **DO NOT split essential components**:
+```
+module/
+├── __init__.py
+├── base.py        # Only interfaces 
+├── factory.py     # WRONG: Factory functions here
+├── types.py       # WRONG: Types here
+└── providers/
+```
+
+✅ **Consolidate essential logic**:
+```
+module/
+├── __init__.py
+├── base.py        # Interfaces, types, factory functions, errors - all core logic
+└── providers/
+```
+
+### 3. Cross-Module Direct Access
+
+❌ **NEVER access another module's internal components directly**:
+```python
+# WRONG: Directly accessing another module's providers
+from pepperpy.llm.providers.openai import OpenAIProvider
+from pepperpy.llm.base import SomeInternalClass
+
+# WRONG: Directly accessing another module's implementation details
+llm_api_key = other_module.get_llm_api_key()
+```
+
+✅ **ONLY access through the module's public API**:
+```python
+# CORRECT: Access through the module's public API
+from pepperpy.llm import LLMProvider, create_provider
+
+# CORRECT: Respect module boundaries
+provider = create_provider("openai", api_key=config.get("api_key"))
+``` 

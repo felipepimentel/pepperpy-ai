@@ -1,8 +1,8 @@
 ---
 title: AI Response Validation and Hallucination Prevention
-description: Apply this rule when validating AI-generated code to prevent hallucinations, ensure accuracy, and maintain consistency with project standards
+description: USE WHEN validating AI-generated code to prevent hallucinations, ensure accuracy, and maintain consistency with project standards
 globs:
-  - "**/*"
+  - "**/*.py"
 priority: 195
 alwaysApply: true
 ---
@@ -11,57 +11,218 @@ alwaysApply: true
 
 ## Overview
 
-This rule provides strategies to prevent AI hallucinations (fabricated or incorrect responses) and ensure AI-generated code adheres to project standards. Following these guidelines will reduce errors, inconsistencies, and inaccuracies in AI-assisted development.
+This rule provides essential strategies to prevent AI hallucinations (fabricated or incorrect responses) and ensure AI-generated code adheres to project standards. Following these guidelines will dramatically reduce errors, inconsistencies, and inaccuracies in AI-assisted development.
 
-## Recognizing AI Hallucinations
+## Before Generating ANY Code
 
-Common signs of AI hallucinations in code generation:
+Always follow these steps before asking for code generation:
 
-1. **Referencing non-existent modules** or functions
-2. **Creating inconsistent interfaces** that don't match existing patterns
-3. **Inventing API methods** that don't exist in the framework
-4. **Generating incorrect import statements**
-5. **Producing code with syntax errors** or logical inconsistencies
+1. **Check file existence first**:
+   ```bash
+   # Verify if similar files exist
+   find pepperpy -name "*similar_name*.py"
+   ```
 
-## Validation Process for AI-Generated Code
+2. **Understand module structure**:
+   ```bash
+   # Check structure of the relevant module
+   ls -la pepperpy/target_module/
+   ```
 
-### 1. Pre-Generation Context Setting
+3. **Find similar implementations**:
+   ```bash
+   # Look for similar implementations
+   grep -r "class SimilarClass" pepperpy/
+   ```
 
-Before requesting code from AI:
+## Validate ALL Generated Code
 
-```bash
-# Always scan the specific module first
-python scripts/refactor.py grep-search --query "related_function_name" --include_pattern "*.py"
+After receiving AI-generated code, verify:
 
-# Identify existing patterns
-python scripts/refactor.py analyze-cohesion --file path/to/similar/file.py
+### 1. Import Validation
+
+✅ **All imports must exist in the codebase**
+
+Check every import statement and ensure it references real modules:
+
+```python
+# CORRECT: Imports reference existing modules
+from pepperpy.core.base import Provider
+from pepperpy.llm.base import LLMProvider
+
+# WRONG: Referencing non-existent modules
+from pepperpy.nonexistent import Something  # ERROR!
 ```
 
-### 2. Post-Generation Validation
+### 2. Class/Function Reference Validation
 
-After receiving AI-generated code:
+✅ **All referenced classes/functions must exist**
 
-```bash
-# Validate imports
-python scripts/refactor.py validate --directory pepperpy
+Ensure all references are to actual code:
 
-# Check for circular dependencies
-python scripts/refactor.py detect-circular --directory pepperpy
+```python
+# CORRECT: Using existing class
+provider = OpenAIProvider(config)
 
-# Detect code smells
-python scripts/refactor.py detect-smells --file path/to/generated/file.py
+# WRONG: Using non-existent class
+provider = GPT5Provider(config)  # ERROR! This doesn't exist
 ```
 
-## AI Response Verification Checklist
+### 3. File Location Validation
 
-For each AI-generated code sample, verify:
+✅ **Files must be created in correct locations**
 
-1. **✓ All imports resolve** to actual modules
-2. **✓ Referenced functions exist** in the imported modules
-3. **✓ Type annotations match** the project's type system
-4. **✓ Error handling follows** project conventions
-5. **✓ Method signatures align** with existing patterns
-6. **✓ Naming conventions match** the codebase style
+Follow the established patterns:
+
+```
+pepperpy/module_name/        # Module root
+├── __init__.py              # Public exports
+├── base.py                  # Core interfaces
+├── providers/               # ONLY provider implementations here
+│   ├── __init__.py
+│   └── specific.py
+└── utils/                   # Module-specific utilities
+```
+
+### 4. Pattern Validation
+
+✅ **Implementation must follow established patterns**
+
+Look for similar files and follow their patterns:
+
+```python
+# Example pattern from other modules
+class SomeProvider(BaseProvider):
+    def __init__(self, config: Config):
+        self.config = config
+        
+    async def initialize(self) -> None:
+        # Initialize resources
+        
+    async def cleanup(self) -> None:
+        # Clean up resources
+```
+
+## Common Hallucination Red Flags
+
+Watch for these warning signs of AI hallucinations:
+
+1. **Made-up module names**:
+   ```python
+   from pepperpy.ai.models import AIModel  # No such module!
+   ```
+
+2. **Non-existent base classes**:
+   ```python
+   class MyProvider(ModelProvider):  # ModelProvider doesn't exist!
+   ```
+
+3. **Invented API methods**:
+   ```python
+   result = client.get_embedding_sync(text)  # No such method!
+   ```
+
+4. **Inconsistent parameters**:
+   ```python
+   # Method signature: def process(self, text: str, options: dict)
+   processor.process(text, flags=True)  # Wrong parameter name!
+   ```
+
+5. **Import confusion**:
+   ```python
+   from pepperpy.llm import LLMProvider
+   from pepperpy.llm.providers import OpenAIProvider
+   
+   # But then uses:
+   provider = openai.OpenAIProvider()  # Wrong namespace!
+   ```
+
+## Hallucination Prevention Strategies
+
+### 1. Pre-Generation Verification
+
+Before generating complex code:
+
+```bash
+# Establish facts first
+python scripts/refactor.py extract-api --module pepperpy/target_module
+```
+
+### 2. Incremental Validation
+
+Validate code in small increments:
+
+```bash
+# Generate and check interface first
+# Then generate and check implementation
+# Then generate and check usage example
+```
+
+### 3. Pattern Matching
+
+Find and follow existing patterns:
+
+```bash
+# Find similar patterns
+grep -r "class \w*Provider" pepperpy/
+```
+
+### 4. Code Structure Validation
+
+Check generated code structure:
+
+```python
+# CORRECT pattern:
+class MyClass:
+    def __init__(self, config):
+        self.config = config
+    
+    async def method(self):
+        # Implementation
+```
+
+## Real Examples of Hallucinations
+
+❌ **Provider Invention**
+```python
+# HALLUCINATION: Creating fake provider
+from pepperpy.llm.providers import MistralProvider  # Doesn't exist yet!
+```
+
+❌ **Method Invention**
+```python
+# HALLUCINATION: Inventing methods
+document.embed_with_model("text-embedding-3")  # No such method!
+```
+
+❌ **Configuration Invention**
+```python
+# HALLUCINATION: Made-up configuration format
+config = {
+    "model": "gpt-4",
+    "provider_options": {  # Not how our config works!
+        "temperature": 0.7
+    }
+}
+```
+
+## MUST CHECK Before Implementing
+
+1. ✓ Module structure matches project patterns
+2. ✓ All imports reference real modules
+3. ✓ All classes and functions exist
+4. ✓ Parameter names match existing patterns
+5. ✓ Configuration follows project standards
+6. ✓ Error handling matches project patterns
+
+## When Modifying Existing Code
+
+1. ✓ Understand exact functionality first
+2. ✓ Maintain parameter compatibility
+3. ✓ Preserve error handling
+4. ✓ Follow existing patterns exactly
+5. ✓ Keep same import structure
+6. ✓ Maintain type annotations
 
 ## Progressive Implementation Approach
 
@@ -113,90 +274,6 @@ python -m pytest tests/path/to/relevant_test.py -v
 
 # Check for import errors
 python -c "import pepperpy.path.to.new_module"
-```
-
-## Common Hallucination Scenarios and Solutions
-
-### 1. Non-Existent Module References
-
-❌ **Hallucination:**
-```python
-from pepperpy.nonexistent_module import SomeClass  # This module doesn't exist
-```
-
-✅ **Prevention:**
-```bash
-# List actual modules to reference
-find pepperpy -type d -not -path "*/\.*" | sort
-```
-
-### 2. Incorrect API Usage
-
-❌ **Hallucination:**
-```python
-# Incorrect: Using API methods that don't exist
-result = retriever.search_documents(query)  # Method doesn't exist
-```
-
-✅ **Prevention:**
-```bash
-# Extract the actual API to reference
-python scripts/refactor.py extract-api --module pepperpy/rag
-```
-
-### 3. Inconsistent Parameter Names
-
-❌ **Hallucination:**
-```python
-# Inconsistent: Using different parameter names than the rest of the codebase
-def process(text_content, opts=None):  # Should be 'content' and 'options'
-    pass
-```
-
-✅ **Prevention:**
-```bash
-# Search for similar functions to match parameter names
-python scripts/refactor.py grep-search --query "def process" --include_pattern "*.py"
-```
-
-## Implementing Guard Rails
-
-Establish these preventive measures:
-
-1. **Create test fixtures** for new components
-2. **Implement runtime type checking** for critical interfaces
-3. **Add assertion statements** to verify assumptions
-4. **Document expected behavior** clearly in docstrings
-
-Example guard rails:
-```python
-def process_data(data: Dict[str, Any]) -> Dict[str, Any]:
-    """Process the input data and return results.
-    
-    Args:
-        data: Input data with required 'id' and 'content' fields
-        
-    Returns:
-        Processed data with 'results' field
-        
-    Raises:
-        ValueError: If required fields are missing
-    """
-    # Guard rail: validate input
-    if not isinstance(data, dict):
-        raise TypeError(f"Expected dict, got {type(data).__name__}")
-        
-    # Guard rail: check required fields
-    if 'id' not in data or 'content' not in data:
-        raise ValueError("Missing required fields: 'id' and 'content'")
-    
-    # Implementation
-    # ...
-    
-    # Guard rail: validate output
-    result = {"results": [...]}
-    assert "results" in result, "Result must contain 'results' field"
-    return result
 ```
 
 ## Verification Automation
