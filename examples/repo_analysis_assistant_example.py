@@ -41,6 +41,9 @@ async def analyze_repository(repo_url: str) -> None:
         print("\nIndexando conteúdo do repositório...")
         indexed_files = 0
 
+        # Lista para armazenar conteúdos e metadados dos arquivos
+        docs = []
+
         for file in files[:10]:  # Limitar para os primeiros 10 arquivos para exemplo
             try:
                 # Em um cenário real, leríamos o arquivo
@@ -48,9 +51,12 @@ async def analyze_repository(repo_url: str) -> None:
                 file_name = os.path.basename(file)
                 content = f"Conteúdo mockado para o arquivo {file_name}"
 
-                # Aprender o conteúdo do arquivo
+                # Armazenar o conteúdo e metadados do arquivo
                 print(f"Indexando: {file_name}")
-                await pepper.learn(content, metadata={"file": file})
+                docs.append({
+                    "content": content,
+                    "metadata": {"file": file, "type": "code"},
+                })
                 indexed_files += 1
             except Exception as e:
                 print(f"Erro ao indexar {file}: {e}")
@@ -112,7 +118,7 @@ async def main() -> None:
 
 if __name__ == "__main__":
     # Variáveis de ambiente necessárias (definidas no arquivo .env):
-    # PEPPERPY_LLM__PROVIDER=mock
+    # PEPPERPY_LLM__PROVIDER=mock ou PEPPERPY_LLM__PROVIDER=openrouter
     # PEPPERPY_RAG__PROVIDER=mock
     # PEPPERPY_REPOSITORY__PROVIDER=mock
     asyncio.run(main())

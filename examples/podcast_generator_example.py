@@ -9,7 +9,7 @@ This example shows how to use PepperPy to create a podcast by:
 
 import asyncio
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from dotenv import load_dotenv
 
@@ -29,7 +29,7 @@ async def create_podcast(title: str, segments: List[Dict[str, str]]) -> bytes:
     Returns:
         Combined audio bytes
     """
-    # Configurar PepperPy para usar o provedor mockado
+    # Configurar PepperPy para usar o provedor configurado no .env
     # A configuração vem de variáveis de ambiente no arquivo .env
     pepper = pepperpy.PepperPy().with_tts()
 
@@ -40,15 +40,14 @@ async def create_podcast(title: str, segments: List[Dict[str, str]]) -> bytes:
         audio_segments = []
         for i, segment in enumerate(segments):
             print(f"Processando segmento {i + 1}/{len(segments)}: {segment['title']}")
-            audio_result = await pepper.text_to_speech(
+            # A API retorna diferentes tipos dependendo do provedor
+            result = await pepper.text_to_speech(
                 text=segment["content"], voice_id=segment["speaker"]
             )
-            # O objeto audio_result pode ser um TTSResult ou bytes, dependendo da implementação
-            if hasattr(audio_result, "audio"):
-                audio_segments.append(audio_result.audio)
-            else:
-                # Se for bytes diretamente
-                audio_segments.append(audio_result)
+
+            # Extrair os bytes de áudio do resultado, independente do formato
+            audio_bytes = extract_audio_bytes(result)
+            audio_segments.append(audio_bytes)
 
         # Combinar segmentos (exemplo simplificado)
         # Em uma implementação real, você pode usar bibliotecas como pydub
@@ -65,6 +64,32 @@ async def create_podcast(title: str, segments: List[Dict[str, str]]) -> bytes:
         print(f"\nPodcast salvo em: {output_file}")
 
         return combined_audio
+
+
+def extract_audio_bytes(result: Any) -> bytes:
+    """Extrai bytes de áudio do resultado, independente do formato.
+
+    Args:
+        result: Resultado da conversão texto para fala
+
+    Returns:
+        Bytes do áudio
+    """
+    # Caso 1: O resultado já é bytes
+    if isinstance(result, bytes):
+        return result
+
+    # Caso 2: O resultado é um objeto TTSResult com atributo 'audio'
+    if hasattr(result, "audio"):
+        return result.audio
+
+    # Caso 3: O resultado é um dicionário com chave 'audio'
+    if isinstance(result, dict) and "audio" in result:
+        return result["audio"]
+
+    # Fallback: retornar bytes vazios se não for possível extrair
+    print("AVISO: Não foi possível extrair áudio do resultado")
+    return b""
 
 
 async def main() -> None:

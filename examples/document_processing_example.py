@@ -3,6 +3,7 @@
 import asyncio
 import os
 from pathlib import Path
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 
@@ -32,36 +33,18 @@ async def process_document(content: bytes, content_type: str) -> None:
         # Simular execução de um workflow de processamento de documentos
         print("Criando workflow de processamento...")
 
-        # Executar tarefas de processamento em sequência
+        # Implementar processamento de documento de forma simplificada
         print("Extraindo texto do documento...")
-        task_extract = await pepper.workflow.execute(
-            "text_extraction", {"content": content, "content_type": content_type}
-        )
-        extract_result = await pepper.workflow.get_result(task_extract)
-        extracted_text = f"Texto extraído simulado para documento {content_type} ({len(content)} bytes)"
+        extracted_text = simulate_text_extraction(content, content_type)
 
         print("Classificando documento...")
-        task_classify = await pepper.workflow.execute(
-            "document_classification", {"text": extracted_text}
-        )
-        classify_result = await pepper.workflow.get_result(task_classify)
-        classification = "Documento técnico" if "PDF" in content_type else "Imagem"
+        classification = simulate_classification(content_type, extracted_text)
 
         print("Extraindo metadados...")
-        task_metadata = await pepper.workflow.execute(
-            "metadata_extraction",
-            {"content": content, "classification": classification},
-        )
-        metadata_result = await pepper.workflow.get_result(task_metadata)
-        metadata = {
-            "tamanho": len(content),
-            "tipo": content_type,
-            "classificação": classification,
-            "confiança": 0.95,
-        }
+        metadata = simulate_metadata_extraction(content, content_type, classification)
 
         # Imprimir resultados
-        print("\nResultados do Workflow:")
+        print("\nResultados do Processamento:")
         print("Status: Concluído")
         print(f"Texto Extraído: {len(extracted_text)} caracteres")
         print(f"Classificação: {classification}")
@@ -79,6 +62,55 @@ async def process_document(content: bytes, content_type: str) -> None:
             f.write(f"Metadados: {metadata}\n")
 
         print(f"Resultados salvos em: {output_file}")
+
+
+def simulate_text_extraction(content: bytes, content_type: str) -> str:
+    """Simular extração de texto de um documento.
+
+    Args:
+        content: Conteúdo do documento
+        content_type: Tipo MIME do documento
+
+    Returns:
+        Texto extraído simulado
+    """
+    return (
+        f"Texto extraído simulado para documento {content_type} ({len(content)} bytes)"
+    )
+
+
+def simulate_classification(content_type: str, text: str) -> str:
+    """Simular classificação de um documento.
+
+    Args:
+        content_type: Tipo MIME do documento
+        text: Texto extraído do documento
+
+    Returns:
+        Classificação simulada
+    """
+    return "Documento técnico" if "PDF" in content_type else "Imagem"
+
+
+def simulate_metadata_extraction(
+    content: bytes, content_type: str, classification: str
+) -> Dict[str, Any]:
+    """Simular extração de metadados de um documento.
+
+    Args:
+        content: Conteúdo do documento
+        content_type: Tipo MIME do documento
+        classification: Classificação do documento
+
+    Returns:
+        Metadados simulados
+    """
+    return {
+        "tamanho": len(content),
+        "tipo": content_type,
+        "classificação": classification,
+        "confiança": 0.95,
+    }
 
 
 async def main() -> None:
