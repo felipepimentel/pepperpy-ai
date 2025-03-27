@@ -68,7 +68,7 @@ class OpenAIProvider(LLMProvider):
 
     def __init__(
         self,
-        api_key: str,
+        api_key: Optional[str] = None,
         model: str = "gpt-3.5-turbo",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
@@ -85,13 +85,25 @@ class OpenAIProvider(LLMProvider):
         """
         super().__init__(**kwargs)
 
-        self._api_key = api_key
+        self._api_key = api_key or self._get_api_key()
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
         self._sync_client: Optional[OpenAI] = None
         self._async_client: Optional[AsyncOpenAI] = None
         self._tokenizer = None
+
+    def _get_api_key(self) -> str:
+        """Get API key from environment."""
+        import os
+
+        api_key = os.environ.get("PEPPERPY_LLM__OPENAI__API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OpenAI API key not found. Set PEPPERPY_LLM__OPENAI__API_KEY "
+                "environment variable or pass api_key to constructor."
+            )
+        return api_key
 
     @property
     def api_key(self) -> str:
@@ -121,6 +133,8 @@ class OpenAIProvider(LLMProvider):
                 await self._sync_client.close()
             if self._async_client:
                 await self._async_client.close()
+        except Exception as e:
+            logger.warning(f"Error closing client: {e}")
         finally:
             self._sync_client = None
             self._async_client = None

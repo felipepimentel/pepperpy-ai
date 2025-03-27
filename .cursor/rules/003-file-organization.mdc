@@ -148,7 +148,50 @@ __all__ = [
 ]
 ```
 
-### 2. Base Interfaces & Factory Functions (`base.py`)
+### 2. Import Rules and Best Practices
+
+#### External Imports
+
+External code should ONLY import from the module's main namespace:
+
+```python
+# CORRECT - Import from the main module
+from pepperpy.llm import LLMProvider, Message, create_provider
+
+# WRONG - Import from internal module structure 
+from pepperpy.llm.base import LLMProvider  # VIOLATION!
+from pepperpy.llm.providers.openai import OpenAIProvider  # VIOLATION!
+```
+
+#### Internal Implementation
+
+Internal module files should use relative imports:
+
+```python
+# Within pepperpy/llm/providers/openai.py
+from ..base import LLMProvider  # Correct relative import
+```
+
+#### Required Exports
+
+Each module's `__init__.py` MUST export all public interfaces:
+
+```python
+# In pepperpy/llm/__init__.py
+from .base import LLMProvider, Message, MessageRole, create_provider
+from .providers import OpenAIProvider, AnthropicProvider
+
+__all__ = [
+    "LLMProvider",
+    "Message",
+    "MessageRole",
+    "create_provider",
+    "OpenAIProvider",
+    "AnthropicProvider",
+]
+```
+
+### 3. Base Interfaces & Factory Functions (`base.py`)
 
 ```python
 """Base interfaces and factory functions for the module."""
@@ -181,7 +224,7 @@ def create_provider(provider_type: str, **config: Dict[str, Any]) -> BaseProvide
         raise ValueError(f"Unknown provider type: {provider_type}")
 ```
 
-### 3. Provider Implementations
+### 4. Provider Implementations
 
 ```python
 """Provider implementation."""
@@ -363,86 +406,3 @@ Run validation checks to identify structure issues:
 # Run before committing changes
 python scripts/refactor.py validate
 ```
-
-### File Creation Checklist
-
-1. ✓ Searched for existing similar files
-2. ✓ Placed in appropriate module/directory
-3. ✓ Named according to conventions
-4. ✓ Follows standard module structure
-5. ✓ Imports organized properly
-
-## Conclusion
-
-Adherence to these file organization guidelines ensures:
-1. Consistent file organization
-2. Clear module boundaries
-3. Prevention of code duplication
-4. Easy navigation
-5. Maintainable structure
-6. Scalable architecture
-
-Always analyze existing structures before creating new files, and use the provided tools to validate and maintain consistency. 
-
-## File Structure Anti-patterns
-
-### 1. AVOID Separate Factory Files
-
-❌ **DO NOT create separate factory.py files:**
-
-```
-module/
-├── __init__.py
-├── base.py
-├── factory.py  # WRONG: Don't create separate factory files
-└── providers/
-```
-
-✅ **CORRECT: Include factory functions in base.py:**
-
-```
-module/
-├── __init__.py
-├── base.py     # RIGHT: Include create_provider function here
-└── providers/
-```
-
-The `create_provider` or similar factory functions should be in `base.py`, not in separate files:
-
-❌ **Wrong**:
-```python
-# factory.py - WRONG
-def create_provider(provider_type: str, **config):
-    # Logic to create provider
-```
-
-✅ **Correct**:
-```python
-# base.py - CORRECT
-def create_provider(provider_type: str, **config):
-    # Logic to create provider
-```
-
-### 2. AVOID Excessive File Fragmentation
-
-Don't create unnecessary files. Keep related functionality together:
-
-❌ **Too Fragmented**:
-```
-pepperpy/module/
-├── __init__.py
-├── base.py
-├── factory.py   # Unnecessary
-├── types.py     # Unnecessary
-├── errors.py    # Unless there are many specialized errors
-├── constants.py # Unnecessary
-└── providers/
-```
-
-✅ **Properly Organized**:
-```
-pepperpy/module/
-├── __init__.py  # Exports public API
-├── base.py      # Contains interfaces, types, factory functions, errors
-└── providers/   # Provider implementations
-``` 

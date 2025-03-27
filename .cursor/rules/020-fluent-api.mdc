@@ -1,0 +1,212 @@
+---
+title: Fluent API Design Pattern
+description: USE WHEN implementando, estendendo ou usando a API fluente do PepperPy para garantir uma experiência de uso consistente
+globs: "**/*.py"
+priority: 850
+---
+
+# Padrão de Design de API Fluente
+
+## Visão Geral
+
+Esta regra define os padrões para implementação e uso da API fluente no PepperPy. A API fluente é um padrão de design que permite encadear múltiplas chamadas de método, criando um código mais legível e expressivo.
+
+## Princípios da API Fluente
+
+1. **Retornar `self`** - Métodos devem retornar a instância atual para permitir encadeamento
+2. **Configuração em uma linha** - Permitir configurar múltiplos componentes em uma única expressão
+3. **Auto-configuração inteligente** - Métodos devem funcionar sem parâmetros explícitos sempre que possível
+4. **Falha rápida** - Validação deve ocorrer imediatamente, não adiada para o uso
+
+## Implementação da API Fluente
+
+### Retorno de Métodos
+
+Todos os métodos de configuração devem retornar `self`:
+
+```python
+class PepperPy:
+    def with_llm(self, **kwargs) -> "PepperPy":
+        # Configuração...
+        return self  # Permite encadeamento
+
+    def with_rag(self, **kwargs) -> "PepperPy":
+        # Configuração...
+        return self  # Permite encadeamento
+```
+
+### Configuração via Contexto
+
+API fluente deve ser compatível com gerenciadores de contexto assíncronos:
+
+```python
+class PepperPy:
+    async def __aenter__(self) -> "PepperPy":
+        # Inicialização assíncrona...
+        return self
+
+    async def __aexit__(self, *args) -> None:
+        # Limpeza assíncrona...
+        pass
+```
+
+### Carregamento Automático de Configuração
+
+Métodos devem buscar por padrão configurações de variáveis de ambiente:
+
+```python
+def with_llm(self, provider_type: Optional[str] = None, **kwargs) -> "PepperPy":
+    provider_type = provider_type or os.getenv("PEPPERPY_LLM__PROVIDER")
+    # Criar provider...
+    return self
+```
+
+## Uso da API Fluente
+
+### Configuração Encadeada
+
+A configuração deve ser feita através de encadeamento de métodos:
+
+```python
+# CORRETO - Uso da API fluente
+pepperpy = (
+    PepperPy()
+    .with_llm()
+    .with_embeddings()
+    .with_rag()
+)
+```
+
+### Uso com Contexto Assíncrono
+
+A API fluente deve ser usada com contexto assíncrono:
+
+```python
+# CORRETO - Uso da API fluente com contexto assíncrono
+async with PepperPy().with_llm().with_rag() as pepperpy:
+    response = await pepperpy.ask("Como funciona o PepperPy?")
+```
+
+## Anti-padrões a Evitar
+
+### ❌ Configuração em Etapas
+
+```python
+# ERRADO - Configuração em etapas separadas
+pepperpy = PepperPy()
+pepperpy.with_llm()  # Este método retorna self, mas não está sendo usado
+pepperpy.with_rag()  # Mesmo problema
+```
+
+### ❌ Métodos sem Retorno Fluente
+
+```python
+# ERRADO - Método que não retorna self
+class BadDesign:
+    def with_feature(self):
+        # Configuração...
+        # Não retorna self!
+```
+
+### ❌ Configuração Excessivamente Explícita
+
+```python
+# ERRADO - Forçar configuração explícita desnecessária
+pepperpy = (
+    PepperPy()
+    .with_llm(provider_type="openai", model="gpt-4")  # Parâmetros explícitos desnecessários
+    .with_rag(provider_type="chroma")  # Que poderiam vir do .env
+)
+```
+
+## Princípios de Implementação
+
+### Auto-inicialização Inteligente
+
+Métodos fluentes devem detectar e inicializar dependências:
+
+```python
+# CORRETO - Auto-inicialização de dependências
+def with_rag(self, **kwargs) -> "PepperPy":
+    # Verificar se embeddings já foi configurado
+    if not self._embeddings:
+        # Auto-inicializar embeddings se necessário
+        self.with_embeddings()
+        
+    # Configurar RAG...
+    return self
+```
+
+### Validação Clara
+
+Validação deve fornecer mensagens de erro claras:
+
+```python
+# CORRETO - Validação clara
+def ask(self, query: str) -> Dict[str, Any]:
+    if not self._llm:
+        raise ValueError("LLM não configurado. Use .with_llm() antes.")
+    if not self._rag:
+        raise ValueError("RAG não configurado. Use .with_rag() antes.")
+    
+    # Processar pergunta...
+```
+
+## Exemplos Completos
+
+### Implementação Correta
+
+```python
+class PepperPy:
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        self.config = config or {}
+        self._llm = None
+        self._rag = None
+        
+    def with_llm(self, provider_type: Optional[str] = None, **kwargs) -> "PepperPy":
+        provider_type = provider_type or os.getenv("PEPPERPY_LLM__PROVIDER", "openai")
+        # Configurar LLM...
+        return self
+        
+    def with_rag(self, provider_type: Optional[str] = None, **kwargs) -> "PepperPy":
+        # Auto-inicializar dependências
+        if not self._embeddings:
+            self.with_embeddings()
+            
+        # Configurar RAG...
+        return self
+        
+    async def __aenter__(self) -> "PepperPy":
+        # Inicializar componentes
+        await self._llm.initialize()
+        await self._rag.initialize()
+        return self
+        
+    async def __aexit__(self, *args) -> None:
+        # Limpar recursos
+        await self._llm.cleanup()
+        await self._rag.cleanup()
+```
+
+### Uso Correto
+
+```python
+async def process_data():
+    # Configuração via API fluente
+    pepperpy = (
+        PepperPy()
+        .with_llm()       # Usa configuração do ambiente
+        .with_rag()       # Auto-inicializa dependências
+    )
+    
+    # Uso com contexto assíncrono
+    async with pepperpy:
+        # Usar a API
+        await pepperpy.learn({"data": "information"})
+        response = await pepperpy.ask("Explain the data")
+        return response
+```
+
+## Conclusão
+
+A API fluente do PepperPy é um padrão fundamental que permite uma configuração limpa e expressiva. Seguindo estes princípios, garantimos uma experiência de usuário consistente e intuitiva em toda a biblioteca. 

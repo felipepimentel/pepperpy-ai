@@ -1,444 +1,292 @@
 ---
-description: USE WHEN implementing or using modules in the PepperPy framework
-globs: 
-  - "pepperpy/**/*.py"
-alwaysApply: false
+title: Module Abstraction and Dependency Inversion
+description: USE WHEN implementing or using modules in the PepperPy framework to ensure proper abstraction and dependency management
+globs: pepperpy/**/*.py
+priority: 900
 ---
 
-# Module Abstraction and Organization
+# Module Abstraction and Dependency Inversion
 
 ## Overview
 
-This rule defines the core standards for organizing modules and interfaces in the PepperPy framework, ensuring a clear abstraction between the public API and internal implementations. This is the single source of truth for module structure and organization.
+This rule defines the module abstraction patterns and dependency inversion principles for the PepperPy framework, ensuring proper dependency management and clean API surfaces.
 
-## Module Structure
+## Module Encapsulation
 
-### Standard Directory Layout
+### Public Module Interface
 
-Each module MUST follow this structure:
+Each module should expose a clean, well-defined interface through its `__init__.py` file:
 
-```
-module_name/           # e.g., llm, rag, storage
-├── __init__.py       # Public API exports
-├── base.py          # Core interfaces, types, base implementations, factory functions
-├── errors.py        # ONLY complex error hierarchies here (simple errors MUST be in base.py)
-├── config.py        # ONLY complex configuration (simple config MUST be in base.py)
-└── providers/       # Provider implementations
-    ├── __init__.py  # Provider exports
-    └── specific.py  # Specific provider implementation
-```
-
-### File Responsibilities
-
-1. **base.py** - Core Module Definition:
-   - Interfaces (Protocols/ABC)
-   - Base implementations
-   - Data types and models
-   - Core functionality
-   - Type definitions 
-   - Factory functions like `create_provider()`
-   - Error types (only complex error hierarchies should go in errors.py)
-
-2. **__init__.py** - Public API:
-   - Re-export public interfaces
-   - Re-export factory functions
-   - Re-export provider implementations
-   - Define module-level functions
-   - **CRITICAL**: This is the ONLY entry point other modules should use
-
-3. **errors.py** - Complex Error Definitions ONLY:
-   - ONLY complex domain-specific exception hierarchies
-   - Basic errors MUST be in base.py
-
-4. **config.py** - Complex Configuration ONLY:
-   - ONLY complex environment variable definitions
-   - ONLY complex configuration classes
-   - Basic configuration MUST be in base.py
-
-5. **providers/** - Implementations:
-   - One file per provider
-   - Provider-specific code
-   - Follow base interfaces
-
-## Interface Patterns
-
-### 1. Base Module Organization
-
-✅ **Correct**:
 ```python
-# base.py
-from typing import Protocol
+# pepperpy/module_name/__init__.py
+"""Module documentation."""
 
-class LLMError(PepperpyError):
-    """Domain-specific errors."""
+# Import public interfaces from internal modules
+from .base import BaseInterface, create_module
 
-class Message:
-    """Domain data types."""
-    role: str
-    content: str
+# Re-export provider implementations as needed
+from .providers import MainProvider, SecondaryProvider
 
-class LLMProvider(Protocol):
-    """Core provider interface."""
-    async def initialize(self) -> None: ...
-    async def generate(self, prompt: str) -> str: ...
-```
-
-❌ **Incorrect**:
-```python
-# Scattered across multiple files
-# types.py - WRONG: Should be in base.py
-class Message: ...
-
-# provider.py - WRONG: Should be in base.py
-class LLMProvider: ...
-
-# errors.py - WRONG: Domain errors should be in base.py
-class LLMError: ...
-```
-
-### 2. Public API Organization
-
-✅ **Correct**:
-```python
-# __init__.py
-from .base import LLMProvider, Message, LLMError
-from .providers import OpenRouterProvider
-
+# Define exactly what is publicly available
 __all__ = [
-    "LLMProvider",
-    "Message",
-    "LLMError",
-    "OpenRouterProvider"
+    "BaseInterface",
+    "create_module",
+    "MainProvider",
+    "SecondaryProvider",
 ]
 ```
 
-❌ **Incorrect**:
+### External Code MUST Import Only From Public API
+
+External code should NEVER import directly from internal module structure:
+
 ```python
-# __init__.py
-# Don't expose internal details
-from .providers.openrouter import OpenRouterProvider
-from .base import _internal_function
+# CORRECT
+from pepperpy.llm import LLMProvider, create_provider
+
+# WRONG - Violates module encapsulation
+from pepperpy.llm.base import LLMProvider  # VIOLATION!
+from pepperpy.llm.providers.openai import OpenAIProvider  # VIOLATION!
 ```
 
-### 3. Provider Implementation
+### Internal Implementation Details
 
-✅ **Correct**:
+Internal module files should use relative imports:
+
 ```python
-# providers/openrouter.py
-from typing import Optional
-from ..base import LLMProvider, Message, LLMError
-from ..config import LLMConfig
+# Within providers/some_provider.py
+from ..base import BaseProvider  # Correct relative import
+```
 
-class OpenRouterProvider(LLMProvider):
-    """OpenRouter implementation."""
-    def __init__(self, config: LLMConfig):
-        self.config = config
-        self._client: Optional[OpenRouterClient] = None
+## Provider Abstraction
 
+### Base Provider Interface
+
+```python
+# In base.py
+class BaseProvider(Protocol):
+    """Provider interface."""
+    
     async def initialize(self) -> None:
-        """Initialize provider."""
-        self._client = OpenRouterClient(self.config.api_key)
-
-    async def generate(self, prompt: str) -> str:
-        if not self._client:
-            raise LLMError("Provider not initialized")
-        return await self._client.generate(prompt)
-
-    async def cleanup(self) -> None:
-        """Cleanup resources."""
-        if self._client:
-            await self._client.close()
+        """Initialize the provider."""
+        pass
+        
+    async def process(self, input: Dict[str, Any]) -> Dict[str, Any]:
+        """Process input data."""
+        pass
 ```
 
-❌ **Incorrect**:
-```python
-# Don't implement in base.py
-class OpenRouterProvider(LLMProvider):
-    pass
+### Factory Function
 
-# Don't create new interfaces in providers
-class CustomProvider(Protocol):
-    pass
+Each module must include a factory function that creates providers:
+
+```python
+# In base.py, but exposed through __init__.py
+def create_provider(provider_type: str, **config: Any) -> BaseProvider:
+    """Create a provider based on type."""
+    if provider_type == "main":
+        from .providers.main import MainProvider
+        return MainProvider(**config)
+    elif provider_type == "secondary":
+        from .providers.secondary import SecondaryProvider
+        return SecondaryProvider(**config)
+    else:
+        raise ValueError(f"Unknown provider type: {provider_type}")
 ```
 
-## Module Usage
+## Dependency Inversion
 
-### 1. Importing Modules
+### High-Level Modules Depend on Abstractions
 
-✅ **Correct**:
 ```python
-# Import from module root
-from pepperpy.llm import LLMProvider
-from pepperpy.rag import RAGContext
+# CORRECT
+from pepperpy.storage import StorageProvider
 
-# Use interfaces, not implementations
-provider: LLMProvider = ...
+class DocumentProcessor:
+    def __init__(self, storage: StorageProvider):
+        self.storage = storage
+        
+# WRONG
+from pepperpy.storage.providers.file import FileStorage
+
+class DocumentProcessor:  # VIOLATION! Depends on concrete implementation
+    def __init__(self, storage: FileStorage):
+        self.storage = storage
 ```
 
-❌ **Incorrect**:
+### Provider Registration
+
+Providers should be registered using the lazy provider decorator:
+
 ```python
-# Don't import implementations directly
-from pepperpy.llm.providers.openrouter import OpenRouterProvider
+from pepperpy.core.utils import lazy_provider_class
 
-# Don't import from base
-from pepperpy.llm.base import LLMProvider
-```
-
-### 2. Configuration
-
-✅ **Correct**:
-```python
-from pepperpy.core import Config
-
-# Use environment variables
-config = Config(env_prefix="PEPPERPY_LLM_")
-provider = LLMProvider(config)
-```
-
-❌ **Incorrect**:
-```python
-# Don't hardcode configuration
-provider = OpenRouterProvider(
-    api_key="sk-...",
-    model="gpt-4"
-)
-```
-
-### 3. Error Handling
-
-✅ **Correct**:
-```python
-try:
-    result = await provider.generate(prompt)
-except LLMError as e:
-    # Handle domain-specific error
-    logger.error(f"LLM error: {e}")
-finally:
-    await provider.cleanup()
-```
-
-❌ **Incorrect**:
-```python
-# Don't catch generic exceptions
-try:
-    result = await provider.generate(prompt)
-except Exception as e:
+@lazy_provider_class("module_name", "provider_type")
+class MyProvider(BaseProvider):
+    """My provider implementation."""
     pass
 ```
 
-## Implementation Examples
+## Abstraction Layers
 
-### Example: RAG Module
+Each module should maintain these distinct layers:
+
+1. **Public Interface** (`__init__.py`): What users import
+2. **Abstract Base** (`base.py`): Interfaces and factory functions
+3. **Provider Implementations** (`providers/*.py`): Concrete implementations
+
+## Auto-configuração e Gerenciamento de Recursos
+
+### Auto-configuração via Ambiente
+
+Os providers e componentes DEVEM se auto-configurar com base em variáveis de ambiente:
 
 ```python
-# base.py
-from typing import Protocol
+# CORRETO - Provider se auto-configura
+class OpenAIProvider(LLMProvider):
+    def __init__(self, api_key: Optional[str] = None, **kwargs):
+        self._api_key = api_key or self._get_from_env()
 
-class RAGError(PepperpyError): ...
+    def _get_from_env(self) -> str:
+        key = os.getenv("PEPPERPY_LLM__OPENAI__API_KEY")
+        if not key:
+            raise ValueError("API key not found in environment")
+        return key
+```
 
-class Document:
-    """Document for retrieval."""
-    content: str
-    metadata: dict
+### Gerenciamento Automático de IO
 
-class RAGProvider(Protocol):
-    """RAG provider interface."""
-    async def add_documents(self, docs: list[Document]) -> None: ...
-    async def query(self, text: str) -> list[Document]: ...
+Módulos DEVEM gerenciar seus próprios recursos de IO:
 
-# __init__.py
-from .base import RAGProvider, Document, RAGError
-from .providers import ChromaProvider
-
-__all__ = ["RAGProvider", "Document", "RAGError", "ChromaProvider"]
-
-# providers/chroma.py
-from ..base import RAGProvider, Document
-
+```python
+# CORRETO - Provider gerencia seus próprios diretórios
 class ChromaProvider(RAGProvider):
-    """Chroma implementation."""
-    async def add_documents(self, docs: list[Document]) -> None:
-        # Implementation
-        ...
+    def __init__(self, persist_directory: Optional[str] = None, **kwargs):
+        # Criar diretório padrão se não for especificado
+        self._directory = persist_directory or self._default_directory()
+        
+        # Garantir que o diretório exista
+        os.makedirs(self._directory, exist_ok=True)
+        
+    def _default_directory(self) -> str:
+        # Usar local padrão da aplicação para dados
+        app_dir = os.path.join(os.path.expanduser("~"), ".pepperpy")
+        return os.path.join(app_dir, "chroma")
 ```
 
-## Best Practices
+### Logging Interno
 
-1. **Module Organization**:
-   - Keep all core functionality in `base.py`
-   - Export public API through `__init__.py`
-   - Implement providers in `providers/`
-   - Domain errors in `base.py`
-   - Configuration in `config.py`
+Módulos DEVEM gerenciar seu próprio logging:
 
-2. **Interface Design**:
-   - Use Protocol for interfaces
-   - Include domain-specific errors
-   - Define clear data types
-   - Keep interfaces minimal
-
-3. **Provider Implementation**:
-   - Follow interface contracts
-   - Handle errors appropriately
-   - Clean up resources
-   - Keep provider-specific code isolated
-
-4. **Module Usage**:
-   - Import from module root
-   - Use interfaces in type hints
-   - Configure through environment
-   - Handle errors properly
-
-## Common Anti-patterns
-
-### 1. Separate Component Files
-
-❌ **NEVER create separate component files**:
-```
-module/
-├── component.py      # WRONG: Should be in base.py
-├── types.py         # WRONG: Should be in base.py
-└── base.py          # Correct: All core code here
-```
-
-✅ **Keep all core code in base.py**:
-```
-module/
-└── base.py          # All core code: components, types, etc.
-```
-
-### 2. Provider Implementation Location
-
-❌ **NEVER create provider files outside providers/**:
-```
-module/
-├── azure.py         # WRONG: Should be in providers/azure.py
-├── github.py        # WRONG: Should be in providers/github.py
-└── providers/       # Correct location for all providers
-```
-
-✅ **Always put providers in providers/**:
-```
-module/
-└── providers/
-    ├── azure.py     # Correct: Azure implementation
-    └── github.py    # Correct: GitHub implementation
-```
-
-### 3. Cross-Module Providers
-
-When a provider could belong to multiple modules:
-
-1. Put it in the module where it's most used
-2. If equal usage, put it in the more generic module
-3. Document the decision in the provider file
-
-Example:
 ```python
-# pepperpy/storage/providers/azure.py
-"""Azure Blob Storage provider.
-
-Note: This provider is in storage/ instead of cloud/ because:
-1. Primary use is for storage operations
-2. Most similar to other storage providers
-3. Implements StorageProvider interface
-"""
-
-# pepperpy/tts/providers/azure.py
-"""Azure TTS provider.
-
-Note: This provider is in tts/ instead of cloud/ because:
-1. Primary use is for text-to-speech
-2. Most similar to other TTS providers
-3. Implements TTSProvider interface
-"""
+# CORRETO - Providers configuram seu próprio logging
+class SomeProvider(BaseProvider):
+    def __init__(self):
+        self._logger = logging.getLogger(__name__)
+        
+    async def process(self, data):
+        self._logger.debug("Processing data: %s", data)
+        # processamento
+        self._logger.info("Data processed successfully")
 ```
 
-## Provider Organization Examples
+## Practical Examples
 
-### Example: TTS Module
-```
-tts/
-├── __init__.py
-├── base.py          # TTSProvider interface
-├── errors.py
-└── providers/
-    ├── __init__.py
-    ├── azure.py     # Azure TTS implementation
-    └── elevenlabs.py
-```
+### Module Usage (External to the Module)
 
-### Example: Repository Module
-```
-repository/
-├── __init__.py
-├── base.py          # RepositoryProvider interface
-├── errors.py
-└── providers/
-    ├── __init__.py
-    ├── github.py    # GitHub implementation
-    └── gitlab.py
+```python
+# CORRECT usage pattern
+from pepperpy.llm import LLMProvider, create_provider
+
+# Create a provider instance
+provider = create_provider("openai", api_key="sk-...")
+
+# Use the provider through its abstract interface
+result = await provider.generate("Hello, world")
 ```
 
-## Conclusion
+### Module Implementation (Internal)
 
-Following these module abstraction patterns ensures:
-1. Clean and consistent APIs
-2. Clear separation of concerns
-3. Easy provider swapping
-4. Proper error handling
-5. Resource cleanup
-6. Configuration flexibility
-7. Maintainable codebase
-8. Consistent module structure 
+```python
+# Inside pepperpy/llm/providers/specific.py
+from ..base import LLMProvider
+
+class SpecificProvider(LLMProvider):
+    """Provider-specific implementation."""
+    
+    async def initialize(self) -> None:
+        # Implementation
+        
+    async def generate(self, prompt: str) -> str:
+        # Implementation
+```
 
 ## Anti-patterns to Avoid
 
-### 1. Hyperfragmentation of Files
+### ❌ Direct Import of Internal Module Structure
 
-❌ **DO NOT create these unnecessary files**:
-- `factory.py` - Factory functions MUST be in `base.py`
-- `types.py` - Types MUST be in `base.py`
-- `constants.py` - Constants MUST be in `base.py`
-- Excessive small utility files - Consolidate related functionality
-
-### 2. Spreading Core Module Logic
-
-❌ **DO NOT split essential components**:
-```
-module/
-├── __init__.py
-├── base.py        # Only interfaces 
-├── factory.py     # WRONG: Factory functions here
-├── types.py       # WRONG: Types here
-└── providers/
-```
-
-✅ **Consolidate essential logic**:
-```
-module/
-├── __init__.py
-├── base.py        # Interfaces, types, factory functions, errors - all core logic
-└── providers/
-```
-
-### 3. Cross-Module Direct Access
-
-❌ **NEVER access another module's internal components directly**:
 ```python
-# WRONG: Directly accessing another module's providers
+# WRONG - Importing directly from internal structure
+from pepperpy.llm.base import LLMProvider
 from pepperpy.llm.providers.openai import OpenAIProvider
-from pepperpy.llm.base import SomeInternalClass
-
-# WRONG: Directly accessing another module's implementation details
-llm_api_key = other_module.get_llm_api_key()
 ```
 
-✅ **ONLY access through the module's public API**:
-```python
-# CORRECT: Access through the module's public API
-from pepperpy.llm import LLMProvider, create_provider
+### ❌ Bypassing the Factory Function
 
-# CORRECT: Respect module boundaries
-provider = create_provider("openai", api_key=config.get("api_key"))
-``` 
+```python
+# WRONG - Creating provider directly
+from pepperpy.llm.providers.openai import OpenAIProvider
+provider = OpenAIProvider(api_key="sk-...")
+```
+
+### ❌ Leaking Implementation Details
+
+```python
+# WRONG - __init__.py exposes implementation details
+from .internal_module import _InternalClass
+from .providers.implementation import _helper_function
+
+# These should not be exposed
+__all__ = [..., "_InternalClass", "_helper_function"]
+```
+
+### ❌ Exigindo Configuração Manual de Recursos
+
+```python
+# ERRADO - Provider requer que o usuário gerencie diretórios
+class BadChromaProvider(RAGProvider):
+    def __init__(self, persist_directory: str, **kwargs):
+        # Exige que o usuário crie o diretório de antemão
+        if not os.path.exists(persist_directory):
+            raise ValueError("Directory must exist before initialization")
+        self._directory = persist_directory
+```
+
+### ❌ Configuração Manual de Credenciais
+
+```python
+# ERRADO - Exigir chave de API diretamente sem fallback
+class BadProvider(BaseProvider):
+    def __init__(self, api_key: str, **kwargs):
+        # Não tenta obter credenciais do ambiente
+        self._api_key = api_key
+        # Se api_key não for fornecido, falhará
+```
+
+## Implementation Checklist
+
+When implementing a new module:
+
+- [ ] Define clear interfaces in `base.py`
+- [ ] Export public interfaces in `__init__.py`
+- [ ] Create a `create_provider` factory function
+- [ ] Implement provider classes in the `providers/` directory
+- [ ] Use dependency injection with abstract interfaces
+- [ ] Register providers with `lazy_provider_class` decorator
+- [ ] Auto-configurar via variáveis de ambiente
+- [ ] Auto-gerenciar recursos de IO/diretórios
+- [ ] Configurar logging interno adequado
+
+## Conclusion
+
+Following these module abstraction principles ensures that the PepperPy framework maintains a clean, modular structure with proper separation of concerns. By adhering to dependency inversion and proper encapsulation, we create a system that is easier to maintain, extend, and use. 

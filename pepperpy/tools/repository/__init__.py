@@ -20,13 +20,18 @@ from pepperpy.tools.repository.analyzer import (
     RepoStructure,
     SecurityAlert,
 )
-from pepperpy.tools.repository.base import RepositoryError, RepositoryProvider
+from pepperpy.tools.repository.base import (
+    RepositoryError,
+    RepositoryProvider,
+    create_provider,
+)
 from pepperpy.tools.repository.providers.github import GitHubProvider
 
 __all__ = [
     # Providers and Base
     "RepositoryProvider",
     "RepositoryError",
+    "create_provider",
     # Core Components
     "RepositoryAnalyzer",
     # Data Models

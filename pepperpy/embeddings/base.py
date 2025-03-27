@@ -7,9 +7,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Union
 
-from pepperpy.components.base import BaseComponent
-from pepperpy.config import Config
-from pepperpy.core.base import BaseProvider, PepperpyError
+from pepperpy.core.base import BaseComponent, BaseProvider, PepperpyError
+from pepperpy.core.config import Config
 
 
 class EmbeddingError(PepperpyError):

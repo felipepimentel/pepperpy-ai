@@ -1,15 +1,8 @@
 """Example of using PepperPy for PDI assistance."""
 
 import asyncio
-import logging
-from pathlib import Path
 
 import pepperpy
-from pepperpy.embeddings.providers.local import LocalProvider
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Sample PDI data
 pdi = {
@@ -42,28 +35,16 @@ pdi = {
 
 async def main() -> None:
     """Run the example."""
-    # Create embedding provider
-    embedding_provider = LocalProvider()
-
-    # Create data directory for ChromaDB
-    data_dir = Path("data/chroma")
-    data_dir.mkdir(parents=True, exist_ok=True)
-
-    # Initialize PepperPy with all required providers
+    # Initialize PepperPy with fluent API
+    # All configuration comes from environment variables (.env file)
     pepperpy_instance = (
         pepperpy.PepperPy()
-        .with_llm(
-            provider_type="openai"
-        )  # Will use PEPPERPY_LLM__OPENAI__API_KEY from .env
-        .with_embeddings(provider=embedding_provider)
-        .with_rag(
-            provider_type="chroma",
-            embedding_provider=embedding_provider,
-            persist_directory=str(data_dir),
-        )
+        .with_llm()  # Uses PEPPERPY_LLM__PROVIDER and other env vars
+        .with_embeddings()  # Uses PEPPERPY_EMBEDDINGS__PROVIDER and other env vars
+        .with_rag()  # Uses PEPPERPY_RAG__PROVIDER and other env vars
     )
 
-    # Initialize all providers
+    # Use async context manager to automatically initialize and cleanup
     async with pepperpy_instance:
         # Learn from PDI data
         await pepperpy_instance.learn(pdi)
@@ -77,9 +58,9 @@ async def main() -> None:
         ]
 
         for question in questions:
-            logger.info("\nQuestion: %s", question)
+            print(f"\nQuestion: {question}")
             response = await pepperpy_instance.ask(question)
-            logger.info("Answer: %s", response)
+            print(f"Answer: {response}")
 
 
 if __name__ == "__main__":

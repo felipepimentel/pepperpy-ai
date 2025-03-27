@@ -1,0 +1,177 @@
+---
+title: Example Code Best Practices
+description: USE WHEN writing or reviewing example code in the examples/ directory to ensure the examples demonstrate proper library usage
+globs: examples/**/*.py
+priority: 800
+---
+
+# Example Code Best Practices
+
+## Overview
+
+Esta regra define os padrões para os exemplos de código do PepperPy. Exemplos são frequentemente a primeira experiência dos usuários com a biblioteca, e devem demonstrar as melhores práticas e uso correto das APIs.
+
+## Princípios Fundamentais
+
+1. **Exemplos devem ser minimalistas** - Mostrar somente o essencial para demonstrar a funcionalidade
+2. **Exemplos devem ser idempotentes** - Não devem causar efeitos colaterais indesejados
+3. **Exemplos devem demonstrar o uso ideal** - Seguir todas as convenções e melhores práticas
+
+## Padrões para Exemplos
+
+### 1. Usar Configuração via Ambiente
+
+❌ **ERRADO - Definir variáveis de ambiente no código**:
+```python
+# NUNCA FAÇA ISSO
+os.environ["PEPPERPY_LLM__OPENROUTER_API_KEY"] = "sk-123456"
+```
+
+✅ **CORRETO - Usar configuração via .env**:
+```python
+# O usuário já deve ter configurado as variáveis no .env
+# Não tente definir variáveis no código
+from pepperpy import PepperPy
+
+# A chave será carregada automaticamente do ambiente
+pepperpy_instance = PepperPy()
+```
+
+### 2. Abstrações vs Implementações Diretas
+
+❌ **ERRADO - Instanciar providers diretamente**:
+```python
+# NUNCA FAÇA ISSO
+from pepperpy.embeddings.providers.local import LocalProvider
+embedding_provider = LocalProvider()
+```
+
+✅ **CORRETO - Usar factories e métodos fluentes**:
+```python
+# A biblioteca deve gerenciar a criação de providers
+from pepperpy import PepperPy
+
+# Configuração via métodos fluentes
+pepperpy_instance = PepperPy().with_embeddings()
+```
+
+### 3. Gerenciamento de Logging
+
+❌ **ERRADO - Configurar logging nos exemplos**:
+```python
+# NUNCA FAÇA ISSO
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+```
+
+✅ **CORRETO - Deixar a biblioteca gerenciar logging**:
+```python
+# A biblioteca gerencia seu próprio logging
+from pepperpy import PepperPy
+
+# Não configure logging no exemplo
+pepperpy_instance = PepperPy()
+```
+
+### 4. Gestão de IO e Diretórios
+
+❌ **ERRADO - Criar e gerenciar diretórios**:
+```python
+# NUNCA FAÇA ISSO
+data_dir = Path("data/chroma")
+data_dir.mkdir(parents=True, exist_ok=True)
+```
+
+✅ **CORRETO - Deixar a biblioteca gerenciar IO**:
+```python
+# A biblioteca gerencia criação de diretórios
+from pepperpy import PepperPy
+
+# Não crie diretórios no exemplo
+pepperpy_instance = PepperPy().with_rag()
+```
+
+### 5. Configuração de Providers
+
+❌ **ERRADO - Especificar providers manualmente**:
+```python
+# NUNCA FAÇA ISSO
+pepperpy_instance.with_llm(provider_type="openai")
+```
+
+✅ **CORRETO - Usar configuração automática**:
+```python
+# Os providers são configurados via .env
+pepperpy_instance = PepperPy().with_llm()
+```
+
+### 6. API Fluente
+
+❌ **ERRADO - Configuração em etapas**:
+```python
+# NUNCA FAÇA ISSO
+pepperpy_instance = PepperPy()
+pepperpy_instance.with_llm()
+pepperpy_instance.with_rag()
+```
+
+✅ **CORRETO - Usar API fluente**:
+```python
+# Use a API fluente para configuração
+pepperpy_instance = (
+    PepperPy()
+    .with_llm()
+    .with_rag()
+)
+```
+
+## Exemplo Completo Ideal
+
+```python
+"""Exemplo ideal de uso do PepperPy."""
+
+import asyncio
+from pepperpy import PepperPy
+
+async def main() -> None:
+    """Demonstração de uso do PepperPy."""
+    # Configuração via API fluente
+    pepperpy = (
+        PepperPy()
+        .with_llm()       # Usa provider do .env
+        .with_embeddings() # Usa provider do .env
+        .with_rag()       # Usa provider do .env
+    )
+
+    # Uso da biblioteca dentro de um contexto assíncrono
+    async with pepperpy:
+        # Adicionar conteúdo ao RAG
+        await pepperpy.learn({
+            "nome": "John Doe",
+            "ocupação": "Engenheiro de Software",
+            "experiência": "5 anos"
+        })
+
+        # Fazer uma pergunta
+        resposta = await pepperpy.ask("Qual é a ocupação de John?")
+        print(f"Resposta: {resposta.content}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Lista de Verificação para Exemplos
+
+- [ ] Não configura logging manualmente
+- [ ] Não instancia providers diretamente
+- [ ] Não cria ou gerencia diretórios
+- [ ] Não define variáveis de ambiente no código
+- [ ] Não especifica provider_type nos métodos fluentes
+- [ ] Usa a API fluente para configuração
+- [ ] Usa o contexto assíncrono (async with)
+- [ ] Mantém o exemplo focado e minimalista
+
+## Conclusão
+
+Seguindo estas práticas, garantimos que os exemplos da PepperPy demonstrem o uso correto da biblioteca, sejam fáceis de entender e sigam todas as melhores práticas. Exemplos bem escritos são fundamentais para a experiência do usuário e a adoção da biblioteca. 

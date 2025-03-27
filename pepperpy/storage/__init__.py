@@ -1,13 +1,19 @@
 """Storage module for PepperPy."""
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.core.config import Config
-from pepperpy.storage.base import StorageError, StorageObject, StorageProvider
+from pepperpy.storage.base import (
+    StorageError,
+    StorageObject,
+    StorageProvider,
+    create_provider,
+)
+from pepperpy.storage.providers.local import LocalProvider
 
 __all__ = [
-    "Config",
-    "PepperpyError",
     "StorageError",
     "StorageObject",
     "StorageProvider",
+    "create_provider",
+    "LocalProvider",
+    "PepperpyError",
 ]

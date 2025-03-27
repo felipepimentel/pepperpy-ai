@@ -6,23 +6,25 @@ interacting with the framework's components.
 
 import json
 import os
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from pepperpy.core.config import Config
-from pepperpy.embeddings.base import EmbeddingsProvider
-from pepperpy.embeddings.base import create_provider as create_embeddings_provider
-from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
-from pepperpy.llm.base import create_provider as create_llm_provider
-from pepperpy.rag.base import Document, Query, RAGProvider
-from pepperpy.rag.base import create_provider as create_rag_provider
-from pepperpy.storage.base import StorageProvider
-from pepperpy.storage.base import create_provider as create_storage_provider
-from pepperpy.tools.repository.base import RepositoryProvider
-from pepperpy.tools.repository.base import create_provider as create_repository_provider
-from pepperpy.tts.base import TTSProvider
-from pepperpy.tts.base import create_provider as create_tts_provider
-from pepperpy.workflow.base import WorkflowProvider
-from pepperpy.workflow.base import create_provider as create_workflow_provider
+from pepperpy.embeddings import create_provider as create_embeddings_provider
+from pepperpy.llm import GenerationResult, LLMProvider, Message, MessageRole
+from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.rag import Document, Query, RAGProvider
+from pepperpy.rag import create_provider as create_rag_provider
+from pepperpy.storage import StorageProvider
+from pepperpy.storage import create_provider as create_storage_provider
+from pepperpy.tools.repository import RepositoryProvider
+from pepperpy.tools.repository import create_provider as create_repository_provider
+from pepperpy.tts import TTSProvider
+from pepperpy.tts import create_provider as create_tts_provider
+from pepperpy.workflow import WorkflowProvider
+from pepperpy.workflow import create_provider as create_workflow_provider
+
+if TYPE_CHECKING:
+    from pepperpy.embeddings import EmbeddingsProvider
 
 
 class PepperPy:
@@ -41,7 +43,7 @@ class PepperPy:
         self._tts: Optional[TTSProvider] = None
         self._repository: Optional[RepositoryProvider] = None
         self._workflow: Optional[WorkflowProvider] = None
-        self._embeddings: Optional[EmbeddingsProvider] = None
+        self._embeddings: Optional["EmbeddingsProvider"] = None
 
     def with_llm(
         self, provider_type: Optional[str] = None, **kwargs: Any
@@ -215,12 +217,10 @@ class PepperPy:
         return self._llm
 
     @property
-    def embeddings(self) -> EmbeddingsProvider:
+    def embeddings(self) -> "EmbeddingsProvider":
         """Get embeddings provider."""
         if not self._embeddings:
-            raise ValueError(
-                "Embeddings provider not configured. Call with_embeddings() first."
-            )
+            raise ValueError("Embeddings provider not configured")
         return self._embeddings
 
     @property
