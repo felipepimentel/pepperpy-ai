@@ -20,17 +20,17 @@ Example:
 
 import abc
 import enum
-import importlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 from pepperpy.core.base import (
     BaseProvider,
-    Component,
-    ComponentError,
     PepperpyError,
 )
+from pepperpy.core.workflow import WorkflowComponent
+from pepperpy.llm.providers import LLMProvider
+from pepperpy.llm.types import GenerationResult, Message, MessageRole
 
 
 class LLMError(PepperpyError):
@@ -369,74 +369,60 @@ class LLMProvider(BaseProvider, abc.ABC):
         return result.content
 
 
-class LLMComponent(Component):
-    """LLM workflow component.
+class LLMComponent(WorkflowComponent):
+    """Component for Large Language Model (LLM) operations.
 
-    This component provides LLM capabilities to workflows by wrapping
-    an LLMProvider instance.
+    This component handles text generation and chat interactions using an LLM provider.
     """
 
     def __init__(
         self,
-        name: str = "llm",
-        provider: Optional[LLMProvider] = None,
+        component_id: str,
+        name: str,
+        provider: LLMProvider,
         config: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize LLM component.
 
         Args:
-            name: Component name
-            provider: Optional LLMProvider instance
-            config: Optional configuration dictionary
-            **kwargs: Additional provider-specific configuration
+            component_id: Unique identifier for the component
+            name: Human-readable name
+            provider: LLM provider implementation
+            config: Optional configuration
+            metadata: Optional metadata
         """
-        self.name = name
-        self.provider = provider
-        self.config = config or {}
-        self.config.update(kwargs)
+        super().__init__(
+            component_id=component_id,
+            name=name,
+            provider=provider,
+            config=config,
+            metadata=metadata,
+        )
 
-    async def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Process inputs using the LLM provider.
+    async def process(self, data: Union[str, List[Message]]) -> GenerationResult:
+        """Process input data and generate a response.
 
         Args:
-            inputs: Input data containing messages to process
+            data: Input text or list of messages
 
         Returns:
-            Output data containing the model response
+            Generated response
 
         Raises:
-            ComponentError: If processing fails
+            ValidationError: If input type is invalid
         """
-        if not self.provider:
-            provider_name = self.config.get("provider", "openai")
-            try:
-                # Import the provider dynamically
-                module_name = f"pepperpy.llm.providers.{provider_name}"
-                try:
-                    provider_module = importlib.import_module(module_name)
-                    provider_class = getattr(
-                        provider_module, f"{provider_name.title()}Provider"
-                    )
-                    self.provider = provider_class(
-                        name=provider_name, config=self.config
-                    )
-                except (ImportError, AttributeError) as e:
-                    raise ComponentError(f"Provider {provider_name} not found: {e}")
-            except Exception as e:
-                raise ComponentError(f"Failed to create LLM provider: {e}")
+        if isinstance(data, str):
+            messages = [Message(role=MessageRole.USER, content=data)]
+        elif isinstance(data, list) and all(isinstance(m, Message) for m in data):
+            messages = data
+        else:
+            raise ValidationError(
+                f"Invalid input type for LLM component: {type(data).__name__}. "
+                "Expected str or List[Message]."
+            )
 
-            try:
-                await self.provider.initialize()
-            except Exception as e:
-                raise ComponentError(f"Failed to initialize LLM provider: {e}")
-
-        try:
-            messages = inputs.get("messages", [])
-            response = await self.provider.chat(messages)
-            return {"response": response}
-        except Exception as e:
-            raise ComponentError(f"LLM processing failed: {e}")
+        return await self.provider.generate(messages)
 
     async def cleanup(self) -> None:
         """Clean up component resources."""

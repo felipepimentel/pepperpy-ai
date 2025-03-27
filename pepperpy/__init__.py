@@ -40,8 +40,7 @@ from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRol
 
 # Main class
 from pepperpy.pepperpy import PepperPy
-from pepperpy.rag.base import Document, RAGProvider
-from pepperpy.rag.types import Query
+from pepperpy.rag.base import Document, Query, RAGProvider
 from pepperpy.storage.base import StorageProvider
 from pepperpy.tts.base import TTSProvider
 

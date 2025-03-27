@@ -41,7 +41,7 @@ class RepositoryProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def get_files(
+    async def list_repository_files(
         self, repo_identifier: str, path: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get file list from repository.
@@ -59,7 +59,7 @@ class RepositoryProvider(BaseProvider):
         pass
 
     @abstractmethod
-    async def get_file_content(self, repo_identifier: str, file_path: str) -> str:
+    async def read_repository_file(self, repo_identifier: str, file_path: str) -> str:
         """Get content of a specific file.
 
         Args:
@@ -89,5 +89,42 @@ class RepositoryProvider(BaseProvider):
 
         Raises:
             RepositoryError: If commits cannot be accessed
+        """
+        pass
+
+    @abstractmethod
+    async def clone(self, url: str, branch: Optional[str] = None) -> str:
+        """Clone a repository.
+
+        Args:
+            url: Repository URL
+            branch: Optional branch to clone
+
+        Returns:
+            Path to cloned repository
+        """
+        pass
+
+    @abstractmethod
+    async def get_files(self, path: Optional[str] = None) -> List[str]:
+        """Get list of files in repository.
+
+        Args:
+            path: Optional path to list files from
+
+        Returns:
+            List of file paths
+        """
+        pass
+
+    @abstractmethod
+    async def get_file_content(self, path: str) -> str:
+        """Get content of a file.
+
+        Args:
+            path: Path to file
+
+        Returns:
+            File content as string
         """
         pass

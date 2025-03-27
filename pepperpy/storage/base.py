@@ -25,7 +25,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Union
 
 from pepperpy.core.base import BaseProvider, Document, PepperpyError
 from pepperpy.core.config import Config
-from pepperpy.rag.types import Query
+from pepperpy.rag.base import Query
 
 logger = logging.getLogger(__name__)
 

@@ -43,7 +43,7 @@ class Config:
 
     def __init__(
         self,
-        config_path: Optional[Union[str, Path, Dict[str, Any]]] = None,
+        config_path: Optional[Union[str, Dict[str, Any], "Config"]] = None,
         env_prefix: str = "PEPPERPY_",
         defaults: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
@@ -51,7 +51,7 @@ class Config:
         """Initialize configuration.
 
         Args:
-            config_path: Optional path to config file or config dictionary
+            config_path: Path to config file, dict with config values, or Config object
             env_prefix: Optional prefix for environment variables
             defaults: Optional default configuration values
             **kwargs: Additional configuration values
@@ -68,11 +68,15 @@ class Config:
             self._config.update(defaults)
 
         # Load from file or dictionary
-        if config_path:
-            if isinstance(config_path, (str, Path)):
-                self._load_file(config_path)
+        if config_path is not None:
+            if isinstance(config_path, Config):
+                self._config.update(config_path._config)
             elif isinstance(config_path, dict):
                 self._config.update(config_path)
+            elif isinstance(config_path, str):
+                file_config = self._load_file(config_path)
+                if file_config is not None:
+                    self._config.update(file_config)
             else:
                 raise ValidationError(f"Invalid config_path type: {type(config_path)}")
 

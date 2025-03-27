@@ -208,6 +208,76 @@ Create automated verification for AI-generated code:
 python scripts/refactor.py rule-management --verify --rule 195 --test-case "new_component"
 ```
 
+## Module Structure Validation
+
+Before generating or modifying code, validate the module structure:
+
+### 1. File Location Checklist
+
+✓ Core interfaces and components go in `base.py`:
+```python
+# base.py - CORRECT
+class MyComponent(Component):
+    pass
+
+# component.py - WRONG
+class MyComponent(Component):  # Should be in base.py
+    pass
+```
+
+✓ Provider implementations go in `providers/`:
+```python
+# providers/azure.py - CORRECT
+class AzureProvider(MyProvider):
+    pass
+
+# azure.py - WRONG
+class AzureProvider(MyProvider):  # Should be in providers/azure.py
+    pass
+```
+
+### 2. Structure Validation Script
+
+Use the validation script before committing:
+
+```bash
+python scripts/refactor.py validate --directory pepperpy
+
+# Example output:
+# ERROR: component.py found, should be in base.py
+# ERROR: azure.py found outside providers/
+```
+
+### 3. Common Structure Mistakes
+
+1. **Separate Component Files**:
+   ```python
+   # WRONG: Creating component.py
+   from .component import MyComponent  # Should be in base.py
+   
+   # CORRECT: Everything in base.py
+   from .base import MyComponent
+   ```
+
+2. **Provider Files in Root**:
+   ```python
+   # WRONG: Creating azure.py in root
+   from .azure import AzureProvider  # Should be in providers/
+   
+   # CORRECT: Using providers/azure.py
+   from .providers.azure import AzureProvider
+   ```
+
+3. **Mixed Responsibilities**:
+   ```python
+   # WRONG: Mixing provider implementation with interface
+   class Provider(Protocol):  # Should be in base.py
+       pass
+       
+   class AzureProvider(Provider):  # Should be in providers/azure.py
+       pass
+   ```
+
 ## Conclusion
 
 By following these AI response validation guidelines, you can prevent hallucinations, ensure accuracy, and maintain consistency in AI-generated code. Always verify AI outputs against actual project structures and use the project's refactoring tools to validate and integrate new code properly. 

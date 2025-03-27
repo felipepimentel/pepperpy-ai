@@ -34,6 +34,8 @@ class ComponentType(str, enum.Enum):
     PROCESSOR = "processor"
     SINK = "sink"
     AGENT = "agent"
+    TRIGGER = "trigger"
+    ACTION = "action"
 
 
 class PipelineError(PepperpyError):
@@ -423,6 +425,49 @@ def execute_pipeline(
     return pipeline.process(input_data, context)
 
 
+class WorkflowComponent(ABC):
+    """Base class for workflow components.
+
+    A workflow component is a reusable unit of work that can be composed
+    into pipelines. Components can be sources, processors, or sinks.
+    """
+
+    def __init__(
+        self,
+        component_id: str,
+        name: str,
+        component_type: str = ComponentType.PROCESSOR,
+        config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize workflow component.
+
+        Args:
+            component_id: Unique component identifier
+            name: Component name
+            component_type: Component type
+            config: Optional component configuration
+            metadata: Optional component metadata
+        """
+        self.id = component_id
+        self.name = name
+        self.type = component_type
+        self.config = config or {}
+        self.metadata = metadata or {}
+
+    @abstractmethod
+    async def process(self, data: Any) -> Any:
+        """Process input data.
+
+        Args:
+            data: Input data
+
+        Returns:
+            Processed data
+        """
+        pass
+
+
 class Workflow(ABC):
     """Base class for all workflows.
 
@@ -437,38 +482,26 @@ class Workflow(ABC):
     @abstractmethod
     def __init__(self) -> None:
         """Initialize workflow."""
-        pass
+        self.id: str = ""
+        self.name: str = ""
+        self.components: List[WorkflowComponent] = []
+        self.config: Dict[str, Any] = {}
 
-
-class WorkflowComponent(ABC):
-    """Base class for workflow components.
-
-    A workflow component is a reusable unit of work that can be composed
-    into pipelines. Components can be sources, processors, or sinks.
-    """
-
-    def __init__(
-        self,
-        id: str,
-        name: str,
-        type: ComponentType,
-        config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        """Initialize a workflow component.
+    def set_components(self, components: List[WorkflowComponent]) -> None:
+        """Set workflow components.
 
         Args:
-            id: Component ID
-            name: Component name
-            type: Component type
-            config: Optional configuration dictionary
-            metadata: Optional metadata dictionary
+            components: List of workflow components
         """
-        self.id = id
-        self.name = name
-        self.type = type
-        self._config = config or {}
-        self._metadata = metadata or {}
+        self.components = components
+
+    def set_config(self, config: Dict[str, Any]) -> None:
+        """Set workflow configuration.
+
+        Args:
+            config: Configuration dictionary
+        """
+        self.config = config
 
 
 class WorkflowProvider(BaseProvider):

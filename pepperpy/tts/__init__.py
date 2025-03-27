@@ -7,7 +7,7 @@ Example:
     >>> from pepperpy.tts import convert_text
     >>> audio = await convert_text("Hello world", voice_id="en-US-1")
     >>> save_audio(audio, "output.mp3")
-    
+
     # Using the audio pipeline
     >>> from pepperpy.tts import AudioPipeline
     >>> pipeline = AudioPipeline()
@@ -17,8 +17,16 @@ Example:
 import asyncio
 from typing import Any, AsyncIterator, Dict, List, Optional
 
+from pepperpy.tts.audio_pipeline import (
+    AudioPipeline,
+    AudioPipelineError,
+    AudioProject,
+    AudioSegment,
+    VerbosityLevel,
+)
 from pepperpy.tts.base import (
     TTSCapabilities,
+    TTSComponent,
     TTSConfigError,
     TTSError,
     TTSFactory,
@@ -26,14 +34,7 @@ from pepperpy.tts.base import (
     TTSProviderError,
     TTSVoiceError,
 )
-
-from pepperpy.tts.audio_pipeline import (
-    AudioPipeline,
-    AudioProject,
-    AudioSegment,
-    AudioPipelineError,
-    VerbosityLevel,
-)
+from pepperpy.tts.providers.azure import AzureProvider
 
 # Import providers to register them
 # Commented out to avoid dependency issues
@@ -64,7 +65,7 @@ async def convert_text(
     try:
         tts_provider = TTSFactory.create_provider(provider)
         return await tts_provider.convert_text(text, voice_id, **kwargs)
-    except Exception as e:
+    except Exception:
         # Simulated response for example
         print(f"TTS conversion (simulated): '{text}'")
         return b"SIMULATED_AUDIO_DATA"
@@ -91,7 +92,7 @@ async def convert_text_stream(
         tts_provider = TTSFactory.create_provider(provider)
         async for chunk in tts_provider.convert_text_stream(text, voice_id, **kwargs):
             yield chunk
-    except Exception as e:
+    except Exception:
         # Simulated response for example
         print(f"TTS streaming (simulated): '{text}'")
         yield b"SIMULATED_AUDIO_CHUNK_1"
@@ -114,7 +115,7 @@ async def get_voices(provider: Optional[str] = None, **kwargs) -> List[Dict[str,
     try:
         tts_provider = TTSFactory.create_provider(provider)
         return await tts_provider.get_voices(**kwargs)
-    except Exception as e:
+    except Exception:
         # Simulated response for example
         return [
             {"id": "en-US-1", "name": "English US (Male)", "language": "en-US"},
@@ -142,7 +143,7 @@ async def clone_voice(
     try:
         tts_provider = TTSFactory.create_provider(provider)
         return await tts_provider.clone_voice(name, samples, **kwargs)
-    except Exception as e:
+    except Exception:
         # Simulated response for example
         print(f"Voice cloning (simulated): '{name}'")
         return "simulated-voice-id-12345"
@@ -186,7 +187,7 @@ def convert_text_sync(
     """
     try:
         return asyncio.run(convert_text(text, voice_id, provider, **kwargs))
-    except Exception as e:
+    except Exception:
         # Simulated response for example
         print(f"TTS conversion sync (simulated): '{text}'")
         return b"SIMULATED_AUDIO_DATA"
@@ -202,6 +203,7 @@ __all__ = [
     "save_audio",
     # Base types and interfaces
     "TTSCapabilities",
+    "TTSComponent",
     "TTSConfigError",
     "TTSError",
     "TTSFactory",
@@ -214,4 +216,6 @@ __all__ = [
     "AudioSegment",
     "AudioPipelineError",
     "VerbosityLevel",
+    # Providers
+    "AzureProvider",
 ]

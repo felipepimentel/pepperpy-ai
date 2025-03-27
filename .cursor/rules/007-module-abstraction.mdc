@@ -288,6 +288,97 @@ class ChromaProvider(RAGProvider):
    - Configure through environment
    - Handle errors properly
 
+## Common Anti-patterns
+
+### 1. Separate Component Files
+
+❌ **NEVER create separate component files**:
+```
+module/
+├── component.py      # WRONG: Should be in base.py
+├── types.py         # WRONG: Should be in base.py
+└── base.py          # Correct: All core code here
+```
+
+✅ **Keep all core code in base.py**:
+```
+module/
+└── base.py          # All core code: components, types, etc.
+```
+
+### 2. Provider Implementation Location
+
+❌ **NEVER create provider files outside providers/**:
+```
+module/
+├── azure.py         # WRONG: Should be in providers/azure.py
+├── github.py        # WRONG: Should be in providers/github.py
+└── providers/       # Correct location for all providers
+```
+
+✅ **Always put providers in providers/**:
+```
+module/
+└── providers/
+    ├── azure.py     # Correct: Azure implementation
+    └── github.py    # Correct: GitHub implementation
+```
+
+### 3. Cross-Module Providers
+
+When a provider could belong to multiple modules:
+
+1. Put it in the module where it's most used
+2. If equal usage, put it in the more generic module
+3. Document the decision in the provider file
+
+Example:
+```python
+# pepperpy/storage/providers/azure.py
+"""Azure Blob Storage provider.
+
+Note: This provider is in storage/ instead of cloud/ because:
+1. Primary use is for storage operations
+2. Most similar to other storage providers
+3. Implements StorageProvider interface
+"""
+
+# pepperpy/tts/providers/azure.py
+"""Azure TTS provider.
+
+Note: This provider is in tts/ instead of cloud/ because:
+1. Primary use is for text-to-speech
+2. Most similar to other TTS providers
+3. Implements TTSProvider interface
+"""
+```
+
+## Provider Organization Examples
+
+### Example: TTS Module
+```
+tts/
+├── __init__.py
+├── base.py          # TTSProvider interface
+├── errors.py
+└── providers/
+    ├── __init__.py
+    ├── azure.py     # Azure TTS implementation
+    └── elevenlabs.py
+```
+
+### Example: Repository Module
+```
+repository/
+├── __init__.py
+├── base.py          # RepositoryProvider interface
+├── errors.py
+└── providers/
+    ├── __init__.py
+    ├── github.py    # GitHub implementation
+    └── gitlab.py
+```
+
 ## Conclusion
 
 Following these module abstraction patterns ensures:

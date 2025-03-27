@@ -1,15 +1,16 @@
 """Base RAG module."""
 
-import importlib
 from abc import abstractmethod
-from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from pepperpy.core.base import (
     BaseProvider,
-    Component,
-    ComponentError,
+    ValidationError,
 )
+from pepperpy.core.workflow import WorkflowComponent
+from pepperpy.rag.providers import RAGProvider
+from pepperpy.rag.types import Document, Query
 
 T = TypeVar("T")
 
@@ -173,83 +174,60 @@ class RAGContext:
         return await self.provider.search(query)
 
 
-class RAGComponent(Component):
-    """RAG workflow component.
+class RAGComponent(WorkflowComponent):
+    """Component for Retrieval Augmented Generation (RAG).
 
-    This component provides RAG capabilities to workflows by wrapping
-    a RAGProvider instance.
+    This component handles the retrieval of relevant documents based on input queries.
     """
 
     def __init__(
         self,
-        name: str = "rag",
-        provider: Optional[RAGProvider] = None,
+        component_id: str,
+        name: str,
+        provider: RAGProvider,
         config: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Initialize RAG component.
 
         Args:
-            name: Component name
-            provider: Optional RAGProvider instance
-            config: Optional configuration dictionary
-            **kwargs: Additional provider-specific configuration
+            component_id: Unique identifier for the component
+            name: Human-readable name
+            provider: RAG provider implementation
+            config: Optional configuration
+            metadata: Optional metadata
         """
-        self.name = name
-        self.provider = provider
-        self.config = config or {}
-        self.config.update(kwargs)
+        super().__init__(
+            component_id=component_id,
+            name=name,
+            provider=provider,
+            config=config,
+            metadata=metadata,
+        )
 
-    async def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Process inputs using the RAG provider.
+    async def process(self, data: Union[str, Query]) -> List[Document]:
+        """Process input data and retrieve relevant documents.
 
         Args:
-            inputs: Input data containing documents to store or query to search
+            data: Input query as string or Query object
 
         Returns:
-            Output data containing search results or storage confirmation
+            List of relevant documents
 
         Raises:
-            ComponentError: If processing fails
+            ValidationError: If input type is invalid
         """
-        if not self.provider:
-            provider_name = self.config.get("provider", "default")
-            try:
-                # Import the provider dynamically
-                module_name = f"pepperpy.rag.providers.{provider_name}"
-                try:
-                    provider_module = importlib.import_module(module_name)
-                    provider_class = getattr(
-                        provider_module, f"{provider_name.title()}Provider"
-                    )
-                    self.provider = provider_class(
-                        name=provider_name, config=self.config
-                    )
-                except (ImportError, AttributeError) as e:
-                    raise ComponentError(f"Provider {provider_name} not found: {e}")
-            except Exception as e:
-                raise ComponentError(f"Failed to create RAG provider: {e}")
+        if isinstance(data, str):
+            query = Query(text=data)
+        elif isinstance(data, Query):
+            query = data
+        else:
+            raise ValidationError(
+                f"Invalid input type for RAG component: {type(data).__name__}. "
+                "Expected str or Query."
+            )
 
-            try:
-                await self.provider.initialize()
-            except Exception as e:
-                raise ComponentError(f"Failed to initialize RAG provider: {e}")
-
-        try:
-            if "documents" in inputs:
-                # Store documents
-                documents = [Document(**doc) for doc in inputs["documents"]]
-                await self.provider.store(documents)
-                return {"status": "stored"}
-            elif "query" in inputs:
-                # Search documents
-                query = Query(**inputs["query"])
-                results = await self.provider.search(query)
-                return {"results": [asdict(doc) for doc in results]}
-            else:
-                raise ComponentError("No documents or query provided")
-        except Exception as e:
-            raise ComponentError(f"RAG processing failed: {e}")
+        return await self.provider.search(query)
 
     async def cleanup(self) -> None:
         """Clean up component resources."""

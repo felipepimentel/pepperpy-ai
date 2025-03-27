@@ -12,6 +12,7 @@ Example:
 
 from pepperpy.tools.repository.base import RepositoryProvider
 from pepperpy.tools.repository.providers.github import GitHubProvider
+
 # The following imports will be uncommented when the implementations are created
 # from pepperpy.tools.repository.providers.gitlab import GitLabProvider
 # from pepperpy.tools.repository.providers.filesystem import FilesystemProvider
@@ -21,4 +22,4 @@ __all__ = [
     "GitHubProvider",
     # "GitLabProvider",
     # "FilesystemProvider",
-] 
+]

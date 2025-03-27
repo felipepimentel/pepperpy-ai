@@ -10,12 +10,13 @@ Example:
 """
 
 import os
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, List, Optional, Type
 
 from pepperpy.core import PepperpyError
 from pepperpy.core.base import BaseProvider
+from pepperpy.core.workflow import ValidationError, WorkflowComponent
 
 
 class TTSError(PepperpyError):
@@ -80,8 +81,44 @@ class TTSCapabilities(str, Enum):
     EMOTION_CONTROL = "emotion_control"
 
 
-class TTSProvider(BaseProvider):
-    """Provider interface for text-to-speech services."""
+class TTSProvider(BaseProvider, ABC):
+    """Base class for TTS providers."""
+
+    def __init__(
+        self,
+        name: str,
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize TTS provider.
+
+        Args:
+            name: Provider name
+            config: Optional configuration dictionary
+            **kwargs: Additional configuration options
+        """
+        super().__init__(name=name, config=config, **kwargs)
+
+    @abstractmethod
+    async def synthesize(
+        self,
+        text: str,
+        voice: str,
+        output_format: str,
+        **kwargs: Any,
+    ) -> bytes:
+        """Synthesize text to speech.
+
+        Args:
+            text: Text to synthesize
+            voice: Voice name to use
+            output_format: Output audio format
+            **kwargs: Additional synthesis options
+
+        Returns:
+            Audio data as bytes
+        """
+        pass
 
     async def initialize(self) -> None:
         """Initialize the provider."""
@@ -96,68 +133,68 @@ class TTSProvider(BaseProvider):
         """Convert text to speech.
 
         Args:
-            text: The text to convert to speech.
-            voice_id: The ID of the voice to use.
-            **kwargs: Additional provider-specific parameters.
+            text: Text to convert
+            voice_id: Voice identifier
+            **kwargs: Additional provider-specific parameters
 
         Returns:
-            Audio bytes.
+            Audio data as bytes
 
         Raises:
-            TTSError: If conversion fails.
+            TTSError: If conversion fails
         """
-        ...
+        pass
 
     @abstractmethod
     async def convert_text_stream(
         self, text: str, voice_id: str, **kwargs: Any
     ) -> AsyncIterator[bytes]:
-        """Stream generated audio from text.
+        """Stream audio from text.
 
         Args:
-            text: The text to convert to speech.
-            voice_id: The ID of the voice to use.
-            **kwargs: Additional provider-specific parameters.
+            text: Text to convert
+            voice_id: Voice identifier
+            **kwargs: Additional provider-specific parameters
 
         Returns:
-            An async iterator of audio chunks.
+            AsyncIterator yielding audio chunks
 
         Raises:
-            TTSError: If streaming fails.
+            TTSError: If conversion fails
         """
-        ...
+        pass
 
     @abstractmethod
     async def get_voices(self, **kwargs: Any) -> List[Dict[str, Any]]:
         """Get available voices.
 
         Args:
-            **kwargs: Additional provider-specific parameters.
+            **kwargs: Provider-specific parameters
 
         Returns:
-            List of voice information dictionaries.
+            List of voice information dictionaries
 
         Raises:
-            TTSError: If retrieving voices fails.
+            TTSError: If retrieving voices fails
         """
-        ...
+        pass
 
-    @abstractmethod
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs: Any) -> str:
         """Clone a voice from audio samples.
 
         Args:
-            name: Name for the cloned voice.
-            samples: List of audio samples as bytes.
-            **kwargs: Additional provider-specific parameters.
+            name: Name for the cloned voice
+            samples: List of audio samples
+            **kwargs: Provider-specific parameters
 
         Returns:
-            ID of the created voice.
+            ID of created voice
 
         Raises:
-            TTSError: If voice cloning fails.
+            TTSError: If voice cloning fails
+            NotImplementedError: If provider doesn't support voice cloning
         """
-        ...
+        raise NotImplementedError("Voice cloning not supported by this provider")
 
 
 class TTSFactory:
@@ -234,3 +271,59 @@ class TTSFactory:
             )
 
         return provider
+
+
+class TTSComponent(WorkflowComponent):
+    """Component for Text-to-Speech synthesis.
+
+    This component handles the conversion of text to speech using a TTS provider.
+    """
+
+    def __init__(
+        self,
+        component_id: str,
+        name: str,
+        provider: TTSProvider,
+        config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize TTS component.
+
+        Args:
+            component_id: Unique identifier for the component
+            name: Human-readable name
+            provider: TTS provider implementation
+            config: Optional configuration
+            metadata: Optional metadata
+        """
+        super().__init__(
+            component_id=component_id,
+            name=name,
+            provider=provider,
+            config=config,
+            metadata=metadata,
+        )
+
+    async def process(self, data: str) -> bytes:
+        """Process input text and convert to speech.
+
+        Args:
+            data: Input text to convert
+
+        Returns:
+            Audio data as bytes
+
+        Raises:
+            ValidationError: If input type is invalid
+        """
+        if not isinstance(data, str):
+            raise ValidationError(
+                f"Invalid input type for TTS component: {type(data).__name__}. "
+                "Expected str."
+            )
+
+        voice_id = self.config.get("voice_id")
+        if not voice_id:
+            raise ValidationError("voice_id not specified in component config")
+
+        return await self.provider.convert_text(data, voice_id)

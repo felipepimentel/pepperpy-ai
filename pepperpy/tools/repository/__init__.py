@@ -11,25 +11,24 @@ Example:
     >>> report_path = analyzer.save_report(report)
 """
 
-from pepperpy.tools.repository.base import RepositoryError, RepositoryProvider
 from pepperpy.tools.repository.analyzer import (
-    RepositoryAnalyzer,
     AnalysisReport,
     CodeIssue,
     CodeQuality,
     IssueSeverity,
+    RepositoryAnalyzer,
     RepoStructure,
     SecurityAlert,
 )
+from pepperpy.tools.repository.base import RepositoryError, RepositoryProvider
+from pepperpy.tools.repository.providers.github import GitHubProvider
 
 __all__ = [
     # Providers and Base
     "RepositoryProvider",
     "RepositoryError",
-    
     # Core Components
     "RepositoryAnalyzer",
-    
     # Data Models
     "AnalysisReport",
     "CodeIssue",
@@ -37,4 +36,5 @@ __all__ = [
     "IssueSeverity",
     "RepoStructure",
     "SecurityAlert",
-] 
+    "GitHubProvider",
+]
