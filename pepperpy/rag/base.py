@@ -4,7 +4,7 @@ import importlib
 import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, Dict, List, Optional, Sequence, TypeVar, Union
 
 from pepperpy.core.base import (
     BaseProvider,
@@ -86,6 +86,24 @@ class Query:
     embeddings: Optional[List[float]] = None
 
 
+@dataclass
+class SearchResult:
+    """Result from a search operation."""
+
+    id: str
+    text: str
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    score: Optional[float] = None
+
+    def to_document(self) -> Document:
+        """Convert search result to document.
+
+        Returns:
+            Document representation
+        """
+        return Document(text=self.text, metadata=self.metadata)
+
+
 class RetrievalResult:
     """Result from a RAG retrieval operation."""
 
@@ -115,23 +133,42 @@ class RAGProvider(BaseProvider):
     """Base class for RAG providers."""
 
     @abstractmethod
-    async def store(self, documents: List[Document]) -> None:
+    async def store(self, docs: Union[Document, List[Document]]) -> None:
         """Store documents in the RAG context.
 
         Args:
-            documents: List of documents to store.
+            docs: Document or list of documents to store.
         """
         pass
 
     @abstractmethod
-    async def search(self, query: Query) -> List[Document]:
+    async def search(
+        self,
+        query: Union[str, Query],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> Sequence[SearchResult]:
         """Search for relevant documents.
 
         Args:
-            query: Search query.
+            query: Search query text or Query object
+            limit: Maximum number of results to return
+            **kwargs: Additional search parameters
 
         Returns:
-            List of relevant documents.
+            List of search results
+        """
+        pass
+
+    @abstractmethod
+    async def get(self, doc_id: str) -> Optional[Document]:
+        """Get a document by ID.
+
+        Args:
+            doc_id: ID of the document to get
+
+        Returns:
+            The document if found, None otherwise
         """
         pass
 
@@ -172,7 +209,8 @@ class RAGContext:
         Returns:
             List of relevant documents.
         """
-        return await self.provider.search(query)
+        results = await self.provider.search(query)
+        return [result.to_document() for result in results]
 
 
 class RAGComponent(WorkflowComponent):
@@ -225,7 +263,8 @@ class RAGComponent(WorkflowComponent):
                 "Expected str or Query."
             )
 
-        return await self.provider.search(query)
+        results = await self.provider.search(query)
+        return [result.to_document() for result in results]
 
     async def cleanup(self) -> None:
         """Clean up component resources."""

@@ -25,108 +25,242 @@ Example:
 """
 
 import logging
-import os
-import uuid
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
-from pepperpy.core.base import ProviderError
-from pepperpy.core.utils import import_provider, lazy_provider_class
-from pepperpy.rag.base import Document, Query, RAGProvider
+import chromadb
+from chromadb.api.models.Collection import Collection
+from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
+from chromadb.config import Settings
+
+from pepperpy.core.base import ValidationError
+from pepperpy.core.utils import lazy_provider_class
+from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 
 logger = logging.getLogger(__name__)
 
 
+class ChromaEmbeddingFunction(EmbeddingFunction):
+    """Embedding function for ChromaDB using PepperPy embedding provider."""
+
+    def __init__(self, provider: EmbeddingProvider) -> None:
+        """Initialize embedding function.
+
+        Args:
+            provider: PepperPy embedding provider
+        """
+        self.provider = provider
+
+    def __call__(self, input: Documents) -> Embeddings:
+        """Generate embeddings for texts.
+
+        Args:
+            input: List of texts to embed
+
+        Returns:
+            List of embeddings
+        """
+        if not isinstance(input, list):
+            input = [input]
+
+        # Use synchronous embedding method
+        model = self.provider._get_embedding_function()
+        embeddings = model.encode(input)
+        return embeddings.tolist()
+
+
 @lazy_provider_class("rag", "chroma")
 class ChromaProvider(RAGProvider):
-    """ChromaDB implementation of the RAG provider interface.
-
-    This provider supports:
-    - Persistent vector storage
-    - Similarity search
-    - Metadata filtering
-    - Batch operations
-    """
+    """ChromaDB provider implementation."""
 
     name = "chroma"
 
     def __init__(
         self,
-        path: Optional[str] = None,
-        collection_name: str = "pepperpy",
-        embedding_function: Optional[Any] = None,
+        collection_name: str,
+        persist_directory: str,
+        embedding_provider: EmbeddingProvider,
         **kwargs: Any,
     ) -> None:
         """Initialize ChromaDB provider.
 
         Args:
-            path: Path to ChromaDB persistence directory
             collection_name: Name of the collection to use
-            embedding_function: Optional custom embedding function to use for vectors
-            **kwargs: Additional configuration options
+            persist_directory: Directory to persist data
+            embedding_provider: Provider for generating embeddings
+            **kwargs: Additional configuration
         """
         super().__init__(**kwargs)
-
-        self.path = path
         self.collection_name = collection_name
-        self._embedding_function = embedding_function
+        self.persist_directory = persist_directory
+        self.embedding_provider = embedding_provider
         self.client = None
-        self._collection: Optional[Any] = None
+        self._collection: Optional[Collection] = None
 
-    @property
-    def collection(self) -> Any:
+    def get_collection(self) -> Collection:
         """Get the ChromaDB collection.
 
         Returns:
-            The ChromaDB collection
+            ChromaDB collection
 
         Raises:
-            ProviderError: If provider is not initialized
+            ValidationError: If collection is not initialized
         """
-        if self._collection is None:
-            raise ProviderError(
-                "ChromaProvider not initialized. Call initialize() first."
-            )
+        if not self._collection:
+            raise ValidationError("Collection not initialized")
         return self._collection
 
     async def initialize(self) -> None:
-        """Initialize the provider.
+        """Initialize the provider."""
+        # Initialize ChromaDB client
+        settings = Settings(
+            persist_directory=self.persist_directory,
+            anonymized_telemetry=False,
+        )
+        self.client = chromadb.Client(settings)
 
-        This method sets up the ChromaDB client and collection.
-
-        Raises:
-            ProviderError: If no embedding function is provided
-        """
-        # Import chromadb only when provider is instantiated
-        chromadb = import_provider("chromadb", "rag", "chroma")
-
-        # Initialize client with persistence if path provided
-        if self.path:
-            os.makedirs(self.path, exist_ok=True)
-            self.client = chromadb.PersistentClient(path=self.path)
-        else:
-            self.client = chromadb.Client()
-
-        if not self._embedding_function:
-            raise ProviderError(
-                "No embedding function provided. Please provide an embedding function "
-                "through the embedding_function parameter."
-            )
+        # Initialize embedding function
+        embedding_fn = ChromaEmbeddingFunction(self.embedding_provider)
 
         # Get or create collection
         self._collection = self.client.get_or_create_collection(
-            name=self.collection_name, embedding_function=self._embedding_function
+            name=self.collection_name,
+            embedding_function=embedding_fn,
         )
 
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self.client:
+            self.client.persist()
+
+    def _get_metadata(self, doc: Document) -> Dict[str, Any]:
+        """Get metadata for document.
+
+        Args:
+            doc: Document to get metadata for
 
         Returns:
-            The provider configuration
+            Metadata dictionary
+        """
+        metadata = doc.metadata.copy() if doc.metadata else {}
+        if not metadata:
+            metadata["id"] = doc.get("id", "")
+        return metadata
+
+    async def store(self, docs: Union[Document, List[Document]]) -> None:
+        """Store documents in ChromaDB.
+
+        Args:
+            docs: Document or list of documents to store
+
+        Raises:
+            ValidationError: If collection is not initialized
+        """
+        collection = self.get_collection()
+
+        if isinstance(docs, Document):
+            docs = [docs]
+
+        # Prepare documents for ChromaDB
+        texts = [doc.text for doc in docs]
+        metadatas = [self._get_metadata(doc) for doc in docs]
+        ids = [str(i) for i in range(len(docs))]
+
+        # Add documents to collection
+        collection.add(
+            documents=texts,
+            metadatas=metadatas,
+            ids=ids,
+        )
+
+    async def search(
+        self,
+        query: Union[str, Query],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> Sequence[SearchResult]:
+        """Search for relevant documents.
+
+        Args:
+            query: Search query text or Query object
+            limit: Maximum number of results to return
+            **kwargs: Additional search parameters
+
+        Returns:
+            List of search results
+
+        Raises:
+            ValidationError: If collection is not initialized
+        """
+        collection = self.get_collection()
+
+        # Get query text
+        query_text = query.text if isinstance(query, Query) else query
+
+        # Search collection
+        results = collection.query(
+            query_texts=[query_text],
+            n_results=limit,
+            **kwargs,
+        )
+
+        # Convert results to SearchResult objects
+        search_results = []
+        for i, (doc_id, text, metadata, distance) in enumerate(
+            zip(
+                results["ids"][0],
+                results["documents"][0],
+                results["metadatas"][0],
+                results["distances"][0],
+            )
+        ):
+            search_results.append(
+                SearchResult(
+                    id=doc_id,
+                    text=text,
+                    metadata=metadata,
+                    score=1.0 - distance,  # Convert distance to similarity score
+                )
+            )
+
+        return search_results
+
+    async def get(self, doc_id: str) -> Optional[Document]:
+        """Get a document by ID.
+
+        Args:
+            doc_id: ID of the document to get
+
+        Returns:
+            The document if found, None otherwise
+
+        Raises:
+            ValidationError: If collection is not initialized
+        """
+        collection = self.get_collection()
+
+        try:
+            result = collection.get(ids=[doc_id])
+            if not result["documents"]:
+                return None
+
+            return Document(
+                text=result["documents"][0],
+                metadata=result["metadatas"][0] if result["metadatas"] else {},
+            )
+        except Exception:
+            return None
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get provider configuration.
+
+        Returns:
+            Provider configuration
         """
         return {
-            "path": self.path,
+            "persist_directory": self.persist_directory,
             "collection_name": self.collection_name,
-            "has_embedding_function": self._embedding_function is not None,
+            "has_embedding_function": self.embedding_provider is not None,
         }
 
     def get_capabilities(self) -> Dict[str, Any]:
@@ -144,180 +278,75 @@ class ChromaProvider(RAGProvider):
             "max_dimensions": 1536,
         }
 
-    async def store(self, documents: List[Document]) -> None:
-        """Store documents in the collection.
-
-        Args:
-            documents: List of documents to store
-        """
-        # Convert documents to ChromaDB format
-        ids = []
-        texts = []
-        metadatas = []
-        embeddings = []
-
-        for doc in documents:
-            doc_id = doc.get("id")
-            if not doc_id:
-                doc_id = str(uuid.uuid4())
-                doc["id"] = doc_id
-            ids.append(doc_id)
-            texts.append(doc.text)
-            metadatas.append(doc.metadata)
-            if "embeddings" in doc._data:
-                embeddings.append(doc._data["embeddings"])
-
-        # Add documents to collection
-        if embeddings:
-            self.collection.add(
-                ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings
-            )
-        else:
-            self.collection.add(ids=ids, documents=texts, metadatas=metadatas)
-
-    async def search(
-        self,
-        query: Query,
-        limit: int = 10,
-        **kwargs: Any,
-    ) -> List[Document]:
-        """Search for documents similar to query.
-
-        Args:
-            query: Search query
-            limit: Maximum number of results
-            **kwargs: Additional search options
-
-        Returns:
-            List of relevant documents
-        """
-        # Convert query to text
-        query_text = query.text
-
-        # Get results from ChromaDB
-        results = self.collection.query(
-            query_texts=[query_text],
-            n_results=limit,
-            **kwargs,
-        )
-
-        # Convert results to documents
-        documents = []
-        for i, doc_id in enumerate(results["ids"][0]):
-            doc = Document(
-                text=results["documents"][0][i],
-                metadata=results["metadatas"][0][i],
-            )
-            doc["id"] = doc_id
-            if "distances" in results:
-                doc["score"] = 1.0 - results["distances"][0][i]
-            documents.append(doc)
-
-        return documents
-
     async def delete_documents(
         self,
-        document_ids: List[str],
+        document_ids: Union[str, List[str]],
         **kwargs: Any,
     ) -> None:
         """Delete documents from the collection.
 
         Args:
-            document_ids: List of document IDs to delete
+            document_ids: Document ID(s) to delete
             **kwargs: Additional deletion options
         """
-        self.collection.delete(ids=document_ids)
+        collection = self.get_collection()
 
-    async def get_document(
-        self,
-        document_id: str,
-        collection_name: Optional[str] = None,
-        **kwargs: Any,
-    ) -> Optional[Dict[str, Any]]:
-        """Get a document by ID.
+        if isinstance(document_ids, str):
+            document_ids = [document_ids]
 
-        Args:
-            document_id: Document ID to retrieve
-            collection_name: Optional collection name
-            **kwargs: Additional retrieval options
-
-        Returns:
-            Document data if found, None otherwise
-        """
-        results = self.collection.get(ids=[document_id])
-        if not results["ids"]:
-            return None
-
-        return {
-            "id": results["ids"][0],
-            "text": results["documents"][0],
-            "metadata": results["metadatas"][0],
-        }
+        collection.delete(ids=document_ids)
 
     async def get_documents(
         self,
         document_ids: Union[str, List[str]],
-        collection_name: Optional[str] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
-        """Get multiple documents by ID.
+        """Get documents by ID.
 
         Args:
             document_ids: Document ID(s) to retrieve
-            collection_name: Optional collection name
             **kwargs: Additional retrieval options
 
         Returns:
             List of document data
         """
+        collection = self.get_collection()
+
         if isinstance(document_ids, str):
             document_ids = [document_ids]
 
-        results = self.collection.get(ids=document_ids)
+        results = collection.get(ids=document_ids)
         documents = []
-
         for i, doc_id in enumerate(results["ids"]):
             documents.append({
                 "id": doc_id,
                 "text": results["documents"][i],
                 "metadata": results["metadatas"][i],
             })
-
         return documents
 
     async def list_documents(
         self,
-        collection_name: Optional[str] = None,
         **kwargs: Any,
     ) -> List[Dict[str, Any]]:
         """List all documents in the collection.
 
         Args:
-            collection_name: Optional collection name
             **kwargs: Additional listing options
 
         Returns:
             List of document data
         """
-        results = self.collection.get()
+        collection = self.get_collection()
+        results = collection.get()
         documents = []
-
         for i, doc_id in enumerate(results["ids"]):
             documents.append({
                 "id": doc_id,
                 "text": results["documents"][i],
                 "metadata": results["metadatas"][i],
             })
-
         return documents
-
-    async def clear(self, **kwargs: Any) -> None:
-        """Clear all documents from the collection.
-
-        Args:
-            **kwargs: Additional clearing options
-        """
-        self.collection.delete()
 
     async def delete_collection(self, **kwargs: Any) -> None:
         """Delete the collection.
@@ -336,18 +365,19 @@ class ChromaProvider(RAGProvider):
             **kwargs: Additional counting options
 
         Returns:
-            Number of documents in the collection
+            Number of documents
         """
-        return self.collection.count()
+        collection = self.get_collection()
+        return collection.count()
 
     async def get_stats(self) -> Dict[str, Any]:
-        """Get collection statistics.
+        """Get provider statistics.
 
         Returns:
-            Dictionary of collection statistics
+            Provider statistics
         """
         return {
             "document_count": await self.count_documents(),
             "collection_name": self.collection_name,
-            "has_persistence": self.path is not None,
+            "has_persistence": self.persist_directory is not None,
         }

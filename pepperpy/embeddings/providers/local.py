@@ -1,9 +1,17 @@
 """Local embeddings provider implementation using sentence-transformers."""
 
-from typing import Any, Dict, List, Union
+import logging
+from typing import Any, Dict, List, Optional
 
-from pepperpy.core.utils import import_provider, lazy_provider_class
-from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.core.utils import lazy_provider_class
+from pepperpy.embeddings.base import EmbeddingError, EmbeddingProvider
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
+
+logger = logging.getLogger(__name__)
 
 
 @lazy_provider_class("embeddings", "local")
@@ -19,95 +27,136 @@ class LocalProvider(EmbeddingProvider):
 
     def __init__(
         self,
-        model: str = "all-MiniLM-L6-v2",
-        device: str = "cpu",
+        model_name: str = "all-MiniLM-L6-v2",
         **kwargs: Any,
     ) -> None:
-        """Initialize local embeddings provider.
+        """Initialize the provider.
 
         Args:
-            model: Model name from sentence-transformers to use
-                  See https://www.sbert.net/docs/pretrained_models.html
-            device: Device to run model on ('cpu' or 'cuda')
+            model_name: Name of the sentence-transformer model to use
             **kwargs: Additional configuration options
         """
         super().__init__(**kwargs)
-        self.model_name = model
-        self.device = device
-        self._model = None
-        self._embedding_function = None
+        self.model_name = model_name
+        self._model: Optional[Any] = None
+
+    def _ensure_initialized(self) -> None:
+        """Ensure the model is initialized.
+
+        Raises:
+            EmbeddingError: If initialization fails
+        """
+        if not self._model:
+            try:
+                if SentenceTransformer is None:
+                    raise ImportError("sentence-transformers is not installed")
+                self._model = SentenceTransformer(self.model_name)
+            except Exception as e:
+                raise EmbeddingError(f"Failed to initialize model: {e}")
 
     async def initialize(self) -> None:
-        """Initialize the provider by loading the model."""
-        sentence_transformers = import_provider(
-            "sentence_transformers", "embeddings", "local"
-        )
-        self._model = sentence_transformers.SentenceTransformer(
-            self.model_name, device=self.device
-        )
-        self._embedding_function = self._get_embedding_function()
+        """Initialize the provider."""
+        self._ensure_initialized()
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        self._model = None
 
     def _get_embedding_function(self) -> Any:
-        """Create an embedding function compatible with vector stores."""
-
-        def embed_texts(texts: List[str]) -> List[List[float]]:
-            return self._model.encode(
-                texts, convert_to_numpy=True, normalize_embeddings=True
-            ).tolist()
-
-        return embed_texts
-
-    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
-        """Generate embeddings for the given text.
-
-        Args:
-            text: Text or list of texts to embed
+        """Get the embedding function.
 
         Returns:
-            List of embeddings vectors
-        """
-        if isinstance(text, str):
-            text = [text]
-        return self._embedding_function(text)
+            The embedding function
 
-    async def embed_query(self, text: str) -> List[float]:
+        Raises:
+            EmbeddingError: If model is not initialized
+        """
+        self._ensure_initialized()
+        if not self._model:
+            raise EmbeddingError("Model not initialized")
+        return self._model
+
+    async def embed_text(self, text: str) -> List[float]:
+        """Generate embeddings for a single text.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            List of embedding values
+
+        Raises:
+            EmbeddingError: If embedding generation fails
+        """
+        try:
+            model = self._get_embedding_function()
+            embeddings = model.encode(text)
+            return embeddings.tolist()
+        except Exception as e:
+            raise EmbeddingError(f"Failed to generate embeddings: {e}")
+
+    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of embedding vectors
+
+        Raises:
+            EmbeddingError: If embedding generation fails
+        """
+        try:
+            model = self._get_embedding_function()
+            embeddings = model.encode(texts)
+            return embeddings.tolist()
+        except Exception as e:
+            raise EmbeddingError(f"Failed to generate embeddings: {e}")
+
+    async def embed_query(self, query: str) -> List[float]:
         """Generate embeddings for a query.
 
         Args:
-            text: Query text to embed
+            query: Query text to embed
 
         Returns:
-            Embedding vector
+            List of embedding values
+
+        Raises:
+            EmbeddingError: If embedding generation fails
         """
-        return (await self.embed_text(text))[0]
+        try:
+            model = self._get_embedding_function()
+            embeddings = model.encode(query)
+            return embeddings.tolist()
+        except Exception as e:
+            raise EmbeddingError(f"Failed to generate embeddings: {e}")
 
-    def get_embedding_function(self) -> Any:
-        """Get a function that can be used by vector stores.
-
-        Returns:
-            A callable that generates embeddings
-        """
-        return self._embedding_function
-
-    async def get_dimensions(self) -> int:
+    def get_dimensions(self) -> int:
         """Get the dimensionality of the embeddings.
 
         Returns:
-            The number of dimensions in the embeddings
+            Number of dimensions
+
+        Raises:
+            EmbeddingError: If model is not initialized
         """
-        if not self._model:
-            await self.initialize()
-        return self._model.get_sentence_embedding_dimension()
+        try:
+            model = self._get_embedding_function()
+            return model.get_sentence_embedding_dimension()
+        except Exception as e:
+            raise EmbeddingError(f"Failed to get dimensions: {e}")
 
     def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
+        """Get provider configuration.
 
         Returns:
-            The provider configuration
+            Provider configuration
         """
         return {
-            "model": self.model_name,
-            "device": self.device,
+            "model_name": self.model_name,
+            "is_initialized": self._model is not None,
         }
 
     def get_capabilities(self) -> Dict[str, Any]:
@@ -123,3 +172,14 @@ class LocalProvider(EmbeddingProvider):
             "is_local": True,
             "max_sequence_length": 512,
         }
+
+    def get_embedding_function(self) -> Any:
+        """Get the embedding function.
+
+        Returns:
+            The embedding function
+
+        Raises:
+            EmbeddingError: If model is not initialized
+        """
+        return self._get_embedding_function()

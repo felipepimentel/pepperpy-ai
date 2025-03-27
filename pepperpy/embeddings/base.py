@@ -228,22 +228,24 @@ class EmbeddingsProvider(Protocol):
 
     async def initialize(self) -> None:
         """Initialize the provider."""
-        pass
+        ...
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        pass
+        ...
 
-    async def embed_text(self, text: str) -> List[float]:
+    async def embed_text(
+        self, text: Union[str, List[str]]
+    ) -> Union[List[float], List[List[float]]]:
         """Create an embedding for the given text.
 
         Args:
-            text: Text to embed
+            text: Text or list of texts to embed
 
         Returns:
-            Text embedding as a list of floats
+            Text embedding as a list of floats or list of embeddings
         """
-        pass
+        raise NotImplementedError
 
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """Create embeddings for multiple texts.
@@ -254,10 +256,18 @@ class EmbeddingsProvider(Protocol):
         Returns:
             List of text embeddings
         """
-        pass
+        raise NotImplementedError
+
+    def get_embedding_function(self) -> Any:
+        """Get a function that can be used by vector stores.
+
+        Returns:
+            A callable that generates embeddings
+        """
+        raise NotImplementedError
 
 
-def create_provider(provider_type: str, **config: Dict[str, Any]) -> EmbeddingsProvider:
+def create_provider(provider_type: str, **config: Any) -> EmbeddingsProvider:
     """Create an embeddings provider instance.
 
     Args:
@@ -270,14 +280,19 @@ def create_provider(provider_type: str, **config: Dict[str, Any]) -> EmbeddingsP
     if provider_type == "local":
         from .providers import LocalProvider
 
-        return LocalProvider(**config)
+        return LocalProvider(
+            model=config.get("model", "default"), device=config.get("device", "cpu")
+        )
     elif provider_type == "numpy":
         from .providers import NumpyProvider
 
-        return NumpyProvider(**config)
+        return NumpyProvider(embedding_dim=config.get("embedding_dim", 64))
     elif provider_type == "openai":
         from .providers import OpenAIEmbeddingProvider
 
-        return OpenAIEmbeddingProvider(**config)
+        return OpenAIEmbeddingProvider(
+            api_key=config.get("api_key"),
+            model=config.get("model", "text-embedding-ada-002"),
+        )
     else:
         raise ValueError(f"Unknown provider type: {provider_type}")

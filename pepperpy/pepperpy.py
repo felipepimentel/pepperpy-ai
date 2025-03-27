@@ -9,7 +9,7 @@ import os
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.config import Config
-from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.embeddings.base import EmbeddingsProvider
 from pepperpy.embeddings.base import create_provider as create_embeddings_provider
 from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
 from pepperpy.llm.base import create_provider as create_llm_provider
@@ -41,7 +41,7 @@ class PepperPy:
         self._tts: Optional[TTSProvider] = None
         self._repository: Optional[RepositoryProvider] = None
         self._workflow: Optional[WorkflowProvider] = None
-        self._embeddings: Optional[EmbeddingProvider] = None
+        self._embeddings: Optional[EmbeddingsProvider] = None
 
     def with_llm(
         self, provider_type: Optional[str] = None, **kwargs: Any
@@ -79,6 +79,9 @@ class PepperPy:
             or self.config.get("embeddings.provider")
             or os.getenv("PEPPERPY_EMBEDDINGS__PROVIDER", "local")
         )
+        if provider_type is None:
+            provider_type = "local"  # Default to local if no provider type is specified
+
         provider_config = self.config.get("embeddings.config", {})
         provider_config.update(kwargs)
 
@@ -212,7 +215,7 @@ class PepperPy:
         return self._llm
 
     @property
-    def embeddings(self) -> EmbeddingProvider:
+    def embeddings(self) -> EmbeddingsProvider:
         """Get embeddings provider."""
         if not self._embeddings:
             raise ValueError(
