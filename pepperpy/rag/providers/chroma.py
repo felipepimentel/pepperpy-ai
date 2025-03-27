@@ -77,9 +77,9 @@ class ChromaProvider(RAGProvider):
 
     def __init__(
         self,
-        collection_name: str,
-        persist_directory: str,
-        embedding_provider: EmbeddingProvider,
+        collection_name: str = "default",
+        persist_directory: Optional[str] = None,
+        embedding_provider: Optional[EmbeddingProvider] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize ChromaDB provider.
@@ -116,6 +116,7 @@ class ChromaProvider(RAGProvider):
         settings = Settings(
             persist_directory=self.persist_directory,
             anonymized_telemetry=False,
+            is_persistent=self.persist_directory is not None,
         )
         self.client = chromadb.Client(settings)
 
@@ -130,8 +131,8 @@ class ChromaProvider(RAGProvider):
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        if self.client:
-            self.client.persist()
+        # No cleanup needed for ChromaDB
+        pass
 
     def _get_metadata(self, doc: Document) -> Dict[str, Any]:
         """Get metadata for document.

@@ -646,4 +646,202 @@ Following these provider configuration guidelines ensures:
 3. Proper resource management
 4. Easy provider switching
 5. Consistent error handling
-6. Maintainable provider code 
+6. Maintainable provider code
+
+---
+title: Provider Interface Consistency
+description: USE WHEN configuring or using providers to ensure proper environment variable handling, provider abstraction, and consistent response structures
+globs: pepperpy/**/providers/*.py
+priority: 1000
+---
+
+# Provider Interface Consistency
+
+## Overview
+
+This rule defines standards for provider implementations in the PepperPy framework to ensure consistent interfaces, proper environment variable handling, and normalized response structures across different providers.
+
+## Core Principles
+
+1. **Interface Consistency**: All providers must strictly implement the base interface defined in their module's `base.py`
+2. **Response Normalization**: Provider-specific response formats must be normalized to maintain API consistency
+3. **Error Handling**: Providers must handle errors consistently according to framework standards
+4. **Environment Variables**: Credentials must be loaded from environment variables with consistent naming patterns
+
+## Response Normalization Guidelines
+
+### 1. Normalize Provider-Specific Responses
+
+All raw provider responses **MUST** be normalized to match the expected interface format:
+
+```python
+# BAD - Returning provider-specific format directly
+def generate(self, prompt):
+    response = self._client.generate(prompt)
+    return response  # Different providers return different structures!
+
+# GOOD - Normalizing to standard format
+def generate(self, prompt):
+    raw_response = self._client.generate(prompt)
+    return self._create_result(raw_response)  # Normalized to consistent format
+    
+def _create_result(self, raw_response):
+    # Convert provider-specific format to standard format
+    return {
+        "content": self._extract_content(raw_response),
+        "metadata": self._extract_metadata(raw_response),
+        # Always return consistent structure
+    }
+```
+
+### 2. Return Structure Consistency
+
+Providers implementing the same interface **MUST** return compatible structures:
+
+```python
+# In OpenAIProvider
+def _create_generation_result(self, completion, messages):
+    return GenerationResult(
+        content=content,
+        messages=messages,
+        usage=completion.usage.model_dump(),  # OpenAI-specific format
+        metadata={...}
+    )
+
+# In OpenRouterProvider  
+def _create_generation_result(self, completion, messages):
+    return GenerationResult(
+        content=content,
+        messages=messages,
+        usage=completion["usage"],  # OpenRouter-specific format
+        metadata={...}
+    )
+```
+
+This causes inconsistency! Instead, both should normalize to the same structure.
+
+### 3. Handling Provider-Specific Fields
+
+When a provider returns fields that others don't:
+
+```python
+# CORRECT approach
+def _extract_usage(self, raw_response):
+    """Extract usage statistics in a normalized format."""
+    if isinstance(raw_response.get("usage"), dict):
+        # Handle dictionary format (OpenRouter)
+        return raw_response["usage"]
+    elif hasattr(raw_response, "usage") and hasattr(raw_response.usage, "model_dump"):
+        # Handle object format with model_dump (OpenAI)
+        return raw_response.usage.model_dump()
+    else:
+        # Provide consistent fallback
+        return {
+            "prompt_tokens": 0,
+            "completion_tokens": 0,
+            "total_tokens": 0,
+        }
+```
+
+## Implementation Checklist
+
+When implementing a new provider or modifying an existing one:
+
+1. ✓ Implements ALL methods defined in the base interface
+2. ✓ Returns normalized structures matching other providers
+3. ✓ Handles provider-specific nuances internally
+4. ✓ Extracts and normalizes response fields consistently
+5. ✓ Handles errors according to framework standards
+6. ✓ Provides fallbacks for missing fields
+
+## Common Pitfalls to Avoid
+
+### 1. Inconsistent Return Structures
+
+❌ **BAD**:
+```python
+# Provider A returns:
+return {"content": "...", "tokens": 123}
+
+# Provider B returns:
+return {"text": "...", "usage": {"tokens": 123}}
+```
+
+✅ **GOOD**:
+```python
+# Both providers return the same structure:
+return {
+    "content": "...",
+    "metadata": {"tokens": 123}
+}
+```
+
+### 2. Leaking Provider-Specific Details
+
+❌ **BAD**:
+```python
+# Exposing provider-specific implementation
+def get_result(self):
+    return self._client.completion.choices[0].message.content
+```
+
+✅ **GOOD**:
+```python
+# Abstracting provider-specific details
+def get_result(self):
+    response = self._client.completion
+    return self._extract_content(response)
+    
+def _extract_content(self, response):
+    # Provider-specific extraction logic
+    return response.choices[0].message.content
+```
+
+### 3. Inconsistent Error Handling
+
+❌ **BAD**:
+```python
+# Different providers handle errors differently
+try:
+    # Provider code
+except ProviderError:
+    raise Exception("Provider error")  # Different error structure
+```
+
+✅ **GOOD**:
+```python
+# Consistent error transformation
+try:
+    # Provider code
+except ProviderError as e:
+    raise LLMError(f"Provider failed: {e}") # Same error class across providers
+```
+
+## Validation and Testing
+
+To ensure provider consistency:
+
+1. Create tests that verify the same input produces compatible outputs across providers
+2. Test error conditions to verify consistent error handling
+3. Implement interface validation to ensure all required methods are implemented
+
+```python
+def test_provider_consistency():
+    """Test that different providers have consistent response formats."""
+    providers = [OpenAIProvider(), OpenRouterProvider()]
+    prompt = "Test prompt"
+    
+    results = []
+    for provider in providers:
+        result = provider.generate(prompt)
+        results.append(result)
+    
+    # Verify all results have the same structure
+    for result in results[1:]:
+        assert set(results[0].keys()) == set(result.keys())
+        assert isinstance(results[0]["content"], type(result["content"]))
+```
+
+## Conclusion
+
+Adhering to these provider interface guidelines ensures that all providers in the PepperPy framework maintain consistent behavior, making them interchangeable and reliable. By normalizing provider-specific responses, properly handling errors, and following the abstraction principles, we create a robust provider ecosystem that shields users from the underlying implementation details. 

@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from pathlib import Path
 
 import pepperpy
 from pepperpy.embeddings.providers.local import LocalProvider
@@ -44,12 +45,22 @@ async def main() -> None:
     # Create embedding provider
     embedding_provider = LocalProvider()
 
+    # Create data directory for ChromaDB
+    data_dir = Path("data/chroma")
+    data_dir.mkdir(parents=True, exist_ok=True)
+
     # Initialize PepperPy with all required providers
     pepperpy_instance = (
         pepperpy.PepperPy()
-        .with_llm()  # Will use PEPPERPY_LLM__PROVIDER and PEPPERPY_LLM__OPENAI__API_KEY from .env
+        .with_llm(
+            provider_type="openai"
+        )  # Will use PEPPERPY_LLM__OPENAI__API_KEY from .env
         .with_embeddings(provider=embedding_provider)
-        .with_rag(provider_type="chroma", embedding_provider=embedding_provider)
+        .with_rag(
+            provider_type="chroma",
+            embedding_provider=embedding_provider,
+            persist_directory=str(data_dir),
+        )
     )
 
     # Initialize all providers

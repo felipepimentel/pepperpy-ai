@@ -209,7 +209,7 @@ class OpenRouterProvider(LLMProvider):
                 )
                 for msg in messages
             ],
-            usage=completion["usage"]["model_dump"] if completion["usage"] else None,
+            usage=completion["usage"],
             metadata={
                 "model": completion["model"],
                 "created": completion["created"],

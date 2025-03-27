@@ -7,6 +7,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Union
 
+from pepperpy.components.base import BaseComponent
+from pepperpy.config import Config
 from pepperpy.core.base import BaseProvider, PepperpyError
 
 
@@ -234,16 +236,25 @@ class EmbeddingsProvider(Protocol):
         """Clean up resources."""
         ...
 
-    async def embed_text(
-        self, text: Union[str, List[str]]
-    ) -> Union[List[float], List[List[float]]]:
+    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
         """Create an embedding for the given text.
 
         Args:
             text: Text or list of texts to embed
 
         Returns:
-            Text embedding as a list of floats or list of embeddings
+            List of text embeddings
+        """
+        raise NotImplementedError
+
+    async def embed_query(self, text: str) -> List[float]:
+        """Create an embedding for a single query text.
+
+        Args:
+            text: Query text to embed
+
+        Returns:
+            Query embedding as a list of floats
         """
         raise NotImplementedError
 
@@ -265,6 +276,82 @@ class EmbeddingsProvider(Protocol):
             A callable that generates embeddings
         """
         raise NotImplementedError
+
+
+class EmbeddingComponent(BaseComponent):
+    """Embeddings component for text embeddings."""
+
+    def __init__(self, config: Config) -> None:
+        """Initialize embeddings component.
+
+        Args:
+            config: Configuration instance
+        """
+        super().__init__()
+        self.config = config
+        self._provider: Optional[EmbeddingsProvider] = None
+
+    async def _initialize(self) -> None:
+        """Initialize the embeddings provider."""
+        provider_type = self.config.get("embeddings.provider", "openai")
+        provider_config = self.config.get("embeddings.config", {})
+        self._provider = create_provider(provider_type, **provider_config)
+        if self._provider:
+            await self._provider.initialize()
+
+    async def _cleanup(self) -> None:
+        """Clean up resources."""
+        if self._provider:
+            await self._provider.cleanup()
+
+    async def embed_single_text(self, text: str) -> List[float]:
+        """Generate embeddings for a single text.
+
+        Args:
+            text: Text to embed
+
+        Returns:
+            Text embeddings as a list of float values
+        """
+        if not self._provider:
+            await self._initialize()
+
+        # Ensure provider is initialized
+        assert self._provider is not None
+
+        # Use embed_query which returns List[float] directly
+        return await self._provider.embed_query(text)
+
+    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
+        """Generate embeddings for text(s).
+
+        Args:
+            text: Text or list of texts to embed
+
+        Returns:
+            List of embedding vectors
+        """
+        if not self._provider:
+            await self._initialize()
+
+        # Ensure provider is initialized
+        assert self._provider is not None
+
+        # Forward directly to provider's implementation
+        return await self._provider.embed_text(text)
+
+    async def embed_batch(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for multiple texts.
+
+        This is an alias for embed_text with a list of texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of text embeddings
+        """
+        return await self.embed_text(texts)
 
 
 def create_provider(provider_type: str, **config: Any) -> EmbeddingsProvider:
