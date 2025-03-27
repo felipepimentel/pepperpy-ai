@@ -8,9 +8,9 @@ import json
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.config import Config
-from pepperpy.core.types import Query
 from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
 from pepperpy.rag.base import Document, RAGProvider
+from pepperpy.rag.types import Query
 from pepperpy.storage.base import StorageProvider
 from pepperpy.tools.repository.base import RepositoryProvider
 from pepperpy.tts.base import TTSProvider
@@ -235,7 +235,7 @@ class PepperPy:
             docs = [Document(text=item) for item in content]
         else:
             docs = [Document(text=json.dumps(content))]
-        await self.rag.add_documents(docs)
+        await self.rag.store(docs)
 
     async def ask(self, question: str) -> GenerationResult:
         """Ask a question using RAG context.
@@ -282,4 +282,4 @@ class PepperPy:
         doc = Document(text=content.decode())
 
         # Add to RAG
-        await self.rag.add_documents([doc])
+        await self.rag.store([doc])

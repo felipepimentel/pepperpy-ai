@@ -6,8 +6,8 @@ in a fluent and type-safe manner.
 
 from typing import Any, Dict, List, Optional, TypeVar
 
+from pepperpy.core.base import Component, ComponentRegistry
 from pepperpy.workflow.base import WorkflowBase, WorkflowStatus
-from pepperpy.workflow.components import Component, ComponentRegistry
 
 T = TypeVar("T")
 

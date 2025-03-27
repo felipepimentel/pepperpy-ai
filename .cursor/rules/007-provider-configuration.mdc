@@ -1,0 +1,160 @@
+---
+title: Provider Configuration and Environment Variables
+description: Apply this rule when configuring or using providers to ensure proper environment variable handling and provider abstraction
+globs:
+  - "**/*.py"
+priority: 1000
+---
+
+# Provider Configuration and Environment Variables
+
+## Overview
+
+This rule defines standards for configuring and using providers in the PepperPy framework, ensuring proper environment variable handling and provider abstraction.
+
+## Key Principles
+
+1. **Provider Agnostic Code**: Never assume or hardcode specific providers
+2. **Environment-based Configuration**: Use environment variables for all provider settings
+3. **Automatic Provider Resolution**: Let the framework handle provider selection and configuration
+
+## Environment Variable Structure
+
+```bash
+# Provider Selection
+PEPPERPY_LLM__PROVIDER=openrouter  # Which provider to use
+PEPPERPY_LLM__MODEL=openai/gpt-4   # Model configuration
+
+# Provider-specific Configuration
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...  # OpenRouter API key
+PEPPERPY_LLM__OPENAI_API_KEY=sk-...         # OpenAI API key
+```
+
+## Code Examples
+
+### ✅ Correct Usage
+
+```python
+# Let framework handle provider selection and configuration
+async with PepperPy().with_rag(provider_type="chroma") as assistant:
+    result = await assistant.ask("query")
+
+# Use environment-based configuration
+async with PepperPy() as assistant:
+    result = await assistant.ask("query")
+```
+
+### ❌ Incorrect Usage
+
+```python
+# Don't hardcode API keys or assume provider
+api_key = os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
+async with PepperPy().with_llm(api_key=api_key) as assistant:
+    result = await assistant.ask("query")
+
+# Don't check for specific provider's API key
+if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
+    raise ValueError("OpenAI API key not found")
+```
+
+## Provider Configuration Guidelines
+
+1. **Let Framework Handle Configuration**:
+   - Use `PepperPy()` without provider-specific arguments
+   - Allow framework to read from environment
+   - Trust provider resolution system
+
+2. **Provider Type Specification**:
+   - Only specify `provider_type` when needed
+   - Never pass provider-specific credentials
+   - Let framework handle API keys
+
+3. **Environment Variables**:
+   - Use `PEPPERPY_DOMAIN__SETTING` format
+   - Provider-specific keys use `PEPPERPY_DOMAIN__PROVIDER_SETTING`
+   - Document required variables
+
+## Implementation Examples
+
+### Example: RAG Usage
+
+```python
+# CORRECT: Let framework handle configuration
+async with PepperPy().with_rag(provider_type="chroma") as assistant:
+    docs = await assistant.search("query")
+
+# INCORRECT: Manually handling API keys
+api_key = os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
+async with PepperPy().with_rag(provider_type="chroma", api_key=api_key):
+    docs = await assistant.search("query")
+```
+
+### Example: LLM Usage
+
+```python
+# CORRECT: Framework handles provider selection
+async with PepperPy() as assistant:
+    response = await assistant.ask("query")
+
+# INCORRECT: Assuming specific provider
+if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
+    raise ValueError("OpenAI API key missing")
+```
+
+## Provider Resolution Process
+
+The framework follows this process:
+
+1. Check `PEPPERPY_DOMAIN__PROVIDER` environment variable
+2. Load provider-specific configuration
+3. Initialize appropriate provider
+4. Handle provider-specific setup
+
+## Best Practices
+
+1. **Configuration**:
+   - Use environment variables
+   - Document required variables
+   - Provide example configurations
+
+2. **Provider Usage**:
+   - Stay provider-agnostic
+   - Use framework's configuration
+   - Trust provider resolution
+
+3. **Error Handling**:
+   - Use domain-specific errors
+   - Let framework handle provider errors
+   - Provide helpful error messages
+
+## Common Mistakes to Avoid
+
+1. **Hardcoding Providers**:
+   ```python
+   # BAD: Hardcoding OpenAI
+   if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
+       raise ValueError("OpenAI key missing")
+   ```
+
+2. **Manual API Key Handling**:
+   ```python
+   # BAD: Manual key handling
+   api_key = os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
+   provider = OpenAIProvider(api_key=api_key)
+   ```
+
+3. **Provider-Specific Code**:
+   ```python
+   # BAD: Provider-specific logic
+   if os.getenv("PEPPERPY_LLM__PROVIDER") == "openai":
+       # OpenAI-specific code
+   ```
+
+## Conclusion
+
+Following these provider configuration guidelines ensures:
+1. Provider agnostic code
+2. Proper configuration handling
+3. Clean provider abstraction
+4. Easy provider switching
+5. Maintainable codebase 

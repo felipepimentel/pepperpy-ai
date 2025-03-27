@@ -38,6 +38,8 @@ from openai.types.chat.chat_completion_user_message_param import (
     ChatCompletionUserMessageParam,
 )
 
+from pepperpy.core.base import ProviderError
+from pepperpy.core.utils import lazy_provider_class
 from pepperpy.llm.base import (
     GenerationChunk,
     GenerationResult,
@@ -50,6 +52,7 @@ from pepperpy.llm.base import (
 logger = logging.getLogger(__name__)
 
 
+@lazy_provider_class("llm", "openai")
 class OpenAIProvider(LLMProvider):
     """OpenAI implementation of the LLM provider interface.
 
@@ -69,7 +72,7 @@ class OpenAIProvider(LLMProvider):
         model: str = "gpt-3.5-turbo",
         temperature: float = 0.7,
         max_tokens: Optional[int] = None,
-        config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ) -> None:
         """Initialize OpenAI provider.
 
@@ -78,47 +81,31 @@ class OpenAIProvider(LLMProvider):
             model: Model to use for text generation
             temperature: Sampling temperature (0.0 to 1.0)
             max_tokens: Maximum tokens to generate
-            config: Optional configuration dictionary
+            **kwargs: Additional configuration options
         """
-        # Initialize LLM provider
-        config = config or {}
-        config["api_key"] = api_key
-        config["model"] = model
-        config["temperature"] = temperature
-        if max_tokens is not None:
-            config["max_tokens"] = max_tokens
+        super().__init__(**kwargs)
 
-        super().__init__(config=config)
-
+        self._api_key = api_key
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self._api_key = api_key
         self._sync_client: Optional[OpenAI] = None
         self._async_client: Optional[AsyncOpenAI] = None
         self._tokenizer = None
 
+    @property
+    def api_key(self) -> str:
+        """Get the API key.
+
+        Returns:
+            The API key
+        """
+        return self._api_key
+
     async def initialize(self) -> None:
         """Initialize OpenAI clients."""
-        await super().initialize()
-        await self._initialize_clients()
-
-    async def cleanup(self) -> None:
-        """Cleanup OpenAI clients."""
-        if self._sync_client:
-            await self._sync_client.close()
-            self._sync_client = None
-        if self._async_client:
-            await self._async_client.close()
-            self._async_client = None
-        await super().cleanup()
-
-    async def _initialize_clients(self) -> None:
-        """Initialize OpenAI clients."""
-        if not self._sync_client:
-            self._sync_client = OpenAI(api_key=self._api_key)
-        if not self._async_client:
-            self._async_client = AsyncOpenAI(api_key=self._api_key)
+        self._sync_client = OpenAI(api_key=self.api_key)
+        self._async_client = AsyncOpenAI(api_key=self.api_key)
 
         # Initialize tokenizer
         try:
@@ -126,6 +113,18 @@ class OpenAIProvider(LLMProvider):
         except KeyError:
             # Fallback to cl100k_base for unknown models
             self._tokenizer = tiktoken.get_encoding("cl100k_base")
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        try:
+            if self._sync_client:
+                await self._sync_client.close()
+            if self._async_client:
+                await self._async_client.close()
+        finally:
+            self._sync_client = None
+            self._async_client = None
+            await super().cleanup()
 
     def _convert_messages(
         self, messages: Union[str, List[Message]]
@@ -384,21 +383,93 @@ class OpenAIProvider(LLMProvider):
             logger.error(f"OpenAI embedding failed: {e}")
             raise LLMError(f"OpenAI embedding failed: {e}")
 
+    def get_config(self) -> Dict[str, Any]:
+        """Get the provider configuration.
+
+        Returns:
+            The provider configuration
+        """
+        return {
+            "model": self.model,
+            "temperature": self.temperature,
+            "max_tokens": self.max_tokens,
+        }
+
     def get_capabilities(self) -> Dict[str, Any]:
-        """Get OpenAI provider capabilities."""
-        capabilities = super().get_capabilities()
-        capabilities.update(
-            {
-                "embeddings": True,
-                "streaming": True,
-                "chat_based": True,
-                "function_calling": True,
-                "supported_models": [
-                    "gpt-4",
-                    "gpt-4-turbo-preview",
-                    "gpt-3.5-turbo",
-                ],
-                "max_tokens": 4096,
-            }
-        )
+        """Get the provider capabilities.
+
+        Returns:
+            A dictionary of provider capabilities
+        """
+        capabilities = {
+            "supports_streaming": True,
+            "supports_function_calling": True,
+            "supports_vision": True,
+            "supports_embeddings": True,
+            "max_tokens": 4096,
+            "max_messages": 100,
+        }
+        capabilities.update(super().get_capabilities())
         return capabilities
+
+    async def chat(
+        self,
+        messages: List[Message],
+        stream: bool = False,
+        **kwargs: Any,
+    ) -> Union[str, AsyncIterator[str]]:
+        """Chat with the model.
+
+        Args:
+            messages: List of messages
+            stream: Whether to stream the response
+            **kwargs: Additional options
+
+        Returns:
+            Model response or stream of responses
+
+        Raises:
+            ProviderError: If provider is not initialized
+        """
+        if not self._async_client:
+            raise ProviderError(
+                "OpenAIProvider not initialized. Call initialize() first."
+            )
+
+        # Convert messages to OpenAI format
+        openai_messages = []
+        for message in messages:
+            openai_messages.append({
+                "role": message.role,
+                "content": message.content,
+            })
+
+        # Set up completion options
+        completion_kwargs = {
+            "model": self.model,
+            "messages": openai_messages,
+            "temperature": self.temperature,
+            "stream": stream,
+            **kwargs,
+        }
+        if self.max_tokens:
+            completion_kwargs["max_tokens"] = self.max_tokens
+
+        try:
+            if stream:
+
+                async def response_stream() -> AsyncIterator[str]:
+                    async for chunk in self._async_client.chat.completions.create(
+                        **completion_kwargs
+                    ):
+                        if chunk.choices[0].delta.content:
+                            yield chunk.choices[0].delta.content
+
+                return response_stream()
+            else:
+                response = await self._async_client.chat.completions.create(
+                    **completion_kwargs
+                )
+                return response.choices[0].message.content or ""
+        except Exception as e:
+            raise ProviderError(f"OpenAI API error: {e}") from e

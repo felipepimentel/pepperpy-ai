@@ -16,6 +16,7 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
 
 # Importe a classe de erro do módulo correto com a grafia correta
 from pepperpy.core import PepperpyError
+from pepperpy.core.base import BaseProvider
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")
@@ -419,7 +420,7 @@ def execute_pipeline(
         The output from the pipeline
     """
     pipeline = get_pipeline(name)
-    return pipeline.execute(input_data, context)
+    return pipeline.process(input_data, context)
 
 
 class Workflow(ABC):
@@ -468,3 +469,87 @@ class WorkflowComponent(ABC):
         self.type = type
         self._config = config or {}
         self._metadata = metadata or {}
+
+
+class WorkflowProvider(BaseProvider):
+    """Base class for workflow providers.
+
+    A workflow provider is responsible for executing workflows and managing
+    their lifecycle. It provides methods for creating, executing, and
+    monitoring workflows.
+    """
+
+    def __init__(
+        self,
+        name: str = "workflow",
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize workflow provider.
+
+        Args:
+            name: Provider name
+            config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
+        """
+        super().__init__(name=name, config=config, **kwargs)
+        self._workflows: Dict[str, Workflow] = {}
+
+    @abstractmethod
+    async def create_workflow(
+        self,
+        name: str,
+        components: List[WorkflowComponent],
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Workflow:
+        """Create a new workflow.
+
+        Args:
+            name: Workflow name
+            components: List of workflow components
+            config: Optional workflow configuration
+
+        Returns:
+            Created workflow instance
+        """
+        pass
+
+    @abstractmethod
+    async def execute_workflow(
+        self,
+        workflow: Workflow,
+        input_data: Optional[Any] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Execute a workflow.
+
+        Args:
+            workflow: Workflow to execute
+            input_data: Optional input data
+            config: Optional execution configuration
+
+        Returns:
+            Workflow execution result
+        """
+        pass
+
+    @abstractmethod
+    async def get_workflow(self, workflow_id: str) -> Optional[Workflow]:
+        """Get workflow by ID.
+
+        Args:
+            workflow_id: Workflow identifier
+
+        Returns:
+            Workflow instance or None if not found
+        """
+        pass
+
+    @abstractmethod
+    async def list_workflows(self) -> List[Workflow]:
+        """List all workflows.
+
+        Returns:
+            List of workflow instances
+        """
+        pass

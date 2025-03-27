@@ -230,9 +230,22 @@ class Config:
         provider_config = self.get("llm.config", {})
         provider_config.update(kwargs)
 
+        # Handle OpenAI API key from environment
+        if provider_type == "openai" and "api_key" not in provider_config:
+            api_key = os.environ.get("PEPPERPY_LLM__OPENAI_API_KEY")
+            if not api_key:
+                raise ValidationError("OpenAI API key not found in environment")
+            provider_config["api_key"] = api_key
+
         try:
-            module = __import__(f"pepperpy.llm.{provider_type}", fromlist=[""])
-            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            module = __import__(
+                f"pepperpy.llm.providers.{provider_type}", fromlist=[""]
+            )
+            # Handle special case for OpenAI
+            if provider_type == "openai":
+                provider_class = module.OpenAIProvider
+            else:
+                provider_class = getattr(module, f"{provider_type.title()}Provider")
             return provider_class(**provider_config)
         except (ImportError, AttributeError) as e:
             raise ValidationError(f"Failed to load LLM provider {provider_type}: {e}")
@@ -277,7 +290,9 @@ class Config:
         os.makedirs(persist_directory, exist_ok=True)
 
         try:
-            module = __import__(f"pepperpy.rag.{provider_type}", fromlist=[""])
+            module = __import__(
+                f"pepperpy.rag.providers.{provider_type}", fromlist=[""]
+            )
             provider_class = getattr(module, f"{provider_type.title()}Provider")
             return provider_class(
                 collection_name=collection_name,
@@ -286,19 +301,6 @@ class Config:
             )
         except (ImportError, AttributeError) as e:
             raise ValidationError(f"Failed to load RAG provider {provider_type}: {e}")
-
-    def load_github_client(self) -> Any:
-        """Load GitHub client.
-
-        Returns:
-            GitHub client instance
-
-        Raises:
-            ValidationError: If GitHub configuration is invalid
-        """
-        from pepperpy.tools.repository.providers.github import GitHubProvider
-
-        return GitHubProvider(config=self)
 
     def load_storage_provider(
         self,
@@ -329,6 +331,84 @@ class Config:
         except (ImportError, AttributeError) as e:
             raise ValidationError(
                 f"Failed to load storage provider {provider_type}: {e}"
+            )
+
+    def load_tts_provider(
+        self,
+        provider_type: str = "azure",
+        **kwargs: Any,
+    ) -> Any:
+        """Load TTS provider from configuration.
+
+        Args:
+            provider_type: Type of TTS provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Configured TTS provider instance
+        """
+        provider_config = self.get("tts.config", {})
+        provider_config.update(kwargs)
+
+        try:
+            module = __import__(f"pepperpy.tts.{provider_type}", fromlist=[""])
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(**provider_config)
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(f"Failed to load TTS provider {provider_type}: {e}")
+
+    def load_repository_provider(
+        self,
+        provider_type: str = "github",
+        **kwargs: Any,
+    ) -> Any:
+        """Load repository provider from configuration.
+
+        Args:
+            provider_type: Type of repository provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Configured repository provider instance
+        """
+        provider_config = self.get("repository.config", {})
+        provider_config.update(kwargs)
+
+        try:
+            module = __import__(
+                f"pepperpy.tools.repository.{provider_type}", fromlist=[""]
+            )
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(**provider_config)
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(
+                f"Failed to load repository provider {provider_type}: {e}"
+            )
+
+    def load_workflow_provider(
+        self,
+        provider_type: str = "default",
+        **kwargs: Any,
+    ) -> Any:
+        """Load workflow provider from configuration.
+
+        Args:
+            provider_type: Type of workflow provider
+            **kwargs: Additional provider options
+
+        Returns:
+            Configured workflow provider instance
+        """
+        provider_config = self.get("workflow.config", {})
+        provider_config.update(kwargs)
+
+        try:
+            module = __import__(f"pepperpy.workflow.{provider_type}", fromlist=[""])
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(**provider_config)
+        except (ImportError, AttributeError) as e:
+            raise ValidationError(
+                f"Failed to load workflow provider {provider_type}: {e}"
             )
 
     def _create_provider(

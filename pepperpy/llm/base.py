@@ -20,11 +20,17 @@ Example:
 
 import abc
 import enum
+import importlib
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.core.base import BaseProvider, PepperpyError
+from pepperpy.core.base import (
+    BaseProvider,
+    Component,
+    ComponentError,
+    PepperpyError,
+)
 
 
 class LLMError(PepperpyError):
@@ -361,3 +367,78 @@ class LLMProvider(BaseProvider, abc.ABC):
 
         result = await self.generate(prompt, **kwargs)
         return result.content
+
+
+class LLMComponent(Component):
+    """LLM workflow component.
+
+    This component provides LLM capabilities to workflows by wrapping
+    an LLMProvider instance.
+    """
+
+    def __init__(
+        self,
+        name: str = "llm",
+        provider: Optional[LLMProvider] = None,
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize LLM component.
+
+        Args:
+            name: Component name
+            provider: Optional LLMProvider instance
+            config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
+        """
+        self.name = name
+        self.provider = provider
+        self.config = config or {}
+        self.config.update(kwargs)
+
+    async def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Process inputs using the LLM provider.
+
+        Args:
+            inputs: Input data containing messages to process
+
+        Returns:
+            Output data containing the model response
+
+        Raises:
+            ComponentError: If processing fails
+        """
+        if not self.provider:
+            provider_name = self.config.get("provider", "openai")
+            try:
+                # Import the provider dynamically
+                module_name = f"pepperpy.llm.providers.{provider_name}"
+                try:
+                    provider_module = importlib.import_module(module_name)
+                    provider_class = getattr(
+                        provider_module, f"{provider_name.title()}Provider"
+                    )
+                    self.provider = provider_class(
+                        name=provider_name, config=self.config
+                    )
+                except (ImportError, AttributeError) as e:
+                    raise ComponentError(f"Provider {provider_name} not found: {e}")
+            except Exception as e:
+                raise ComponentError(f"Failed to create LLM provider: {e}")
+
+            try:
+                await self.provider.initialize()
+            except Exception as e:
+                raise ComponentError(f"Failed to initialize LLM provider: {e}")
+
+        try:
+            messages = inputs.get("messages", [])
+            response = await self.provider.chat(messages)
+            return {"response": response}
+        except Exception as e:
+            raise ComponentError(f"LLM processing failed: {e}")
+
+    async def cleanup(self) -> None:
+        """Clean up component resources."""
+        if self.provider:
+            await self.provider.cleanup()

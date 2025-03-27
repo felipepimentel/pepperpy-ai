@@ -23,10 +23,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Union
 
-from pepperpy.core.base import BaseProvider
+from pepperpy.core.base import BaseProvider, Document, PepperpyError
 from pepperpy.core.config import Config
-from pepperpy.core.errors import PepperpyError
-from pepperpy.core.types import Document
+from pepperpy.rag.types import Query
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +137,7 @@ class StorageProvider(BaseProvider, ABC):
             config: Optional configuration dictionary
         """
         super().__init__(name=name, config=config)
+        self.rag_context = None  # Will be initialized by the provider implementation
 
     @abstractmethod
     async def store_vectors(
@@ -468,11 +468,14 @@ class StorageProvider(BaseProvider, ABC):
         path = await self.save_json(filename, data)
 
         # Add to RAG
+        if self.rag_context is None:
+            raise StorageError("RAG context not initialized")
+
         doc = Document(
-            text=json.dumps(data) if isinstance(data, (dict, list)) else str(data),
+            content=json.dumps(data) if isinstance(data, (dict, list)) else str(data),
             metadata={"source": str(path)},
         )
-        await self.rag.add([doc])
+        await self.rag_context.add_documents([doc])
 
     async def store_structured_document(
         self,
@@ -504,8 +507,11 @@ class StorageProvider(BaseProvider, ABC):
         await self.save_json(filename, data, base_dir=output_dir)
 
         # Add to RAG
-        await self.rag.add([
-            Document(text=json.dumps(data, indent=2), metadata={"id": document_id})
+        if self.rag_context is None:
+            raise StorageError("RAG context not initialized")
+
+        await self.rag_context.add_documents([
+            Document(content=json.dumps(data, indent=2), metadata={"id": document_id})
         ])
 
         return data
@@ -533,13 +539,16 @@ class StorageProvider(BaseProvider, ABC):
         Raises:
             StorageError: If search fails
         """
-        results = await self.rag.search(query_text=query_text)
+        if self.rag_context is None:
+            raise StorageError("RAG context not initialized")
+
+        results = await self.rag_context.search(Query(text=query_text))
 
         # Convert documents to dictionaries
         documents = []
         for doc in results:
             try:
-                data = json.loads(doc.text)
+                data = json.loads(doc.content)  # Use content instead of text
                 documents.append(data)
             except:
                 continue

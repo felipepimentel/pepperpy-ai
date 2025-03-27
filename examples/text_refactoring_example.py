@@ -23,7 +23,7 @@ async def analyze_text_structure(text: str) -> Dict[str, List[str]]:
     Returns:
         Dict with sections and their chunks
     """
-    async with PepperPy().with_llm() as assistant:
+    async with PepperPy().with_rag(provider_type="chroma") as assistant:
         # First, get high-level structure
         structure = await assistant.ask(
             "Analyze this text and identify main sections. "
@@ -59,7 +59,7 @@ async def improve_chunk(chunk: str, style_guide: str) -> str:
     Returns:
         Improved chunk
     """
-    async with PepperPy().with_llm().with_rag() as assistant:
+    async with PepperPy().with_rag(provider_type="chroma") as assistant:
         # Learn the style guide
         await assistant.learn(style_guide)
 
@@ -110,7 +110,7 @@ async def refactor_large_text(text: str, style_guide: str) -> str:
         improved_sections[section] = improved_chunks
 
     # Combine sections with proper transitions
-    async with PepperPy().with_llm() as assistant:
+    async with PepperPy() as assistant:
         print("\nCombining sections...")
         final_text = await assistant.ask(
             "Combine these improved sections into a cohesive text. "

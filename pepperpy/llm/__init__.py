@@ -1,6 +1,12 @@
 """LLM module."""
 
 from .base import LLMProvider, Message, MessageRole
-from .component import LLMComponent
+from .providers import OpenAIProvider, OpenRouterProvider
 
-__all__ = ["Message", "MessageRole", "LLMProvider", "LLMComponent"]
+__all__ = [
+    "Message",
+    "MessageRole",
+    "LLMProvider",
+    "OpenAIProvider",
+    "OpenRouterProvider",
+]

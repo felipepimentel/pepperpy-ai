@@ -37,7 +37,7 @@ def generate_article(topic: str) -> Dict[str, Any]:
     context = PipelineContext()
 
     # Process topic through pipeline
-    result = pipeline.execute(topic, context)
+    result = pipeline.process(topic, context)
 
     # Extract final content
     article = {
@@ -86,7 +86,7 @@ def generate_blog_post(topic: str) -> Dict[str, Any]:
     context = PipelineContext()
 
     # Process topic through pipeline
-    result = pipeline.execute(topic, context)
+    result = pipeline.process(topic, context)
 
     # Extract final content
     blog_post = {

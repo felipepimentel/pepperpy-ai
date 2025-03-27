@@ -17,6 +17,7 @@ Example:
 
 import logging
 import os
+import uuid
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.base import ProviderError
@@ -49,6 +50,7 @@ class ChromaProvider(BaseProvider):
         path: Optional[str] = None,
         collection_name: str = "pepperpy",
         embedding_function: Optional[Any] = None,
+        api_key: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize ChromaDB provider.
@@ -57,6 +59,7 @@ class ChromaProvider(BaseProvider):
             path: Path to ChromaDB persistence directory
             collection_name: Name of the collection to use
             embedding_function: Optional custom embedding function
+            api_key: OpenAI API key for embeddings
             **kwargs: Additional configuration options
         """
         super().__init__(**kwargs)
@@ -64,8 +67,18 @@ class ChromaProvider(BaseProvider):
         self.path = path
         self.collection_name = collection_name
         self._embedding_function = embedding_function
+        self._api_key = api_key
         self.client = None
         self._collection: Optional[Any] = None
+
+    @property
+    def api_key(self) -> Optional[str]:
+        """Get the API key.
+
+        Returns:
+            The API key
+        """
+        return self._api_key or os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
 
     @property
     def collection(self) -> Any:
@@ -87,6 +100,9 @@ class ChromaProvider(BaseProvider):
         """Initialize the provider.
 
         This method sets up the ChromaDB client and collection.
+
+        Raises:
+            ProviderError: If OpenAI API key is not found
         """
         # Import chromadb only when provider is instantiated
         chromadb = import_provider("chromadb", "rag", "chroma")
@@ -97,6 +113,19 @@ class ChromaProvider(BaseProvider):
             self.client = chromadb.PersistentClient(path=self.path)
         else:
             self.client = chromadb.Client()
+
+        # Use OpenAI embeddings by default if no custom function provided
+        if not self._embedding_function:
+            if not self.api_key:
+                raise ProviderError(
+                    "OpenAI API key not found. Please set PEPPERPY_LLM__OPENAI_API_KEY "
+                    "environment variable or pass api_key parameter."
+                )
+            self._embedding_function = (
+                chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
+                    api_key=self.api_key, model_name="text-embedding-3-small"
+                )
+            )
 
         # Get or create collection
         self._collection = self.client.get_or_create_collection(
@@ -130,16 +159,11 @@ class ChromaProvider(BaseProvider):
             "max_dimensions": 1536,
         }
 
-    async def add_documents(
-        self,
-        documents: List[Document],
-        **kwargs: Any,
-    ) -> None:
-        """Add documents to the collection.
+    async def store(self, documents: List[Document]) -> None:
+        """Store documents in the collection.
 
         Args:
-            documents: List of documents to add
-            **kwargs: Additional options
+            documents: List of documents to store
         """
         # Convert documents to ChromaDB format
         ids = []
@@ -153,10 +177,10 @@ class ChromaProvider(BaseProvider):
                 doc_id = str(uuid.uuid4())
                 doc["id"] = doc_id
             ids.append(doc_id)
-            texts.append(doc["text"])
-            metadatas.append(doc.get("metadata", {}))
-            if "embeddings" in doc:
-                embeddings.append(doc["embeddings"])
+            texts.append(doc.text)
+            metadatas.append(doc.metadata)
+            if "embeddings" in doc._data:
+                embeddings.append(doc._data["embeddings"])
 
         # Add documents to collection
         if embeddings:
@@ -197,25 +221,11 @@ class ChromaProvider(BaseProvider):
                 text=results["documents"][0][i],
                 metadata=results["metadatas"][0][i] if results["metadatas"] else {},
             )
-            doc.update(
-                {
-                    "id": results["ids"][0][i],
-                    "embeddings": results["embeddings"][0][i]
-                    if results.get("embeddings")
-                    else None,
-                }
-            )
-
-            score = (
-                float(results["distances"][0][i]) if "distances" in results else None
-            )
-            retrieval_results.append(
-                RetrievalResult(
-                    query=query,
-                    documents=[doc],
-                    scores=[score] if score is not None else None,
-                )
-            )
+            if "distances" in results:
+                score = 1.0 - results["distances"][0][i]
+            else:
+                score = 0.0
+            retrieval_results.append(RetrievalResult(document=doc, score=score))
 
         return retrieval_results
 
@@ -284,16 +294,14 @@ class ChromaProvider(BaseProvider):
         documents = []
 
         for i in range(len(results["ids"])):
-            documents.append(
-                {
-                    "id": results["ids"][i],
-                    "text": results["documents"][i],
-                    "metadata": results["metadatas"][i] if results["metadatas"] else {},
-                    "embeddings": results["embeddings"][i]
-                    if results.get("embeddings")
-                    else None,
-                }
-            )
+            documents.append({
+                "id": results["ids"][i],
+                "text": results["documents"][i],
+                "metadata": results["metadatas"][i] if results["metadatas"] else {},
+                "embeddings": results["embeddings"][i]
+                if results.get("embeddings")
+                else None,
+            })
 
         return documents
 
@@ -315,16 +323,14 @@ class ChromaProvider(BaseProvider):
         documents = []
 
         for i in range(len(results["ids"])):
-            documents.append(
-                {
-                    "id": results["ids"][i],
-                    "text": results["documents"][i],
-                    "metadata": results["metadatas"][i] if results["metadatas"] else {},
-                    "embeddings": results["embeddings"][i]
-                    if results.get("embeddings")
-                    else None,
-                }
-            )
+            documents.append({
+                "id": results["ids"][i],
+                "text": results["documents"][i],
+                "metadata": results["metadatas"][i] if results["metadatas"] else {},
+                "embeddings": results["embeddings"][i]
+                if results.get("embeddings")
+                else None,
+            })
 
         return documents
 

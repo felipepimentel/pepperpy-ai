@@ -1,7 +1,7 @@
 """Storage module for PepperPy."""
 
+from pepperpy.core.base import PepperpyError
 from pepperpy.core.config import Config
-from pepperpy.core.errors import PepperpyError
 from pepperpy.storage.base import StorageError, StorageObject, StorageProvider
 
 __all__ = [

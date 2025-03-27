@@ -10,7 +10,11 @@ This module provides the core functionality for PepperPy, including:
 """
 
 from pepperpy.core.base import (
+    BaseComponent,
     BaseProvider,
+    Component,
+    ComponentError,
+    ComponentRegistry,
     ConfigurationError,
     ConnectionError,
     Document,
@@ -56,7 +60,11 @@ from pepperpy.core.version import __version__
 
 __all__ = [
     # Base
+    "BaseComponent",
     "BaseProvider",
+    "Component",
+    "ComponentError",
+    "ComponentRegistry",
     # Config
     "Config",
     # DI

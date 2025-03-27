@@ -41,7 +41,118 @@ HeadersType = Dict[str, str]
 QueryParamsType = Union[Dict[str, Any], str]
 
 
+# Core Exceptions
+class PepperpyError(Exception):
+    """Base class for all PepperPy exceptions."""
+
+    def __init__(self, message: str, *args, **kwargs):
+        """Initialize a PepperPy error.
+
+        Args:
+            message: Error message
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+        """
+        super().__init__(message, *args)
+        self.message = message
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+class ComponentError(PepperpyError):
+    """Error raised by components."""
+
+    pass
+
+
 # Core Protocols and Base Classes
+class Component(Protocol):
+    """Base protocol for all workflow components."""
+
+    async def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Process inputs and return outputs.
+
+        Args:
+            inputs: Input data
+
+        Returns:
+            Output data
+        """
+        return {}  # Default empty response
+
+
+class BaseComponent:
+    """Base class for all components.
+
+    This class provides the foundation for all components in the PepperPy framework.
+    Components are the building blocks of workflows and can be used to process data
+    in a pipeline.
+    """
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize component.
+
+        Args:
+            **kwargs: Component options
+        """
+        self.options = kwargs
+
+    async def process(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Process inputs.
+
+        Args:
+            inputs: Input data
+
+        Returns:
+            Output data
+        """
+        return {}  # Default empty response
+
+
+class ComponentRegistry:
+    """Registry for workflow components."""
+
+    _components: Dict[str, Type[BaseComponent]] = {}
+
+    @classmethod
+    def register(cls, name: str) -> Any:
+        """Register a component.
+
+        Args:
+            name: Component name
+
+        Returns:
+            Decorator function
+        """
+
+        def decorator(component: Type[BaseComponent]) -> Type[BaseComponent]:
+            cls._components[name] = component
+            return component
+
+        return decorator
+
+    @classmethod
+    def get(cls, name: str) -> Optional[Type[BaseComponent]]:
+        """Get a component by name.
+
+        Args:
+            name: Component name
+
+        Returns:
+            Component class or None if not found
+        """
+        return cls._components.get(name)
+
+    @classmethod
+    def list(cls) -> List[str]:
+        """List registered components.
+
+        Returns:
+            List of component names
+        """
+        return list(cls._components.keys())
+
+
 class BaseProvider(ABC):
     """Base class for all providers."""
 
@@ -155,31 +266,6 @@ class Document:
 
 
 # Core Exceptions
-class PepperpyError(Exception):
-    """Base class for all PepperPy exceptions."""
-
-    def __init__(self, message: str, *args, **kwargs):
-        """Initialize a PepperPy error.
-
-        Args:
-            message: Error message
-            *args: Additional positional arguments
-            **kwargs: Additional keyword arguments
-        """
-        super().__init__(message, *args)
-        self.message = message
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-    def __str__(self) -> str:
-        """Get string representation of the error.
-
-        Returns:
-            Error message
-        """
-        return self.message
-
-
 class ProviderError(PepperpyError):
     """Error raised by providers during initialization or execution."""
 

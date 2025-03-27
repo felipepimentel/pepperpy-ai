@@ -10,10 +10,12 @@ Example:
 """
 
 import os
+from abc import abstractmethod
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol, Type
+from typing import Any, AsyncIterator, Dict, List, Optional, Type
 
 from pepperpy.core import PepperpyError
+from pepperpy.core.base import BaseProvider
 
 
 class TTSError(PepperpyError):
@@ -29,7 +31,7 @@ class TTSProviderError(TTSError):
         provider: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.provider = provider
@@ -45,7 +47,7 @@ class TTSConfigError(TTSError):
         config_key: Optional[str] = None,
         config_value: Optional[Any] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.config_key = config_key
@@ -61,7 +63,7 @@ class TTSVoiceError(TTSError):
         voice_id: Optional[str] = None,
         voice_config: Optional[Dict[str, Any]] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(message, *args, **kwargs)
         self.voice_id = voice_id
@@ -78,9 +80,18 @@ class TTSCapabilities(str, Enum):
     EMOTION_CONTROL = "emotion_control"
 
 
-class TTSProvider(Protocol):
+class TTSProvider(BaseProvider):
     """Provider interface for text-to-speech services."""
 
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        await super().initialize()
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        await super().cleanup()
+
+    @abstractmethod
     async def convert_text(self, text: str, voice_id: str, **kwargs: Any) -> bytes:
         """Convert text to speech.
 
@@ -97,6 +108,7 @@ class TTSProvider(Protocol):
         """
         ...
 
+    @abstractmethod
     async def convert_text_stream(
         self, text: str, voice_id: str, **kwargs: Any
     ) -> AsyncIterator[bytes]:
@@ -115,6 +127,7 @@ class TTSProvider(Protocol):
         """
         ...
 
+    @abstractmethod
     async def get_voices(self, **kwargs: Any) -> List[Dict[str, Any]]:
         """Get available voices.
 
@@ -129,6 +142,7 @@ class TTSProvider(Protocol):
         """
         ...
 
+    @abstractmethod
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs: Any) -> str:
         """Clone a voice from audio samples.
 
