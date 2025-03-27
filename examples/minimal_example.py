@@ -8,8 +8,8 @@ import asyncio
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
 import pepperpy
-from pepperpy.llm.base import GenerationChunk, GenerationResult, Message, MessageRole
 from pepperpy.llm import LLMProvider
+from pepperpy.llm.base import GenerationChunk, GenerationResult, Message, MessageRole
 
 
 class MockLLMProvider(LLMProvider):

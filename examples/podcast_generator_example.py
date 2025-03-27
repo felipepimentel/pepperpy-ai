@@ -8,9 +8,15 @@ This example shows how to use PepperPy to create a podcast by:
 """
 
 import asyncio
+from pathlib import Path
 from typing import Dict, List
 
+from dotenv import load_dotenv
+
 import pepperpy
+
+# Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
 
 async def create_podcast(title: str, segments: List[Dict[str, str]]) -> bytes:
@@ -23,22 +29,41 @@ async def create_podcast(title: str, segments: List[Dict[str, str]]) -> bytes:
     Returns:
         Combined audio bytes
     """
-    # Initialize PepperPy with fluent API
-    # Configuration comes from environment variables
+    # Configurar PepperPy para usar o provedor mockado
+    # A configuração vem de variáveis de ambiente no arquivo .env
     pepper = pepperpy.PepperPy().with_tts()
 
     async with pepper:
-        # Convert each segment to audio
-        audio_segments = []
-        for segment in segments:
-            audio = await pepper.text_to_speech(
-                text=segment["content"], voice=segment["speaker"]
-            )
-            audio_segments.append(audio)
+        print(f"Gerando podcast: {title}")
 
-        # Combine segments (simplified example)
-        # In a real implementation, you might use a library like pydub
+        # Converter cada segmento em áudio
+        audio_segments = []
+        for i, segment in enumerate(segments):
+            print(f"Processando segmento {i + 1}/{len(segments)}: {segment['title']}")
+            audio_result = await pepper.text_to_speech(
+                text=segment["content"], voice_id=segment["speaker"]
+            )
+            # O objeto audio_result pode ser um TTSResult ou bytes, dependendo da implementação
+            if hasattr(audio_result, "audio"):
+                audio_segments.append(audio_result.audio)
+            else:
+                # Se for bytes diretamente
+                audio_segments.append(audio_result)
+
+        # Combinar segmentos (exemplo simplificado)
+        # Em uma implementação real, você pode usar bibliotecas como pydub
         combined_audio = b"".join(audio_segments)
+
+        # Salvar o arquivo combinado
+        output_dir = Path("output/tts")
+        output_dir.mkdir(parents=True, exist_ok=True)
+        output_file = output_dir / f"{title}.mp3"
+
+        with open(output_file, "wb") as f:
+            f.write(combined_audio)
+
+        print(f"\nPodcast salvo em: {output_file}")
+
         return combined_audio
 
 
@@ -47,38 +72,32 @@ async def main() -> None:
     print("Podcast Generator Example")
     print("=" * 50)
 
-    # Define podcast segments
+    # Definir segmentos do podcast
     segments = [
         {
-            "title": "intro",
-            "content": "Welcome to our podcast about Python!",
-            "speaker": "en-US-GuyNeural",
+            "title": "Introdução",
+            "content": "Bem-vindo ao nosso podcast sobre Python!",
+            "speaker": "pt-BR-AntonioNeural",
         },
         {
-            "title": "main",
-            "content": "Python is a versatile programming language...",
-            "speaker": "en-US-JennyNeural",
+            "title": "Conteúdo principal",
+            "content": "Python é uma linguagem de programação versátil que pode ser usada para desenvolvimento web, análise de dados, inteligência artificial e muito mais.",
+            "speaker": "pt-BR-FranciscaNeural",
         },
         {
-            "title": "outro",
-            "content": "Thanks for listening!",
-            "speaker": "en-US-GuyNeural",
+            "title": "Conclusão",
+            "content": "Obrigado por ouvir! Espero que tenha gostado do nosso podcast sobre Python.",
+            "speaker": "pt-BR-AntonioNeural",
         },
     ]
 
-    # Generate podcast
-    print("\nGenerating podcast...")
+    # Gerar podcast
+    print("\nGerando podcast...")
     audio = await create_podcast("python_intro", segments)
-    print(f"\nGenerated podcast: {len(audio)} bytes")
-
-    # In a real example, you would save the audio to a file
-    # with open("podcast.mp3", "wb") as f:
-    #     f.write(audio)
+    print(f"\nPodcast gerado: {len(audio)} bytes")
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_TTS__PROVIDER=azure
-    # PEPPERPY_TTS__AZURE__API_KEY=your-azure-speech-key
-    # PEPPERPY_TTS__AZURE__REGION=your-azure-region
+    # Variáveis de ambiente necessárias (definidas no arquivo .env):
+    # PEPPERPY_TTS__PROVIDER=mock ou PEPPERPY_TTS__PROVIDER=murf
     asyncio.run(main())
