@@ -25,6 +25,7 @@ The PepperPy rules system is organized into these categories:
 3. **200-299: Meta-Rules**
    - Rules about rules management and evolution
    - Apply when updating or creating rules
+   - Include rules for knowledge management (262)
 
 ## When to Apply Rules
 
@@ -77,11 +78,16 @@ When creating:
 - **Code patterns**: Follow 007-module-abstraction.mdc
 - **File structure**: Follow 003-file-organization.mdc
 - **API design**: Follow 191-api-evolution.mdc
+- **Examples**: Follow 260-example-best-practices.mdc
 
 When validating:
 - **AI code**: Follow 196-ai-response-validation.mdc
 - **File locations**: Follow 211-file-validation.mdc
 - **Code quality**: Follow 181-code-duplication-prevention.mdc
+
+When learning:
+- **User preferences**: Follow 262-knowledge-management.mdc
+- **Update rules**: Follow 201-rules-management.mdc
 
 ## Using the refactor.py Tool
 

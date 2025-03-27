@@ -1,0 +1,118 @@
+---
+title: Gerenciamento de Conhecimento e Aprendizados
+description: USE WHEN organizando aprendizados da IA e preferências do usuário para garantir persistência de conhecimento entre sessões
+globs: "**/*.py"
+priority: 850
+---
+
+# Gerenciamento de Conhecimento e Aprendizados
+
+## Visão Geral
+
+Esta regra define como o conhecimento adquirido durante interações com o usuário deve ser preservado entre sessões através da atualização sistemática das regras do Cursor, garantindo que preferências e aprendizados persistam ao longo do tempo.
+
+## Princípios de Gerenciamento de Conhecimento
+
+1. **Persistência de Conhecimento** - Todo conhecimento relevante deve ser documentado em regras
+2. **Aprendizado Contínuo** - Regras devem ser atualizadas conforme novos aprendizados ocorrem
+3. **Priorização de Preferências do Usuário** - Preferências explícitas têm precedência sobre padrões
+4. **Contexto Independente** - Conhecimento deve ser acessível independentemente do contexto da conversa
+
+## Categorias de Conhecimento a Preservar
+
+### Preferências de Desenvolvimento
+
+Documentar preferências explícitas do usuário sobre práticas de desenvolvimento:
+
+```
+- Exemplos apenas quando explicitamente solicitados
+- Preferência por exemplos completos e robustos que representem casos reais
+- Preferência por modelos de código específicos
+- Convenções de nomenclatura preferidas
+```
+
+### Padrões de Interação
+
+Documentar como o usuário prefere interagir com o assistente:
+
+```
+- Nível de detalhe nas explicações
+- Formato preferido para apresentação de informações
+- Quando oferecer soluções alternativas
+- Como estruturar respostas complexas
+```
+
+### Conhecimento Técnico Específico
+
+Documentar detalhes técnicos específicos que não estão claramente documentados no código:
+
+```
+- Fluxos de trabalho específicos
+- Configurações de ambiente
+- Padrões de arquitetura não documentados
+- Exceções às regras gerais
+```
+
+## Processo de Atualização de Conhecimento
+
+### Quando Atualizar Regras
+
+As regras devem ser atualizadas nos seguintes casos:
+
+1. Usuário expressa uma preferência clara
+2. Usuário corrige um comportamento do assistente
+3. Usuário identifica um padrão não documentado
+4. Assistente descobre um padrão através da análise de código
+
+### Como Atualizar Regras
+
+1. **Identificar a regra apropriada** para o tipo de conhecimento
+2. **Adicionar informação específica** na seção relevante
+3. **Atualizar exemplos** para refletir o novo conhecimento
+4. **Verificar conflitos** com outras regras existentes
+
+## Preferências Documentadas do Usuário
+
+### Exemplos de Código
+
+✅ **CORRETO - Criar exemplos apenas quando solicitado**:
+```python
+# Exemplo criado apenas após solicitação explícita
+# Representa um caso de uso real e completo
+```
+
+❌ **ERRADO - Criar exemplos automáticos**:
+```python
+# NUNCA criar exemplos sem solicitação específica
+# NUNCA criar exemplos simplificados que não representem casos reais
+```
+
+### Respostas a Aprendizados
+
+✅ **CORRETO - Atualizar regras com novos aprendizados**:
+```markdown
+# Quando aprender algo novo:
+1. Identificar a regra apropriada
+2. Atualizar a regra com o novo conhecimento
+3. Informar sobre a atualização da regra
+```
+
+❌ **ERRADO - Responder sem atualizar regras**:
+```markdown
+# NUNCA apenas reconhecer sem atualizar regras:
+"Entendi sua preferência."  # Insuficiente!
+```
+
+### Tratamento de Ambiguidades
+
+✅ **CORRETO - Documentar ambiguidades e buscar esclarecimento**:
+```markdown
+# Quando houver ambiguidade:
+1. Documentar interpretações possíveis
+2. Buscar esclarecimento
+3. Atualizar regra após esclarecimento
+```
+
+## Conclusão
+
+O gerenciamento eficaz de conhecimento e aprendizados garantirá que as preferências do usuário e conhecimentos adquiridos persistam entre sessões. Através da documentação sistemática em regras, o assistente pode manter consistência e melhorar continuamente sua eficácia. 
