@@ -1,141 +1,115 @@
-"""Example of using text processors in a workflow."""
+"""Example of simplifying text processing with PepperPy."""
 
 import asyncio
 
-from pepperpy.workflow.base import PipelineContext
-from pepperpy.workflow.recipes.text_processing import (
-    BatchTextProcessingStage,
-    TextProcessingStage,
-)
+from pepperpy import PepperPy
 
 
-async def process_single_text() -> None:
-    """Example of processing a single text."""
-    # Create a pipeline with a text processing stage
-    stage = TextProcessingStage(processor="spacy", model="en_core_web_sm")
+async def process_text_with_rag() -> None:
+    """Using RAG for text processing instead of workflows."""
+    print("\n=== Text Processing with RAG ===")
 
-    # Create context with processing options
-    context = PipelineContext()
-    context.set(
-        "processing_options",
-        {
-            "disable": ["parser"]  # Disable specific components for speed
-        },
-    )
+    # Sample text to process
+    text = "Apple Inc. is planning to open a new office in London next year."
 
-    try:
-        # Initialize stage
-        await stage.initialize()
+    # Initialize PepperPy with RAG and LLM support
+    async with PepperPy().with_rag().with_llm() as assistant:
+        # Store the text
+        await assistant.learn(text)
 
-        # Process text
-        text = "Apple Inc. is planning to open a new office in London next year."
-        result = await stage.process(text, context)
+        # Ask questions about the processed text
+        result = await assistant.ask("What company is mentioned in the text?")
 
         # Print results
-        print("\nSingle Text Processing Results:")
-        print(f"Text: {result.text}")
-        print(f"Tokens: {result.tokens}")
-        print(f"Entities: {result.entities}")
-        print(f"Metadata: {result.metadata}")
-        print(f"Context metadata: {context.metadata}")
-    finally:
-        # Clean up resources
-        await stage.cleanup()
+        print("\nText Processing Results:")
+        print(f"Original text: {text}")
+        print(f"Analysis result: {result.content}")
 
 
-async def process_batch_texts() -> None:
-    """Example of processing multiple texts in batch."""
-    # Create a pipeline with a batch text processing stage
-    stage = BatchTextProcessingStage(
-        processor="transformers",
-        model="dbmdz/bert-large-cased-finetuned-conll03-english",
-        device="cpu",
-        batch_size=2,
-    )
+async def process_batch_with_rag() -> None:
+    """Processing multiple texts with RAG."""
+    print("\n=== Batch Text Processing with RAG ===")
 
-    # Create context
-    context = PipelineContext()
+    # Sample texts to process
+    texts = [
+        "Google announced a new AI model yesterday.",
+        "Microsoft is investing heavily in OpenAI.",
+        "Tesla's new factory will be built in Texas.",
+    ]
 
-    try:
-        # Initialize stage
-        await stage.initialize()
+    # Initialize PepperPy with RAG and LLM
+    async with PepperPy().with_rag().with_llm() as assistant:
+        # Store all texts
+        for text in texts:
+            await assistant.learn(text)
 
-        # Process texts
-        texts = [
-            "Google announced a new AI model yesterday.",
-            "Microsoft is investing heavily in OpenAI.",
-            "Tesla's new factory will be built in Texas.",
-        ]
-
-        results = await stage.process(texts, context)
+        # Ask questions about the texts
+        result = await assistant.ask("What companies are mentioned in the documents?")
 
         # Print results
         print("\nBatch Processing Results:")
-        for i, result in enumerate(results, 1):
-            print(f"\nText {i}:")
-            print(f"Original: {result.text}")
-            print(f"Entities: {result.entities}")
+        print("Companies mentioned:")
+        print(result.content)
 
-        print(f"\nContext metadata: {context.metadata}")
-    finally:
-        # Clean up resources
-        await stage.cleanup()
+        # Ask about specific entities
+        result = await assistant.ask("What locations are mentioned in the documents?")
+        print("\nLocations mentioned:")
+        print(result.content)
 
 
-async def multi_processor_pipeline() -> None:
-    """Example of using multiple processors in sequence."""
-    # Create a pipeline that uses both NLTK and SpaCy
-    nltk_stage = TextProcessingStage(
-        processor="nltk",
-        model=None,  # NLTK doesn't require a specific model
-    )
-    spacy_stage = TextProcessingStage(processor="spacy", model="en_core_web_sm")
+async def analyze_complex_text() -> None:
+    """Analyzing complex text with PepperPy."""
+    print("\n=== Complex Text Analysis ===")
 
-    # Create context
-    context = PipelineContext()
+    # Sample text for complex analysis
+    text = """
+    The European Union has announced new climate goals. The targets aim to reduce
+    emissions by 55% by 2030. Several member states, including France and Germany,
+    have pledged additional support.
+    """
 
-    try:
-        # Initialize stages
-        await nltk_stage.initialize()
-        await spacy_stage.initialize()
+    # Initialize PepperPy with RAG and LLM
+    async with PepperPy().with_rag().with_llm() as assistant:
+        # Store the text
+        await assistant.learn(text)
 
-        # Process text
-        text = """
-        The European Union has announced new climate goals. The targets aim to reduce
-        emissions by 55% by 2030. Several member states, including France and Germany,
-        have pledged additional support.
-        """
+        # Perform various analyses through questions
+        results = []
 
-        # Process with NLTK first
-        nltk_result = await nltk_stage.process(text, context)
+        questions = [
+            "What organization is mentioned in the text?",
+            "What specific goal was announced?",
+            "Which countries are mentioned?",
+            "What is the timeline for the climate goals?",
+            "Summarize the text in one sentence.",
+        ]
 
-        # Then process with SpaCy
-        final_result = await spacy_stage.process(nltk_result.text, context)
+        # Get all results
+        for question in questions:
+            result = await assistant.ask(question)
+            results.append((question, result.content))
 
         # Print results
-        print("\nMulti-Processor Pipeline Results:")
-        print(f"Text: {final_result.text}")
-        print(f"Tokens: {final_result.tokens}")
-        print(f"Entities: {final_result.entities}")
-        print(f"Metadata: {final_result.metadata}")
-        print(f"Context metadata: {context.metadata}")
-    finally:
-        # Clean up resources
-        await nltk_stage.cleanup()
-        await spacy_stage.cleanup()
+        print("\nMulti-Aspect Analysis Results:")
+        for question, answer in results:
+            print(f"\nQ: {question}")
+            print(f"A: {answer}")
 
 
 async def main() -> None:
     """Run all examples."""
-    print("Starting text processing examples...")
+    print("Starting text processing examples with PepperPy...")
 
     # Run examples
-    await process_single_text()
-    await process_batch_texts()
-    await multi_processor_pipeline()
+    await process_text_with_rag()
+    await process_batch_with_rag()
+    await analyze_complex_text()
 
     print("\nAll examples completed!")
 
 
 if __name__ == "__main__":
+    # Required environment variables in .env file:
+    # PEPPERPY_RAG__PROVIDER=chroma
+    # PEPPERPY_LLM__PROVIDER=openai
     asyncio.run(main())

@@ -4,30 +4,17 @@ import asyncio
 import os
 from pathlib import Path
 
-from pepperpy import (
-    Document,
-    GenerationResult,
-    PepperPy,
-)
-from pepperpy.core.config import Config
+from pepperpy import PepperPy
 
 
 async def simple_chat_example():
     """Example of simple chat with LLM."""
     print("\n=== Simple Chat Example ===")
 
-    # Configure with custom options
-    config = Config({
-        "llm": {
-            "provider": "openai",
-            "config": {"model": "gpt-3.5-turbo", "temperature": 0.7},
-        }
-    }).to_dict()
-
-    # Simple question
-    async with PepperPy(config) as pepperpy:
-        pepperpy.with_llm()  # Use config settings
-        result: GenerationResult = await pepperpy.send("What is Python?")
+    # Initialize PepperPy with fluent API
+    async with PepperPy().with_llm() as pepperpy:
+        # Simple question
+        result = await pepperpy.ask("What is Python?")
         print("\nResponse:", result.content)
 
 
@@ -35,26 +22,18 @@ async def rag_example():
     """Example of RAG operations."""
     print("\n=== RAG Example ===")
 
-    # Configure with custom options
-    config = Config({
-        "llm": {"provider": "openai"},
-        "rag": {"provider": "chroma"},
-        "embeddings": {"provider": "openai"},
-    }).to_dict()
-
-    # Add knowledge and ask questions
-    async with PepperPy(config) as pepperpy:
-        pepperpy.with_llm().with_rag()
-
-        # Create documents
-        docs = [
-            Document(text="Python is a high-level programming language."),
-            Document(text="Python was created by Guido van Rossum."),
-            Document(text="Python is known for its simple syntax."),
+    # Initialize PepperPy with RAG support
+    async with PepperPy().with_llm().with_rag() as pepperpy:
+        # Create and learn documents one by one
+        docs_texts = [
+            "Python is a high-level programming language.",
+            "Python was created by Guido van Rossum.",
+            "Python is known for its simple syntax.",
         ]
 
         # Store documents
-        await pepperpy.learn(docs)
+        for doc_text in docs_texts:
+            await pepperpy.learn(doc_text)
 
         # Search and generate
         response = await pepperpy.ask("Who created Python?")
@@ -80,18 +59,8 @@ Python is a versatile language used in:
 - Automation
 """)
 
-    # Configure with storage
-    config = Config({
-        "llm": {"provider": "openai"},
-        "rag": {"provider": "chroma"},
-        "embeddings": {"provider": "openai"},
-        "storage": {"provider": "local"},
-    }).to_dict()
-
-    # Load and query knowledge
-    async with PepperPy(config) as pepperpy:
-        pepperpy.with_llm().with_rag().with_storage()
-
+    # Initialize PepperPy with storage support
+    async with PepperPy().with_llm().with_rag().with_storage() as pepperpy:
         # Load file
         await pepperpy.remember("examples/output/docs/python.md")
 
@@ -104,27 +73,18 @@ async def interactive_chat_example():
     """Example of interactive chat with context."""
     print("\n=== Interactive Chat Example ===")
 
-    config = Config({
-        "llm": {
-            "provider": "openai",
-            "config": {"model": "gpt-3.5-turbo", "temperature": 0.7},
-        },
-        "rag": {"provider": "chroma"},
-        "embeddings": {"provider": "openai"},
-    }).to_dict()
-
-    async with PepperPy(config) as pepperpy:
-        pepperpy.with_llm().with_rag()
-
+    # Initialize PepperPy with both LLM and RAG capabilities
+    async with PepperPy().with_llm().with_rag() as pepperpy:
         # Add knowledge
-        docs = [
-            Document(
-                text="PepperPy is a Python framework for building AI applications."
-            ),
-            Document(text="It combines RAG and LLM capabilities."),
-            Document(text="It has a simple, fluent API."),
+        knowledge_texts = [
+            "PepperPy is a Python framework for building AI applications.",
+            "It combines RAG and LLM capabilities.",
+            "It has a simple, fluent API.",
         ]
-        await pepperpy.learn(docs)
+
+        # Learn each piece of knowledge
+        for text in knowledge_texts:
+            await pepperpy.learn(text)
 
         # Simulate conversation
         messages = [
@@ -152,4 +112,10 @@ async def main():
 
 
 if __name__ == "__main__":
+    # Required environment variables in .env file:
+    # PEPPERPY_LLM__PROVIDER=openai
+    # PEPPERPY_LLM__OPENAI__API_KEY=your-api-key
+    # PEPPERPY_RAG__PROVIDER=chroma
+    # PEPPERPY_EMBEDDINGS__PROVIDER=openai
+    # PEPPERPY_STORAGE__PROVIDER=local
     asyncio.run(main())

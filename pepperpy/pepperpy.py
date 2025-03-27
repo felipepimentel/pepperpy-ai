@@ -6,7 +6,7 @@ interacting with the framework's components.
 
 import json
 import os
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
 from pepperpy.core.config import Config
 from pepperpy.embeddings import create_provider as create_embeddings_provider
@@ -381,3 +381,94 @@ class PepperPy:
 
         # Add to RAG
         await self.rag.store([doc])
+
+    async def list_voices(self, **kwargs: Any) -> List[Dict[str, Any]]:
+        """List available TTS voices.
+
+        Args:
+            **kwargs: Additional provider options
+
+        Returns:
+            List of available voices with details
+
+        Example:
+            >>> async with PepperPy() as pepperpy:
+            ...     voices = await pepperpy.list_voices()
+        """
+        return await self.tts.get_voices(**kwargs)
+
+    async def text_to_speech(
+        self,
+        text: str,
+        voice: Optional[str] = None,
+        output_format: Optional[str] = None,
+        **kwargs: Any,
+    ) -> bytes:
+        """Convert text to speech.
+
+        Args:
+            text: Text to convert to speech
+            voice: Voice to use (defaults to provider default)
+            output_format: Output format (defaults to provider default)
+            **kwargs: Additional provider options
+
+        Returns:
+            Audio data as bytes
+
+        Example:
+            >>> async with PepperPy() as pepperpy:
+            ...     audio_data = await pepperpy.text_to_speech("Hello world")
+            ...     with open("output.mp3", "wb") as f:
+            ...         f.write(audio_data)
+        """
+        # Use default voice from provider if not specified
+        voice_name = (
+            voice
+            if voice is not None
+            else (self.config.get("tts.voice") or "en-US-JennyNeural")
+        )
+
+        # Use default format from provider if not specified
+        format_name = (
+            output_format
+            if output_format is not None
+            else (
+                self.config.get("tts.output_format")
+                or "audio-16khz-32kbitrate-mono-mp3"
+            )
+        )
+
+        return await self.tts.synthesize(
+            text=text, voice=voice_name, output_format=format_name, **kwargs
+        )
+
+    async def text_to_speech_stream(
+        self, text: str, voice: Optional[str] = None, **kwargs: Any
+    ) -> AsyncIterator[bytes]:
+        """Stream text to speech conversion.
+
+        Args:
+            text: Text to convert to speech
+            voice: Voice to use (defaults to provider default)
+            **kwargs: Additional provider options
+
+        Returns:
+            Async iterator of audio data chunks
+
+        Example:
+            >>> async with PepperPy() as pepperpy:
+            ...     async for chunk in pepperpy.text_to_speech_stream("Hello world"):
+            ...         # Process audio chunk
+            ...         pass
+        """
+        # Use default voice from provider if not specified
+        voice_name = (
+            voice
+            if voice is not None
+            else (self.config.get("tts.voice") or "en-US-JennyNeural")
+        )
+
+        async_iter = await self.tts.convert_text_stream(
+            text=text, voice_id=voice_name, **kwargs
+        )
+        return async_iter

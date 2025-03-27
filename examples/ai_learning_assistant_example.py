@@ -36,7 +36,16 @@ async def load_student_knowledge(assistant: PepperPy, student_id: str) -> None:
 
 
 async def generate_lesson(assistant: PepperPy, topic: str) -> Dict:
-    """Generate a personalized lesson."""
+    """Generate a personalized lesson.
+
+    Args:
+        assistant: Configured PepperPy instance
+        topic: The lesson topic
+
+    Returns:
+        Dictionary containing the lesson content and audio
+    """
+    # Get lesson content
     result = await assistant.ask(
         f"Create a lesson about {topic} with: "
         "1. A brief introduction "
@@ -44,8 +53,14 @@ async def generate_lesson(assistant: PepperPy, topic: str) -> Dict:
         "3. An example or exercise"
     )
 
-    lesson = {"topic": topic, "content": result.content}
-    lesson["audio"] = await assistant.tts.convert_text(result.content)
+    # Create the lesson dictionary with content
+    content = result.content
+    lesson = {"topic": topic, "content": content}
+
+    # Generate audio and store a reference to it
+    audio_data = await assistant.text_to_speech(text=content)
+    lesson["audio_byte_size"] = str(len(audio_data))
+
     return lesson
 
 

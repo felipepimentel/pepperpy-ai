@@ -1,170 +1,79 @@
-"""Example script demonstrating text chunking strategies."""
+"""Example script demonstrating text processing with PepperPy."""
 
 import asyncio
-from pepperpy.rag.chunking.base import ChunkingOptions
-from pepperpy.rag.chunking.semantic import SemanticChunker
-from pepperpy.rag.chunking.recursive import RecursiveCharNGramChunker
-from pepperpy.rag.chunking.transformers import SentenceTransformersChunker
+
+from pepperpy import PepperPy
 
 
-async def semantic_chunking() -> None:
-    """Demonstrate semantic chunking using SpaCy."""
-    print("\n=== Semantic Chunking ===")
-    
-    text = """
-    Natural language processing (NLP) is a field of artificial intelligence 
-    that focuses on the interaction between computers and human language.
-    
-    Machine learning algorithms are used to process and analyze large amounts
-    of natural language data. This enables computers to understand the meaning
-    of text and speech.
-    
-    Deep learning models have revolutionized NLP by achieving state-of-the-art
-    results on many language tasks. These models can learn complex patterns
-    in language data automatically.
-    """
-    
-    chunker = SemanticChunker()
-    options = ChunkingOptions(
-        chunk_size=100,
-        chunk_overlap=20,
-        min_chunk_size=50,
-        max_chunk_size=150
-    )
-    
-    try:
-        # Initialize chunker
-        await chunker.initialize()
-        
-        # Split text into chunks
-        chunks = await chunker.chunk_text(text, options)
-        
-        print(f"\nSplit into {len(chunks)} chunks:")
-        for i, chunk in enumerate(chunks, 1):
-            print(f"\nChunk {i}:")
-            print(f"Text: {chunk.text}")
-            print(f"Start: {chunk.start}, End: {chunk.end}")
-            print(f"Length: {len(chunk.text)}")
-            print(f"Metadata: {chunk.metadata}")
-            
-        # Merge chunks back
-        merged = await chunker.merge_chunks(chunks)
-        print(f"\nMerged text length: {len(merged)}")
-        
-    finally:
-        await chunker.cleanup()
+async def process_text_example() -> None:
+    """Demonstrate text processing with PepperPy."""
+    print("\n=== Text Processing Example ===")
 
+    # Sample text documents to process
+    documents = [
+        """
+        Natural language processing (NLP) is a field of artificial intelligence 
+        that focuses on the interaction between computers and human language.
+        
+        Machine learning algorithms are used to process and analyze large amounts
+        of natural language data. This enables computers to understand the meaning
+        of text and speech.
+        """,
+        """
+        Text chunking is the process of splitting large documents into smaller,
+        manageable pieces while preserving meaning and context.
+        
+        Different chunking strategies can be used depending on the requirements:
+        - Fixed-size chunks with overlap
+        - Semantic boundaries like sentences and paragraphs
+        - Dynamic sizing based on content
+        """,
+        """
+        Transformers have revolutionized natural language processing by enabling
+        better understanding of context and meaning in text.
+        
+        The attention mechanism allows models to focus on relevant parts of the
+        input when making predictions. This has led to significant improvements
+        in many NLP tasks.
+        """,
+    ]
 
-async def recursive_chunking() -> None:
-    """Demonstrate recursive character n-gram chunking."""
-    print("\n=== Recursive Chunking ===")
-    
-    text = """
-    Text chunking is the process of splitting large documents into smaller,
-    manageable pieces while preserving meaning and context.
-    
-    Different chunking strategies can be used depending on the requirements:
-    - Fixed-size chunks with overlap
-    - Semantic boundaries like sentences and paragraphs
-    - Dynamic sizing based on content
-    
-    The choice of chunking strategy affects downstream tasks like:
-    1. Document indexing
-    2. Search relevance
-    3. Question answering
-    4. Text summarization
-    """
-    
-    chunker = RecursiveCharNGramChunker()
-    options = ChunkingOptions(
-        chunk_size=120,
-        chunk_overlap=30,
-        min_chunk_size=60,
-        max_chunk_size=180
-    )
-    
-    try:
-        # Initialize chunker
-        await chunker.initialize()
-        
-        # Split text into chunks
-        chunks = await chunker.chunk_text(text, options)
-        
-        print(f"\nSplit into {len(chunks)} chunks:")
-        for i, chunk in enumerate(chunks, 1):
-            print(f"\nChunk {i}:")
-            print(f"Text: {chunk.text}")
-            print(f"Start: {chunk.start}, End: {chunk.end}")
-            print(f"Length: {len(chunk.text)}")
-            print(f"Metadata: {chunk.metadata}")
-            
-        # Merge chunks back
-        merged = await chunker.merge_chunks(chunks)
-        print(f"\nMerged text length: {len(merged)}")
-        
-    finally:
-        await chunker.cleanup()
+    # Create PepperPy instance with RAG support
+    async with PepperPy().with_rag() as assistant:
+        # Process and learn each document
+        for i, doc in enumerate(documents, 1):
+            print(f"\nProcessing document {i}...")
 
+            # Learn the document content
+            await assistant.learn(doc)
 
-async def transformer_chunking() -> None:
-    """Demonstrate sentence transformer chunking."""
-    print("\n=== Transformer Chunking ===")
-    
-    text = """
-    Transformers have revolutionized natural language processing by enabling
-    better understanding of context and meaning in text.
-    
-    The attention mechanism allows models to focus on relevant parts of the
-    input when making predictions. This has led to significant improvements
-    in many NLP tasks.
-    
-    Pre-trained language models can be fine-tuned for specific tasks like:
-    - Text classification
-    - Named entity recognition
-    - Question answering
-    - Machine translation
-    
-    Transfer learning from these pre-trained models has made it possible to
-    achieve good results with less task-specific training data.
-    """
-    
-    chunker = SentenceTransformersChunker()
-    options = ChunkingOptions(
-        chunk_size=150,
-        chunk_overlap=40,
-        min_chunk_size=80,
-        max_chunk_size=200
-    )
-    
-    try:
-        # Initialize chunker
-        await chunker.initialize()
-        
-        # Split text into chunks
-        chunks = await chunker.chunk_text(text, options)
-        
-        print(f"\nSplit into {len(chunks)} chunks:")
-        for i, chunk in enumerate(chunks, 1):
-            print(f"\nChunk {i}:")
-            print(f"Text: {chunk.text}")
-            print(f"Start: {chunk.start}, End: {chunk.end}")
-            print(f"Length: {len(chunk.text)}")
-            print(f"Metadata: {chunk.metadata}")
-            
-        # Merge chunks back
-        merged = await chunker.merge_chunks(chunks)
-        print(f"\nMerged text length: {len(merged)}")
-        
-    finally:
-        await chunker.cleanup()
+            print(f"Document {i} processed successfully")
+
+        # Ask a question that requires understanding of the processed text
+        print("\nQuerying the processed documents...")
+        result = await assistant.ask(
+            "What are the main topics covered in these documents?"
+        )
+
+        print("\nResponse:")
+        print(result.content)
+
+        print("\nQuerying about a specific concept...")
+        result = await assistant.ask(
+            "Explain what text chunking is and why it's important."
+        )
+
+        print("\nResponse:")
+        print(result.content)
 
 
 async def main() -> None:
-    """Run chunking examples."""
-    await semantic_chunking()
-    await recursive_chunking()
-    await transformer_chunking()
+    """Run the text processing example."""
+    await process_text_example()
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    # Required environment variables in .env file:
+    # PEPPERPY_RAG__PROVIDER=chroma (or appropriate provider)
+    # PEPPERPY_LLM__PROVIDER=openai (or appropriate provider)
+    asyncio.run(main())

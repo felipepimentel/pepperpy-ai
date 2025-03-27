@@ -1,17 +1,13 @@
-"""Example script demonstrating content generation workflow."""
+"""Example script demonstrating content generation workflow with PepperPy."""
 
+import asyncio
 from typing import Any, Dict
 
-from pepperpy.workflow.base import Pipeline, PipelineContext
-from pepperpy.workflow.recipes.content_generation import (
-    ContentDraftStage,
-    ContentOutlineStage,
-    ContentRefinementStage,
-    TopicResearchStage,
-)
+import pepperpy
+from pepperpy.llm import Message, MessageRole
 
 
-def generate_article(topic: str) -> Dict[str, Any]:
+async def generate_article(topic: str) -> Dict[str, Any]:
     """Generate an article about a topic.
 
     Args:
@@ -20,37 +16,43 @@ def generate_article(topic: str) -> Dict[str, Any]:
     Returns:
         Generated article content
     """
-    # Create workflow stages
-    stages = [
-        TopicResearchStage(search_provider="google", num_sources=5),
-        ContentOutlineStage(outline_type="article"),
-        ContentDraftStage(model="gpt-4", style="informative"),
-        ContentRefinementStage(
-            refinements=["grammar", "style", "clarity", "citations"]
-        ),
-    ]
+    # Initialize PepperPy with fluent API
+    pepper = pepperpy.PepperPy().with_llm()
 
-    # Create pipeline
-    pipeline = Pipeline(name="article_generation", stages=stages)
+    async with pepper:
+        # Generate the article using the correct LLM API
+        messages = [
+            Message(
+                role=MessageRole.SYSTEM,
+                content=(
+                    "You are a professional content writer specializing in informative articles. "
+                    "Write a well-structured article on the provided topic. "
+                    "Include proper citations and references to support your points."
+                ),
+            ),
+            Message(
+                role=MessageRole.USER,
+                content=f"Write an informative article about: {topic}",
+            ),
+        ]
 
-    # Create context
-    context = PipelineContext()
+        result = await pepper.llm.generate(messages)
 
-    # Process topic through pipeline
-    result = pipeline.process(topic, context)
+        # Format response into article structure
+        article = {
+            "title": topic,
+            "content": result.content,
+            "references": ["Example Reference 1", "Example Reference 2"],
+            "metadata": {
+                "style": "informative",
+                "word_count": len(result.content.split()),
+            },
+        }
 
-    # Extract final content
-    article = {
-        "title": result["title"],
-        "content": result["content"],
-        "references": result["references"],
-        "metadata": context.metadata,
-    }
-
-    return article
+        return article
 
 
-def generate_blog_post(topic: str) -> Dict[str, Any]:
+async def generate_blog_post(topic: str) -> Dict[str, Any]:
     """Generate a blog post about a topic.
 
     Args:
@@ -59,62 +61,65 @@ def generate_blog_post(topic: str) -> Dict[str, Any]:
     Returns:
         Generated blog post content
     """
-    # Create workflow stages with blog-specific settings
-    stages = [
-        TopicResearchStage(
-            search_provider="google",
-            num_sources=3,  # Fewer sources for blog posts
-        ),
-        ContentOutlineStage(outline_type="blog_post"),
-        ContentDraftStage(
-            model="gpt-4",
-            style="conversational",  # More casual style
-        ),
-        ContentRefinementStage(
-            refinements=[
-                "grammar",
-                "style",
-                "clarity",  # No citations needed for blog posts
-            ]
-        ),
-    ]
+    # Initialize PepperPy with fluent API
+    pepper = pepperpy.PepperPy().with_llm()
 
-    # Create pipeline
-    pipeline = Pipeline(name="blog_post_generation", stages=stages)
+    async with pepper:
+        # Generate the blog post using the correct LLM API
+        messages = [
+            Message(
+                role=MessageRole.SYSTEM,
+                content=(
+                    "You are a conversational blog writer who specializes in engaging content. "
+                    "Write a blog post on the provided topic in a friendly, approachable style. "
+                    "Use a conversational tone throughout."
+                ),
+            ),
+            Message(
+                role=MessageRole.USER,
+                content=f"Write an engaging blog post about: {topic}",
+            ),
+        ]
 
-    # Create context
-    context = PipelineContext()
+        result = await pepper.llm.generate(messages)
 
-    # Process topic through pipeline
-    result = pipeline.process(topic, context)
+        # Format response into blog post structure
+        blog_post = {
+            "title": topic,
+            "content": result.content,
+            "metadata": {
+                "style": "conversational",
+                "word_count": len(result.content.split()),
+            },
+        }
 
-    # Extract final content
-    blog_post = {
-        "title": result["title"],
-        "content": result["content"],
-        "metadata": context.metadata,
-    }
-
-    return blog_post
+        return blog_post
 
 
-def main() -> None:
+async def main() -> None:
     """Run example content generation workflows."""
+    print("Content Generation Example")
+    print("=" * 50)
+
     # Generate article
-    article = generate_article("Artificial Intelligence Ethics")
+    print("\nGenerating article...")
+    article = await generate_article("Artificial Intelligence Ethics")
+
     print("\nGenerated Article:")
     print(f"Title: {article['title']}")
-    print(f"Content:\n{article['content']}")
-    print(f"References: {article['references']}")
-    print(f"Metadata: {article['metadata']}")
+    print(f"Content (excerpt):\n{article['content'][:300]}...")
+    print(f"References: {len(article['references'])} sources")
 
     # Generate blog post
-    blog_post = generate_blog_post("Getting Started with Python")
+    print("\nGenerating blog post...")
+    blog_post = await generate_blog_post("Getting Started with Python")
+
     print("\nGenerated Blog Post:")
     print(f"Title: {blog_post['title']}")
-    print(f"Content:\n{blog_post['content']}")
-    print(f"Metadata: {blog_post['metadata']}")
+    print(f"Content (excerpt):\n{blog_post['content'][:300]}...")
 
 
 if __name__ == "__main__":
-    main()
+    # Required environment variables in .env file:
+    # PEPPERPY_LLM__PROVIDER=openai
+    asyncio.run(main())
