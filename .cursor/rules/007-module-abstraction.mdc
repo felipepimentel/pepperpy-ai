@@ -1,49 +1,63 @@
 ---
-title: Module Abstraction
-description: Guidelines for implementing and using modules in the PepperPy framework
-globs:
+title: Module Abstraction and Organization
+description: Core guidelines for implementing and using modules in the PepperPy framework
+globs: 
   - "pepperpy/**/*.py"
-priority: 600
+priority: 700
 ---
 
-# Module Abstraction and Interface Organization
+# Module Abstraction and Organization
 
 ## Overview
 
-This rule defines standards for organizing modules and interfaces in the PepperPy framework, ensuring a clear abstraction between the public API and internal implementations.
+This rule defines the core standards for organizing modules and interfaces in the PepperPy framework, ensuring a clear abstraction between the public API and internal implementations. This is the single source of truth for module structure and organization.
 
 ## Module Structure
 
-### File Organization
+### Standard Directory Layout
 
-Each module follows this structure:
+Each module MUST follow this structure:
 
 ```
-module/
-├── __init__.py         # Public API exports
-├── base.py            # Core interfaces, types, and implementations
-└── providers/         # Provider implementations
-    ├── __init__.py    # Provider exports
-    └── specific.py    # Specific provider
+module_name/           # e.g., llm, rag, storage
+├── __init__.py       # Public API exports
+├── base.py          # Core interfaces, types, and base implementations
+├── errors.py        # Domain-specific errors
+├── config.py        # Domain configuration
+└── providers/       # Provider implementations
+    ├── __init__.py  # Provider exports
+    └── specific.py  # Specific provider implementation
 ```
 
 ### File Responsibilities
 
-1. **base.py**:
+1. **base.py** - Core Module Definition:
    - Interfaces (Protocols/ABC)
    - Base implementations
    - Data types and models
-   - Error definitions
    - Core functionality
+   - Type definitions (previously in types.py)
 
-2. **__init__.py**:
-   - Public API exports
-   - Re-export of types and interfaces
-   - Re-export of providers
+2. **__init__.py** - Public API:
+   - Re-export public interfaces
+   - Re-export provider implementations
+   - Define module-level functions
+   - Type exports
 
-3. **providers/**:
-   - Concrete implementations
+3. **errors.py** - Error Definitions:
+   - Domain-specific exceptions
+   - Error hierarchies
+   - Error utilities
+
+4. **config.py** - Configuration:
+   - Environment variable definitions
+   - Configuration classes
+   - Default values
+
+5. **providers/** - Implementations:
+   - One file per provider
    - Provider-specific code
+   - Follow base interfaces
 
 ## Interface Patterns
 
@@ -71,13 +85,13 @@ class LLMProvider(Protocol):
 ❌ **Incorrect**:
 ```python
 # Scattered across multiple files
-# provider.py
-class LLMProvider: ...
-
-# types.py
+# types.py - WRONG: Should be in base.py
 class Message: ...
 
-# errors.py
+# provider.py - WRONG: Should be in base.py
+class LLMProvider: ...
+
+# errors.py - WRONG: Domain errors should be in base.py
 class LLMError: ...
 ```
 
@@ -110,13 +124,29 @@ from .base import _internal_function
 ✅ **Correct**:
 ```python
 # providers/openrouter.py
+from typing import Optional
 from ..base import LLMProvider, Message, LLMError
+from ..config import LLMConfig
 
 class OpenRouterProvider(LLMProvider):
     """OpenRouter implementation."""
+    def __init__(self, config: LLMConfig):
+        self.config = config
+        self._client: Optional[OpenRouterClient] = None
+
+    async def initialize(self) -> None:
+        """Initialize provider."""
+        self._client = OpenRouterClient(self.config.api_key)
+
     async def generate(self, prompt: str) -> str:
-        # Implementation
-        ...
+        if not self._client:
+            raise LLMError("Provider not initialized")
+        return await self._client.generate(prompt)
+
+    async def cleanup(self) -> None:
+        """Cleanup resources."""
+        if self._client:
+            await self._client.close()
 ```
 
 ❌ **Incorrect**:
@@ -237,21 +267,26 @@ class ChromaProvider(RAGProvider):
    - Keep all core functionality in `base.py`
    - Export public API through `__init__.py`
    - Implement providers in `providers/`
+   - Domain errors in `base.py`
+   - Configuration in `config.py`
 
 2. **Interface Design**:
    - Use Protocol for interfaces
    - Include domain-specific errors
    - Define clear data types
+   - Keep interfaces minimal
 
 3. **Provider Implementation**:
    - Follow interface contracts
    - Handle errors appropriately
    - Clean up resources
+   - Keep provider-specific code isolated
 
 4. **Module Usage**:
    - Import from module root
    - Use interfaces in type hints
    - Configure through environment
+   - Handle errors properly
 
 ## Conclusion
 
@@ -261,4 +296,6 @@ Following these module abstraction patterns ensures:
 3. Easy provider swapping
 4. Proper error handling
 5. Resource cleanup
-6. Configuration flexibility 
+6. Configuration flexibility
+7. Maintainable codebase
+8. Consistent module structure 

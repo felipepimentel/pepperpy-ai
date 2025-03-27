@@ -1,0 +1,296 @@
+---
+title: Environment Variables Standardization
+description: Standards for environment variable naming, organization, and usage across the PepperPy framework
+globs: 
+  - "pepperpy/**/*.py"
+priority: 400
+---
+
+# Environment Variables Standardization
+
+## Overview
+
+This rule defines standards for environment variable naming, organization, and usage in the PepperPy framework. Consistent environment variable naming is crucial for configuration management, documentation, and user experience.
+
+## Naming Convention
+
+All environment variables in PepperPy follow this hierarchical pattern:
+
+```
+PEPPERPY_<DOMAIN>__<SETTING>
+PEPPERPY_<DOMAIN>__<PROVIDER>_<SETTING>  # When provider-specific
+```
+
+Where:
+- `PEPPERPY_`: Framework prefix (always required)
+- `<DOMAIN>`: Functional domain (e.g., LLM, RAG, TTS)
+- `__`: Double underscore separator for domain hierarchy
+- `<PROVIDER>`: (Optional) Provider name when applicable
+- `_`: Single underscore for regular word separation
+- `<SETTING>`: Specific configuration setting
+
+### Examples
+
+```bash
+# General configuration (without provider)
+PEPPERPY_APP__DEBUG=true
+PEPPERPY_RAG__TEXT_CHUNK_SIZE=1000
+PEPPERPY_MEMORY__IMPORTANCE_THRESHOLD=0.5
+
+# Provider-specific configuration
+PEPPERPY_LLM__OPENAI_API_KEY=sk-....
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
+PEPPERPY_NEWS__NEWSAPI_API_KEY=...
+
+# Provider selection
+PEPPERPY_LLM__PROVIDER=openrouter
+PEPPERPY_LLM__MODEL=openai/gpt-4
+```
+
+## Environment Variable Access
+
+### 1. Using the Config Module
+
+Always use the framework's config module to access environment variables:
+
+```python
+from pepperpy.core.config import Config
+
+# Get a required environment variable
+api_key = Config.get_required("PEPPERPY_LLM__OPENAI_API_KEY")
+
+# Get an optional environment variable with default
+debug = Config.get_bool("PEPPERPY_APP__DEBUG", default=False)
+chunk_size = Config.get_int("PEPPERPY_RAG__TEXT_CHUNK_SIZE", default=1000)
+```
+
+### 2. Error Handling
+
+Always provide clear error messages when required environment variables are missing:
+
+```python
+if not api_key:
+    raise ValueError(
+        "PEPPERPY_LLM__OPENAI_API_KEY environment variable is required.\n"
+        "Get a key at https://openai.com and set it as:\n"
+        "export PEPPERPY_LLM__OPENAI_API_KEY=your-api-key"
+    )
+```
+
+## Standard Domain Prefixes
+
+Use these standardized domain prefixes:
+
+```python
+# Core Framework
+PEPPERPY_APP__      # Application-level settings
+PEPPERPY_CORE__     # Core framework settings
+PEPPERPY_LOG__      # Logging configuration
+PEPPERPY_SECURITY__ # Security settings
+
+# AI/ML Domains
+PEPPERPY_LLM__      # Language model settings
+PEPPERPY_RAG__      # Retrieval augmented generation
+PEPPERPY_TTS__      # Text-to-speech settings
+PEPPERPY_IMAGE__    # Image generation settings
+
+# Data & Storage
+PEPPERPY_DATABASE__ # Database configuration
+PEPPERPY_MEMORY__   # Memory and embedding settings
+PEPPERPY_CACHE__    # Caching settings
+
+# Integration
+PEPPERPY_API__      # API configuration
+PEPPERPY_CORS__     # CORS settings
+PEPPERPY_NEWS__     # News API related settings
+PEPPERPY_SEARCH__   # Search service settings
+
+# Development
+PEPPERPY_DEV__      # Development settings
+PEPPERPY_TEST__     # Testing configuration
+PEPPERPY_DEBUG__    # Debug settings
+```
+
+## Provider Naming Standards
+
+Use these standardized provider names in environment variables:
+
+```python
+# AI/ML Providers
+OPENAI      # OpenAI services
+OPENROUTER  # OpenRouter services
+ANTHROPIC   # Anthropic/Claude services
+GOOGLE      # Google services
+ELEVENLABS  # ElevenLabs services
+STABILITY   # Stability AI services
+
+# Data Providers
+NEWSAPI     # NewsAPI.org
+NEWSDATA    # NewsData.io
+FINLIGHT    # Finlight services
+SERPER      # Serper services
+
+# Storage Providers
+PINECONE    # Pinecone vector store
+CHROMA      # Chroma vector store
+POSTGRES    # PostgreSQL database
+REDIS       # Redis cache
+```
+
+## Configuration Organization
+
+Organize environment variables by domain in configuration files:
+
+```bash
+# Application Settings
+PEPPERPY_APP__NAME=PepperPy
+PEPPERPY_APP__VERSION=0.1.0
+PEPPERPY_APP__DEBUG=true
+
+# LLM Configuration
+PEPPERPY_LLM__PROVIDER=openrouter
+PEPPERPY_LLM__MODEL=openai/gpt-4
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
+PEPPERPY_LLM__OPENAI_API_KEY=sk-...
+
+# RAG Configuration
+PEPPERPY_RAG__PROVIDER=chroma
+PEPPERPY_RAG__TEXT_CHUNK_SIZE=1000
+PEPPERPY_RAG__EMBEDDING_MODEL=openai/text-embedding-3-small
+
+# Storage Configuration
+PEPPERPY_DATABASE__PROVIDER=postgres
+PEPPERPY_DATABASE__URL=postgresql://...
+```
+
+## Documentation Requirements
+
+When documenting environment variables:
+
+1. **Group by Domain**: Keep related variables together
+2. **Provide Examples**: Show example values
+3. **Include Links**: Link to relevant API documentation
+4. **Document Constraints**: Note any limitations or requirements
+
+Example:
+
+```python
+"""
+Required Environment Variables:
+
+1. LLM Configuration:
+   PEPPERPY_LLM__PROVIDER: Provider to use (openai, openrouter, anthropic)
+   PEPPERPY_LLM__MODEL: Model to use (e.g., openai/gpt-4)
+   PEPPERPY_LLM__OPENROUTER_API_KEY: OpenRouter API key
+   - Get a key at https://openrouter.ai
+   - Free tier: 1M tokens/month
+   - Example: PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
+
+2. RAG Configuration:
+   PEPPERPY_RAG__PROVIDER: Vector store provider (chroma, pinecone)
+   PEPPERPY_RAG__TEXT_CHUNK_SIZE: Size of text chunks for indexing
+   - Default: 1000
+   - Range: 100-2000
+   - Example: PEPPERPY_RAG__TEXT_CHUNK_SIZE=1000
+"""
+```
+
+## Validation and Enforcement
+
+### 1. Environment Variable Validation
+
+Use the validation script to check environment variables:
+
+```bash
+python scripts/validate_env.py
+```
+
+This script will:
+1. Verify naming conventions
+2. Check for deprecated variables
+3. Ensure documentation matches implementation
+4. Validate required variables are set
+
+### 2. Configuration Classes
+
+Create typed configuration classes for each domain:
+
+```python
+from dataclasses import dataclass, field
+from typing import Dict, Any, Optional
+
+@dataclass
+class ProviderConfig:
+    """Base provider configuration."""
+    provider: str
+    options: Dict[str, Any] = field(default_factory=dict)
+
+@dataclass
+class LLMConfig(ProviderConfig):
+    """LLM configuration."""
+    model: str
+    api_key: Optional[str] = None
+    temperature: float = 0.7
+    max_tokens: int = 2000
+
+    @classmethod
+    def from_env(cls) -> "LLMConfig":
+        """Create config from environment variables."""
+        provider = Config.get_required("PEPPERPY_LLM__PROVIDER")
+        return cls(
+            provider=provider,
+            model=Config.get_required("PEPPERPY_LLM__MODEL"),
+            api_key=Config.get_required(f"PEPPERPY_LLM__{provider.upper()}_API_KEY"),
+            temperature=Config.get_float("PEPPERPY_LLM__TEMPERATURE", 0.7),
+            max_tokens=Config.get_int("PEPPERPY_LLM__MAX_TOKENS", 2000),
+        )
+
+@dataclass
+class RAGConfig(ProviderConfig):
+    """RAG configuration."""
+    chunk_size: int = 1000
+    embedding_model: str = "openai/text-embedding-3-small"
+
+    @classmethod
+    def from_env(cls) -> "RAGConfig":
+        """Create config from environment variables."""
+        provider = Config.get_required("PEPPERPY_RAG__PROVIDER")
+        return cls(
+            provider=provider,
+            chunk_size=Config.get_int("PEPPERPY_RAG__TEXT_CHUNK_SIZE", 1000),
+            embedding_model=Config.get_required("PEPPERPY_RAG__EMBEDDING_MODEL"),
+        )
+```
+
+## Best Practices
+
+1. **Naming**:
+   - Use consistent domain prefixes
+   - Follow the hierarchical pattern
+   - Use clear, descriptive names
+
+2. **Organization**:
+   - Group by domain
+   - Separate provider-specific settings
+   - Use consistent formatting
+
+3. **Documentation**:
+   - Document all variables
+   - Include examples
+   - Note constraints
+   - Link to resources
+
+4. **Validation**:
+   - Validate at startup
+   - Use typed configuration
+   - Provide helpful errors
+
+## Conclusion
+
+Following these environment variable standards ensures:
+1. Consistent configuration
+2. Clear organization
+3. Easy provider switching
+4. Type safety
+5. Good documentation
+6. Maintainable settings 
