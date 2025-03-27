@@ -16,7 +16,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Type
 
 from pepperpy.core import PepperpyError
 from pepperpy.core.base import BaseProvider
-from pepperpy.core.workflow import ValidationError, WorkflowComponent
+from pepperpy.workflow.base import WorkflowComponent
 
 
 class TTSError(PepperpyError):

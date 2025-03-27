@@ -1,18 +1,9 @@
-"""RAG providers for PepperPy."""
+"""RAG provider implementations."""
 
-from .base import BaseRAGProvider
-from .chroma import ChromaProvider
-from .oasys import OasysProvider
-from .tiny_vector import TinyVectorProvider
-from .vectordb import VectorDBProvider
+from pepperpy.rag.base import RAGProvider
+from pepperpy.rag.providers.chroma import ChromaProvider
 
-__all__ = [
-    "BaseRAGProvider",
-    "ChromaProvider",
-    "TinyVectorProvider",
-    "VectorDBProvider",
-    "OasysProvider",
-]
+__all__ = ["RAGProvider", "ChromaProvider"]
 
 # Set default provider
 DEFAULT_PROVIDER = ChromaProvider

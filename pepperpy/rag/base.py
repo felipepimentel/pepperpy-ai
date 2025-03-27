@@ -1,4 +1,4 @@
-"""Base RAG module."""
+"""Base interfaces and components for RAG functionality."""
 
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -8,9 +8,7 @@ from pepperpy.core.base import (
     BaseProvider,
     ValidationError,
 )
-from pepperpy.core.workflow import WorkflowComponent
-from pepperpy.rag.providers import RAGProvider
-from pepperpy.rag.types import Document, Query
+from pepperpy.workflow.base import WorkflowComponent
 
 T = TypeVar("T")
 
@@ -198,18 +196,15 @@ class RAGComponent(WorkflowComponent):
             metadata: Optional metadata
         """
         super().__init__(
-            component_id=component_id,
-            name=name,
-            provider=provider,
-            config=config,
-            metadata=metadata,
+            component_id=component_id, name=name, config=config, metadata=metadata
         )
+        self.provider: RAGProvider = provider
 
     async def process(self, data: Union[str, Query]) -> List[Document]:
-        """Process input data and retrieve relevant documents.
+        """Process input data and generate a response.
 
         Args:
-            data: Input query as string or Query object
+            data: Input text or query
 
         Returns:
             List of relevant documents

@@ -4,15 +4,24 @@ This module provides a ChromaDB-based implementation of the RAG provider interfa
 supporting persistent vector storage, similarity search, and metadata filtering.
 
 Example:
-    >>> from pepperpy.rag import RAGProvider
-    >>> provider = RAGProvider.from_config({
-    ...     "provider": "chroma",
-    ...     "path": "./chroma_db"
-    ... })
-    >>> await provider.add_documents([
-    ...     Document(text="Example document", metadata={"source": "test"})
-    ... ])
-    >>> results = await provider.search("query", top_k=3)
+    >>> from pepperpy import PepperPy
+    >>>
+    >>> # Initialize PepperPy with RAG (automatically configures embeddings)
+    >>> pepperpy = PepperPy().with_rag()
+    >>>
+    >>> # Or explicitly configure providers
+    >>> pepperpy = (
+    ...     PepperPy()
+    ...     .with_embeddings()  # Uses PEPPERPY_EMBEDDINGS__PROVIDER from .env
+    ...     .with_rag()  # Uses PEPPERPY_RAG__PROVIDER from .env
+    ... )
+    >>>
+    >>> # Add documents and search
+    >>> async with pepperpy:
+    ...     await pepperpy.rag.store([
+    ...         Document(text="Example document", metadata={"source": "test"})
+    ...     ])
+    ...     results = await pepperpy.rag.search("query", top_k=3)
 """
 
 import logging
@@ -22,18 +31,13 @@ from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.base import ProviderError
 from pepperpy.core.utils import import_provider, lazy_provider_class
-from pepperpy.rag.base import (
-    BaseProvider,
-    Document,
-    Query,
-    RetrievalResult,
-)
+from pepperpy.rag.base import Document, Query, RAGProvider
 
 logger = logging.getLogger(__name__)
 
 
 @lazy_provider_class("rag", "chroma")
-class ChromaProvider(BaseProvider):
+class ChromaProvider(RAGProvider):
     """ChromaDB implementation of the RAG provider interface.
 
     This provider supports:
@@ -50,7 +54,6 @@ class ChromaProvider(BaseProvider):
         path: Optional[str] = None,
         collection_name: str = "pepperpy",
         embedding_function: Optional[Any] = None,
-        api_key: Optional[str] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize ChromaDB provider.
@@ -58,8 +61,7 @@ class ChromaProvider(BaseProvider):
         Args:
             path: Path to ChromaDB persistence directory
             collection_name: Name of the collection to use
-            embedding_function: Optional custom embedding function
-            api_key: OpenAI API key for embeddings
+            embedding_function: Optional custom embedding function to use for vectors
             **kwargs: Additional configuration options
         """
         super().__init__(**kwargs)
@@ -67,18 +69,8 @@ class ChromaProvider(BaseProvider):
         self.path = path
         self.collection_name = collection_name
         self._embedding_function = embedding_function
-        self._api_key = api_key
         self.client = None
         self._collection: Optional[Any] = None
-
-    @property
-    def api_key(self) -> Optional[str]:
-        """Get the API key.
-
-        Returns:
-            The API key
-        """
-        return self._api_key or os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
 
     @property
     def collection(self) -> Any:
@@ -102,7 +94,7 @@ class ChromaProvider(BaseProvider):
         This method sets up the ChromaDB client and collection.
 
         Raises:
-            ProviderError: If OpenAI API key is not found
+            ProviderError: If no embedding function is provided
         """
         # Import chromadb only when provider is instantiated
         chromadb = import_provider("chromadb", "rag", "chroma")
@@ -114,17 +106,10 @@ class ChromaProvider(BaseProvider):
         else:
             self.client = chromadb.Client()
 
-        # Use OpenAI embeddings by default if no custom function provided
         if not self._embedding_function:
-            if not self.api_key:
-                raise ProviderError(
-                    "OpenAI API key not found. Please set PEPPERPY_LLM__OPENAI_API_KEY "
-                    "environment variable or pass api_key parameter."
-                )
-            self._embedding_function = (
-                chromadb.utils.embedding_functions.OpenAIEmbeddingFunction(
-                    api_key=self.api_key, model_name="text-embedding-3-small"
-                )
+            raise ProviderError(
+                "No embedding function provided. Please provide an embedding function "
+                "through the embedding_function parameter."
             )
 
         # Get or create collection
@@ -195,50 +180,51 @@ class ChromaProvider(BaseProvider):
         query: Query,
         limit: int = 10,
         **kwargs: Any,
-    ) -> List[RetrievalResult]:
+    ) -> List[Document]:
         """Search for documents similar to query.
 
         Args:
-            query: Query to search for
-            limit: Maximum number of results to return
+            query: Search query
+            limit: Maximum number of results
             **kwargs: Additional search options
 
         Returns:
-            List of retrieval results
+            List of relevant documents
         """
-        # Convert query to ChromaDB format
+        # Convert query to text
         query_text = query.text
 
-        # Search collection
+        # Get results from ChromaDB
         results = self.collection.query(
-            query_texts=[query_text], n_results=limit, **kwargs
+            query_texts=[query_text],
+            n_results=limit,
+            **kwargs,
         )
 
-        # Convert results to RetrievalResult objects
-        retrieval_results = []
-        for i in range(len(results["ids"][0])):
+        # Convert results to documents
+        documents = []
+        for i, doc_id in enumerate(results["ids"][0]):
             doc = Document(
                 text=results["documents"][0][i],
-                metadata=results["metadatas"][0][i] if results["metadatas"] else {},
+                metadata=results["metadatas"][0][i],
             )
+            doc["id"] = doc_id
             if "distances" in results:
-                score = 1.0 - results["distances"][0][i]
-            else:
-                score = 0.0
-            retrieval_results.append(RetrievalResult(document=doc, score=score))
+                doc["score"] = 1.0 - results["distances"][0][i]
+            documents.append(doc)
 
-        return retrieval_results
+        return documents
 
     async def delete_documents(
         self,
         document_ids: List[str],
         **kwargs: Any,
     ) -> None:
-        """Delete documents from collection.
+        """Delete documents from the collection.
 
         Args:
             document_ids: List of document IDs to delete
-            **kwargs: Additional options
+            **kwargs: Additional deletion options
         """
         self.collection.delete(ids=document_ids)
 
@@ -248,15 +234,15 @@ class ChromaProvider(BaseProvider):
         collection_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Optional[Dict[str, Any]]:
-        """Get document by ID.
+        """Get a document by ID.
 
         Args:
-            document_id: ID of document to get
-            collection_name: Optional name of the collection to get from
-            **kwargs: Additional options
+            document_id: Document ID to retrieve
+            collection_name: Optional collection name
+            **kwargs: Additional retrieval options
 
         Returns:
-            Document if found, None otherwise
+            Document data if found, None otherwise
         """
         results = self.collection.get(ids=[document_id])
         if not results["ids"]:
@@ -265,10 +251,7 @@ class ChromaProvider(BaseProvider):
         return {
             "id": results["ids"][0],
             "text": results["documents"][0],
-            "metadata": results["metadatas"][0] if results["metadatas"] else {},
-            "embeddings": results["embeddings"][0]
-            if results.get("embeddings")
-            else None,
+            "metadata": results["metadatas"][0],
         }
 
     async def get_documents(
@@ -280,12 +263,12 @@ class ChromaProvider(BaseProvider):
         """Get multiple documents by ID.
 
         Args:
-            document_ids: ID or list of IDs of documents to get
-            collection_name: Optional name of the collection to get from
-            **kwargs: Additional options
+            document_ids: Document ID(s) to retrieve
+            collection_name: Optional collection name
+            **kwargs: Additional retrieval options
 
         Returns:
-            List of found documents
+            List of document data
         """
         if isinstance(document_ids, str):
             document_ids = [document_ids]
@@ -293,15 +276,14 @@ class ChromaProvider(BaseProvider):
         results = self.collection.get(ids=document_ids)
         documents = []
 
-        for i in range(len(results["ids"])):
-            documents.append({
-                "id": results["ids"][i],
-                "text": results["documents"][i],
-                "metadata": results["metadatas"][i] if results["metadatas"] else {},
-                "embeddings": results["embeddings"][i]
-                if results.get("embeddings")
-                else None,
-            })
+        for i, doc_id in enumerate(results["ids"]):
+            documents.append(
+                {
+                    "id": doc_id,
+                    "text": results["documents"][i],
+                    "metadata": results["metadatas"][i],
+                }
+            )
 
         return documents
 
@@ -313,24 +295,23 @@ class ChromaProvider(BaseProvider):
         """List all documents in the collection.
 
         Args:
-            collection_name: Optional name of the collection to list from
-            **kwargs: Additional options
+            collection_name: Optional collection name
+            **kwargs: Additional listing options
 
         Returns:
-            List of all documents
+            List of document data
         """
         results = self.collection.get()
         documents = []
 
-        for i in range(len(results["ids"])):
-            documents.append({
-                "id": results["ids"][i],
-                "text": results["documents"][i],
-                "metadata": results["metadatas"][i] if results["metadatas"] else {},
-                "embeddings": results["embeddings"][i]
-                if results.get("embeddings")
-                else None,
-            })
+        for i, doc_id in enumerate(results["ids"]):
+            documents.append(
+                {
+                    "id": doc_id,
+                    "text": results["documents"][i],
+                    "metadata": results["metadatas"][i],
+                }
+            )
 
         return documents
 
@@ -338,40 +319,39 @@ class ChromaProvider(BaseProvider):
         """Clear all documents from the collection.
 
         Args:
-            **kwargs: Additional options
+            **kwargs: Additional clearing options
         """
-        if self._collection:
-            self._collection.delete(where={})
+        self.collection.delete()
 
     async def delete_collection(self, **kwargs: Any) -> None:
-        """Delete the entire collection.
+        """Delete the collection.
 
         Args:
-            **kwargs: Additional options
+            **kwargs: Additional deletion options
         """
         if self.client and self._collection:
             self.client.delete_collection(self.collection_name)
             self._collection = None
 
     async def count_documents(self, **kwargs: Any) -> int:
-        """Get total number of documents in collection.
+        """Count documents in the collection.
 
         Args:
-            **kwargs: Additional options
+            **kwargs: Additional counting options
 
         Returns:
-            Number of documents
+            Number of documents in the collection
         """
         return self.collection.count()
 
     async def get_stats(self) -> Dict[str, Any]:
-        """Get statistics about the vector store.
+        """Get collection statistics.
 
         Returns:
-            Dictionary containing statistics.
+            Dictionary of collection statistics
         """
         return {
-            "count": await self.count_documents(),
-            "name": self.collection_name,
-            "path": self.path,
+            "document_count": await self.count_documents(),
+            "collection_name": self.collection_name,
+            "has_persistence": self.path is not None,
         }

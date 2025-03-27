@@ -1,12 +1,13 @@
-"""Base classes and protocols for embeddings.
+"""Base module for embeddings functionality.
 
-This module defines the base interfaces that all embedding providers must implement.
+This module defines the base interfaces and types for embedding providers.
 """
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.base import PepperpyError
+from pepperpy.core.base import PepperpyError, Provider
 
 
 class EmbeddingError(PepperpyError):
@@ -95,61 +96,97 @@ class EmbeddingResult:
     """Result of an embedding operation.
 
     Attributes:
-        embedding: The generated embedding vector
-        usage: Token usage information
+        vector: The embedding vector
         metadata: Additional metadata about the embedding
     """
 
-    embedding: List[float]
-    usage: Dict[str, int]
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    vector: List[float]
+    metadata: Optional[Dict[str, Any]] = None
 
 
-class EmbeddingProvider(Protocol):
-    """Protocol for embedding providers."""
+class EmbeddingProvider(Provider, ABC):
+    """Base class for embedding providers."""
 
+    name: str = "base"
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider.
+
+        Args:
+            **kwargs: Additional configuration options
+        """
+        super().__init__(**kwargs)
+        self._model = None
+        self._embedding_function = None
+
+    @abstractmethod
     async def initialize(self) -> None:
         """Initialize the provider."""
-        ...
+        pass
 
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        ...
-
-    async def embed_text(self, text: str) -> List[float]:
-        """Generate embeddings for text.
+    @abstractmethod
+    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
+        """Generate embeddings for the given text.
 
         Args:
-            text: Text to embed.
+            text: Text or list of texts to embed
 
         Returns:
-            Text embeddings.
+            List of embeddings vectors
         """
-        ...
+        pass
 
-    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for multiple texts.
+    @abstractmethod
+    async def embed_query(self, text: str) -> List[float]:
+        """Generate embeddings for a query.
 
         Args:
-            texts: List of texts to embed.
+            text: Query text to embed
 
         Returns:
-            List of text embeddings.
+            Embedding vector
         """
-        ...
+        pass
 
+    @abstractmethod
+    def get_embedding_function(self) -> Any:
+        """Get a function that can be used by vector stores.
+
+        Returns:
+            A callable that generates embeddings
+        """
+        pass
+
+    @abstractmethod
     async def get_dimensions(self) -> int:
         """Get the dimensionality of the embeddings.
 
         Returns:
-            The number of dimensions in the embeddings.
-
-        Raises:
-            EmbeddingError: If there is an error getting dimensions.
+            The number of dimensions in the embeddings
         """
-        raise NotImplementedError("get_dimensions must be implemented by provider")
+        pass
 
-    name: str
+    @abstractmethod
+    def get_config(self) -> Dict[str, Any]:
+        """Get the provider configuration.
+
+        Returns:
+            The provider configuration
+        """
+        pass
+
+    @abstractmethod
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get the provider capabilities.
+
+        Returns:
+            A dictionary of provider capabilities
+        """
+        pass
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        ...
 
     async def embed(
         self, text: str, options: Optional[EmbeddingOptions] = None
@@ -182,21 +219,5 @@ class EmbeddingProvider(Protocol):
 
         Raises:
             EmbeddingError: If there is an error generating the embeddings
-        """
-        ...
-
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
-
-        Returns:
-            The provider configuration
-        """
-        ...
-
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
-
-        Returns:
-            A dictionary of provider capabilities
         """
         ...

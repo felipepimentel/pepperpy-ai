@@ -5,9 +5,11 @@ interacting with the framework's components.
 """
 
 import json
+import os
 from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.config import Config
+from pepperpy.embeddings.base import EmbeddingProvider
 from pepperpy.llm.base import GenerationResult, LLMProvider, Message, MessageRole
 from pepperpy.rag.base import Document, Query, RAGProvider
 from pepperpy.storage.base import StorageProvider
@@ -32,90 +34,134 @@ class PepperPy:
         self._tts: Optional[TTSProvider] = None
         self._repository: Optional[RepositoryProvider] = None
         self._workflow: Optional[WorkflowProvider] = None
+        self._embeddings: Optional[EmbeddingProvider] = None
 
-    def with_llm(self, provider_type: str = "openai", **kwargs: Any) -> "PepperPy":
+    def with_llm(
+        self, provider_type: Optional[str] = None, **kwargs: Any
+    ) -> "PepperPy":
         """Configure LLM provider.
 
         Args:
-            provider_type: Type of LLM provider
+            provider_type: Type of LLM provider (defaults to PEPPERPY_LLM__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
+        provider_type = provider_type or os.getenv("PEPPERPY_LLM__PROVIDER", "openai")
         self._llm = self.config.load_llm_provider(provider_type=provider_type, **kwargs)
         return self
 
-    def with_rag(self, provider_type: str = "chroma", **kwargs: Any) -> "PepperPy":
+    def with_embeddings(
+        self, provider_type: Optional[str] = None, **kwargs: Any
+    ) -> "PepperPy":
+        """Configure embeddings provider.
+
+        Args:
+            provider_type: Type of embeddings provider (defaults to PEPPERPY_EMBEDDINGS__PROVIDER)
+            **kwargs: Additional provider options
+
+        Returns:
+            Self for chaining
+        """
+        provider_type = provider_type or os.getenv(
+            "PEPPERPY_EMBEDDINGS__PROVIDER", "local"
+        )
+        self._embeddings = self.config.load_embeddings_provider(
+            provider_type=provider_type, **kwargs
+        )
+        return self
+
+    def with_rag(
+        self, provider_type: Optional[str] = None, **kwargs: Any
+    ) -> "PepperPy":
         """Configure RAG provider.
 
         Args:
-            provider_type: Type of RAG provider
+            provider_type: Type of RAG provider (defaults to PEPPERPY_RAG__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
+        provider_type = provider_type or os.getenv("PEPPERPY_RAG__PROVIDER", "chroma")
+        if not self._embeddings:
+            self.with_embeddings()  # Use default embeddings provider
+        kwargs["embedding_function"] = self._embeddings.get_embedding_function()
         self._rag = self.config.load_rag_provider(provider_type=provider_type, **kwargs)
         return self
 
-    def with_storage(self, provider_type: str = "local", **kwargs: Any) -> "PepperPy":
+    def with_storage(
+        self, provider_type: Optional[str] = None, **kwargs: Any
+    ) -> "PepperPy":
         """Configure storage provider.
 
         Args:
-            provider_type: Type of storage provider
+            provider_type: Type of storage provider (defaults to PEPPERPY_STORAGE__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
+        provider_type = provider_type or os.getenv(
+            "PEPPERPY_STORAGE__PROVIDER", "local"
+        )
         self._storage = self.config.load_storage_provider(
             provider_type=provider_type, **kwargs
         )
         return self
 
-    def with_tts(self, provider_type: str = "azure", **kwargs: Any) -> "PepperPy":
+    def with_tts(
+        self, provider_type: Optional[str] = None, **kwargs: Any
+    ) -> "PepperPy":
         """Configure TTS provider.
 
         Args:
-            provider_type: Type of TTS provider
+            provider_type: Type of TTS provider (defaults to PEPPERPY_TTS__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
+        provider_type = provider_type or os.getenv("PEPPERPY_TTS__PROVIDER", "azure")
         self._tts = self.config.load_tts_provider(provider_type=provider_type, **kwargs)
         return self
 
     def with_repository(
-        self, provider_type: str = "github", **kwargs: Any
+        self, provider_type: Optional[str] = None, **kwargs: Any
     ) -> "PepperPy":
         """Configure repository provider.
 
         Args:
-            provider_type: Type of repository provider
+            provider_type: Type of repository provider (defaults to PEPPERPY_REPOSITORY__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
+        provider_type = provider_type or os.getenv(
+            "PEPPERPY_REPOSITORY__PROVIDER", "github"
+        )
         self._repository = self.config.load_repository_provider(
             provider_type=provider_type, **kwargs
         )
         return self
 
     def with_workflow(
-        self, provider_type: str = "default", **kwargs: Any
+        self, provider_type: Optional[str] = None, **kwargs: Any
     ) -> "PepperPy":
         """Configure workflow provider.
 
         Args:
-            provider_type: Type of workflow provider
+            provider_type: Type of workflow provider (defaults to PEPPERPY_WORKFLOW__PROVIDER)
             **kwargs: Additional provider options
 
         Returns:
             Self for chaining
         """
+        provider_type = provider_type or os.getenv(
+            "PEPPERPY_WORKFLOW__PROVIDER", "default"
+        )
         self._workflow = self.config.load_workflow_provider(
             provider_type=provider_type, **kwargs
         )
@@ -127,6 +173,15 @@ class PepperPy:
         if not self._llm:
             raise ValueError("LLM provider not configured. Call with_llm() first.")
         return self._llm
+
+    @property
+    def embeddings(self) -> EmbeddingProvider:
+        """Get embeddings provider."""
+        if not self._embeddings:
+            raise ValueError(
+                "Embeddings provider not configured. Call with_embeddings() first."
+            )
+        return self._embeddings
 
     @property
     def rag(self) -> RAGProvider:
@@ -173,6 +228,8 @@ class PepperPy:
         """Enter async context."""
         if self._llm:
             await self._llm.initialize()
+        if self._embeddings:
+            await self._embeddings.initialize()
         if self._rag:
             await self._rag.initialize()
         if self._storage:
@@ -189,6 +246,8 @@ class PepperPy:
         """Exit async context."""
         if self._llm:
             await self._llm.cleanup()
+        if self._embeddings:
+            await self._embeddings.cleanup()
         if self._rag:
             await self._rag.cleanup()
         if self._storage:

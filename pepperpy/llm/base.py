@@ -27,10 +27,67 @@ from typing import Any, AsyncIterator, Dict, List, Optional, Union
 from pepperpy.core.base import (
     BaseProvider,
     PepperpyError,
+    ValidationError,
 )
-from pepperpy.core.workflow import WorkflowComponent
-from pepperpy.llm.providers import LLMProvider
-from pepperpy.llm.types import GenerationResult, Message, MessageRole
+from pepperpy.workflow.base import WorkflowComponent
+
+
+class MessageRole(str, enum.Enum):
+    """Role of a message in a conversation."""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    FUNCTION = "function"
+
+
+@dataclass
+class Message:
+    """A message in a conversation.
+
+    Attributes:
+        role: Role of the message sender
+        content: Message content
+        name: Optional name of the sender
+        function_call: Optional function call details
+    """
+
+    role: MessageRole
+    content: str
+    name: Optional[str] = None
+    function_call: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class GenerationResult:
+    """Result of a text generation request.
+
+    Attributes:
+        content: Generated text content
+        messages: Full conversation history
+        usage: Token usage statistics
+        metadata: Additional provider-specific metadata
+    """
+
+    content: str
+    messages: List[Message]
+    usage: Optional[Dict[str, int]] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class GenerationChunk:
+    """A chunk of generated text from a streaming response.
+
+    Attributes:
+        content: Generated text content
+        finish_reason: Reason for finishing (if any)
+        metadata: Additional provider-specific metadata
+    """
+
+    content: str
+    finish_reason: Optional[str] = None
+    metadata: Optional[Dict[str, Any]] = None
 
 
 class LLMError(PepperpyError):
@@ -95,64 +152,6 @@ class LLMProcessError(LLMError):
             prompt = self.prompt[:50] + "..." if len(self.prompt) > 50 else self.prompt
             return f"LLM process error for prompt '{prompt}': {self.message}"
         return f"LLM process error: {self.message}"
-
-
-class MessageRole(str, enum.Enum):
-    """Role of a message in a conversation."""
-
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-    FUNCTION = "function"
-
-
-@dataclass
-class Message:
-    """A message in a conversation.
-
-    Attributes:
-        role: Role of the message sender
-        content: Message content
-        name: Optional name of the sender
-        function_call: Optional function call details
-    """
-
-    role: Union[MessageRole, str]
-    content: str
-    name: Optional[str] = None
-    function_call: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class GenerationResult:
-    """Result of a text generation request.
-
-    Attributes:
-        content: Generated text content
-        messages: Full conversation history
-        usage: Token usage statistics
-        metadata: Additional provider-specific metadata
-    """
-
-    content: str
-    messages: List[Message]
-    usage: Optional[Dict[str, int]] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-
-@dataclass
-class GenerationChunk:
-    """A chunk of generated text from a streaming response.
-
-    Attributes:
-        content: Generated text content
-        finish_reason: Reason for finishing (if any)
-        metadata: Additional provider-specific metadata
-    """
-
-    content: str
-    finish_reason: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
 
 
 class LLMProvider(BaseProvider, abc.ABC):
@@ -306,7 +305,7 @@ class LLMProvider(BaseProvider, abc.ABC):
         # Convert dict messages to Message objects
         formatted_messages = [
             Message(
-                role=msg.get("role", MessageRole.USER),
+                role=MessageRole(msg.get("role", MessageRole.USER)),
                 content=msg["content"],
                 name=msg.get("name"),
             )
@@ -393,12 +392,9 @@ class LLMComponent(WorkflowComponent):
             metadata: Optional metadata
         """
         super().__init__(
-            component_id=component_id,
-            name=name,
-            provider=provider,
-            config=config,
-            metadata=metadata,
+            component_id=component_id, name=name, config=config, metadata=metadata
         )
+        self.provider: LLMProvider = provider
 
     async def process(self, data: Union[str, List[Message]]) -> GenerationResult:
         """Process input data and generate a response.

@@ -1,4 +1,4 @@
-"""Local embeddings provider implementation using sentence-transformers."""
+"""HuggingFace embeddings provider implementation."""
 
 from typing import Any, Dict, List, Union
 
@@ -6,28 +6,26 @@ from pepperpy.core.utils import import_provider, lazy_provider_class
 from pepperpy.embeddings.base import EmbeddingProvider
 
 
-@lazy_provider_class("embeddings", "local")
-class LocalEmbeddingProvider(EmbeddingProvider):
-    """Local implementation of embeddings provider using sentence-transformers.
+@lazy_provider_class("embeddings", "huggingface")
+class HuggingFaceEmbeddingProvider(EmbeddingProvider):
+    """HuggingFace implementation of embeddings provider.
 
-    This provider runs completely offline without requiring any API keys.
-    It uses the sentence-transformers library which provides high quality
-    multilingual embeddings.
+    This provider uses HuggingFace's transformers library to generate embeddings.
+    It supports a wide range of models from the HuggingFace Hub.
     """
 
-    name = "local"
+    name = "huggingface"
 
     def __init__(
         self,
-        model: str = "all-MiniLM-L6-v2",
+        model: str = "sentence-transformers/all-MiniLM-L6-v2",
         device: str = "cpu",
         **kwargs: Any,
     ) -> None:
-        """Initialize local embeddings provider.
+        """Initialize HuggingFace embeddings provider.
 
         Args:
-            model: Model name from sentence-transformers to use
-                  See https://www.sbert.net/docs/pretrained_models.html
+            model: Model name from HuggingFace Hub
             device: Device to run model on ('cpu' or 'cuda')
             **kwargs: Additional configuration options
         """
@@ -35,25 +33,59 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         self.model_name = model
         self.device = device
         self._model = None
+        self._tokenizer = None
         self._embedding_function = None
 
     async def initialize(self) -> None:
         """Initialize the provider by loading the model."""
-        sentence_transformers = import_provider(
-            "sentence_transformers", "embeddings", "local"
-        )
-        self._model = sentence_transformers.SentenceTransformer(
-            self.model_name, device=self.device
-        )
+        transformers = import_provider("transformers", "embeddings", "huggingface")
+
+        # Load tokenizer and model
+        self._tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
+        self._model = transformers.AutoModel.from_pretrained(self.model_name)
+        self._model.to(self.device)
+
+        # Set model to evaluation mode
+        self._model.eval()
+
         self._embedding_function = self._get_embedding_function()
 
     def _get_embedding_function(self) -> Any:
         """Create an embedding function compatible with vector stores."""
+        import torch
+
+        def mean_pooling(model_output: Any, attention_mask: Any) -> Any:
+            """Mean pooling to get sentence embeddings."""
+            token_embeddings = model_output[0]
+            input_mask_expanded = (
+                attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+            )
+            return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
+                input_mask_expanded.sum(1), min=1e-9
+            )
 
         def embed_texts(texts: List[str]) -> List[List[float]]:
-            return self._model.encode(
-                texts, convert_to_numpy=True, normalize_embeddings=True
-            ).tolist()
+            # Tokenize texts
+            encoded_input = self._tokenizer(
+                texts,
+                padding=True,
+                truncation=True,
+                max_length=512,
+                return_tensors="pt",
+            )
+            encoded_input = {k: v.to(self.device) for k, v in encoded_input.items()}
+
+            # Compute token embeddings
+            with torch.no_grad():
+                model_output = self._model(**encoded_input)
+
+            # Perform pooling
+            embeddings = mean_pooling(model_output, encoded_input["attention_mask"])
+
+            # Normalize embeddings
+            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+
+            return embeddings.cpu().tolist()
 
         return embed_texts
 
@@ -97,7 +129,7 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         """
         if not self._model:
             await self.initialize()
-        return self._model.get_sentence_embedding_dimension()
+        return self._model.config.hidden_size
 
     def get_config(self) -> Dict[str, Any]:
         """Get the provider configuration.
