@@ -11,7 +11,7 @@ import os
 from pathlib import Path
 
 from pepperpy.agents.base import Message
-from pepperpy.agents.hierarchical_memory import (
+from pepperpy.agents.hierarchical_memory import (  # noqa: E501
     HierarchicalMemory,
     MemoryManager,
 )

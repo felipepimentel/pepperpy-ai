@@ -73,33 +73,55 @@ python = ">=3.9,<3.13"
 aiohttp = "^3.9.3"
 pydantic = "^2.6.3"
 python-dotenv = "^1.0.1"
-openai = "^1.14.0"
-numpy = "^1.26.4"
-annoy = "^1.17.3"
-chromadb = "^0.4.24"
-tiktoken = "^0.6.0"
 tenacity = "^8.2.3"
 loguru = "^0.7.2"
 httpx = "^0.28.1"
-radon = "^6.0.1"
-lizard = "^1.17.20"
-gitpython = "^3.1.44"
-PyGithub = "^2.6.1"
+psutil = "^7.0.0"
 
-# Optional dependencies
+# Core ML Dependencies (Optional)
+numpy = { version = "^1.26.4", optional = true }
+spacy = { version = "^3.8.4", optional = true }
+nltk = { version = "^3.9.1", optional = true }
+sentence-transformers = { version = "^4.0.1", extras = [
+    "embeddings-local",
+], optional = true }
+
+# Code Analysis Dependencies (Optional)
+radon = { version = "^6.0.1", optional = true }
+lizard = { version = "^1.17.20", optional = true }
+gitpython = { version = "^3.1.44", optional = true }
+PyGithub = { version = "^2.6.1", optional = true }
+
+# Vector Store Dependencies (Optional)
+annoy = { version = "^1.17.3", optional = true }
+chromadb = { version = "^0.4.24", optional = true }
+tiktoken = { version = "^0.6.0", optional = true }
+
+# Document Processing Dependencies (Optional)
+pypdf2 = { version = "^3.0.0", optional = true }
+python-docx = { version = "^1.0.0", optional = true }
+pdfkit = { version = "^1.0.0", optional = true }
+markdown2pdf = { version = "^0.1.4", optional = true }
+reportlab = { version = "^4.0.0", optional = true }
+fpdf2 = { version = "^2.8.2", optional = true }
+
+# LLM Provider Dependencies (Optional)
+openai = { version = "^1.14.0", optional = true }
 anthropic = { version = "^0.49.0", optional = true }
 llm-openrouter = { version = "^0.4", optional = true }
+
+# Vector Store Provider Dependencies (Optional)
 weaviate-client = { version = "^4.11.3", optional = true }
 pinecone-client = { version = "^6.0.0", optional = true }
+
+# Storage Provider Dependencies (Optional)
 boto3 = { version = "^1.37.19", optional = true }
 google-cloud-storage = { version = "^3.1.0", optional = true }
 supabase = { version = "^2.14.0", optional = true }
+
+# TTS Provider Dependencies (Optional)
 azure-cognitiveservices-speech = { version = "^1.35.0", optional = true }
 gtts = { version = "^2.5.4", optional = true }
-psutil = "^7.0.0"
-spacy = "^3.8.4"
-nltk = "^3.9.1"
-sentence-transformers = {version = "^4.0.1", extras = ["embeddings-local"]}
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"
@@ -111,6 +133,24 @@ mypy = "^1.8.0"
 ruff = "^0.5.3"
 
 [tool.poetry.extras]
+# Core ML Features
+ml = ["numpy", "spacy", "nltk", "sentence-transformers"]
+code-analysis = ["radon", "lizard", "gitpython", "PyGithub"]
+vector-store = ["annoy", "chromadb", "tiktoken"]
+
+# Document Processing Providers
+pdf = ["pypdf2", "pdfkit", "reportlab", "fpdf2"]
+docx = ["python-docx"]
+markdown = ["markdown2pdf"]
+doc-all = [
+    "pypdf2",
+    "pdfkit",
+    "reportlab",
+    "fpdf2",
+    "python-docx",
+    "markdown2pdf",
+]
+
 # LLM Providers
 openai = ["openai"]
 anthropic = ["anthropic"]
@@ -118,10 +158,10 @@ openrouter = ["llm-openrouter"]
 llm-all = ["openai", "anthropic", "llm-openrouter"]
 
 # RAG Providers
-chroma = ["chromadb"]
+chroma = ["chromadb", "tiktoken"]
 weaviate = ["weaviate-client"]
 pinecone = ["pinecone-client"]
-rag-all = ["chromadb", "weaviate-client", "pinecone-client"]
+rag-all = ["chromadb", "weaviate-client", "pinecone-client", "tiktoken"]
 
 # Storage Providers
 s3 = ["boto3"]
@@ -134,19 +174,27 @@ azure-tts = ["azure-cognitiveservices-speech"]
 google-tts = ["gtts"]
 tts-all = ["azure-cognitiveservices-speech", "gtts"]
 
-# All providers
+# Feature Groups
+ml-complete = ["ml", "vector-store"]
+analysis-complete = ["ml", "code-analysis"]
+rag-complete = ["ml", "vector-store", "rag-all"]
+
+# All providers and features
 all = [
-    "openai",
-    "anthropic",
-    "llm-openrouter",
-    "chromadb",
-    "weaviate-client",
-    "pinecone-client",
-    "boto3",
-    "google-cloud-storage",
-    "supabase",
-    "azure-cognitiveservices-speech",
-    "gtts",
+    # Core Features
+    "ml",
+    "code-analysis",
+    "vector-store",
+    # Document Processing
+    "doc-all",
+    # LLM Providers
+    "llm-all",
+    # RAG Providers
+    "rag-all",
+    # Storage Providers
+    "storage-all",
+    # TTS Providers
+    "tts-all",
 ]
 
 [tool.coverage.run]
