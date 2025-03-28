@@ -10,13 +10,61 @@ Example:
 """
 
 import os
+import importlib
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional, Type
+from dataclasses import dataclass
+from typing import Any, AsyncIterator, Dict, List, Optional, Type, Union
 
 from pepperpy.core import PepperpyError
-from pepperpy.core.base import BaseProvider
+from pepperpy.core.base import BaseProvider, ValidationError
 from pepperpy.workflow.base import WorkflowComponent
+
+
+@dataclass
+class TTSVoice:
+    """Voice metadata for TTS."""
+    
+    id: str
+    name: str
+    gender: Optional[str] = None
+    language: Optional[str] = None
+    description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary.
+        
+        Returns:
+            Dictionary representation
+        """
+        return {
+            "id": self.id,
+            "name": self.name,
+            "gender": self.gender,
+            "language": self.language,
+            "description": self.description,
+            "tags": self.tags,
+        }
+
+
+@dataclass
+class TTSAudio:
+    """Audio data returned from TTS."""
+    
+    audio_data: bytes
+    content_type: str
+    duration_seconds: Optional[float] = None
+    sample_rate: Optional[int] = None
+    
+    def save(self, path: str) -> None:
+        """Save audio to file.
+        
+        Args:
+            path: Path to save audio to
+        """
+        with open(path, "wb") as f:
+            f.write(self.audio_data)
 
 
 class TTSError(PepperpyError):
@@ -81,56 +129,66 @@ class TTSCapabilities(str, Enum):
     EMOTION_CONTROL = "emotion_control"
 
 
-class TTSProvider(BaseProvider, ABC):
+class TTSProvider(BaseProvider):
     """Base class for TTS providers."""
 
     def __init__(
         self,
-        name: str,
-        config: Optional[Dict[str, Any]] = None,
+        voice_id: Optional[str] = None,
+        output_format: str = "mp3",
         **kwargs: Any,
     ) -> None:
         """Initialize TTS provider.
 
         Args:
-            name: Provider name
-            config: Optional configuration dictionary
+            voice_id: Default voice ID
+            output_format: Output audio format
             **kwargs: Additional configuration options
         """
-        super().__init__(name=name, config=config, **kwargs)
+        super().__init__(**kwargs)
+        self.voice_id = voice_id
+        self.output_format = output_format
+
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        pass
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        pass
 
     @abstractmethod
     async def synthesize(
         self,
         text: str,
-        voice: str,
-        output_format: str,
+        voice_id: Optional[str] = None,
+        output_path: Optional[str] = None,
         **kwargs: Any,
-    ) -> bytes:
+    ) -> TTSAudio:
         """Synthesize text to speech.
 
         Args:
             text: Text to synthesize
-            voice: Voice name to use
-            output_format: Output audio format
+            voice_id: Voice ID to use
+            output_path: Optional path to save audio
             **kwargs: Additional synthesis options
 
         Returns:
-            Audio data as bytes
+            TTSAudio object
         """
         pass
 
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        await super().initialize()
-
-    async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        await super().cleanup()
-
     @abstractmethod
-    async def convert_text(self, text: str, voice_id: str, **kwargs: Any) -> bytes:
-        """Convert text to speech.
+    async def get_available_voices(self) -> List[TTSVoice]:
+        """Get available voices.
+
+        Returns:
+            List of TTSVoice objects
+        """
+        pass
+        
+    async def convert_text(self, text: str, voice_id: Optional[str] = None, **kwargs: Any) -> TTSAudio:
+        """Convert text to speech (alias for synthesize).
 
         Args:
             text: Text to convert
@@ -138,16 +196,15 @@ class TTSProvider(BaseProvider, ABC):
             **kwargs: Additional provider-specific parameters
 
         Returns:
-            Audio data as bytes
+            TTSAudio object
 
         Raises:
             TTSError: If conversion fails
         """
-        pass
+        return await self.synthesize(text, voice_id=voice_id, **kwargs)
 
-    @abstractmethod
     async def convert_text_stream(
-        self, text: str, voice_id: str, **kwargs: Any
+        self, text: str, voice_id: Optional[str] = None, **kwargs: Any
     ) -> AsyncIterator[bytes]:
         """Stream audio from text.
 
@@ -161,23 +218,9 @@ class TTSProvider(BaseProvider, ABC):
 
         Raises:
             TTSError: If conversion fails
+            NotImplementedError: If streaming not supported
         """
-        pass
-
-    @abstractmethod
-    async def get_voices(self, **kwargs: Any) -> List[Dict[str, Any]]:
-        """Get available voices.
-
-        Args:
-            **kwargs: Provider-specific parameters
-
-        Returns:
-            List of voice information dictionaries
-
-        Raises:
-            TTSError: If retrieving voices fails
-        """
-        pass
+        raise NotImplementedError("Streaming not supported by this provider")
 
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs: Any) -> str:
         """Clone a voice from audio samples.
@@ -195,6 +238,50 @@ class TTSProvider(BaseProvider, ABC):
             NotImplementedError: If provider doesn't support voice cloning
         """
         raise NotImplementedError("Voice cloning not supported by this provider")
+
+    def get_config(self) -> Dict[str, Any]:
+        """Get provider configuration.
+        
+        Returns:
+            Provider configuration
+        """
+        return {
+            "voice_id": self.voice_id,
+            "output_format": self.output_format,
+        }
+
+
+def create_provider(
+    provider_type: str = "mock",
+    **config: Any
+) -> TTSProvider:
+    """Create a TTS provider from the given type.
+    
+    Args:
+        provider_type: Type of TTS provider
+        **config: Provider configuration
+        
+    Returns:
+        Configured TTS provider
+        
+    Raises:
+        ValidationError: If provider creation fails
+    """
+    try:
+        # Import provider module
+        module_name = f"pepperpy.tts.providers.{provider_type}"
+        module = importlib.import_module(module_name)
+        
+        # Get provider class name with proper capitalization
+        provider_class_name = f"{provider_type.title()}TTSProvider"
+        
+        # Get provider class
+        provider_class = getattr(module, provider_class_name)
+        
+        # Create provider instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        raise ValidationError(f"Failed to create TTS provider '{provider_type}': {e}")
 
 
 class TTSFactory:
@@ -324,35 +411,3 @@ class TTSComponent(WorkflowComponent):
 
         voice_id = self.config.get("voice_id", "default")
         return await self.provider.convert_text(data, voice_id=voice_id)
-
-
-def create_provider(provider_type: str = "azure", **config: Any) -> TTSProvider:
-    """Create a TTS provider based on type.
-
-    Args:
-        provider_type: Type of provider to create (default: azure)
-        **config: Provider configuration
-
-    Returns:
-        An instance of the specified TTSProvider
-
-    Raises:
-        ValidationError: If provider creation fails
-    """
-    try:
-        import importlib
-
-        # Import provider module
-        module_name = f"pepperpy.tts.{provider_type}"
-        module = importlib.import_module(module_name)
-
-        # Get provider class
-        provider_class_name = f"{provider_type.title()}Provider"
-        provider_class = getattr(module, provider_class_name)
-
-        # Create provider instance
-        return provider_class(**config)
-    except (ImportError, AttributeError) as e:
-        from pepperpy.core.base import ValidationError
-
-        raise ValidationError(f"Failed to create TTS provider '{provider_type}': {e}")

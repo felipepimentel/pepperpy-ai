@@ -16,10 +16,14 @@ from pepperpy.tts.base import TTSFactory
 # TTSFactory.register_provider("murf", MurfProvider)
 # TTSFactory.register_provider("playht", PlayHTProvider)
 from pepperpy.tts.providers.azure import AzureProvider
+from pepperpy.tts.providers.mock import MockTTSProvider
+
+TTSFactory.register_provider("mock", MockTTSProvider)
 
 __all__ = [
     # "ElevenLabsProvider",
     # "MurfProvider",
     # "PlayHTProvider",
     "AzureProvider",
+    "MockTTSProvider",
 ]
