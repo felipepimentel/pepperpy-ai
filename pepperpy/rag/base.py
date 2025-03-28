@@ -317,3 +317,21 @@ def create_provider(
 class RAGError(Exception):
     """Base exception for RAG-related errors."""
     pass
+
+class Filter:
+    """Filter class for RAG queries."""
+    
+    def __init__(self, field: str, value: Any, operator: str = "eq"):
+        """Initialize a filter.
+        
+        Args:
+            field: The field to filter on
+            value: The value to filter for
+            operator: The operator to use (eq, ne, gt, lt, gte, lte, in, contains)
+        """
+        self.field = field
+        self.value = value
+        self.operator = operator
+        
+    def __repr__(self) -> str:
+        return f"Filter(field='{self.field}', value='{self.value}', operator='{self.operator}')"

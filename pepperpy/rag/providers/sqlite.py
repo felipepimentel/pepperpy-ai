@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from ..base import RAGProvider, Document, Filter, RAGError
+from ..base import RAGProvider, Document, RAGError, Filter
 from ..models import SearchResult
 
 
