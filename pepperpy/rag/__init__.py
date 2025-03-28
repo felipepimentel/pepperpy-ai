@@ -1,6 +1,11 @@
-"""RAG module for PepperPy."""
+"""Retrieval Augmented Generation (RAG) Module.
+
+This module provides the tools for building RAG systems, which combine
+retrieval systems (vector databases) with generative models.
+"""
 
 from .base import (
+    BaseProvider,
     Document,
     Query,
     RAGComponent,
@@ -9,7 +14,7 @@ from .base import (
     RetrievalResult,
     create_provider,
 )
-from .providers import ChromaProvider
+from .providers import ChromaProvider, InMemoryProvider
 
 __all__ = [
     "Document",
@@ -20,4 +25,6 @@ __all__ = [
     "RAGContext",
     "create_provider",
     "ChromaProvider",
+    "InMemoryProvider",
+    "BaseProvider",
 ]

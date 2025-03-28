@@ -1,9 +1,22 @@
-"""RAG provider implementations."""
+"""RAG provider implementations.
 
-from pepperpy.rag.base import RAGProvider
-from pepperpy.rag.providers.chroma import ChromaProvider
+This module contains implementations of the RAG provider interface
+for different storage and retrieval systems.
+"""
 
-__all__ = ["RAGProvider", "ChromaProvider"]
+# Import providers
+from .chroma import ChromaProvider
+from .memory import InMemoryProvider
+from .sqlite import SQLiteRAGProvider
+from .tiny_vector import TinyVectorProvider
+
+# Export providers
+__all__ = [
+    "ChromaProvider",
+    "InMemoryProvider",
+    "SQLiteRAGProvider",
+    "TinyVectorProvider",
+]
 
 # Set default provider
-DEFAULT_PROVIDER = ChromaProvider
+DEFAULT_PROVIDER = SQLiteRAGProvider

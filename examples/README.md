@@ -1,63 +1,136 @@
-# PepperPy Examples
+# PepperPy - Exemplos
 
-This directory contains example scripts demonstrating various features and use cases of the PepperPy framework.
+Este diretório contém exemplos para demonstrar recursos e fluxos de trabalho do PepperPy.
 
-## Running Examples
+## Configuração
 
-All examples can be run directly using Python:
+A maioria dos exemplos utiliza variáveis de ambiente para configuração, disponíveis no arquivo `.env` neste diretório. Este arquivo já está configurado para execução com provedores de mock para facilitar a demonstração.
 
 ```bash
-# Run from project root
-python examples/minimal_example.py
+# Crie um venv para rodar exemplos (opcional)
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# ou
+.venv\Scripts\activate.bat  # Windows
+
+# Instale o PepperPy
+pip install -e ".[all]" 
+
+# Para funcionalidades específicas, você pode instalar extras menores:
+# pip install -e ".[rag, llm]"
 ```
 
-## Environment Configuration
+## Executando Exemplos
 
-All examples use environment variables for configuration. Create a `.env` file in the project root with your credentials:
+Para executar um exemplo específico:
 
+```bash
+cd examples
+python minimal_example.py
 ```
-# LLM Configuration
-PEPPERPY_LLM__PROVIDER=openai
-PEPPERPY_LLM__OPENAI__API_KEY=your-api-key
 
-# RAG Configuration
+## Variáveis de Ambiente
+
+Você pode sobrescrever as configurações padrão definidas no arquivo `.env`. Exemplos:
+
+```bash
+# Utilizar provedor OpenAI em vez de mock
+PEPPERPY_LLM__PROVIDER=openai PEPPERPY_LLM__OPENAI__API_KEY=sk-sua-chave-aqui python minimal_example.py
+```
+
+## Provedores RAG Disponíveis
+
+O PepperPy suporta diferentes provedores RAG para armazenamento e recuperação de conhecimento:
+
+### SQLiteRAGProvider (Recomendado para Exemplos)
+
+Um provedor RAG baseado em SQLite, oferecendo persistência com dependências mínimas:
+
+```python
+# Configurar no .env
+PEPPERPY_RAG__PROVIDER=sqlite
+PEPPERPY_RAG__SQLITE__DATABASE_PATH=data/sqlite/pepperpy.db
+
+# Ou diretamente no código
+from pepperpy.rag.providers.sqlite import SQLiteRAGProvider
+rag = SQLiteRAGProvider(database_path="data/sqlite/pepperpy.db")
+```
+
+Características:
+- Armazenamento persistente em SQLite
+- Apenas depende de NumPy (já incluído em muitos ambientes Python)
+- Suporta busca vetorial e filtragem por metadados
+- Funciona bem para exemplos e aplicações simples
+- Mantém os dados entre reinicializações
+
+*Confira o exemplo completo em `sqlite_rag_example.py`.*
+
+### InMemoryProvider
+
+Um provedor RAG leve e simples que armazena tudo na memória, sem persistência:
+
+```python
+# Configurar no .env
+PEPPERPY_RAG__PROVIDER=memory
+
+# Ou diretamente no código
+from pepperpy.rag.providers.memory import InMemoryProvider
+rag = InMemoryProvider()
+```
+
+Características:
+- Implementação 100% em memória - não requer banco de dados
+- Mínimas dependências (apenas NumPy)
+- Suporta busca por texto e por similaridade de vetores
+- Filtragem por metadados
+- Perfeito para demonstrações rápidas
+
+*Confira o exemplo completo em `memory_rag_example.py`.*
+
+### ChromaProvider (Dependências Adicionais)
+
+Provedor baseado no Chroma DB, para quando você precisa de recursos avançados:
+
+```python
+# Configurar no .env
 PEPPERPY_RAG__PROVIDER=chroma
-PEPPERPY_EMBEDDINGS__PROVIDER=openai
 
-# TTS Configuration (for examples that use text-to-speech)
-PEPPERPY_TTS__PROVIDER=azure
-PEPPERPY_TTS__AZURE__API_KEY=your-azure-key
-PEPPERPY_TTS__AZURE__REGION=your-azure-region
+# Ou diretamente no código
+from pepperpy.rag.providers.chroma import ChromaProvider
+rag = ChromaProvider(path="./data/chroma")
 ```
 
-## Available Examples
+### TinyVectorProvider (Leve com Mais Recursos)
 
-### Basic Usage
+Provedor baseado em um backend leve para operações de vetor:
 
-- **[minimal_example.py](minimal_example.py)**: Minimal example of PepperPy usage with a mock LLM provider
-- **[complete_example.py](complete_example.py)**: Complete example showing RAG, LLM, and various features
+```python
+# Configurar no .env
+PEPPERPY_RAG__PROVIDER=tiny_vector
+PEPPERPY_RAG__TINY_VECTOR__PATH=data/tiny_vector.db
 
-### Domain-Specific Examples
+# Ou diretamente no código
+from pepperpy.rag.providers.tiny_vector import TinyVectorProvider
+rag = TinyVectorProvider(path="data/tiny_vector.db")
+```
 
-- **[ai_learning_assistant_example.py](ai_learning_assistant_example.py)**: AI-powered learning assistant
-- **[bi_assistant_example.py](bi_assistant_example.py)**: Business intelligence assistant
-- **[pdi_assistant_example.py](pdi_assistant_example.py)**: PDI assistance
+## Principais Variáveis de Ambiente
 
-### Content Generation
+- PEPPERPY_LLM__PROVIDER: Provedor LLM (openai, anthropic, etc)
+- PEPPERPY_LLM__MODEL: Modelo LLM a ser usado (gpt-3.5-turbo, claude-2, etc)
+- PEPPERPY_RAG__PROVIDER: Provedor RAG (sqlite, memory, chroma, tiny_vector, etc)
+- PEPPERPY_EMBEDDINGS__PROVIDER: Provedor de embeddings (local, openai, etc)
+- PEPPERPY_TTS__PROVIDER: Provedor de TTS (mock, elevenlabs, etc)
+- PEPPERPY_STORAGE__PROVIDER: Provedor de armazenamento (local, s3, etc)
 
-- **[content_generation_example.py](content_generation_example.py)**: Generate articles and blog posts
-- **[podcast_generator_example.py](podcast_generator_example.py)**: Generate podcast content with TTS
-- **[text_refactoring_example.py](text_refactoring_example.py)**: Refactor and improve text content
+## Lista de Exemplos
 
-### Data Processing
-
-- **[document_processing_example.py](document_processing_example.py)**: Process documents with workflows
-- **[text_chunking_example.py](text_chunking_example.py)**: Text processing and chunking with RAG
-- **[text_processing_workflow_example.py](text_processing_workflow_example.py)**: Advanced text processing
-
-### Knowledge Applications
-
-- **[repo_analysis_assistant_example.py](repo_analysis_assistant_example.py)**: Analyze repositories
+- `minimal_example.py`: Exemplo básico de uso do PepperPy para chat simples
+- `bi_assistant_example.py`: Assistente de BI com análise e visualização de dados
+- `text_refactoring_example.py`: Refatoração de texto com PepperPy
+- `memory_rag_example.py`: Demonstração do provedor RAG em memória
+- `sqlite_rag_example.py`: Demonstração do provedor SQLite com persistência
+- `hierarchical_memory_example.py`: Sistema de memória hierárquica
 
 ## Best Practices
 

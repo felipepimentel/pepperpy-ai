@@ -24,6 +24,7 @@ def create_directories():
     """Criar diretórios necessários para os exemplos."""
     dirs = [
         "data/chroma",
+        "data/sqlite",
         "data/storage",
         "output/tts",
         "output/bi_assistant",
