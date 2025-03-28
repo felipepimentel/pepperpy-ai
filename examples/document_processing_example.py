@@ -1,135 +1,122 @@
-"""Example demonstrating document processing with PepperPy."""
+#!/usr/bin/env python
+"""Document processing example for PepperPy.
+
+This example demonstrates how to use the document processing module
+to extract text and metadata from various document types.
+"""
 
 import asyncio
 import os
 from pathlib import Path
-from typing import Any, Dict
 
-from dotenv import load_dotenv
-
-from pepperpy import PepperPy
-
-# Carregar variáveis de ambiente do arquivo .env
-load_dotenv()
-
-# Criar diretórios necessários
-os.makedirs("output/workflow", exist_ok=True)
+import pepperpy as pp
+from pepperpy.document_processing import DocumentType
 
 
-async def process_document(content: bytes, content_type: str) -> None:
-    """Process a document using PepperPy's workflow system.
+async def process_document(file_path, provider_type=None):
+    """Process a document using the specified provider."""
+    print(f"\n=== Processing document: {file_path} ===")
 
-    Args:
-        content: Document content in bytes
-        content_type: MIME type of the document
-    """
-    print(f"\nProcessando documento do tipo: {content_type}")
+    # Create document processing provider
+    provider = pp.create_document_processing_provider(provider_type)
 
-    # Inicializando PepperPy com provedor workflow mockado
-    # A configuração vem de variáveis de ambiente no arquivo .env (PEPPERPY_WORKFLOW__PROVIDER=mock)
-    pepper = PepperPy().with_workflow()
+    # Initialize the provider
+    await provider.initialize()
 
-    async with pepper:
-        # Simular execução de um workflow de processamento de documentos
-        print("Criando workflow de processamento...")
+    try:
+        # Get document type from file extension
+        doc_type = DocumentType.from_extension(file_path.suffix)
+        print(f"Document type: {doc_type.name}")
 
-        # Implementar processamento de documento de forma simplificada
-        print("Extraindo texto do documento...")
-        extracted_text = simulate_text_extraction(content, content_type)
+        # Check if provider supports this document type
+        if not provider.supports_document_type(doc_type):
+            print(
+                f"Provider {provider.name} does not support {doc_type.name} documents."
+            )
+            return
 
-        print("Classificando documento...")
-        classification = simulate_classification(content_type, extracted_text)
+        # Extract text from document
+        print("Extracting text...")
+        text = await provider.extract_text(file_path)
+        print(f"Text (first 200 chars): {text[:200]}...")
 
-        print("Extraindo metadados...")
-        metadata = simulate_metadata_extraction(content, content_type, classification)
+        # Extract metadata from document
+        print("\nExtracting metadata...")
+        metadata = await provider.extract_metadata(file_path)
+        print(f"Title: {metadata.title or 'N/A'}")
+        print(f"Author: {metadata.author or 'N/A'}")
+        print(f"Creation date: {metadata.creation_date or 'N/A'}")
+        print(f"Page count: {metadata.page_count or 'N/A'}")
+        print(f"Word count: {metadata.word_count or 'N/A'}")
 
-        # Imprimir resultados
-        print("\nResultados do Processamento:")
-        print("Status: Concluído")
-        print(f"Texto Extraído: {len(extracted_text)} caracteres")
-        print(f"Classificação: {classification}")
-        print(f"Metadados: {metadata}")
-
-        # Salvar resultados simulados em um arquivo
-        output_file = (
-            Path("output/workflow")
-            / f"document_result_{content_type.split('/')[-1]}.txt"
+        # Process document to get all content
+        print("\nProcessing full document...")
+        content = await provider.process_document(
+            file_path, extract_images=True, extract_tables=True
         )
-        with open(output_file, "w") as f:
-            f.write(f"Tipo de documento: {content_type}\n")
-            f.write(f"Texto extraído: {extracted_text}\n")
-            f.write(f"Classificação: {classification}\n")
-            f.write(f"Metadados: {metadata}\n")
 
-        print(f"Resultados salvos em: {output_file}")
+        # Print info about extracted images
+        if content.images:
+            print(f"\nExtracted {len(content.images)} images")
+            for i, img in enumerate(content.images[:3]):  # Show just first 3
+                print(f"  Image {i + 1}: {img.get('width')}x{img.get('height')} pixels")
 
+        # Print info about extracted tables
+        if content.tables:
+            print(f"\nExtracted {len(content.tables)} tables")
+            for i, table in enumerate(content.tables[:3]):  # Show just first 3
+                print(
+                    f"  Table {i + 1}: {table.get('rows', 0)} rows x {table.get('columns', 0)} columns"
+                )
 
-def simulate_text_extraction(content: bytes, content_type: str) -> str:
-    """Simular extração de texto de um documento.
-
-    Args:
-        content: Conteúdo do documento
-        content_type: Tipo MIME do documento
-
-    Returns:
-        Texto extraído simulado
-    """
-    return (
-        f"Texto extraído simulado para documento {content_type} ({len(content)} bytes)"
-    )
+    except Exception as e:
+        print(f"Error processing document: {e}")
+    finally:
+        # Clean up resources
+        await provider.cleanup()
 
 
-def simulate_classification(content_type: str, text: str) -> str:
-    """Simular classificação de um documento.
-
-    Args:
-        content_type: Tipo MIME do documento
-        text: Texto extraído do documento
-
-    Returns:
-        Classificação simulada
-    """
-    return "Documento técnico" if "PDF" in content_type else "Imagem"
-
-
-def simulate_metadata_extraction(
-    content: bytes, content_type: str, classification: str
-) -> Dict[str, Any]:
-    """Simular extração de metadados de um documento.
-
-    Args:
-        content: Conteúdo do documento
-        content_type: Tipo MIME do documento
-        classification: Classificação do documento
-
-    Returns:
-        Metadados simulados
-    """
-    return {
-        "tamanho": len(content),
-        "tipo": content_type,
-        "classificação": classification,
-        "confiança": 0.95,
-    }
-
-
-async def main() -> None:
+async def run_examples():
     """Run document processing examples."""
-    print("Exemplo de Processamento de Documentos com PepperPy")
-    print("=" * 50)
+    # Create directories for documents and output
+    data_dir = Path("data/documents")
+    os.makedirs(data_dir, exist_ok=True)
 
-    # Exemplo com um documento PDF
-    pdf_content = b"%PDF-1.4\nMock PDF content for testing document processing workflow"
-    await process_document(pdf_content, "application/pdf")
+    # Check for example PDF
+    example_pdf = data_dir / "example.pdf"
+    if not example_pdf.exists():
+        print(f"Example PDF not found at {example_pdf}")
+        print("Creating a simple text file instead...")
+        # Create simple text file as fallback
+        example_text = data_dir / "example.txt"
+        with open(example_text, "w") as f:
+            f.write("This is an example text file.\n\n")
+            f.write("It contains multiple paragraphs.\n\n")
+            f.write(
+                "This is used to demonstrate the document processing capabilities of PepperPy."
+            )
+        example_file = example_text
+    else:
+        example_file = example_pdf
 
-    # Exemplo com uma imagem
-    image_content = (
-        b"\x89PNG\r\nMock PNG content for testing document processing workflow"
-    )
-    await process_document(image_content, "image/png")
+    # Process document with default provider
+    await process_document(example_file)
+
+    # Try with specific providers
+    for provider_type in ["pymupdf", "langchain"]:
+        try:
+            await process_document(example_file, provider_type)
+        except ValueError as e:
+            print(f"\nCouldn't use {provider_type} provider: {e}")
+
+
+async def main():
+    """Run the document processing example."""
+    print("PepperPy Document Processing Example")
+    print("-" * 40)
+    await run_examples()
+    print("\nExample completed.")
 
 
 if __name__ == "__main__":
-    # Variáveis de ambiente necessárias (definidas no arquivo .env):
-    # PEPPERPY_WORKFLOW__PROVIDER=mock
     asyncio.run(main())

@@ -1,68 +1,66 @@
-"""Document processing workflow recipe.
+#!/usr/bin/env python
+"""Standalone document processing workflow example.
 
-This module provides workflow pipeline stages for document processing,
-including text extraction, OCR, classification, and metadata extraction.
+This script demonstrates a simplified document processing workflow
+without any dependencies on the pepperpy package.
 """
 
+import asyncio
 import re
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Union
-
-from PIL import Image
-
-from pepperpy.workflow.base import PipelineStage
+from typing import Any, Dict, List, Optional, Union
 
 
-# Define a protocol for context objects to support duck typing
-class ContextProtocol(Protocol):
-    """Protocol for context objects used in pipeline stages."""
+@dataclass
+class Context:
+    """Simple context for workflow execution."""
 
-    metadata: Dict[str, Any]
+    data: Dict[str, Any] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Get value from context data."""
-        ...
+        """Get value from data."""
+        return self.data.get(key, default)
 
     def set(self, key: str, value: Any) -> None:
-        """Set value in context data."""
-        ...
+        """Set value in data."""
+        self.data[key] = value
+
+
+class PipelineStage:
+    """Base class for pipeline stages."""
+
+    def __init__(self, name: str, description: str = "") -> None:
+        """Initialize pipeline stage."""
+        self.name = name
+        self.description = description
+
+    async def _initialize(self) -> None:
+        """Initialize resources."""
+        pass
+
+    async def _cleanup(self) -> None:
+        """Clean up resources."""
+        pass
+
+    async def process(self, input_data: Any, context: Context) -> Any:
+        """Process input data."""
+        raise NotImplementedError("Subclasses must implement process")
 
 
 class TextExtractionStage(PipelineStage):
     """Stage for extracting text from various document formats."""
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize text extraction stage.
-
-        Args:
-            **kwargs: Additional configuration options
-        """
+        """Initialize text extraction stage."""
         super().__init__(
             name="text_extraction", description="Extract text from documents"
         )
         self._config = kwargs
 
-    async def _initialize(self) -> None:
-        """Initialize extraction resources."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up extraction resources."""
-        pass
-
-    async def process(self, document_path: Union[str, Path], context: Any) -> str:
-        """Extract text from document.
-
-        Args:
-            document_path: Path to document
-            context: Pipeline context
-
-        Returns:
-            Extracted text
-
-        Raises:
-            ValueError: If text extraction fails
-        """
+    async def process(self, document_path: Union[str, Path], context: Context) -> str:
+        """Extract text from document."""
         try:
             # Convert to Path object if string
             if isinstance(document_path, str):
@@ -137,75 +135,6 @@ class TextExtractionStage(PipelineStage):
         return "\n".join(p.text for p in doc.paragraphs)
 
 
-class OCRStage(PipelineStage):
-    """Stage for performing OCR on images."""
-
-    def __init__(self, lang: str = "eng", **kwargs: Any) -> None:
-        """Initialize OCR stage.
-
-        Args:
-            lang: Language for OCR
-            **kwargs: Additional configuration options
-        """
-        super().__init__(name="ocr", description="Perform OCR on images")
-        self._lang = lang
-        self._config = kwargs
-        self._pytesseract = None
-
-    async def _initialize(self) -> None:
-        """Initialize OCR resources."""
-        try:
-            # Try to import pytesseract
-            import pytesseract
-
-            self._pytesseract = pytesseract
-        except ImportError:
-            raise ValueError("pytesseract is required for OCR but not installed")
-
-    async def _cleanup(self) -> None:
-        """Clean up OCR resources."""
-        pass
-
-    async def process(self, image: Image.Image, context: Any) -> str:
-        """Extract text from image using OCR.
-
-        Args:
-            image: Input image
-            context: Pipeline context
-
-        Returns:
-            Extracted text
-
-        Raises:
-            ValueError: If OCR fails
-        """
-        try:
-            # Initialize if needed
-            if not self._pytesseract:
-                await self._initialize()
-
-            if not self._pytesseract:
-                return "OCR failed: pytesseract not available"
-
-            # Perform OCR
-            text = self._pytesseract.image_to_string(image, lang=self._lang)
-
-            # Store metadata
-            context.metadata["ocr_lang"] = self._lang
-            try:
-                context.metadata["ocr_confidence"] = self._pytesseract.image_to_data(
-                    image, lang=self._lang, output_type=self._pytesseract.Output.DICT
-                )["conf"]
-            except:
-                # Skip if confidence extraction fails
-                pass
-
-            return text
-
-        except Exception as e:
-            raise ValueError(f"OCR failed: {e}")
-
-
 class DocumentClassificationStage(PipelineStage):
     """Stage for classifying documents by type and content."""
 
@@ -214,37 +143,13 @@ class DocumentClassificationStage(PipelineStage):
         model: str = "default",
         **kwargs: Any,
     ) -> None:
-        """Initialize classification stage.
-
-        Args:
-            model: Classification model to use
-            **kwargs: Additional configuration options
-        """
+        """Initialize classification stage."""
         super().__init__(name="classification", description="Classify document content")
         self._model = model
         self._config = kwargs
 
-    async def _initialize(self) -> None:
-        """Initialize classification resources."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up classification resources."""
-        pass
-
-    async def process(self, text: str, context: Any) -> Dict[str, Any]:
-        """Classify document content.
-
-        Args:
-            text: Document text
-            context: Pipeline context
-
-        Returns:
-            Classification results
-
-        Raises:
-            ValueError: If classification fails
-        """
+    async def process(self, text: str, context: Context) -> Dict[str, Any]:
+        """Classify document content."""
         try:
             # Perform basic classification
             results = {
@@ -312,37 +217,13 @@ class MetadataExtractionStage(PipelineStage):
         extractors: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> None:
-        """Initialize metadata extraction stage.
-
-        Args:
-            extractors: List of metadata extractors to use
-            **kwargs: Additional configuration options
-        """
+        """Initialize metadata extraction stage."""
         super().__init__(name="metadata", description="Extract metadata from documents")
         self._extractors = extractors or ["dates", "entities", "keywords"]
         self._config = kwargs
 
-    async def _initialize(self) -> None:
-        """Initialize extraction resources."""
-        pass
-
-    async def _cleanup(self) -> None:
-        """Clean up extraction resources."""
-        pass
-
-    async def process(self, text: str, context: Any) -> Dict[str, Any]:
-        """Extract metadata from document.
-
-        Args:
-            text: Document text
-            context: Pipeline context
-
-        Returns:
-            Extracted metadata
-
-        Raises:
-            ValueError: If metadata extraction fails
-        """
+    async def process(self, text: str, context: Context) -> Dict[str, Any]:
+        """Extract metadata from document."""
         try:
             metadata = {}
 
@@ -419,3 +300,196 @@ class MetadataExtractionStage(PipelineStage):
 
         # Return top 10 keywords
         return [word for word, _ in sorted_words[:10]]
+
+
+async def setup_example_files():
+    """Create example files for demonstration."""
+    # Create a sample directory
+    example_dir = Path("example_docs")
+    example_dir.mkdir(exist_ok=True)
+
+    # Create a sample text file
+    text_file = example_dir / "sample.txt"
+    with open(text_file, "w") as f:
+        f.write("""
+        PepperPy Framework Documentation
+        
+        This is a sample document for testing document processing capabilities.
+        The PepperPy framework provides comprehensive tools for document processing,
+        including text extraction, OCR, classification, and metadata extraction.
+        
+        Contact: support@pepperpy.ai
+        Date: 01/01/2023
+        """)
+
+    # Create a sample markdown file
+    md_file = example_dir / "technical.md"
+    with open(md_file, "w") as f:
+        f.write("""
+        # Technical Specification
+        
+        ## Overview
+        
+        This technical specification outlines the requirements for the new financial 
+        reporting system to be implemented by XYZ Corporation.
+        
+        ## Requirements
+        
+        1. The system must generate monthly financial reports
+        2. Reports must be exportable in PDF, Excel, and CSV formats
+        3. Data must be encrypted during transfer
+        
+        ## Budget
+        
+        The project budget is $150,000 with a timeline of 6 months.
+        
+        ## Contact
+        
+        For technical questions, contact @john.smith at #XYZCorp.
+        """)
+
+    return example_dir
+
+
+async def demo_text_extraction(file_path):
+    """Demonstrate text extraction from document."""
+    print("\n=== Text Extraction Demo ===")
+
+    # Create context
+    context = Context()
+
+    # Create text extraction stage
+    extractor = TextExtractionStage()
+    await extractor._initialize()
+
+    # Process document
+    text = await extractor.process(file_path, context)
+
+    print(f"Extracted text from {file_path.name} ({len(text)} chars):")
+    print(f"{text[:150]}...")  # Print first 150 chars
+    print(f"Metadata: {context.metadata}")
+
+    return text
+
+
+async def demo_document_classification(text):
+    """Demonstrate document classification."""
+    print("\n=== Document Classification Demo ===")
+
+    # Create context
+    context = Context()
+
+    # Create classification stage
+    classifier = DocumentClassificationStage()
+    await classifier._initialize()
+
+    # Classify document
+    results = await classifier.process(text, context)
+
+    print("Classification results:")
+    print(f"  Document type: {results['document_type']}")
+    print(f"  Content category: {results['content_category']}")
+    print(f"  Language: {results['language']}")
+    print(f"  Confidence: {results['confidence']}")
+    print(f"Context metadata: {context.metadata}")
+
+    return results
+
+
+async def demo_metadata_extraction(text):
+    """Demonstrate metadata extraction."""
+    print("\n=== Metadata Extraction Demo ===")
+
+    # Create context
+    context = Context()
+
+    # Create metadata extraction stage
+    extractor = MetadataExtractionStage()
+    await extractor._initialize()
+
+    # Extract metadata
+    metadata = await extractor.process(text, context)
+
+    print("Extracted metadata:")
+    if "dates" in metadata:
+        print(f"  Dates: {metadata['dates']}")
+    if "entities" in metadata:
+        print("  Entities:")
+        for entity_type, entities in metadata["entities"].items():
+            if entities:
+                print(f"    {entity_type}: {entities}")
+    if "keywords" in metadata:
+        print(f"  Keywords: {metadata['keywords']}")
+
+    return metadata
+
+
+async def create_pipeline_workflow():
+    """Demonstrate how to create a complete document processing pipeline."""
+    print("\n=== Complete Document Processing Pipeline ===")
+
+    # Define pipeline stages
+    text_extraction = TextExtractionStage()
+    classification = DocumentClassificationStage()
+    metadata_extraction = MetadataExtractionStage()
+
+    # Initialize all stages
+    await text_extraction._initialize()
+    await classification._initialize()
+    await metadata_extraction._initialize()
+
+    # Create shared context
+    context = Context()
+
+    # Process example document
+    example_dir = await setup_example_files()
+    document_path = example_dir / "technical.md"
+
+    print(f"Processing document: {document_path}")
+
+    # Execute pipeline steps
+    text = await text_extraction.process(document_path, context)
+    print(f"Step 1: Extracted {len(text)} characters of text")
+
+    classification_results = await classification.process(text, context)
+    print(
+        f"Step 2: Classified document as {classification_results['document_type']} / {classification_results['content_category']}"
+    )
+
+    metadata = await metadata_extraction.process(text, context)
+    print(f"Step 3: Extracted {len(metadata)} metadata fields")
+
+    # Print final context
+    print("\nFinal pipeline context:")
+    for key, value in context.metadata.items():
+        print(f"  {key}: {value}")
+
+
+async def main():
+    """Run document processing workflow examples."""
+    try:
+        # Create example files
+        example_dir = await setup_example_files()
+        print(f"Created example files in {example_dir}")
+
+        # Text extraction example
+        text_file = example_dir / "sample.txt"
+        extracted_text = await demo_text_extraction(text_file)
+
+        # Classification example
+        await demo_document_classification(extracted_text)
+
+        # Metadata extraction example
+        await demo_metadata_extraction(extracted_text)
+
+        # Complete pipeline example
+        await create_pipeline_workflow()
+
+    except Exception as e:
+        print(f"Error during demonstration: {e}")
+    finally:
+        print("\nExample completed.")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
