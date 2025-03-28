@@ -1,13 +1,14 @@
 """SQLite RAG provider implementation."""
 
+import os
 import sqlite3
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from ..base import RAGProvider
-from ..errors import RAGError
-from ..models import Document, SearchResult
+from ..base import RAGProvider, Document, Filter, RAGError
+from ..models import SearchResult
 
 
 class SQLiteRAGProvider(RAGProvider):

@@ -312,3 +312,8 @@ def create_provider(
         )
     except (ImportError, AttributeError) as e:
         raise ValidationError(f"Failed to create RAG provider '{provider_type}': {e}")
+
+
+class RAGError(Exception):
+    """Base exception for RAG-related errors."""
+    pass
