@@ -1,11 +1,14 @@
 """Embeddings providers."""
 
-from .fastai import FastAIEmbeddingProvider
-from .local import LocalProvider
-from .openai import OpenAIEmbeddingProvider
+PROVIDER_MODULES = {
+    "FastAIEmbeddingProvider": ".fastai",
+    "LocalProvider": ".local",
+    "OpenAIEmbeddingProvider": ".openai",
+    "NumpyProvider": ".numpy_provider",
+    "HashProvider": ".hash",
+    "CohereProvider": ".cohere",
+    "HuggingFaceProvider": ".huggingface",
+    "OpenRouterProvider": ".openrouter",
+}
 
-__all__ = [
-    "FastAIEmbeddingProvider",
-    "LocalProvider",
-    "OpenAIEmbeddingProvider",
-]
+__all__ = list(PROVIDER_MODULES.keys())

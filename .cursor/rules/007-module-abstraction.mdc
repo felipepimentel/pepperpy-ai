@@ -315,6 +315,106 @@ When implementing a new module:
 - [ ] Auto-gerenciar recursos de IO/diretórios
 - [ ] Configurar logging interno adequado
 
+## Critical Update: Provider Registration Pattern
+
+Each module's `__init__.py` MUST follow this pattern for lazy loading:
+
+```python
+"""Module provider implementations."""
+
+PROVIDER_MODULES = {
+    "provider1": "pepperpy.module.providers.provider1.Provider1",
+    "provider2": "pepperpy.module.providers.provider2.Provider2",
+}
+
+__all__ = list(PROVIDER_MODULES.keys())
+```
+
+❌ NEVER import providers directly in `__init__.py`:
+```python
+# WRONG - Eager loading causes dependency issues
+from .provider1 import Provider1  # VIOLATION!
+from .provider2 import Provider2  # VIOLATION!
+```
+
+✅ ALWAYS use lazy loading in factory functions:
+```python
+def create_provider(provider_type: str, **config: Any) -> BaseProvider:
+    """Create a provider based on type."""
+    try:
+        from .providers import PROVIDER_MODULES
+        
+        if provider_type not in PROVIDER_MODULES:
+            raise ValidationError(f"Unknown provider: {provider_type}")
+            
+        module_path = PROVIDER_MODULES[provider_type]
+        module_name, class_name = module_path.rsplit(".", 1)
+        
+        try:
+            import importlib
+            module = importlib.import_module(module_name)
+            provider_class = getattr(module, class_name)
+        except ImportError as e:
+            raise ValidationError(
+                f"Failed to import provider '{provider_type}'. "
+                f"Make sure you have installed the required dependencies: {e}"
+            )
+            
+        return provider_class(**config)
+    except Exception as e:
+        raise ValidationError(f"Failed to create provider: {e}")
+```
+
+## Provider Implementation Requirements
+
+Each provider MUST:
+
+1. Use the `@lazy_provider_class` decorator:
+```python
+@lazy_provider_class("module_name", "provider_type")
+class MyProvider(BaseProvider):
+    pass
+```
+
+2. Handle missing dependencies gracefully:
+```python
+def __init__(self, **kwargs):
+    try:
+        import some_package
+    except ImportError:
+        raise ValidationError(
+            "This provider requires some_package. "
+            "Install with: pip install some_package"
+        )
+    super().__init__(**kwargs)
+```
+
+3. Use environment variables for configuration:
+```python
+def _get_api_key(self) -> str:
+    import os
+    
+    api_key = os.environ.get("PEPPERPY_MODULE__PROVIDER__API_KEY")
+    if not api_key:
+        raise ConfigError(
+            "API key not found. Set PEPPERPY_MODULE__PROVIDER__API_KEY "
+            "or pass api_key to constructor."
+        )
+    return api_key
+```
+
+## Provider Checklist
+
+For each provider, verify:
+
+- [ ] No imports in module's `__init__.py`
+- [ ] Uses `PROVIDER_MODULES` for registration
+- [ ] Decorated with `@lazy_provider_class`
+- [ ] Handles missing dependencies with clear messages
+- [ ] Uses environment variables for config
+- [ ] Follows naming conventions
+- [ ] Properly implements cleanup
+
 ## Conclusion
 
 Following these module abstraction principles ensures that the PepperPy framework maintains a clean, modular structure with proper separation of concerns. By adhering to dependency inversion and proper encapsulation, we create a system that is easier to maintain, extend, and use. 

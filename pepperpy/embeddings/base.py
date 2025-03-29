@@ -3,10 +3,10 @@
 This module defines the base interfaces and types for embedding providers.
 """
 
+import importlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Union
-import importlib
 
 from pepperpy.core.base import BaseComponent, BaseProvider, PepperpyError
 from pepperpy.core.config import Config
@@ -358,37 +358,40 @@ def create_provider(
     provider_type: str = "local",
     **config: Any,
 ) -> EmbeddingsProvider:
-    """Create an embeddings provider based on type.
+    """Create a new embedding provider.
 
     Args:
-        provider_type: Type of provider to create (default: local)
-        **config: Provider configuration
+        provider_type: Type of provider to create
+        **config: Additional configuration options
 
     Returns:
-        An instance of the specified EmbeddingsProvider
+        A new embedding provider instance
 
     Raises:
-        ValidationError: If provider creation fails
+        EmbeddingConfigError: If the provider type is invalid or configuration is invalid
     """
+    from pepperpy.embeddings.providers import PROVIDER_MODULES
+
+    if provider_type not in PROVIDER_MODULES:
+        raise EmbeddingConfigError(
+            f"Invalid provider type '{provider_type}'. Available providers: {list(PROVIDER_MODULES.keys())}"
+        )
+
     try:
-        # Import provider module
-        module_name = f"pepperpy.embeddings.providers.{provider_type}"
-        module = importlib.import_module(module_name)
-
-        # Handle special cases
-        if provider_type == "openai":
-            provider_class = module.OpenAIEmbeddingProvider
-        elif provider_type == "fastai":
-            provider_class = module.FastAIEmbeddingProvider
-        elif provider_type == "local":
-            provider_class = module.LocalProvider
-        else:
-            # Get provider class name with proper capitalization
-            provider_class_name = f"{provider_type.title()}EmbeddingProvider"
-            provider_class = getattr(module, provider_class_name)
-
-        # Create provider instance
+        module = importlib.import_module(
+            PROVIDER_MODULES[provider_type], package="pepperpy.embeddings.providers"
+        )
+        provider_class = getattr(module, provider_type)
         return provider_class(**config)
-    except (ImportError, AttributeError) as e:
-        from pepperpy.core.base import ValidationError
-        raise ValidationError(f"Failed to create embeddings provider '{provider_type}': {e}")
+    except ImportError as e:
+        raise EmbeddingConfigError(
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
+        )
+    except AttributeError:
+        raise EmbeddingConfigError(
+            f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
+        )
+    except Exception as e:
+        raise EmbeddingConfigError(
+            f"Failed to create provider '{provider_type}': {str(e)}"
+        )

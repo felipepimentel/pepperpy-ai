@@ -21,24 +21,6 @@ Example:
 import logging
 from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
 
-import tiktoken
-from openai import AsyncOpenAI, OpenAI
-from openai.types.chat import ChatCompletion
-from openai.types.chat.chat_completion_assistant_message_param import (
-    ChatCompletionAssistantMessageParam,
-)
-from openai.types.chat.chat_completion_function_message_param import (
-    ChatCompletionFunctionMessageParam,
-)
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
-from openai.types.chat.chat_completion_system_message_param import (
-    ChatCompletionSystemMessageParam,
-)
-from openai.types.chat.chat_completion_user_message_param import (
-    ChatCompletionUserMessageParam,
-)
-
-from pepperpy.core.base import ProviderError
 from pepperpy.core.utils import lazy_provider_class
 from pepperpy.llm.base import (
     GenerationChunk,
@@ -83,6 +65,15 @@ class OpenAIProvider(LLMProvider):
             max_tokens: Maximum tokens to generate
             **kwargs: Additional configuration options
         """
+        try:
+            import tiktoken
+            from openai import AsyncOpenAI, OpenAI
+        except ImportError:
+            raise LLMError(
+                "OpenAI provider requires openai and tiktoken. "
+                "Install with: pip install openai tiktoken"
+            )
+
         super().__init__(**kwargs)
 
         self._api_key = api_key or self._get_api_key()

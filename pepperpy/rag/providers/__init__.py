@@ -4,19 +4,20 @@ This module contains implementations of the RAG provider interface
 for different storage and retrieval systems.
 """
 
-# Import providers
-from .chroma import ChromaProvider
-from .memory import InMemoryProvider
-from .sqlite import SQLiteRAGProvider
-from .tiny_vector import TinyVectorProvider
+PROVIDER_MODULES = {
+    "ChromaProvider": ".chroma",
+    "InMemoryProvider": ".memory",
+    "SQLiteRAGProvider": ".sqlite",
+    "TinyVectorProvider": ".tiny_vector",
+    "AnnoyProvider": ".annoy",
+    "PineconeProvider": ".pinecone",
+    "OasysProvider": ".oasys",
+    "VectorDBProvider": ".vectordb",
+    "SupabaseProvider": ".supabase",
+    "FaissProvider": ".faiss",
+}
 
-# Export providers
-__all__ = [
-    "ChromaProvider",
-    "InMemoryProvider",
-    "SQLiteRAGProvider",
-    "TinyVectorProvider",
-]
+__all__ = list(PROVIDER_MODULES.keys())
 
 # Set default provider
-DEFAULT_PROVIDER = SQLiteRAGProvider
+DEFAULT_PROVIDER = "SQLiteRAGProvider"

@@ -736,39 +736,39 @@ class StorageComponent:
 def create_provider(
     provider_type: str = "local", base_dir: str = ".pepperpy/storage", **config: Any
 ) -> StorageProvider:
-    """Create a Storage provider based on type.
+    """Create a new storage provider.
 
     Args:
-        provider_type: Type of provider to create (default: local)
+        provider_type: Type of provider to create
         base_dir: Base directory for storage
-        **config: Provider configuration
+        **config: Additional configuration options
 
     Returns:
-        An instance of the specified StorageProvider
+        A new storage provider instance
 
     Raises:
-        ValidationError: If provider creation fails
+        StorageError: If provider creation fails
     """
-    try:
-        # Ensure directory exists
-        import importlib
-        import os
+    from pepperpy.storage.providers import PROVIDER_MODULES
 
-        os.makedirs(base_dir, exist_ok=True)
-
-        # Import provider module
-        module_name = f"pepperpy.storage.providers.{provider_type}"
-        module = importlib.import_module(module_name)
-
-        # Get provider class
-        provider_class_name = f"{provider_type.title()}Provider"
-        provider_class = getattr(module, provider_class_name)
-
-        # Create provider instance
-        return provider_class(base_dir=base_dir, **config)
-    except (ImportError, AttributeError) as e:
-        from pepperpy.core.base import ValidationError
-
-        raise ValidationError(
-            f"Failed to create Storage provider '{provider_type}': {e}"
+    if provider_type not in PROVIDER_MODULES:
+        raise StorageError(
+            f"Invalid provider type '{provider_type}'. Available providers: {list(PROVIDER_MODULES.keys())}"
         )
+
+    try:
+        module = importlib.import_module(
+            PROVIDER_MODULES[provider_type], package="pepperpy.storage.providers"
+        )
+        provider_class = getattr(module, provider_type)
+        return provider_class(base_dir=base_dir, **config)
+    except ImportError as e:
+        raise StorageError(
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
+        )
+    except AttributeError:
+        raise StorageError(
+            f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
+        )
+    except Exception as e:
+        raise StorageError(f"Failed to create provider '{provider_type}': {str(e)}")

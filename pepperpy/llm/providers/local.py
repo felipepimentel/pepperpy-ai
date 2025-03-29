@@ -16,6 +16,7 @@ Example:
 
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
+from pepperpy.core.utils import lazy_provider_class
 from pepperpy.llm.base import (
     GenerationResult,
     LLMError,
@@ -24,6 +25,7 @@ from pepperpy.llm.base import (
 )
 
 
+@lazy_provider_class("llm", "local")
 class LocalProvider(LLMProvider):
     """Local implementation of the LLM provider interface."""
 
@@ -53,10 +55,16 @@ class LocalProvider(LLMProvider):
                 "Install with: pip install torch transformers"
             )
 
-        super().__init__()
-        self.model_id = model
-        self.model_path = model_path or model
-        self.device = device
+        super().__init__(**kwargs)
+
+        # Get config from env vars or parameters
+        import os
+
+        self.model_id = model or os.getenv("PEPPERPY_LLM__LOCAL__MODEL", "llama2")
+        self.model_path = model_path or os.getenv(
+            "PEPPERPY_LLM__LOCAL__MODEL_PATH", self.model_id
+        )
+        self.device = device or os.getenv("PEPPERPY_LLM__LOCAL__DEVICE", "cpu")
         self.kwargs = kwargs
 
         try:
@@ -195,11 +203,9 @@ class LocalProvider(LLMProvider):
     def get_capabilities(self) -> Dict[str, Any]:
         """Get Local provider capabilities."""
         capabilities = super().get_capabilities()
-        capabilities.update(
-            {
-                "supported_models": ["llama2", "mistral", "phi"],
-                "max_tokens": 2048,
-                "streaming": True,
-            }
-        )
+        capabilities.update({
+            "supported_models": ["llama2", "mistral", "phi"],
+            "max_tokens": 2048,
+            "streaming": True,
+        })
         return capabilities

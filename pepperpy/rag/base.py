@@ -1,7 +1,6 @@
 """Base interfaces and components for RAG functionality."""
 
 import importlib
-import os
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, TypeVar, Union
@@ -276,54 +275,58 @@ def create_provider(
     provider_type: str,
     **config: Any,
 ) -> RAGProvider:
-    """Create a RAG provider based on type.
+    """Create a new RAG provider.
 
     Args:
         provider_type: Type of provider to create
-        **config: Provider configuration
+        **config: Additional configuration options
 
     Returns:
-        An instance of the specified RAGProvider
+        A new RAG provider instance
 
     Raises:
         ValidationError: If provider creation fails
     """
+    from pepperpy.rag.providers import DEFAULT_PROVIDER, PROVIDER_MODULES
+
+    if not provider_type:
+        provider_type = DEFAULT_PROVIDER
+
+    if provider_type not in PROVIDER_MODULES:
+        raise ValidationError(
+            f"Invalid provider type '{provider_type}'. Available providers: {list(PROVIDER_MODULES.keys())}"
+        )
+
     try:
-        # Import provider module
-        module_name = f"pepperpy.rag.providers.{provider_type}"
-        module = importlib.import_module(module_name)
-
-        # Get provider class
-        provider_class_name = f"{provider_type.title()}RAGProvider"
-
-        # Handle special cases
-        if provider_type == "sqlite":
-            provider_class = module.SQLiteRAGProvider
-        elif provider_type == "chroma":
-            provider_class = module.ChromaRAGProvider
-        elif provider_type == "pinecone":
-            provider_class = module.PineconeRAGProvider
-        elif provider_type == "local":
-            provider_class = module.LocalRAGProvider
-        else:
-            provider_class = getattr(module, provider_class_name)
-
-        # Create provider instance
+        module = importlib.import_module(
+            PROVIDER_MODULES[provider_type], package="pepperpy.rag.providers"
+        )
+        provider_class = getattr(module, provider_type)
         return provider_class(**config)
-    except (ImportError, AttributeError) as e:
-        raise ValidationError(f"Failed to create RAG provider '{provider_type}': {e}")
+    except ImportError as e:
+        raise ValidationError(
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
+        )
+    except AttributeError:
+        raise ValidationError(
+            f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
+        )
+    except Exception as e:
+        raise ValidationError(f"Failed to create provider '{provider_type}': {str(e)}")
 
 
 class RAGError(Exception):
     """Base exception for RAG-related errors."""
+
     pass
+
 
 class Filter:
     """Filter class for RAG queries."""
-    
+
     def __init__(self, field: str, value: Any, operator: str = "eq"):
         """Initialize a filter.
-        
+
         Args:
             field: The field to filter on
             value: The value to filter for
@@ -332,6 +335,6 @@ class Filter:
         self.field = field
         self.value = value
         self.operator = operator
-        
+
     def __repr__(self) -> str:
         return f"Filter(field='{self.field}', value='{self.value}', operator='{self.operator}')"

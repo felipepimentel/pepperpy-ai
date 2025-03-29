@@ -21,8 +21,6 @@ Example:
 import logging
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-import httpx
-
 from pepperpy.core.utils import lazy_provider_class
 from pepperpy.llm.base import (
     GenerationChunk,
@@ -61,6 +59,13 @@ class OpenRouterProvider(LLMProvider):
             model: Model to use
             **kwargs: Additional configuration
         """
+        try:
+            import httpx
+        except ImportError:
+            raise LLMError(
+                "OpenRouter provider requires httpx. " "Install with: pip install httpx"
+            )
+
         super().__init__(**kwargs)
 
         self._api_key = api_key or self._get_api_key()
