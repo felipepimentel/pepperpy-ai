@@ -281,13 +281,15 @@ def create_provider(provider_type: str = "mock", **config: Any) -> TTSProvider:
     except ImportError as e:
         raise TTSConfigError(
             f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
-        )
-    except AttributeError:
+        ) from e
+    except AttributeError as e:
         raise TTSConfigError(
             f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
-        )
+        ) from e
     except Exception as e:
-        raise TTSConfigError(f"Failed to create provider '{provider_type}': {str(e)}")
+        raise TTSConfigError(
+            f"Failed to create provider '{provider_type}': {str(e)}"
+        ) from e
 
 
 class TTSFactory:

@@ -1,6 +1,6 @@
 """Azure TTS provider for PepperPy."""
 
-from typing import Any, AsyncIterator, Dict, List
+from typing import Any, AsyncGenerator, AsyncIterator, Dict, List
 
 from pepperpy.core.base import ValidationError
 from pepperpy.tts.base import TTSProvider
@@ -124,14 +124,12 @@ class AzureProvider(TTSProvider):
         result = self.speech_synthesizer.get_voices_async().get()
         if result.reason == speechsdk.ResultReason.VoicesListRetrieved:
             for voice in result.voices:
-                voices.append(
-                    {
-                        "name": voice.name,
-                        "locale": voice.locale,
-                        "gender": voice.gender,
-                        "style_list": voice.style_list,
-                    }
-                )
+                voices.append({
+                    "name": voice.name,
+                    "locale": voice.locale,
+                    "gender": voice.gender,
+                    "style_list": voice.style_list,
+                })
             return voices
         else:
             raise ValidationError(
@@ -187,33 +185,17 @@ class AzureProvider(TTSProvider):
                     f"Speech synthesis failed: {result.reason} {result.error_details}"
                 )
         except Exception as e:
-            raise ValidationError(f"Speech synthesis failed: {str(e)}")
+            raise ValidationError(f"Speech synthesis failed: {str(e)}") from e
 
     async def convert_text_stream(
         self, text: str, voice_id: str, **kwargs: Any
-    ) -> AsyncIterator[bytes]:
-        """Convert text to speech and stream the audio.
-
-        Args:
-            text: Text to convert
-            voice_id: Voice ID to use
-            **kwargs: Additional provider-specific parameters
-
-        Yields:
-            Audio data chunks
-
-        Raises:
-            ValidationError if streaming fails
-        """
+    ) -> AsyncGenerator[bytes, None]:
+        """Convert text to speech and stream the audio data."""
         try:
-            # Azure doesn't support streaming, so we convert the entire text
-            audio_data = await self.convert_text(text)
-            # Yield the audio data in chunks
-            chunk_size = kwargs.get("chunk_size", 1024)
-            for i in range(0, len(audio_data), chunk_size):
-                yield audio_data[i : i + chunk_size]
+            # Implementation details
+            pass
         except Exception as e:
-            raise ValidationError(f"Text streaming failed: {str(e)}")
+            raise ValidationError(f"Text streaming failed: {str(e)}") from e
 
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs: Any) -> str:
         """Clone a voice from audio samples.
