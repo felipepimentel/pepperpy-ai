@@ -192,8 +192,11 @@ class AzureProvider(TTSProvider):
     ) -> AsyncGenerator[bytes, None]:
         """Convert text to speech and stream the audio data."""
         try:
-            # Implementation details
-            pass
+            # Split audio into chunks
+            chunk_size = 1024 * 16  # 16KB chunks
+            audio_data = await self.convert_text(text)
+            for i in range(0, len(audio_data), chunk_size):
+                yield audio_data[i : i + chunk_size]
         except Exception as e:
             raise ValidationError(f"Text streaming failed: {str(e)}") from e
 

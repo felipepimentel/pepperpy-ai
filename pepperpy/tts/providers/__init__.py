@@ -9,6 +9,7 @@ PROVIDER_MODULES = {
     "MurfProvider": ".murf",
     "PlayHTProvider": ".playht",
     "AzureProvider": ".azure",
+    "MockTTSProvider": ".mock",
 }
 
 __all__ = list(PROVIDER_MODULES.keys())

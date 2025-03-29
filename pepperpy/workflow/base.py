@@ -619,4 +619,6 @@ def create_provider(provider_type: str = "default", **config: Any) -> WorkflowPr
 
         raise ValidationError(
             f"Failed to create Workflow provider '{provider_type}': {e}"
-        )
+        ) from e
+    except Exception as e:
+        raise ValidationError(f"Failed to create Workflow provider: {str(e)}") from e

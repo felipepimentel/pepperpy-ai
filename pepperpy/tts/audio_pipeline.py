@@ -141,13 +141,13 @@ class AudioPipeline:
         for hdlr in logger.handlers[:-1]:
             logger.removeHandler(hdlr)
 
-    def _ensure_directory(self, directory: Path) -> None:
-        """Ensure a directory exists.
+    def _ensure_directory(self, directory: Union[str, Path]) -> None:
+        """Ensure directory exists.
 
         Args:
-            directory: Directory path
+            directory: Directory to ensure exists
         """
-        directory.mkdir(parents=True, exist_ok=True)
+        Path(directory).mkdir(parents=True, exist_ok=True)
 
     def log(self, level: VerbosityLevel, message: str) -> None:
         """Log a message based on the current verbosity level.
@@ -232,19 +232,20 @@ class AudioPipeline:
     def save_project(
         self, project: AudioProject, file_path: Optional[Union[str, Path]] = None
     ) -> str:
-        """Save an audio project to a file.
+        """Save project to file.
 
         Args:
-            project: AudioProject to save
-            file_path: Optional file path. If None, a path is generated based on the project title.
+            project: Project to save
+            file_path: Path to save to (optional)
 
         Returns:
-            Path where the project was saved
+            Path to saved file
         """
         # Generate path if not provided
         if file_path is None:
             file_path = (
-                self.output_dir / f"{project.title.lower().replace(' ', '_')}.json"
+                Path(self.output_dir)
+                / f"{project.title.lower().replace(' ', '_')}.json"
             )
         else:
             file_path = Path(file_path)
@@ -378,18 +379,15 @@ class AudioPipeline:
     async def generate_audio(
         self, project: AudioProject, provider: Optional[str] = None, **kwargs
     ) -> Dict[str, str]:
-        """Generate audio for each segment of the project.
+        """Generate audio for project.
 
         Args:
-            project: The audio project to generate audio for
-            provider: Optional TTS provider to use
-            **kwargs: Additional provider-specific parameters
+            project: Project to generate audio for
+            provider: Provider to use (optional)
+            **kwargs: Additional provider options
 
         Returns:
-            Dictionary of segment titles to audio file paths
-
-        Raises:
-            AudioPipelineError: If audio generation fails
+            Dictionary mapping segment titles to audio file paths
         """
         try:
             # Import here to avoid circular imports
@@ -426,7 +424,7 @@ class AudioPipeline:
 
                 # Create file name and path
                 file_name = f"{i + 1}_{segment.title.lower().replace(' ', '_')}.mp3"
-                file_path = str(self.output_dir / file_name)
+                file_path = str(Path(self.output_dir) / file_name)
 
                 # Save audio
                 self.log(VerbosityLevel.DEBUG, f"Saving audio to {file_path}")
@@ -524,25 +522,23 @@ class AudioPipeline:
         add_outro: bool = True,
         **kwargs,
     ) -> str:
-        """Compile all segments into a final audio file.
+        """Compile audio files into final output.
 
         Args:
-            enhanced_files: Dictionary of segment titles to enhanced audio file paths
-            project: The audio project
-            add_intro: Whether to add intro music
-            add_outro: Whether to add outro music
-            **kwargs: Additional compilation parameters
+            enhanced_files: Dictionary of enhanced audio files
+            project: Project to compile
+            add_intro: Whether to add intro
+            add_outro: Whether to add outro
+            **kwargs: Additional compilation options
 
         Returns:
-            Path to the final audio file
-
-        Raises:
-            AudioPipelineError: If compilation fails
+            Path to compiled audio file
         """
         try:
             # Create final output path
             final_path = str(
-                self.output_dir / f"{project.title.lower().replace(' ', '_')}_final.mp3"
+                Path(self.output_dir)
+                / f"{project.title.lower().replace(' ', '_')}_final.mp3"
             )
 
             self.log(VerbosityLevel.INFO, f"Compiling final audio to: {final_path}")

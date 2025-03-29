@@ -354,20 +354,18 @@ class TTSComponent(WorkflowComponent):
         )
         self.provider: TTSProvider = provider
 
-    async def process(self, data: str) -> bytes:
+    async def process(self, data: str) -> TTSAudio:
         """Process input text and convert to speech.
 
         Args:
             data: Input text to convert
 
         Returns:
-            Audio data as bytes
+            TTSAudio object containing the synthesized speech
 
         Raises:
             ValidationError: If input type is invalid
         """
-        # Perform TTS conversion
-
         if not isinstance(data, str):
             raise ValidationError(
                 f"Invalid input type for TTS component: {type(data).__name__}. "

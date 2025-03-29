@@ -101,9 +101,11 @@ class ElevenLabsProvider(TTSProvider):
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with ElevenLabs: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error generating speech with ElevenLabs: {str(e)}")
+            raise TTSProviderError(
+                f"Error generating speech with ElevenLabs: {str(e)}"
+            ) from e
 
     async def convert_text_stream(
         self, text: str, voice_id: str, **kwargs
@@ -158,9 +160,11 @@ class ElevenLabsProvider(TTSProvider):
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with ElevenLabs: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error streaming speech with ElevenLabs: {str(e)}")
+            raise TTSProviderError(
+                f"Error streaming speech with ElevenLabs: {str(e)}"
+            ) from e
 
     async def get_voices(self, **kwargs) -> List[Dict[str, Any]]:
         """Get available voices from ElevenLabs.
@@ -202,9 +206,11 @@ class ElevenLabsProvider(TTSProvider):
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with ElevenLabs: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error fetching voices from ElevenLabs: {str(e)}")
+            raise TTSProviderError(
+                f"Error fetching voices from ElevenLabs: {str(e)}"
+            ) from e
 
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs) -> str:
         """Clone a voice from audio samples using ElevenLabs.
@@ -259,6 +265,8 @@ class ElevenLabsProvider(TTSProvider):
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with ElevenLabs: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error cloning voice with ElevenLabs: {str(e)}")
+            raise TTSProviderError(
+                f"Error cloning voice with ElevenLabs: {str(e)}"
+            ) from e

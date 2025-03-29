@@ -50,19 +50,22 @@ class TopicResearchStage(PipelineStage):
             return results
 
         except Exception as e:
-            raise ValueError(f"Topic research failed: {e}")
+            raise ValueError(f"Topic research failed: {e}") from e
 
     def _gather_sources(self, topic: str) -> List[Dict[str, str]]:
         """Gather sources about the topic."""
-        # Placeholder implementation
-        return [
-            {
-                "title": f"Source {i} about {topic}",
-                "url": f"https://example.com/{i}",
-                "summary": f"Summary of source {i}",
-            }
-            for i in range(self._num_sources)
-        ]
+        try:
+            # Placeholder implementation
+            return [
+                {
+                    "title": f"Source {i} about {topic}",
+                    "url": f"https://example.com/{i}",
+                    "summary": f"Summary of source {i}",
+                }
+                for i in range(self._num_sources)
+            ]
+        except Exception as e:
+            raise ValueError(f"Source gathering failed: {e}") from e
 
     def _extract_key_points(self, topic: str) -> List[str]:
         """Extract key points about the topic."""
@@ -117,19 +120,22 @@ class ContentOutlineStage(PipelineStage):
             return outline
 
         except Exception as e:
-            raise ValueError(f"Outline creation failed: {e}")
+            raise ValueError(f"Outline creation failed: {e}") from e
 
     def _create_sections(self, research: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Create outline sections."""
-        # Placeholder implementation
-        return [
-            {
-                "title": f"Section {i}",
-                "content": ["Point 1", "Point 2", "Point 3"],
-                "sources": [s["url"] for s in research["sources"][:2]],
-            }
-            for i in range(3)
-        ]
+        try:
+            # Placeholder implementation
+            return [
+                {
+                    "title": f"Section {i}",
+                    "content": ["Point 1", "Point 2", "Point 3"],
+                    "sources": [s["url"] for s in research["sources"][:2]],
+                }
+                for i in range(3)
+            ]
+        except Exception as e:
+            raise ValueError(f"Section creation failed: {e}") from e
 
 
 class ContentDraftStage(PipelineStage):
@@ -178,16 +184,19 @@ class ContentDraftStage(PipelineStage):
             return draft
 
         except Exception as e:
-            raise ValueError(f"Draft generation failed: {e}")
+            raise ValueError(f"Draft generation failed: {e}") from e
 
     def _generate_content(self, outline: Dict[str, Any]) -> str:
         """Generate content from outline."""
-        # Placeholder implementation
-        sections = []
-        for section in outline["sections"]:
-            content = "\n".join(f"- {point}" for point in section["content"])
-            sections.append(f"## {section['title']}\n\n{content}\n")
-        return "\n".join(sections)
+        try:
+            # Placeholder implementation
+            sections = []
+            for section in outline["sections"]:
+                content = "\n".join(f"- {point}" for point in section["content"])
+                sections.append(f"## {section['title']}\n\n{content}\n")
+            return "\n".join(sections)
+        except Exception as e:
+            raise ValueError(f"Draft generation failed: {e}") from e
 
 
 class ContentRefinementStage(PipelineStage):
@@ -244,7 +253,7 @@ class ContentRefinementStage(PipelineStage):
             return refined
 
         except Exception as e:
-            raise ValueError(f"Content refinement failed: {e}")
+            raise ValueError(f"Content refinement failed: {e}") from e
 
     def _fix_grammar(self, content: str) -> str:
         """Fix grammar issues."""

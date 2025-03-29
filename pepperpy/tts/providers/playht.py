@@ -113,30 +113,21 @@ class PlayHTProvider(TTSProvider):
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with Play.ht: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error creating speech job with Play.ht: {str(e)}")
+            raise TTSProviderError(
+                f"Error creating speech job with Play.ht: {str(e)}"
+            ) from e
 
     async def _wait_for_job_completion(
-        self, job_id: str, max_wait_seconds: int = 60
+        self, job_id: str, timeout: int = 300, check_interval: int = 2
     ) -> Dict[str, Any]:
-        """Wait for a speech job to complete.
+        """Wait for a job to complete."""
+        try:
+            url = f"{self.BASE_URL}/tts/{job_id}"
 
-        Args:
-            job_id: The job ID to wait for.
-            max_wait_seconds: Maximum time to wait in seconds.
-
-        Returns:
-            Job details including audio URL.
-
-        Raises:
-            TTSProviderError: If waiting for the job fails.
-        """
-        url = f"{self.BASE_URL}/tts/{job_id}"
-
-        start_time = time.time()
-        while time.time() - start_time < max_wait_seconds:
-            try:
+            start_time = time.time()
+            while time.time() - start_time < timeout:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, headers=self.headers) as response:
                         if response.status != 200:
@@ -157,32 +148,21 @@ class PlayHTProvider(TTSProvider):
                             )
 
                         # Wait before checking again
-                        await asyncio.sleep(2)
-            except aiohttp.ClientError as e:
-                raise TTSProviderError(
-                    f"Network error while checking job status: {str(e)}"
-                )
-            except TTSProviderError:
-                raise
-            except Exception as e:
-                raise TTSProviderError(f"Error checking job status: {str(e)}")
+                        await asyncio.sleep(check_interval)
 
-        raise TTSProviderError(
-            f"Timeout waiting for Play.ht job completion after {max_wait_seconds} seconds"
-        )
+            # If we get here, we timed out
+            raise TTSProviderError(f"Job timed out after {timeout} seconds")
+        except aiohttp.ClientError as e:
+            raise TTSProviderError(
+                f"Network error while checking job status: {str(e)}"
+            ) from e
+        except TTSProviderError:
+            raise
+        except Exception as e:
+            raise TTSProviderError(f"Error checking job status: {str(e)}") from e
 
     async def _download_audio(self, url: str) -> bytes:
-        """Download audio from URL.
-
-        Args:
-            url: URL to download from.
-
-        Returns:
-            Audio data as bytes.
-
-        Raises:
-            TTSProviderError: If downloading fails.
-        """
+        """Download the generated audio file."""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url) as response:
@@ -194,9 +174,11 @@ class PlayHTProvider(TTSProvider):
 
                     return await response.read()
         except aiohttp.ClientError as e:
-            raise TTSProviderError(f"Network error while downloading audio: {str(e)}")
+            raise TTSProviderError(
+                f"Network error while downloading audio: {str(e)}"
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error downloading audio: {str(e)}")
+            raise TTSProviderError(f"Error downloading audio: {str(e)}") from e
 
     async def convert_text(self, text: str, voice_id: str, **kwargs) -> bytes:
         """Convert text to speech using Play.ht API.
@@ -261,18 +243,11 @@ class PlayHTProvider(TTSProvider):
         for i in range(0, len(audio_data), chunk_size):
             yield audio_data[i : i + chunk_size]
 
-    async def get_voices(self, **kwargs) -> List[Dict[str, Any]]:
-        """Get available voices from Play.ht.
-
-        Returns:
-            List of voice information dictionaries.
-
-        Raises:
-            TTSProviderError: If the API request fails.
-        """
-        url = f"{self.BASE_URL}/voices"
-
+    async def get_voices(self) -> List[Dict[str, Any]]:
+        """Get available voices from Play.ht."""
         try:
+            url = f"{self.BASE_URL}/voices"
+
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, headers=self.headers) as response:
                     if response.status != 200:
@@ -291,62 +266,52 @@ class PlayHTProvider(TTSProvider):
                             language.split("-")[0] if language else "unknown"
                         )
 
-                        voices.append(
-                            {
-                                "id": voice.get("id", ""),
-                                "name": voice.get("name", ""),
-                                "description": voice.get("description", ""),
-                                "preview_url": voice.get("sample", ""),
-                                "gender": voice.get("gender", "unknown"),
-                                "age": "unknown",  # Play.ht doesn't provide age
-                                "language": language_code,
-                                "provider_data": voice,
-                            }
-                        )
+                        voices.append({
+                            "id": voice.get("id", ""),
+                            "name": voice.get("name", ""),
+                            "description": voice.get("description", ""),
+                            "preview_url": voice.get("sample", ""),
+                            "gender": voice.get("gender", "unknown"),
+                            "age": "unknown",  # Play.ht doesn't provide age
+                            "language": language_code,
+                            "provider_data": voice,
+                        })
 
                     return voices
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with Play.ht: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error fetching voices from Play.ht: {str(e)}")
+            raise TTSProviderError(
+                f"Error fetching voices from Play.ht: {str(e)}"
+            ) from e
 
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs) -> str:
-        """Clone a voice from audio samples using Play.ht.
-
-        Args:
-            name: Name for the cloned voice.
-            samples: List of audio samples as bytes.
-            **kwargs: Additional parameters:
-                - description: Voice description
-
-        Returns:
-            ID of the created voice.
-
-        Raises:
-            TTSProviderError: If the API request fails.
-        """
-        description = kwargs.get("description", "")
-
-        url = f"{self.BASE_URL}/voice-cloning"
-
-        # Prepare form data
-        data = aiohttp.FormData()
-        data.add_field("name", name)
-        data.add_field("description", description)
-
-        # Add sample files
-        for i, sample in enumerate(samples):
-            data.add_field(
-                "samples", sample, filename=f"sample_{i}.mp3", content_type="audio/mpeg"
-            )
-
-        # Remove Content-Type from headers as it will be set by aiohttp
-        headers = self.headers.copy()
-        headers.pop("Content-Type", None)
-
+        """Clone a voice using provided samples."""
         try:
+            description = kwargs.get("description", "")
+
+            url = f"{self.BASE_URL}/voice-cloning"
+
+            # Prepare form data
+            data = aiohttp.FormData()
+            data.add_field("name", name)
+            data.add_field("description", description)
+
+            # Add sample files
+            for i, sample in enumerate(samples):
+                data.add_field(
+                    "samples",
+                    sample,
+                    filename=f"sample_{i}.mp3",
+                    content_type="audio/mpeg",
+                )
+
+            # Remove Content-Type from headers as it will be set by aiohttp
+            headers = self.headers.copy()
+            headers.pop("Content-Type", None)
+
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, data=data, headers=headers) as response:
                     if response.status not in [200, 201]:
@@ -360,6 +325,6 @@ class PlayHTProvider(TTSProvider):
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with Play.ht: {str(e)}"
-            )
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error cloning voice with Play.ht: {str(e)}")
+            raise TTSProviderError(f"Error cloning voice with Play.ht: {str(e)}") from e

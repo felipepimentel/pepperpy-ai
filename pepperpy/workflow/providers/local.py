@@ -9,11 +9,11 @@ from typing import Any, Dict, List, Optional
 
 from pepperpy.core.providers import LocalProvider
 from pepperpy.workflow.base import (
-    WorkflowBase,
+    ComponentType,
+    PipelineContext,
+    PipelineError,
+    Workflow,
     WorkflowComponent,
-    WorkflowContext,
-    WorkflowError,
-    WorkflowStatus,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,14 +39,14 @@ class LocalExecutor(LocalProvider):
         """
         self.config = config or {}
         self.metadata = metadata
-        self._workflows: Dict[str, WorkflowBase] = {}
+        self._workflows: Dict[str, Workflow] = {}
 
     async def execute_workflow(
         self,
-        workflow: WorkflowBase,
+        workflow: Workflow,
         input_data: Optional[Any] = None,
         config: Optional[Dict[str, Any]] = None,
-    ) -> WorkflowBase:
+    ) -> Workflow:
         """Execute a workflow locally.
 
         Args:
@@ -58,11 +58,11 @@ class LocalExecutor(LocalProvider):
             Updated workflow with execution results
 
         Raises:
-            WorkflowError: If execution fails
+            PipelineError: If execution fails
         """
         try:
             # Update workflow status
-            workflow.status = WorkflowStatus.RUNNING
+            workflow.status = ComponentType.PROCESSOR
             workflow.config.update(config or {})
 
             # Execute components in sequence
@@ -70,12 +70,14 @@ class LocalExecutor(LocalProvider):
             for component in workflow.components:
                 try:
                     # Create execution context
-                    context = WorkflowContext(
-                        workflow_id=workflow.id,
-                        component_id=component.id,
-                        input_data=current_data,
-                        config=workflow.config,
-                        metadata=workflow.metadata,
+                    context = PipelineContext(
+                        data={
+                            "workflow_id": workflow.id,
+                            "component_id": component.id,
+                            "input_data": current_data,
+                            "config": workflow.config,
+                            "metadata": workflow.metadata,
+                        }
                     )
 
                     # Execute component
@@ -88,22 +90,22 @@ class LocalExecutor(LocalProvider):
                     logger.error(
                         f"Component {component.name} failed in workflow {workflow.name}: {e}"
                     )
-                    workflow.status = WorkflowStatus.FAILED
-                    raise WorkflowError(f"Component execution failed: {str(e)}")
+                    workflow.status = ComponentType.SINK
+                    raise PipelineError(f"Component execution failed: {str(e)}") from e
 
             # Update workflow status
-            workflow.status = WorkflowStatus.COMPLETED
+            workflow.status = ComponentType.SINK
             return workflow
 
         except Exception as e:
             logger.error(f"Workflow {workflow.name} execution failed: {e}")
-            workflow.status = WorkflowStatus.FAILED
-            raise WorkflowError(f"Workflow execution failed: {str(e)}")
+            workflow.status = ComponentType.SINK
+            raise PipelineError(f"Workflow execution failed: {str(e)}") from e
 
     async def _execute_component(
         self,
         component: WorkflowComponent,
-        context: WorkflowContext,
+        context: PipelineContext,
     ) -> Any:
         """Execute a single component.
 
@@ -115,14 +117,14 @@ class LocalExecutor(LocalProvider):
             Component output data
 
         Raises:
-            WorkflowError: If component execution fails
+            PipelineError: If component execution fails
         """
         try:
-            return await component.process(context.input_data)
+            return await component.process(context.data.get("input_data"))
         except Exception as e:
-            raise WorkflowError(f"Component execution failed: {str(e)}")
+            raise PipelineError(f"Component execution failed: {str(e)}") from e
 
-    def get_workflow(self, workflow_id: str) -> WorkflowBase:
+    def get_workflow(self, workflow_id: str) -> Workflow:
         """Get workflow by ID.
 
         Args:
@@ -132,16 +134,16 @@ class LocalExecutor(LocalProvider):
             Workflow instance
 
         Raises:
-            WorkflowError: If workflow not found
+            PipelineError: If workflow not found
         """
         if workflow_id not in self._workflows:
-            raise WorkflowError(f"Workflow {workflow_id} not found")
+            raise PipelineError(f"Workflow {workflow_id} not found")
         return self._workflows[workflow_id]
 
     def list_workflows(
         self,
-        status: Optional[WorkflowStatus] = None,
-    ) -> List[WorkflowBase]:
+        status: Optional[ComponentType] = None,
+    ) -> List[Workflow]:
         """List workflows with optional status filter.
 
         Args:

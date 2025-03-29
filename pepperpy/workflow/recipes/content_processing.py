@@ -82,7 +82,7 @@ class TextExtractionStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error extracting text: {e}")
+            raise ContentProcessingError(f"Error extracting text: {e}") from e
 
 
 class ArchiveExtractionStage(WorkflowStage):
@@ -173,7 +173,7 @@ class ArchiveExtractionStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error processing archive: {e}")
+            raise ContentProcessingError(f"Error processing archive: {e}") from e
 
 
 class ProtectedContentStage(WorkflowStage):
@@ -236,7 +236,9 @@ class ProtectedContentStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error processing protected content: {e}")
+            raise ContentProcessingError(
+                f"Error processing protected content: {e}"
+            ) from e
 
 
 class ContentRAGStage(WorkflowStage):
@@ -349,7 +351,9 @@ class ContentRAGStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error processing content for RAG: {e}")
+            raise ContentProcessingError(
+                f"Error processing content for RAG: {e}"
+            ) from e
 
 
 class DirectoryProcessingStage(WorkflowStage):
@@ -438,7 +442,7 @@ class DirectoryProcessingStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error processing directory: {e}")
+            raise ContentProcessingError(f"Error processing directory: {e}") from e
 
 
 class BatchProcessingStage(WorkflowStage):
@@ -528,4 +532,4 @@ class BatchProcessingStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error processing batch: {e}")
+            raise ContentProcessingError(f"Error processing batch: {e}") from e

@@ -1,9 +1,6 @@
 """Example demonstrating RAG (Retrieval Augmented Generation) functionality.
 
-This example shows how to:
-1. Create a RAG provider
-2. Add sample documents
-3. Search for relevant documents
+This example shows how to use PepperPy's fluent API for RAG operations.
 """
 
 import asyncio
@@ -12,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from pepperpy.rag import Document, Query, create_provider
+from pepperpy import PepperPy
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -50,77 +47,52 @@ class MockEmbeddings:
         return vector.tolist()
 
 
-async def check_database(provider) -> int:
-    """Check if database exists and return document count.
-
-    Args:
-        provider: RAG provider
-
-    Returns:
-        Number of documents in database
-    """
-    # Search for all documents with empty query
-    results = await provider.search("", limit=100)
-    return len(results)
-
-
-async def add_sample_documents(provider, embeddings: MockEmbeddings) -> None:
-    """Add sample documents to database.
-
-    Args:
-        provider: RAG provider
-        embeddings: Embeddings generator
-    """
-    # Sample documents
-    documents = [
-        Document(
-            text="PepperPy is a Python framework for building AI applications",
-            metadata={"type": "framework", "language": "python"},
-        ),
-        Document(
-            text="RAG (Retrieval Augmented Generation) enhances LLM responses with relevant context",
-            metadata={"type": "concept", "field": "ai"},
-        ),
-        Document(
-            text="Vector databases store and search high-dimensional vectors efficiently",
-            metadata={"type": "technology", "field": "databases"},
-        ),
-    ]
-
-    # Add embeddings
-    for doc in documents:
-        doc.update({"embeddings": embeddings.generate(doc.text)})
-
-    # Store documents
-    await provider.store(documents)
-
-
-async def main():
+async def main() -> None:
     """Run the example."""
-    # Create provider
-    provider = create_provider("sqlite", database_path=db_path)
-    await provider.initialize()
+    print("RAG Example")
+    print("=" * 50)
 
-    try:
-        # Check database
-        count = await check_database(provider)
-        print(f"Found {count} documents in database")
+    # Create embeddings generator
+    embeddings = MockEmbeddings()
 
-        # Add documents if needed
-        if count == 0:
-            print("Adding sample documents...")
-            embeddings = MockEmbeddings()
-            await add_sample_documents(provider, embeddings)
-            count = await check_database(provider)
-            print(f"Added {count} documents")
+    # Initialize PepperPy with RAG
+    async with PepperPy().with_rag(provider="sqlite", database_path=db_path) as pepper:
+        # Check if we have documents
+        results = await pepper.rag.search("").generate()
+        print(f"\nFound {len(results)} documents in database")
+
+        # Add sample documents if needed
+        if len(results) == 0:
+            print("\nAdding sample documents...")
+            await (
+                pepper.rag.with_document(
+                    text="PepperPy is a Python framework for building AI applications",
+                    metadata={"type": "framework", "language": "python"},
+                    embeddings=embeddings.generate("PepperPy is a Python framework"),
+                )
+                .with_document(
+                    text="RAG (Retrieval Augmented Generation) enhances LLM responses with relevant context",
+                    metadata={"type": "concept", "field": "ai"},
+                    embeddings=embeddings.generate("RAG enhances LLM responses"),
+                )
+                .with_document(
+                    text="Vector databases store and search high-dimensional vectors efficiently",
+                    metadata={"type": "technology", "field": "databases"},
+                    embeddings=embeddings.generate("Vector databases for search"),
+                )
+                .store()
+            )
+
+            results = await pepper.rag.search("").generate()
+            print(f"Added {len(results)} documents")
 
         # Search example
         print("\nSearching for 'Python framework'...")
-        query = Query(
-            text="Python framework",
-            embeddings=MockEmbeddings().generate("Python framework"),
+        results = await (
+            pepper.rag.search("Python framework")
+            .with_embeddings(embeddings.generate("Python framework"))
+            .generate()
         )
-        results = await provider.search(query)
 
         # Print results
         print("\nSearch results:")
@@ -129,10 +101,6 @@ async def main():
             print(f"\n{i}. {doc.text}")
             print(f"   Type: {doc.metadata.get('type')}")
             print(f"   Field: {doc.metadata.get('field', 'N/A')}")
-
-    finally:
-        # Cleanup
-        await provider.cleanup()
 
 
 if __name__ == "__main__":

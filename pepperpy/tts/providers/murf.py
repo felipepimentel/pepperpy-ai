@@ -93,11 +93,13 @@ class MurfProvider:
         except aiohttp.ClientError as e:
             raise TTSProviderError(
                 f"Network error while communicating with Murf.ai: {str(e)}"
-            )
+            ) from e
         except Exception as e:
             if isinstance(e, TTSProviderError):
                 raise
-            raise TTSProviderError(f"Error generating speech with Murf.ai: {str(e)}")
+            raise TTSProviderError(
+                f"Error generating speech with Murf.ai: {str(e)}"
+            ) from e
 
     async def _get_job_status(self, job_id: str) -> Dict[str, Any]:
         """Get the status of a text-to-speech job.
@@ -124,9 +126,11 @@ class MurfProvider:
 
                     return await response.json()
         except aiohttp.ClientError as e:
-            raise TTSProviderError(f"Network error while checking job status: {str(e)}")
+            raise TTSProviderError(
+                f"Network error while checking job status: {str(e)}"
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error checking job status: {str(e)}")
+            raise TTSProviderError(f"Error checking job status: {str(e)}") from e
 
     async def _wait_for_job_completion(
         self, job_id: str, max_wait_seconds: int = 60
@@ -182,9 +186,11 @@ class MurfProvider:
 
                     return await response.read()
         except aiohttp.ClientError as e:
-            raise TTSProviderError(f"Network error while downloading audio: {str(e)}")
+            raise TTSProviderError(
+                f"Network error while downloading audio: {str(e)}"
+            ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error downloading audio: {str(e)}")
+            raise TTSProviderError(f"Error downloading audio: {str(e)}") from e
 
     async def get_voices(self) -> List[Dict[str, Any]]:
         """Get list of available voices from Murf.ai API."""
@@ -205,7 +211,7 @@ class MurfProvider:
                 for voice in voices
             ]
         except Exception as e:
-            raise TTSProviderError(f"Error fetching voices: {str(e)}")
+            raise TTSProviderError(f"Error fetching voices: {str(e)}") from e
 
     async def convert_text(self, text: str, voice_id: str, **kwargs) -> bytes:
         """Convert text to speech using Murf.ai API."""
@@ -231,7 +237,7 @@ class MurfProvider:
                         error_data = await audio_response.text()
                         raise TTSProviderError(f"Error downloading audio: {error_data}")
         except Exception as e:
-            raise TTSProviderError(f"Error generating speech: {str(e)}")
+            raise TTSProviderError(f"Error generating speech: {str(e)}") from e
 
     async def convert_text_stream(
         self, text: str, voice_id: str, chunk_size: int = 1024, **kwargs
