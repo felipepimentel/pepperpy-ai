@@ -5,152 +5,190 @@ globs: "examples/**/*.py"
 priority: 800
 ---
 
-# Boas Práticas para Código de Exemplo
+# Best Practices for Example Code
 
-## Visão Geral
+## Core Principles
 
-Esta regra define práticas recomendadas para criar e manter código de exemplo na pasta `/examples` do projeto PepperPy. Os exemplos são críticos para demonstrar o uso correto da biblioteca e devem ser mantidos como modelos de qualidade para os usuários.
+1. **Real World Usage** - Examples MUST use real providers, NEVER mocks
+2. **Minimal Configuration** - Examples should work with just environment config
+3. **Concise and Focused** - Examples should be as short as possible while being complete
+4. **Provider Agnostic** - Examples should never care about specific providers
+5. **Well Documented** - Include docstrings and essential comments
+6. **Fluent API** - Use PepperPy's fluent API correctly
 
-## Princípios Fundamentais
+## Critical Rules
 
-1. **Minimalista** - Exemplos devem ser curtos e focados em demonstrar apenas um recurso ou padrão de uso específico
-2. **Auto-suficiente** - Exemplos devem funcionar com configuração mínima (usando .env)
-3. **Bem documentado** - Cada exemplo deve incluir docstrings e comentários explicativos
-4. **Seguir API fluente** - Exemplos devem usar a API fluente do PepperPy corretamente
-5. **Criar apenas quando solicitado** - Exemplos só devem ser criados quando explicitamente solicitados pelo usuário
-6. **Representar casos reais** - Exemplos devem ser completos e robustos, representando casos de uso reais
+### ❌ NEVER Use Mocks in Examples
 
-## Preferências do Usuário
+Examples demonstrate real usage, mocks are for tests only:
 
-> **IMPORTANTE:** O usuário prefere exemplos completos e robustos que representem casos de uso reais. Exemplos devem ser criados APENAS quando explicitamente solicitados. Não crie exemplos automaticamente ou como parte de outras tarefas sem uma solicitação específica.
-
-## Práticas Recomendadas
-
-### Configuração do Ambiente
-
-✅ **CORRETO**: Usar variáveis de ambiente de um arquivo `.env`
 ```python
-# CORRETO - Usar .env para configuração
-# Comentário explicando as variáveis de ambiente necessárias
-# PEPPERPY_LLM__PROVIDER=openai
-# PEPPERPY_LLM__OPENAI__API_KEY=sk-...
+# WRONG - Using mock provider in example
+class MockLLMProvider(LLMProvider):
+    async def generate(self, messages):
+        return "Mock response"
+
+# CORRECT - Use real provider from environment
+app = PepperPy().with_llm()  # Provider configured in .env
 ```
 
-❌ **ERRADO**: Definir variáveis de ambiente no código
+### ✅ Always Use Environment Configuration
+
+Configuration should come from environment variables:
+
 ```python
-# ERRADO - Definir API keys diretamente no código
-os.environ["PEPPERPY_LLM__OPENAI__API_KEY"] = "sk-123456789"
+# CORRECT - Use environment configuration
+app = PepperPy().with_llm()
+
+# WRONG - Explicit provider or configuration
+app = PepperPy().with_llm("openai", api_key="sk-...")
 ```
 
-### Inicialização de Providers
+### ✅ Keep Examples Concise
 
-✅ **CORRETO**: Usar a API fluente para inicialização
+Remove all unnecessary code and configuration:
+
 ```python
-# CORRETO - Usar a API fluente sem provider_type
-pepperpy_instance = (
-    pepperpy.PepperPy()
-    .with_llm()           # Usa variáveis de ambiente
-    .with_embeddings()    # Configuração automática
-    .with_rag()           # Configuração automática
-)
+# CORRECT - Minimal, focused example
+async def main():
+    """Run the example."""
+    async with PepperPy().with_llm() as pepper:
+        response = await (
+            pepper.chat
+            .with_user("Hello!")
+            .generate()
+        )
+        print(f"Response: {response.content}")
+
+# WRONG - Unnecessary complexity
+async def main():
+    """Run the example."""
+    config = Config()
+    app = PepperPy()
+    app.with_config(config)
+    app.with_llm()
+    
+    await app.initialize()
+    try:
+        chat = app.chat
+        chat.with_user("Hello!")
+        response = await chat.generate()
+        print(f"Response: {response.content}")
+    finally:
+        await app.cleanup()
 ```
 
-❌ **ERRADO**: Criar providers diretamente
+### ✅ Provider Agnostic
+
+Examples should never mention specific providers:
+
 ```python
-# ERRADO - Criar providers diretamente
+# WRONG - Importing or mentioning specific provider
 from pepperpy.llm.providers import OpenAIProvider
-provider = OpenAIProvider(api_key="sk-123456789")
+
+# WRONG - Specifying provider in configuration
+app = PepperPy().with_llm("openai")
+
+# CORRECT - Provider agnostic
+app = PepperPy().with_llm()  # Provider from environment
 ```
 
-### Gerenciamento de Logging
+## Example Template
 
-✅ **CORRETO**: Saída simples com `print()`
-```python
-# CORRETO - Usar print para saída de exemplo
-print(f"Resposta: {response}")
-```
-
-❌ **ERRADO**: Configuração de logging no exemplo
-```python
-# ERRADO - Configurar logging em exemplos
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-logger.info("Resposta: %s", response)
-```
-
-### Gerenciamento de I/O
-
-✅ **CORRETO**: Deixar a biblioteca gerenciar I/O
-```python
-# CORRETO - Deixar a biblioteca gerenciar diretórios
-pepper.with_rag()  # Biblioteca cria diretórios conforme necessário
-```
-
-❌ **ERRADO**: Gerenciar I/O manualmente
-```python
-# ERRADO - Criar diretórios manualmente
-data_dir = Path("data/chroma")
-data_dir.mkdir(parents=True, exist_ok=True)
-```
-
-## Exemplo Ideal
+Use this template for new examples:
 
 ```python
-"""Exemplo demonstrando o uso de RAG com PepperPy."""
+"""Example demonstrating [specific feature] with PepperPy."""
 
 import asyncio
+from pepperpy import PepperPy
 
-import pepperpy
-
-# Dados de exemplo
-data = {
-    "title": "Python",
-    "description": "Python é uma linguagem de programação interpretada.",
-    "features": ["Fácil de aprender", "Sintaxe clara", "Muitas bibliotecas"]
-}
 
 async def main() -> None:
-    """Executar o exemplo."""
-    # Inicializar PepperPy com API fluente
-    # Configuração vem de variáveis de ambiente (.env)
-    pepper = (
-        pepperpy.PepperPy()
-        .with_llm()
-        .with_embeddings()
-        .with_rag()
-    )
+    """Run the example."""
+    async with PepperPy().with_llm() as pepper:
+        response = await (
+            pepper.chat
+            .with_user("Your prompt here")
+            .generate()
+        )
+        print(f"\nResponse: {response.content}")
 
-    # Usar gerenciador de contexto assíncrono
-    async with pepper:
-        # Aprender dos dados
-        await pepper.learn(data)
-
-        # Fazer perguntas
-        question = "O que é Python?"
-        print(f"\nPergunta: {question}")
-        response = await pepper.ask(question)
-        print(f"Resposta: {response}")
 
 if __name__ == "__main__":
-    # Executar o exemplo
-    # Variáveis de ambiente necessárias no arquivo .env:
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_EMBEDDINGS__PROVIDER=local
-    # PEPPERPY_RAG__PROVIDER=chroma
     asyncio.run(main())
 ```
 
-## Lista de Verificação de Conformidade
+## Compliance Checklist
 
-Para garantir que seus exemplos sigam estas práticas recomendadas, verifique:
+Before committing any example:
 
-- [ ] Exemplo usa a API fluente do PepperPy
-- [ ] Configuração vem exclusivamente de variáveis de ambiente
-- [ ] Não há criação direta de providers
-- [ ] Não há configuração de logging
-- [ ] Não há gerenciamento manual de I/O
-- [ ] Exemplo inclui comentários explicativos
-- [ ] Exemplo funciona sem parâmetros explícitos em `with_*` methods
-- [ ] Exemplo representa um caso de uso real e robusto
-- [ ] Exemplo foi criado apenas após solicitação explícita 
+- [ ] Uses real providers (NO mocks)
+- [ ] Configuration comes from environment only
+- [ ] No explicit provider references
+- [ ] As concise as possible
+- [ ] Uses fluent API correctly
+- [ ] Includes minimal but sufficient documentation
+- [ ] Represents real-world usage
+- [ ] No redundant configuration or setup
+
+## Common Mistakes
+
+### ❌ Using Mocks Instead of Real Providers
+
+```python
+# WRONG - Creating mock providers
+class MockProvider:
+    async def generate(self):
+        return "Mock response"
+```
+
+### ❌ Explicit Provider Configuration
+
+```python
+# WRONG - Hardcoding provider details
+app = PepperPy().with_llm(
+    provider="openai",
+    model="gpt-4",
+    api_key="sk-..."
+)
+```
+
+### ❌ Over-configuration
+
+```python
+# WRONG - Unnecessary configuration
+app = (
+    PepperPy()
+    .with_config(Config())  # Unnecessary
+    .with_llm()
+)
+```
+
+## Best Practices Summary
+
+1. **Real Providers**
+   - ALWAYS use real providers
+   - NEVER use mocks in examples
+   - Configuration via environment only
+
+2. **Minimal Code**
+   - Remove unnecessary configuration
+   - Use fluent API effectively
+   - Keep examples focused and concise
+
+3. **Provider Agnostic**
+   - Never reference specific providers
+   - Let environment control provider selection
+   - Focus on demonstrating features, not providers
+
+4. **Documentation**
+   - Clear docstrings explaining purpose
+   - Essential comments only
+   - Document required environment variables
+
+## Conclusion
+
+Examples are critical for demonstrating proper PepperPy usage. They must be real,
+concise, and provider agnostic, focusing on showing users the correct way to use
+the library's features. 

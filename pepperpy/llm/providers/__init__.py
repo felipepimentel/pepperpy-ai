@@ -1,11 +1,9 @@
 """LLM provider implementations."""
 
-from .openai import OpenAILLMProvider
-from .openrouter import OpenRouterLLMProvider
-from .local import LocalLLMProvider
+PROVIDER_MODULES = {
+    "openai": "pepperpy.llm.providers.openai.OpenAIProvider",
+    "openrouter": "pepperpy.llm.providers.openrouter.OpenRouterProvider",
+    "local": "pepperpy.llm.providers.local.LocalProvider",
+}
 
-__all__ = [
-    "OpenAILLMProvider",
-    "OpenRouterLLMProvider",
-    "LocalLLMProvider",
-]
+__all__ = list(PROVIDER_MODULES.keys())

@@ -1,84 +1,11 @@
-"""Example demonstrating a minimal PepperPy setup without external services.
+"""Example demonstrating a minimal PepperPy setup using fluent API.
 
-This example shows a simple usage pattern that doesn't require any external APIs
-or services, making it easier to run for demonstration purposes.
+This example shows how to use PepperPy's fluent API to create a simple LLM application.
 """
 
 import asyncio
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy import Config
-from pepperpy.llm import LLMProvider
-from pepperpy.llm.base import GenerationChunk, GenerationResult, Message, MessageRole
-
-
-class MockLLMProvider(LLMProvider):
-    """A mock LLM provider for demonstration purposes."""
-
-    def __init__(
-        self, name: str = "mock", config: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """Initialize the provider."""
-        super().__init__(name=name, config=config or {})
-
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        print("Initializing mock LLM provider")
-        self.initialized = True
-
-    async def generate(
-        self,
-        messages: Union[str, List[Message]],
-        **kwargs: Any,
-    ) -> GenerationResult:
-        """Generate a response from the provided messages.
-
-        Args:
-            messages: String prompt or list of messages
-            **kwargs: Additional generation options
-
-        Returns:
-            Generation result
-        """
-        # Convert string to message list if needed
-        if isinstance(messages, str):
-            msg_list = [Message(role=MessageRole.USER, content=messages)]
-        else:
-            msg_list = messages
-
-        # Print the received messages for demonstration
-        for msg in msg_list:
-            print(f"Message ({msg.role}): {msg.content}")
-
-        # Return a mock response
-        return GenerationResult(
-            content="This is a mock response from the LLM provider.",
-            messages=msg_list,
-            usage={"prompt_tokens": 10, "completion_tokens": 8, "total_tokens": 18},
-        )
-
-    async def stream(
-        self,
-        messages: Union[str, List[Message]],
-        **kwargs: Any,
-    ) -> AsyncIterator[GenerationChunk]:
-        """Generate text in a streaming fashion.
-
-        Args:
-            messages: String prompt or list of messages
-            **kwargs: Additional generation options
-
-        Returns:
-            AsyncIterator yielding GenerationChunk objects
-        """
-        # Just yield a single chunk for simplicity
-        yield GenerationChunk(
-            content="This is a mock streaming response.", finish_reason="stop"
-        )
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        print("Cleaning up mock LLM provider")
+from pepperpy import PepperPy
 
 
 async def main() -> None:
@@ -86,31 +13,17 @@ async def main() -> None:
     print("Minimal Example")
     print("=" * 50)
 
-    # Create a configuration
-    config = Config()
-
-    # Create and initialize the mock provider
-    mock_provider = MockLLMProvider(config=config)
-    await mock_provider.initialize()
-
-    try:
-        # Create a message
-        messages = [Message(role=MessageRole.USER, content="Hello, PepperPy!")]
-
-        # Get a response
-        print("\nSending message...")
-        response = await mock_provider.generate(messages)
-
-        # Print the response
-        print(f"\nResponse: {response.content}")
-        print(
-            f"Tokens: {response.usage.get('total_tokens', 0) if response.usage else 0}"
+    async with PepperPy().with_llm() as pepper:
+        response = await (
+            pepper.chat
+            .with_system("You are a helpful assistant.")
+            .with_user("Hello, PepperPy!")
+            .generate()
         )
-    finally:
-        # Clean up
-        await mock_provider.cleanup()
+
+        print(f"\nResponse: {response.content}")
+        print(f"Tokens: {response.usage.get('total_tokens', 0) if response.usage else 0}")
 
 
 if __name__ == "__main__":
-    # Run the example
     asyncio.run(main())

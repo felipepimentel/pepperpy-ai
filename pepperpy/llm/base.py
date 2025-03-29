@@ -440,26 +440,27 @@ def create_provider(provider_type: str = "openai", **config: Any) -> LLMProvider
         ValidationError: If provider creation fails
     """
     try:
-        # Import provider module
-        import importlib
+        from pepperpy.llm.providers import PROVIDER_MODULES
 
-        module_name = f"pepperpy.llm.providers.{provider_type}"
-        module = importlib.import_module(module_name)
+        if provider_type not in PROVIDER_MODULES:
+            raise ValidationError(f"Unknown provider type: {provider_type}")
 
-        # Get provider class
-        provider_class_name = f"{provider_type.title()}LLMProvider"
+        # Import provider class lazily
+        module_path = PROVIDER_MODULES[provider_type]
+        module_name, class_name = module_path.rsplit(".", 1)
 
-        # Handle special cases
-        if provider_type == "openai":
-            provider_class = module.OpenAILLMProvider
-        elif provider_type == "openrouter":
-            provider_class = module.OpenRouterLLMProvider
-        elif provider_type == "local":
-            provider_class = module.LocalLLMProvider
-        else:
-            provider_class = getattr(module, provider_class_name)
+        try:
+            import importlib
+
+            module = importlib.import_module(module_name)
+            provider_class = getattr(module, class_name)
+        except ImportError as e:
+            raise ValidationError(
+                f"Failed to import provider '{provider_type}'. "
+                f"Make sure you have installed the required dependencies: {e}"
+            )
 
         # Create provider instance
         return provider_class(**config)
-    except (ImportError, AttributeError) as e:
+    except Exception as e:
         raise ValidationError(f"Failed to create LLM provider '{provider_type}': {e}")
