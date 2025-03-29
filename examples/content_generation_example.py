@@ -10,8 +10,15 @@ async def main() -> None:
     print("Content Generation Example")
     print("=" * 50)
 
-    # Initialize PepperPy
-    async with PepperPy().use_llm() as pepper:
+    # Initialize PepperPy with LLM support
+    async with (
+        PepperPy()
+        .with_llm()
+        .with_llm_config(
+            temperature=0.7,
+            max_tokens=1000,
+        )
+    ) as pepper:
         # Generate article
         print("\nGenerating article...")
         article = await (
@@ -43,4 +50,5 @@ async def main() -> None:
 if __name__ == "__main__":
     # Required environment variables in .env file:
     # PEPPERPY_LLM__PROVIDER=openai
+    # PEPPERPY_LLM__API_KEY=your_api_key
     asyncio.run(main())

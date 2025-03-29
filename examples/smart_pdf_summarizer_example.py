@@ -10,12 +10,9 @@ This example demonstrates how to:
 import asyncio
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.base import ContentType
-from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
-from pepperpy.llm import LLMProvider, OpenAIProvider
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,89 +22,48 @@ logger = logging.getLogger(__name__)
 EXAMPLE_DOC = Path(__file__).parent / "data" / "example.pdf"
 
 
-class SmartPDFSummarizer:
-    """Smart PDF summarizer using PepperPy."""
+async def summarize_pdf(
+    file_path: Path,
+    max_tokens: int = 500,
+    temperature: float = 0.7,
+) -> Dict:
+    """Summarize PDF document.
 
-    def __init__(
-        self,
-        content_provider: Optional[PyMuPDFProvider] = None,
-        llm_provider: Optional[LLMProvider] = None,
-    ) -> None:
-        """Initialize summarizer.
+    Args:
+        file_path: Path to PDF file
+        max_tokens: Maximum tokens for summary
+        temperature: Temperature for LLM
 
-        Args:
-            content_provider: Content processing provider (optional)
-            llm_provider: LLM provider (optional)
-        """
-        self.content_provider = content_provider or PyMuPDFProvider()
-        self.llm_provider = llm_provider or OpenAIProvider()
-
-    async def initialize(self) -> None:
-        """Initialize providers."""
-        await self.content_provider.initialize()
-        await self.llm_provider.initialize()
-
-    async def cleanup(self) -> None:
-        """Clean up providers."""
-        await self.content_provider.cleanup()
-        await self.llm_provider.cleanup()
-
-    async def summarize(
-        self,
-        file_path: Path,
-        max_tokens: int = 500,
-        temperature: float = 0.7,
-    ) -> Dict:
-        """Summarize PDF document.
-
-        Args:
-            file_path: Path to PDF file
-            max_tokens: Maximum tokens for summary
-            temperature: Temperature for LLM
-
-        Returns:
-            Dictionary with summary and metadata
-        """
-        # Process document
-        content = await self.content_provider.process(
-            file_path,
-            extract_text=True,
-            extract_metadata=True,
-        )
-
-        # Generate prompt
-        prompt = self._generate_prompt(content["text"], content["metadata"])
-
-        # Generate summary
-        summary = await self.llm_provider.generate(
-            prompt,
+    Returns:
+        Dictionary with summary and metadata
+    """
+    async with (
+        PepperPy()
+        .with_content()
+        .with_content_config(providers={"pymupdf": {"extract_images": False}})
+        .with_llm()
+        .with_llm_config(
             max_tokens=max_tokens,
             temperature=temperature,
         )
+    ) as pepper:
+        # Process document
+        content = await (
+            pepper.content.from_file(file_path).extract_text().with_metadata().execute()
+        )
 
-        return {
-            "summary": summary,
-            "metadata": content["metadata"],
-        }
+        # Generate summary
+        summary = await (
+            pepper.chat.with_system("You are a document summarization expert.")
+            .with_user(
+                f"""Please provide a concise summary of the following document:
 
-    def _generate_prompt(self, text: str, metadata: Dict) -> str:
-        """Generate prompt for LLM.
-
-        Args:
-            text: Document text
-            metadata: Document metadata
-
-        Returns:
-            Prompt string
-        """
-        return f"""Please provide a concise summary of the following document:
-
-Title: {metadata.get('title', 'Unknown')}
-Author: {metadata.get('author', 'Unknown')}
-Pages: {metadata.get('pages', 'Unknown')}
+Title: {content["metadata"].get("title", "Unknown")}
+Author: {content["metadata"].get("author", "Unknown")}
+Pages: {content["metadata"].get("pages", "Unknown")}
 
 Content:
-{text[:2000]}...
+{content["text"][:2000]}...
 
 Please include:
 1. Main topics and key points
@@ -116,20 +72,22 @@ Please include:
 4. Any notable quotes or statistics
 
 Summary:"""
+            )
+            .generate()
+        )
+
+        return {
+            "summary": summary.content,
+            "metadata": content["metadata"],
+        }
 
 
 async def main():
     """Run the example."""
-    # Create summarizer
-    summarizer = SmartPDFSummarizer()
-
-    # Initialize
-    await summarizer.initialize()
-
     try:
         # Summarize document
         logger.info("Summarizing document: %s", EXAMPLE_DOC)
-        result = await summarizer.summarize(EXAMPLE_DOC)
+        result = await summarize_pdf(EXAMPLE_DOC)
 
         # Print results
         logger.info("\nDocument Summary:")
@@ -140,10 +98,13 @@ async def main():
         logger.info("-" * 40)
         logger.info(result["summary"])
 
-    finally:
-        # Cleanup
-        await summarizer.cleanup()
+    except Exception as e:
+        logger.error("Error during summarization: %s", e)
 
 
 if __name__ == "__main__":
+    # Required environment variables in .env file:
+    # PEPPERPY_CONTENT__PROVIDER=pymupdf
+    # PEPPERPY_LLM__PROVIDER=openai
+    # PEPPERPY_LLM__API_KEY=your_api_key
     asyncio.run(main())

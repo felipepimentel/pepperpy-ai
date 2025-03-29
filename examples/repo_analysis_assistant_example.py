@@ -8,10 +8,10 @@ from dotenv import load_dotenv
 
 from pepperpy import PepperPy
 
-# Carregar variáveis de ambiente do arquivo .env
+# Load environment variables from .env file
 load_dotenv()
 
-# Criar diretórios necessários
+# Create necessary directories
 os.makedirs("output/repos", exist_ok=True)
 
 
@@ -21,95 +21,107 @@ async def analyze_repository(repo_url: str) -> None:
     Args:
         repo_url: Repository URL to analyze
     """
-    print(f"Analisando repositório: {repo_url}")
+    print(f"Analyzing repository: {repo_url}")
 
-    # Inicializar PepperPy com provedores mockados
-    # Configuração vem de variáveis de ambiente no arquivo .env
-    # PEPPERPY_LLM__PROVIDER=mock, PEPPERPY_RAG__PROVIDER=mock, PEPPERPY_REPOSITORY__PROVIDER=mock
-    pepper = PepperPy().with_llm().with_rag().with_repository()
+    # Initialize PepperPy with LLM, RAG, and repository support
+    async with (
+        PepperPy()
+        .with_llm()
+        .with_llm_config(
+            temperature=0.7,
+            max_tokens=1000,
+        )
+        .with_rag()
+        .with_repository()
+    ) as pepper:
+        print("\nCloning repository...")
+        repo_path = await pepper.repository.clone(repo_url).execute()
+        print(f"Repository cloned to: {repo_path}")
 
-    async with pepper:
-        print("\nClonando repositório...")
-        repo_path = await pepper.repository.clone(repo_url)
-        print(f"Repositório clonado em: {repo_path}")
+        print("\nListing repository files...")
+        files = await pepper.repository.get_files(repo_path).execute()
+        print(f"Found {len(files)} files")
 
-        print("\nListando arquivos do repositório...")
-        files = await pepper.repository.get_files(repo_path)
-        print(f"Encontrados {len(files)} arquivos")
-
-        # Indexar conteúdo do repositório
-        print("\nIndexando conteúdo do repositório...")
+        # Index repository content
+        print("\nIndexing repository content...")
         indexed_files = 0
 
-        # Lista para armazenar conteúdos e metadados dos arquivos
+        # List to store file contents and metadata
         docs = []
 
-        for file in files[:10]:  # Limitar para os primeiros 10 arquivos para exemplo
+        for file in files[:10]:  # Limit to first 10 files for example
             try:
-                # Em um cenário real, leríamos o arquivo
-                # Aqui usamos um conteúdo mockado para demonstração
+                # In a real scenario, we would read the file
+                # Here we use mocked content for demonstration
                 file_name = os.path.basename(file)
-                content = f"Conteúdo mockado para o arquivo {file_name}"
+                content = f"Mocked content for file {file_name}"
 
-                # Armazenar o conteúdo e metadados do arquivo
-                print(f"Indexando: {file_name}")
+                # Store file content and metadata
+                print(f"Indexing: {file_name}")
                 docs.append({
                     "content": content,
                     "metadata": {"file": file, "type": "code"},
                 })
                 indexed_files += 1
             except Exception as e:
-                print(f"Erro ao indexar {file}: {e}")
+                print(f"Error indexing {file}: {e}")
 
-        print(f"\nIndexados {indexed_files} arquivos com sucesso!")
+        print(f"\nSuccessfully indexed {indexed_files} files!")
 
-        # Modo interativo
-        print("\nFaça perguntas sobre o repositório (digite 'sair' para encerrar):")
+        # Store documents in RAG
+        await pepper.rag.add_documents(docs).with_auto_embeddings().store()
+
+        # Interactive mode
+        print("\nAsk questions about the repository (type 'exit' to end):")
 
         questions = [
-            "Qual é o objetivo principal deste repositório?",
-            "Quais são os principais arquivos do projeto?",
-            "Como está estruturado o código?",
-            "sair",
+            "What is the main purpose of this repository?",
+            "What are the main files in the project?",
+            "How is the code structured?",
+            "exit",
         ]
 
         for question in questions:
-            print(f"\nPergunta: {question}")
+            print(f"\nQuestion: {question}")
 
-            if question.lower() == "sair":
-                print("Encerrando análise do repositório.")
+            if question.lower() == "exit":
+                print("Ending repository analysis.")
                 break
 
             try:
-                # Consultar o assistente
-                result = await pepper.ask(question)
-                print(f"\nResposta: {result.content}")
+                # Query the assistant
+                result = await (
+                    pepper.chat.with_system("You are a repository analysis expert.")
+                    .with_user(question)
+                    .generate()
+                )
+                print(f"\nAnswer: {result.content}")
             except Exception as e:
-                print(f"\nErro: {e}")
+                print(f"\nError: {e}")
 
-        # Salvar resumo da análise
+        # Save analysis summary
         output_file = Path("output/repos") / f"{repo_url.split('/')[-1]}_analysis.txt"
         with open(output_file, "w") as f:
-            f.write(f"Análise do Repositório: {repo_url}\n")
-            f.write(f"Total de arquivos: {len(files)}\n")
-            f.write(f"Arquivos indexados: {indexed_files}\n")
-            f.write("\nRespostas às perguntas comuns:\n")
+            f.write(f"Repository Analysis: {repo_url}\n")
+            f.write(f"Total files: {len(files)}\n")
+            f.write(f"Indexed files: {indexed_files}\n")
+            f.write("\nAnswers to common questions:\n")
             f.write(
-                "1. Este repositório tem como objetivo principal fornecer uma interface para comandar o Claude Desktop.\n"
+                "1. This repository's main purpose is to provide an interface for controlling Claude Desktop.\n"
             )
             f.write(
-                "2. Os principais arquivos incluem README.md, setup.py e arquivos de código-fonte Python.\n"
+                "2. The main files include README.md, setup.py, and Python source code files.\n"
             )
             f.write(
-                "3. O código está estruturado em módulos que seguem práticas recomendadas de organização de código Python.\n"
+                "3. The code is structured in modules that follow Python code organization best practices.\n"
             )
 
-        print(f"\nResumo da análise salvo em: {output_file}")
+        print(f"\nAnalysis summary saved to: {output_file}")
 
 
 async def main() -> None:
     """Run the example."""
-    print("Exemplo de Assistente de Análise de Repositório")
+    print("Repository Analysis Assistant Example")
     print("=" * 50)
 
     repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
@@ -117,8 +129,9 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Variáveis de ambiente necessárias (definidas no arquivo .env):
-    # PEPPERPY_LLM__PROVIDER=mock ou PEPPERPY_LLM__PROVIDER=openrouter
-    # PEPPERPY_RAG__PROVIDER=mock
-    # PEPPERPY_REPOSITORY__PROVIDER=mock
+    # Required environment variables in .env file:
+    # PEPPERPY_LLM__PROVIDER=openai
+    # PEPPERPY_LLM__API_KEY=your_api_key
+    # PEPPERPY_RAG__PROVIDER=memory
+    # PEPPERPY_REPOSITORY__PROVIDER=git
     asyncio.run(main())

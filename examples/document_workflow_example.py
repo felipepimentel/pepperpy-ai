@@ -6,36 +6,12 @@ workflow stages for basic document processing capabilities.
 """
 
 import asyncio
-from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict
 
-# Import only the workflow components we need
-from pepperpy.workflow.recipes.document_processing import (
-    DocumentClassificationStage,
-    MetadataExtractionStage,
-    TextExtractionStage,
-)
+from pepperpy import PepperPy
 
 
-# Create a simple context class if pepperpy.workflow.base can't be imported
-@dataclass
-class SimpleContext:
-    """Simple context for pipeline execution."""
-
-    data: Dict[str, Any] = field(default_factory=dict)
-    metadata: Dict[str, Any] = field(default_factory=dict)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get value from data."""
-        return self.data.get(key, default)
-
-    def set(self, key: str, value: Any) -> None:
-        """Set value in data."""
-        self.data[key] = value
-
-
-async def setup_example_files():
+async def setup_example_files() -> Path:
     """Create example files for demonstration."""
     # Create a sample directory
     example_dir = Path("example_docs")
@@ -84,139 +60,117 @@ async def setup_example_files():
     return example_dir
 
 
-async def demo_text_extraction(file_path):
-    """Demonstrate text extraction from document."""
-    print("\n=== Text Extraction Demo ===")
+async def process_single_document(file_path: Path) -> None:
+    """Process a single document with individual stages."""
+    print(f"\nProcessing document: {file_path}")
 
-    # Create context
-    context = SimpleContext()
+    async with (
+        PepperPy()
+        .with_workflow()
+        .with_workflow_config(
+            providers={
+                "text_extractor": {"type": "basic"},
+                "classifier": {"type": "llm"},
+                "metadata_extractor": {"type": "llm"},
+            }
+        )
+    ) as pepper:
+        # Extract text
+        print("\n=== Text Extraction ===")
+        text = await (
+            pepper.document
+            .from_file(file_path)
+            .extract_text()
+            .execute()
+        )
+        print(f"Extracted {len(text)} characters of text:")
+        print(f"{text[:150]}...")
 
-    # Create text extraction stage
-    extractor = TextExtractionStage()
-    await extractor._initialize()
+        # Classify document
+        print("\n=== Document Classification ===")
+        classification = await (
+            pepper.document
+            .from_text(text)
+            .classify()
+            .execute()
+        )
+        print("Classification results:")
+        print(f"  Document type: {classification['document_type']}")
+        print(f"  Content category: {classification['content_category']}")
+        print(f"  Language: {classification['language']}")
+        print(f"  Confidence: {classification['confidence']}")
 
-    # Process document
-    text = await extractor.process(file_path, context)
-
-    print(f"Extracted text from {file_path.name} ({len(text)} chars):")
-    print(f"{text[:150]}...")  # Print first 150 chars
-    print(f"Metadata: {context.metadata}")
-
-    return text
-
-
-async def demo_document_classification(text):
-    """Demonstrate document classification."""
-    print("\n=== Document Classification Demo ===")
-
-    # Create context
-    context = SimpleContext()
-
-    # Create classification stage
-    classifier = DocumentClassificationStage()
-    await classifier._initialize()
-
-    # Classify document
-    results = await classifier.process(text, context)
-
-    print("Classification results:")
-    print(f"  Document type: {results['document_type']}")
-    print(f"  Content category: {results['content_category']}")
-    print(f"  Language: {results['language']}")
-    print(f"  Confidence: {results['confidence']}")
-    print(f"Context metadata: {context.metadata}")
-
-    return results
-
-
-async def demo_metadata_extraction(text):
-    """Demonstrate metadata extraction."""
-    print("\n=== Metadata Extraction Demo ===")
-
-    # Create context
-    context = SimpleContext()
-
-    # Create metadata extraction stage
-    extractor = MetadataExtractionStage()
-    await extractor._initialize()
-
-    # Extract metadata
-    metadata = await extractor.process(text, context)
-
-    print("Extracted metadata:")
-    if "dates" in metadata:
-        print(f"  Dates: {metadata['dates']}")
-    if "entities" in metadata:
-        print("  Entities:")
-        for entity_type, entities in metadata["entities"].items():
-            if entities:
-                print(f"    {entity_type}: {entities}")
-    if "keywords" in metadata:
-        print(f"  Keywords: {metadata['keywords']}")
-
-    return metadata
+        # Extract metadata
+        print("\n=== Metadata Extraction ===")
+        metadata = await (
+            pepper.document
+            .from_text(text)
+            .extract_metadata()
+            .execute()
+        )
+        print("Extracted metadata:")
+        if "dates" in metadata:
+            print(f"  Dates: {metadata['dates']}")
+        if "entities" in metadata:
+            print("  Entities:")
+            for entity_type, entities in metadata["entities"].items():
+                if entities:
+                    print(f"    {entity_type}: {entities}")
+        if "keywords" in metadata:
+            print(f"  Keywords: {metadata['keywords']}")
 
 
-async def create_pipeline_workflow():
-    """Demonstrate how to create a complete document processing pipeline."""
-    print("\n=== Complete Document Processing Pipeline ===")
+async def process_document_pipeline(file_path: Path) -> None:
+    """Process a document using a complete pipeline."""
+    print(f"\nProcessing document with pipeline: {file_path}")
 
-    # Define pipeline stages
-    text_extraction = TextExtractionStage()
-    classification = DocumentClassificationStage()
-    metadata_extraction = MetadataExtractionStage()
+    async with (
+        PepperPy()
+        .with_workflow()
+        .with_workflow_config(
+            providers={
+                "text_extractor": {"type": "basic"},
+                "classifier": {"type": "llm"},
+                "metadata_extractor": {"type": "llm"},
+            }
+        )
+    ) as pepper:
+        # Process document through complete pipeline
+        result = await (
+            pepper.document
+            .from_file(file_path)
+            .extract_text()
+            .classify()
+            .extract_metadata()
+            .execute()
+        )
 
-    # Initialize all stages
-    await text_extraction._initialize()
-    await classification._initialize()
-    await metadata_extraction._initialize()
+        print("\nPipeline results:")
+        print(f"Text length: {len(result['text'])} characters")
+        print(f"Document type: {result['classification']['document_type']}")
+        print(f"Content category: {result['classification']['content_category']}")
+        print(f"Metadata fields: {len(result['metadata'])} extracted")
 
-    # Create shared context
-    context = SimpleContext()
-
-    # Process example document
-    example_dir = await setup_example_files()
-    document_path = example_dir / "technical.md"
-
-    print(f"Processing document: {document_path}")
-
-    # Execute pipeline steps
-    text = await text_extraction.process(document_path, context)
-    print(f"Step 1: Extracted {len(text)} characters of text")
-
-    classification_results = await classification.process(text, context)
-    print(
-        f"Step 2: Classified document as {classification_results['document_type']} / {classification_results['content_category']}"
-    )
-
-    metadata = await metadata_extraction.process(text, context)
-    print(f"Step 3: Extracted {len(metadata)} metadata fields")
-
-    # Print final context
-    print("\nFinal pipeline context:")
-    for key, value in context.metadata.items():
-        print(f"  {key}: {value}")
+        # Print metadata details
+        print("\nExtracted metadata:")
+        for key, value in result["metadata"].items():
+            print(f"  {key}: {value}")
 
 
-async def main():
+async def main() -> None:
     """Run document processing workflow examples."""
     try:
         # Create example files
         example_dir = await setup_example_files()
         print(f"Created example files in {example_dir}")
 
-        # Text extraction example
+        # Process sample.txt with individual stages
         text_file = example_dir / "sample.txt"
-        extracted_text = await demo_text_extraction(text_file)
+        await process_single_document(text_file)
 
-        # Classification example
-        await demo_document_classification(extracted_text)
-
-        # Metadata extraction example
-        await demo_metadata_extraction(extracted_text)
-
-        # Complete pipeline example
-        await create_pipeline_workflow()
+        # Process technical.md with complete pipeline
+        md_file = example_dir / "technical.md"
+        await process_document_pipeline(md_file)
 
     except Exception as e:
         print(f"Error during demonstration: {e}")
@@ -225,4 +179,8 @@ async def main():
 
 
 if __name__ == "__main__":
+    # Required environment variables in .env file:
+    # PEPPERPY_WORKFLOW__PROVIDER=basic
+    # PEPPERPY_LLM__PROVIDER=openai
+    # PEPPERPY_LLM__API_KEY=your_api_key
     asyncio.run(main())

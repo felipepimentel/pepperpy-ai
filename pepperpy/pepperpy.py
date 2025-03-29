@@ -1,19 +1,38 @@
-"""Main PepperPy module.
+"""PepperPy main module.
 
-This module provides the main PepperPy class with a fluent API for
-interacting with the framework's components.
+This module provides the main PepperPy class and builder classes for
+working with LLMs, RAG, and other AI capabilities.
 """
 
-import os
-from typing import Any, Dict, List, Optional, Union
+from typing import (
+    Any,
+    AsyncIterator,
+    Dict,
+    List,
+    Optional,
+    Self,
+    Union,
+    cast,
+)
 
-from pepperpy.core.config import Config
-from pepperpy.llm import LLMProvider, Message, MessageRole
-from pepperpy.llm import create_provider as create_llm_provider
-from pepperpy.rag import Document, RAGProvider, SearchResult
-from pepperpy.rag import create_provider as create_rag_provider
+from pepperpy.llm import (
+    GenerationChunk,
+    GenerationResult,
+    LLMProvider,
+    Message,
+    MessageRole,
+)
+from pepperpy.rag import (
+    Document,
+    Query,
+    RAGProvider,
+    RetrievalResult,
+)
 from pepperpy.tts import TTSProvider
-from pepperpy.tts import create_provider as create_tts_provider
+from pepperpy.workflow.base import (
+    PipelineContext,
+    WorkflowProvider,
+)
 
 
 class ChatBuilder:
@@ -27,8 +46,10 @@ class ChatBuilder:
         """
         self._llm = llm
         self._messages: List[Message] = []
+        self._temperature: float = 0.7
+        self._max_tokens: Optional[int] = None
 
-    def with_system(self, content: str) -> "ChatBuilder":
+    def with_system(self, content: str) -> Self:
         """Add a system message.
 
         Args:
@@ -40,7 +61,7 @@ class ChatBuilder:
         self._messages.append(Message(role=MessageRole.SYSTEM, content=content))
         return self
 
-    def with_user(self, content: str) -> "ChatBuilder":
+    def with_user(self, content: str) -> Self:
         """Add a user message.
 
         Args:
@@ -52,7 +73,7 @@ class ChatBuilder:
         self._messages.append(Message(role=MessageRole.USER, content=content))
         return self
 
-    def with_assistant(self, content: str) -> "ChatBuilder":
+    def with_assistant(self, content: str) -> Self:
         """Add an assistant message.
 
         Args:
@@ -64,9 +85,7 @@ class ChatBuilder:
         self._messages.append(Message(role=MessageRole.ASSISTANT, content=content))
         return self
 
-    def with_message(
-        self, role: Union[str, MessageRole], content: str
-    ) -> "ChatBuilder":
+    def with_message(self, role: Union[str, MessageRole], content: str) -> Self:
         """Add a message with specific role.
 
         Args:
@@ -81,7 +100,41 @@ class ChatBuilder:
         self._messages.append(Message(role=role, content=content))
         return self
 
-    async def generate(self, **kwargs: Any) -> Any:
+    def with_temperature(self, temperature: float) -> Self:
+        """Set temperature for generation.
+
+        Args:
+            temperature: Temperature value between 0 and 1
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If temperature is not between 0 and 1
+        """
+        if not 0 <= temperature <= 1:
+            raise ValueError("Temperature must be between 0 and 1")
+        self._temperature = temperature
+        return self
+
+    def with_max_tokens(self, max_tokens: Optional[int]) -> Self:
+        """Set maximum tokens for generation.
+
+        Args:
+            max_tokens: Maximum tokens to generate, or None for no limit
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If max_tokens is negative
+        """
+        if max_tokens is not None and max_tokens < 0:
+            raise ValueError("max_tokens must be positive or None")
+        self._max_tokens = max_tokens
+        return self
+
+    async def generate(self, **kwargs: Any) -> GenerationResult:
         """Generate response from messages.
 
         Args:
@@ -89,19 +142,48 @@ class ChatBuilder:
 
         Returns:
             Generation result
-        """
-        return await self._llm.generate(self._messages, **kwargs)
 
-    async def stream(self, **kwargs: Any) -> Any:
+        Raises:
+            ValueError: If no messages have been added
+        """
+        if not self._messages:
+            raise ValueError(
+                "No messages added. Add at least one message before generating."
+            )
+
+        generation_kwargs = {"temperature": self._temperature, **kwargs}
+        if self._max_tokens is not None:
+            generation_kwargs["max_tokens"] = self._max_tokens
+
+        return await self._llm.generate(self._messages, **generation_kwargs)
+
+    async def stream(self, **kwargs: Any) -> AsyncIterator[GenerationChunk]:
         """Stream response from messages.
 
         Args:
             **kwargs: Additional generation options
 
         Returns:
-            AsyncIterator of generation chunks
+            AsyncIterator yielding generation chunks
+
+        Raises:
+            ValueError: If no messages have been added
         """
-        return self._llm.stream(self._messages, **kwargs)
+        if not self._messages:
+            raise ValueError(
+                "No messages added. Add at least one message before streaming."
+            )
+
+        generation_kwargs = {"temperature": self._temperature, **kwargs}
+        if self._max_tokens is not None:
+            generation_kwargs["max_tokens"] = self._max_tokens
+
+        stream = cast(
+            AsyncIterator[GenerationChunk],
+            self._llm.stream(self._messages, **generation_kwargs),
+        )
+        async for chunk in stream:
+            yield chunk
 
 
 class TTSBuilder:
@@ -116,9 +198,13 @@ class TTSBuilder:
         self._tts = tts
         self._text: Optional[str] = None
         self._voice_id: Optional[str] = None
-        self._options: Dict[str, Any] = {}
+        self._options: Dict[str, Any] = {
+            "speed": 1.0,
+            "pitch": 1.0,
+            "volume": 1.0,
+        }
 
-    def with_text(self, text: str) -> "TTSBuilder":
+    def with_text(self, text: str) -> Self:
         """Set text to synthesize.
 
         Args:
@@ -126,11 +212,16 @@ class TTSBuilder:
 
         Returns:
             Self for chaining
+
+        Raises:
+            ValueError: If text is empty
         """
+        if not text.strip():
+            raise ValueError("Text cannot be empty")
         self._text = text
         return self
 
-    def with_voice(self, voice_id: str) -> "TTSBuilder":
+    def with_voice(self, voice_id: str) -> Self:
         """Set voice to use.
 
         Args:
@@ -138,11 +229,67 @@ class TTSBuilder:
 
         Returns:
             Self for chaining
+
+        Raises:
+            ValueError: If voice_id is empty
         """
+        if not voice_id.strip():
+            raise ValueError("Voice ID cannot be empty")
         self._voice_id = voice_id
         return self
 
-    def with_options(self, **options: Any) -> "TTSBuilder":
+    def with_speed(self, speed: float) -> Self:
+        """Set speech speed.
+
+        Args:
+            speed: Speed multiplier (0.5 to 2.0)
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If speed is out of range
+        """
+        if not 0.5 <= speed <= 2.0:
+            raise ValueError("Speed must be between 0.5 and 2.0")
+        self._options["speed"] = speed
+        return self
+
+    def with_pitch(self, pitch: float) -> Self:
+        """Set voice pitch.
+
+        Args:
+            pitch: Pitch multiplier (0.5 to 2.0)
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If pitch is out of range
+        """
+        if not 0.5 <= pitch <= 2.0:
+            raise ValueError("Pitch must be between 0.5 and 2.0")
+        self._options["pitch"] = pitch
+        return self
+
+    def with_volume(self, volume: float) -> Self:
+        """Set audio volume.
+
+        Args:
+            volume: Volume multiplier (0.0 to 2.0)
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If volume is out of range
+        """
+        if not 0.0 <= volume <= 2.0:
+            raise ValueError("Volume must be between 0.0 and 2.0")
+        self._options["volume"] = volume
+        return self
+
+    def with_options(self, **options: Any) -> Self:
         """Set additional options.
 
         Args:
@@ -161,7 +308,7 @@ class TTSBuilder:
             TTSAudio object
 
         Raises:
-            TTSError: If text is not set or synthesis fails
+            ValueError: If text is not set or synthesis fails
         """
         if not self._text:
             raise ValueError("Text must be set before generating audio")
@@ -174,236 +321,910 @@ class TTSBuilder:
 class RAGBuilder:
     """Fluent builder for RAG operations."""
 
-    def __init__(self, rag: RAGProvider) -> None:
+    def __init__(self, rag_provider: RAGProvider) -> None:
         """Initialize RAG builder.
 
         Args:
-            rag: RAG provider to use
+            rag_provider: RAG provider to use
         """
-        self._rag = rag
-        self._documents: List[Document] = []
-        self._query_text: Optional[str] = None
-        self._query_embeddings: Optional[List[float]] = None
+        self._rag = rag_provider
+        self._documents: List[str] = []
+        self._query: str = ""
         self._limit: int = 5
+        self._auto_embeddings: bool = False
+        self._filters: Dict[str, Any] = {}
+        self._rerank: bool = False
 
-    def with_document(
-        self,
-        text: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        embeddings: Optional[List[float]] = None,
-    ) -> "RAGBuilder":
-        """Add a document.
+    def add_documents(self, documents: Union[str, List[str]]) -> Self:
+        """Add documents to store.
 
         Args:
-            text: Document text
-            metadata: Optional document metadata
-            embeddings: Optional document embeddings
+            documents: Document or list of documents to store
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If any document is empty
+        """
+        if isinstance(documents, str):
+            documents = [documents]
+
+        for doc in documents:
+            if not doc.strip():
+                raise ValueError("Documents cannot be empty")
+
+        self._documents.extend(documents)
+        return self
+
+    def with_auto_embeddings(self, enabled: bool = True) -> Self:
+        """Enable/disable automatic embeddings generation.
+
+        Args:
+            enabled: Whether to enable auto embeddings
 
         Returns:
             Self for chaining
         """
-        doc = Document(text=text, metadata=metadata or {})
-        if embeddings:
-            doc["embeddings"] = embeddings
-        self._documents.append(doc)
+        self._auto_embeddings = enabled
         return self
 
-    def search(self, text: str) -> "RAGBuilder":
-        """Start a search operation.
+    def with_filter(self, **filters: Any) -> Self:
+        """Add filters for search.
 
         Args:
-            text: Search query text
+            **filters: Filter key-value pairs
 
         Returns:
             Self for chaining
         """
-        self._query_text = text
+        self._filters.update(filters)
         return self
 
-    def with_embeddings(self, embeddings: List[float]) -> "RAGBuilder":
-        """Set query embeddings.
+    def with_reranking(self, enabled: bool = True) -> Self:
+        """Enable/disable result reranking.
 
         Args:
-            embeddings: Query embeddings
+            enabled: Whether to enable reranking
 
         Returns:
             Self for chaining
         """
-        self._query_embeddings = embeddings
+        self._rerank = enabled
         return self
 
-    def with_limit(self, limit: int) -> "RAGBuilder":
-        """Set search result limit.
+    async def store(self) -> None:
+        """Store documents in RAG provider.
+
+        Raises:
+            ValueError: If no documents have been added
+        """
+        if not self._documents:
+            raise ValueError("No documents added. Add documents before storing.")
+
+        for text in self._documents:
+            doc = Document(text=text)
+            if self._auto_embeddings:
+                # TODO: Generate embeddings
+                pass
+            await self._rag.store(doc)
+
+    def search(self, query: str) -> Self:
+        """Set search query.
+
+        Args:
+            query: Search query
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If query is empty
+        """
+        if not query.strip():
+            raise ValueError("Search query cannot be empty")
+        self._query = query
+        return self
+
+    def limit(self, limit: int) -> Self:
+        """Set maximum number of results.
 
         Args:
             limit: Maximum number of results
 
         Returns:
             Self for chaining
+
+        Raises:
+            ValueError: If limit is not positive
         """
+        if limit <= 0:
+            raise ValueError("Result limit must be positive")
         self._limit = limit
         return self
 
-    async def store(self) -> None:
-        """Store documents."""
-        if not self._documents:
-            raise ValueError("No documents to store")
-        await self._rag.store(self._documents)
-        self._documents = []
+    async def execute(self) -> List[RetrievalResult]:
+        """Execute search query.
 
-    async def generate(self) -> List[SearchResult]:
-        """Generate search results.
+        Returns:
+            Search results
+
+        Raises:
+            ValueError: If no query has been set
+        """
+        if not self._query:
+            raise ValueError("No query set. Call search() before executing.")
+
+        results = await self._rag.search(
+            self._query,
+            limit=self._limit,
+            filters=self._filters if self._filters else None,
+            rerank=self._rerank,
+        )
+        return list(cast(Sequence[RetrievalResult], results))
+
+
+class ContentBuilder:
+    """Fluent builder for content generation."""
+
+    def __init__(self, llm_provider: LLMProvider) -> None:
+        """Initialize content builder.
+
+        Args:
+            llm_provider: LLM provider to use for content generation
+        """
+        self._llm = llm_provider
+        self._style: List[str] = []
+        self._topic: str = ""
+        self._type: str = ""
+        self._language: str = "en"
+        self._tone: str = "neutral"
+        self._target_audience: Optional[str] = None
+        self._max_length: Optional[int] = None
+
+    def article(self, topic: str) -> Self:
+        """Set content type to article with given topic.
+
+        Args:
+            topic: Topic to write about
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If topic is empty
+        """
+        if not topic.strip():
+            raise ValueError("Topic cannot be empty")
+        self._type = "article"
+        self._topic = topic
+        return self
+
+    def blog_post(self, topic: str) -> Self:
+        """Set content type to blog post with given topic.
+
+        Args:
+            topic: Topic to write about
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If topic is empty
+        """
+        if not topic.strip():
+            raise ValueError("Topic cannot be empty")
+        self._type = "blog_post"
+        self._topic = topic
+        return self
+
+    def informative(self) -> Self:
+        """Set style to informative.
+
+        Returns:
+            Self for chaining
+        """
+        self._style.append("informative")
+        return self
+
+    def conversational(self) -> Self:
+        """Set style to conversational.
+
+        Returns:
+            Self for chaining
+        """
+        self._style.append("conversational")
+        return self
+
+    def engaging(self) -> Self:
+        """Set style to engaging.
+
+        Returns:
+            Self for chaining
+        """
+        self._style.append("engaging")
+        return self
+
+    def with_citations(self) -> Self:
+        """Add citations to content.
+
+        Returns:
+            Self for chaining
+        """
+        self._style.append("citations")
+        return self
+
+    def in_language(self, language: str) -> Self:
+        """Set content language.
+
+        Args:
+            language: ISO language code (e.g., 'en', 'pt', 'es')
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If language code is invalid
+        """
+        if not language.strip() or len(language) < 2:
+            raise ValueError("Invalid language code")
+        self._language = language.lower()
+        return self
+
+    def with_tone(self, tone: str) -> Self:
+        """Set content tone.
+
+        Args:
+            tone: Content tone (e.g., 'formal', 'casual', 'professional')
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If tone is empty
+        """
+        if not tone.strip():
+            raise ValueError("Tone cannot be empty")
+        self._tone = tone
+        return self
+
+    def for_audience(self, audience: str) -> Self:
+        """Set target audience.
+
+        Args:
+            audience: Target audience description
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If audience is empty
+        """
+        if not audience.strip():
+            raise ValueError("Audience cannot be empty")
+        self._target_audience = audience
+        return self
+
+    def with_max_length(self, words: int) -> Self:
+        """Set maximum content length in words.
+
+        Args:
+            words: Maximum number of words
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If words is not positive
+        """
+        if words <= 0:
+            raise ValueError("Maximum length must be positive")
+        self._max_length = words
+        return self
+
+    async def generate(self) -> Dict[str, Any]:
+        """Generate content based on configuration.
+
+        Returns:
+            Generated content with metadata
+
+        Raises:
+            ValueError: If topic or type is not set
+        """
+        if not self._topic or not self._type:
+            raise ValueError("Topic and content type must be set before generating")
+
+        style_str = ", ".join(self._style) if self._style else self._tone
+        system_prompt = [
+            f"You are a professional content writer specializing in {style_str} content.",
+            f"Write in {self._language} language.",
+        ]
+
+        if self._target_audience:
+            system_prompt.append(f"Your target audience is: {self._target_audience}")
+
+        if "citations" in self._style:
+            system_prompt.append(
+                "Include proper citations and references to support your points."
+            )
+
+        if self._max_length:
+            system_prompt.append(f"Keep the content under {self._max_length} words.")
+
+        messages = [
+            Message(
+                role=MessageRole.SYSTEM,
+                content=" ".join(system_prompt),
+            ),
+            Message(
+                role=MessageRole.USER,
+                content=f"Write a {self._type} about: {self._topic}",
+            ),
+        ]
+
+        result = await self._llm.generate(messages)
+
+        content = {
+            "title": self._topic,
+            "content": result.content,
+            "metadata": {
+                "style": style_str,
+                "type": self._type,
+                "language": self._language,
+                "tone": self._tone,
+                "word_count": len(result.content.split()),
+                "target_audience": self._target_audience,
+            },
+        }
+
+        if "citations" in self._style:
+            # TODO: Extract citations from content
+            content["references"] = []
+
+        return content
+
+    async def stream(self) -> AsyncIterator[GenerationChunk]:
+        """Stream content generation results.
+
+        Returns:
+            AsyncIterator yielding generation chunks
+
+        Raises:
+            ValueError: If topic or type is not set
+        """
+        if not self._topic or not self._type:
+            raise ValueError("Topic and content type must be set before generating")
+
+        style_str = ", ".join(self._style) if self._style else self._tone
+        system_prompt = [
+            f"You are a professional content writer specializing in {style_str} content.",
+            f"Write in {self._language} language.",
+        ]
+
+        if self._target_audience:
+            system_prompt.append(f"Your target audience is: {self._target_audience}")
+
+        if "citations" in self._style:
+            system_prompt.append(
+                "Include proper citations and references to support your points."
+            )
+
+        if self._max_length:
+            system_prompt.append(f"Keep the content under {self._max_length} words.")
+
+        messages = [
+            Message(
+                role=MessageRole.SYSTEM,
+                content=" ".join(system_prompt),
+            ),
+            Message(
+                role=MessageRole.USER,
+                content=f"Write a {self._type} about: {self._topic}",
+            ),
+        ]
+
+        stream = cast(AsyncIterator[GenerationChunk], self._llm.stream(messages))
+        async for chunk in stream:
+            yield chunk
+
+
+class TextBuilder:
+    """Fluent builder for text generation."""
+
+    def __init__(self, llm_provider: LLMProvider) -> None:
+        """Initialize text builder.
+
+        Args:
+            llm_provider: LLM provider to use for text generation
+        """
+        self._llm = llm_provider
+        self._prompt: str = ""
+        self._system_prompt: str = ""
+        self._temperature: float = 0.7
+        self._max_tokens: Optional[int] = None
+        self._stop_sequences: List[str] = []
+        self._format: Optional[str] = None
+
+    def with_prompt(self, prompt: str) -> Self:
+        """Set the user prompt.
+
+        Args:
+            prompt: The prompt to generate text from
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If prompt is empty
+        """
+        if not prompt.strip():
+            raise ValueError("Prompt cannot be empty")
+        self._prompt = prompt
+        return self
+
+    def with_system_prompt(self, prompt: str) -> Self:
+        """Set the system prompt.
+
+        Args:
+            prompt: The system prompt to use
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If prompt is empty
+        """
+        if not prompt.strip():
+            raise ValueError("System prompt cannot be empty")
+        self._system_prompt = prompt
+        return self
+
+    def with_temperature(self, temperature: float) -> Self:
+        """Set the temperature for generation.
+
+        Args:
+            temperature: Temperature value between 0 and 2
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If temperature is out of range
+        """
+        if not 0 <= temperature <= 2:
+            raise ValueError("Temperature must be between 0 and 2")
+        self._temperature = temperature
+        return self
+
+    def with_max_tokens(self, max_tokens: int) -> Self:
+        """Set maximum number of tokens to generate.
+
+        Args:
+            max_tokens: Maximum number of tokens
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If max_tokens is not positive
+        """
+        if max_tokens <= 0:
+            raise ValueError("Maximum tokens must be positive")
+        self._max_tokens = max_tokens
+        return self
+
+    def with_stop_sequence(self, sequence: str) -> Self:
+        """Add a stop sequence.
+
+        Args:
+            sequence: Stop sequence to add
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValueError: If sequence is empty
+        """
+        if not sequence:
+            raise ValueError("Stop sequence cannot be empty")
+        self._stop_sequences.append(sequence)
+        return self
+
+    def as_json(self) -> Self:
+        """Format output as JSON.
+
+        Returns:
+            Self for chaining
+        """
+        self._format = "json"
+        return self
+
+    def as_markdown(self) -> Self:
+        """Format output as Markdown.
+
+        Returns:
+            Self for chaining
+        """
+        self._format = "markdown"
+        return self
+
+    async def generate(self) -> str:
+        """Generate text based on configuration.
+
+        Returns:
+            Generated text
+
+        Raises:
+            ValueError: If prompt is not set
+        """
+        if not self._prompt:
+            raise ValueError("Prompt must be set before generating")
+
+        messages = []
+        if self._system_prompt:
+            if self._format:
+                messages.append(
+                    Message(
+                        role=MessageRole.SYSTEM,
+                        content=f"{self._system_prompt}\nFormat the output as {self._format}.",
+                    )
+                )
+            else:
+                messages.append(
+                    Message(
+                        role=MessageRole.SYSTEM,
+                        content=self._system_prompt,
+                    )
+                )
+
+        messages.append(
+            Message(
+                role=MessageRole.USER,
+                content=self._prompt,
+            )
+        )
+
+        result = await self._llm.generate(
+            messages,
+            temperature=self._temperature,
+            max_tokens=self._max_tokens,
+            stop_sequences=self._stop_sequences if self._stop_sequences else None,
+        )
+
+        return result.content
+
+    async def stream(self) -> AsyncIterator[GenerationChunk]:
+        """Stream text generation results.
+
+        Returns:
+            AsyncIterator yielding generation chunks
+
+        Raises:
+            ValueError: If prompt is not set
+        """
+        if not self._prompt:
+            raise ValueError("Prompt must be set before streaming")
+
+        messages = []
+        if self._system_prompt:
+            if self._format:
+                messages.append(
+                    Message(
+                        role=MessageRole.SYSTEM,
+                        content=f"{self._system_prompt}\nFormat the output as {self._format}.",
+                    )
+                )
+            else:
+                messages.append(
+                    Message(
+                        role=MessageRole.SYSTEM,
+                        content=self._system_prompt,
+                    )
+                )
+
+        messages.append(
+            Message(
+                role=MessageRole.USER,
+                content=self._prompt,
+            )
+        )
+
+        stream = cast(
+            AsyncIterator[GenerationChunk],
+            self._llm.stream(
+                messages,
+                temperature=self._temperature,
+                max_tokens=self._max_tokens,
+                stop_sequences=self._stop_sequences if self._stop_sequences else None,
+            ),
+        )
+        async for chunk in stream:
+            yield chunk
+
+
+class DocumentBuilder:
+    """Builder for configuring document operations."""
+
+    def __init__(self, provider: WorkflowProvider) -> None:
+        self._provider = provider
+        self._context: PipelineContext = PipelineContext()
+
+    def with_context(self, context: PipelineContext) -> "DocumentBuilder":
+        """Set the context for document operations.
+
+        Args:
+            context: Pipeline context to use
+
+        Returns:
+            Self for chaining
+        """
+        self._context = context
+        return self
+
+    async def process(self, input_data: Any) -> Dict[str, Any]:
+        """Process input data.
+
+        Args:
+            input_data: Input data to process
+
+        Returns:
+            Processing results
+        """
+        return await self._provider.execute_workflow(input_data, self._context)
+
+
+class LLMBuilder:
+    """Builder for configuring LLM operations."""
+
+    def __init__(self, provider: LLMProvider) -> None:
+        self._provider = provider
+        self._context: List[Message] = []
+        self._system_prompt: Optional[str] = None
+
+    def with_context(self, context: List[Message]) -> "LLMBuilder":
+        """Set the context for LLM operations.
+
+        Args:
+            context: List of messages to use as context
+
+        Returns:
+            Self for chaining
+        """
+        self._context = context
+        return self
+
+    def with_system_prompt(self, prompt: str) -> "LLMBuilder":
+        """Set the system prompt for LLM operations.
+
+        Args:
+            prompt: System prompt to use
+
+        Returns:
+            Self for chaining
+        """
+        self._system_prompt = prompt
+        return self
+
+    async def generate(self, prompt: str) -> GenerationResult:
+        """Generate a response using the LLM.
+
+        Args:
+            prompt: The user prompt to generate from
+
+        Returns:
+            The generated message
+        """
+        messages = []
+        if self._system_prompt:
+            messages.append(
+                Message(role=MessageRole.SYSTEM, content=self._system_prompt)
+            )
+        messages.extend(self._context)
+        messages.append(Message(role=MessageRole.USER, content=prompt))
+        return await self._provider.generate(messages)
+
+
+class PepperPy:
+    """Main class for interacting with the PepperPy framework."""
+
+    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+        """Initialize PepperPy.
+
+        Args:
+            config: Optional configuration dictionary
+        """
+        self._config = config or {}
+        self._llm_provider: Optional[LLMProvider] = None
+        self._rag_provider: Optional[RAGProvider] = None
+        self._workflow_provider: Optional[WorkflowProvider] = None
+        self._tts_provider: Optional[TTSProvider] = None
+
+    def with_rag(self, provider: Optional[RAGProvider] = None) -> "PepperPy":
+        """Configure RAG support.
+
+        Args:
+            provider: Optional RAG provider (uses InMemoryProvider if None)
+
+        Returns:
+            Self for chaining
+        """
+        if provider is None:
+            provider = cast(RAGProvider, InMemoryProvider())
+        self._rag_provider = provider
+        return self
+
+    def with_llm(self, provider: LLMProvider) -> "PepperPy":
+        """Configure LLM support.
+
+        Args:
+            provider: LLM provider to use
+
+        Returns:
+            Self for chaining
+        """
+        self._llm_provider = provider
+        return self
+
+    def with_workflow(self, provider: WorkflowProvider) -> "PepperPy":
+        """Configure workflow support.
+
+        Args:
+            provider: Workflow provider to use
+
+        Returns:
+            Self for chaining
+        """
+        self._workflow_provider = provider
+        return self
+
+    def with_tts(self, provider: TTSProvider) -> "PepperPy":
+        """Configure TTS support.
+
+        Args:
+            provider: TTS provider to use
+
+        Returns:
+            Self for chaining
+        """
+        self._tts_provider = provider
+        return self
+
+    @property
+    def llm(self) -> LLMBuilder:
+        """Get the LLM builder.
+
+        Returns:
+            LLM builder for configuring LLM operations
+        """
+        if not self._llm_provider:
+            raise ValueError("LLM provider not configured. Call with_llm() first.")
+        return LLMBuilder(self._llm_provider)
+
+    async def add_documents(self, docs: Union[Document, List[Document]]) -> None:
+        """Add documents to the RAG context.
+
+        Args:
+            docs: Document or list of documents to add
+        """
+        if not self._rag_provider:
+            raise ValueError("RAG provider not configured. Call with_rag() first.")
+        await self._rag_provider.store(docs)
+
+    async def search(
+        self,
+        query: Union[str, Query],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> List[RetrievalResult]:
+        """Search for relevant documents.
+
+        Args:
+            query: Search query text or Query object
+            limit: Maximum number of results to return
+            **kwargs: Additional search parameters
 
         Returns:
             List of search results
         """
-        if not self._query_text and not self._query_embeddings:
-            raise ValueError("Query text or embeddings must be set")
+        if not self._rag_provider:
+            raise ValueError("RAG provider not configured. Call with_rag() first.")
+        results = await self._rag_provider.search(query, limit=limit, **kwargs)
+        return list(cast(Sequence[RetrievalResult], results))
 
-        from pepperpy.rag import Query
-
-        query = Query(text=self._query_text or "", embeddings=self._query_embeddings)
-        return await self._rag.search(query, limit=self._limit)
-
-
-class PepperPy:
-    """Main PepperPy class with fluent API."""
-
-    def __init__(self, config: Optional[Union[Dict[str, Any], Config]] = None) -> None:
-        """Initialize PepperPy.
+    async def get_document(self, doc_id: str) -> Optional[Document]:
+        """Get a document by ID.
 
         Args:
-            config: Optional configuration dictionary or Config instance
-        """
-        self.config = config if isinstance(config, Config) else Config(config)
-        self._llm: Optional[LLMProvider] = None
-        self._tts: Optional[TTSProvider] = None
-        self._rag: Optional[RAGProvider] = None
-
-    def with_config(self, config: Union[Dict[str, Any], Config]) -> "PepperPy":
-        """Configure PepperPy.
-
-        Args:
-            config: Configuration dictionary or Config instance
+            doc_id: ID of the document to get
 
         Returns:
-            Self for chaining
+            The document if found, None otherwise
         """
-        self.config = config if isinstance(config, Config) else Config(config)
-        return self
-
-    def with_llm(
-        self, provider: Optional[Union[str, LLMProvider]] = None, **kwargs: Any
-    ) -> "PepperPy":
-        """Configure LLM provider.
-
-        Args:
-            provider: LLM provider instance or type name
-            **kwargs: Additional provider options
-
-        Returns:
-            Self for chaining
-        """
-        if isinstance(provider, LLMProvider):
-            self._llm = provider
-        else:
-            provider_type = provider or os.getenv("PEPPERPY_LLM__PROVIDER", "openai")
-            provider_config = self.config.get("llm.config", {})
-            provider_config.update(kwargs)
-            self._llm = create_llm_provider(
-                provider_type=provider_type, **provider_config
-            )
-        return self
-
-    def with_tts(
-        self, provider: Optional[Union[str, TTSProvider]] = None, **kwargs: Any
-    ) -> "PepperPy":
-        """Configure TTS provider.
-
-        Args:
-            provider: TTS provider instance or type name
-            **kwargs: Additional provider options
-
-        Returns:
-            Self for chaining
-        """
-        if isinstance(provider, TTSProvider):
-            self._tts = provider
-        else:
-            provider_type = provider or os.getenv(
-                "PEPPERPY_TTS__PROVIDER", "elevenlabs"
-            )
-            provider_config = self.config.get("tts.config", {})
-            provider_config.update(kwargs)
-            self._tts = create_tts_provider(
-                provider_type=provider_type, **provider_config
-            )
-        return self
-
-    def with_rag(
-        self, provider: Optional[Union[str, RAGProvider]] = None, **kwargs: Any
-    ) -> "PepperPy":
-        """Configure RAG provider.
-
-        Args:
-            provider: RAG provider instance or type name
-            **kwargs: Additional provider options
-
-        Returns:
-            Self for chaining
-        """
-        if isinstance(provider, RAGProvider):
-            self._rag = provider
-        else:
-            provider_type = provider or os.getenv("PEPPERPY_RAG__PROVIDER", "sqlite")
-            provider_config = self.config.get("rag.config", {})
-            provider_config.update(kwargs)
-            self._rag = create_rag_provider(
-                provider_type=provider_type, **provider_config
-            )
-        return self
-
-    @property
-    def llm(self) -> LLMProvider:
-        """Get LLM provider."""
-        if not self._llm:
-            raise ValueError("LLM provider not configured. Call with_llm() first.")
-        return self._llm
+        if not self._rag_provider:
+            raise ValueError("RAG provider not configured. Call with_rag() first.")
+        return await self._rag_provider.get(doc_id)
 
     @property
     def chat(self) -> ChatBuilder:
         """Get chat builder."""
-        return ChatBuilder(self.llm)
+        if not self._llm_provider:
+            raise ValueError("LLM provider not configured. Call with_llm() first.")
+        return ChatBuilder(self._llm_provider)
 
     @property
     def tts(self) -> TTSBuilder:
         """Get TTS builder."""
-        if not self._tts:
+        if not self._tts_provider:
             raise ValueError("TTS provider not configured. Call with_tts() first.")
-        return TTSBuilder(self._tts)
+        return TTSBuilder(self._tts_provider)
 
     @property
-    def rag(self) -> RAGBuilder:
-        """Get RAG builder."""
-        if not self._rag:
-            raise ValueError("RAG provider not configured. Call with_rag() first.")
-        return RAGBuilder(self._rag)
+    def content(self) -> ContentBuilder:
+        """Get content builder.
+
+        Returns:
+            Content builder instance
+
+        Raises:
+            RuntimeError: If LLM provider not configured
+        """
+        if not self._llm_provider:
+            raise RuntimeError("LLM provider not configured. Call with_llm() first.")
+        return ContentBuilder(self._llm_provider)
+
+    @property
+    def text(self) -> TextBuilder:
+        """Get text builder.
+
+        Returns:
+            Text builder instance
+
+        Raises:
+            RuntimeError: If LLM provider not configured
+        """
+        if not self._llm_provider:
+            raise RuntimeError("LLM provider not configured. Call with_llm() first.")
+        return TextBuilder(self._llm_provider)
+
+    @property
+    def document(self) -> DocumentBuilder:
+        """Get document builder.
+
+        Returns:
+            Document builder instance
+
+        Raises:
+            RuntimeError: If workflow support not configured
+        """
+        if not self._workflow_provider:
+            raise RuntimeError(
+                "Workflow support not configured. Call with_workflow() first."
+            )
+        return DocumentBuilder(self._workflow_provider)
 
     async def __aenter__(self) -> "PepperPy":
-        """Enter async context."""
-        if self._llm:
-            await self._llm.initialize()
-        if self._tts:
-            await self._tts.initialize()
-        if self._rag:
-            await self._rag.initialize()
+        """Enter async context.
+
+        Returns:
+            Self for use in context
+        """
+        if self._rag_provider:
+            await self._rag_provider.initialize()
+        if self._llm_provider:
+            await self._llm_provider.initialize()
+        if self._workflow_provider:
+            await self._workflow_provider.initialize()
+        if self._tts_provider:
+            await self._tts_provider.initialize()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit async context."""
-        if self._llm:
-            await self._llm.cleanup()
-        if self._tts:
-            await self._tts.cleanup()
-        if self._rag:
-            await self._rag.cleanup()
+        if self._rag_provider:
+            await self._rag_provider.cleanup()
+        if self._llm_provider:
+            await self._llm_provider.cleanup()
+        if self._workflow_provider:
+            await self._workflow_provider.cleanup()
+        if self._tts_provider:
+            await self._tts_provider.cleanup()

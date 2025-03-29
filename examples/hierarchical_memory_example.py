@@ -1,20 +1,18 @@
-"""
-Example demonstrating the use of hierarchical memory in an agent.
+"""Example demonstrating hierarchical memory capabilities in PepperPy.
 
-This example shows how to set up and use a hierarchical memory system
-with working, episodic, semantic, and procedural memory.
+This example shows how to use a hierarchical memory system with:
+- Working memory (recent interactions)
+- Episodic memory (experiences)
+- Semantic memory (knowledge)
+- Procedural memory (functions/procedures)
 """
 
 import asyncio
 import json
-import os
 from pathlib import Path
 
+from pepperpy import PepperPy
 from pepperpy.agents.base import Message
-from pepperpy.agents.hierarchical_memory import (  # noqa: E501
-    HierarchicalMemory,
-    MemoryManager,
-)
 
 
 # Function wrapper to make it JSON serializable
@@ -41,124 +39,96 @@ class CustomJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 
-# Patch the _save method in HierarchicalMemory to use our encoder
-original_save = HierarchicalMemory._save
+async def basic_memory_example() -> None:
+    """Demonstrate basic memory operations."""
+    print("\n=== Basic Memory Operations ===")
 
-
-async def patched_save(self, path):
-    """Patched save method to handle SerializableFunction objects."""
-    try:
-        # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-
-        memory_data = {
-            "working": [item.to_dict() for item in self._working_memory],
-            "episodic": [item.to_dict() for item in self._episodic_memory],
-            "semantic": {k: v.to_dict() for k, v in self._semantic_memory.items()},  # noqa: E501
-            "procedural": {k: v.to_dict() for k, v in self._procedural_memory.items()},  # noqa: E501
-        }
-
-        with open(path, "w") as f:
-            json.dump(memory_data, f, cls=CustomJSONEncoder)
-
-    except Exception as e:
-        print(f"Failed to save memory: {e}")
-
-
-# Apply the patch
-HierarchicalMemory._save = patched_save
-
-
-async def main():
-    # Create a memory persistence directory
+    # Create memory directory
     memory_dir = Path("./memory_data")
     memory_dir.mkdir(exist_ok=True)
-
     memory_file = memory_dir / "agent_memory.json"
 
-    # Create a memory manager
-    memory_manager = MemoryManager(
-        persistence_path=str(memory_file),
-        # Limit working memory to most recent 50 items
-        working_memory_limit=50,
-        # Limit episodic memory to 500 items
-        episodic_memory_limit=500,
-    )
-
-    # Initialize the memory manager
-    async with memory_manager:
-        # Add some messages to the memory
-        await memory_manager.add_message(
-            Message(role="system", content="You are a helpful assistant.")
+    # Initialize PepperPy with memory support
+    async with (
+        PepperPy()
+        .with_memory()
+        .with_memory_config(
+            persistence_path=str(memory_file),
+            working_memory_limit=50,
+            episodic_memory_limit=500,
         )
-        await memory_manager.add_message(
-            Message(
-                role="user",
-                content="Can you help me with a programming task?",  # noqa: E501
+    ) as pepper:
+        # Add conversation messages
+        await (
+            pepper.memory.add_message(
+                Message(role="system", content="You are a helpful assistant.")
             )
-        )
-        await memory_manager.add_message(
-            Message(
-                role="assistant",
-                content=(
-                    "Of course! What kind of programming task do you " "need help with?"  # noqa: E501
-                ),
+            .add_message(
+                Message(role="user", content="Can you help me with a programming task?")
             )
+            .add_message(
+                Message(
+                    role="assistant",
+                    content="Of course! What kind of programming task do you need help with?",
+                )
+            )
+            .execute()
         )
 
         # Store knowledge in semantic memory
-        await memory_manager.store_knowledge(
-            "python_basics",
-            "Python is a high-level, interpreted programming language known "
-            "for its readability and versatility.",
-            {"category": "programming", "language": "python"},
+        await (
+            pepper.memory.store_knowledge(
+                "python_basics",
+                "Python is a high-level, interpreted programming language known for its readability and versatility.",
+                metadata={"category": "programming", "language": "python"},
+            )
+            .store_knowledge(
+                "git_basics",
+                "Git is a distributed version control system for tracking changes in source code during software development.",
+                metadata={"category": "tools", "type": "version_control"},
+            )
+            .execute()
         )
 
-        await memory_manager.store_knowledge(
-            "git_basics",
-            "Git is a distributed version control system for tracking changes "
-            "in source code during software development.",
-            {"category": "tools", "type": "version_control"},
-        )
-
-        # Store a procedure in procedural memory
-        # Use wrapper to make serializable
+        # Store procedure in procedural memory
         format_code = SerializableFunction(
             lambda code: "\n".join([
                 line.strip() for line in code.split("\n") if line.strip()
             ])
         )
 
-        # Store the procedure in memory
-        await memory_manager.store_procedure(
+        await pepper.memory.store_procedure(
             "format_code",
             format_code,
-            {"language": "python", "type": "formatter"},  # noqa: E501
-        )
+            metadata={"language": "python", "type": "formatter"},
+        ).execute()
 
-        # Add experiences to episodic memory
-        await memory_manager.add_experience(
+        # Add experience to episodic memory
+        await pepper.memory.add_experience(
             "User asked about Python dictionaries.",
-            {"topic": "python", "subtopic": "dictionaries", "sentiment": "neutral"},  # noqa: E501
-        )
+            metadata={
+                "topic": "python",
+                "subtopic": "dictionaries",
+                "sentiment": "neutral",
+            },
+        ).execute()
 
-        # Demonstrate saving and loading memory
-        # Note: Function objects can't be serialized, wrapper will handle it
-        await memory_manager.save()
+        # Save memory state
+        await pepper.memory.save()
         print(f"Memory saved to {memory_file}")
 
-        # Retrieve messages
-        messages = await memory_manager.get_messages()
+        # Retrieve and display messages
+        messages = await pepper.memory.get_messages()
         print("\nMessages in memory:")
         for msg in messages:
             print(f"- {msg.role}: {msg.content}")
 
         # Retrieve knowledge
-        python_knowledge = await memory_manager.retrieve_knowledge("python_basics")  # noqa: E501
+        python_knowledge = await pepper.memory.retrieve_knowledge("python_basics")
         print(f"\nPython knowledge: {python_knowledge}")
 
-        # Retrieve procedure
-        format_procedure = await memory_manager.retrieve_procedure("format_code")  # noqa: E501
+        # Retrieve and use procedure
+        format_procedure = await pepper.memory.retrieve_procedure("format_code")
         if format_procedure and hasattr(format_procedure, "func"):
             messy_code = """
             def hello_world():
@@ -170,62 +140,71 @@ async def main():
             formatted = format_procedure(messy_code)
             print(f"\nFormatted code:\n{formatted}")
 
-        # Clear memory and verify
+        # Clear and reload memory
         print("\nClearing memory...")
-        await memory_manager.clear()
+        await pepper.memory.clear()
 
-        messages_after_clear = await memory_manager.get_messages()
+        messages_after_clear = await pepper.memory.get_messages()
         print(f"Messages after clear: {len(messages_after_clear)}")
 
-        # Load memory back
         print("\nLoading memory from disk...")
         try:
-            await memory_manager.load()
-
-            messages_after_load = await memory_manager.get_messages()
+            await pepper.memory.load()
+            messages_after_load = await pepper.memory.get_messages()
             print(f"Messages after loading: {len(messages_after_load)}")
             for msg in messages_after_load:
                 print(f"- {msg.role}: {msg.content}")
         except Exception as e:
             print(f"Note: Functions cannot be restored from disk: {e}")
-            print(
-                "This is expected behavior as functions are not " "fully serializable."  # noqa: E501
-            )
+            print("This is expected behavior as functions are not fully serializable.")
 
 
-async def demo_advanced():
-    """Demonstrate more advanced memory features."""
-    print("\nAdvanced memory features:")
+async def advanced_memory_example() -> None:
+    """Demonstrate advanced memory features."""
+    print("\n=== Advanced Memory Features ===")
 
-    memory = HierarchicalMemory()
+    async with PepperPy().with_memory().with_embeddings() as pepper:
+        # Add experiences with metadata
+        await pepper.memory.batch_experiences([
+            {
+                "content": f"Experience {i + 1}: The agent performed task {i + 1}",
+                "metadata": {"type": "task", "task_id": i + 1, "priority": i % 3},
+            }
+            for i in range(10)
+        ]).execute()
 
-    # Add more complex data to memory
-    for i in range(10):
-        await memory.add_experience(
-            f"Experience {i + 1}: The agent performed task {i + 1}",
-            {"type": "task", "task_id": i + 1, "priority": i % 3},
+        # Filter experiences by metadata
+        high_priority = await (
+            pepper.memory.retrieve_experiences()
+            .filter(lambda item: item.metadata.get("priority") == 2)
+            .limit(5)
+            .execute()
         )
 
-    # Filter experiences by metadata
-    high_priority = await memory.retrieve_experiences(
-        filter_fn=lambda item: item.metadata.get("priority") == 2, max_count=5
-    )
+        print("\nHigh priority experiences:")
+        for exp in high_priority:
+            print(f"- {exp}")
 
-    print("\nHigh priority experiences:")
-    for exp in high_priority:
-        print(f"- {exp}")
+        # Semantic search (requires embeddings provider)
+        similar = await (
+            pepper.memory.search("agent performing complex tasks").limit(3).execute()
+        )
 
-    # If we had an embeddings provider, we could also do semantic search
-    print("\nNote: Semantic search requires an embeddings provider.")
-    print(
-        "To enable semantic search, configure an embeddings provider "
-        "when creating the memory."
-    )
+        print("\nSemantically similar experiences:")
+        for exp in similar:
+            print(f"- {exp}")
+
+
+async def main() -> None:
+    """Run memory system examples."""
+    print("Starting hierarchical memory examples...\n")
+    await basic_memory_example()
+    await advanced_memory_example()
 
 
 if __name__ == "__main__":
-    # Run the main example
+    # Required environment variables in .env file:
+    # PEPPERPY_MEMORY__PROVIDER=memory
+    # PEPPERPY_EMBEDDINGS__PROVIDER=openai
+    # PEPPERPY_EMBEDDINGS__API_KEY=your_api_key
     asyncio.run(main())
-
-    # Demonstrate advanced features - use asyncio.run for new event loop
-    asyncio.run(demo_advanced())

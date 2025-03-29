@@ -84,9 +84,16 @@ async def analyze_business_data() -> None:
         },
     }
 
-    # Initialize PepperPy with fluent API
-    # All configuration comes from environment variables
-    async with PepperPy().with_llm().with_rag() as assistant:
+    # Initialize PepperPy with LLM and RAG support
+    async with (
+        PepperPy()
+        .with_llm()
+        .with_llm_config(
+            temperature=0.7,
+            max_tokens=1000,
+        )
+        .with_rag()
+    ) as pepper:
         # Load data
         print("\nLoading business data...")
 
@@ -100,41 +107,55 @@ async def analyze_business_data() -> None:
 
         # Add context about business analysis
         print("\nLearning business analysis context...")
-        await assistant.learn(
-            "Business metrics analysis should include profit analysis, "
-            "customer metrics evaluation, and competitor comparison."
+        await (
+            pepper.chat.with_system("You are a business intelligence expert.")
+            .with_user(
+                "Business metrics analysis should include profit analysis, "
+                "customer metrics evaluation, and competitor comparison."
+            )
+            .generate()
         )
 
         # Analyze metrics
         print("\nAnalyzing business metrics...")
-        metrics_prompt = (
-            "Analyze the following business metrics and provide insights:\n"
-            f"{json.dumps(metrics, indent=2)}"
+        metrics_analysis = await (
+            pepper.chat.with_system("You are a business metrics analyst.")
+            .with_user(
+                "Analyze the following business metrics and provide insights:\n"
+                f"{json.dumps(metrics, indent=2)}"
+            )
+            .generate()
         )
-        metrics_analysis = await assistant.ask(metrics_prompt)
 
         # Store the analysis with metadata
         timestamp = datetime.now().strftime("%Y-%m-%d")
-        await assistant.learn(
-            f"Business Metrics Analysis ({timestamp}):\n{metrics_analysis.content}"
-        )
+        await pepper.rag.add_document(
+            f"Business Metrics Analysis ({timestamp}):\n{metrics_analysis.content}",
+            metadata={"type": "metrics_analysis", "date": timestamp},
+        ).store()
 
         # Analyze market data
         print("\nAnalyzing market data...")
-        market_prompt = (
-            "Analyze the following market data and provide insights:\n"
-            f"{json.dumps(market_data, indent=2)}"
+        market_analysis = await (
+            pepper.chat.with_system("You are a market analysis expert.")
+            .with_user(
+                "Analyze the following market data and provide insights:\n"
+                f"{json.dumps(market_data, indent=2)}"
+            )
+            .generate()
         )
-        market_analysis = await assistant.ask(market_prompt)
 
         # Generate combined insights
         print("\nGenerating combined insights...")
-        combined_prompt = (
-            "Based on the metrics and market analysis, provide strategic recommendations:\n\n"
-            f"Metrics Analysis: {metrics_analysis.content}\n\n"
-            f"Market Analysis: {market_analysis.content}"
+        strategic_insights = await (
+            pepper.chat.with_system("You are a strategic business consultant.")
+            .with_user(
+                "Based on the metrics and market analysis, provide strategic recommendations:\n\n"
+                f"Metrics Analysis: {metrics_analysis.content}\n\n"
+                f"Market Analysis: {market_analysis.content}"
+            )
+            .generate()
         )
-        strategic_insights = await assistant.ask(combined_prompt)
 
         # Display results
         print("\n=== Business Intelligence Insights ===")
@@ -156,6 +177,8 @@ async def analyze_business_data() -> None:
 if __name__ == "__main__":
     # Required environment variables in .env file:
     # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_RAG__PROVIDER=chroma
+    # PEPPERPY_LLM__API_KEY=your_api_key
+    # PEPPERPY_RAG__PROVIDER=memory
     # PEPPERPY_EMBEDDINGS__PROVIDER=openai
+    # PEPPERPY_EMBEDDINGS__API_KEY=your_api_key
     asyncio.run(analyze_business_data())

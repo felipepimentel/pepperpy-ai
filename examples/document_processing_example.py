@@ -12,8 +12,6 @@ import logging
 from pathlib import Path
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.base import ContentType
-from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -25,52 +23,50 @@ EXAMPLE_DOC = Path(__file__).parent / "data" / "example.pdf"
 
 async def main():
     """Run the example."""
-    # Initialize PepperPy
-    pp = PepperPy()
-
-    # Create content processor with PyMuPDF provider
-    provider = PyMuPDFProvider()
-
-    # Initialize provider
-    await provider.initialize()
-
-    try:
+    # Initialize PepperPy with content processing
+    async with (
+        PepperPy()
+        .with_content()
+        .with_content_config(
+            providers={
+                "pymupdf": {
+                    "extract_images": False,
+                    "extract_tables": False,
+                }
+            }
+        )
+    ) as pepper:
         # Extract text
         logger.info("Extracting text...")
-        text = await provider.process(
-            EXAMPLE_DOC,
-            extract_text=True,
-            extract_metadata=False,
+        text_result = await (
+            pepper.content.from_file(EXAMPLE_DOC).extract_text().execute()
         )
-        logger.info("Extracted text: %s", text[:100] + "...")
+        logger.info("Extracted text: %s", text_result["text"][:100] + "...")
 
         # Extract metadata
         logger.info("Extracting metadata...")
-        metadata = await provider.process(
-            EXAMPLE_DOC,
-            extract_text=False,
-            extract_metadata=True,
+        metadata_result = await (
+            pepper.content.from_file(EXAMPLE_DOC).with_metadata().execute()
         )
-        logger.info("Extracted metadata: %s", metadata)
+        logger.info("Extracted metadata: %s", metadata_result["metadata"])
 
         # Process with both text and metadata
         logger.info("Processing document...")
-        result = await provider.process(
-            EXAMPLE_DOC,
-            extract_text=True,
-            extract_metadata=True,
+        result = await (
+            pepper.content.from_file(EXAMPLE_DOC)
+            .extract_text()
+            .with_metadata()
+            .execute()
         )
         logger.info("Processed document:")
         logger.info("- Text: %s", result["text"][:100] + "...")
         logger.info("- Metadata: %s", result["metadata"])
 
         # Get provider capabilities
-        logger.info("Provider capabilities: %s", provider.get_capabilities())
-
-    finally:
-        # Cleanup
-        await provider.cleanup()
+        logger.info("Provider capabilities: %s", pepper.content.get_capabilities())
 
 
 if __name__ == "__main__":
+    # Required environment variables in .env file:
+    # PEPPERPY_CONTENT__PROVIDER=pymupdf
     asyncio.run(main())

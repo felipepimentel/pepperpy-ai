@@ -15,14 +15,15 @@ async def main() -> None:
 
     async with PepperPy().with_llm() as pepper:
         response = await (
-            pepper.chat
-            .with_system("You are a helpful assistant.")
+            pepper.chat.with_system("You are a helpful assistant.")
             .with_user("Hello, PepperPy!")
             .generate()
         )
 
         print(f"\nResponse: {response.content}")
-        print(f"Tokens: {response.usage.get('total_tokens', 0) if response.usage else 0}")
+        print(
+            f"Tokens: {response.usage.get('total_tokens', 0) if response.usage else 0}"
+        )
 
 
 if __name__ == "__main__":

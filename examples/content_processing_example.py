@@ -12,7 +12,6 @@ import logging
 from pathlib import Path
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.errors import ContentProcessingError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -22,217 +21,193 @@ logger = logging.getLogger(__name__)
 async def process_document() -> None:
     """Process a document using different providers."""
     try:
-        # Initialize PepperPy
-        pepperpy = PepperPy()
-
-        # Configure document processor with multiple providers
-        pepperpy.configure_content_processor(
-            content_type="document",
-            providers=[
-                {
-                    "type": "pymupdf",
-                    "config": {
+        # Initialize PepperPy with content processing
+        async with (
+            PepperPy()
+            .with_content()
+            .with_content_config(
+                providers={
+                    "pymupdf": {
                         "extract_images": True,
                         "extract_tables": True,
                     },
-                },
-                {
-                    "type": "pandoc",
-                    "config": {
+                    "pandoc": {
                         "output_format": "markdown",
                     },
-                },
-                {
-                    "type": "tika",
-                    "config": {
+                    "tika": {
                         "tika_server_url": "http://localhost:9998",
                     },
-                },
-                {
-                    "type": "textract",
-                    "config": {
+                    "textract": {
                         "ocr_strategy": "tesseract",
                     },
-                },
-            ],
-        )
+                }
+            )
+        ) as pepper:
+            # Process a PDF document
+            pdf_path = Path("examples/data/document.pdf")
+            pdf_result = await (
+                pepper.content.from_file(pdf_path)
+                .extract_text()
+                .with_metadata()
+                .execute()
+            )
+            logger.info("PDF processing result: %s", pdf_result)
 
-        # Process a PDF document
-        pdf_path = Path("examples/data/document.pdf")
-        pdf_result = await pepperpy.process_content(
-            content_path=pdf_path,
-            extract_metadata=True,
-        )
-        logger.info("PDF processing result: %s", pdf_result)
+            # Process a Word document
+            docx_path = Path("examples/data/document.docx")
+            docx_result = await (
+                pepper.content.from_file(docx_path)
+                .extract_text()
+                .with_metadata()
+                .execute()
+            )
+            logger.info("Word processing result: %s", docx_result)
 
-        # Process a Word document
-        docx_path = Path("examples/data/document.docx")
-        docx_result = await pepperpy.process_content(
-            content_path=docx_path,
-            extract_metadata=True,
-        )
-        logger.info("Word processing result: %s", docx_result)
+            # Process a password-protected PDF
+            protected_pdf_path = Path("examples/data/protected.pdf")
+            protected_result = await (
+                pepper.content.from_file(protected_pdf_path)
+                .with_password("secret123")
+                .extract_text()
+                .with_metadata()
+                .execute()
+            )
+            logger.info("Protected PDF processing result: %s", protected_result)
 
-        # Process a password-protected PDF
-        protected_pdf_path = Path("examples/data/protected.pdf")
-        protected_result = await pepperpy.process_content(
-            content_path=protected_pdf_path,
-            extract_metadata=True,
-            password="secret123",
-        )
-        logger.info("Protected PDF processing result: %s", protected_result)
-
-    except ContentProcessingError as e:
+    except Exception as e:
         logger.error("Error processing document: %s", e)
 
 
 async def process_image() -> None:
     """Process an image using different providers."""
     try:
-        # Initialize PepperPy
-        pepperpy = PepperPy()
-
-        # Configure image processor with multiple providers
-        pepperpy.configure_content_processor(
-            content_type="image",
-            providers=[
-                {
-                    "type": "tesseract",
-                    "config": {
+        # Initialize PepperPy with content processing
+        async with (
+            PepperPy()
+            .with_content()
+            .with_content_config(
+                providers={
+                    "tesseract": {
                         "language": "eng",
                         "psm": 3,
                     },
-                },
-                {
-                    "type": "easyocr",
-                    "config": {
+                    "easyocr": {
                         "languages": ["en"],
                     },
-                },
-            ],
-        )
+                }
+            )
+        ) as pepper:
+            # Process an image with text
+            image_path = Path("examples/data/image.png")
+            image_result = await (
+                pepper.content.from_file(image_path)
+                .extract_text()
+                .with_metadata()
+                .execute()
+            )
+            logger.info("Image processing result: %s", image_result)
 
-        # Process an image with text
-        image_path = Path("examples/data/image.png")
-        image_result = await pepperpy.process_content(
-            content_path=image_path,
-            extract_metadata=True,
-        )
-        logger.info("Image processing result: %s", image_result)
-
-    except ContentProcessingError as e:
+    except Exception as e:
         logger.error("Error processing image: %s", e)
 
 
 async def process_audio() -> None:
     """Process an audio file using different providers."""
     try:
-        # Initialize PepperPy
-        pepperpy = PepperPy()
+        # Initialize PepperPy with content processing
+        async with (
+            PepperPy()
+            .with_content()
+            .with_content_config(
+                providers={
+                    "ffmpeg": {},
+                }
+            )
+        ) as pepper:
+            # Process an audio file
+            audio_path = Path("examples/data/audio.mp3")
+            audio_result = await (
+                pepper.content.from_file(audio_path)
+                .extract_text()
+                .with_metadata()
+                .execute()
+            )
+            logger.info("Audio processing result: %s", audio_result)
 
-        # Configure audio processor with FFmpeg provider
-        pepperpy.configure_content_processor(
-            content_type="audio",
-            providers=[
-                {
-                    "type": "ffmpeg",
-                    "config": {},
-                },
-            ],
-        )
-
-        # Process an audio file
-        audio_path = Path("examples/data/audio.mp3")
-        audio_result = await pepperpy.process_content(
-            content_path=audio_path,
-            extract_metadata=True,
-        )
-        logger.info("Audio processing result: %s", audio_result)
-
-    except ContentProcessingError as e:
+    except Exception as e:
         logger.error("Error processing audio: %s", e)
 
 
 async def process_video() -> None:
     """Process a video file using different providers."""
     try:
-        # Initialize PepperPy
-        pepperpy = PepperPy()
-
-        # Configure video processor with FFmpeg provider
-        pepperpy.configure_content_processor(
-            content_type="video",
-            providers=[
-                {
-                    "type": "ffmpeg",
-                    "config": {
+        # Initialize PepperPy with content processing
+        async with (
+            PepperPy()
+            .with_content()
+            .with_content_config(
+                providers={
+                    "ffmpeg": {
                         "extract_thumbnail": True,
                     },
-                },
-            ],
-        )
+                }
+            )
+        ) as pepper:
+            # Process a video file
+            video_path = Path("examples/data/video.mp4")
+            video_result = await (
+                pepper.content.from_file(video_path)
+                .extract_text()
+                .with_metadata()
+                .execute()
+            )
+            logger.info("Video processing result: %s", video_result)
 
-        # Process a video file
-        video_path = Path("examples/data/video.mp4")
-        video_result = await pepperpy.process_content(
-            content_path=video_path,
-            extract_metadata=True,
-        )
-        logger.info("Video processing result: %s", video_result)
-
-    except ContentProcessingError as e:
+    except Exception as e:
         logger.error("Error processing video: %s", e)
 
 
 async def process_archive() -> None:
     """Process an archive file."""
     try:
-        # Initialize PepperPy
-        pepperpy = PepperPy()
-
-        # Configure document processor for extracted files
-        pepperpy.configure_content_processor(
-            content_type="document",
-            providers=[
-                {
-                    "type": "pymupdf",
-                    "config": {},
-                },
-            ],
-        )
-
-        # Extract and process files from archive
-        archive_path = Path("examples/data/documents.zip")
-        output_path = Path("examples/data/extracted")
-
-        # Extract archive
-        await pepperpy.extract_archive(
-            archive_path=archive_path,
-            output_path=output_path,
-            password="secret123",  # Optional password
-        )
-
-        # Process extracted files
-        for file_path in output_path.rglob("*.pdf"):
-            result = await pepperpy.process_content(
-                content_path=file_path,
-                extract_metadata=True,
+        # Initialize PepperPy with content processing
+        async with (
+            PepperPy()
+            .with_content()
+            .with_content_config(
+                providers={
+                    "pymupdf": {},
+                }
             )
-            logger.info("Processing result for %s: %s", file_path, result)
+        ) as pepper:
+            # Process an archive file
+            archive_path = Path("examples/data/documents.zip")
+            archive_result = await (
+                pepper.content.from_archive(archive_path)
+                .with_password("secret123")
+                .extract_to("examples/data/extracted")
+                .include_extensions(".pdf", ".docx")
+                .recursive()
+                .execute()
+            )
+            logger.info("Archive processing result: %s", archive_result)
 
-    except ContentProcessingError as e:
+    except Exception as e:
         logger.error("Error processing archive: %s", e)
 
 
 async def main() -> None:
     """Run content processing examples."""
-    # Process different types of content
+    print("Starting content processing examples...\n")
     await process_document()
     await process_image()
     await process_audio()
     await process_video()
     await process_archive()
+    print("\nContent processing examples completed.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    # Required environment variables in .env file:
+    # PEPPERPY_CONTENT__PROVIDER=pymupdf
+    asyncio.run(main())

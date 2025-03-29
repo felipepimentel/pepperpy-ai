@@ -11,7 +11,7 @@ import asyncio
 import json
 from typing import Dict, List
 
-import pepperpy
+from pepperpy import PepperPy
 
 
 async def analyze_text_structure(text: str) -> Dict[str, List[str]]:
@@ -23,15 +23,17 @@ async def analyze_text_structure(text: str) -> Dict[str, List[str]]:
     Returns:
         Dict with sections and their chunks
     """
-    # Use the API fluente with environment variables
-    pepper = pepperpy.PepperPy().with_llm().with_rag()
-
-    async with pepper:
+    # Initialize PepperPy with LLM support
+    async with PepperPy().with_llm() as pepper:
         # First, get high-level structure
-        structure = await pepper.ask(
-            "Analyze this text and identify main sections. "
-            "Return a JSON with section names as keys and their line ranges as values:\n\n"
-            + text
+        structure = await (
+            pepper.chat.with_system("You are a text analysis expert.")
+            .with_user(
+                "Analyze this text and identify main sections. "
+                "Return a JSON with section names as keys and their line ranges as values:\n\n"
+                + text
+            )
+            .generate()
         )
 
         # Parse JSON response
@@ -41,11 +43,15 @@ async def analyze_text_structure(text: str) -> Dict[str, List[str]]:
         # Then break each section into semantic chunks
         for section, lines in structure_dict.items():
             section_text = "\n".join(text.split("\n")[lines[0] : lines[1]])
-            chunks = await pepper.ask(
-                "Break this section into semantic chunks of related content. "
-                "Return a JSON array of chunks. "
-                "Each chunk should be self-contained but connected to the whole:\n\n"
-                + section_text
+            chunks = await (
+                pepper.chat.with_system("You are a text analysis expert.")
+                .with_user(
+                    "Break this section into semantic chunks of related content. "
+                    "Return a JSON array of chunks. "
+                    "Each chunk should be self-contained but connected to the whole:\n\n"
+                    + section_text
+                )
+                .generate()
             )
             sections[section] = json.loads(chunks.content)
 
@@ -62,28 +68,39 @@ async def improve_chunk(chunk: str, style_guide: str) -> str:
     Returns:
         Improved chunk
     """
-    # Use the API fluente with environment variables
-    pepper = pepperpy.PepperPy().with_llm().with_rag()
-
-    async with pepper:
+    # Initialize PepperPy with LLM support
+    async with PepperPy().with_llm() as pepper:
         # Learn the style guide
-        await pepper.learn(style_guide)
+        style_response = await (
+            pepper.chat.with_system("You are a writing style expert.")
+            .with_user(f"Learn and apply this style guide:\n\n{style_guide}")
+            .generate()
+        )
 
         # Analyze for improvements
-        analysis = await pepper.ask(
-            "Analyze this text chunk and suggest improvements while maintaining style:\n\n"
-            "1. Remove redundancies\n"
-            "2. Clarify confusing parts\n"
-            "3. Improve flow and transitions\n"
-            "4. Keep the same technical depth\n\n" + chunk
+        analysis = await (
+            pepper.chat.with_system("You are a text improvement expert.")
+            .with_user(
+                "Analyze this text chunk and suggest improvements while maintaining style:\n\n"
+                "1. Remove redundancies\n"
+                "2. Clarify confusing parts\n"
+                "3. Improve flow and transitions\n"
+                "4. Keep the same technical depth\n\n" + chunk
+            )
+            .generate()
         )
 
         # Apply improvements
-        improved = await pepper.ask(
-            "Rewrite this chunk incorporating the suggested improvements. "
-            "Maintain the original style, technical depth, and key information:\n\n"
-            f"Original: {chunk}\n\n"
-            f"Analysis: {analysis.content}"
+        improved = await (
+            pepper.chat.with_system("You are a text improvement expert.")
+            .with_user(
+                "Rewrite this chunk incorporating the suggested improvements. "
+                "Maintain the original style, technical depth, and key information:\n\n"
+                f"Original: {chunk}\n\n"
+                f"Analysis: {analysis.content}\n\n"
+                f"Style Guide: {style_guide}"
+            )
+            .generate()
         )
 
         return improved.content
@@ -116,14 +133,16 @@ async def refactor_large_text(text: str, style_guide: str) -> str:
         improved_sections[section] = improved_chunks
 
     # Combine sections with proper transitions
-    pepper = pepperpy.PepperPy().with_llm().with_rag()
-
-    async with pepper:
+    async with PepperPy().with_llm() as pepper:
         print("\nCombining sections...")
-        final_text = await pepper.ask(
-            "Combine these improved sections into a cohesive text. "
-            "Add smooth transitions between sections while maintaining flow:\n\n"
-            + str(improved_sections)
+        final_text = await (
+            pepper.chat.with_system("You are a text organization expert.")
+            .with_user(
+                "Combine these improved sections into a cohesive text. "
+                "Add smooth transitions between sections while maintaining flow:\n\n"
+                + str(improved_sections)
+            )
+            .generate()
         )
 
         return final_text.content
@@ -174,5 +193,5 @@ async def main() -> None:
 if __name__ == "__main__":
     # Required environment variables in .env file:
     # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_RAG__PROVIDER=chroma
+    # PEPPERPY_LLM__API_KEY=your_api_key
     asyncio.run(main())
