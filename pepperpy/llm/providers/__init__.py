@@ -1,9 +1,11 @@
-"""Provider implementations for the LLM module."""
+"""LLM provider implementations."""
 
-from .openai import OpenAIProvider
-from .openrouter import OpenRouterProvider
+from .openai import OpenAILLMProvider
+from .openrouter import OpenRouterLLMProvider
+from .local import LocalLLMProvider
 
 __all__ = [
-    "OpenAIProvider",
-    "OpenRouterProvider",
+    "OpenAILLMProvider",
+    "OpenRouterLLMProvider",
+    "LocalLLMProvider",
 ]

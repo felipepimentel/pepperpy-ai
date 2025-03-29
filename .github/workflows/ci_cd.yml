@@ -1,0 +1,41 @@
+name: CI/CD
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+  issues: write
+  pull-requests: write
+  packages: write
+  statuses: write
+  actions: read
+  pages: write
+  deployments: write
+
+env:
+  ACTIONS_RUNNER_DEBUG: true
+  ACTIONS_STEP_DEBUG: true
+
+jobs:
+  pipeline:
+    uses: felipepimentel/daggerverse/.github/workflows/reusable-python.yml@main
+    secrets:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+
+  docs:
+    needs: pipeline
+    if: github.event_name == 'push' || github.event_name == 'release'
+    uses: felipepimentel/daggerverse/.github/workflows/reusable-docs.yml@main
+    with:
+      generator: sphinx
+      source_dir: docs
+      environment: github-pages
+    secrets:
+      token: ${{ secrets.GITHUB_TOKEN }}

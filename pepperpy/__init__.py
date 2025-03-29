@@ -1,76 +1,73 @@
-"""PepperPy: A framework for AI-powered applications.
+"""PepperPy: A Python framework for building AI-powered applications.
 
-PepperPy simplifies the development of AI applications by providing a unified
-API for working with language models, embeddings, RAG, text-to-speech, and more.
-
-Example:
-    >>> import pepperpy
-    >>> instance = pepperpy.PepperPy()
-    >>> instance.with_llm().with_rag()
-    >>> async with instance:
-    ...     await instance.ask("What is PepperPy?")
+This module provides a high-level interface for building AI applications
+with support for:
+- Content processing (documents, images, audio, video)
+- Large Language Models (LLMs)
+- Retrieval Augmented Generation (RAG)
+- Workflows and pipelines
+- Multi-agent systems
 """
+
+from pepperpy.core.base import PepperpyError
+from pepperpy.core.config import PepperpyConfig
+from pepperpy.core.pepperpy import PepperPy
+
+from pepperpy.content_processing.base import (
+    ContentProcessor,
+    ContentType,
+)
+from pepperpy.content_processing.errors import (
+    ContentProcessingError,
+    ProviderNotFoundError,
+)
+from pepperpy.content_processing.lazy import (
+    DEFAULT_PROCESSORS,
+    AVAILABLE_PROCESSORS,
+)
+
+from pepperpy.llm import (
+    LLMProvider,
+    OpenAIProvider,
+    AnthropicProvider,
+    create_provider as create_llm_provider,
+)
+
+from pepperpy.rag import (
+    RAGProvider,
+    ChromaProvider,
+    create_provider as create_rag_provider,
+)
+
+from pepperpy.workflow import (
+    WorkflowProvider,
+    create_provider as create_workflow_provider,
+)
 
 __version__ = "0.1.0"
 
-from pepperpy.core import Component, PepperpyError, ValidationError
-
-# Comment out problematic imports while we're fixing document_processing
-# from pepperpy.document_processing import (
-#     DocumentContent,
-#     DocumentMetadata,
-#     DocumentProcessingProvider,
-#     DocumentType,
-# )
-# from pepperpy.document_processing import (
-#     create_provider as create_document_processing_provider,
-# )
-from pepperpy.embeddings import EmbeddingProvider, EmbeddingsProvider
-from pepperpy.embeddings import create_provider as create_embeddings_provider
-from pepperpy.llm import GenerationResult, LLMProvider, Message, MessageRole
-from pepperpy.llm import create_provider as create_llm_provider
-from pepperpy.pepperpy import PepperPy
-from pepperpy.rag import Document, Query, RAGProvider
-from pepperpy.rag import create_provider as create_rag_provider
-from pepperpy.storage import StorageProvider
-from pepperpy.storage import create_provider as create_storage_provider
-from pepperpy.tts import TTSProvider
-from pepperpy.tts import create_provider as create_tts_provider
-
 __all__ = [
     # Core
-    "PepperpyError",
-    "ValidationError",
-    "Component",
-    # Main class
     "PepperPy",
-    # Document Processing
-    # "DocumentContent",
-    # "DocumentMetadata",
-    # "DocumentProcessingProvider",
-    # "DocumentType",
-    # "create_document_processing_provider",
-    # Embeddings
-    "EmbeddingProvider",
-    "EmbeddingsProvider",
-    "create_embeddings_provider",
+    "PepperpyConfig",
+    "PepperpyError",
+    # Content Processing
+    "ContentProcessor",
+    "ContentType",
+    "ContentProcessingError",
+    "ProviderNotFoundError",
+    "DEFAULT_PROCESSORS",
+    "AVAILABLE_PROCESSORS",
     # LLM
     "LLMProvider",
-    "Message",
-    "MessageRole",
-    "GenerationResult",
+    "OpenAIProvider",
+    "AnthropicProvider",
     "create_llm_provider",
     # RAG
-    "Document",
-    "Query",
     "RAGProvider",
+    "ChromaProvider",
     "create_rag_provider",
-    # Storage
-    "StorageProvider",
-    "create_storage_provider",
-    # TTS
-    "TTSProvider",
-    "create_tts_provider",
-    # Version
-    "__version__",
+    # Workflow
+    "WorkflowProvider",
+    "create_workflow_provider",
 ]

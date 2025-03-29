@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 import psutil
 import pytest
 from typing_extensions import assert_type
+from pathlib import Path
 
 from pepperpy.core.pipeline import PipelineContext, PipelineStage
 from pepperpy.rag.document.core import DocumentChunk
@@ -38,6 +39,9 @@ from pepperpy.rag.pipeline.stages.retrieval import (
     RetrievalResult,
     RetrievalStageConfig,
 )
+from pepperpy.content_processing.base import ContentType
+from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.rag.adapter import RAGAdapter
 
 
 # Protocol definitions for type checking
@@ -1800,3 +1804,32 @@ class TestRAGPipelineMemoryLeaks:
         memory_diff = abs(final_memory - initial_memory)
 
         assert memory_diff < 5  # Memory increase should be limited
+
+
+@pytest.mark.asyncio
+async def test_large_content_processing():
+    """Test processing of a large PDF file."""
+    # Create provider
+    provider = PyMuPDFProvider()
+
+    # Initialize provider
+    await provider.initialize()
+
+    try:
+        # Process large PDF file
+        pdf_file = Path(__file__).parent / "data" / "large.pdf"
+        result = await provider.process(
+            pdf_file,
+            extract_text=True,
+            extract_metadata=True,
+        )
+
+        # Verify results
+        assert result["text"]  # Should have extracted text
+        assert result["metadata"]  # Should have metadata
+        assert len(result["text"]) > 1000  # Should be a large document
+        assert len(result["chunks"]) > 1  # Should have multiple chunks
+
+    finally:
+        # Cleanup
+        await provider.cleanup()

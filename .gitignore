@@ -103,14 +103,6 @@ examples/output/
 examples/input/
 
 .cache
-data/vector_store/chroma.sqlite3
-data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/data_level0.bin
-data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/header.bin
-data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/length.bin
-data/vector_store/c67946f7-c15f-4b32-92d2-2184065b1528/link_lists.bin
-data/chroma/chroma.sqlite3
-data/chroma/6c89183d-afb5-478c-9a71-19e706bc94b3/data_level0.bin
-data/chroma/6c89183d-afb5-478c-9a71-19e706bc94b3/header.bin
-data/chroma/6c89183d-afb5-478c-9a71-19e706bc94b3/length.bin
-data/chroma/6c89183d-afb5-478c-9a71-19e706bc94b3/link_lists.bin
-examples/data/knowledge/architecture.md
+data/vector_store/
+data/chroma/
+examples/data/

@@ -447,13 +447,15 @@ def create_provider(provider_type: str = "openai", **config: Any) -> LLMProvider
         module = importlib.import_module(module_name)
 
         # Get provider class
-        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class_name = f"{provider_type.title()}LLMProvider"
 
         # Handle special cases
         if provider_type == "openai":
-            provider_class = module.OpenAIProvider
+            provider_class = module.OpenAILLMProvider
         elif provider_type == "openrouter":
-            provider_class = module.OpenRouterProvider
+            provider_class = module.OpenRouterLLMProvider
+        elif provider_type == "local":
+            provider_class = module.LocalLLMProvider
         else:
             provider_class = getattr(module, provider_class_name)
 

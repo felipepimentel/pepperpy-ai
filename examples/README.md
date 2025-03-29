@@ -1,75 +1,62 @@
 # PepperPy Examples
 
-This directory contains examples demonstrating various features and use cases of the PepperPy framework.
+This directory contains example scripts demonstrating various features of the PepperPy framework.
 
-## Core Examples
+## Basic Examples
 
-- **minimal_example.py**: Basic example showing core framework features and setup
-- **smart_pdf_summarizer_example.py**: Complete multi-agent system for PDF analysis
+- **content_processing_example.py**: Basic content processing with different providers
+- **document_workflow_example.py**: Document processing workflows and pipelines
+- **smart_pdf_summarizer_example.py**: Smart PDF summarization using content processing and LLM
+- **llm_example.py**: Basic LLM usage with different providers
+- **rag_example.py**: Basic RAG usage with different providers
+- **workflow_example.py**: Basic workflow usage with different stages
 
-## RAG and Memory Examples
+## Advanced Examples
 
-- **memory_rag_example.py**: In-memory RAG implementation
-- **sqlite_rag_example.py**: Persistent RAG using SQLite
-- **hierarchical_memory_example.py**: Hierarchical memory system
-- **document_knowledge_base_example.py**: Document-based knowledge base
-
-## Document Processing Examples
-
-- **document_processing_example.py**: Basic document processing
-- **document_workflow_example.py**: Document processing workflow
-- **text_processing_workflow_example.py**: Text processing workflow
-
-## Specialized Assistants
-
-- **bi_assistant_example.py**: Business Intelligence assistant
-- **repo_analysis_assistant_example.py**: Repository analysis
-- **ai_learning_assistant_example.py**: Learning assistant
-- **text_refactoring_example.py**: Code refactoring
-- **content_generation_example.py**: Content generation
-- **podcast_generator_example.py**: Podcast generation
-
-## Running Examples
-
-1. Install required dependencies:
-```bash
-# Install with all features
-pip install "pepperpy[all]"
-
-# Or install specific features
-pip install "pepperpy[rag-complete,doc-all]"
-```
-
-2. Set up environment variables in `.env`
-
-3. Run specific example:
-```bash
-python examples/minimal_example.py
-```
-
-4. Or run all examples:
-```bash
-python examples/run_all_examples.py
-```
+- **multi_agent_example.py**: Multi-agent system for complex tasks
+- **rag_pipeline_example.py**: Advanced RAG pipeline with preprocessing
+- **workflow_pipeline_example.py**: Advanced workflow pipeline with multiple stages
 
 ## Directory Structure
 
 ```
 examples/
-├── README.md           # This file
-├── .env               # Environment variables
-├── run_all_examples.py # Script to run all examples
-├── input/             # Input files for examples
-├── output/            # Output files from examples
-└── data/             # Data files used by examples
+├── README.md
+├── data/                    # Example data files
+│   ├── documents/          # Example documents
+│   ├── images/            # Example images
+│   ├── audio/             # Example audio files
+│   └── video/             # Example video files
+├── basic/                  # Basic examples
+└── advanced/              # Advanced examples
 ```
 
-## Best Practices
+## Running Examples
 
-When creating new examples:
+1. Make sure you have PepperPy installed:
+```bash
+pip install pepperpy
+```
 
-1. Follow the modular provider pattern
-2. Include proper error handling
-3. Add clear documentation
-4. Use environment variables for configuration
-5. Follow PepperPy coding standards 
+2. Install additional dependencies for specific examples:
+```bash
+pip install -r requirements.txt
+```
+
+3. Run an example:
+```bash
+python examples/content_processing_example.py
+```
+
+## Example Data
+
+The `data/` directory contains example files for testing different features:
+
+- Documents: PDF, DOCX, TXT, etc.
+- Images: JPG, PNG, etc.
+- Audio: MP3, WAV, etc.
+- Video: MP4, AVI, etc.
+
+## Contributing
+
+Feel free to contribute your own examples by submitting a pull request! 

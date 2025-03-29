@@ -4,6 +4,7 @@ import json
 
 import pytest
 from bs4 import BeautifulSoup
+from pathlib import Path
 
 from pepperpy.core.http import (
     format_headers,
@@ -16,6 +17,8 @@ from pepperpy.rag.utils import (
     extract_html_metadata,
     split_text_by_separator,
 )
+from pepperpy.content_processing.base import ContentType
+from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
 
 
 def test_document_upload_processing():
@@ -158,3 +161,64 @@ def test_document_api_error_handling():
     # Test invalid overlap size
     with pytest.raises(Exception):
         split_text_by_separator("test", chunk_size=10, chunk_overlap=20)
+
+
+@pytest.mark.asyncio
+async def test_html_content_processing():
+    """Test processing HTML content."""
+    # Create provider
+    provider = PyMuPDFProvider()
+
+    # Initialize provider
+    await provider.initialize()
+
+    try:
+        # Process HTML file
+        html_file = Path(__file__).parent / "data" / "example.html"
+        result = await provider.process(
+            html_file,
+            extract_text=True,
+            extract_metadata=True,
+        )
+
+        # Verify results
+        assert result["text"]
+        assert result["metadata"]
+        assert "title" in result["metadata"]
+        assert "author" in result["metadata"]
+
+    finally:
+        # Cleanup
+        await provider.cleanup()
+
+    with pytest.raises(Exception):
+        split_text_by_separator("test", chunk_size=10, chunk_overlap=20)
+
+
+@pytest.mark.asyncio
+async def test_html_content_processing():
+    """Test processing HTML content."""
+    # Create provider
+    provider = PyMuPDFProvider()
+
+    # Initialize provider
+    await provider.initialize()
+
+    try:
+        # Process HTML file
+        html_file = Path(__file__).parent / "data" / "example.html"
+        result = await provider.process(
+            html_file,
+            extract_text=True,
+            extract_metadata=True,
+        )
+
+        # Verify results
+        assert result["text"]
+        assert result["metadata"]
+        assert "title" in result["metadata"]
+        assert "author" in result["metadata"]
+
+    finally:
+        # Cleanup
+        await provider.cleanup()

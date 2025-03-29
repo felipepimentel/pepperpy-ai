@@ -6,6 +6,7 @@ This module defines the base interfaces and types for embedding providers.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Union
+import importlib
 
 from pepperpy.core.base import BaseComponent, BaseProvider, PepperpyError
 from pepperpy.core.config import Config
@@ -353,32 +354,41 @@ class EmbeddingComponent(BaseComponent):
         return await self.embed_text(texts)
 
 
-def create_provider(provider_type: str, **config: Any) -> EmbeddingsProvider:
-    """Create an embeddings provider instance.
+def create_provider(
+    provider_type: str = "local",
+    **config: Any,
+) -> EmbeddingsProvider:
+    """Create an embeddings provider based on type.
 
     Args:
-        provider_type: Provider type to create
+        provider_type: Type of provider to create (default: local)
         **config: Provider configuration
 
     Returns:
-        Instantiated provider
+        An instance of the specified EmbeddingsProvider
+
+    Raises:
+        ValidationError: If provider creation fails
     """
-    if provider_type == "local":
-        from .providers import LocalProvider
+    try:
+        # Import provider module
+        module_name = f"pepperpy.embeddings.providers.{provider_type}"
+        module = importlib.import_module(module_name)
 
-        return LocalProvider(
-            model=config.get("model", "default"), device=config.get("device", "cpu")
-        )
-    elif provider_type == "numpy":
-        from .providers import NumpyProvider
+        # Handle special cases
+        if provider_type == "openai":
+            provider_class = module.OpenAIEmbeddingProvider
+        elif provider_type == "fastai":
+            provider_class = module.FastAIEmbeddingProvider
+        elif provider_type == "local":
+            provider_class = module.LocalProvider
+        else:
+            # Get provider class name with proper capitalization
+            provider_class_name = f"{provider_type.title()}EmbeddingProvider"
+            provider_class = getattr(module, provider_class_name)
 
-        return NumpyProvider(embedding_dim=config.get("embedding_dim", 64))
-    elif provider_type == "openai":
-        from .providers import OpenAIEmbeddingProvider
-
-        return OpenAIEmbeddingProvider(
-            api_key=config.get("api_key"),
-            model=config.get("model", "text-embedding-ada-002"),
-        )
-    else:
-        raise ValueError(f"Unknown provider type: {provider_type}")
+        # Create provider instance
+        return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        from pepperpy.core.base import ValidationError
+        raise ValidationError(f"Failed to create embeddings provider '{provider_type}': {e}")

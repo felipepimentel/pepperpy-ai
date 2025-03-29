@@ -8,6 +8,8 @@ import json
 import os
 from typing import TYPE_CHECKING, Any, AsyncIterator, Dict, List, Optional, Union
 
+from pepperpy.content_processing import ContentProcessor, ContentType, ProcessingResult
+from pepperpy.content_processing import create_processor as create_content_processor
 from pepperpy.core.config import Config
 from pepperpy.embeddings import create_provider as create_embeddings_provider
 from pepperpy.llm import GenerationResult, LLMProvider, Message, MessageRole
@@ -44,6 +46,7 @@ class PepperPy:
         self._repository: Optional[RepositoryProvider] = None
         self._workflow: Optional[WorkflowProvider] = None
         self._embeddings: Optional["EmbeddingsProvider"] = None
+        self._content_processors: Dict[ContentType, ContentProcessor] = {}
 
     def with_llm(
         self, provider_type: Optional[str] = None, **kwargs: Any
@@ -65,31 +68,24 @@ class PepperPy:
         return self
 
     def with_embeddings(
-        self, provider_type: Optional[str] = None, **kwargs: Any
+        self,
+        provider_type: Optional[str] = "mock",
+        **provider_config: Any,
     ) -> "PepperPy":
-        """Configure embeddings provider.
+        """Add embeddings capabilities.
 
         Args:
-            provider_type: Type of embeddings provider (defaults to config or PEPPERPY_EMBEDDINGS__PROVIDER)
-            **kwargs: Additional provider options
+            provider_type: Provider type to use
+            **provider_config: Provider configuration
 
         Returns:
             Self for chaining
         """
-        provider_type = (
-            provider_type
-            or self.config.get("embeddings.provider")
-            or os.getenv("PEPPERPY_EMBEDDINGS__PROVIDER", "local")
-        )
-        if provider_type is None:
-            provider_type = "local"  # Default to local if no provider type is specified
+        from pepperpy.embeddings import create_provider
 
-        provider_config = self.config.get("embeddings.config", {})
-        provider_config.update(kwargs)
+        if provider_type:
+            self._embeddings = create_provider(provider_type, **provider_config)
 
-        self._embeddings = create_embeddings_provider(
-            provider_type=provider_type, **provider_config
-        )
         return self
 
     def with_rag(
@@ -208,6 +204,101 @@ class PepperPy:
             provider_type=provider_type, **provider_config
         )
         return self
+
+    def with_content_processor(
+        self,
+        content_type: ContentType,
+        provider_type: Optional[str] = None,
+        **kwargs: Any,
+    ) -> "PepperPy":
+        """Configure content processor for a specific content type.
+
+        Args:
+            content_type: Type of content to process
+            provider_type: Type of content processor provider (defaults to environment variable)
+            **kwargs: Additional provider options
+
+        Returns:
+            Self for chaining
+        """
+        env_var = f"PEPPERPY_CONTENT_PROCESSING__{content_type.name}__PROVIDER"
+        provider_type = provider_type or os.getenv(env_var)
+        
+        if not provider_type:
+            if content_type == ContentType.DOCUMENT:
+                provider_type = "pymupdf"
+            elif content_type == ContentType.IMAGE:
+                provider_type = "pillow"
+            elif content_type == ContentType.AUDIO:
+                provider_type = "ffmpeg"
+            elif content_type == ContentType.VIDEO:
+                provider_type = "ffmpeg"
+            else:
+                raise ValueError(f"No default provider for content type {content_type}")
+
+        provider_config = self.config.get(f"content_processing.{content_type.name.lower()}.config", {})
+        provider_config.update(kwargs)
+
+        self._content_processors[content_type] = create_content_processor(
+            content_type=content_type,
+            provider_type=provider_type,
+            **provider_config
+        )
+        return self
+
+    def get_content_processor(self, content_type: ContentType) -> ContentProcessor:
+        """Get content processor for a specific content type.
+
+        Args:
+            content_type: Type of content to process
+
+        Returns:
+            Content processor instance
+
+        Raises:
+            ValueError: If content processor is not configured
+        """
+        if content_type not in self._content_processors:
+            raise ValueError(
+                f"Content processor for {content_type} not configured. "
+                f"Call with_content_processor({content_type}) first."
+            )
+        return self._content_processors[content_type]
+
+    async def process_content(
+        self,
+        file_path: str,
+        content_type: Optional[ContentType] = None,
+        **kwargs: Any,
+    ) -> ProcessingResult:
+        """Process content from a file.
+
+        Args:
+            file_path: Path to the file to process
+            content_type: Type of content to process (if None, will be inferred from file extension)
+            **kwargs: Additional processing options
+
+        Returns:
+            Processing result
+
+        Raises:
+            ValueError: If content type cannot be inferred or processor not configured
+        """
+        if content_type is None:
+            ext = os.path.splitext(file_path)[1].lower()
+            if ext in {".pdf", ".doc", ".docx", ".txt", ".md"}:
+                content_type = ContentType.DOCUMENT
+            elif ext in {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}:
+                content_type = ContentType.IMAGE
+            elif ext in {".mp3", ".wav", ".ogg", ".m4a", ".flac"}:
+                content_type = ContentType.AUDIO
+            elif ext in {".mp4", ".avi", ".mov", ".mkv", ".webm"}:
+                content_type = ContentType.VIDEO
+            else:
+                raise ValueError(f"Cannot infer content type from extension {ext}")
+
+        processor = self.get_content_processor(content_type)
+        return await processor.process(file_path, **kwargs)
 
     @property
     def llm(self) -> LLMProvider:

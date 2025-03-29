@@ -1,6 +1,7 @@
 """Integration tests for document processing and LLM response generation."""
 
 import pytest
+from pathlib import Path
 
 from pepperpy.llm.utils import (
     Message,
@@ -14,6 +15,9 @@ from pepperpy.rag.utils import (
     clean_text,
     split_text_by_separator,
 )
+from pepperpy.content_processing.base import ContentType
+from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.content_processing.errors import ContentProcessingError
 
 
 def test_document_to_prompt_flow():
@@ -121,3 +125,47 @@ def test_document_processing_error_handling():
     prompt = Prompt(messages=messages)
     with pytest.raises(Exception):
         format_prompt_for_provider(prompt, "invalid_provider")
+
+
+@pytest.mark.asyncio
+async def test_content_processing_error_handling():
+    """Test error handling during content processing."""
+    # Create provider
+    provider = PyMuPDFProvider()
+
+    # Initialize provider
+    await provider.initialize()
+
+    try:
+        # Try to process non-existent file
+        with pytest.raises(ContentProcessingError) as exc_info:
+            await provider.process(
+                Path("non_existent.pdf"),
+                extract_text=True,
+                extract_metadata=True,
+            )
+        assert "not found" in str(exc_info.value)
+
+        # Try to process invalid file
+        invalid_file = Path(__file__).parent / "data" / "invalid.pdf"
+        with pytest.raises(ContentProcessingError) as exc_info:
+            await provider.process(
+                invalid_file,
+                extract_text=True,
+                extract_metadata=True,
+            )
+        assert "invalid" in str(exc_info.value).lower()
+
+        # Try to process protected file without password
+        protected_file = Path(__file__).parent / "data" / "protected.pdf"
+        with pytest.raises(ContentProcessingError) as exc_info:
+            await provider.process(
+                protected_file,
+                extract_text=True,
+                extract_metadata=True,
+            )
+        assert "password" in str(exc_info.value).lower()
+
+    finally:
+        # Cleanup
+        await provider.cleanup()

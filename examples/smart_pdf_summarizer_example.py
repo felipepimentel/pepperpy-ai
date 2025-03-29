@@ -1,287 +1,148 @@
-"""
-Multi-Agent PDF Summarization System
+"""Example of using PepperPy to create a smart PDF summarizer.
 
-This example demonstrates a sophisticated PDF analysis system using multiple agents:
-1. Coordinator Agent: Creates and manages the summarization plan
-2. Reader Agent: Extracts and preprocesses PDF content
-3. Analyzer Agents: Generate specialized summaries (by topic, section, etc.)
-4. Synthesizer Agent: Combines all summaries into a final coherent output
+This example demonstrates how to:
+1. Process PDF documents using content processing
+2. Extract text and metadata
+3. Use LLM to generate summaries
+4. Handle different types of content
 """
 
 import asyncio
-import json
-import os
-from dataclasses import dataclass
-from enum import Enum
+import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Dict, List, Optional
 
 from pepperpy import PepperPy
-from pepperpy.document_processing import (
-    DocumentProcessingProvider,
-    create_provider,
-)
-from pepperpy.llm import LLMProvider
+from pepperpy.content_processing.base import ContentType
+from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.llm import LLMProvider, OpenAIProvider
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Example document path
+EXAMPLE_DOC = Path(__file__).parent / "data" / "example.pdf"
 
 
-class SummaryType(Enum):
-    """Types of summaries that can be generated."""
+class SmartPDFSummarizer:
+    """Smart PDF summarizer using PepperPy."""
 
-    EXECUTIVE = "executive"
-    TECHNICAL = "technical"
-    KEY_POINTS = "key_points"
-    CHAPTER = "chapter"
-    TOPIC = "topic"
+    def __init__(
+        self,
+        content_provider: Optional[PyMuPDFProvider] = None,
+        llm_provider: Optional[LLMProvider] = None,
+    ) -> None:
+        """Initialize summarizer.
 
-
-@dataclass
-class SummaryTask:
-    """Represents a summarization task."""
-
-    task_id: str
-    content: str
-    summary_type: SummaryType
-    metadata: Dict[str, Any]
-    result: Optional[str] = None
-
-
-class PDFSummarizationPipeline:
-    """Orchestrates the multi-agent PDF summarization process."""
-
-    def __init__(self):
-        """Initialize the pipeline with necessary providers."""
-        self.pepper = PepperPy().with_llm()
-        self.doc_processor: Optional[DocumentProcessingProvider] = None
-        self.llm: Optional[LLMProvider] = None
-
-    async def __aenter__(self):
-        """Initialize providers when entering context."""
-        await self.pepper.__aenter__()
-        self.doc_processor = await create_provider()
-        self.llm = self.pepper.llm
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Cleanup resources when exiting context."""
-        await self.pepper.__aexit__(exc_type, exc_val, exc_tb)
-
-    async def coordinator_agent(self, pdf_path: Path) -> List[SummaryTask]:
-        """Coordinator agent that creates the summarization plan."""
-        if not self.doc_processor or not self.llm:
-            raise RuntimeError("Pipeline not initialized")
-
-        # Extract document structure and metadata
-        doc_info = await self.doc_processor.extract_metadata(pdf_path)
-        doc_info = cast(Dict[str, Any], doc_info)
-
-        # Create initial analysis prompt
-        prompt = f"""
-        Analyze this document and create a summarization plan. Document info:
-        Title: {doc_info.get("title", "Unknown")}
-        Pages: {doc_info.get("pages", 0)}
-        Author: {doc_info.get("author", "Unknown")}
-
-        Create a JSON plan with these task types:
-        1. EXECUTIVE: High-level overview
-        2. TECHNICAL: Detailed technical analysis
-        3. KEY_POINTS: Bullet-point summary
-        4. CHAPTER: Per-chapter summaries
-        5. TOPIC: Topic-based analysis
-
-        Return only valid JSON with this structure:
-        {{"tasks": [
-            {{"task_id": "string",
-             "summary_type": "string",
-             "metadata": {{"section": "string", "focus": "string"}}
-            }}
-        ]}}
+        Args:
+            content_provider: Content processing provider (optional)
+            llm_provider: LLM provider (optional)
         """
+        self.content_provider = content_provider or PyMuPDFProvider()
+        self.llm_provider = llm_provider or OpenAIProvider()
 
-        response = await self.llm.generate(prompt)
-        try:
-            plan = json.loads(str(response))
-            tasks = []
+    async def initialize(self) -> None:
+        """Initialize providers."""
+        await self.content_provider.initialize()
+        await self.llm_provider.initialize()
 
-            # Extract text content
-            content = await self.doc_processor.extract_text(pdf_path)
-            content = str(content)
+    async def cleanup(self) -> None:
+        """Clean up providers."""
+        await self.content_provider.cleanup()
+        await self.llm_provider.cleanup()
 
-            # Create tasks based on the plan
-            for task_data in plan["tasks"]:
-                tasks.append(
-                    SummaryTask(
-                        task_id=task_data["task_id"],
-                        content=content,
-                        summary_type=SummaryType(task_data["summary_type"].lower()),
-                        metadata=task_data["metadata"],
-                    )
-                )
+    async def summarize(
+        self,
+        file_path: Path,
+        max_tokens: int = 500,
+        temperature: float = 0.7,
+    ) -> Dict:
+        """Summarize PDF document.
 
-            return tasks
-        except Exception as e:
-            raise Exception(f"Failed to create summarization plan: {e}")
+        Args:
+            file_path: Path to PDF file
+            max_tokens: Maximum tokens for summary
+            temperature: Temperature for LLM
 
-    async def analyzer_agent(self, task: SummaryTask) -> str:
-        """Analyzer agent that generates specialized summaries."""
-        if not self.llm:
-            raise RuntimeError("Pipeline not initialized")
-
-        prompt_templates = {
-            SummaryType.EXECUTIVE: """
-            Create an executive summary of this document. Focus on:
-            - Main objectives and conclusions
-            - Key business implications
-            - Strategic recommendations
-            
-            Document content: {content}
-            
-            Return a concise executive summary in a professional tone.
-            """,
-            SummaryType.TECHNICAL: """
-            Create a technical analysis of this document. Focus on:
-            - Methodologies used
-            - Technical specifications
-            - Detailed processes
-            - Implementation details
-            
-            Document content: {content}
-            
-            Return a detailed technical summary with specific details and terminology.
-            """,
-            SummaryType.KEY_POINTS: """
-            Extract the key points from this document as bullet points. Focus on:
-            - Main arguments
-            - Critical findings
-            - Essential data points
-            
-            Document content: {content}
-            
-            Return a bullet-point list of the most important points.
-            """,
-            SummaryType.CHAPTER: """
-            Summarize this chapter or section. Focus on:
-            - Chapter's main theme
-            - Key arguments and evidence
-            - Conclusions
-            
-            Section: {metadata[section]}
-            Content: {content}
-            
-            Return a comprehensive chapter summary.
-            """,
-            SummaryType.TOPIC: """
-            Analyze this document focusing on a specific topic. Focus on:
-            - Topic relevance
-            - Key findings related to the topic
-            - Topic-specific insights
-            
-            Topic: {metadata[focus]}
-            Content: {content}
-            
-            Return a topic-focused analysis.
-            """,
-        }
-
-        # Get the appropriate prompt template
-        template = prompt_templates[task.summary_type]
-
-        # Format the prompt with task data
-        prompt = template.format(
-            content=task.content[:8000],  # Limit content length
-            metadata=task.metadata,
+        Returns:
+            Dictionary with summary and metadata
+        """
+        # Process document
+        content = await self.content_provider.process(
+            file_path,
+            extract_text=True,
+            extract_metadata=True,
         )
 
-        # Generate the summary
-        response = await self.llm.generate(prompt)
-        return str(response)
+        # Generate prompt
+        prompt = self._generate_prompt(content["text"], content["metadata"])
 
-    async def synthesizer_agent(self, summaries: List[SummaryTask]) -> str:
-        """Synthesizer agent that combines all summaries into a final report."""
-        if not self.llm:
-            raise RuntimeError("Pipeline not initialized")
+        # Generate summary
+        summary = await self.llm_provider.generate(
+            prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
 
-        # Create a comprehensive prompt with all summaries
-        prompt = """
-        Create a comprehensive final report combining these summaries:
-        
+        return {
+            "summary": summary,
+            "metadata": content["metadata"],
+        }
+
+    def _generate_prompt(self, text: str, metadata: Dict) -> str:
+        """Generate prompt for LLM.
+
+        Args:
+            text: Document text
+            metadata: Document metadata
+
+        Returns:
+            Prompt string
         """
+        return f"""Please provide a concise summary of the following document:
 
-        for task in summaries:
-            prompt += f"\n{task.summary_type.value.upper()} SUMMARY ({task.metadata.get('focus', 'General')}):\n"
-            prompt += f"{task.result}\n"
-            prompt += "-" * 40 + "\n"
+Title: {metadata.get('title', 'Unknown')}
+Author: {metadata.get('author', 'Unknown')}
+Pages: {metadata.get('pages', 'Unknown')}
 
-        prompt += """
-        Synthesize these summaries into a well-structured final report with:
-        1. Executive Overview
-        2. Key Findings
-        3. Detailed Analysis
-        4. Topic-Specific Insights
-        5. Conclusions and Recommendations
-        
-        Make the report coherent, eliminate redundancy, and ensure a logical flow.
-        """
+Content:
+{text[:2000]}...
 
-        response = await self.llm.generate(prompt)
-        return str(response)
+Please include:
+1. Main topics and key points
+2. Important findings or conclusions
+3. Relevant context and background
+4. Any notable quotes or statistics
 
-    async def process_pdf(self, pdf_path: Path) -> str:
-        """Process a PDF file through the entire pipeline."""
-        # 1. Coordinator creates the plan
-        tasks = await self.coordinator_agent(pdf_path)
-
-        # 2. Analyzer agents process tasks in parallel
-        async def process_task(task: SummaryTask):
-            task.result = await self.analyzer_agent(task)
-            return task
-
-        tasks = await asyncio.gather(*[process_task(task) for task in tasks])
-
-        # 3. Synthesizer creates final report
-        final_report = await self.synthesizer_agent(tasks)
-
-        return final_report
+Summary:"""
 
 
 async def main():
-    """Run the PDF summarization example."""
-    print("Multi-Agent PDF Summarization System")
-    print("===================================")
+    """Run the example."""
+    # Create summarizer
+    summarizer = SmartPDFSummarizer()
 
-    # Setup paths
-    input_dir = Path("examples/input")
-    output_dir = Path("examples/output/summaries")
-    os.makedirs(output_dir, exist_ok=True)
+    # Initialize
+    await summarizer.initialize()
 
-    # Find PDF files
-    pdf_files = list(input_dir.glob("*.pdf"))
+    try:
+        # Summarize document
+        logger.info("Summarizing document: %s", EXAMPLE_DOC)
+        result = await summarizer.summarize(EXAMPLE_DOC)
 
-    if not pdf_files:
-        print("\nNo PDF files found in examples/input/")
-        print("Please add PDF files to process.")
-        return
+        # Print results
+        logger.info("\nDocument Summary:")
+        logger.info("-" * 40)
+        logger.info("Title: %s", result["metadata"].get("title", "Unknown"))
+        logger.info("Author: %s", result["metadata"].get("author", "Unknown"))
+        logger.info("Pages: %s", result["metadata"].get("pages", "Unknown"))
+        logger.info("-" * 40)
+        logger.info(result["summary"])
 
-    print(f"\nFound {len(pdf_files)} PDF files to process.")
-
-    # Process each PDF
-    async with PDFSummarizationPipeline() as pipeline:
-        for pdf_path in pdf_files:
-            print(f"\nProcessing: {pdf_path.name}")
-
-            try:
-                # Generate summary
-                summary = await pipeline.process_pdf(pdf_path)
-
-                # Save summary
-                output_path = output_dir / f"{pdf_path.stem}_summary.txt"
-                output_path.write_text(summary)
-
-                print(f"Summary saved to: {output_path}")
-
-            except Exception as e:
-                print(f"Error processing {pdf_path.name}: {e}")
-
-    print("\nSummarization complete! Check examples/output/summaries/ for results.")
+    finally:
+        # Cleanup
+        await summarizer.cleanup()
 
 
 if __name__ == "__main__":

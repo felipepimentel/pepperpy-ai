@@ -273,17 +273,13 @@ class RAGComponent(WorkflowComponent):
 
 
 def create_provider(
-    provider_type: str = "chroma",
-    collection_name: str = "default",
-    persist_directory: str = ".pepperpy/rag",
+    provider_type: str,
     **config: Any,
 ) -> RAGProvider:
     """Create a RAG provider based on type.
 
     Args:
-        provider_type: Type of provider to create (default: chroma)
-        collection_name: Name of the collection to use
-        persist_directory: Directory to persist data
+        provider_type: Type of provider to create
         **config: Provider configuration
 
     Returns:
@@ -293,23 +289,27 @@ def create_provider(
         ValidationError: If provider creation fails
     """
     try:
-        # Ensure directory exists
-        os.makedirs(persist_directory, exist_ok=True)
-
         # Import provider module
         module_name = f"pepperpy.rag.providers.{provider_type}"
         module = importlib.import_module(module_name)
 
         # Get provider class
-        provider_class_name = f"{provider_type.title()}Provider"
-        provider_class = getattr(module, provider_class_name)
+        provider_class_name = f"{provider_type.title()}RAGProvider"
+
+        # Handle special cases
+        if provider_type == "sqlite":
+            provider_class = module.SQLiteRAGProvider
+        elif provider_type == "chroma":
+            provider_class = module.ChromaRAGProvider
+        elif provider_type == "pinecone":
+            provider_class = module.PineconeRAGProvider
+        elif provider_type == "local":
+            provider_class = module.LocalRAGProvider
+        else:
+            provider_class = getattr(module, provider_class_name)
 
         # Create provider instance
-        return provider_class(
-            collection_name=collection_name,
-            persist_directory=persist_directory,
-            **config,
-        )
+        return provider_class(**config)
     except (ImportError, AttributeError) as e:
         raise ValidationError(f"Failed to create RAG provider '{provider_type}': {e}")
 
