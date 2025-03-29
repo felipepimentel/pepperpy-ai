@@ -7,7 +7,7 @@ or services, making it easier to run for demonstration purposes.
 import asyncio
 from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-import pepperpy
+from pepperpy import Config
 from pepperpy.llm import LLMProvider
 from pepperpy.llm.base import GenerationChunk, GenerationResult, Message, MessageRole
 
@@ -86,27 +86,29 @@ async def main() -> None:
     print("Minimal Example")
     print("=" * 50)
 
-    # Create a PepperPy instance
-    pepper = pepperpy.PepperPy()
+    # Create a configuration
+    config = Config()
 
-    # Create and set the mock provider
-    mock_provider = MockLLMProvider()
-    pepper._llm = mock_provider  # This would normally be done with with_llm()
+    # Create and initialize the mock provider
+    mock_provider = MockLLMProvider(config=config)
+    await mock_provider.initialize()
 
-    # Use the async context manager
-    async with pepper:
+    try:
         # Create a message
         messages = [Message(role=MessageRole.USER, content="Hello, PepperPy!")]
 
         # Get a response
         print("\nSending message...")
-        response = await pepper.llm.generate(messages)
+        response = await mock_provider.generate(messages)
 
         # Print the response
         print(f"\nResponse: {response.content}")
         print(
             f"Tokens: {response.usage.get('total_tokens', 0) if response.usage else 0}"
         )
+    finally:
+        # Clean up
+        await mock_provider.cleanup()
 
 
 if __name__ == "__main__":

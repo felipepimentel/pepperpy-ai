@@ -1,93 +1,47 @@
 """Content processing module for PepperPy.
 
-This module provides a unified interface for processing various types of content,
-including documents, images, audio, and video files. It supports multiple providers
-for each content type and offers a consistent API for content processing operations.
-
-Example:
-    >>> from pepperpy import PepperPy
-    >>> 
-    >>> # Initialize PepperPy with content processing configuration
-    >>> pp = PepperPy()
-    >>> pp.configure_content_processor(
-    ...     content_type='document',
-    ...     providers=[
-    ...         {
-    ...             "type": "pymupdf",
-    ...             "config": {
-    ...                 "extract_images": True,
-    ...                 "extract_tables": True,
-    ...             },
-    ...         },
-    ...         {
-    ...             "type": "pandoc",
-    ...             "config": {
-    ...                 "output_format": "markdown",
-    ...             },
-    ...         },
-    ...     ],
-    ... )
-    >>> 
-    >>> # Process a PDF document
-    >>> result = pp.process_content('document.pdf')
-    >>> print(result.metadata)
-    {
-        'title': 'Sample Document',
-        'author': 'John Doe',
-        'pages': 10,
-        'text': 'Extracted text content...',
-    }
+This module provides functionality for processing various types of content:
+- Documents (PDF, Word, etc.)
+- Images
+- Audio
+- Video
 """
 
-from .archives import ArchiveError, ArchiveHandler
-from .base import (
+from pepperpy.content_processing.base import (
     ContentProcessor,
-    ContentType,
-    ProcessingResult,
-    create_processor,
-)
-from .errors import (
     ContentProcessingError,
     ContentProcessingConfigError,
     ContentProcessingIOError,
     UnsupportedContentTypeError,
+    ContentType,
+    ProcessingResult,
+    create_processor,
 )
+
+from pepperpy.content_processing.lazy import (
+    DEFAULT_PROCESSORS,
+    AVAILABLE_PROCESSORS,
+)
+
+from .archives import ArchiveError, ArchiveHandler
 from .integration import ContentRAGError, ContentRAGProcessor
-from .processors import (
-    AudioProcessor,
-    DocumentProcessor,
-    ImageProcessor,
-    VideoProcessor,
-)
-from .protected import ProtectedContentError, ProtectedContentHandler
 
 __all__ = [
     # Base
-    'ContentProcessor',
-    'ContentType',
-    'ProcessingResult',
-    'create_processor',
-
-    # Errors
-    'ContentProcessingError',
-    'ContentProcessingConfigError',
-    'ContentProcessingIOError',
-    'UnsupportedContentTypeError',
-
-    # Processors
-    'AudioProcessor',
-    'DocumentProcessor',
-    'ImageProcessor',
-    'VideoProcessor',
-
+    "ContentProcessor",
+    "ContentProcessingError",
+    "ContentProcessingConfigError",
+    "ContentProcessingIOError",
+    "UnsupportedContentTypeError",
+    "ContentType",
+    "ProcessingResult",
+    "create_processor",
+    # Lazy loading
+    "DEFAULT_PROCESSORS",
+    "AVAILABLE_PROCESSORS",
     # Archives
     'ArchiveError',
     'ArchiveHandler',
-
-    # Protected content
-    'ProtectedContentError',
-    'ProtectedContentHandler',
-
     # RAG integration
     'ContentRAGError',
     'ContentRAGProcessor',

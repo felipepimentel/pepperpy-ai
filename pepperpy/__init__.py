@@ -10,8 +10,8 @@ with support for:
 """
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.core.config import PepperpyConfig
-from pepperpy.core.pepperpy import PepperPy
+from pepperpy.core.config import Config
+from pepperpy.pepperpy import PepperPy
 
 from pepperpy.content_processing.base import (
     ContentProcessor,
@@ -28,14 +28,14 @@ from pepperpy.content_processing.lazy import (
 
 from pepperpy.llm import (
     LLMProvider,
-    OpenAIProvider,
-    AnthropicProvider,
+    Message,
+    MessageRole,
+    GenerationResult,
     create_provider as create_llm_provider,
 )
 
 from pepperpy.rag import (
     RAGProvider,
-    ChromaProvider,
     create_provider as create_rag_provider,
 )
 
@@ -49,7 +49,7 @@ __version__ = "0.1.0"
 __all__ = [
     # Core
     "PepperPy",
-    "PepperpyConfig",
+    "Config",
     "PepperpyError",
     # Content Processing
     "ContentProcessor",
@@ -60,12 +60,12 @@ __all__ = [
     "AVAILABLE_PROCESSORS",
     # LLM
     "LLMProvider",
-    "OpenAIProvider",
-    "AnthropicProvider",
+    "Message",
+    "MessageRole",
+    "GenerationResult",
     "create_llm_provider",
     # RAG
     "RAGProvider",
-    "ChromaProvider",
     "create_rag_provider",
     # Workflow
     "WorkflowProvider",

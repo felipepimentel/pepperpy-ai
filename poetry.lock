@@ -5298,10 +5298,9 @@ pydantic = ["pydantic (>=2.0)"]
 name = "pyyaml"
 version = "6.0.2"
 description = "YAML parser and emitter for Python"
-optional = true
+optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"ml\" or extra == \"vector-store\" or extra == \"chroma\" or extra == \"rag-all\" or extra == \"openrouter\" or extra == \"llm-all\""
 files = [
     {file = "PyYAML-6.0.2-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:0a9a2848a5b7feac301353437eb7d5957887edbf81d56e903999a75a3d743086"},
     {file = "PyYAML-6.0.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:29717114e51c84ddfba879543fb232a6ed60086602313ca38cce623c1d62cfbf"},
@@ -7581,4 +7580,4 @@ weaviate = ["weaviate-client"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.9,<3.13"
-content-hash = "9a721871932bf1d3c9fb1c92a424066a09133a938615eb8d0a8337ccc344c233"
+content-hash = "39fd2c05d0f2058a538d9ae50e85ab7c7e796db61b13c422112bac7b52aceeaf"

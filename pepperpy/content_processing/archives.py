@@ -7,11 +7,13 @@ import logging
 import os
 import shutil
 import tempfile
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.content_processing.errors import ContentProcessingError
+from pepperpy.core.utils import safe_import
+from pepperpy.content_processing.base import ContentProcessingError
 
 logger = logging.getLogger(__name__)
 

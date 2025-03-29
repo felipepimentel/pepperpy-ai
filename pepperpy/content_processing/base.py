@@ -9,95 +9,16 @@ from dataclasses import dataclass, field
 
 from pepperpy.core.base import BaseProvider, ValidationError, PepperpyError
 from pepperpy.core.utils import lazy_provider_class
+from pepperpy.content_processing.errors import (
+    ContentProcessingError,
+    ContentProcessingConfigError,
+    ContentProcessingIOError,
+    UnsupportedContentTypeError,
+    ProviderNotFoundError,
+)
 
 
-class ContentProcessingError(PepperpyError):
-    """Base error for content processing module."""
-
-    def __init__(self, message: str, *args: Any, **kwargs: Any) -> None:
-        """Initialize a new content processing error.
-
-        Args:
-            message: Error message.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        """
-        super().__init__(message, *args, **kwargs)
-
-
-class ContentProcessingConfigError(ContentProcessingError):
-    """Error related to configuration of content processors."""
-
-    def __init__(
-        self, message: str, processor: Optional[str] = None, *args: Any, **kwargs: Any
-    ) -> None:
-        """Initialize a new content processing configuration error.
-
-        Args:
-            message: Error message.
-            processor: The processor name.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        """
-        self.processor = processor
-        super().__init__(message, *args, **kwargs)
-
-    def __str__(self) -> str:
-        """Return the string representation of the error."""
-        if self.processor:
-            return f"Configuration error for processor '{self.processor}': {self.message}"
-        return f"Configuration error: {self.message}"
-
-
-class ContentProcessingIOError(ContentProcessingError):
-    """Error related to file I/O operations."""
-
-    def __init__(
-        self, message: str, file_path: Optional[str] = None, *args: Any, **kwargs: Any
-    ) -> None:
-        """Initialize a new content processing I/O error.
-
-        Args:
-            message: Error message.
-            file_path: The file path that caused the error.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        """
-        self.file_path = file_path
-        super().__init__(message, *args, **kwargs)
-
-    def __str__(self) -> str:
-        """Return the string representation of the error."""
-        if self.file_path:
-            return f"I/O error for file '{self.file_path}': {self.message}"
-        return f"I/O error: {self.message}"
-
-
-class UnsupportedContentTypeError(ContentProcessingError):
-    """Error for unsupported content types."""
-
-    def __init__(
-        self, content_type: str, processor: Optional[str] = None, *args: Any, **kwargs: Any
-    ) -> None:
-        """Initialize a new unsupported content type error.
-
-        Args:
-            content_type: The unsupported content type.
-            processor: The processor name.
-            *args: Additional positional arguments.
-            **kwargs: Additional keyword arguments.
-        """
-        self.content_type = content_type
-        self.processor = processor
-        super().__init__(
-            f"Unsupported content type: {content_type}"
-            + (f" for processor: {processor}" if processor else ""),
-            *args,
-            **kwargs,
-        )
-
-
-class ContentType(str, Enum):
+class ContentType(Enum):
     """Type of content to process."""
     
     DOCUMENT = "document"
@@ -194,49 +115,63 @@ class ContentProcessor(BaseProvider, ABC):
 
 
 def create_processor(
-    content_type: str = "document",
-    provider_type: Optional[str] = None,
-    **config: Any
+    content_type: Union[str, ContentType],
+    provider_name: Optional[str] = None,
+    **kwargs: Any,
 ) -> ContentProcessor:
-    """Create a content processor.
-    
+    """Create content processor instance.
+
     Args:
-        content_type: Type of content to process (document, image, audio, video)
-        provider_type: Provider implementation to use
-        **config: Additional configuration options
-        
+        content_type: Type of content to process
+        provider_name: Name of provider to use (optional)
+        **kwargs: Additional configuration options
+
     Returns:
         Content processor instance
-        
+
     Raises:
-        ValidationError: If the content type or provider type is not supported
+        ContentProcessingError: If processor creation fails
     """
-    content_type = content_type.lower()
-    
-    # Determine provider type from environment if not specified
-    if provider_type is None:
-        env_var = f"PEPPERPY_CONTENT_PROCESSING__{content_type.upper()}__PROVIDER"
-        provider_type = os.getenv(env_var)
-    
-    # Fallback to defaults based on content type
-    if provider_type is None:
-        provider_type = {
-            "document": "pymupdf",
-            "image": "opencv",
-            "audio": "whisper",
-            "video": "ffmpeg",
-        }.get(content_type, "default")
-    
+    from pepperpy.content_processing.lazy import (
+        DEFAULT_PROCESSORS,
+        AVAILABLE_PROCESSORS,
+    )
+
+    # Convert string to enum
+    if isinstance(content_type, str):
+        try:
+            content_type = ContentType(content_type.lower())
+        except ValueError:
+            raise UnsupportedContentTypeError(f"Invalid content type: {content_type}")
+
     try:
-        # Import provider module
-        module_name = f"pepperpy.content_processing.providers.{content_type}.{provider_type}"
-        module = importlib.import_module(module_name)
+        if provider_name:
+            # Get specific provider
+            if content_type not in AVAILABLE_PROCESSORS:
+                raise UnsupportedContentTypeError(
+                    f"No providers available for content type: {content_type}"
+                )
 
-        # Get provider class
-        provider_class_name = f"{provider_type.title()}ContentProcessor"
-        provider_class = getattr(module, provider_class_name)
+            providers = AVAILABLE_PROCESSORS[content_type]
+            if provider_name not in providers:
+                raise ProviderNotFoundError(
+                    f"Provider not found: {provider_name} "
+                    f"(available: {', '.join(providers.keys())})"
+                )
 
-        # Create provider instance
-        return provider_class(**config)
-    except (ImportError, AttributeError) as e:
-        raise ValidationError(f"Failed to create content processor for type '{content_type}' with provider '{provider_type}': {e}") 
+            processor = providers[provider_name]
+        else:
+            # Get default provider
+            if content_type not in DEFAULT_PROCESSORS:
+                raise UnsupportedContentTypeError(
+                    f"No default provider for content type: {content_type}"
+                )
+
+            processor = DEFAULT_PROCESSORS[content_type]
+
+        return processor(**kwargs)
+
+    except Exception as e:
+        if isinstance(e, ContentProcessingError):
+            raise
+        raise ContentProcessingError(f"Error creating processor: {e}") 

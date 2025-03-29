@@ -1,30 +1,17 @@
-"""Retrieval Augmented Generation (RAG) Module.
-
-This module provides the tools for building RAG systems, which combine
-retrieval systems (vector databases) with generative models.
-"""
+"""RAG (Retrieval Augmented Generation) module."""
 
 from .base import (
-    BaseProvider,
+    RAGProvider,
     Document,
     Query,
-    RAGComponent,
-    RAGContext,
-    RAGProvider,
     RetrievalResult,
     create_provider,
 )
-from .providers import ChromaProvider, InMemoryProvider
 
 __all__ = [
+    "RAGProvider",
     "Document",
     "Query",
     "RetrievalResult",
-    "RAGProvider",
-    "RAGComponent",
-    "RAGContext",
     "create_provider",
-    "ChromaProvider",
-    "InMemoryProvider",
-    "BaseProvider",
 ]

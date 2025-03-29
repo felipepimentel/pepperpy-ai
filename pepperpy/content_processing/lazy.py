@@ -5,11 +5,16 @@ This module provides lazy loading functionality for content processing providers
 
 import importlib
 import logging
-from typing import Any, Dict, Optional, Type
+import os
+from typing import Any, Dict, List, Optional, Type, Union
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.content_processing.base import ContentProcessor, ContentType
-from pepperpy.content_processing.errors import ContentProcessingError
+from pepperpy.core.utils import safe_import
+from pepperpy.content_processing.base import (
+    ContentProcessor,
+    ContentProcessingError,
+    ContentType,
+)
 
 logger = logging.getLogger(__name__)
 

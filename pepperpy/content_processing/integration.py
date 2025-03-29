@@ -9,8 +9,11 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.content_processing.base import ContentProcessor, ContentType
-from pepperpy.content_processing.errors import ContentProcessingError
+from pepperpy.content_processing.base import (
+    ContentProcessor,
+    ContentProcessingError,
+    ContentType,
+)
 
 logger = logging.getLogger(__name__)
 
