@@ -59,18 +59,11 @@ class OpenRouterProvider(LLMProvider):
             model: Model to use
             **kwargs: Additional configuration
         """
-        try:
-            import httpx
-        except ImportError:
-            raise LLMError(
-                "OpenRouter provider requires httpx. " "Install with: pip install httpx"
-            )
-
         super().__init__(**kwargs)
 
         self._api_key = api_key or self._get_api_key()
         self.model = model
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client = None
         self._config = {
             "provider": "openrouter",
             "api_key": self._api_key,
@@ -133,6 +126,13 @@ class OpenRouterProvider(LLMProvider):
 
     async def initialize(self) -> None:
         """Initialize the provider."""
+        try:
+            import httpx
+        except ImportError:
+            raise LLMError(
+                "OpenRouter provider requires httpx. Install with: pip install httpx"
+            )
+
         if not self._client:
             self._client = httpx.AsyncClient(
                 base_url="https://openrouter.ai/api/v1",

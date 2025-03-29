@@ -7,9 +7,9 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Union
 
-from pepperpy.core.base import PepperpyError
-from pepperpy.content_processing.base import ContentProcessor, ContentType
+from pepperpy.content_processing.base import ContentProcessor
 from pepperpy.content_processing.errors import ContentProcessingError
+from pepperpy.core.base import PepperpyError
 from pepperpy.workflow.base import WorkflowStage
 
 logger = logging.getLogger(__name__)
@@ -164,9 +164,7 @@ class ArchiveExtractionStage(WorkflowStage):
                                 "result": result,
                             })
                         except Exception as e:
-                            logger.warning(
-                                f"Error processing file {file_path}: {e}"
-                            )
+                            logger.warning(f"Error processing file {file_path}: {e}")
 
             return {
                 "output_path": str(output_path),
@@ -401,14 +399,10 @@ class DirectoryProcessingStage(WorkflowStage):
 
             # Check if directory exists
             if not directory_path.exists():
-                raise ContentProcessingError(
-                    f"Directory not found: {directory_path}"
-                )
+                raise ContentProcessingError(f"Directory not found: {directory_path}")
 
             if not directory_path.is_dir():
-                raise ContentProcessingError(
-                    f"Not a directory: {directory_path}"
-                )
+                raise ContentProcessingError(f"Not a directory: {directory_path}")
 
             # Find files to process
             if self.recursive:
@@ -435,9 +429,7 @@ class DirectoryProcessingStage(WorkflowStage):
                                 "result": result,
                             })
                         except Exception as e:
-                            logger.warning(
-                                f"Error processing file {file_path}: {e}"
-                            )
+                            logger.warning(f"Error processing file {file_path}: {e}")
 
             return {
                 "directory_path": str(directory_path),
@@ -491,8 +483,7 @@ class BatchProcessingStage(WorkflowStage):
 
             # Convert paths to Path objects
             paths = [
-                Path(path) if isinstance(path, str) else path
-                for path in content_paths
+                Path(path) if isinstance(path, str) else path for path in content_paths
             ]
 
             # Check if files exist
@@ -529,10 +520,7 @@ class BatchProcessingStage(WorkflowStage):
             results = await asyncio.gather(*tasks)
 
             # Filter out failed tasks
-            processed_files = [
-                result for result in results
-                if "error" not in result
-            ]
+            processed_files = [result for result in results if "error" not in result]
 
             return {
                 "num_files": len(processed_files),
@@ -540,4 +528,4 @@ class BatchProcessingStage(WorkflowStage):
             }
 
         except Exception as e:
-            raise ContentProcessingError(f"Error processing batch: {e}") 
+            raise ContentProcessingError(f"Error processing batch: {e}")

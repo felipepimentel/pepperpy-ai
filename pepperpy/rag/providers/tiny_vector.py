@@ -1,321 +1,169 @@
-"""TinyVectorDB provider implementation for RAG capabilities.
+"""TinyVectorDB provider for RAG."""
 
-This module provides a TinyVectorDB-based implementation of the RAG provider interface,
-using TinyVectorDB for lightweight vector storage and retrieval with SQLite backend.
-
-Example:
-    >>> from pepperpy.rag import RAGProvider
-    >>> provider = RAGProvider.from_config({
-    ...     "provider": "tiny_vector",
-    ...     "path": "./tiny_vector.db"
-    ... })
-    >>> await provider.add_documents([
-    ...     Document(text="Example document", metadata={"source": "test"})
-    ... ])
-    >>> results = await provider.search("query", top_k=3)
-"""
-
-import logging
 import os
-from typing import Any, Dict, List, Optional, Union
+import uuid
+from typing import Any, List, Optional, Sequence, Union
 
-from pepperpy.core.utils import import_provider, lazy_provider_class
-from pepperpy.rag.base import (
-    BaseProvider,
-    Document,
-    Query,
-    RetrievalResult,
-)
+from tiny_vectordb import VectorDB
 
-logger = logging.getLogger(__name__)
+from pepperpy.core.base import ValidationError
+from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 
 
-@lazy_provider_class("rag", "tiny_vector")
-class TinyVectorProvider(BaseProvider):
-    """TinyVectorDB implementation of the RAG provider interface.
-
-    This provider supports:
-    - SQLite-based vector storage
-    - JIT-optimized vector operations
-    - Lightweight and easy to use
-    - No numpy dependency
-    """
-
-    name = "tiny_vector"
+class TinyVectorProvider(RAGProvider):
+    """TinyVectorDB provider for RAG."""
 
     def __init__(
         self,
-        path: Optional[str] = None,
-        collection_name: str = "pepperpy",
+        persist_directory: Optional[str] = None,
+        dimension: int = 1536,  # Default for text-embedding-3-small
+        metric: str = "cosine",
         **kwargs: Any,
     ) -> None:
         """Initialize TinyVectorDB provider.
 
         Args:
-            path: Path to SQLite database file
-            collection_name: Name of the collection to use
-            **kwargs: Additional configuration options
+            persist_directory: Directory to persist the database. If None, uses ~/.pepperpy/tiny_vectordb
+            dimension: Dimension of vectors (default 1536 for text-embedding-3-small)
+            metric: Distance metric to use (default: cosine)
+            **kwargs: Additional configuration parameters
         """
-        super().__init__(**kwargs)
+        super().__init__()
+        self.persist_directory = persist_directory or os.path.join(
+            os.path.expanduser("~"),
+            ".pepperpy/tiny_vectordb",
+        )
+        self.dimension = dimension
+        self.metric = metric
+        self.kwargs = kwargs
+        self._db: Optional[VectorDB] = None
 
-        self.path = path or "tiny_vector.db"
-        self.collection_name = collection_name
-        self.db = None
-        self._collection = None
+    def _get_db(self) -> VectorDB:
+        """Get the database, raising an error if not initialized.
+
+        Returns:
+            The initialized database
+
+        Raises:
+            ValidationError: If database is not initialized
+        """
+        if self._db is None:
+            raise ValidationError("Database not initialized")
+        return self._db
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        This method sets up the TinyVectorDB database and collection.
+        Creates the database if it doesn't exist.
         """
-        # Import tiny_vectordb only when provider is instantiated
-        tiny_vectordb = import_provider("tiny_vectordb", "rag", "tiny_vector")
+        # Create database directory if it doesn't exist
+        os.makedirs(self.persist_directory, exist_ok=True)
 
         # Initialize database
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        self.db = tiny_vectordb.Database(self.path)
-        self._collection = self.db.get_or_create_collection(self.collection_name)
+        db = VectorDB(
+            dim=self.dimension,
+            metric=self.metric,
+            save_dir=self.persist_directory,
+            **self.kwargs,
+        )
 
-    def get_config(self) -> Dict[str, Any]:
-        """Get the provider configuration.
+        # Load existing data if any
+        if os.path.exists(os.path.join(self.persist_directory, "db.json")):
+            db.load()
 
-        Returns:
-            The provider configuration
-        """
-        return {
-            "path": self.path,
-            "collection_name": self.collection_name,
-        }
+        self._db = db
 
-    def get_capabilities(self) -> Dict[str, Any]:
-        """Get the provider capabilities.
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        if self._db is not None:
+            self._db.save()  # Persist data before cleanup
+            self._db = None
 
-        Returns:
-            A dictionary of provider capabilities
-        """
-        return {
-            "supports_persistence": True,
-            "supports_metadata_filtering": True,
-            "supports_batch_operations": True,
-            "max_batch_size": 1000,
-            "max_dimensions": 1536,
-        }
-
-    async def add_documents(
-        self,
-        documents: List[Document],
-        **kwargs: Any,
-    ) -> None:
-        """Add documents to the collection.
+    async def store(self, docs: Union[Document, List[Document]]) -> None:
+        """Store documents in TinyVectorDB.
 
         Args:
-            documents: List of documents to add
-            **kwargs: Additional options
+            docs: Document or list of documents to store
         """
-        if not self._collection:
-            await self.initialize()
+        if isinstance(docs, Document):
+            docs = [docs]
 
-        # Convert documents to TinyVectorDB format
-        for doc in documents:
-            doc_id = doc.get("id") or str(uuid.uuid4())
-            self._collection.add(
-                id=doc_id,
-                vector=doc.get("embeddings", []),
-                metadata={"text": doc["text"], **(doc.get("metadata", {}))},
+        for doc in docs:
+            if "embeddings" not in doc.metadata:
+                raise ValidationError("Document must have embeddings in metadata")
+
+            doc_id = str(uuid.uuid4())
+            self._get_db().add_item(
+                vec=doc.metadata["embeddings"],
+                item_id=doc_id,
+                metadata={
+                    "text": doc.text,
+                    "metadata": doc.metadata,
+                },
             )
+
+        # Auto-save after each store operation
+        self._get_db().save()
 
     async def search(
         self,
-        query: Query,
-        limit: int = 10,
+        query: Union[str, Query],
+        limit: int = 5,
         **kwargs: Any,
-    ) -> List[RetrievalResult]:
-        """Search for documents similar to query.
+    ) -> Sequence[SearchResult]:
+        """Search for relevant documents.
 
         Args:
-            query: Query to search for
+            query: Search query text or Query object
             limit: Maximum number of results to return
-            **kwargs: Additional search options
+            **kwargs: Additional search parameters
 
         Returns:
-            List of retrieval results
+            List of search results
         """
-        if not self._collection:
-            await self.initialize()
+        if isinstance(query, str):
+            query = Query(text=query)
 
-        # Search collection
-        results = self._collection.search(
-            query_vector=query.embeddings, k=limit, **kwargs
+        if not query.embeddings:
+            raise ValidationError("Query must have embeddings")
+
+        results = self._get_db().search(
+            query_vec=query.embeddings,
+            top_k=limit,
+            **kwargs,
         )
 
-        # Convert results to RetrievalResult objects
-        retrieval_results = []
-        for result in results:
-            doc = Document(
-                text=result.metadata["text"],
-                metadata={k: v for k, v in result.metadata.items() if k != "text"},
-            )
-            doc.update({
-                "id": result.id,
-                "embeddings": result.vector,
-            })
+        search_results = []
+        for item_id, score in results:
+            item = self._get_db().get_item_by_id(item_id)
+            if item is None:
+                continue
 
-            retrieval_results.append(
-                RetrievalResult(
-                    query=query,
-                    documents=[doc],
-                    scores=[float(result.score)] if hasattr(result, "score") else None,
+            search_results.append(
+                SearchResult(
+                    id=item_id,
+                    text=item["metadata"]["text"],
+                    metadata=item["metadata"]["metadata"],
+                    score=1.0 - float(score),  # Convert distance to similarity
                 )
             )
 
-        return retrieval_results
+        return search_results
 
-    async def delete_documents(
-        self,
-        document_ids: List[str],
-        **kwargs: Any,
-    ) -> None:
-        """Delete documents from collection.
+    async def get(self, doc_id: str) -> Optional[Document]:
+        """Get a document by ID.
 
         Args:
-            document_ids: List of document IDs to delete
-            **kwargs: Additional options
-        """
-        if not self._collection:
-            await self.initialize()
-
-        for doc_id in document_ids:
-            self._collection.delete(doc_id)
-
-    async def get_document(
-        self,
-        document_id: str,
-        **kwargs: Any,
-    ) -> Optional[Dict[str, Any]]:
-        """Get document by ID.
-
-        Args:
-            document_id: ID of document to get
-            **kwargs: Additional options
+            doc_id: ID of the document to get
 
         Returns:
-            Document if found, None otherwise
+            The document if found, None otherwise
         """
-        if not self._collection:
-            await self.initialize()
-
-        try:
-            result = self._collection.get(document_id)
-            if not result:
-                return None
-
-            return {
-                "id": result.id,
-                "text": result.metadata["text"],
-                "metadata": {k: v for k, v in result.metadata.items() if k != "text"},
-                "embeddings": result.vector,
-            }
-        except Exception:
+        item = self._get_db().get_item_by_id(doc_id)
+        if item is None:
             return None
 
-    async def get_documents(
-        self,
-        document_ids: Union[str, List[str]],
-        **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
-        """Get multiple documents by ID.
-
-        Args:
-            document_ids: ID or list of IDs of documents to get
-            **kwargs: Additional options
-
-        Returns:
-            List of found documents
-        """
-        if isinstance(document_ids, str):
-            document_ids = [document_ids]
-
-        documents = []
-        for doc_id in document_ids:
-            doc = await self.get_document(doc_id, **kwargs)
-            if doc:
-                documents.append(doc)
-
-        return documents
-
-    async def list_documents(
-        self,
-        **kwargs: Any,
-    ) -> List[Dict[str, Any]]:
-        """List all documents in the collection.
-
-        Args:
-            **kwargs: Additional options
-
-        Returns:
-            List of all documents
-        """
-        if not self._collection:
-            await self.initialize()
-
-        results = self._collection.list()
-        documents = []
-
-        for result in results:
-            documents.append({
-                "id": result.id,
-                "text": result.metadata["text"],
-                "metadata": {k: v for k, v in result.metadata.items() if k != "text"},
-                "embeddings": result.vector,
-            })
-
-        return documents
-
-    async def clear(self, **kwargs: Any) -> None:
-        """Clear all documents from the collection.
-
-        Args:
-            **kwargs: Additional options
-        """
-        if not self._collection:
-            await self.initialize()
-
-        self._collection.clear()
-
-    async def delete_collection(self, **kwargs: Any) -> None:
-        """Delete the entire collection.
-
-        Args:
-            **kwargs: Additional options
-        """
-        if not self._collection:
-            await self.initialize()
-
-        self.db.delete_collection(self.collection_name)
-        self._collection = None
-
-    async def count_documents(self, **kwargs: Any) -> int:
-        """Get total number of documents in collection.
-
-        Args:
-            **kwargs: Additional options
-
-        Returns:
-            Number of documents
-        """
-        if not self._collection:
-            await self.initialize()
-
-        return len(self._collection)
-
-    async def get_stats(self) -> Dict[str, Any]:
-        """Get statistics about the vector store.
-
-        Returns:
-            Dictionary containing statistics.
-        """
-        return {
-            "count": await self.count_documents(),
-            "name": self.collection_name,
-            "path": self.path,
-        }
+        return Document(
+            text=item["metadata"]["text"],
+            metadata=item["metadata"]["metadata"],
+        )

@@ -1,19 +1,17 @@
 """SQLite RAG provider implementation."""
 
-import os
-import sqlite3
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
 import json
+import sqlite3
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 
-from ..base import RAGProvider, Document, RAGError, Filter, SearchResult
+from ..base import Document, Query, RAGError, RAGProvider, SearchResult
 
 
 class SQLiteRAGProvider(RAGProvider):
     """SQLite RAG provider.
-    
+
     This provider stores documents and embeddings in a SQLite database.
     """
 
@@ -24,7 +22,7 @@ class SQLiteRAGProvider(RAGProvider):
         **kwargs: Any,
     ) -> None:
         """Initialize SQLite RAG provider.
-        
+
         Args:
             database_path: Path to SQLite database
             embedding_dim: Dimension of the embedding vectors
@@ -32,15 +30,17 @@ class SQLiteRAGProvider(RAGProvider):
         """
         super().__init__(**kwargs)
         self.database_path = database_path or ":memory:"
-        self.conn = None
+        self.conn: Optional[sqlite3.Connection] = None
         self.embedding_dim = embedding_dim
         self.initialized = False
 
     async def initialize(self) -> None:
         """Initialize the provider."""
-        if self.conn is None:
+        if not self.initialized:
             self.conn = sqlite3.connect(self.database_path)
-            
+            if not self.conn:
+                raise RAGError("Failed to connect to database")
+
             # Create documents table if it doesn't exist
             self.conn.execute(
                 """
@@ -53,7 +53,7 @@ class SQLiteRAGProvider(RAGProvider):
                 """
             )
             self.conn.commit()
-        self.initialized = True
+            self.initialized = True
 
     async def store(self, docs: Union[Document, List[Document]]) -> None:
         """Store documents in the RAG context.
@@ -67,25 +67,28 @@ class SQLiteRAGProvider(RAGProvider):
         if not docs:
             return
 
-        if self.conn is None:
+        if not self.initialized:
             await self.initialize()
+
+        if not self.conn:
+            raise RAGError("Database connection not initialized")
 
         try:
             cursor = self.conn.cursor()
             for doc in docs:
                 doc_id = getattr(doc, "id", None) or str(hash(doc.text))
                 metadata = doc.metadata or {}
-                
-                # Gerar embedding se não existir
-                embedding = getattr(doc, "embedding", None)
+
+                # Get embedding from _data if available
+                embedding = doc.get("embeddings", None)
                 if embedding is None:
                     embedding = await self.embed_query(doc.text)
-                
+
                 # Convert embedding to bytes if present
                 embedding_bytes = None
                 if embedding:
                     embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
-                
+
                 cursor.execute(
                     """
                     INSERT OR REPLACE INTO documents
@@ -108,14 +111,14 @@ class SQLiteRAGProvider(RAGProvider):
         query: Union[str, Query],
         limit: int = 5,
         **kwargs: Any,
-    ) -> List[Document]:
+    ) -> List[SearchResult]:
         """Search documents.
-        
+
         Args:
             query: Query string or Query object
             limit: Maximum number of results
             **kwargs: Additional parameters
-            
+
         Returns:
             List of documents
         """
@@ -124,16 +127,19 @@ class SQLiteRAGProvider(RAGProvider):
             query_embedding = await self.embed_query(query)
             metadata_filter = kwargs.get("metadata", None)
         elif isinstance(query, Query):
-            query_embedding = query.embedding
+            if query.embeddings is None:
+                query_embedding = await self.embed_query(query.text)
+            else:
+                query_embedding = query.embeddings
             metadata_filter = query.metadata
         else:
             raise ValueError(f"Invalid query type: {type(query)}")
-            
+
         # Search by embedding
         return await self._search_by_embedding(
             query_embedding=query_embedding,
-            limit=limit,
-            metadata_filter=metadata_filter,
+            top_k=limit,
+            filter_metadata=metadata_filter,
         )
 
     async def _search_by_embedding(
@@ -143,15 +149,18 @@ class SQLiteRAGProvider(RAGProvider):
         filter_metadata: Optional[Dict[str, Any]] = None,
     ) -> List[SearchResult]:
         """Search by embedding."""
-        if self.conn is None:
+        if not self.initialized:
             await self.initialize()
+
+        if not self.conn:
+            raise RAGError("Database connection not initialized")
 
         try:
             cursor = self.conn.cursor()
             query_array = np.array(query_embedding)
 
             cursor.execute(
-                f"SELECT id, content, metadata, embedding FROM documents WHERE embedding IS NOT NULL"
+                "SELECT id, content, metadata, embedding FROM documents WHERE embedding IS NOT NULL"
             )
             rows = cursor.fetchall()
 
@@ -162,15 +171,17 @@ class SQLiteRAGProvider(RAGProvider):
 
                 # Check if dimensions match, if not, skip this document
                 if len(doc_embedding) != len(query_array):
-                    print(f"Warning: Embedding dimensions don't match. Expected {len(query_array)}, got {len(doc_embedding)}. Skipping document.")
+                    print(
+                        f"Warning: Embedding dimensions don't match. Expected {len(query_array)}, got {len(doc_embedding)}. Skipping document."
+                    )
                     continue
-                
+
                 similarity = np.dot(query_array, doc_embedding) / (
                     np.linalg.norm(query_array) * np.linalg.norm(doc_embedding)
                 )
 
                 if filter_metadata:
-                    doc_metadata = eval(metadata_str) if metadata_str else {}
+                    doc_metadata = json.loads(metadata_str) if metadata_str else {}
                     if not all(
                         doc_metadata.get(k) == v for k, v in filter_metadata.items()
                     ):
@@ -180,7 +191,7 @@ class SQLiteRAGProvider(RAGProvider):
                     SearchResult(
                         id=doc_id,
                         text=content,
-                        metadata=eval(metadata_str) if metadata_str else {},
+                        metadata=json.loads(metadata_str) if metadata_str else {},
                         score=float(similarity),
                     )
                 )
@@ -201,13 +212,13 @@ class SQLiteRAGProvider(RAGProvider):
             "capabilities": ["vector_store", "similarity_search"],
             "supports_metadata_filter": True,
         }
-    
+
     async def embed_query(self, text: str) -> List[float]:
         """Embed a query text.
-        
+
         Args:
             text: Text to embed
-            
+
         Returns:
             Embedding vector
         """
@@ -215,65 +226,67 @@ class SQLiteRAGProvider(RAGProvider):
         vector = np.random.randn(self.embedding_dim)
         vector = vector / np.linalg.norm(vector)
         return vector.tolist()
-    
+
     async def embed_documents(self, texts: List[str]) -> List[List[float]]:
         """Embed multiple documents.
-        
+
         Args:
             texts: List of texts to embed
-            
+
         Returns:
             List of embedding vectors
         """
         # Ensure we're using the same dimension as embed_query
         return [await self.embed_query(text) for text in texts]
-        
+
     async def store_documents(self, documents: List[Document]) -> None:
         """Store documents in the RAG context.
-        
+
         Args:
             documents: List of documents to store.
         """
         await self.store(documents)
-        
+
     async def get(self, doc_id: str) -> Optional[Document]:
         """Get a document by ID.
-        
+
         Args:
             doc_id: ID of the document to get
-            
+
         Returns:
             The document if found, None otherwise
         """
-        if self.conn is None:
+        if not self.initialized:
             raise RAGError("Database connection not initialized")
-            
+
+        if not self.conn:
+            raise RAGError("Database connection not initialized")
+
         try:
             cursor = self.conn.cursor()
             cursor.execute(
-                f"SELECT id, content, metadata, embedding FROM documents WHERE id = ?",
-                (doc_id,)
+                "SELECT id, content, metadata, embedding FROM documents WHERE id = ?",
+                (doc_id,),
             )
             row = cursor.fetchone()
-            
+
             if row is None:
                 return None
-                
+
             doc_id, content, metadata_str, embedding_bytes = row
-            
+
             # Convert metadata string to dict if present
-            metadata = eval(metadata_str) if metadata_str else None
-            
+            metadata = json.loads(metadata_str) if metadata_str else {}
+
             # Convert embedding bytes to list if present
             embedding = None
             if embedding_bytes:
                 embedding = np.frombuffer(embedding_bytes, dtype=np.float32).tolist()
-                
+
             return Document(
-                id=doc_id,
-                content=content,
+                text=content,
                 metadata=metadata,
-                embedding=embedding
+                _data={"embeddings": embedding} if embedding else {},
             )
         except Exception as e:
             raise RAGError(f"Failed to get document {doc_id}: {e}") from e

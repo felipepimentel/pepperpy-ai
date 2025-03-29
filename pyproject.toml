@@ -77,9 +77,10 @@ tenacity = "^8.2.3"
 loguru = "^0.7.2"
 httpx = "^0.28.1"
 psutil = "^7.0.0"
+numpy = "^1.26.4"
+pyyaml = "^6.0.2"
 
 # Core ML Dependencies (Optional)
-numpy = { version = "^1.26.4", optional = true }
 spacy = { version = "^3.8.4", optional = true }
 nltk = { version = "^3.9.1", optional = true }
 sentence-transformers = { version = "^4.0.1", extras = [
@@ -122,7 +123,6 @@ supabase = { version = "^2.14.0", optional = true }
 # TTS Provider Dependencies (Optional)
 azure-cognitiveservices-speech = { version = "^1.35.0", optional = true }
 gtts = { version = "^2.5.4", optional = true }
-pyyaml = "^6.0.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"
@@ -135,67 +135,69 @@ ruff = "^0.5.3"
 
 [tool.poetry.extras]
 # Core ML Features
-ml = ["numpy", "spacy", "nltk", "sentence-transformers"]
-code-analysis = ["radon", "lizard", "gitpython", "PyGithub"]
-vector-store = ["annoy", "chromadb", "tiktoken"]
+ml-basic = ["spacy", "nltk"]
+ml-embeddings = ["sentence-transformers"]
+ml-complete = ["ml-basic", "ml-embeddings"]
 
-# Document Processing Providers
-pdf = ["pypdf2", "pdfkit", "reportlab", "fpdf2"]
-docx = ["python-docx"]
-markdown = ["markdown2pdf"]
-doc-all = [
-    "pypdf2",
-    "pdfkit",
-    "reportlab",
-    "fpdf2",
-    "python-docx",
-    "markdown2pdf",
-]
+# Vector Store Features
+vector-basic = ["annoy"]
+vector-advanced = ["chromadb", "tiktoken"]
+vector-complete = ["vector-basic", "vector-advanced"]
+
+# RAG Features
+rag-basic = []
+rag-vector = ["vector-complete"]
+rag-providers = ["weaviate-client", "pinecone-client"]
+rag-complete = ["rag-vector", "rag-providers", "ml-embeddings"]
+
+# Document Processing
+doc-basic = ["pypdf2", "python-docx"]
+doc-advanced = ["pdfkit", "reportlab", "fpdf2", "markdown2pdf"]
+doc-complete = ["doc-basic", "doc-advanced"]
+
+# Code Analysis
+code-basic = ["radon", "lizard"]
+code-advanced = ["gitpython", "PyGithub"]
+code-complete = ["code-basic", "code-advanced"]
 
 # LLM Providers
-openai = ["openai"]
-anthropic = ["anthropic"]
-openrouter = ["llm-openrouter"]
-llm-all = ["openai", "anthropic", "llm-openrouter"]
-
-# RAG Providers
-chroma = ["chromadb", "tiktoken"]
-weaviate = ["weaviate-client"]
-pinecone = ["pinecone-client"]
-rag-all = ["chromadb", "weaviate-client", "pinecone-client", "tiktoken"]
+llm-openai = ["openai"]
+llm-anthropic = ["anthropic"]
+llm-openrouter = ["llm-openrouter"]
+llm-complete = ["llm-openai", "llm-anthropic", "llm-openrouter"]
 
 # Storage Providers
-s3 = ["boto3"]
-gcs = ["google-cloud-storage"]
-supabase = ["supabase"]
-storage-all = ["boto3", "google-cloud-storage", "supabase"]
+storage-s3 = ["boto3"]
+storage-gcs = ["google-cloud-storage"]
+storage-supabase = ["supabase"]
+storage-complete = ["storage-s3", "storage-gcs", "storage-supabase"]
 
 # TTS Providers
-azure-tts = ["azure-cognitiveservices-speech"]
-google-tts = ["gtts"]
-tts-all = ["azure-cognitiveservices-speech", "gtts"]
+tts-azure = ["azure-cognitiveservices-speech"]
+tts-google = ["gtts"]
+tts-complete = ["tts-azure", "tts-google"]
 
 # Feature Groups
-ml-complete = ["ml", "vector-store"]
-analysis-complete = ["ml", "code-analysis"]
-rag-complete = ["ml", "vector-store", "rag-all"]
+ml-all = ["ml-complete", "vector-complete"]
+rag-all = ["rag-complete", "ml-complete"]
+analysis-all = ["code-complete", "ml-complete"]
 
 # All providers and features
 all = [
     # Core Features
-    "ml",
-    "code-analysis",
-    "vector-store",
+    "ml-complete",
+    "vector-complete",
+    "code-complete",
     # Document Processing
-    "doc-all",
+    "doc-complete",
     # LLM Providers
-    "llm-all",
-    # RAG Providers
-    "rag-all",
+    "llm-complete",
+    # RAG Features
+    "rag-complete",
     # Storage Providers
-    "storage-all",
+    "storage-complete",
     # TTS Providers
-    "tts-all",
+    "tts-complete",
 ]
 
 [tool.coverage.run]
@@ -216,19 +218,8 @@ exclude_lines = [
 [tool.ruff]
 line-length = 88
 target-version = "py39"
-select = [
-    "E", # pycodestyle errors
-    "W", # pycodestyle warnings
-    "F", # pyflakes
-    "I", # isort
-    "C", # flake8-comprehensions
-    "B", # flake8-bugbear
-]
-ignore = [
-    "E501", # line too long, handled by black
-    "B008", # do not perform function calls in argument defaults
-    "C901", # too complex
-]
+select = ["E", "W", "F", "I", "C", "B"]
+ignore = ["E501", "B008", "C901"]
 
 [tool.ruff.per-file-ignores]
 "__init__.py" = ["F401"]

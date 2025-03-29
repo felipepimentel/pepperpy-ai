@@ -14,6 +14,18 @@ from pepperpy.workflow.base import WorkflowComponent
 T = TypeVar("T")
 
 
+class RAGError(Exception):
+    """Base exception class for RAG errors."""
+
+    pass
+
+
+class ProviderError(RAGError):
+    """Raised when a provider operation fails."""
+
+    pass
+
+
 @dataclass
 class Document:
     """Document for RAG."""
@@ -287,7 +299,11 @@ def create_provider(
     Raises:
         ValidationError: If provider creation fails
     """
-    from pepperpy.rag.providers import DEFAULT_PROVIDER, PROVIDER_MODULES
+    from pepperpy.rag.providers import (
+        DEFAULT_PROVIDER,
+        PROVIDER_CLASSES,
+        PROVIDER_MODULES,
+    )
 
     if not provider_type:
         provider_type = DEFAULT_PROVIDER
@@ -301,7 +317,7 @@ def create_provider(
         module = importlib.import_module(
             PROVIDER_MODULES[provider_type], package="pepperpy.rag.providers"
         )
-        provider_class = getattr(module, provider_type)
+        provider_class = getattr(module, PROVIDER_CLASSES[provider_type])
         return provider_class(**config)
     except ImportError as e:
         raise ValidationError(
@@ -309,16 +325,10 @@ def create_provider(
         )
     except AttributeError:
         raise ValidationError(
-            f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
+            f"Provider class '{PROVIDER_CLASSES[provider_type]}' not found in module '{PROVIDER_MODULES[provider_type]}'"
         )
     except Exception as e:
         raise ValidationError(f"Failed to create provider '{provider_type}': {str(e)}")
-
-
-class RAGError(Exception):
-    """Base exception for RAG-related errors."""
-
-    pass
 
 
 class Filter:

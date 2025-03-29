@@ -1,77 +1,86 @@
-"""Pinecone vector database provider for RAG."""
+"""HyperDB vector database provider for RAG."""
 
+import os
 import uuid
 from typing import Any, List, Optional, Sequence, Union
 
-import pinecone
+from hyperdb import HyperDB
 
 from pepperpy.core.base import ValidationError
 from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 
 
-class PineconeProvider(RAGProvider):
-    """Pinecone vector database provider for RAG."""
+class HyperDBProvider(RAGProvider):
+    """HyperDB vector database provider for RAG."""
 
     def __init__(
         self,
-        index_name: str,
-        api_key: str,
-        environment: str = "gcp-starter",
-        namespace: Optional[str] = None,
+        persist_directory: Optional[str] = None,
         dimension: int = 1536,  # Default for text-embedding-3-small
         metric: str = "cosine",
         **kwargs: Any,
     ) -> None:
-        """Initialize Pinecone provider.
+        """Initialize HyperDB provider.
 
         Args:
-            index_name: Name of the Pinecone index
-            api_key: Pinecone API key
-            environment: Pinecone environment
-            namespace: Optional namespace for the index
+            persist_directory: Directory to persist the database. If None, uses ~/.pepperpy/hyperdb
             dimension: Dimension of vectors (default 1536 for text-embedding-3-small)
             metric: Distance metric to use (default: cosine)
             **kwargs: Additional configuration parameters
         """
         super().__init__()
-        self.index_name = index_name
-        self.namespace = namespace
+        self.persist_directory = persist_directory or os.path.join(
+            os.path.expanduser("~"),
+            ".pepperpy/hyperdb",
+        )
         self.dimension = dimension
         self.metric = metric
-        self.api_key = api_key
-        self.environment = environment
         self.kwargs = kwargs
+        self._db: Optional[HyperDB] = None
+
+    def _get_db(self) -> HyperDB:
+        """Get the database, raising an error if not initialized.
+
+        Returns:
+            The initialized database
+
+        Raises:
+            ValidationError: If database is not initialized
+        """
+        if self._db is None:
+            raise ValidationError("Database not initialized")
+        return self._db
 
     async def initialize(self) -> None:
         """Initialize the provider.
 
-        Creates the index if it doesn't exist.
+        Creates the database if it doesn't exist.
         """
-        # Initialize Pinecone
-        pinecone.init(
-            api_key=self.api_key,
-            environment=self.environment,
+        # Create database directory if it doesn't exist
+        os.makedirs(self.persist_directory, exist_ok=True)
+
+        # Initialize database
+        db = HyperDB(
+            dim=self.dimension,
+            metric=self.metric,
+            path=self.persist_directory,
+            **self.kwargs,
         )
 
-        # Check if index exists
-        if self.index_name not in pinecone.list_indexes():
-            # Create new index
-            pinecone.create_index(
-                name=self.index_name,
-                dimension=self.dimension,
-                metric=self.metric,
-                **self.kwargs,
-            )
+        # Load existing data if any
+        if os.path.exists(os.path.join(self.persist_directory, "db.hyper")):
+            db.load()
 
-        self.index = pinecone.Index(self.index_name)
+        self._db = db
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        if hasattr(self, "index"):
-            self.index.close()
+        if self._db is not None:
+            self._db.save()  # Persist data before cleanup
+            self._db = None
 
     async def store(self, docs: Union[Document, List[Document]]) -> None:
-        """Store documents in Pinecone.
+        """Store documents in HyperDB.
 
         Args:
             docs: Document or list of documents to store
@@ -79,25 +88,22 @@ class PineconeProvider(RAGProvider):
         if isinstance(docs, Document):
             docs = [docs]
 
-        vectors = []
         for doc in docs:
             if "embeddings" not in doc.metadata:
                 raise ValidationError("Document must have embeddings in metadata")
 
             doc_id = str(uuid.uuid4())
-            vectors.append((
-                doc_id,
-                doc.metadata["embeddings"],
-                {
+            self._get_db().add(
+                vector=doc.metadata["embeddings"],
+                id=doc_id,
+                metadata={
                     "text": doc.text,
                     "metadata": doc.metadata,
                 },
-            ))
+            )
 
-        self.index.upsert(
-            vectors=vectors,
-            namespace=self.namespace,
-        )
+        # Auto-save after each store operation
+        self._get_db().save()
 
     async def search(
         self,
@@ -121,22 +127,24 @@ class PineconeProvider(RAGProvider):
         if not query.embeddings:
             raise ValidationError("Query must have embeddings")
 
-        results = self.index.query(
-            vector=query.embeddings,
-            top_k=limit,
-            namespace=self.namespace,
-            include_metadata=True,
+        results = self._get_db().search(
+            query=query.embeddings,
+            k=limit,
             **kwargs,
         )
 
         search_results = []
-        for match in results.matches:
+        for item_id, score in results:
+            item = self._get_db().get(item_id)
+            if item is None:
+                continue
+
             search_results.append(
                 SearchResult(
-                    id=match.id,
-                    text=match.metadata["text"],
-                    metadata=match.metadata["metadata"],
-                    score=match.score,
+                    id=item_id,
+                    text=item["metadata"]["text"],
+                    metadata=item["metadata"]["metadata"],
+                    score=1.0 - float(score),  # Convert distance to similarity
                 )
             )
 
@@ -151,15 +159,11 @@ class PineconeProvider(RAGProvider):
         Returns:
             The document if found, None otherwise
         """
-        try:
-            vector = self.index.fetch(
-                ids=[doc_id],
-                namespace=self.namespace,
-            )[doc_id]
-        except KeyError:
+        item = self._get_db().get(doc_id)
+        if item is None:
             return None
 
         return Document(
-            text=vector.metadata["text"],
-            metadata=vector.metadata["metadata"],
+            text=item["metadata"]["text"],
+            metadata=item["metadata"]["metadata"],
         )
