@@ -1,160 +1,197 @@
 #!/usr/bin/env python
-"""Exemplo de base de conhecimento com documentos locais usando PepperPy.
+"""Exemplo de aplicação de base de conhecimento com PepperPy.
 
-Este exemplo demonstra:
-1. Processamento de documentos de diferentes formatos (PDF, Markdown, imagens)
-2. Criação de embeddings e armazenamento em banco de dados vetorizado
-3. Consulta e recuperação de informações relevantes
-4. Geração de respostas contextualmente relevantes
+Este exemplo demonstra como:
+1. Processar documentos de diferentes formatos
+2. Indexar documentos em um sistema RAG
+3. Consultar a base de conhecimento
+4. Gerar respostas contextualizadas
 """
 
 import asyncio
-import base64
 import os
 from datetime import datetime
 from pathlib import Path
 
 from pepperpy import PepperPy
+from pepperpy.content_processing.base import create_processor
+from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.rag import create_provider as create_rag_provider
+from pepperpy.rag.base import Document
 
 # Configurar diretórios
-KNOWLEDGE_DIR = "data/knowledge"
-OUTPUT_DIR = "output/knowledge_base"
-COLLECTION_NAME = "local_documents"
+EXAMPLES_DIR = Path(__file__).parent
+DATA_DIR = EXAMPLES_DIR / "data"
+KNOWLEDGE_DIR = DATA_DIR / "knowledge"
+OUTPUT_DIR = EXAMPLES_DIR / "output"
+COLLECTION_NAME = "knowledge_base"
 
-# Garantir que os diretórios existam
+# Criar diretórios necessários
 os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 async def create_example_documents() -> None:
-    """Criar documentos de exemplo para demonstração."""
+    """Criar documentos de exemplo para a base de conhecimento."""
     print("Criando documentos de exemplo...")
 
-    # Limpar o diretório para novos documentos
-    for file in Path(KNOWLEDGE_DIR).glob("*"):
-        if file.is_file():
-            file.unlink()
+    # Texto para arquivos de exemplo
+    example_texts = {
+        "historia_ia.txt": """História da Inteligência Artificial
 
-    # Criar documentos de exemplo
-    documents = [
-        {
-            "filename": "architecture.md",
-            "content": """# Arquitetura do Sistema PepperPy
+A história da Inteligência Artificial (IA) começa na década de 1950, quando Alan Turing propôs o famoso "Teste de Turing".
+O termo "Inteligência Artificial" foi cunhado em 1956 durante a conferência de Dartmouth.
 
-## Visão Geral
-PepperPy é um framework de IA que permite construir assistentes inteligentes com capacidades RAG.
+Durante as décadas seguintes, a pesquisa em IA passou por ciclos de otimismo (os "verões da IA") 
+e desapontamento (os "invernos da IA").
 
-## Componentes Principais
-- **LLM Module**: Interface com modelos de linguagem
-- **RAG Module**: Sistema de geração aumentada por recuperação
-- **Embeddings**: Sistema de vetorização de texto
-- **Storage**: Gerenciamento de armazenamento persistente
-
-## Fluxo de Dados
-1. O usuário envia uma consulta
-2. O RAG recupera informações relevantes
-3. O contexto é enviado ao LLM
-4. A resposta é retornada ao usuário
+Marcos importantes:
+- 1950s: O teste de Turing e os primeiros programas de IA
+- 1960s: Primeiros sistemas especialistas
+- 1970s: Desenvolvimento do PROLOG e primeiro inverno da IA
+- 1980s: Ressurgimento com sistemas especialistas comerciais
+- 1990s: Desenvolvimento de aprendizado de máquina e redes neurais
+- 2000s: Big Data e avanços em computação de alto desempenho
+- 2010s: Aprendizado profundo e modelos de linguagem grandes
+- 2020s: Modelos multimodais e IA generativa
 """,
-        },
-        {
-            "filename": "user_manual.pdf",
-            "content": """PepperPy - Manual do Usuário
+        "machine_learning.txt": """Machine Learning Fundamentals
 
-Introdução
-==========
-Este manual explica como utilizar o framework PepperPy para criar assistentes 
-inteligentes personalizados.
+Machine Learning (ML) is a subset of artificial intelligence that focuses on building 
+systems that learn from data. Instead of explicit programming, these systems identify 
+patterns to make decisions with minimal human intervention.
 
-Instalação
-==========
-Instale o PepperPy usando pip:
-pip install pepperpy
+Types of Machine Learning:
+1. Supervised Learning: Training on labeled data
+2. Unsupervised Learning: Finding patterns in unlabeled data
+3. Reinforcement Learning: Learning through trial and error with rewards
 
-Configuração
-===========
-Configure as variáveis de ambiente:
-- PEPPERPY_LLM__PROVIDER: Provedor LLM (openai, anthropic, etc)
-- PEPPERPY_RAG__PROVIDER: Provedor RAG (local, pinecone, etc)
+Common algorithms include decision trees, neural networks, SVMs, k-means clustering, 
+and linear/logistic regression.
 
-Exemplos de Uso
-==============
-Veja exemplos em: github.com/pepperpy/examples
+The ML workflow typically involves:
+- Data collection and preparation
+- Feature engineering
+- Model selection and training
+- Evaluation and validation
+- Deployment and monitoring
 """,
-        },
-        {
-            "filename": "product_roadmap.txt",
-            "content": """ROADMAP PEPPERPY 2024-2025
+        "python_examples.txt": """Python Examples for Data Processing
 
-Q2 2024:
-- Lançamento da versão 0.2.0
-- Suporte a embeddings locais
-- Documentação expandida
+# Example 1: Basic data loading with Pandas
+import pandas as pd
 
-Q3 2024:
-- Suporte a agentes
-- Mais integrações com bancos vetoriais
-- Melhoria na validação e testes
+def load_csv(filepath):
+    '''Load CSV file into a pandas DataFrame'''
+    return pd.read_csv(filepath)
 
-Q4 2024:
-- Versão 1.0.0
-- API Web completa
-- Ferramentas de observabilidade
+# Example 2: Text preprocessing function
+import re
+import string
 
-Q1 2025:
-- Suporte multi-modal
-- Melhorias de desempenho
-- Ferramentas avançadas de validação
+def preprocess_text(text):
+    '''Clean and normalize text data'''
+    # Convert to lowercase
+    text = text.lower()
+    # Remove punctuation
+    text = re.sub(f'[{string.punctuation}]', '', text)
+    # Remove extra whitespace
+    text = re.sub(r'\\s+', ' ', text).strip()
+    return text
+
+# Example 3: Simple ML model using scikit-learn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+def train_model(X, y):
+    '''Train a Random Forest model'''
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X_train, y_train)
+    return model, model.score(X_test, y_test)
 """,
-        },
-        {
-            "filename": "system_diagram.png",
-            "content": base64.b64encode(
-                b"FAKE PNG IMAGE CONTENT FOR SYSTEM DIAGRAM"
-            ).decode("utf-8"),
-            "description": "Diagrama do sistema PepperPy mostrando os componentes LLM, RAG, Storage e suas interações",
-        },
-    ]
+        "nlp_concepts.txt": """Natural Language Processing Key Concepts
 
-    # Escrever os documentos no sistema de arquivos
-    for doc in documents:
-        file_path = Path(KNOWLEDGE_DIR) / doc["filename"]
+Natural Language Processing (NLP) is the field of AI that focuses on the interaction 
+between computers and human language. It combines computational linguistics, machine 
+learning, and deep learning to enable computers to process, understand, and generate 
+human language.
 
-        # Para imagens (simuladas), salvamos o conteúdo base64
-        if file_path.suffix in [".png", ".jpg", ".jpeg"]:
-            with open(file_path, "wb") as f:
-                f.write(base64.b64decode(doc["content"]))
-            # Criar arquivo .txt para a descrição da imagem
-            desc_path = file_path.with_suffix(".txt")
-            with open(desc_path, "w") as f:
-                f.write(doc.get("description", f"Imagem: {doc['filename']}"))
-        else:
-            # Para documentos de texto
-            with open(file_path, "w") as f:
-                f.write(doc["content"])
+Key NLP Tasks:
+1. Text classification: Categorizing text into predefined groups
+2. Named Entity Recognition (NER): Identifying entities like people, places
+3. Sentiment Analysis: Determining sentiment or emotion in text
+4. Machine Translation: Translating text between languages
+5. Text Summarization: Creating concise summaries of longer texts
+6. Question Answering: Providing answers to natural language questions
 
-    print(f"Criados {len(documents)} documentos de exemplo em {KNOWLEDGE_DIR}\n")
+Recent advances in NLP have been driven by transformer models like BERT, GPT, 
+and T5, which use attention mechanisms to better understand context and 
+relationships between words.
+
+NLP applications are widespread in virtual assistants, search engines, 
+customer service, content recommendation, and more.
+""",
+    }
+
+    # Criar arquivos de exemplo
+    for filename, content in example_texts.items():
+        file_path = KNOWLEDGE_DIR / filename
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+    print(f"Criados {len(example_texts)} documentos de exemplo em {KNOWLEDGE_DIR}")
 
 
 async def process_knowledge_base() -> None:
     """Processar e indexar documentos na base de conhecimento."""
     print("Processando base de conhecimento...")
 
-    # Inicializar PepperPy com RAG e processamento de conteúdo
-    # Configuração dos provedores vem das variáveis de ambiente
-    async with PepperPy().with_rag().with_content() as pepper:
-        # Processar diretório de documentos
-        result = await (
-            pepper.content.from_directory(KNOWLEDGE_DIR)
-            .include_extensions(".pdf", ".md", ".txt", ".png", ".jpg", ".jpeg")
-            .extract_text()
-            .with_metadata()
-            .chunk(size=1000)
-            .store_in_rag(COLLECTION_NAME)
-            .execute()
-        )
+    # Criar provedores
+    rag_provider = create_rag_provider("memory")
 
-        print(f"Processados {len(result)} documentos\n")
+    # Criar processador de conteúdo
+    content_processor = await create_processor("document")
+
+    # Inicializar PepperPy com RAG
+    async with PepperPy().with_rag(rag_provider) as pepper:
+        # Processar cada arquivo do diretório
+        docs = []
+
+        # Listar arquivos no diretório de conhecimento
+        files = list(KNOWLEDGE_DIR.glob("*.txt"))
+        files.extend(KNOWLEDGE_DIR.glob("*.md"))
+        files.extend(KNOWLEDGE_DIR.glob("*.pdf"))
+
+        # Processar cada arquivo e armazenar no RAG
+        for file_path in files:
+            try:
+                # Processar arquivo com o processador de conteúdo
+                if file_path.suffix in [".pdf", ".png", ".jpg", ".jpeg"]:
+                    result = await content_processor.process(file_path)
+                    text = result.text or ""
+                    metadata = result.metadata or {}
+                else:
+                    # Para arquivos de texto, ler diretamente
+                    with open(file_path, "r", encoding="utf-8") as f:
+                        text = f.read()
+                    metadata = {"filename": file_path.name}
+
+                # Criar documento
+                document = Document(text=text, metadata=metadata)
+
+                # Adicionar à lista de documentos
+                docs.append(document)
+                print(f"Processado: {file_path.name}")
+
+            except Exception as e:
+                print(f"Erro ao processar {file_path}: {e}")
+
+        # Armazenar documentos no RAG
+        for doc in docs:
+            await rag_provider.store_document(doc.text, doc.metadata)
+
+        print(f"Processados {len(docs)} documentos\n")
 
 
 async def interactive_mode() -> None:
@@ -162,35 +199,58 @@ async def interactive_mode() -> None:
     print("Iniciando modo interativo...")
     print("Digite 'sair' para encerrar\n")
 
+    # Criar provedores
+    rag_provider = create_rag_provider("memory")
+    llm_provider = create_llm_provider("openrouter")
+
     # Inicializar PepperPy com RAG e LLM
-    # Configuração dos provedores vem das variáveis de ambiente
-    async with PepperPy().with_rag().with_llm() as pepper:
+    async with PepperPy().with_rag(rag_provider).with_llm(llm_provider) as pepper:
         while True:
             # Obter pergunta do usuário
             question = input("\nPergunta: ").strip()
             if question.lower() in ["sair", "exit", "quit"]:
                 break
 
-            # Buscar e gerar resposta
+            # Buscar documentos relevantes
             print("\nBuscando resposta...")
-            result = await pepper.rag.search(question).limit(3).execute()
+            search_results = await rag_provider.search_documents(question, limit=3)
+
+            # Construir o contexto a partir dos resultados da busca
+            context = []
+            for result in search_results:
+                document_text = result.get("text", "")
+                document_title = result.get("metadata", {}).get(
+                    "filename", "Desconhecido"
+                )
+                context.append(f"--- {document_title} ---\n{document_text[:500]}...")
+
+            context_text = "\n\n".join(context)
 
             # Gerar resposta com contexto
-            response = await pepper.llm.with_context(result).generate(question)
+            response = await (
+                pepper.chat.with_system(
+                    "Você é um assistente especializado em responder perguntas com base no contexto fornecido."
+                )
+                .with_user(f"Contexto:\n{context_text}\n\nPergunta: {question}")
+                .generate()
+            )
 
             # Exibir resposta
             print("\nResposta:")
             print(response.content)
 
             # Salvar resposta
-            timestamp = datetime.now().isoformat()
+            timestamp = datetime.now().isoformat().replace(":", "-")
             output_file = Path(OUTPUT_DIR) / f"response_{timestamp}.txt"
             with open(output_file, "w") as f:
                 f.write(f"Pergunta: {question}\n\n")
                 f.write(f"Resposta: {response.content}\n\n")
                 f.write("Fontes:\n")
-                for doc in result:
-                    f.write(f"- {doc.metadata.get('filename', 'Desconhecido')}\n")
+                for result in search_results:
+                    filename = result.get("metadata", {}).get(
+                        "filename", "Desconhecido"
+                    )
+                    f.write(f"- {filename}\n")
 
 
 async def main() -> None:
@@ -208,9 +268,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_RAG__PROVIDER=sqlite
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_LLM__API_KEY=your_api_key
-    # PEPPERPY_CONTENT__PROVIDER=pymupdf
+    # Usando memory provider para RAG e openrouter para LLM
     asyncio.run(main())

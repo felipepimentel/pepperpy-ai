@@ -7,7 +7,7 @@ import asyncio
 import os
 from pathlib import Path
 
-from pepperpy import PepperPy
+from pepperpy import PepperPy, create_rag_provider
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -20,56 +20,52 @@ async def main() -> None:
     print("RAG Example")
     print("=" * 50)
 
-    # Initialize PepperPy with RAG and embeddings support
-    # Provider configuration comes from environment variables
-    async with PepperPy().with_rag().with_embeddings() as pepper:
+    # Create RAG provider
+    rag_provider = create_rag_provider("memory")
+
+    # Initialize PepperPy with RAG support
+    async with PepperPy().with_rag(rag_provider) as pepper:
         # Check if we have documents
-        results = await pepper.rag.search("").generate()
+        results = await pepper.search("", limit=10)
         print(f"\nFound {len(results)} documents in database")
 
         # Add sample documents if needed
         if len(results) == 0:
             print("\nAdding sample documents...")
-            await (
-                pepper.rag.with_document(
-                    text="PepperPy is a Python framework for building AI applications",
-                    metadata={"type": "framework", "language": "python"},
-                )
-                .with_document(
-                    text="RAG (Retrieval Augmented Generation) enhances LLM responses with relevant context",
-                    metadata={"type": "concept", "field": "ai"},
-                )
-                .with_document(
-                    text="Vector databases store and search high-dimensional vectors efficiently",
-                    metadata={"type": "technology", "field": "databases"},
-                )
-                .with_auto_embeddings()  # Let PepperPy handle embeddings
-                .store()
-            )
+            # Create documents to add
+            docs = [
+                {
+                    "text": "PepperPy is a Python framework for building AI applications",
+                    "metadata": {"type": "framework", "language": "python"},
+                },
+                {
+                    "text": "RAG (Retrieval Augmented Generation) enhances LLM responses with relevant context",
+                    "metadata": {"type": "concept", "field": "ai"},
+                },
+                {
+                    "text": "Vector databases store and search high-dimensional vectors efficiently",
+                    "metadata": {"type": "technology", "field": "databases"},
+                },
+            ]
 
-            results = await pepper.rag.search("").generate()
+            for doc in docs:
+                await rag_provider.store_document(doc["text"], doc["metadata"])
+
+            results = await pepper.search("", limit=10)
             print(f"Added {len(results)} documents")
 
         # Search example
         print("\nSearching for 'Python framework'...")
-        results = await (
-            pepper.rag.search("Python framework")
-            .with_auto_embeddings()  # Let PepperPy handle embeddings
-            .generate()
-        )
+        results = await pepper.search("Python framework", limit=5)
 
         # Print results
         print("\nSearch results:")
         for i, result in enumerate(results, 1):
-            doc = result.to_document()
-            print(f"\n{i}. {doc.text}")
-            print(f"   Type: {doc.metadata.get('type')}")
-            print(f"   Field: {doc.metadata.get('field', 'N/A')}")
+            print(f"\n{i}. {result.document.text}")
+            print(f"   Type: {result.document.metadata.get('type')}")
+            print(f"   Field: {result.document.metadata.get('field', 'N/A')}")
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_RAG__PROVIDER=chroma
-    # PEPPERPY_EMBEDDINGS__PROVIDER=openai
-    # PEPPERPY_EMBEDDINGS__API_KEY=your_api_key
+    # Uses memory provider that doesn't require API keys
     asyncio.run(main())

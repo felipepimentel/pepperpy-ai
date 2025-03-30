@@ -12,6 +12,7 @@ import json
 from typing import Dict, List
 
 from pepperpy import PepperPy
+from pepperpy.llm import create_provider as create_llm_provider
 
 
 async def analyze_text_structure(text: str) -> Dict[str, List[str]]:
@@ -23,8 +24,11 @@ async def analyze_text_structure(text: str) -> Dict[str, List[str]]:
     Returns:
         Dict with sections and their chunks
     """
+    # Create LLM provider
+    llm_provider = create_llm_provider("openrouter")
+
     # Initialize PepperPy with LLM support
-    async with PepperPy().with_llm() as pepper:
+    async with PepperPy().with_llm(llm_provider) as pepper:
         # First, get high-level structure
         structure = await (
             pepper.chat.with_system("You are a text analysis expert.")
@@ -68,8 +72,11 @@ async def improve_chunk(chunk: str, style_guide: str) -> str:
     Returns:
         Improved chunk
     """
+    # Create LLM provider
+    llm_provider = create_llm_provider("openrouter")
+
     # Initialize PepperPy with LLM support
-    async with PepperPy().with_llm() as pepper:
+    async with PepperPy().with_llm(llm_provider) as pepper:
         # Learn the style guide
         style_response = await (
             pepper.chat.with_system("You are a writing style expert.")
@@ -133,7 +140,8 @@ async def refactor_large_text(text: str, style_guide: str) -> str:
         improved_sections[section] = improved_chunks
 
     # Combine sections with proper transitions
-    async with PepperPy().with_llm() as pepper:
+    llm_provider = create_llm_provider("openrouter")
+    async with PepperPy().with_llm(llm_provider) as pepper:
         print("\nCombining sections...")
         final_text = await (
             pepper.chat.with_system("You are a text organization expert.")
@@ -191,7 +199,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_LLM__API_KEY=your_api_key
+    # Using openrouter provider (configured in .env)
     asyncio.run(main())

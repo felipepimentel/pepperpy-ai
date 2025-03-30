@@ -11,8 +11,10 @@ import asyncio
 import json
 from pathlib import Path
 
-from pepperpy import PepperPy
-from pepperpy.agents.base import Message
+from pepperpy import MessageRole, PepperPy
+from pepperpy.embeddings import create_provider as create_embeddings_provider
+from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.rag import create_provider as create_rag_provider
 
 
 # Function wrapper to make it JSON serializable
@@ -48,151 +50,134 @@ async def basic_memory_example() -> None:
     memory_dir.mkdir(exist_ok=True)
     memory_file = memory_dir / "agent_memory.json"
 
-    # Initialize PepperPy with memory support
-    async with (
-        PepperPy()
-        .with_memory()
-        .with_memory_config(
-            persistence_path=str(memory_file),
-            working_memory_limit=50,
-            episodic_memory_limit=500,
-        )
-    ) as pepper:
+    # Create providers
+    memory_provider = create_rag_provider(
+        "memory", collection_name="agent_memory", persistence_path=str(memory_file)
+    )
+
+    # Create LLM provider
+    llm_provider = create_llm_provider("openrouter")
+
+    # Initialize PepperPy with RAG and LLM support
+    async with PepperPy().with_rag(memory_provider).with_llm(llm_provider) as pepper:
         # Add conversation messages
+        # Note: Using MessageRole enum for proper typing
         await (
-            pepper.memory.add_message(
-                Message(role="system", content="You are a helpful assistant.")
+            pepper.chat.with_message(MessageRole.SYSTEM, "You are a helpful assistant.")
+            .with_message(MessageRole.USER, "Can you help me with a programming task?")
+            .with_message(
+                MessageRole.ASSISTANT,
+                "Of course! What kind of programming task do you need help with?",
             )
-            .add_message(
-                Message(role="user", content="Can you help me with a programming task?")
-            )
-            .add_message(
-                Message(
-                    role="assistant",
-                    content="Of course! What kind of programming task do you need help with?",
-                )
-            )
-            .execute()
+            .generate()
         )
 
-        # Store knowledge in semantic memory
-        await (
-            pepper.memory.store_knowledge(
-                "python_basics",
-                "Python is a high-level, interpreted programming language known for its readability and versatility.",
-                metadata={"category": "programming", "language": "python"},
-            )
-            .store_knowledge(
-                "git_basics",
-                "Git is a distributed version control system for tracking changes in source code during software development.",
-                metadata={"category": "tools", "type": "version_control"},
-            )
-            .execute()
+        # Store knowledge as documents directly through the provider
+        print("\nStoring documents in memory...")
+
+        # Python basics
+        await memory_provider.store_document(
+            text="Python is a high-level, interpreted programming language known for its readability and versatility.",
+            metadata={
+                "category": "programming",
+                "language": "python",
+                "id": "python_basics",
+            },
         )
 
-        # Store procedure in procedural memory
-        format_code = SerializableFunction(
-            lambda code: "\n".join([
-                line.strip() for line in code.split("\n") if line.strip()
-            ])
+        # Git basics
+        await memory_provider.store_document(
+            text="Git is a distributed version control system for tracking changes in source code during software development.",
+            metadata={
+                "category": "tools",
+                "type": "version_control",
+                "id": "git_basics",
+            },
         )
 
-        await pepper.memory.store_procedure(
-            "format_code",
-            format_code,
-            metadata={"language": "python", "type": "formatter"},
-        ).execute()
+        # Format code procedure
+        await memory_provider.store_document(
+            text="Function to format code by stripping whitespace",
+            metadata={
+                "language": "python",
+                "type": "formatter",
+                "id": "format_code_procedure",
+            },
+        )
 
-        # Add experience to episodic memory
-        await pepper.memory.add_experience(
-            "User asked about Python dictionaries.",
+        # Python dictionaries experience
+        await memory_provider.store_document(
+            text="User asked about Python dictionaries.",
             metadata={
                 "topic": "python",
                 "subtopic": "dictionaries",
                 "sentiment": "neutral",
+                "id": "experience_python_dictionaries",
             },
-        ).execute()
-
-        # Save memory state
-        await pepper.memory.save()
-        print(f"Memory saved to {memory_file}")
-
-        # Retrieve and display messages
-        messages = await pepper.memory.get_messages()
-        print("\nMessages in memory:")
-        for msg in messages:
-            print(f"- {msg.role}: {msg.content}")
+        )
 
         # Retrieve knowledge
-        python_knowledge = await pepper.memory.retrieve_knowledge("python_basics")
-        print(f"\nPython knowledge: {python_knowledge}")
+        print("\nQuerying about Python...")
+        python_results = await memory_provider.search_documents(
+            "Python programming language", limit=1
+        )
 
-        # Retrieve and use procedure
-        format_procedure = await pepper.memory.retrieve_procedure("format_code")
-        if format_procedure and hasattr(format_procedure, "func"):
-            messy_code = """
-            def hello_world():
-                print('Hello, world!')
+        if python_results:
+            python_knowledge = python_results[0].get("text", "")
+            print(f"Python knowledge: {python_knowledge}")
 
+        # Simulate clearing memory by searching for different content
+        print("\nRetrieving programming documents...")
+        results = await memory_provider.search_documents("programming", limit=5)
 
-            hello_world()
-            """
-            formatted = format_procedure(messy_code)
-            print(f"\nFormatted code:\n{formatted}")
-
-        # Clear and reload memory
-        print("\nClearing memory...")
-        await pepper.memory.clear()
-
-        messages_after_clear = await pepper.memory.get_messages()
-        print(f"Messages after clear: {len(messages_after_clear)}")
-
-        print("\nLoading memory from disk...")
-        try:
-            await pepper.memory.load()
-            messages_after_load = await pepper.memory.get_messages()
-            print(f"Messages after loading: {len(messages_after_load)}")
-            for msg in messages_after_load:
-                print(f"- {msg.role}: {msg.content}")
-        except Exception as e:
-            print(f"Note: Functions cannot be restored from disk: {e}")
-            print("This is expected behavior as functions are not fully serializable.")
+        print(f"Documents found: {len(results)}")
+        for doc in results:
+            text = doc.get("text", "")
+            print(f"- {text[:50]}...")
 
 
 async def advanced_memory_example() -> None:
     """Demonstrate advanced memory features."""
     print("\n=== Advanced Memory Features ===")
 
-    async with PepperPy().with_memory().with_embeddings() as pepper:
-        # Add experiences with metadata
-        await pepper.memory.batch_experiences([
-            {
-                "content": f"Experience {i + 1}: The agent performed task {i + 1}",
-                "metadata": {"type": "task", "task_id": i + 1, "priority": i % 3},
-            }
-            for i in range(10)
-        ]).execute()
+    # Create providers
+    memory_provider = create_rag_provider("memory", collection_name="agent_memory")
+    embeddings_provider = create_embeddings_provider("openrouter")
+    llm_provider = create_llm_provider("openrouter")
 
-        # Filter experiences by metadata
-        high_priority = await (
-            pepper.memory.retrieve_experiences()
-            .filter(lambda item: item.metadata.get("priority") == 2)
-            .limit(5)
-            .execute()
+    async with PepperPy().with_rag(memory_provider).with_llm(llm_provider) as pepper:
+        # Add experiences as documents
+        print("\nStoring experience documents...")
+        for i in range(10):
+            await memory_provider.store_document(
+                text=f"Experience {i + 1}: The agent performed task {i + 1}",
+                metadata={
+                    "type": "task",
+                    "task_id": i + 1,
+                    "priority": i % 3,
+                    "id": f"experience_{i}",
+                },
+            )
+
+        # Filter experiences by metadata (using priority 2)
+        print("\nSearching for high priority experiences (priority=2)...")
+        high_priority_results = await memory_provider.search_documents(
+            "agent performing task", limit=5, filter_metadata={"priority": 2}
         )
 
-        print("\nHigh priority experiences:")
-        for exp in high_priority:
-            print(f"- {exp}")
+        print("High priority experiences:")
+        for result in high_priority_results:
+            print(f"- {result.get('text', '')}")
 
-        # Semantic search (requires embeddings provider)
-        similar = await (
-            pepper.memory.search("agent performing complex tasks").limit(3).execute()
+        # Semantic search
+        print("\nSemantic search for complex tasks...")
+        similar_results = await memory_provider.search_documents(
+            "agent performing complex tasks", limit=3
         )
 
-        print("\nSemantically similar experiences:")
-        for exp in similar:
-            print(f"- {exp}")
+        print("Semantically similar experiences:")
+        for result in similar_results:
+            print(f"- {result.get('text', '')}")
 
 
 async def main() -> None:
@@ -203,8 +188,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_MEMORY__PROVIDER=memory
-    # PEPPERPY_EMBEDDINGS__PROVIDER=openai
-    # PEPPERPY_EMBEDDINGS__API_KEY=your_api_key
+    # Using file memory provider and openrouter embeddings (configured in .env)
     asyncio.run(main())

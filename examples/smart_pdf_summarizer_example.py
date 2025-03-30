@@ -13,13 +13,15 @@ from pathlib import Path
 from typing import Dict
 
 from pepperpy import PepperPy
+from pepperpy.content_processing.base import create_processor
+from pepperpy.llm import create_provider as create_llm_provider
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Example document path
-EXAMPLE_DOC = Path(__file__).parent / "data" / "example.pdf"
+EXAMPLE_DOC = Path(__file__).parent / "data" / "sample.pdf"
 
 
 async def summarize_pdf(
@@ -37,20 +39,24 @@ async def summarize_pdf(
     Returns:
         Dictionary with summary and metadata
     """
-    async with (
-        PepperPy()
-        .with_content()
-        .with_content_config(providers={"pymupdf": {"extract_images": False}})
-        .with_llm()
-        .with_llm_config(
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-    ) as pepper:
-        # Process document
-        content = await (
-            pepper.content.from_file(file_path).extract_text().with_metadata().execute()
-        )
+    # Create LLM provider
+    llm_provider = create_llm_provider(
+        "openrouter", max_tokens=max_tokens, temperature=temperature
+    )
+
+    # Create content processor
+    content_processor = await create_processor(
+        "document", provider_name="pymupdf", extract_images=False
+    )
+
+    # Initialize PepperPy with LLM
+    async with PepperPy().with_llm(llm_provider) as pepper:
+        # Process document using content processor directly
+        result = await content_processor.process(file_path)
+
+        # Extract text and metadata
+        text = result.text or ""
+        metadata = result.metadata or {}
 
         # Generate summary
         summary = await (
@@ -58,12 +64,12 @@ async def summarize_pdf(
             .with_user(
                 f"""Please provide a concise summary of the following document:
 
-Title: {content["metadata"].get("title", "Unknown")}
-Author: {content["metadata"].get("author", "Unknown")}
-Pages: {content["metadata"].get("pages", "Unknown")}
+Title: {metadata.get("title", "Unknown")}
+Author: {metadata.get("author", "Unknown")}
+Pages: {metadata.get("page_count", "Unknown")}
 
 Content:
-{content["text"][:2000]}...
+{text[:2000]}...
 
 Please include:
 1. Main topics and key points
@@ -78,7 +84,7 @@ Summary:"""
 
         return {
             "summary": summary.content,
-            "metadata": content["metadata"],
+            "metadata": metadata,
         }
 
 

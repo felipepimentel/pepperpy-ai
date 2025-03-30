@@ -6,14 +6,20 @@ This example demonstrates how to use PepperPy for text processing workflows.
 import asyncio
 
 from pepperpy import PepperPy
+from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.rag import create_provider as create_rag_provider
 
 
 async def process_text_with_rag() -> None:
     """Process text with RAG."""
     print("\n=== Text Processing with RAG ===")
 
+    # Create providers
+    rag_provider = create_rag_provider("memory")
+    llm_provider = create_llm_provider("openrouter")
+
     # Initialize PepperPy with RAG and LLM
-    async with PepperPy().with_rag().with_llm() as pepper:
+    async with PepperPy().with_rag(rag_provider).with_llm(llm_provider) as pepper:
         # Sample knowledge corpus
         corpus = [
             "Python is a versatile programming language created by Guido van Rossum in 1991.",
@@ -25,30 +31,54 @@ async def process_text_with_rag() -> None:
 
         print(f"Adding {len(corpus)} documents to context...")
 
-        # Store documents in RAG using fluent API
-        await pepper.rag.add_documents(corpus).with_auto_embeddings().store()
+        # Store documents in RAG directly using the provider
+        for text in corpus:
+            await rag_provider.store_document(text, metadata={"source": "example"})
 
-        # Query the knowledge base using fluent API
+        # Query the knowledge base
         print("\nQuerying about Python...")
-        results = await (
-            pepper.rag.search("What is Python and who created it?").limit(2).execute()
+        python_results = await rag_provider.search_documents(
+            "What is Python and who created it?", limit=2
         )
-        print(f"Answer: {results[0].content}")
+
+        # Use LLM to generate answer with context
+        python_context = "\n".join([
+            result.get("text", "") for result in python_results
+        ])
+        python_answer = await (
+            pepper.chat.with_system("You are a helpful assistant.")
+            .with_user(
+                f"Based on this context: {python_context}\n\nWhat is Python and who created it?"
+            )
+            .generate()
+        )
+        print(f"Answer: {python_answer.content}")
 
         print("\nQuerying about Machine Learning...")
-        results = await (
-            pepper.rag.search("Explain what Machine Learning is in a few words.")
-            .limit(1)
-            .execute()
+        ml_results = await rag_provider.search_documents(
+            "Explain what Machine Learning is in a few words.", limit=1
         )
-        print(f"Answer: {results[0].content}")
+
+        # Use LLM to generate answer with context
+        ml_context = "\n".join([result.get("text", "") for result in ml_results])
+        ml_answer = await (
+            pepper.chat.with_system("You are a helpful assistant.")
+            .with_user(
+                f"Based on this context: {ml_context}\n\nExplain what Machine Learning is in a few words."
+            )
+            .generate()
+        )
+        print(f"Answer: {ml_answer.content}")
 
 
 async def process_text_with_custom_pipeline() -> None:
     """Process text with a custom pipeline."""
     print("\n=== Text Processing with Custom Pipeline ===")
 
-    async with PepperPy().with_llm() as pepper:
+    # Create LLM provider
+    llm_provider = create_llm_provider("openrouter")
+
+    async with PepperPy().with_llm(llm_provider) as pepper:
         # Sample texts to process
         sample_texts = [
             "Python is a versatile programming language with clear and readable syntax. "
@@ -58,12 +88,22 @@ async def process_text_with_custom_pipeline() -> None:
         ]
 
         print("\nProcessing texts with custom pipeline...")
-        results = await (
-            pepper.text.process(sample_texts)
-            .transform(lambda x: x.upper())
-            .summarize("Summarize the text in one sentence")
-            .execute()
-        )
+        results = []
+
+        for text in sample_texts:
+            # Transform text
+            transformed_text = text.upper()
+
+            # Summarize using LLM
+            summary = await (
+                pepper.chat.with_system("You are a text summarization expert.")
+                .with_user(
+                    f"Summarize the following text in one sentence:\n\n{transformed_text}"
+                )
+                .generate()
+            )
+
+            results.append(summary.content)
 
         print("\nProcessing results:")
         for i, result in enumerate(results, 1):
@@ -79,8 +119,5 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_RAG__PROVIDER=memory
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_LLM__API_KEY=your_api_key
+    # Using memory provider for RAG and openrouter for LLM
     asyncio.run(main())
