@@ -15,7 +15,7 @@ config_schema:
   api_key:
     description: OpenRouter API key
     required: true
-    env_var: OPENROUTER_API_KEY
+    env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
     type: string
     secret: true
   model:
@@ -49,7 +49,7 @@ documentation:
 
     1. As a constructor parameter: api_key="key-..."
 
-    2. As an environment variable: OPENROUTER_API_KEY or PEPPERPY_LLM__OPENROUTER__API_KEY
+    2. As an environment variable: PEPPERPY_LLM__OPENROUTER_API_KEY (recomendado) ou OPENROUTER_API_KEY (compatibilidade)
 
 
     Example usage:

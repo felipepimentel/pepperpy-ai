@@ -2,8 +2,8 @@
 title: Environment Variables Standardization
 description: Standards for environment variable naming, organization, and usage across the PepperPy framework
 globs: 
-  - "pepperpy/**/*.py"
-priority: 400
+  - "**/*.py"
+priority: 1000
 ---
 
 # Environment Variables Standardization
@@ -29,6 +29,8 @@ Where:
 - `_`: Single underscore for regular word separation
 - `<SETTING>`: Specific configuration setting
 
+> **IMPORTANT**: This format is the OFFICIAL standard for PepperPy. Provider-specific names like `OPENAI_API_KEY` are supported for backward compatibility only, but all documentation and code should prioritize the PepperPy standard format.
+
 ### Examples
 
 ```bash
@@ -37,10 +39,14 @@ PEPPERPY_APP__DEBUG=true
 PEPPERPY_RAG__TEXT_CHUNK_SIZE=1000
 PEPPERPY_MEMORY__IMPORTANCE_THRESHOLD=0.5
 
-# Provider-specific configuration
+# Provider-specific configuration (OFFICIAL FORMAT)
 PEPPERPY_LLM__OPENAI_API_KEY=sk-....
 PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
 PEPPERPY_NEWS__NEWSAPI_API_KEY=...
+
+# Provider-specific configuration (COMPATIBILITY ONLY - NOT PREFERRED)
+OPENAI_API_KEY=sk-....         # Use PEPPERPY_LLM__OPENAI_API_KEY instead
+OPENROUTER_API_KEY=sk-or-...   # Use PEPPERPY_LLM__OPENROUTER_API_KEY instead
 
 # Provider selection
 PEPPERPY_LLM__PROVIDER=openrouter
@@ -265,6 +271,7 @@ class RAGConfig(ProviderConfig):
 ## Best Practices
 
 1. **Naming**:
+   - ALWAYS use the official PEPPERPY_DOMAIN__PROVIDER_SETTING format
    - Use consistent domain prefixes
    - Follow the hierarchical pattern
    - Use clear, descriptive names
@@ -274,13 +281,18 @@ class RAGConfig(ProviderConfig):
    - Separate provider-specific settings
    - Use consistent formatting
 
-3. **Documentation**:
-   - Document all variables
+3. **Compatibility**:
+   - Support provider-specific names (like OPENAI_API_KEY) for compatibility only
+   - Always document and recommend the official PepperPy format first
+   - Plan to migrate away from provider-specific names in future versions
+
+4. **Documentation**:
+   - Document all variables using the official format
    - Include examples
    - Note constraints
    - Link to resources
 
-4. **Validation**:
+5. **Validation**:
    - Validate at startup
    - Use typed configuration
    - Provide helpful errors
