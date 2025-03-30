@@ -1,7 +1,9 @@
 ---
+title: PepperPy Plugin Implementation Guidelines
 description: USE WHEN implementing or modifying any provider or plugin in the PepperPy framework
-globs: plugins/**/*.py,pepperpy/**/providers/**/*.py
-alwaysApply: false
+globs: 
+  - "plugins/**/*.py"
+priority: 800
 ---
 
 # PepperPy Plugin Implementation Guidelines
@@ -14,20 +16,11 @@ alwaysApply: false
    - **Valores Fixos**: Como `base_url`, que podem ter valores padrão hardcoded no código
 3. **Auto-Binding**: Use atributos auto-bound do plugin.yaml, implementando fallbacks apenas para valores fixos
 4. **Proper Inheritance**: Sempre herde de `DomainProvider` e `ProviderPlugin` (e.g., `LLMProvider, ProviderPlugin`)
-5. **Base Methods**: NUNCA reimplemente métodos já existentes na classe base (como `from_config`)
-6. **Default Values**: Defina valores padrão no plugin.yaml via `default_config` para configurações dinâmicas
-7. **State Management**: O framework gerencia o estado, não reimplemente isso
+5. **Default Values**: Defina valores padrão no plugin.yaml via `default_config` para configurações dinâmicas
+6. **State Management**: O framework gerencia o estado, não reimplemente isso
+7. **Factory Methods**: Cada plugin deve implementar seu próprio método de classe `from_config` para criar instâncias
 
 ## Anti-patterns (NEVER DO THESE)
-
-### ❌ Reimplementing from_config
-
-```python
-# WRONG - Never reimplement from_config
-@classmethod
-def from_config(cls, **config: Any) -> "MyProvider":  # WRONG!
-    return cls(**config)
-```
 
 ### ❌ Duplicating Metadata
 
@@ -80,6 +73,10 @@ class MyProvider(LLMProvider, ProviderPlugin):
 ### ✅ Minimal Correct Structure
 
 ```python
+from typing import Any, Type, TypeVar, cast
+
+T = TypeVar('T', bound='MyProvider')
+
 class MyProvider(LLMProvider, ProviderPlugin):
     """Provider implementation."""
     
@@ -103,6 +100,11 @@ class MyProvider(LLMProvider, ProviderPlugin):
             self.base_url = kwargs['base_url']
         if 'model' in kwargs:
             self.model = kwargs['model']
+    
+    @classmethod
+    def from_config(cls: Type[T], **config: Any) -> T:
+        """Create provider instance from configuration."""
+        return cast(T, cls(**config))
     
     async def initialize(self) -> None:
         """Initialize provider resources."""
@@ -138,7 +140,7 @@ default_config:
 - [ ] Herda de `DomainProvider, ProviderPlugin`
 - [ ] Declara atributos auto-bound com type annotations
 - [ ] Distingue entre variáveis de ambiente (sem padrão) e valores fixos (com padrão)
-- [ ] NÃO implementa `from_config` (usa a implementação da classe base)
+- [ ] Implementa método de classe `from_config` para criação de instâncias
 - [ ] NÃO duplica metadados do plugin.yaml
 - [ ] NÃO implementa fallbacks manuais para variáveis de ambiente
 - [ ] Inicialização limpa: apenas chama super() e inicializa client=None

@@ -5,7 +5,7 @@ supporting text generation from OpenAI models.
 """
 
 from collections.abc import AsyncIterator
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from openai import AsyncOpenAI
 from openai.types.chat import ChatCompletionMessageParam
@@ -18,6 +18,8 @@ from pepperpy.llm import (
     MessageRole,
 )
 from pepperpy.plugin import ProviderPlugin
+
+T = TypeVar("T", bound="OpenAIProvider")
 
 
 class OpenAIProvider(LLMProvider, ProviderPlugin):
@@ -34,6 +36,18 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
         """Initialize the OpenAI provider."""
         super().__init__(**kwargs)
         self.client = None
+
+    @classmethod
+    def from_config(cls: Type[T], **config: Any) -> T:
+        """Create an OpenAI provider instance from configuration.
+
+        Args:
+            **config: Configuration parameters
+
+        Returns:
+            Provider instance
+        """
+        return cast(T, cls(**config))
 
     async def initialize(self) -> None:
         """Initialize the OpenAI client."""

@@ -6,7 +6,7 @@ supporting various models through OpenRouter's API.
 
 import json
 from collections.abc import AsyncIterator
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 import httpx
 
@@ -18,6 +18,8 @@ from pepperpy.llm import (
     MessageRole,
 )
 from pepperpy.plugin import ProviderPlugin
+
+T = TypeVar("T", bound="OpenRouterProvider")
 
 
 class OpenRouterProvider(LLMProvider, ProviderPlugin):
@@ -45,6 +47,18 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
             self.temperature = kwargs["temperature"]
         if "max_tokens" in kwargs:
             self.max_tokens = kwargs["max_tokens"]
+
+    @classmethod
+    def from_config(cls: Type[T], **config: Any) -> T:
+        """Create an OpenRouter provider instance from configuration.
+
+        Args:
+            **config: Configuration parameters
+
+        Returns:
+            Provider instance
+        """
+        return cast(T, cls(**config))
 
     async def initialize(self) -> None:
         """Initialize the OpenRouter client."""
