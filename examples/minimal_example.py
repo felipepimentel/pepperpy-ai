@@ -15,7 +15,7 @@ async def main() -> None:
     print("=" * 50)
 
     # Initialize PepperPy with LLM support directly using provider name
-    async with PepperPy().with_llm("openai") as pepper:
+    async with PepperPy().with_llm("openrouter") as pepper:
         # Generate text using chat interface
         response = await pepper.chat.with_user("Say hello!").generate()
         print("\nChat response:")
