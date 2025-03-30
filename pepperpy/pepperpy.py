@@ -1127,7 +1127,7 @@ class LLMBuilder:
         return await self._provider.generate(messages)
 
 
-class PepperPy:
+class PepperPy:  # type: ignore[attr-defined]
     """Main class for interacting with the PepperPy framework."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
