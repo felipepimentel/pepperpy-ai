@@ -1,51 +1,56 @@
-# OpenAI Embedding Provider Plugin Metadata
-name: "OpenAI Embedding Provider"
-version: "0.1.0"
-description: "Provider for OpenAI's text embedding models"
-author: "PepperPy Team"
-plugin_category: "embeddings"
-provider_type: "openai"
+name: OpenAI Embedding Provider
+version: 0.1.0
+description: Provider for OpenAI's text embedding models
+author: PepperPy Team
+plugin_category: embeddings
+provider_type: openai
 required_config_keys:
-  - "api_key"
-
-# Default configuration values
+- api_key
 default_config:
-  model: "text-embedding-3-small"
-
-# Configuration schema
+  model: text-embedding-3-small
 config_schema:
   api_key:
-    description: "OpenAI API key"
+    description: OpenAI API key
     required: true
-    env_var: "OPENAI_API_KEY"
-    type: "string"
+    env_var: OPENAI_API_KEY
+    type: string
     secret: true
-  
   model:
-    description: "OpenAI embedding model to use"
+    description: OpenAI embedding model to use
     required: false
-    default: "text-embedding-3-small"
-    type: "string"
-
-# Documentation
+    default: text-embedding-3-small
+    type: string
 documentation:
-  usage: |
-    OpenAI embedding provider that works with OpenAI's embedding models.
-    
+  usage: 'OpenAI embedding provider that works with OpenAI''s embedding models.
+
+
     Requires an OpenAI API key which can be specified:
+
     1. As a constructor parameter: api_key="sk-..."
+
     2. As an environment variable: OPENAI_API_KEY or PEPPERPY_EMBEDDINGS__OPENAI__API_KEY
-    
+
+
     Example usage:
+
     ```python
+
     from pepperpy import create_provider
-    
+
+
     provider = create_provider("embeddings", "openai", api_key="your-api-key")
-    
+
+
     embedding = await provider.embed_query("What is an embedding?")
+
     ```
-  
+
+    '
   models:
-    - "text-embedding-3-small"
-    - "text-embedding-3-large"
-    - "text-embedding-ada-002" 
+  - text-embedding-3-small
+  - text-embedding-3-large
+  - text-embedding-ada-002
+category: embeddings
+provider_name: openai
+entry_point: provider.OpenaiProvider
+pepperpy_compatibility: '>=0.1.0'

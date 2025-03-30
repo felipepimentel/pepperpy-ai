@@ -9,11 +9,12 @@ from pepperpy.workflow.base import (
     WorkflowComponent,
     create_provider,
 )
-from pepperpy.workflow.providers.local import LocalExecutor
+
+# Importação removida - LocalExecutor agora está em um plugin
 
 __all__ = [
     "Workflow",
     "WorkflowComponent",
     "create_provider",
-    "LocalExecutor",
+    # "LocalExecutor",  # Removido - agora está em um plugin
 ]

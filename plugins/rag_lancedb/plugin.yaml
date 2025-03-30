@@ -1,29 +1,32 @@
-# Lancedb Rag Provider Plugin Metadata
-name: "Lancedb Rag Provider"
-version: "0.1.0"
-description: "Provider for Lancedb for rag tasks"
-author: "PepperPy Team"
-plugin_category: "rag"
-provider_type: "lancedb"
-
-# Default configuration values
-default_config:
-  # Add your default config here
-  
-# Configuration schema
-config_schema:
-  # Add your config schema here
-
-# Documentation
+name: Lancedb Rag Provider
+version: 0.1.0
+description: Provider for Lancedb for rag tasks
+author: PepperPy Team
+plugin_category: rag
+provider_type: lancedb
+default_config: null
+config_schema: null
 documentation:
-  usage: |
-    Lancedb provider for rag tasks.
-    
+  usage: 'Lancedb provider for rag tasks.
+
+
     Example usage:
+
     ```python
+
     from pepperpy import create_provider
-    
+
+
     provider = create_provider("rag", "lancedb")
-    
+
+
     # Usage example here
+
     ```
+
+    '
+category: rag
+provider_name: lancedb
+entry_point: provider.LancedbProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

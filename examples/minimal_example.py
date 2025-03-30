@@ -7,7 +7,6 @@ with minimal configuration.
 import asyncio
 
 from pepperpy import PepperPy
-from pepperpy.llm import create_provider
 
 
 async def main() -> None:
@@ -15,11 +14,8 @@ async def main() -> None:
     print("Minimal Example")
     print("=" * 50)
 
-    # Create LLM provider
-    provider = create_provider("openrouter")
-
-    # Initialize PepperPy with LLM support
-    async with PepperPy().with_llm(provider) as pepper:
+    # Initialize PepperPy with LLM support directly using provider name
+    async with PepperPy().with_llm("openrouter") as pepper:
         # Generate text using chat interface
         response = await pepper.chat.with_user("Say hello!").generate()
         print("\nChat response:")

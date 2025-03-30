@@ -15,7 +15,8 @@ Example:
 """
 
 import asyncio
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List, Optional
 
 from pepperpy.tts.audio_pipeline import (
     AudioPipeline,
@@ -35,11 +36,13 @@ from pepperpy.tts.base import (
     TTSVoiceError,
     create_provider,
 )
-from pepperpy.tts.providers.azure import AzureProvider
+
+# Removida importação direta dos providers que agora estão em plugins
+# from pepperpy.tts.providers.azure import AzureProvider
 
 # Import providers to register them
 # Commented out to avoid dependency issues
-# from pepperpy.tts.providers import (  # noqa: F401
+# from pepperpy.tts.providers import (
 #     ElevenLabsProvider,
 #     MurfProvider,
 #     PlayHTProvider,
@@ -166,7 +169,7 @@ def save_audio(audio: bytes, filename: str) -> None:
         # with open(filename, "wb") as f:
         #     f.write(audio)
     except Exception as e:
-        raise TTSError(f"Failed to save audio to {filename}: {str(e)}") from e
+        raise TTSError(f"Failed to save audio to {filename}: {e!s}") from e
 
 
 def convert_text_sync(
@@ -195,13 +198,11 @@ def convert_text_sync(
 
 
 __all__ = [
-    # High-level API
-    "convert_text",
-    "convert_text_stream",
-    "convert_text_sync",
-    "get_voices",
-    "clone_voice",
-    "save_audio",
+    # Audio pipeline
+    "AudioPipeline",
+    "AudioPipelineError",
+    "AudioProject",
+    "AudioSegment",
     # Base types and interfaces
     "TTSCapabilities",
     "TTSComponent",
@@ -211,13 +212,14 @@ __all__ = [
     "TTSProvider",
     "TTSProviderError",
     "TTSVoiceError",
-    "create_provider",
-    # Audio pipeline
-    "AudioPipeline",
-    "AudioProject",
-    "AudioSegment",
-    "AudioPipelineError",
     "VerbosityLevel",
-    # Providers
-    "AzureProvider",
+    "clone_voice",
+    # High-level API
+    "convert_text",
+    "convert_text_stream",
+    "convert_text_sync",
+    "create_provider",
+    "get_voices",
+    "save_audio",
+    # Providers - removido AzureProvider que agora está em um plugin
 ]

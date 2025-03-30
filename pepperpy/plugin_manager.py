@@ -8,60 +8,111 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Type, cast
 
-from loguru import logger
-
 from pepperpy.core import BaseProvider, ValidationError
+from pepperpy.core.logging import get_logger
 from pepperpy.plugin import PepperpyPlugin, discover_plugins
 
 
 class PluginManager:
-    """Manager for PepperPy plugins."""
+    """Plugin manager for the PepperPy framework.
+
+    This class manages plugin discovery, registration, loading, and instantiation.
+    It provides utilities for working with plugins and registering custom providers.
+    """
+
+    _instance = None
+
+    def __new__(cls) -> "PluginManager":
+        """Create a new PluginManager instance or return the existing one.
+
+        Returns:
+            Singleton instance of PluginManager
+        """
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
 
     def __init__(self) -> None:
-        """Initialize plugin manager."""
-        self._providers: Dict[str, Dict[str, Dict[str, Any]]] = {
-            "llm": {},
-            "rag": {},
-            "tts": {},
-            "workflow": {},
-        }
-        self._plugin_classes: Dict[str, Dict[str, Type[PepperpyPlugin]]] = {
-            "llm": {},
-            "rag": {},
-            "tts": {},
-            "workflow": {},
-        }
-        self._discover_plugins()
+        """Initialize the plugin manager."""
+        if not getattr(self, "_initialized", False):
+            # Dictionary of provider types and their registration info
+            self._providers: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+            # Dictionary of provider classes
+            self._plugin_classes: Dict[str, Dict[str, Type[PepperpyPlugin]]] = {}
+
+            # Force discovery of plugins on startup
+            self._discover_plugins()
+            self._initialized = True
 
     def _discover_plugins(self) -> None:
-        """Discover available plugins from the plugins directory."""
+        """Discover available plugins."""
+        logger = get_logger(__name__)
+
+        # Initialize empty dictionaries for providers and plugin classes
+        categories = [
+            "llm",
+            "rag",
+            "tts",
+            "workflow",
+            "agents",
+            "content_processing",
+            "cache",
+            "cli",
+            "embeddings",
+            "hub",
+            "storage",
+            "tools",
+        ]
+
+        # Limpar e reinicializar os dicionários de providers e classes
+        self._providers = {category: {} for category in categories}
+        self._plugin_classes = {category: {} for category in categories}
+
+        # Discover plugins
         plugins = discover_plugins()
+        logger.info(f"Discovered {len(plugins)} plugins")
+
+        # Processar cada plugin e registrá-lo
         for plugin_name, metadata in plugins.items():
+            logger.debug(f"Processing plugin: {plugin_name} with metadata: {metadata}")
+
+            # Obter campos críticos
             category = metadata.get("category")
-            provider_type = metadata.get("provider_name")
-            if not category or not provider_type:
+            provider_name = metadata.get("provider_name")
+            entry_point = metadata.get("entry_point")
+
+            # Verificar se os campos obrigatórios existem
+            if not category:
+                logger.warning(f"Plugin {plugin_name} missing category in metadata")
+                continue
+
+            if not provider_name:
                 logger.warning(
-                    f"Plugin {plugin_name} missing category or provider_name in metadata"
+                    f"Plugin {plugin_name} missing provider_name in metadata"
                 )
                 continue
 
-            if category not in self._providers:
-                self._providers[category] = {}
-
-            entry_point = metadata.get("entry_point")
             if not entry_point:
                 logger.warning(f"Plugin {plugin_name} missing entry_point in metadata")
                 continue
 
-            # Store as plugin_dir:entry_point
+            # Garantir que a categoria exista nos dicionários
+            if category not in self._providers:
+                logger.debug(f"Creating new category: {category}")
+                self._providers[category] = {}
+                self._plugin_classes[category] = {}
+
+            # Registrar o plugin
             plugin_path = f"{plugin_name}.{entry_point}"
-            self._providers[category][provider_type] = {
+            self._providers[category][provider_name] = {
                 "path": plugin_path,
                 "metadata": metadata,
             }
 
-            logger.debug(
-                f"Discovered plugin: {plugin_name} ({category}/{provider_type})"
+            logger.info(
+                f"Registered plugin: {plugin_name} ({category}/{provider_name})"
             )
 
     def install_plugin(self, plugin_path: str) -> bool:
@@ -190,22 +241,49 @@ class PluginManager:
         Raises:
             ValidationError: If provider creation fails
         """
+        logger = get_logger(__name__)
+
         try:
+            logger.debug(f"Creating provider: {module}/{provider_type}")
+
             # First check if we have a registered class
             if (
                 module in self._plugin_classes
                 and provider_type in self._plugin_classes[module]
             ):
                 provider_class = self._plugin_classes[module][provider_type]
-                return cast(BaseProvider, provider_class.from_config(**config))
+                logger.debug(
+                    f"Creating provider from registered class: {provider_class.__name__}"
+                )
+                # Create and return provider instance
+                try:
+                    provider = provider_class.from_config(**config)
+                except (AttributeError, TypeError) as e:
+                    logger.warning(
+                        f"Could not use from_config method: {e}, trying direct instantiation"
+                    )
+                    # Tenta criar diretamente se from_config não estiver disponível
+                    provider = provider_class(**config)
+
+                return cast(BaseProvider, provider)
 
             # Otherwise, load from registered path
             if module not in self._providers:
-                raise ValidationError(f"Unknown module: {module}")
+                available_modules = list(self._providers.keys())
+                logger.error(
+                    f"Unknown module: {module}. Available modules: {available_modules}"
+                )
+                raise ValidationError(
+                    f"Unknown module: {module}. Available modules: {available_modules}"
+                )
 
             providers = self._providers[module]
             if provider_type not in providers:
                 available = ", ".join(providers.keys()) if providers else "none"
+                logger.error(
+                    f"Unknown provider '{provider_type}' for module '{module}'. "
+                    f"Available providers: {available}"
+                )
                 raise ValidationError(
                     f"Unknown provider '{provider_type}' for module '{module}'. "
                     f"Available providers: {available}"
@@ -213,43 +291,78 @@ class PluginManager:
 
             provider_info = providers[provider_type]
             provider_path = provider_info["path"]
+            logger.debug(f"Loading provider from path: {provider_path}")
 
             if ":" in provider_path:
-                # Format is package.module:ClassName
-                module_path, class_name = provider_path.split(":")
+                # Format is plugin_name.provider:Provider
+                parts = provider_path.split(":")
+                plugin_name = parts[0].split(".")[
+                    0
+                ]  # Pegar apenas o nome do plugin sem o .provider
+                class_name = parts[1]
+                # Usar o diretório real do plugin
+                module_path = f"plugins.{plugin_name}.provider"
+                logger.debug(
+                    f"Importing from module: {module_path}, class: {class_name}"
+                )
             else:
-                # Assume default format
-                module_path = f"{provider_type}_provider.provider"
-                class_name = f"{provider_type.capitalize()}Provider"
+                # Assume default format - diretório do plugin é llm_openrouter
+                module_path = f"plugins.{module}_{provider_type}.provider"
+                # Preservar capitalização especial para certos providers
+                if provider_type == "openrouter":
+                    class_name = "OpenRouterProvider"
+                elif provider_type == "openai":
+                    class_name = "OpenAIProvider"
+                else:
+                    # Capitalizar apenas a primeira letra e manter o resto como está
+                    class_name = (
+                        f"{provider_type[0].upper()}{provider_type[1:]}Provider"
+                    )
+                logger.debug(f"Using default format: {module_path}.{class_name}")
 
             try:
-                module_obj = importlib.import_module(module_path)
-            except ImportError as e:
-                # Try to get package name from module path
-                package = module_path.split(".")[0]
+                # Try to import module
+                try:
+                    provider_module = importlib.import_module(module_path)
+                    logger.debug(f"Successfully imported module: {module_path}")
+                except ModuleNotFoundError:
+                    logger.error(f"Module not found: {module_path}")
+                    raise ImportError(f"Module not found: {module_path}")
 
-                # Try to install the plugin using UV
-                plugin_dir = Path("plugins") / f"{module}_{provider_type}"
-                if plugin_dir.exists():
-                    if self.install_plugin(str(plugin_dir)):
-                        # Retry import after installation
-                        try:
-                            module_obj = importlib.import_module(module_path)
-                        except ImportError:
-                            pass
+                # Try to get class from module
+                try:
+                    provider_class = getattr(provider_module, class_name)
+                    logger.debug(f"Provider class found: {class_name}")
+                except AttributeError:
+                    logger.error(
+                        f"Class {class_name} not found in module {module_path}"
+                    )
+                    raise AttributeError(
+                        f"Class {class_name} not found in module {module_path}"
+                    )
 
-                raise ValidationError(
-                    f"Failed to import provider '{provider_type}'. "
-                    f"Make sure you have installed the plugin: {module}_{provider_type}"
-                ) from e
+                # Register provider class for future use
+                if module not in self._plugin_classes:
+                    self._plugin_classes[module] = {}
+                self._plugin_classes[module][provider_type] = provider_class
 
-            provider_class = getattr(module_obj, class_name)
-            return cast(BaseProvider, provider_class(**config))
+                # Create and return provider instance
+                try:
+                    provider = provider_class.from_config(**config)
+                except (AttributeError, TypeError) as e:
+                    logger.warning(
+                        f"Could not use from_config method: {e}, trying direct instantiation"
+                    )
+                    # Tenta criar diretamente se from_config não estiver disponível
+                    provider = provider_class(**config)
+
+                return cast(BaseProvider, provider)
+            except Exception as e:
+                logger.exception(f"Error loading provider: {e}")
+                raise ValidationError(f"Error loading provider '{provider_type}': {e}")
 
         except Exception as e:
             logger.error(f"Failed to create provider: {e}")
-            if isinstance(e, ValidationError):
-                raise
             raise ValidationError(f"Failed to create provider: {e}")
 
     def get_provider_info(
@@ -288,5 +401,5 @@ class PluginManager:
         return self._providers
 
 
-# Global plugin manager instance
+# Criar a instância global do plugin_manager
 plugin_manager = PluginManager()

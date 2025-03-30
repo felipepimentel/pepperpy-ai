@@ -25,9 +25,10 @@ Example:
 
 import abc
 import enum
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, AsyncIterator, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, cast
 
 from pepperpy.core.base import (
     BaseProvider,
@@ -445,27 +446,11 @@ def create_provider(provider_type: str = "openai", **config: Any) -> LLMProvider
         ValidationError: If provider creation fails
     """
     try:
-        from pepperpy.llm.providers import PROVIDER_MODULES
+        # Usar o plugin_manager em vez de importar diretamente os providers
+        from pepperpy.plugin_manager import plugin_manager
 
-        if provider_type not in PROVIDER_MODULES:
-            raise ValidationError(f"Unknown provider type: {provider_type}")
-
-        # Import provider class lazily
-        module_path = PROVIDER_MODULES[provider_type]
-        module_name, class_name = module_path.rsplit(".", 1)
-
-        try:
-            import importlib
-
-            module = importlib.import_module(module_name)
-            provider_class = getattr(module, class_name)
-        except ImportError as e:
-            raise ValidationError(
-                f"Failed to import provider '{provider_type}'. "
-                f"Make sure you have installed the required dependencies: {e}"
-            )
-
-        # Create provider instance
-        return provider_class(**config)
+        # Criar o provider usando o plugin_manager
+        provider = plugin_manager.create_provider("llm", provider_type, **config)
+        return cast(LLMProvider, provider)
     except Exception as e:
         raise ValidationError(f"Failed to create LLM provider '{provider_type}': {e}")

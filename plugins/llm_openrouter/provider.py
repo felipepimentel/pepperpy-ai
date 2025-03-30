@@ -194,6 +194,26 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
                     # Skip invalid chunks
                     continue
 
+    async def stream(
+        self,
+        messages: Union[str, List[Message]],
+        **kwargs: Any,
+    ) -> AsyncIterator[GenerationChunk]:
+        """Generate text in a streaming fashion (alias for generate_stream).
+
+        Args:
+            messages: String prompt or list of messages
+            **kwargs: Additional generation options
+
+        Returns:
+            AsyncIterator yielding GenerationChunk objects
+
+        Raises:
+            LLMError: If generation fails
+        """
+        async for chunk in self.generate_stream(messages, **kwargs):
+            yield chunk
+
     async def cleanup(self) -> None:
         """Clean up provider resources."""
         if self.client:

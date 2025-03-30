@@ -1,29 +1,32 @@
-# Tiny Vector Rag Provider Plugin Metadata
-name: "Tiny Vector Rag Provider"
-version: "0.1.0"
-description: "Provider for Tiny Vector for rag tasks"
-author: "PepperPy Team"
-plugin_category: "rag"
-provider_type: "tiny_vector"
-
-# Default configuration values
-default_config:
-  # Add your default config here
-  
-# Configuration schema
-config_schema:
-  # Add your config schema here
-
-# Documentation
+name: Tiny Vector Rag Provider
+version: 0.1.0
+description: Provider for Tiny Vector for rag tasks
+author: PepperPy Team
+plugin_category: rag
+provider_type: tiny_vector
+default_config: null
+config_schema: null
 documentation:
-  usage: |
-    Tiny Vector provider for rag tasks.
-    
+  usage: 'Tiny Vector provider for rag tasks.
+
+
     Example usage:
+
     ```python
+
     from pepperpy import create_provider
-    
+
+
     provider = create_provider("rag", "tiny_vector")
-    
+
+
     # Usage example here
+
     ```
+
+    '
+category: rag
+provider_name: tiny_vector
+entry_point: provider.Tiny_vectorProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

@@ -39,7 +39,7 @@ from pepperpy.core.base import (
 )
 from pepperpy.core.config import Config
 from pepperpy.core.di import Container
-from pepperpy.core.logging import Logger, LogLevel, get_logger
+from pepperpy.core.logging import get_logger, logger
 from pepperpy.core.memory import BaseMemory
 from pepperpy.core.metrics import MetricsCollector
 from pepperpy.core.utils import (
@@ -86,9 +86,6 @@ __all__ = [
     "JsonType",
     "JsonValue",
     "LLMProvider",
-    "LogLevel",
-    # Logging
-    "Logger",
     "Metadata",
     # Metrics
     "MetricsCollector",
@@ -112,6 +109,8 @@ __all__ = [
     "get_class_attributes",
     "get_logger",
     "import_string",
+    # Logging
+    "logger",
     "merge_configs",
     "retry",
     "safe_import",

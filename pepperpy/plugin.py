@@ -682,6 +682,7 @@ def discover_plugins(plugins_dir: Optional[str] = None) -> Dict[str, Dict[str, A
             logger.warning(f"Plugins directory not found: {plugins_dir}")
             return {}
 
+    logger.debug(f"Scanning for plugins in: {plugins_dir}")
     plugins = {}
     for plugin_dir in Path(plugins_dir).iterdir():
         if not plugin_dir.is_dir():
@@ -690,26 +691,58 @@ def discover_plugins(plugins_dir: Optional[str] = None) -> Dict[str, Dict[str, A
         try:
             # Attempt to load metadata from plugin.yaml, plugin.json, or generate it
             try:
+                plugin_yaml_path = Path(plugin_dir) / "plugin.yaml"
+                if plugin_yaml_path.exists():
+                    with open(plugin_yaml_path) as f:
+                        metadata = yaml.safe_load(f)
+                        # Ensure the metadata has all required fields
+                        required_fields = [
+                            "name",
+                            "version",
+                            "description",
+                            "category",
+                            "provider_name",
+                            "entry_point",
+                        ]
+                        missing_fields = [
+                            field for field in required_fields if field not in metadata
+                        ]
+                        if missing_fields:
+                            logger.warning(
+                                f"Plugin in {plugin_dir} is missing fields: {', '.join(missing_fields)}"
+                            )
+                            # Use directory name as fallback for plugin name
+                            if "name" not in metadata:
+                                metadata["name"] = plugin_dir.name
+
+                        plugins[plugin_dir.name] = metadata
+                        logger.debug(f"Loaded plugin metadata from {plugin_yaml_path}")
+                    continue
+
+                # Fallback to load from directory method if plugin.yaml doesn't exist
                 metadata = ProviderPlugin.load_from_directory(str(plugin_dir))
                 plugins[metadata.get("name", plugin_dir.name)] = metadata
+                logger.debug(
+                    f"Loaded plugin metadata using load_from_directory for {plugin_dir}"
+                )
             except ValueError as e:
-                logger.warning(f"Failed to load plugin metadata: {e}")
+                logger.warning(f"Failed to load plugin metadata for {plugin_dir}: {e}")
                 continue
 
-            # Check if requirements.txt exists
-            requirements_path = plugin_dir / "requirements.txt"
+            # Check if requirements.txt exists and create if needed
+            requirements_path = Path(plugin_dir) / "requirements.txt"
             if not requirements_path.exists():
-                # Create empty requirements file if it doesn't exist
                 try:
                     with open(requirements_path, "w") as f:
-                        f.write("# PepperPy plugin dependencies\n")
-                    logger.debug(
-                        f"Created empty requirements.txt for plugin {plugin_dir.name}"
-                    )
+                        f.write("# Plugin dependencies\n")
+                    logger.debug(f"Created empty requirements.txt for {plugin_dir}")
                 except Exception as e:
-                    logger.warning(f"Failed to create requirements.txt: {e}")
+                    logger.warning(
+                        f"Failed to create requirements.txt in {plugin_dir}: {e}"
+                    )
+
         except Exception as e:
-            logger.error(f"Failed to load plugin from {plugin_dir}: {e}")
+            logger.exception(f"Error processing plugin in {plugin_dir}: {e}")
 
     return plugins
 
