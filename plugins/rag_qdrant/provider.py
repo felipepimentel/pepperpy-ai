@@ -13,7 +13,11 @@ from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 class QdrantProvider(RAGProvider):
     """Qdrant vector database provider for RAG."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[httpx.AsyncClient] = None
+def __init__(
         self,
         collection_name: str = "pepperpy",
         host: Optional[str] = None,

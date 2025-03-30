@@ -11,7 +11,10 @@ from pepperpy.tools.repository.base import RepositoryProvider
 class GitHubProvider(RepositoryProvider):
     """GitHub repository provider implementation."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         token: Optional[str] = None,
         **kwargs: Any,

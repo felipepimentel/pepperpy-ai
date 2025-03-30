@@ -25,7 +25,10 @@ class LocalProvider(EmbeddingProvider):
 
     name = "local"
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         model_name: str = "all-MiniLM-L6-v2",
         **kwargs: Any,

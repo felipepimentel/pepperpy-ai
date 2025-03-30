@@ -19,7 +19,10 @@ class HashEmbeddingProvider(EmbeddingProvider):
     not be used in production as it doesn't capture semantic meaning.
     """
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         embedding_dim: int = 1536,
         provider_name: Optional[str] = None,

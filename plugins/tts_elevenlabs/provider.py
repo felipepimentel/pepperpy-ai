@@ -24,7 +24,10 @@ class ElevenLabsProvider(TTSProvider):
 
     BASE_URL = "https://api.elevenlabs.io/v1"
 
-    def __init__(self, **kwargs):
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(self, **kwargs):
         """Initialize the ElevenLabs provider.
 
         Args:

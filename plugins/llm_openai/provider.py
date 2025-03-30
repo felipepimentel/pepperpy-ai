@@ -25,9 +25,9 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
 
     # Attributes auto-bound from plugin.yaml
     api_key: str
-    model: str
-    temperature: float
-    max_tokens: int
+    model: str = "gpt-3.5-turbo"
+    temperature: float = 0.7
+    max_tokens: int = 1024
     client: Optional[AsyncOpenAI] = None
 
     def __init__(self, **kwargs: Any) -> None:
@@ -164,6 +164,26 @@ class OpenAIProvider(LLMProvider, ProviderPlugin):
                 finish_reason=chunk.choices[0].finish_reason,
                 metadata={"model": model},
             )
+
+    async def stream(
+        self,
+        messages: Union[str, List[Message]],
+        **kwargs: Any,
+    ) -> AsyncIterator[GenerationChunk]:
+        """Generate text in a streaming fashion (alias for generate_stream).
+
+        Args:
+            messages: String prompt or list of messages
+            **kwargs: Additional generation options
+
+        Returns:
+            AsyncIterator yielding GenerationChunk objects
+
+        Raises:
+            RuntimeError: If generation fails
+        """
+        async for chunk in self.generate_stream(messages, **kwargs):
+            yield chunk
 
     async def cleanup(self) -> None:
         """Clean up provider resources."""

@@ -14,7 +14,16 @@ class FastAIEmbeddingProvider(EmbeddingProvider):
     It's particularly good for text classification and sentiment analysis.
     """
 
-    name = "fastai"
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    model: str = "default-model"
+    base_url: str
+    temperature: float = 0.7
+    max_tokens: int = 1024
+    user_id: str
+    client: Optional[Any]
 
     def __init__(
         self,

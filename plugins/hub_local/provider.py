@@ -38,7 +38,10 @@ class LocalHubProvider(HubProvider):
 
     name = "local"
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         config: Optional[Dict[str, Any]] = None,
     ) -> None:

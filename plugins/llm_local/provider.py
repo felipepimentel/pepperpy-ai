@@ -28,12 +28,16 @@ from pepperpy.plugin import ProviderPlugin
 class LocalProvider(LLMProvider, ProviderPlugin):
     """Local LLM provider using transformers."""
 
-    # Attributes auto-bound from plugin.yaml
-    model: str
-    model_path: Optional[str]
-    device: str
-    temperature: float
-    max_tokens: int
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    model: str = "default-model"
+    base_url: str
+    temperature: float = 0.7
+    max_tokens: int = 1024
+    user_id: str
+    client: Optional[Any]
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the Local LLM provider."""

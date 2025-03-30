@@ -33,7 +33,10 @@ class AnnoyRAGProvider(RAGProvider):
         **kwargs: Additional configuration options
     """
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         data_dir: str = ".pepperpy/annoy",
         embedding_dim: int = 1536,  # Default for OpenAI embeddings

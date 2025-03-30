@@ -12,7 +12,10 @@ from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 class EpsillaProvider(RAGProvider):
     """Epsilla vector database provider for RAG."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         host: str = "localhost",
         port: int = 8888,

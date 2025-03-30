@@ -14,7 +14,10 @@ from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 class LanceDBProvider(RAGProvider):
     """LanceDB vector database provider for RAG."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         uri: Optional[str] = None,
         table_name: str = "pepperpy",

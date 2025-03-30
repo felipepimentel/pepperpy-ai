@@ -16,7 +16,10 @@ from ..base import StorageError, StorageObject, StorageProvider, StorageStats
 class LocalProvider(StorageProvider):
     """Local filesystem implementation of the storage provider interface."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         base_dir: str = ".pepperpy/storage",
         config: Optional[Dict[str, Any]] = None,

@@ -12,7 +12,10 @@ from ..models import Document, SearchResult
 class SupabaseRAGProvider(RAGProvider):
     """Supabase-based RAG provider."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         supabase_url: str,
         supabase_key: str,

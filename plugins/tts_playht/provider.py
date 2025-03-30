@@ -7,7 +7,8 @@ Implements text-to-speech capabilities using Play.ht API.
 import asyncio
 import os
 import time
-from typing import Any, AsyncIterator, Dict, List
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List
 
 import aiohttp
 
@@ -16,6 +17,13 @@ from ..base import TTSCapabilities, TTSProvider, TTSProviderError, TTSVoiceError
 
 class PlayHTProvider(TTSProvider):
     """Play.ht TTS provider implementation."""
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    user_id: str
+    voice_engine: str = "PlayHT2.0-turbo"
+    quality: str = "premium"
+    speed: float = 1.0
 
     BASE_URL = "https://api.play.ht/api/v2"
 
@@ -40,9 +48,9 @@ class PlayHTProvider(TTSProvider):
                 "Play.ht User ID not found. Set PEPPERPY_TTS_PLAYHT__USER_ID environment variable."
             )
 
-        self.voice_engine = kwargs.get("voice_engine", "PlayHT2.0-turbo")
-        self.quality = kwargs.get("quality", "premium")
-        self.speed = kwargs.get("speed", 1.0)
+        self.voice_engine = kwargs.get("voice_engine", self.voice_engine)
+        self.quality = kwargs.get("quality", self.quality)
+        self.speed = kwargs.get("speed", self.speed)
         self.headers = {
             "AUTHORIZATION": self.api_key,
             "X-USER-ID": self.user_id,
@@ -112,11 +120,11 @@ class PlayHTProvider(TTSProvider):
                     return data.get("id", "")
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with Play.ht: {str(e)}"
+                f"Network error while communicating with Play.ht: {e!s}"
             ) from e
         except Exception as e:
             raise TTSProviderError(
-                f"Error creating speech job with Play.ht: {str(e)}"
+                f"Error creating speech job with Play.ht: {e!s}"
             ) from e
 
     async def _wait_for_job_completion(
@@ -154,12 +162,12 @@ class PlayHTProvider(TTSProvider):
             raise TTSProviderError(f"Job timed out after {timeout} seconds")
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while checking job status: {str(e)}"
+                f"Network error while checking job status: {e!s}"
             ) from e
         except TTSProviderError:
             raise
         except Exception as e:
-            raise TTSProviderError(f"Error checking job status: {str(e)}") from e
+            raise TTSProviderError(f"Error checking job status: {e!s}") from e
 
     async def _download_audio(self, url: str) -> bytes:
         """Download the generated audio file."""
@@ -175,10 +183,10 @@ class PlayHTProvider(TTSProvider):
                     return await response.read()
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while downloading audio: {str(e)}"
+                f"Network error while downloading audio: {e!s}"
             ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error downloading audio: {str(e)}") from e
+            raise TTSProviderError(f"Error downloading audio: {e!s}") from e
 
     async def convert_text(self, text: str, voice_id: str, **kwargs) -> bytes:
         """Convert text to speech using Play.ht API.
@@ -280,12 +288,10 @@ class PlayHTProvider(TTSProvider):
                     return voices
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with Play.ht: {str(e)}"
+                f"Network error while communicating with Play.ht: {e!s}"
             ) from e
         except Exception as e:
-            raise TTSProviderError(
-                f"Error fetching voices from Play.ht: {str(e)}"
-            ) from e
+            raise TTSProviderError(f"Error fetching voices from Play.ht: {e!s}") from e
 
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs) -> str:
         """Clone a voice using provided samples."""
@@ -324,7 +330,7 @@ class PlayHTProvider(TTSProvider):
                     return data.get("id", "")
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with Play.ht: {str(e)}"
+                f"Network error while communicating with Play.ht: {e!s}"
             ) from e
         except Exception as e:
-            raise TTSProviderError(f"Error cloning voice with Play.ht: {str(e)}") from e
+            raise TTSProviderError(f"Error cloning voice with Play.ht: {e!s}") from e

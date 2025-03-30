@@ -16,7 +16,10 @@ except ImportError:
 class AzureProvider(TTSProvider):
     """Azure TTS provider implementation."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         subscription_key: str,
         region: str,

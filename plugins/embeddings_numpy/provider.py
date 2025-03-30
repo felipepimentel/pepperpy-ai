@@ -53,7 +53,10 @@ class NumpyProvider(EmbeddingsProvider):
     It creates simple embeddings based on character frequencies.
     """
 
-    def __init__(self, embedding_dim: int = 64):
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(self, embedding_dim: int = 64):
         """Initialize the numpy embeddings provider.
 
         Args:

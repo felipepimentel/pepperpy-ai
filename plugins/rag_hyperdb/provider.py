@@ -13,7 +13,10 @@ from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 class HyperDBProvider(RAGProvider):
     """HyperDB vector database provider for RAG."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         persist_directory: Optional[str] = None,
         dimension: int = 1536,  # Default for text-embedding-3-small

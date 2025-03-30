@@ -44,7 +44,11 @@ class ObjectStoreProvider(BaseProvider):
     Supports AWS S3, MinIO, and other S3-compatible services.
     """
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[httpx.AsyncClient] = None
+def __init__(
         self,
         endpoint_url: Optional[str] = None,
         region_name: Optional[str] = None,

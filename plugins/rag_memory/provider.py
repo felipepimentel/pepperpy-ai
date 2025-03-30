@@ -59,7 +59,10 @@ class InMemoryProvider(BaseProvider):
 
     name = "memory"
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         collection_name: str = "default",
         **kwargs: Any,

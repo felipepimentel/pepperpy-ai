@@ -12,7 +12,10 @@ from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 class PineconeProvider(RAGProvider):
     """Pinecone vector database provider for RAG."""
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         index_name: str,
         api_key: str,

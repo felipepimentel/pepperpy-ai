@@ -15,7 +15,10 @@ class SQLiteRAGProvider(RAGProvider):
     This provider stores documents and embeddings in a SQLite database.
     """
 
-    def __init__(
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(
         self,
         database_path: Optional[str] = None,
         embedding_dim: int = 384,

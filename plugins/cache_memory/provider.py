@@ -28,7 +28,10 @@ class CacheEntry:
 class MemoryCacheProvider(CacheProvider, BaseLocalProvider):
     """In-memory cache provider implementation."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize memory cache provider."""
         super().__init__(config=config)
         self._entries: Dict[str, CacheEntry] = {}
