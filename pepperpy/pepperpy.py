@@ -1,12 +1,13 @@
-"""PepperPy main module.
+"""Main PepperPy class.
 
-This module provides the main PepperPy class and builder classes for
-working with LLMs, RAG, and other AI capabilities.
+This module provides the main entry point for using the PepperPy framework.
+It abstracts the plugin system and provides a fluent API for configuring
+and using providers.
 """
 
+from collections.abc import AsyncIterator
 from typing import (
     Any,
-    AsyncIterator,
     Dict,
     List,
     Optional,
@@ -15,6 +16,9 @@ from typing import (
     cast,
 )
 
+from loguru import logger
+
+from pepperpy.core import ValidationError
 from pepperpy.llm import (
     GenerationChunk,
     GenerationResult,
@@ -22,6 +26,7 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
+from pepperpy.plugin_manager import plugin_manager
 from pepperpy.rag import (
     Document,
     Query,
@@ -37,154 +42,118 @@ from pepperpy.workflow.base import (
 
 
 class ChatBuilder:
-    """Fluent builder for chat interactions."""
+    """Builder for chat interactions."""
 
-    def __init__(self, llm: LLMProvider) -> None:
+    def __init__(self, provider: LLMProvider) -> None:
         """Initialize chat builder.
 
         Args:
-            llm: LLM provider to use
+            provider: LLM provider to use
         """
-        self._llm = llm
+        self._provider = provider
         self._messages: List[Message] = []
-        self._temperature: float = 0.7
+        self._temperature: Optional[float] = None
         self._max_tokens: Optional[int] = None
 
-    def with_system(self, content: str) -> Self:
-        """Add a system message.
+    def with_system(self, message: str) -> Self:
+        """Add system message.
 
         Args:
-            content: Message content
+            message: System message content
 
         Returns:
             Self for chaining
         """
-        self._messages.append(Message(role=MessageRole.SYSTEM, content=content))
+        self._messages.append(Message(role=MessageRole.SYSTEM, content=message))
         return self
 
-    def with_user(self, content: str) -> Self:
-        """Add a user message.
+    def with_user(self, message: str) -> Self:
+        """Add user message.
 
         Args:
-            content: Message content
+            message: User message content
 
         Returns:
             Self for chaining
         """
-        self._messages.append(Message(role=MessageRole.USER, content=content))
+        self._messages.append(Message(role=MessageRole.USER, content=message))
         return self
 
-    def with_assistant(self, content: str) -> Self:
-        """Add an assistant message.
+    def with_assistant(self, message: str) -> Self:
+        """Add assistant message.
 
         Args:
-            content: Message content
+            message: Assistant message content
 
         Returns:
             Self for chaining
         """
-        self._messages.append(Message(role=MessageRole.ASSISTANT, content=content))
-        return self
-
-    def with_message(self, role: Union[str, MessageRole], content: str) -> Self:
-        """Add a message with specific role.
-
-        Args:
-            role: Message role
-            content: Message content
-
-        Returns:
-            Self for chaining
-        """
-        if isinstance(role, str):
-            role = MessageRole(role)
-        self._messages.append(Message(role=role, content=content))
+        self._messages.append(Message(role=MessageRole.ASSISTANT, content=message))
         return self
 
     def with_temperature(self, temperature: float) -> Self:
         """Set temperature for generation.
 
         Args:
-            temperature: Temperature value between 0 and 1
+            temperature: Temperature value (0.0 to 1.0)
 
         Returns:
             Self for chaining
-
-        Raises:
-            ValueError: If temperature is not between 0 and 1
         """
-        if not 0 <= temperature <= 1:
-            raise ValueError("Temperature must be between 0 and 1")
         self._temperature = temperature
         return self
 
-    def with_max_tokens(self, max_tokens: Optional[int]) -> Self:
+    def with_max_tokens(self, max_tokens: int) -> Self:
         """Set maximum tokens for generation.
 
         Args:
-            max_tokens: Maximum tokens to generate, or None for no limit
+            max_tokens: Maximum tokens to generate
 
         Returns:
             Self for chaining
-
-        Raises:
-            ValueError: If max_tokens is negative
         """
-        if max_tokens is not None and max_tokens < 0:
-            raise ValueError("max_tokens must be positive or None")
         self._max_tokens = max_tokens
         return self
 
-    async def generate(self, **kwargs: Any) -> GenerationResult:
-        """Generate response from messages.
-
-        Args:
-            **kwargs: Additional generation options
+    async def generate(self) -> GenerationResult:
+        """Generate response using the configured messages.
 
         Returns:
-            Generation result
+            GenerationResult containing the response
 
         Raises:
-            ValueError: If no messages have been added
+            ValidationError: If no messages are configured
         """
         if not self._messages:
-            raise ValueError(
-                "No messages added. Add at least one message before generating."
-            )
+            raise ValidationError("No messages configured for generation")
 
-        generation_kwargs = {"temperature": self._temperature, **kwargs}
+        kwargs: Dict[str, Any] = {}
+        if self._temperature is not None:
+            kwargs["temperature"] = self._temperature
         if self._max_tokens is not None:
-            generation_kwargs["max_tokens"] = self._max_tokens
+            kwargs["max_tokens"] = self._max_tokens
 
-        return await self._llm.generate(self._messages, **generation_kwargs)
+        return await self._provider.generate(self._messages, **kwargs)
 
-    async def stream(self, **kwargs: Any) -> AsyncIterator[GenerationChunk]:
-        """Stream response from messages.
-
-        Args:
-            **kwargs: Additional generation options
+    async def stream(self) -> AsyncIterator[GenerationChunk]:
+        """Generate response in streaming mode.
 
         Returns:
-            AsyncIterator yielding generation chunks
+            AsyncIterator yielding GenerationChunk objects
 
         Raises:
-            ValueError: If no messages have been added
+            ValidationError: If no messages are configured
         """
         if not self._messages:
-            raise ValueError(
-                "No messages added. Add at least one message before streaming."
-            )
+            raise ValidationError("No messages configured for generation")
 
-        generation_kwargs = {"temperature": self._temperature, **kwargs}
+        kwargs: Dict[str, Any] = {}
+        if self._temperature is not None:
+            kwargs["temperature"] = self._temperature
         if self._max_tokens is not None:
-            generation_kwargs["max_tokens"] = self._max_tokens
+            kwargs["max_tokens"] = self._max_tokens
 
-        stream = cast(
-            AsyncIterator[GenerationChunk],
-            self._llm.stream(self._messages, **generation_kwargs),
-        )
-        async for chunk in stream:
-            yield chunk
+        return await self._provider.generate_stream(self._messages, **kwargs)
 
 
 class TTSBuilder:
@@ -1127,20 +1096,42 @@ class LLMBuilder:
         return await self._provider.generate(messages)
 
 
-class PepperPy:  # type: ignore[attr-defined]
+class PepperPy:
     """Main class for interacting with the PepperPy framework."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize PepperPy.
 
         Args:
-            config: Optional configuration dictionary
+            config: Optional global configuration
         """
         self._config = config or {}
         self._llm_provider: Optional[LLMProvider] = None
         self._rag_provider: Optional[RAGProvider] = None
         self._workflow_provider: Optional[WorkflowProvider] = None
         self._tts_provider: Optional[TTSProvider] = None
+
+    def with_llm(
+        self,
+        provider_type: str = "openai",
+        **config: Any,
+    ) -> Self:
+        """Configure LLM provider.
+
+        Args:
+            provider_type: Type of provider to use (default: openai)
+            **config: Provider configuration
+
+        Returns:
+            Self for chaining
+        """
+        logger.debug(f"Configuring LLM provider: {provider_type}")
+
+        # Use plugin manager internally
+        self._llm_provider = plugin_manager.create_provider(
+            "llm", provider_type, **config
+        )
+        return self
 
     def with_rag(self, provider: Optional[RAGProvider] = None) -> "PepperPy":
         """Configure RAG support.
@@ -1154,18 +1145,6 @@ class PepperPy:  # type: ignore[attr-defined]
         if provider is None:
             provider = cast(RAGProvider, InMemoryProvider())
         self._rag_provider = provider
-        return self
-
-    def with_llm(self, provider: LLMProvider) -> "PepperPy":
-        """Configure LLM support.
-
-        Args:
-            provider: LLM provider to use
-
-        Returns:
-            Self for chaining
-        """
-        self._llm_provider = provider
         return self
 
     def with_workflow(self, provider: WorkflowProvider) -> "PepperPy":
@@ -1249,9 +1228,16 @@ class PepperPy:  # type: ignore[attr-defined]
 
     @property
     def chat(self) -> ChatBuilder:
-        """Get chat builder."""
+        """Get chat builder for interaction.
+
+        Returns:
+            ChatBuilder instance
+
+        Raises:
+            ValidationError: If LLM provider is not configured
+        """
         if not self._llm_provider:
-            raise ValueError("LLM provider not configured. Call with_llm() first.")
+            raise ValidationError("LLM provider not configured. Call with_llm() first.")
         return ChatBuilder(self._llm_provider)
 
     @property
@@ -1305,16 +1291,17 @@ class PepperPy:  # type: ignore[attr-defined]
             )
         return DocumentBuilder(self._workflow_provider)
 
-    async def __aenter__(self) -> "PepperPy":
+    async def __aenter__(self) -> Self:
         """Enter async context.
 
         Returns:
             Self for use in context
         """
-        if self._rag_provider:
-            await self._rag_provider.initialize()
+        # Initialize all configured providers
         if self._llm_provider:
             await self._llm_provider.initialize()
+        if self._rag_provider:
+            await self._rag_provider.initialize()
         if self._workflow_provider:
             await self._workflow_provider.initialize()
         if self._tts_provider:
@@ -1323,10 +1310,11 @@ class PepperPy:  # type: ignore[attr-defined]
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit async context."""
-        if self._rag_provider:
-            await self._rag_provider.cleanup()
+        # Clean up all configured providers
         if self._llm_provider:
             await self._llm_provider.cleanup()
+        if self._rag_provider:
+            await self._rag_provider.cleanup()
         if self._workflow_provider:
             await self._workflow_provider.cleanup()
         if self._tts_provider:

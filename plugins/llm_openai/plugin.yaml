@@ -1,0 +1,78 @@
+# OpenAI Provider Plugin Metadata
+name: "OpenAI LLM Provider"
+version: "0.1.0"
+description: "Provider for the OpenAI GPT models"
+author: "PepperPy Team"
+plugin_category: "llm"
+provider_type: "openai"
+required_config_keys:
+  - "api_key"
+
+# Default configuration values
+default_config:
+  model: "gpt-3.5-turbo"
+  temperature: 0.7
+  max_tokens: 1024
+
+# Configuration schema
+config_schema:
+  api_key:
+    description: "OpenAI API key"
+    required: true
+    env_var: "OPENAI_API_KEY"
+    type: "string"
+  model:
+    description: "Model to use, e.g. gpt-3.5-turbo, gpt-4"
+    required: false
+    default: "gpt-3.5-turbo"
+    type: "string"
+  temperature:
+    description: "Sampling temperature between 0.0 (deterministic) and 2.0 (creative)"
+    required: false
+    default: 0.7
+    type: "float"
+    min: 0.0
+    max: 2.0
+  max_tokens:
+    description: "Maximum tokens to generate in the response"
+    required: false
+    default: 1024
+    type: "integer"
+    min: 1
+
+# Documentation
+documentation:
+  usage: |
+    OpenAI provider for language model tasks.
+    
+    Requires an OpenAI API key which can be specified:
+    1. As a constructor parameter: api_key="sk-..."
+    2. As an environment variable: OPENAI_API_KEY or PEPPERPY_LLM__OPENAI__API_KEY
+    
+    Example usage:
+    ```python
+    from pepperpy import create_provider
+    
+    provider = create_provider("llm", "openai", api_key="your-api-key")
+    
+    response = await provider.generate("Tell me a joke.")
+    print(response.content)
+    ```
+  
+  parameters:
+    api_key:
+      description: "OpenAI API key"
+      required: true
+      env_var: "OPENAI_API_KEY"
+    model:
+      description: "Model to use, e.g. gpt-3.5-turbo, gpt-4"
+      required: false
+      default: "gpt-3.5-turbo"
+    temperature:
+      description: "Sampling temperature between 0.0 (deterministic) and 2.0 (creative)"
+      required: false
+      default: 0.7
+    max_tokens:
+      description: "Maximum tokens to generate in the response"
+      required: false
+      default: 1024 

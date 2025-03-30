@@ -1,0 +1,206 @@
+---
+title: Plugin Structure
+description: Define standard plugin structure and organization for the PepperPy framework
+globs: plugins/**/*
+priority: 950
+---
+
+# PepperPy Plugin Structure
+
+## Overview
+
+This rule defines the standardized structure and implementation patterns for creating plugins in the PepperPy framework. It emphasizes separation of concerns, standardized directory structure, and proper implementation patterns.
+
+## Plugin Directory Structure
+
+Every plugin MUST follow this directory structure:
+
+```
+plugins/
+└── my_plugin/               # Plugin directory (snake_case)
+    ├── plugin.yaml          # Plugin metadata and configuration schema
+    ├── provider.py          # Provider implementation
+    ├── requirements.txt     # Plugin-specific dependencies
+    └── tests/               # Plugin tests
+        └── test_provider.py # Test implementations
+```
+
+## Principle: Single Source of Truth
+
+The `plugin.yaml` file is the single source of truth for plugin metadata and configuration schema. The provider implementation MUST NOT duplicate metadata that is already defined in the yaml file.
+
+### ✅ Correct `plugin.yaml`
+
+```yaml
+# Plugin metadata
+name: "OpenAI LLM Provider"
+version: "0.1.0"
+description: "Provider for the OpenAI GPT models"
+author: "PepperPy Team"
+plugin_category: "llm"
+provider_type: "openai"
+required_config_keys:
+  - "api_key"
+
+# Default configuration values
+default_config:
+  model: "gpt-3.5-turbo"
+  temperature: 0.7
+  max_tokens: 1024
+
+# Configuration schema
+config_schema:
+  api_key:
+    description: "OpenAI API key"
+    required: true
+    env_var: "OPENAI_API_KEY"
+    type: "string"
+  model:
+    description: "Model to use, e.g. gpt-3.5-turbo, gpt-4"
+    required: false
+    default: "gpt-3.5-turbo"
+    type: "string"
+  temperature:
+    description: "Sampling temperature"
+    required: false
+    default: 0.7
+    type: "float"
+    min: 0.0
+    max: 2.0
+```
+
+### Provider Implementation
+
+The provider implementation MUST:
+1. Inherit from both the domain-specific provider base class and `ProviderPlugin`
+2. Use auto-bound attributes from plugin.yaml
+3. Not manage its own logger
+4. Not duplicate metadata from plugin.yaml
+5. Not manage its own initialization state
+
+### ✅ Correct Provider Implementation
+
+```python
+from pepperpy.llm import LLMProvider, Message
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.core import ConfigError, ProviderError
+
+class MyProvider(LLMProvider, ProviderPlugin):
+    """Provider implementation."""
+    
+    async def initialize(self) -> None:
+        """Initialize provider resources."""
+        if self.initialized:
+            return
+            
+        # Check for required configurations (auto-bound from yaml)
+        if not self.api_key:
+            raise ConfigError("API key is required")
+            
+        # Initialize provider-specific resources
+        try:
+            self.client = SomeClient(api_key=self.api_key)
+        except Exception as e:
+            raise ProviderError(f"Failed to initialize client: {e}") from e
+    
+    async def generate(self, messages, **kwargs):
+        """Generate content."""
+        # Use auto-bound attributes from plugin.yaml 
+        temperature = kwargs.get("temperature", self.temperature)
+        model = kwargs.get("model", self.model)
+        
+        # Make API call
+        response = await self.client.generate(
+            messages, 
+            temperature=temperature,
+            model=model
+        )
+        
+        return response
+        
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Release resources but DO NOT manage initialization state
+        self.client = None
+        # DON'T DO THIS: self.initialized = False
+```
+
+## ❌ Anti-patterns
+
+### Manual Configuration Duplication
+
+```python
+# WRONG - Duplicating metadata in code
+class MyProvider(LLMProvider, ProviderPlugin):
+    """Provider implementation."""
+    
+    # WRONG - Duplicating metadata that's in plugin.yaml
+    plugin_name = "My Provider"
+    plugin_version = "0.1.0"
+    plugin_category = "llm"
+    provider_type = "myprovider"
+    required_config_keys = ["api_key"]
+```
+
+### Manual Config Attribute Setup
+
+```python
+# WRONG - Manual attribute mapping
+def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    
+    # WRONG - Should use auto-binding instead
+    self.temperature = self._config.get("temperature", 0.7)
+    self.model = self._config.get("model", "default-model")
+    self.max_tokens = self._config.get("max_tokens", 1024)
+```
+
+### Manual Logger Management
+
+```python
+# WRONG - Manual logger setup
+def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    
+    # WRONG - Logger is injected by the framework
+    self.logger = get_logger("my_provider")
+    
+    # Using the logger directly
+    self.logger.debug("Provider initialized")  # WRONG
+    
+    # CORRECT - Logger is accessed via self.logger property
+    # and managed by the framework
+```
+
+### Manual State Management
+
+```python
+# WRONG - Manual initialization state management
+async def cleanup(self) -> None:
+    """Clean up resources."""
+    self.client = None
+    self.initialized = False  # WRONG - Framework manages this
+```
+
+## Best Practices
+
+1. **Use Single Source of Truth**: Define all metadata and configuration schema in `plugin.yaml`
+2. **Follow Lifecycle Pattern**: Let the framework manage your plugin's lifecycle
+3. **Use Auto-binding**: Access configuration attributes directly (e.g., `self.temperature`) 
+4. **Focus on Business Logic**: Your provider should focus on the specific provider implementation
+5. **Leverage Framework Features**: Use centralized logging, config validation, etc.
+
+## Implementation Checklist
+
+- [ ] The plugin has a `plugin.yaml` file with complete metadata and configuration schema
+- [ ] The provider class correctly inherits from the domain provider and `ProviderPlugin`
+- [ ] Configuration is defined in the schema and accessed via auto-bound attributes
+- [ ] No manual initialization state management is performed
+- [ ] The provider focuses solely on its specific implementation logic
+
+## Validation and Testing
+
+- Plugins MUST include unit tests
+- Tests SHOULD use the `pytest` framework
+- Tests SHOULD include both success and failure scenarios
+- Plugins SHOULD be tested with missing configurations to verify error handling 

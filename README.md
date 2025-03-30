@@ -1,14 +1,14 @@
 # PepperPy
 
-A framework for building AI-powered applications with RAG (Retrieval Augmented Generation) and LLM capabilities.
+A flexible and extensible Python framework for AI applications.
 
 ## Features
 
-- 🔍 **RAG**: Semantic search and document retrieval
-- 🤖 **LLM**: Text generation and chat capabilities
-- 💾 **Storage**: File and document management
-- 🔄 **Composition**: Combine RAG and LLM operations
-- 🎯 **Tools**: Domain-specific utilities (e.g., PDI assistant)
+- 🚀 Simple and intuitive API
+- 🔌 Plugin-based architecture for providers
+- 🎯 Focused on developer experience
+- 🛠️ Easy to extend and customize
+- 🔄 Async-first design
 
 ## Installation
 
@@ -18,149 +18,131 @@ pip install pepperpy
 
 ## Quick Start
 
-### RAG Operations
+Here's a simple example using the OpenAI provider:
 
 ```python
 import asyncio
-from pepperpy import store_and_search, Document
+import os
+from pepperpy import PepperPy
 
 async def main():
-    # Store and search documents in one operation
-    docs = [
-        Document(text="Python is a programming language"),
-        Document(text="Python is great for AI development")
-    ]
+    # Create a PepperPy instance with the OpenAI provider
+    async with PepperPy().with_llm(
+        provider_type="openai",
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        model="gpt-3.5-turbo"
+    ) as pepper:
+        # Use the fluent API to generate text
+        result = await (
+            pepper.chat
+            .with_system("You are a helpful assistant.")
+            .with_user("Tell me about Python.")
+            .generate()
+        )
+        
+        print(f"Assistant: {result.content}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Streaming Support
+
+PepperPy supports streaming responses:
+
+```python
+async def stream_example():
+    async with PepperPy().with_llm(
+        provider_type="openai",
+        api_key=os.environ.get("OPENAI_API_KEY")
+    ) as pepper:
+        print("Assistant: ", end="", flush=True)
+        
+        # Stream the response
+        stream = await (
+            pepper.chat
+            .with_user("Tell me a story.")
+            .generate_stream()
+        )
+        
+        async for chunk in stream:
+            print(chunk.content, end="", flush=True)
+        print()  # New line at the end
+```
+
+## Available Providers
+
+### LLM Providers
+
+- OpenAI (`provider_type="openai"`)
+  - Requires: `OPENAI_API_KEY`
+  - Models: `gpt-3.5-turbo`, `gpt-4`, etc.
+
+More providers coming soon!
+
+## Development
+
+### Setup
+
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/pepperpy.git
+cd pepperpy
+```
+
+2. Install dependencies:
+```bash
+poetry install
+```
+
+3. Run tests:
+```bash
+poetry run pytest
+```
+
+### Creating a Provider Plugin
+
+1. Create a new directory in `plugins/`:
+```bash
+mkdir -p plugins/llm_myprovider
+```
+
+2. Create the required files:
+- `plugin.json`: Plugin metadata
+- `provider.py`: Provider implementation
+- `requirements.txt`: Provider dependencies
+
+Example `plugin.json`:
+```json
+{
+  "name": "llm_myprovider",
+  "version": "1.0.0",
+  "category": "llm",
+  "provider_name": "myprovider",
+  "description": "My custom provider for PepperPy",
+  "entry_point": "provider:MyProvider"
+}
+```
+
+Example `provider.py`:
+```python
+from pepperpy.llm import LLMProvider, Message, GenerationResult
+
+class MyProvider(LLMProvider):
+    name = "myprovider"
     
-    results = await store_and_search(
-        documents=docs,
-        query="programming language",
-        provider_type="annoy"
-    )
+    async def generate(self, messages, **kwargs):
+        # Implement generation logic
+        pass
     
-    for doc in results:
-        print(doc.text)
-
-asyncio.run(main())
-```
-
-### LLM Operations
-
-```python
-from pepperpy import generate, chat
-
-# Generate text
-response = await generate(
-    prompt="Explain what is RAG",
-    model="gpt-3.5-turbo"
-)
-
-# Chat with history
-messages = [
-    {"role": "user", "content": "What is Python?"},
-    {"role": "assistant", "content": "Python is a programming language."},
-    {"role": "user", "content": "What can I build with it?"}
-]
-
-response = await chat(messages)
-```
-
-### Storage Operations
-
-```python
-from pepperpy import save_json, load_json, store_as_document
-
-# Save and load JSON
-data = {"name": "John", "age": 30}
-await save_json("user.json", data)
-loaded = await load_json("user.json")
-
-# Store as searchable document
-await store_as_document(
-    "user.json",
-    data,
-    collection_name="users"
-)
-```
-
-### Composition
-
-```python
-from pepperpy import retrieve_and_generate, chat_with_context
-
-# RAG + LLM
-response = await retrieve_and_generate(
-    query="How to use Python for AI?",
-    prompt_template="Based on this context: {context}\n\nAnswer: {query}"
-)
-
-# Chat with document context
-response = await chat_with_context(
-    query="Explain the code",
-    history=[{"role": "user", "content": "What is this code about?"}]
-)
-```
-
-### PDI Assistant Example
-
-```python
-from pepperpy import create_and_search_pdi
-
-# Create and search PDIs in one operation
-pdis = await create_and_search_pdi(
-    user_id="user123",
-    goals=[
-        "Learn Python programming",
-        "Build an AI application"
-    ],
-    search_query="programming goals",
-    output_dir="pdis"
-)
-
-for pdi in pdis:
-    print(f"User: {pdi['user_id']}")
-    print("Goals:", pdi["goals"])
-```
-
-## Advanced Usage
-
-### Custom Provider
-
-```python
-from pepperpy import PepperPy
-
-async with PepperPy.create().with_rag(
-    provider_type="custom",
-    provider_class="my_module.CustomProvider",
-    **provider_options
-) as pepperpy:
-    await pepperpy.rag.add(documents)
-    results = await pepperpy.rag.search(query_text="search query")
-```
-
-### Multiple Components
-
-```python
-from pepperpy import PepperPy
-
-async with PepperPy.create().with_rag(
-    provider_type="annoy",
-    collection_name="docs"
-).with_llm(
-    provider_type="openai",
-    model="gpt-4"
-) as pepperpy:
-    # Use both RAG and LLM
-    docs = await pepperpy.rag.search(query_text="search")
-    response = await pepperpy.llm.generate(prompt="generate")
+    async def generate_stream(self, messages, **kwargs):
+        # Implement streaming logic
+        pass
 ```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 

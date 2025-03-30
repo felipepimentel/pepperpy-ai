@@ -58,62 +58,66 @@ from pepperpy.core.utils import (
 from pepperpy.core.validation import validate_config
 from pepperpy.core.version import __version__
 
+# Re-export error types for convenience
+ConfigError = ConfigurationError
+
 __all__ = [
     # Base
     "BaseComponent",
+    # Memory
+    "BaseMemory",
     "BaseProvider",
     "Component",
     "ComponentError",
     "ComponentRegistry",
     # Config
     "Config",
+    "ConfigError",  # Alias for ConfigurationError
+    "ConfigurationError",
+    # Errors
+    "ConnectionError",
     # DI
     "Container",
-    # Errors
-    "ConfigurationError",
-    "ConnectionError",
-    "HTTPError",
-    "PepperpyError",
-    "ProviderError",
-    "RequestError",
-    "ResponseError",
-    "TimeoutError",
-    "ValidationError",
-    # Logging
-    "Logger",
-    "LogLevel",
-    "get_logger",
-    # Memory
-    "BaseMemory",
-    # Metrics
-    "MetricsCollector",
     # Types
     "Document",
     "GenerationResult",
+    "HTTPError",
     "JsonDict",
     "JsonType",
     "JsonValue",
     "LLMProvider",
+    "LogLevel",
+    # Logging
+    "Logger",
     "Metadata",
+    # Metrics
+    "MetricsCollector",
+    "PepperpyError",
+    "ProviderError",
     "QueryParamsType",
     "RAGProvider",
+    "RequestError",
+    "ResponseError",
     "SearchResult",
     "StorageProvider",
+    "TimeoutError",
+    "ValidationError",
     "WorkflowProvider",
+    # Version
+    "__version__",
     # Utils
     "convert_to_dict",
     "flatten_dict",
     "format_date",
     "get_class_attributes",
+    "get_logger",
     "import_string",
     "merge_configs",
     "retry",
     "safe_import",
     "truncate_text",
     "unflatten_dict",
-    "validate_type",
     # Validation
     "validate_config",
-    # Version
-    "__version__",
+    "validate_type",
 ]

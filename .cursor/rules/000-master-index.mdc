@@ -17,6 +17,7 @@ The PepperPy rules system is organized into these categories:
 1. **000-099: Core Framework Rules**
    - Architecture, standards, and module patterns
    - Apply these first when working with any part of the codebase
+   - **005-plugin-structure**: Standard plugin structure and organization
 
 2. **100-199: Domain-Specific Rules**
    - Rules for specific domains (RAG, LLM, Workflow)
@@ -35,11 +36,15 @@ For each task, apply rules in this order:
    - Understand the module structure
    - Follow established patterns
 
-2. **Apply Domain Rules** (100+)
+2. **Apply Plugin Structure** (005)
+   - Follow standardized plugin organization
+   - Use recommended inheritance patterns
+
+3. **Apply Domain Rules** (100+)
    - Use domain-specific patterns
    - Follow implementation guidelines
 
-3. **Follow Quality Rules** (180+)
+4. **Follow Quality Rules** (180+)
    - Prevent duplication
    - Maintain API compatibility
 
@@ -71,10 +76,24 @@ module_name/
 └── utils/          # Module-specific utilities
 ```
 
+Plugins follow this structure:
+
+```
+plugins/
+├── domain_provider/    # Plugin directory
+│   ├── __init__.py     # Package init
+│   ├── provider.py     # Provider implementation
+│   ├── plugin.json     # Plugin metadata
+│   ├── README.md       # Documentation
+│   └── pyproject.toml  # Packaging info
+└── ...
+```
+
 ## Quick Reference
 
 When creating:
 - **New modules**: Follow 002-framework-architecture.mdc
+- **New plugins**: Follow 005-plugin-structure.mdc
 - **Code patterns**: Follow 007-module-abstraction.mdc
 - **File structure**: Follow 003-file-organization.mdc
 - **API design**: Follow 191-api-evolution.mdc

@@ -1,77 +1,22 @@
-"""PepperPy: A Python framework for building AI-powered applications.
+"""PepperPy Framework.
 
-This module provides a high-level interface for building AI applications
-with support for:
-- Content processing (documents, images, audio, video)
-- Large Language Models (LLMs)
-- Retrieval Augmented Generation (RAG)
-- Workflows and pipelines
-- Multi-agent systems
+A modular framework for building AI applications.
 """
 
-from pepperpy.content_processing.base import (
-    ContentProcessor,
-    ContentType,
-)
-from pepperpy.content_processing.errors import (
-    ContentProcessingError,
-    ProviderNotFoundError,
-)
-from pepperpy.content_processing.lazy import (
-    AVAILABLE_PROCESSORS,
-    DEFAULT_PROCESSORS,
-)
-from pepperpy.core.base import PepperpyError
-from pepperpy.core.config import Config
-from pepperpy.llm import (
-    GenerationResult,
-    LLMProvider,
-    Message,
-    MessageRole,
-)
-from pepperpy.llm import (
-    create_provider as create_llm_provider,
-)
-from pepperpy.pepperpy import PepperPy
-from pepperpy.rag import (
-    RAGProvider,
-)
-from pepperpy.rag import (
-    create_provider as create_rag_provider,
-)
-from pepperpy.workflow import (
-    Workflow,
-    WorkflowComponent,
-)
-from pepperpy.workflow import (
-    create_provider as create_workflow_provider,
-)
+from pepperpy.core import BaseProvider, ConfigError, ProviderError
+from pepperpy.core.logging import get_logger
+from pepperpy.llm import LLMProvider, Message, MessageRole
+from pepperpy.plugin import ProviderPlugin
 
 __version__ = "0.1.0"
 
 __all__ = [
-    # Core
-    "PepperPy",
-    "Config",
-    "PepperpyError",
-    # Content Processing
-    "ContentProcessor",
-    "ContentType",
-    "ContentProcessingError",
-    "ProviderNotFoundError",
-    "DEFAULT_PROCESSORS",
-    "AVAILABLE_PROCESSORS",
-    # LLM
+    "BaseProvider",
+    "ConfigError",
     "LLMProvider",
     "Message",
     "MessageRole",
-    "GenerationResult",
-    "create_llm_provider",
-    # RAG
-    "RAGProvider",
-    "create_rag_provider",
-    # Workflow
-    "Workflow",
-    "WorkflowComponent",
-    "create_workflow_provider",
+    "ProviderError",
+    "ProviderPlugin",
+    "get_logger",
 ]

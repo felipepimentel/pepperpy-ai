@@ -1,161 +1,242 @@
 ---
-title: Provider Configuration and Environment Variables
+title: Provider Configuration
 description: USE WHEN configuring or using providers to ensure proper environment variable handling and provider abstraction
-globs:
-  - "pepperpy/**/providers/*.py"
-alwaysApply: false
-priority: 1000
+globs: 
+  - "pepperpy/**/*.py"
+  - "plugins/**/*.py"
+priority: 920
 ---
 
-# Provider Configuration
+# Provider Configuration and Environment Variables
 
 ## Overview
 
-This rule provides guidelines for implementing provider configurations in the PepperPy framework, with emphasis on environment variable handling, configuration objects, and provider abstraction.
+This rule defines the standards for configuring and using providers in the PepperPy framework. It ensures proper handling of environment variables, configuration validation, and provider abstractions.
+
+## Auto-binding Configuration
+
+PepperPy's provider configuration is now automatically bound to instance attributes based on the configuration schema defined in `plugin.yaml`:
+
+### Configuration Schema in plugin.yaml
+
+```yaml
+# Configuration schema
+config_schema:
+  api_key:
+    description: "API key for the service"
+    required: true
+    env_var: "SERVICE_API_KEY"
+    type: "string"
+  temperature:
+    description: "Sampling temperature"
+    required: false
+    default: 0.7
+    type: "float"
+    min: 0.0
+    max: 2.0
+  max_tokens:
+    description: "Maximum tokens"
+    required: false
+    default: 1024
+    type: "integer"
+    min: 1
+```
+
+### Using Auto-bound Configuration
+
+```python
+# CORRECT - Using auto-bound attributes
+class MyProvider(DomainProvider, ProviderPlugin):
+    async def generate(self, prompt, **kwargs):
+        # Attributes are automatically bound from configuration
+        # with proper type conversion
+        temperature = kwargs.get("temperature", self.temperature)
+        max_tokens = kwargs.get("max_tokens", self.max_tokens)
+        
+        # Use the attributes
+        response = await self.client.complete(
+            prompt, 
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+        
+        return response
+```
+
+## Environment Variable Hierarchy
+
+The framework automatically resolves environment variables based on a consistent hierarchy:
+
+1. `PEPPERPY_{CATEGORY}__{PROVIDER}__{KEY}` (most specific)
+2. `{PROVIDER}_{KEY}` (provider-specific)
+3. `PEPPERPY_{KEY}` (general)
+
+Example:
+- `PEPPERPY_LLM__OPENAI__API_KEY` (most specific)
+- `OPENAI_API_KEY` (provider-specific)
+- `PEPPERPY_API_KEY` (general)
+
+### Configuration Loading Precedence
+
+When a provider is instantiated, the configuration is loaded with this precedence:
+
+1. Explicitly passed parameters (highest precedence)
+2. Environment variables according to hierarchy
+3. Default values from `plugin.yaml`
+
+## ❌ Anti-patterns
+
+### Manual Environment Variable Access
+
+```python
+# WRONG - Direct environment variable access
+import os
+
+class MyProvider(BaseProvider):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # WRONG - Framework handles environment variables
+        self.api_key = os.getenv("MY_API_KEY")
+```
+
+### Manual Configuration Access
+
+```python
+# WRONG - Direct config access
+class MyProvider(BaseProvider):
+    async def generate(self, prompt, **kwargs):
+        # WRONG - Should use auto-bound attributes
+        temperature = kwargs.get(
+            "temperature", 
+            self._config.get("temperature", 0.7)
+        )
+```
+
+### Manual Type Conversion
+
+```python
+# WRONG - Manual type conversion
+class MyProvider(BaseProvider):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        # WRONG - Auto-binding handles type conversion
+        temp = self._config.get("temperature")
+        try:
+            self.temperature = float(temp) if temp is not None else 0.7
+        except ValueError:
+            raise ConfigError("temperature must be a number")
+```
 
 ## Key Principles
 
-1. **Provider Agnostic Code**: Never assume or hardcode specific providers
-2. **Environment-based Configuration**: Use environment variables for all provider settings
-3. **Automatic Provider Resolution**: Let the framework handle provider selection and configuration
+1. **Single Source of Truth**: Define configuration schema only in `plugin.yaml`
+2. **Auto-binding**: Use attributes bound automatically by the framework
+3. **Type Safety**: Framework handles type conversion and validation
+4. **Centralized Validation**: Framework validates configuration
+5. **Consistent Environment Variables**: Follow the environment variable hierarchy
 
-## Environment Variable Structure
+## Provider Configuration Patterns
 
-```bash
-# Provider Selection
-PEPPERPY_LLM__PROVIDER=openrouter  # Which provider to use
-PEPPERPY_LLM__MODEL=openai/gpt-4   # Model configuration
-
-# Provider-specific Configuration
-PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...  # OpenRouter API key
-PEPPERPY_LLM__OPENAI_API_KEY=sk-...         # OpenAI API key
-```
-
-## Code Examples
-
-### ✅ Correct Usage
+### Plugin Factory Usage
 
 ```python
-# Let framework handle provider selection and configuration
-async with PepperPy().with_rag(provider_type="chroma") as assistant:
-    result = await assistant.ask("query")
+# CORRECT - Using the provider factory
+from pepperpy import create_provider
 
-# Use environment-based configuration
-async with PepperPy() as assistant:
-    result = await assistant.ask("query")
+# Framework will load environment variables according to hierarchy
+provider = create_provider("llm", "openai")
+
+# Or with explicit configuration
+provider = create_provider("llm", "openai", api_key="my-key", temperature=0.8)
 ```
 
-### ❌ Incorrect Usage
+### Provider Implementation
 
 ```python
-# Don't hardcode API keys or assume provider
-api_key = os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
-async with PepperPy().with_llm(api_key=api_key) as assistant:
-    result = await assistant.ask("query")
-
-# Don't check for specific provider's API key
-if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
-    raise ValueError("OpenAI API key not found")
+# CORRECT - Simple provider implementation
+class MyProvider(DomainProvider, ProviderPlugin):
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        if self.initialized:
+            return
+            
+        # Check required configurations - auto-bound from plugin.yaml
+        if not hasattr(self, "api_key") or not self.api_key:
+            raise ConfigError("API key is required")
+            
+        # Initialize client
+        try:
+            self.client = SomeClient(api_key=self.api_key)
+        except Exception as e:
+            raise ProviderError(f"Failed to initialize client: {e}") from e
 ```
 
-## Provider Configuration Guidelines
+## Configuration Schema Definition
 
-1. **Let Framework Handle Configuration**:
-   - Use `PepperPy()` without provider-specific arguments
-   - Allow framework to read from environment
-   - Trust provider resolution system
+The `plugin.yaml` file should define a complete configuration schema:
 
-2. **Provider Type Specification**:
-   - Only specify `provider_type` when needed
-   - Never pass provider-specific credentials
-   - Let framework handle API keys
+```yaml
+# Configuration schema with full details
+config_schema:
+  api_key:
+    description: "API key for authentication"
+    required: true
+    env_var: "SERVICE_API_KEY"
+    type: "string"
+    secret: true  # Indicates this is sensitive data
+  
+  endpoint:
+    description: "API endpoint"
+    required: false
+    default: "https://api.example.com"
+    type: "string"
+    format: "url"  # Optional format validation
+  
+  timeout:
+    description: "Request timeout in seconds"
+    required: false
+    default: 30
+    type: "integer"
+    min: 1
+    max: 300
+  
+  temperature:
+    description: "Sampling temperature"
+    required: false
+    default: 0.7
+    type: "float"
+    min: 0.0
+    max: 2.0
+```
 
-3. **Environment Variables**:
-   - Use `PEPPERPY_DOMAIN__SETTING` format
-   - Provider-specific keys use `PEPPERPY_DOMAIN__PROVIDER_SETTING`
-   - Document required variables
+## Implementation Checklist
 
-## Implementation Examples
+When implementing or using providers:
 
-### Example: RAG Usage
+- [ ] Define complete configuration schema in `plugin.yaml`
+- [ ] Use auto-bound attributes in provider code
+- [ ] Let the framework handle environment variables
+- [ ] Validate required configuration in `initialize()`
+- [ ] Handle type conversion via the schema
+
+## User Configuration Example
 
 ```python
-# CORRECT: Let framework handle configuration
-async with PepperPy().with_rag(provider_type="chroma") as assistant:
-    docs = await assistant.search("query")
+from pepperpy import PepperPy
 
-# INCORRECT: Manually handling API keys
-api_key = os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
-async with PepperPy().with_rag(provider_type="chroma", api_key=api_key):
-    docs = await assistant.search("query")
+# Using environment variables for configuration
+app = PepperPy().with_llm(provider_type="openai")
+
+# Or with explicit configuration
+app = PepperPy().with_llm(
+    provider_type="openai",
+    api_key="my-key",
+    temperature=0.8
+)
+
+async with app as pepper:
+    response = await pepper.ask("What's the weather like?")
 ```
 
-### Example: LLM Usage
-
-```python
-# CORRECT: Framework handles provider selection
-async with PepperPy() as assistant:
-    response = await assistant.ask("query")
-
-# INCORRECT: Assuming specific provider
-if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
-    raise ValueError("OpenAI API key missing")
-```
-
-## Provider Resolution Process
-
-The framework follows this process:
-
-1. Check `PEPPERPY_DOMAIN__PROVIDER` environment variable
-2. Load provider-specific configuration
-3. Initialize appropriate provider
-4. Handle provider-specific setup
-
-## Best Practices
-
-1. **Configuration**:
-   - Use environment variables
-   - Document required variables
-   - Provide example configurations
-
-2. **Provider Usage**:
-   - Stay provider-agnostic
-   - Use framework's configuration
-   - Trust provider resolution
-
-3. **Error Handling**:
-   - Use domain-specific errors
-   - Let framework handle provider errors
-   - Provide helpful error messages
-
-## Common Mistakes to Avoid
-
-1. **Hardcoding Providers**:
-   ```python
-   # BAD: Hardcoding OpenAI
-   if not os.getenv("PEPPERPY_LLM__OPENAI_API_KEY"):
-       raise ValueError("OpenAI key missing")
-   ```
-
-2. **Manual API Key Handling**:
-   ```python
-   # BAD: Manual key handling
-   api_key = os.getenv("PEPPERPY_LLM__OPENAI_API_KEY")
-   provider = OpenAIProvider(api_key=api_key)
-   ```
-
-3. **Provider-Specific Code**:
-   ```python
-   # BAD: Provider-specific logic
-   if os.getenv("PEPPERPY_LLM__PROVIDER") == "openai":
-       # OpenAI-specific code
-   ```
-
-## Conclusion
-
-Following these provider configuration guidelines ensures:
-1. Provider agnostic code
-2. Proper configuration handling
-3. Clean provider abstraction
-4. Easy provider switching
-5. Maintainable codebase 
+This approach ensures that provider configuration is handled consistently, with proper environment variable resolution, type conversion, and validation. 
