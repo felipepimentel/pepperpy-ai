@@ -1,0 +1,166 @@
+---
+description: USE WHEN implementing or modifying any provider or plugin in the PepperPy framework
+globs: plugins/**/*.py,pepperpy/**/providers/**/*.py
+alwaysApply: false
+---
+
+# PepperPy Plugin Implementation Guidelines
+
+## Core Principles
+
+1. **Single Source of Truth**: The `plugin.yaml` file is the ONLY source of truth for metadata and configuration schema
+2. **Auto-Binding**: Use attributes auto-bound from plugin.yaml, never implement fallback logic
+3. **Proper Inheritance**: Always inherit from both `DomainProvider` and `ProviderPlugin` (e.g., `LLMProvider, ProviderPlugin`)
+4. **Base Methods**: NEVER reimplement methods that already exist in the base class (such as `from_config`)
+5. **Default Values**: Define default values ONLY in plugin.yaml via `default_config`, never in code
+6. **State Management**: The framework manages state, don't reimplement it
+
+## Anti-patterns (NEVER DO THESE)
+
+### ❌ Reimplementing from_config
+
+```python
+# WRONG - Never reimplement from_config
+@classmethod
+def from_config(cls, **config: Any) -> "MyProvider":  # WRONG!
+    return cls(**config)
+```
+
+### ❌ Duplicating Metadata
+
+```python
+# WRONG - Duplicating metadata that's already in plugin.yaml
+class MyProvider(LLMProvider, ProviderPlugin):
+    plugin_name = "My Provider"  # WRONG!
+    plugin_version = "0.1.0"     # WRONG!
+    plugin_category = "llm"      # WRONG!
+    provider_type = "myprovider" # WRONG!
+```
+
+### ❌ Manual Configuration Fallbacks
+
+```python
+# WRONG - Implementing fallbacks that already exist in the framework
+def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    
+    # WRONG! The framework already does this:
+    if not hasattr(self, "temperature") or self.temperature is None:
+        self.temperature = 0.7  # WRONG! Use default_config in plugin.yaml
+```
+
+### ❌ Manual State Management
+
+```python
+# WRONG - Managing initialization state
+async def cleanup(self) -> None:
+    """Clean up resources."""
+    self.client = None
+    self.initialized = False  # WRONG! Framework manages this
+```
+
+### ❌ Creating Workarounds for Framework Issues
+
+```python
+# WRONG - Creating workarounds for framework issues
+# If the framework has issues, fix them in the framework!
+if not hasattr(self, "base_url"):  # WRONG!
+    self.base_url = "https://api.example.com"  # WRONG!
+```
+
+## Correct Implementation
+
+### ✅ Minimal Correct Structure
+
+```python
+class MyProvider(LLMProvider, ProviderPlugin):
+    """Provider implementation."""
+    
+    # Auto-bound attributes from plugin.yaml
+    api_key: str
+    model: str
+    temperature: float
+    max_tokens: int
+    client: Optional[SomeClient] = None
+
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider."""
+        super().__init__(**kwargs)
+        self.client = None
+    
+    async def initialize(self) -> None:
+        """Initialize provider resources."""
+        self.client = SomeClient(api_key=self.api_key)
+        
+    async def generate(self, messages, **kwargs):
+        """Generate content."""
+        # Use auto-bound attributes from plugin.yaml 
+        temperature = kwargs.get("temperature", self.temperature)
+        model = kwargs.get("model", self.model)
+        # Implementation...
+        
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+```
+
+### ✅ Default Values in plugin.yaml
+
+```yaml
+# In plugin.yaml:
+default_config:
+  model: "gpt-3.5-turbo"
+  temperature: 0.7
+  max_tokens: 1024
+```
+
+## Implementation Checklist
+
+- [ ] Inherits from `DomainProvider, ProviderPlugin`
+- [ ] Declares auto-bound attributes with type annotations
+- [ ] Does NOT implement `from_config` (uses the base class implementation)
+- [ ] Does NOT duplicate metadata from plugin.yaml
+- [ ] Does NOT implement manual fallbacks for configurations
+- [ ] Clean initialization: only calls super() and initializes client=None
+- [ ] Implements only provider-specific methods
+- [ ] Does NOT manually manage initialization state
+
+## Correct plugin.yaml Example
+
+```yaml
+name: "OpenAI LLM Provider"
+version: "0.1.0"
+description: "Provider for the OpenAI GPT models"
+author: "PepperPy Team"
+plugin_category: "llm"
+provider_type: "openai"
+required_config_keys:
+  - "api_key"
+
+default_config:
+  model: "gpt-3.5-turbo"
+  temperature: 0.7
+  max_tokens: 1024
+
+config_schema:
+  api_key:
+    description: "OpenAI API key"
+    required: true
+    env_var: "OPENAI_API_KEY"
+    type: "string"
+  model:
+    description: "Model to use"
+    required: false
+    default: "gpt-3.5-turbo"
+    type: "string"
+```
+
+## Remember
+
+- The framework handles auto-binding attributes
+- The framework manages configuration loading
+- The framework manages initialization state
+- Never implement workarounds to "fix" framework issues
+- If the framework has a problem, report and fix it in the framework! 
