@@ -12,7 +12,8 @@ import enum
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generic, List, Optional, TypeVar, cast
+from pathlib import Path
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
 
 # Importe a classe de erro do módulo correto com a grafia correta
 from pepperpy.core import PepperpyError
@@ -486,6 +487,8 @@ class Workflow(ABC):
         self.name: str = ""
         self.components: List[WorkflowComponent] = []
         self.config: Dict[str, Any] = {}
+        self.status: ComponentType = ComponentType.SOURCE
+        self.metadata: Dict[str, Any] = {}
 
     def set_components(self, components: List[WorkflowComponent]) -> None:
         """Set workflow components.
@@ -502,6 +505,14 @@ class Workflow(ABC):
             config: Configuration dictionary
         """
         self.config = config
+
+    def set_metadata(self, metadata: Dict[str, Any]) -> None:
+        """Set workflow metadata.
+
+        Args:
+            metadata: Metadata dictionary
+        """
+        self.metadata = metadata
 
 
 class WorkflowProvider(BaseProvider):
@@ -589,14 +600,14 @@ class WorkflowProvider(BaseProvider):
 
 
 def create_provider(provider_type: str = "default", **config: Any) -> WorkflowProvider:
-    """Create a Workflow provider based on type.
+    """Create a workflow provider instance.
 
     Args:
-        provider_type: Type of provider to create (default: default)
-        **config: Provider configuration
+        provider_type: Type of provider to create
+        **config: Provider configuration options
 
     Returns:
-        An instance of the specified WorkflowProvider
+        WorkflowProvider instance
 
     Raises:
         ValidationError: If provider creation fails
@@ -605,11 +616,11 @@ def create_provider(provider_type: str = "default", **config: Any) -> WorkflowPr
         import importlib
 
         # Import provider module
-        module_name = f"pepperpy.workflow.{provider_type}"
+        module_name = f"pepperpy.workflow.providers.{provider_type}"
         module = importlib.import_module(module_name)
 
         # Get provider class
-        provider_class_name = f"{provider_type.title()}Provider"
+        provider_class_name = f"{provider_type.title()}Executor"
         provider_class = getattr(module, provider_class_name)
 
         # Create provider instance
@@ -622,3 +633,20 @@ def create_provider(provider_type: str = "default", **config: Any) -> WorkflowPr
         ) from e
     except Exception as e:
         raise ValidationError(f"Failed to create Workflow provider: {str(e)}") from e
+
+
+class DocumentWorkflow(Workflow):
+    """Workflow for document processing."""
+
+    def __init__(self, input_data: Union[str, Path]) -> None:
+        """Initialize document workflow.
+
+        Args:
+            input_data: Path to the document file or text content
+        """
+        self.id = "document_processing"
+        self.name = "Document Processing"
+        self.components = []
+        self.config = {"input_data": str(input_data)}
+        self.status = ComponentType.SOURCE
+        self.metadata = {}

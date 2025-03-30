@@ -40,7 +40,8 @@ from pepperpy.rag import (
     create_provider as create_rag_provider,
 )
 from pepperpy.workflow import (
-    WorkflowProvider,
+    Workflow,
+    WorkflowComponent,
 )
 from pepperpy.workflow import (
     create_provider as create_workflow_provider,
@@ -70,6 +71,7 @@ __all__ = [
     "RAGProvider",
     "create_rag_provider",
     # Workflow
-    "WorkflowProvider",
+    "Workflow",
+    "WorkflowComponent",
     "create_workflow_provider",
 ]

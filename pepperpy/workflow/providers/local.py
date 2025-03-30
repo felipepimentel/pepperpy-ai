@@ -8,6 +8,7 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from pepperpy.core.providers import LocalProvider
+from pepperpy.core.utils import lazy_provider_class
 from pepperpy.workflow.base import (
     ComponentType,
     PipelineContext,
@@ -19,6 +20,7 @@ from pepperpy.workflow.base import (
 logger = logging.getLogger(__name__)
 
 
+@lazy_provider_class("workflow", "local")
 class LocalExecutor(LocalProvider):
     """Local workflow executor.
 
@@ -46,7 +48,7 @@ class LocalExecutor(LocalProvider):
         workflow: Workflow,
         input_data: Optional[Any] = None,
         config: Optional[Dict[str, Any]] = None,
-    ) -> Workflow:
+    ) -> Dict[str, Any]:
         """Execute a workflow locally.
 
         Args:
@@ -55,7 +57,7 @@ class LocalExecutor(LocalProvider):
             config: Optional execution configuration
 
         Returns:
-            Updated workflow with execution results
+            Dictionary with workflow execution results
 
         Raises:
             PipelineError: If execution fails
@@ -66,7 +68,7 @@ class LocalExecutor(LocalProvider):
             workflow.config.update(config or {})
 
             # Execute components in sequence
-            current_data = input_data
+            current_data = input_data or workflow.config.get("file_path")
             for component in workflow.components:
                 try:
                     # Create execution context
@@ -95,7 +97,7 @@ class LocalExecutor(LocalProvider):
 
             # Update workflow status
             workflow.status = ComponentType.SINK
-            return workflow
+            return {"text": current_data} if current_data else {}
 
         except Exception as e:
             logger.error(f"Workflow {workflow.name} execution failed: {e}")
@@ -155,3 +157,11 @@ class LocalExecutor(LocalProvider):
         if status is None:
             return list(self._workflows.values())
         return [w for w in self._workflows.values() if w.status == status]
+
+    async def cleanup(self) -> None:
+        """Clean up resources.
+
+        This method is called when the provider is being shut down.
+        """
+        # Clear workflows
+        self._workflows.clear()

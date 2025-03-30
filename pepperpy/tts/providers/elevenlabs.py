@@ -5,11 +5,18 @@ Implements text-to-speech capabilities using ElevenLabs API.
 """
 
 import os
-from typing import Any, AsyncIterator, Dict, List
+from typing import Any, AsyncIterator, Dict, List, Optional
 
 import aiohttp
 
-from ..base import TTSCapabilities, TTSProvider, TTSProviderError, TTSVoiceError
+from ..base import (
+    TTSAudio,
+    TTSCapabilities,
+    TTSProvider,
+    TTSProviderError,
+    TTSVoice,
+    TTSVoiceError,
+)
 
 
 class ElevenLabsProvider(TTSProvider):
@@ -26,10 +33,11 @@ class ElevenLabsProvider(TTSProvider):
         Raises:
             TTSProviderError: If initialization fails.
         """
-        self.api_key = os.environ.get("PEPPERPY_TTS_ELEVENLABS__API_KEY", "")
+        super().__init__(**kwargs)
+        self.api_key = os.environ.get("PEPPERPY_TTS__ELEVENLABS__API_KEY", "")
         if not self.api_key:
             raise TTSProviderError(
-                "ElevenLabs API key not found. Set PEPPERPY_TTS_ELEVENLABS__API_KEY environment variable."
+                "ElevenLabs API key not found. Set PEPPERPY_TTS__ELEVENLABS__API_KEY environment variable."
             )
 
         self.model_id = kwargs.get("model_id", "eleven_multilingual_v2")
@@ -49,6 +57,75 @@ class ElevenLabsProvider(TTSProvider):
             TTSCapabilities.STREAMING,
             TTSCapabilities.VOICE_CLONING,
             TTSCapabilities.MULTILINGUAL,
+        ]
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: Optional[str] = None,
+        output_path: Optional[str] = None,
+        **kwargs: Any,
+    ) -> TTSAudio:
+        """Synthesize text to speech.
+
+        Args:
+            text: Text to synthesize
+            voice_id: Voice ID to use (overrides default)
+            output_path: Optional path to save audio
+            **kwargs: Additional synthesis options
+
+        Returns:
+            TTSAudio object
+
+        Raises:
+            TTSProviderError: If synthesis fails
+            TTSVoiceError: If voice_id is invalid
+        """
+        voice_id = voice_id or self.voice_id
+        if not voice_id:
+            # Get first available voice if none specified
+            voices = await self.get_available_voices()
+            if not voices:
+                raise TTSVoiceError("No voices available")
+            voice_id = voices[0].id
+
+        audio_data = await self.convert_text(text, voice_id, **kwargs)
+
+        audio = TTSAudio(
+            audio_data=audio_data,
+            content_type="audio/mpeg",
+            # ElevenLabs doesn't provide these in the response
+            duration_seconds=None,
+            sample_rate=None,
+        )
+
+        if output_path:
+            audio.save(output_path)
+
+        return audio
+
+    async def get_available_voices(self) -> List[TTSVoice]:
+        """Get available voices.
+
+        Returns:
+            List of TTSVoice objects
+
+        Raises:
+            TTSProviderError: If the API request fails
+        """
+        voices_data = await self.get_voices()
+        return [
+            TTSVoice(
+                id=voice["id"],
+                name=voice["name"],
+                gender=voice.get("gender"),
+                language=voice.get("language"),
+                description=voice.get("description"),
+                tags=list(voice.get("labels", {}).keys())
+                if voice.get("labels")
+                else None,
+            )
+            for voice in voices_data
         ]
 
     async def convert_text(self, text: str, voice_id: str, **kwargs) -> bytes:

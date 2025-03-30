@@ -40,6 +40,86 @@ ConfigType = Dict[str, Any]
 HeadersType = Dict[str, str]
 QueryParamsType = Union[Dict[str, Any], str]
 
+# Message types
+MessageType = Dict[str, Any]
+MessageListType = List[MessageType]
+
+# Response types
+ResponseType = Dict[str, Any]
+ResponseListType = List[ResponseType]
+
+# Error types
+ErrorType = Dict[str, Any]
+ErrorListType = List[ErrorType]
+
+# Metadata types
+MetadataType = Dict[str, Any]
+MetadataListType = List[MetadataType]
+
+# Component types
+ComponentType = str
+ComponentConfigType = Dict[str, Any]
+
+# Pipeline types
+PipelineType = str
+PipelineConfigType = Dict[str, Any]
+
+# Workflow types
+WorkflowType = str
+WorkflowConfigType = Dict[str, Any]
+
+# Document types
+DocumentType = str
+DocumentConfigType = Dict[str, Any]
+
+# Memory types
+MemoryType = str
+MemoryConfigType = Dict[str, Any]
+
+# Storage types
+StorageType = str
+StorageConfigType = Dict[str, Any]
+
+# Embedding types
+EmbeddingType = List[float]
+EmbeddingListType = List[EmbeddingType]
+
+# Token types
+TokenType = str
+TokenListType = List[TokenType]
+
+# Function types
+FunctionType = str
+FunctionConfigType = Dict[str, Any]
+
+# Tool types
+ToolType = str
+ToolConfigType = Dict[str, Any]
+
+# Agent types
+AgentType = str
+AgentConfigType = Dict[str, Any]
+
+# Task types
+TaskType = str
+TaskConfigType = Dict[str, Any]
+
+# Event types
+EventType = str
+EventConfigType = Dict[str, Any]
+
+# State types
+StateType = str
+StateConfigType = Dict[str, Any]
+
+# Context types
+ContextType = str
+ContextConfigType = Dict[str, Any]
+
+# Result types
+ResultType = Dict[str, Any]
+ResultListType = List[ResultType]
+
 
 # Core Exceptions
 class PepperpyError(Exception):

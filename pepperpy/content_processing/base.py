@@ -1,26 +1,22 @@
 """Base interfaces for content processing module."""
 
-import os
 from abc import ABC, abstractmethod
-from enum import Enum
-from typing import Any, Dict, List, Optional, Protocol, Type, Union
-from pathlib import Path
 from dataclasses import dataclass, field
+from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.base import BaseProvider, ValidationError, PepperpyError
-from pepperpy.core.utils import lazy_provider_class
 from pepperpy.content_processing.errors import (
     ContentProcessingError,
-    ContentProcessingConfigError,
-    ContentProcessingIOError,
-    UnsupportedContentTypeError,
     ProviderNotFoundError,
+    UnsupportedContentTypeError,
 )
+from pepperpy.core.base import BaseProvider
 
 
 class ContentType(Enum):
     """Type of content to process."""
-    
+
     DOCUMENT = "document"
     IMAGE = "image"
     AUDIO = "audio"
@@ -30,13 +26,13 @@ class ContentType(Enum):
 @dataclass
 class ProcessingResult:
     """Result of content processing."""
-    
+
     # Texto extraído (para documentos, OCR em imagens, transcrição em áudio)
     text: Optional[str] = None
-    
+
     # Metadados sobre o conteúdo processado
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     # Conteúdo extraído/processado em diferentes formatos
     extracted_text: Optional[str] = None
     extracted_images: Optional[List[Any]] = None
@@ -81,19 +77,17 @@ class ContentProcessor(BaseProvider, ABC):
 
     @abstractmethod
     async def process(
-        self, 
-        content_path: Union[str, Path], 
-        **options: Any
+        self, content_path: Union[str, Path], **options: Any
     ) -> ProcessingResult:
         """Process content and return the result.
-        
+
         Args:
             content_path: Path to the content file
             **options: Additional processing options
-            
+
         Returns:
             Processing result with extracted content
-            
+
         Raises:
             ContentProcessingError: If processing fails
         """
@@ -114,7 +108,7 @@ class ContentProcessor(BaseProvider, ABC):
         }
 
 
-def create_processor(
+async def create_processor(
     content_type: Union[str, ContentType],
     provider_name: Optional[str] = None,
     **kwargs: Any,
@@ -133,8 +127,8 @@ def create_processor(
         ContentProcessingError: If processor creation fails
     """
     from pepperpy.content_processing.lazy import (
-        DEFAULT_PROCESSORS,
         AVAILABLE_PROCESSORS,
+        DEFAULT_PROCESSORS,
     )
 
     # Convert string to enum
@@ -146,7 +140,7 @@ def create_processor(
 
     try:
         if provider_name:
-            # Get specific provider
+            # Use specific provider if requested
             if content_type not in AVAILABLE_PROCESSORS:
                 raise UnsupportedContentTypeError(
                     f"No providers available for content type: {content_type}"
@@ -160,18 +154,42 @@ def create_processor(
                 )
 
             processor = providers[provider_name]
+            return await processor(**kwargs)
         else:
-            # Get default provider
+            # Try default providers in order
             if content_type not in DEFAULT_PROCESSORS:
                 raise UnsupportedContentTypeError(
                     f"No default provider for content type: {content_type}"
                 )
 
-            processor = DEFAULT_PROCESSORS[content_type]
+            # Get file extension from kwargs if available
+            content_path = kwargs.get("content_path")
+            if content_path:
+                ext = Path(content_path).suffix.lower()
+                if ext == ".pdf":
+                    # Try PyMuPDF first for PDF files
+                    try:
+                        return await AVAILABLE_PROCESSORS[content_type]["pymupdf"](
+                            **kwargs
+                        )
+                    except Exception:
+                        pass
 
-        return processor(**kwargs)
+            # Try default providers in order
+            errors = []
+            for processor in DEFAULT_PROCESSORS[content_type]:
+                try:
+                    return await processor(**kwargs)
+                except Exception as e:
+                    errors.append(str(e))
+                    continue
+
+            raise ContentProcessingError(
+                f"No suitable provider found for content type {content_type}. "
+                f"Tried: {', '.join(str(e) for e in errors)}"
+            )
 
     except Exception as e:
         if isinstance(e, ContentProcessingError):
             raise
-        raise ContentProcessingError(f"Error creating processor: {e}") 
+        raise ContentProcessingError(f"Error creating processor: {e}")

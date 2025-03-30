@@ -21,6 +21,17 @@ Example:
 import logging
 from typing import Any, AsyncIterator, Dict, List, Optional, Union, cast
 
+import tiktoken
+from openai import AsyncOpenAI, OpenAI
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionFunctionMessageParam,
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+    ChatCompletionUserMessageParam,
+)
+
 from pepperpy.core.utils import lazy_provider_class
 from pepperpy.llm.base import (
     GenerationChunk,
@@ -67,7 +78,6 @@ class OpenAIProvider(LLMProvider):
         """
         try:
             import tiktoken
-            from openai import AsyncOpenAI, OpenAI
         except ImportError:
             raise LLMError(
                 "OpenAI provider requires openai and tiktoken. "
@@ -88,10 +98,10 @@ class OpenAIProvider(LLMProvider):
         """Get API key from environment."""
         import os
 
-        api_key = os.environ.get("PEPPERPY_LLM__OPENAI__API_KEY")
+        api_key = os.environ.get("PEPPERPY_LLM__OPENAI_API_KEY")
         if not api_key:
             raise ValueError(
-                "OpenAI API key not found. Set PEPPERPY_LLM__OPENAI__API_KEY "
+                "OpenAI API key not found. Set PEPPERPY_LLM__OPENAI_API_KEY "
                 "environment variable or pass api_key to constructor."
             )
         return api_key
@@ -258,42 +268,38 @@ class OpenAIProvider(LLMProvider):
     async def generate(
         self, messages: Union[str, List[Message]], **kwargs: Any
     ) -> GenerationResult:
-        """Generate text using OpenAI's chat completion API.
+        """Generate text using OpenAI API.
 
         Args:
             messages: String prompt or list of messages
             **kwargs: Additional generation options
-                - temperature: Sampling temperature (0-2)
-                - max_tokens: Maximum tokens to generate
-                - stop: List of stop sequences
-                - presence_penalty: Presence penalty (-2 to 2)
-                - frequency_penalty: Frequency penalty (-2 to 2)
-                - functions: List of function definitions
-                - function_call: Function call behavior
-                - response_format: Response format (e.g., {"type": "json"})
 
         Returns:
-            GenerationResult containing the response
+            Generation result
 
         Raises:
             LLMError: If generation fails
         """
         if not self._async_client:
-            raise RuntimeError("OpenAI client not initialized")
+            raise LLMError("Provider not initialized")
 
         try:
             openai_messages = self._convert_messages(messages)
-            completion = await self._async_client.chat.completions.create(
-                model=self.model,
-                messages=openai_messages,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-                **kwargs,
-            )
-            return self._create_generation_result(completion, openai_messages)
 
+            # Merge kwargs with default options
+            options = {
+                "model": self.model,
+                "temperature": self.temperature,
+                "max_tokens": self.max_tokens,
+            }
+            options.update(kwargs)
+
+            completion = await self._async_client.chat.completions.create(
+                messages=openai_messages, **options
+            )
+
+            return self._create_generation_result(completion, openai_messages)
         except Exception as e:
-            logger.error(f"OpenAI generation failed: {e}")
             raise LLMError(f"OpenAI generation failed: {e}")
 
     async def stream(

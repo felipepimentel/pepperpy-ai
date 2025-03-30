@@ -9,18 +9,20 @@ This module provides functionality for processing various types of content:
 
 from pepperpy.content_processing.base import (
     ContentProcessor,
-    ContentProcessingError,
-    ContentProcessingConfigError,
-    ContentProcessingIOError,
-    UnsupportedContentTypeError,
     ContentType,
     ProcessingResult,
     create_processor,
 )
-
+from pepperpy.content_processing.errors import (
+    ContentProcessingConfigError,
+    ContentProcessingError,
+    ContentProcessingIOError,
+    ProviderNotFoundError,
+    UnsupportedContentTypeError,
+)
 from pepperpy.content_processing.lazy import (
-    DEFAULT_PROCESSORS,
     AVAILABLE_PROCESSORS,
+    DEFAULT_PROCESSORS,
 )
 
 from .archives import ArchiveError, ArchiveHandler
@@ -33,6 +35,7 @@ __all__ = [
     "ContentProcessingConfigError",
     "ContentProcessingIOError",
     "UnsupportedContentTypeError",
+    "ProviderNotFoundError",
     "ContentType",
     "ProcessingResult",
     "create_processor",
@@ -40,9 +43,9 @@ __all__ = [
     "DEFAULT_PROCESSORS",
     "AVAILABLE_PROCESSORS",
     # Archives
-    'ArchiveError',
-    'ArchiveHandler',
+    "ArchiveError",
+    "ArchiveHandler",
     # RAG integration
-    'ContentRAGError',
-    'ContentRAGProcessor',
-] 
+    "ContentRAGError",
+    "ContentRAGProcessor",
+]

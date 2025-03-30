@@ -5,16 +5,12 @@ This module provides lazy loading functionality for content processing providers
 
 import importlib
 import logging
-import os
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Optional
 
-from pepperpy.core.base import PepperpyError
-from pepperpy.core.utils import safe_import
 from pepperpy.content_processing.base import (
-    ContentProcessor,
-    ContentProcessingError,
     ContentType,
 )
+from pepperpy.core.base import PepperpyError
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +57,7 @@ class LazyContentProcessor:
         """
         if self._instance is None:
             self._instance = await self._load_instance()
-        return await self._instance(*args, **kwargs)
+        return self._instance
 
     async def _load_instance(self) -> Any:
         """Load processor instance.
@@ -93,11 +89,6 @@ class LazyContentProcessor:
 
 
 # Document processors
-PYMUPDF_PROCESSOR = LazyContentProcessor(
-    module_path="pepperpy.content_processing.providers.document.pymupdf",
-    class_name="PyMuPDFProvider",
-)
-
 PANDOC_PROCESSOR = LazyContentProcessor(
     module_path="pepperpy.content_processing.providers.document.pandoc",
     class_name="PandocProvider",
@@ -116,6 +107,11 @@ TEXTRACT_PROCESSOR = LazyContentProcessor(
 MAMMOTH_PROCESSOR = LazyContentProcessor(
     module_path="pepperpy.content_processing.providers.document.mammoth",
     class_name="MammothProvider",
+)
+
+PYMUPDF_PROCESSOR = LazyContentProcessor(
+    module_path="pepperpy.content_processing.providers.document.pymupdf",
+    class_name="PyMuPDFProvider",
 )
 
 # Image processors
@@ -143,20 +139,33 @@ FFMPEG_VIDEO_PROCESSOR = LazyContentProcessor(
 
 # Default processors by content type
 DEFAULT_PROCESSORS = {
-    ContentType.DOCUMENT: PYMUPDF_PROCESSOR,
-    ContentType.IMAGE: TESSERACT_PROCESSOR,
-    ContentType.AUDIO: FFMPEG_AUDIO_PROCESSOR,
-    ContentType.VIDEO: FFMPEG_VIDEO_PROCESSOR,
+    ContentType.DOCUMENT: [
+        PYMUPDF_PROCESSOR,  # Try PyMuPDF first
+        TIKA_PROCESSOR,  # Then Tika
+        PANDOC_PROCESSOR,  # Then Pandoc
+        TEXTRACT_PROCESSOR,  # Then Textract
+        MAMMOTH_PROCESSOR,  # Finally Mammoth
+    ],
+    ContentType.IMAGE: [
+        TESSERACT_PROCESSOR,
+        EASYOCR_PROCESSOR,
+    ],
+    ContentType.AUDIO: [
+        FFMPEG_AUDIO_PROCESSOR,
+    ],
+    ContentType.VIDEO: [
+        FFMPEG_VIDEO_PROCESSOR,
+    ],
 }
 
 # All available processors by content type
 AVAILABLE_PROCESSORS = {
     ContentType.DOCUMENT: {
-        "pymupdf": PYMUPDF_PROCESSOR,
         "pandoc": PANDOC_PROCESSOR,
         "tika": TIKA_PROCESSOR,
         "textract": TEXTRACT_PROCESSOR,
         "mammoth": MAMMOTH_PROCESSOR,
+        "pymupdf": PYMUPDF_PROCESSOR,
     },
     ContentType.IMAGE: {
         "tesseract": TESSERACT_PROCESSOR,
@@ -168,4 +177,54 @@ AVAILABLE_PROCESSORS = {
     ContentType.VIDEO: {
         "ffmpeg": FFMPEG_VIDEO_PROCESSOR,
     },
-} 
+}
+
+
+async def create_processor(
+    content_type: ContentType, provider_name: Optional[str] = None, **config: Any
+) -> Any:
+    """Create a content processor.
+
+    Args:
+        content_type: Type of content to process
+        provider_name: Name of provider to use (optional)
+        **config: Configuration options
+
+    Returns:
+        Content processor instance
+
+    Raises:
+        LazyLoadingError: If no suitable processor is found
+    """
+    if provider_name:
+        # Use specific provider if requested
+        if content_type not in AVAILABLE_PROCESSORS:
+            raise LazyLoadingError(
+                f"No providers available for content type: {content_type}"
+            )
+
+        if provider_name not in AVAILABLE_PROCESSORS[content_type]:
+            raise LazyLoadingError(f"Provider not found: {provider_name}")
+
+        processor = AVAILABLE_PROCESSORS[content_type][provider_name]
+        try:
+            return await processor(**config)
+        except Exception as e:
+            raise LazyLoadingError(f"Failed to create provider '{provider_name}': {e}")
+
+    # Try default providers in order
+    if content_type not in DEFAULT_PROCESSORS:
+        raise LazyLoadingError(f"No default providers for content type: {content_type}")
+
+    errors = []
+    for processor in DEFAULT_PROCESSORS[content_type]:
+        try:
+            return await processor(**config)
+        except Exception as e:
+            errors.append(str(e))
+            continue
+
+    raise LazyLoadingError(
+        f"No suitable provider found for content type {content_type}. "
+        f"Tried: {', '.join(str(e) for e in errors)}"
+    )
