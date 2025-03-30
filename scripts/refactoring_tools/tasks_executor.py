@@ -10,7 +10,8 @@ organized by phase and task ID.
 from pathlib import Path
 from typing import List, Optional
 
-from .common import RefactoringContext, logger, register_task
+from .common import logger, register_task
+from .context import RefactoringContext
 from .file_operations import consolidate_modules
 from .imports_manager import update_imports_regex
 

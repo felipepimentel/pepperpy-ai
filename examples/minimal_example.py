@@ -1,29 +1,34 @@
-"""Example demonstrating a minimal PepperPy setup using fluent API.
+"""Minimal example of using PepperPy.
 
-This example shows how to use PepperPy's fluent API to create a simple LLM application.
+This example demonstrates basic usage of the PepperPy framework
+with minimal configuration.
 """
 
 import asyncio
 
 from pepperpy import PepperPy
+from pepperpy.llm import create_provider
 
 
 async def main() -> None:
-    """Run the example."""
+    """Run minimal example."""
     print("Minimal Example")
     print("=" * 50)
 
-    async with PepperPy().with_llm() as pepper:
-        response = await (
-            pepper.chat.with_system("You are a helpful assistant.")
-            .with_user("Hello, PepperPy!")
-            .generate()
-        )
+    # Create LLM provider
+    provider = create_provider("openrouter")
 
-        print(f"\nResponse: {response.content}")
-        print(
-            f"Tokens: {response.usage.get('total_tokens', 0) if response.usage else 0}"
-        )
+    # Initialize PepperPy with LLM support
+    async with PepperPy().with_llm(provider) as pepper:
+        # Generate text using chat interface
+        response = await pepper.chat.with_user("Say hello!").generate()
+        print("\nChat response:")
+        print(response.content)
+
+        # Generate text using text interface
+        response = await pepper.text.with_prompt("Write a haiku about AI").generate()
+        print("\nText response:")
+        print(response)
 
 
 if __name__ == "__main__":

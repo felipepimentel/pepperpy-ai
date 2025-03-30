@@ -10,7 +10,8 @@ progress, consolidation, and impact analysis.
 import os
 from datetime import datetime
 
-from .common import RefactoringContext, logger
+from .common import logger
+from .context import RefactoringContext
 from .impact_analysis import analyze_consolidation_impact
 
 

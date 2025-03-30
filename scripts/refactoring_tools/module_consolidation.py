@@ -12,7 +12,8 @@ import os
 import re
 from typing import Dict, List
 
-from .common import RefactoringContext, logger
+from .common import logger
+from .context import RefactoringContext
 from .imports_manager import update_imports_regex
 
 

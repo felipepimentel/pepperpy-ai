@@ -1,127 +1,115 @@
 """AI Learning Assistant Example.
 
-This example demonstrates how to use PepperPy to create an AI-powered learning assistant
-that provides personalized education through:
-1. Contextual learning with RAG
-2. Interactive conversations with LLM
-3. Audio content generation with TTS
+This example demonstrates how to use PepperPy to create an AI learning assistant
+that can help with learning new topics, answer questions, and provide explanations.
 """
 
 import asyncio
-from typing import Dict
+import json
+from pathlib import Path
 
 from pepperpy import PepperPy
+from pepperpy.llm import create_provider as create_llm_provider
+from pepperpy.rag import create_provider as create_rag_provider
+from pepperpy.tts import create_provider as create_tts_provider
 
 
-async def load_student_knowledge(pepper: PepperPy, student_id: str) -> None:
-    """Load student's learning materials and progress."""
-    # Load general learning principles
-    await (
-        pepper.chat.with_system("You are an education expert.")
-        .with_user("""
-            Learn and apply these educational principles:
-            1. Learning styles: Visual, Auditory, Reading/Writing, Kinesthetic
-            2. Effective learning requires active engagement and practice
-            3. Regular assessments help track progress and identify areas for improvement
-        """)
-        .generate()
-    )
+async def process_learning_request(pepper: PepperPy, topic: str) -> None:
+    """Process a learning request for a specific topic."""
+    print(f"\nLearning about: {topic}")
+    print("-" * 50)
 
-    # Load student profile
-    await (
-        pepper.chat.with_system("You are a personalization expert.")
-        .with_user(f"""
-            Learn and apply this student profile:
-            - Student ID: {student_id}
-            - Learning style: visual
-            - Current level: beginner
-            - Interests: programming, AI
-            - Completed lessons: []
-        """)
-        .generate()
-    )
-
-
-async def generate_lesson(pepper: PepperPy, topic: str) -> Dict:
-    """Generate a personalized lesson.
-
-    Args:
-        pepper: Configured PepperPy instance
-        topic: The lesson topic
-
-    Returns:
-        Dictionary containing the lesson content and audio
-    """
-    # Get lesson content
-    result = await (
-        pepper.chat.with_system("You are an expert teacher.")
-        .with_user(
-            f"Create a lesson about {topic} with: "
-            "1. A brief introduction "
-            "2. Key concepts "
-            "3. An example or exercise"
+    # Generate an explanation of the topic
+    response = await (
+        pepper.chat.with_system(
+            "You are an expert tutor helping someone learn a new topic."
         )
+        .with_user(f"Explain {topic} in simple terms.")
         .generate()
     )
 
-    # Create the lesson dictionary with content
-    content = result.content
-    lesson = {"topic": topic, "content": content}
+    print("\nExplanation:")
+    print(response.content)
 
-    # Generate audio version of the content
-    audio = await pepper.tts.with_text(content).generate()
-
-    lesson["audio_byte_size"] = str(len(audio.audio))
-    return lesson
-
-
-async def assess_understanding(pepper: PepperPy, topic: str, answer: str) -> Dict:
-    """Assess student's understanding of a topic."""
-    result = await (
-        pepper.chat.with_system("You are an assessment expert.")
-        .with_user(
-            f"Assess this answer about {topic}: {answer}\n\n"
-            "Provide: \n"
-            "1. A score out of 100\n"
-            "2. What was done well\n"
-            "3. Areas for improvement"
+    # Generate practice questions
+    response = await (
+        pepper.chat.with_system(
+            "Generate 2 practice questions about the topic to test understanding."
         )
+        .with_user(topic)
         .generate()
     )
 
-    return {"feedback": result.content, "topic": topic, "answer": answer}
+    print("\nPractice Questions:")
+    print(response.content)
+
+    # Save learning materials
+    materials = {
+        "topic": topic,
+        "explanation": response.content,
+        "questions": response.content,
+    }
+
+    output_dir = Path("examples/output")
+    output_dir.mkdir(exist_ok=True)
+    output_file = output_dir / f"{topic.lower().replace(' ', '_')}_materials.json"
+
+    with open(output_file, "w") as f:
+        json.dump(materials, f, indent=2)
+
+    print(f"\nLearning materials saved to: {output_file}")
+
+    # Generate audio summary
+    print("\nGenerating audio summary...")
+    audio_file = await pepper.tts.with_text(response.content[:200]).generate()
+    print(f"Audio summary saved to: {audio_file}")
+
+
+async def process_question(pepper: PepperPy, question: str) -> None:
+    """Process a specific question about a topic."""
+    print(f"\nQuestion: {question}")
+    print("-" * 50)
+
+    # Search knowledge base for relevant information
+    results = await pepper.rag.search(question)
+
+    # Generate answer using RAG results
+    response = await (
+        pepper.chat.with_system(
+            "You are a helpful tutor. Use the provided context to answer the question."
+        )
+        .with_user(f"Context: {results}\n\nQuestion: {question}")
+        .generate()
+    )
+
+    print("\nAnswer:")
+    print(response.content)
 
 
 async def main() -> None:
-    """Run the learning assistant example."""
+    """Run the AI learning assistant example."""
     print("AI Learning Assistant Example")
     print("=" * 50)
 
-    # Initialize PepperPy with LLM, RAG, and TTS support
-    # Provider configuration comes from environment variables
-    async with PepperPy().with_llm().with_rag().with_tts() as pepper:
-        await load_student_knowledge(pepper, "student123")
+    # Create providers
+    llm = create_llm_provider("openrouter")
+    rag = create_rag_provider("memory")
+    tts = create_tts_provider("ElevenLabsProvider")
 
-        print("\nGenerating a lesson about Python...")
-        lesson = await generate_lesson(pepper, "Python basics")
-        print(f"\nLesson content:\n{lesson['content']}")
-        print("\nAudio version generated successfully")
+    # Initialize PepperPy with required providers
+    async with PepperPy().with_llm(llm).with_rag(rag).with_tts(tts) as pepper:
+        # Process learning requests
+        await process_learning_request(pepper, "Python Decorators")
+        await process_learning_request(pepper, "Machine Learning Basics")
 
-        print("\nAssessing student's understanding...")
-        assessment = await assess_understanding(
-            pepper,
-            "Python basics",
-            "Python is a programming language that uses indentation and is good for beginners",
+        # Process specific questions
+        await process_question(
+            pepper, "What are some common use cases for Python decorators?"
         )
-        print(f"\nFeedback:\n{assessment['feedback']}")
+        await process_question(
+            pepper, "How does supervised learning differ from unsupervised learning?"
+        )
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_LLM__API_KEY=your_api_key
-    # PEPPERPY_TTS__PROVIDER=azure
-    # PEPPERPY_TTS__API_KEY=your_api_key
-    # PEPPERPY_TTS__REGION=your_region
-    # PEPPERPY_RAG__PROVIDER=memory
     asyncio.run(main())

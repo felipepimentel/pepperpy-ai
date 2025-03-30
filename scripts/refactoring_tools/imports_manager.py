@@ -24,7 +24,8 @@ except ImportError:
         "Warning: ast_decompiler module not available. Using alternative implementation."
     )
 
-from .common import RefactoringContext, logger
+from .common import logger
+from .context import RefactoringContext
 
 
 class ImportTransformer(ast.NodeTransformer):

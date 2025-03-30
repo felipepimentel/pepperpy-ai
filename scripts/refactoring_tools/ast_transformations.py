@@ -59,7 +59,8 @@ except ImportError:
     cst = DummyCst()
     print("Warning: libcst module not available. Some functionality will be limited.")
 
-from .common import RefactoringContext, logger
+from .common import logger
+from .context import RefactoringContext
 
 
 class MethodExtractor(ast.NodeTransformer):

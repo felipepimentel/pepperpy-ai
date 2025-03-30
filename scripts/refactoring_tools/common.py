@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
+from .context import RefactoringContext
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
