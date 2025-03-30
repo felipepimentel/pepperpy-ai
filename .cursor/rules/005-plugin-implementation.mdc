@@ -8,12 +8,15 @@ alwaysApply: false
 
 ## Core Principles
 
-1. **Single Source of Truth**: The `plugin.yaml` file is the ONLY source of truth for metadata and configuration schema
-2. **Auto-Binding**: Use attributes auto-bound from plugin.yaml, never implement fallback logic
-3. **Proper Inheritance**: Always inherit from both `DomainProvider` and `ProviderPlugin` (e.g., `LLMProvider, ProviderPlugin`)
-4. **Base Methods**: NEVER reimplement methods that already exist in the base class (such as `from_config`)
-5. **Default Values**: Define default values ONLY in plugin.yaml via `default_config`, never in code
-6. **State Management**: The framework manages state, don't reimplement it
+1. **Single Source of Truth**: O arquivo `plugin.yaml` é a ÚNICA fonte de verdade para metadados e esquema de configuração
+2. **Duas Classes de Configuração**: Distingua entre:
+   - **Variáveis de Ambiente**: Como `api_key`, que podem vir de variáveis de ambiente (não devem ter fallbacks no código)
+   - **Valores Fixos**: Como `base_url`, que podem ter valores padrão hardcoded no código
+3. **Auto-Binding**: Use atributos auto-bound do plugin.yaml, implementando fallbacks apenas para valores fixos
+4. **Proper Inheritance**: Sempre herde de `DomainProvider` e `ProviderPlugin` (e.g., `LLMProvider, ProviderPlugin`)
+5. **Base Methods**: NUNCA reimplemente métodos já existentes na classe base (como `from_config`)
+6. **Default Values**: Defina valores padrão no plugin.yaml via `default_config` para configurações dinâmicas
+7. **State Management**: O framework gerencia o estado, não reimplemente isso
 
 ## Anti-patterns (NEVER DO THESE)
 
@@ -37,16 +40,16 @@ class MyProvider(LLMProvider, ProviderPlugin):
     provider_type = "myprovider" # WRONG!
 ```
 
-### ❌ Manual Configuration Fallbacks
+### ❌ Manual Configuration Fallbacks for Environment Variables
 
 ```python
-# WRONG - Implementing fallbacks that already exist in the framework
+# WRONG - Implementing fallbacks in code for api_key
 def __init__(self, **kwargs):
     super().__init__(**kwargs)
     
-    # WRONG! The framework already does this:
-    if not hasattr(self, "temperature") or self.temperature is None:
-        self.temperature = 0.7  # WRONG! Use default_config in plugin.yaml
+    # WRONG! Framework handles environment variables:
+    if not hasattr(self, "api_key") or self.api_key is None:
+        self.api_key = os.environ.get("API_KEY")  # WRONG! Use env_var in plugin.yaml
 ```
 
 ### ❌ Manual State Management
@@ -59,13 +62,17 @@ async def cleanup(self) -> None:
     self.initialized = False  # WRONG! Framework manages this
 ```
 
-### ❌ Creating Workarounds for Framework Issues
+### ❌ Missing Defaults for Fixed Values
 
 ```python
-# WRONG - Creating workarounds for framework issues
-# If the framework has issues, fix them in the framework!
-if not hasattr(self, "base_url"):  # WRONG!
-    self.base_url = "https://api.example.com"  # WRONG!
+# WRONG - Not providing defaults for fixed values
+class MyProvider(LLMProvider, ProviderPlugin):
+    api_key: str
+    base_url: str  # WRONG! Should have default: base_url: str = "https://api.example.com"
+    
+    async def initialize(self) -> None:
+        if not hasattr(self, "base_url"):  # WRONG!
+            self.base_url = "https://api.example.com"  # WRONG!
 ```
 
 ## Correct Implementation
@@ -76,17 +83,26 @@ if not hasattr(self, "base_url"):  # WRONG!
 class MyProvider(LLMProvider, ProviderPlugin):
     """Provider implementation."""
     
-    # Auto-bound attributes from plugin.yaml
+    # Variáveis de ambiente (não devem ter valor padrão no código)
     api_key: str
-    model: str
-    temperature: float
-    max_tokens: int
+    
+    # Valores fixos (devem ter valor padrão no código como fallback)
+    base_url: str = "https://api.example.com/v1"
+    model: str = "default-model"
+    temperature: float = 0.7
+    max_tokens: int = 1024
     client: Optional[SomeClient] = None
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the provider."""
         super().__init__(**kwargs)
         self.client = None
+        
+        # Para valores fixos, garantir que estão definidos
+        if 'base_url' in kwargs:
+            self.base_url = kwargs['base_url']
+        if 'model' in kwargs:
+            self.model = kwargs['model']
     
     async def initialize(self) -> None:
         """Initialize provider resources."""
@@ -114,18 +130,20 @@ default_config:
   model: "gpt-3.5-turbo"
   temperature: 0.7
   max_tokens: 1024
+  base_url: "https://api.example.com/v1"  # Mesmo para valores fixos, defina padrões aqui
 ```
 
 ## Implementation Checklist
 
-- [ ] Inherits from `DomainProvider, ProviderPlugin`
-- [ ] Declares auto-bound attributes with type annotations
-- [ ] Does NOT implement `from_config` (uses the base class implementation)
-- [ ] Does NOT duplicate metadata from plugin.yaml
-- [ ] Does NOT implement manual fallbacks for configurations
-- [ ] Clean initialization: only calls super() and initializes client=None
-- [ ] Implements only provider-specific methods
-- [ ] Does NOT manually manage initialization state
+- [ ] Herda de `DomainProvider, ProviderPlugin`
+- [ ] Declara atributos auto-bound com type annotations
+- [ ] Distingue entre variáveis de ambiente (sem padrão) e valores fixos (com padrão)
+- [ ] NÃO implementa `from_config` (usa a implementação da classe base)
+- [ ] NÃO duplica metadados do plugin.yaml
+- [ ] NÃO implementa fallbacks manuais para variáveis de ambiente
+- [ ] Inicialização limpa: apenas chama super() e inicializa client=None
+- [ ] Implementa apenas métodos específicos do provider
+- [ ] NÃO gerencia manualmente o estado de inicialização
 
 ## Correct plugin.yaml Example
 
@@ -143,6 +161,7 @@ default_config:
   model: "gpt-3.5-turbo"
   temperature: 0.7
   max_tokens: 1024
+  base_url: "https://api.openai.com/v1"
 
 config_schema:
   api_key:
@@ -155,12 +174,18 @@ config_schema:
     required: false
     default: "gpt-3.5-turbo"
     type: "string"
+  base_url:
+    description: "API base URL"
+    required: false
+    default: "https://api.openai.com/v1"
+    type: "string"
 ```
 
 ## Remember
 
-- The framework handles auto-binding attributes
-- The framework manages configuration loading
-- The framework manages initialization state
-- Never implement workarounds to "fix" framework issues
-- If the framework has a problem, report and fix it in the framework! 
+- O framework gerencia auto-binding de atributos
+- O framework gerencia carregamento de configuração
+- O framework gerencia estado de inicialização
+- Nunca implemente workarounds para "consertar" problemas do framework
+- Se o framework tem um problema, reporte e conserte no framework!
+- Valores fixos (como base_url) devem ter valor padrão no código E no plugin.yaml 

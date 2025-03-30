@@ -27,6 +27,6 @@ documentation:
     '
 category: rag
 provider_name: hyperdb
-entry_point: provider.HyperdbProvider
+entry_point: provider.HyperDBProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

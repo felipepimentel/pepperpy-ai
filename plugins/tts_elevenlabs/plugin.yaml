@@ -27,6 +27,6 @@ documentation:
     '
 category: tts
 provider_name: elevenlabs
-entry_point: provider.ElevenlabsProvider
+entry_point: provider.ElevenLabsProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

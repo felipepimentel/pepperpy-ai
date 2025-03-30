@@ -29,6 +29,6 @@ documentation:
     \    ])\n    results = await pepperpy.rag.search(\"query\", limit=3)\n``` "
 category: rag
 provider_name: chroma
-entry_point: provider.ChromaProvider
+entry_point: provider.ChromaEmbeddingFunction
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

@@ -27,6 +27,6 @@ documentation:
     '
 category: rag
 provider_name: tiny_vector
-entry_point: provider.Tiny_vectorProvider
+entry_point: provider.TinyVectorProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

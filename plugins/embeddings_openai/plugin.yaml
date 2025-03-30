@@ -52,5 +52,5 @@ documentation:
   - text-embedding-ada-002
 category: embeddings
 provider_name: openai
-entry_point: provider.OpenaiProvider
+entry_point: provider.OpenAIEmbeddingProvider
 pepperpy_compatibility: '>=0.1.0'

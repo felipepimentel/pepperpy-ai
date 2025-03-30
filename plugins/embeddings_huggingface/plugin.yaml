@@ -27,6 +27,6 @@ documentation:
     '
 category: embeddings
 provider_name: huggingface
-entry_point: provider.HuggingfaceProvider
+entry_point: provider.HuggingFaceEmbeddingProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

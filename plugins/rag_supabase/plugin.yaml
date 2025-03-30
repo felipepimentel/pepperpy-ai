@@ -27,6 +27,6 @@ documentation:
     '
 category: rag
 provider_name: supabase
-entry_point: provider.SupabaseProvider
+entry_point: provider.SupabaseRAGProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

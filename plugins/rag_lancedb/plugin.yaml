@@ -27,6 +27,6 @@ documentation:
     '
 category: rag
 provider_name: lancedb
-entry_point: provider.LancedbProvider
+entry_point: provider.LanceDBProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

@@ -27,6 +27,6 @@ documentation:
     '
 category: storage
 provider_name: object_store
-entry_point: provider.Object_storeProvider
+entry_point: provider.PersistenceError
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

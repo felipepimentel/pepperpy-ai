@@ -27,6 +27,6 @@ documentation:
     '
 category: agents
 provider_name: autogen
-entry_point: provider.AutogenProvider
+entry_point: provider.AutoGenAgent
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

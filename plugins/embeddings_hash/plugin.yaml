@@ -27,6 +27,6 @@ documentation:
     '
 category: embeddings
 provider_name: hash
-entry_point: provider.HashProvider
+entry_point: provider.HashEmbeddingProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

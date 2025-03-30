@@ -27,6 +27,6 @@ documentation:
     '
 category: agents
 provider_name: assistant
-entry_point: provider.AssistantProvider
+entry_point: provider.Assistant
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []

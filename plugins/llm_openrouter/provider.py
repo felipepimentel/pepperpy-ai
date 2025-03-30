@@ -23,12 +23,12 @@ from pepperpy.plugin import ProviderPlugin
 class OpenRouterProvider(LLMProvider, ProviderPlugin):
     """OpenRouter provider for LLM tasks."""
 
-    # Attributes auto-bound from plugin.yaml
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
-    model: str
-    base_url: str
-    temperature: float
-    max_tokens: int
+    model: str = "openai/gpt-3.5-turbo"  # Fallback padrão
+    base_url: str = "https://openrouter.ai/api/v1"  # Valor fixo como fallback
+    temperature: float = 0.7  # Valor padrão sensato
+    max_tokens: int = 1024  # Valor padrão sensato
     client: Optional[httpx.AsyncClient] = None
 
     def __init__(self, **kwargs: Any) -> None:
@@ -36,9 +36,18 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
         super().__init__(**kwargs)
         self.client = None
 
+        # Garantir que valores fixos estão definidos - usar kwargs, depois os padrões da classe
+        if "base_url" in kwargs:
+            self.base_url = kwargs["base_url"]
+        if "model" in kwargs:
+            self.model = kwargs["model"]
+        if "temperature" in kwargs:
+            self.temperature = kwargs["temperature"]
+        if "max_tokens" in kwargs:
+            self.max_tokens = kwargs["max_tokens"]
+
     async def initialize(self) -> None:
         """Initialize the OpenRouter client."""
-        # Initialize client with auto-bound api_key
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={
@@ -209,7 +218,7 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
             AsyncIterator yielding GenerationChunk objects
 
         Raises:
-            LLMError: If generation fails
+            RuntimeError: If generation fails
         """
         async for chunk in self.generate_stream(messages, **kwargs):
             yield chunk
