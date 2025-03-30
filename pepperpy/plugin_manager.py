@@ -115,7 +115,7 @@ class PluginManager:
                 "metadata": metadata,
             }
 
-            logger.info(
+            logger.debug(
                 f"Registered plugin: {plugin_name} ({category}/{provider_name})"
             )
 

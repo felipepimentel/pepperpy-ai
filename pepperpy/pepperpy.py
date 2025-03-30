@@ -5,6 +5,7 @@ It abstracts the plugin system and provides a fluent API for configuring
 and using providers.
 """
 
+import os
 from collections.abc import AsyncIterator
 from typing import (
     Any,
@@ -1122,18 +1123,22 @@ class PepperPy:
 
     def with_llm(
         self,
-        provider_type: str = "openai",
+        provider_type: Optional[str] = None,
         **config: Any,
     ) -> Self:
         """Configure LLM provider.
 
         Args:
-            provider_type: Type of provider to use (default: openai)
+            provider_type: Type of provider to use (default from PEPPERPY_LLM__PROVIDER or "openai")
             **config: Provider configuration
 
         Returns:
             Self for chaining
         """
+        # If provider_type is not specified, check the environment variable
+        if provider_type is None:
+            provider_type = os.environ.get("PEPPERPY_LLM__PROVIDER", "openai")
+
         logger.debug(f"Configuring LLM provider: {provider_type}")
 
         # Use plugin manager internally
