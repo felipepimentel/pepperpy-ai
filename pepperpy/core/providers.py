@@ -12,8 +12,8 @@ Example:
 
 from typing import Any, Dict, Optional, Protocol
 
+from pepperpy.core.base import ConfigType, HeadersType, JsonType
 from pepperpy.core.http import HTTPClient
-from pepperpy.core.types import ConfigType, HeadersType, JsonType
 
 
 class BaseProvider(Protocol):

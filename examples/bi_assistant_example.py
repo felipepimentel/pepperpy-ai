@@ -34,7 +34,7 @@ async def analyze_business_data() -> None:
     }
 
     # Initialize providers
-    llm = create_llm_provider("openai")
+    llm = create_llm_provider("openrouter")
     rag = create_rag_provider("memory")
 
     # Initialize PepperPy with LLM and RAG support
@@ -66,12 +66,7 @@ async def analyze_business_data() -> None:
             .generate()
         )
 
-        # Store insights in RAG
-        await pepper.rag.add_document(
-            f"Business Analysis:\n{strategic_insights.content}",
-            metadata={"type": "business_analysis"},
-        ).store()
-
+        # Print insights directly
         print("\n=== Business Intelligence Insights ===")
         print(f"\nStrategic Recommendations:\n{strategic_insights.content}")
 

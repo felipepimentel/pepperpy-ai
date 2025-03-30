@@ -3,6 +3,7 @@
 import asyncio
 
 from pepperpy import PepperPy
+from pepperpy.llm import create_provider as create_llm_provider
 
 
 async def main() -> None:
@@ -10,15 +11,11 @@ async def main() -> None:
     print("Content Generation Example")
     print("=" * 50)
 
+    # Create LLM provider with configuration
+    llm_provider = create_llm_provider("openrouter", temperature=0.7, max_tokens=1000)
+
     # Initialize PepperPy with LLM support
-    async with (
-        PepperPy()
-        .with_llm()
-        .with_llm_config(
-            temperature=0.7,
-            max_tokens=1000,
-        )
-    ) as pepper:
+    async with PepperPy().with_llm(llm_provider) as pepper:
         # Generate article
         print("\nGenerating article...")
         article = await (
@@ -48,7 +45,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_LLM__API_KEY=your_api_key
+    # Using openrouter provider which is configured in the .env file
+    # Required environment variables in .env:
+    # PEPPERPY_LLM__OPENROUTER__API_KEY=your_api_key
     asyncio.run(main())

@@ -12,58 +12,36 @@ import logging
 from pathlib import Path
 
 from pepperpy import PepperPy
+from pepperpy.content_processing.base import create_processor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Example document path
-EXAMPLE_DOC = Path(__file__).parent / "data" / "example.pdf"
+EXAMPLE_DOC = Path(__file__).parent / "data" / "sample.pdf"
 
 
 async def main():
     """Run the example."""
-    # Initialize PepperPy with content processing
-    async with (
-        PepperPy()
-        .with_content()
-        .with_content_config(
-            providers={
-                "pymupdf": {
-                    "extract_images": False,
-                    "extract_tables": False,
-                }
-            }
-        )
-    ) as pepper:
+    # Create content processor with PyMuPDF provider
+    content_processor = await create_processor(
+        "document", provider_name="pymupdf", extract_images=False, extract_tables=False
+    )
+
+    # Initialize PepperPy
+    async with PepperPy() as pepper:
         # Extract text
         logger.info("Extracting text...")
-        text_result = await (
-            pepper.content.from_file(EXAMPLE_DOC).extract_text().execute()
-        )
-        logger.info("Extracted text: %s", text_result["text"][:100] + "...")
+        result = await content_processor.process(EXAMPLE_DOC)
+        text_excerpt = result.text[:100] + "..." if result.text else "No text extracted"
+        logger.info("Extracted text: %s", text_excerpt)
 
         # Extract metadata
-        logger.info("Extracting metadata...")
-        metadata_result = await (
-            pepper.content.from_file(EXAMPLE_DOC).with_metadata().execute()
-        )
-        logger.info("Extracted metadata: %s", metadata_result["metadata"])
-
-        # Process with both text and metadata
-        logger.info("Processing document...")
-        result = await (
-            pepper.content.from_file(EXAMPLE_DOC)
-            .extract_text()
-            .with_metadata()
-            .execute()
-        )
-        logger.info("Processed document:")
-        logger.info("- Text: %s", result["text"][:100] + "...")
-        logger.info("- Metadata: %s", result["metadata"])
+        logger.info("Extracted metadata: %s", result.metadata)
 
         # Get provider capabilities
-        logger.info("Provider capabilities: %s", pepper.content.get_capabilities())
+        logger.info("Provider capabilities: %s", content_processor.get_capabilities())
 
 
 if __name__ == "__main__":
