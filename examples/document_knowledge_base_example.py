@@ -14,10 +14,9 @@ from datetime import datetime
 from pathlib import Path
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.base import create_processor
+from pepperpy.content_processing.base import ContentType, create_processor
 from pepperpy.llm import create_provider as create_llm_provider
 from pepperpy.rag import create_provider as create_rag_provider
-from pepperpy.rag.base import Document
 
 # Configurar diretórios
 EXAMPLES_DIR = Path(__file__).parent
@@ -31,242 +30,254 @@ os.makedirs(KNOWLEDGE_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-async def create_example_documents() -> None:
+def create_example_documents() -> None:
     """Criar documentos de exemplo para a base de conhecimento."""
     print("Criando documentos de exemplo...")
 
-    # Texto para arquivos de exemplo
-    example_texts = {
-        "historia_ia.txt": """História da Inteligência Artificial
+    # Verificar se o diretório de conhecimento existe
+    if not os.path.exists(KNOWLEDGE_DIR):
+        os.makedirs(KNOWLEDGE_DIR)
 
-A história da Inteligência Artificial (IA) começa na década de 1950, quando Alan Turing propôs o famoso "Teste de Turing".
-O termo "Inteligência Artificial" foi cunhado em 1956 durante a conferência de Dartmouth.
+    # Documentos de exemplo
+    documents = [
+        {
+            "filename": "historia_ia.txt",
+            "content": """História da Inteligência Artificial
+            
+A história da inteligência artificial (IA) remonta à década de 1950, quando o conceito começou a ser explorado academicamente. Marcos importantes incluem:
 
-Durante as décadas seguintes, a pesquisa em IA passou por ciclos de otimismo (os "verões da IA") 
-e desapontamento (os "invernos da IA").
+- 1950: Alan Turing propõe o Teste de Turing
+- 1956: Conferência de Dartmouth, onde o termo "Inteligência Artificial" foi cunhado
+- 1970s: Primeiro inverno da IA
+- 1980s: Desenvolvimento de sistemas especialistas
+- 1990s: Avanços em aprendizado de máquina
+- 2000s: Big data e computação de alto desempenho
+- 2010s: Deep learning e redes neurais
+- 2020s: Modelos de linguagem de grande escala
 
-Marcos importantes:
-- 1950s: O teste de Turing e os primeiros programas de IA
-- 1960s: Primeiros sistemas especialistas
-- 1970s: Desenvolvimento do PROLOG e primeiro inverno da IA
-- 1980s: Ressurgimento com sistemas especialistas comerciais
-- 1990s: Desenvolvimento de aprendizado de máquina e redes neurais
-- 2000s: Big Data e avanços em computação de alto desempenho
-- 2010s: Aprendizado profundo e modelos de linguagem grandes
-- 2020s: Modelos multimodais e IA generativa
-""",
-        "machine_learning.txt": """Machine Learning Fundamentals
+A IA abrange diversas áreas, incluindo processamento de linguagem natural, visão computacional, robótica e aprendizado de máquina.""",
+        },
+        {
+            "filename": "machine_learning.txt",
+            "content": """Fundamentos de Machine Learning
 
-Machine Learning (ML) is a subset of artificial intelligence that focuses on building 
-systems that learn from data. Instead of explicit programming, these systems identify 
-patterns to make decisions with minimal human intervention.
+Machine Learning (ML) é um subconjunto da inteligência artificial que permite que sistemas aprendam e melhorem a partir da experiência sem serem explicitamente programados. Os principais tipos são:
 
-Types of Machine Learning:
-1. Supervised Learning: Training on labeled data
-2. Unsupervised Learning: Finding patterns in unlabeled data
-3. Reinforcement Learning: Learning through trial and error with rewards
+1. Supervised Learning: Treinamento em dados rotulados
+2. Unsupervised Learning: Identificação de padrões em dados não rotulados
+3. Reinforcement Learning: Aprendizado por tentativa e erro com recompensas
 
-Common algorithms include decision trees, neural networks, SVMs, k-means clustering, 
-and linear/logistic regression.
+Algoritmos comuns incluem:
+- Regressão Linear e Logística
+- Árvores de Decisão e Random Forests
+- Support Vector Machines (SVM)
+- k-Nearest Neighbors (k-NN)
+- Redes Neurais
 
-The ML workflow typically involves:
-- Data collection and preparation
-- Feature engineering
-- Model selection and training
-- Evaluation and validation
-- Deployment and monitoring
-""",
-        "python_examples.txt": """Python Examples for Data Processing
+O fluxo de trabalho típico de ML envolve:
+1. Coleta e preparação de dados
+2. Engenharia de features
+3. Seleção e treinamento de modelos
+4. Avaliação e validação
+5. Implantação e monitoramento""",
+        },
+        {
+            "filename": "python_examples.txt",
+            "content": """Exemplos de Código Python
 
-# Example 1: Basic data loading with Pandas
-import pandas as pd
+Python é uma linguagem de programação versátil e poderosa. Aqui estão alguns exemplos básicos:
 
-def load_csv(filepath):
-    '''Load CSV file into a pandas DataFrame'''
-    return pd.read_csv(filepath)
+# Variáveis e tipos de dados
+nome = "Maria"
+idade = 30
+altura = 1.65
 
-# Example 2: Text preprocessing function
-import re
-import string
+# Estruturas condicionais
+if idade > 18:
+    print("Maior de idade")
+else:
+    print("Menor de idade")
 
-def preprocess_text(text):
-    '''Clean and normalize text data'''
-    # Convert to lowercase
-    text = text.lower()
-    # Remove punctuation
-    text = re.sub(f'[{string.punctuation}]', '', text)
-    # Remove extra whitespace
-    text = re.sub(r'\\s+', ' ', text).strip()
-    return text
+# Loops
+for i in range(5):
+    print(i)
 
-# Example 3: Simple ML model using scikit-learn
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
+# Funções
+def saudacao(nome):
+    return f"Olá, {nome}!"
 
-def train_model(X, y):
-    '''Train a Random Forest model'''
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-    return model, model.score(X_test, y_test)
-""",
-        "nlp_concepts.txt": """Natural Language Processing Key Concepts
+# Classes
+class Pessoa:
+    def __init__(self, nome, idade):
+        self.nome = nome
+        self.idade = idade
+    
+    def apresentar(self):
+        return f"Meu nome é {self.nome} e tenho {self.idade} anos."
 
-Natural Language Processing (NLP) is the field of AI that focuses on the interaction 
-between computers and human language. It combines computational linguistics, machine 
-learning, and deep learning to enable computers to process, understand, and generate 
-human language.
+# Listas e dicionários
+frutas = ["maçã", "banana", "laranja"]
+pessoa = {"nome": "João", "idade": 25}""",
+        },
+        {
+            "filename": "nlp_concepts.txt",
+            "content": """Conceitos de Processamento de Linguagem Natural (NLP)
 
-Key NLP Tasks:
-1. Text classification: Categorizing text into predefined groups
-2. Named Entity Recognition (NER): Identifying entities like people, places
-3. Sentiment Analysis: Determining sentiment or emotion in text
-4. Machine Translation: Translating text between languages
-5. Text Summarization: Creating concise summaries of longer texts
-6. Question Answering: Providing answers to natural language questions
+Processamento de Linguagem Natural (NLP) é uma área da inteligência artificial que se concentra na interação entre computadores e linguagem humana.
 
-Recent advances in NLP have been driven by transformer models like BERT, GPT, 
-and T5, which use attention mechanisms to better understand context and 
-relationships between words.
+Tarefas principais de NLP incluem:
+- Text classification
+- Named Entity Recognition (NER)
+- Sentiment Analysis
+- Machine Translation
+- Text Summarization
+- Question Answering
 
-NLP applications are widespread in virtual assistants, search engines, 
-customer service, content recommendation, and more.
-""",
-    }
+Avanços recentes em NLP:
+- Modelos transformadores (BERT, GPT, T5)
+- Fine-tuning e transfer learning
+- Representações contextuais
+- Mecanismos de atenção
 
-    # Criar arquivos de exemplo
-    for filename, content in example_texts.items():
-        file_path = KNOWLEDGE_DIR / filename
+Aplicações de NLP:
+- Assistentes virtuais
+- Mecanismos de busca
+- Atendimento ao cliente
+- Análise de mídia social
+- Tradução automática
+- Recomendação de conteúdo""",
+        },
+    ]
+
+    # Criar cada documento
+    for doc in documents:
+        file_path = os.path.join(KNOWLEDGE_DIR, doc["filename"])
         with open(file_path, "w", encoding="utf-8") as f:
-            f.write(content)
+            f.write(doc["content"])
 
-    print(f"Criados {len(example_texts)} documentos de exemplo em {KNOWLEDGE_DIR}")
+    print(f"Criados {len(documents)} documentos de exemplo em {KNOWLEDGE_DIR}")
 
 
-async def process_knowledge_base() -> None:
+async def process_knowledge_base(rag_provider, content_processor) -> None:
     """Processar e indexar documentos na base de conhecimento."""
     print("Processando base de conhecimento...")
 
-    # Criar provedores
-    rag_provider = create_rag_provider("memory")
+    # Listar arquivos no diretório de conhecimento
+    knowledge_files = os.listdir(KNOWLEDGE_DIR)
 
-    # Criar processador de conteúdo
-    content_processor = await create_processor("document")
+    num_documents = 0
 
-    # Inicializar PepperPy com RAG
-    async with PepperPy().with_rag(rag_provider) as pepper:
-        # Processar cada arquivo do diretório
-        docs = []
+    # Para cada arquivo no diretório
+    for filename in knowledge_files:
+        # Caminho completo do arquivo
+        file_path = os.path.join(KNOWLEDGE_DIR, filename)
 
-        # Listar arquivos no diretório de conhecimento
-        files = list(KNOWLEDGE_DIR.glob("*.txt"))
-        files.extend(KNOWLEDGE_DIR.glob("*.md"))
-        files.extend(KNOWLEDGE_DIR.glob("*.pdf"))
-
-        # Processar cada arquivo e armazenar no RAG
-        for file_path in files:
+        if os.path.isfile(file_path):
+            # Processar arquivo
             try:
-                # Processar arquivo com o processador de conteúdo
-                if file_path.suffix in [".pdf", ".png", ".jpg", ".jpeg"]:
-                    result = await content_processor.process(file_path)
-                    text = result.text or ""
-                    metadata = result.metadata or {}
-                else:
-                    # Para arquivos de texto, ler diretamente
-                    with open(file_path, "r", encoding="utf-8") as f:
-                        text = f.read()
-                    metadata = {"filename": file_path.name}
+                # Processar conteúdo
+                result = await content_processor.process(file_path)
+                text = result.text or ""
 
-                # Criar documento
-                document = Document(text=text, metadata=metadata)
+                # Criar metadados
+                metadata = {
+                    "filename": filename,
+                    "source": "knowledge_base",
+                    "processed_at": datetime.now().isoformat(),
+                }
 
-                # Adicionar à lista de documentos
-                docs.append(document)
-                print(f"Processado: {file_path.name}")
+                # Armazenar no RAG
+                await rag_provider.store_document(text, metadata)
 
+                num_documents += 1
+                print(f"Processado: {filename}")
             except Exception as e:
-                print(f"Erro ao processar {file_path}: {e}")
+                print(f"Erro ao processar {filename}: {e}")
 
-        # Armazenar documentos no RAG
-        for doc in docs:
-            await rag_provider.store_document(doc.text, doc.metadata)
-
-        print(f"Processados {len(docs)} documentos\n")
+    print(f"Processados {num_documents} documentos")
 
 
-async def interactive_mode() -> None:
-    """Modo interativo para consulta da base de conhecimento."""
-    print("Iniciando modo interativo...")
-    print("Digite 'sair' para encerrar\n")
+async def interactive_mode(pepper: PepperPy, rag_provider, llm_provider) -> None:
+    """Run automatic question answering with predefined questions."""
+    print("\nIniciando modo de demonstração...")
+    print("Utilizando perguntas automáticas para demonstrar a funcionalidade\n")
+
+    # Predefined questions to demonstrate functionality
+    questions = [
+        "O que é inteligência artificial?",
+        "Quais são os conceitos básicos de NLP?",
+        "Como usar listas em Python?",
+        "O que é machine learning e como funciona?",
+    ]
+
+    for question in questions:
+        print(f"\nPergunta: {question}")
+
+        # Search for relevant documents
+        search_results = await rag_provider.search_documents(question, limit=3)
+
+        # Extract context from results
+        if not search_results:
+            print("Nenhum documento relevante encontrado.")
+            continue
+
+        context = "\n\n".join([
+            f"Documento {i + 1}:\n{result.get('text', '')}"
+            for i, result in enumerate(search_results)
+        ])
+
+        # Use LLM to generate an answer with context
+        prompt = f"""
+        Contexto:
+        {context}
+        
+        Com base no contexto acima, responda à seguinte pergunta:
+        {question}
+        
+        Se o contexto não contiver informações suficientes, responda apenas com o que puder ser inferido do contexto.
+        """
+
+        # Generate answer with LLM
+        response = (
+            await pepper.chat.with_system(
+                "Você é um assistente útil especializado em explicar conceitos com base em documentos."
+            )
+            .with_user(prompt)
+            .generate()
+        )
+
+        print(f"\nResposta: {response.content}\n")
+        print("-" * 50)
+
+    print("\nDemonstração concluída!")
+
+
+async def main() -> None:
+    """Executar exemplo de processamento de documentos e consulta."""
+    print("Iniciando exemplo de base de conhecimento...\n")
+
+    # Criar documentos de exemplo
+    create_example_documents()
 
     # Criar provedores
     rag_provider = create_rag_provider("memory")
     llm_provider = create_llm_provider("openrouter")
 
-    # Inicializar PepperPy com RAG e LLM
+    # Criar processador de documentos (função assíncrona)
+    try:
+        content_processor = await create_processor("document")
+    except Exception as e:
+        print(f"Erro ao criar processador de documentos: {e}")
+        content_processor = await create_processor(ContentType.DOCUMENT)
+
+    # Inicializar PepperPy com RAG, LLM e processamento de conteúdo
     async with PepperPy().with_rag(rag_provider).with_llm(llm_provider) as pepper:
-        while True:
-            # Obter pergunta do usuário
-            question = input("\nPergunta: ").strip()
-            if question.lower() in ["sair", "exit", "quit"]:
-                break
+        # Processar base de conhecimento
+        await process_knowledge_base(rag_provider, content_processor)
 
-            # Buscar documentos relevantes
-            print("\nBuscando resposta...")
-            search_results = await rag_provider.search_documents(question, limit=3)
-
-            # Construir o contexto a partir dos resultados da busca
-            context = []
-            for result in search_results:
-                document_text = result.get("text", "")
-                document_title = result.get("metadata", {}).get(
-                    "filename", "Desconhecido"
-                )
-                context.append(f"--- {document_title} ---\n{document_text[:500]}...")
-
-            context_text = "\n\n".join(context)
-
-            # Gerar resposta com contexto
-            response = await (
-                pepper.chat.with_system(
-                    "Você é um assistente especializado em responder perguntas com base no contexto fornecido."
-                )
-                .with_user(f"Contexto:\n{context_text}\n\nPergunta: {question}")
-                .generate()
-            )
-
-            # Exibir resposta
-            print("\nResposta:")
-            print(response.content)
-
-            # Salvar resposta
-            timestamp = datetime.now().isoformat().replace(":", "-")
-            output_file = Path(OUTPUT_DIR) / f"response_{timestamp}.txt"
-            with open(output_file, "w") as f:
-                f.write(f"Pergunta: {question}\n\n")
-                f.write(f"Resposta: {response.content}\n\n")
-                f.write("Fontes:\n")
-                for result in search_results:
-                    filename = result.get("metadata", {}).get(
-                        "filename", "Desconhecido"
-                    )
-                    f.write(f"- {filename}\n")
-
-
-async def main() -> None:
-    """Executar exemplo de base de conhecimento."""
-    print("Iniciando exemplo de base de conhecimento...\n")
-
-    # Criar documentos de exemplo
-    await create_example_documents()
-
-    # Processar e indexar documentos
-    await process_knowledge_base()
-
-    # Iniciar modo interativo
-    await interactive_mode()
+        # Executar modo interativo
+        await interactive_mode(pepper, rag_provider, llm_provider)
 
 
 if __name__ == "__main__":
-    # Usando memory provider para RAG e openrouter para LLM
     asyncio.run(main())
