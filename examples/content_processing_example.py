@@ -7,73 +7,102 @@ This example demonstrates how to use the content processing module to:
 
 import asyncio
 from pathlib import Path
+from typing import cast
 
-from pepperpy import PepperPy
-from pepperpy.content_processing.base import ContentType, create_processor
+from pepperpy.content_processing.base import ContentProcessor, ProcessingResult
+from pepperpy.plugin_manager import plugin_manager
 
 
 async def process_document() -> None:
     """Process a document using different providers."""
     # Create document processor
-    processor = await create_processor(ContentType.DOCUMENT, provider_name="pymupdf")
+    provider = cast(
+        ContentProcessor,
+        plugin_manager.create_provider("content/processing/document", "pymupdf"),
+    )
+    await provider.initialize()
 
-    # Process a PDF document
-    pdf_path = Path("examples/data/sample.pdf")
-    pdf_result = await processor.process(pdf_path)
-    print(f"PDF text (excerpt):\n{pdf_result.text[:150]}...")
-    print(f"PDF metadata: {pdf_result.metadata}")
+    try:
+        # Process a PDF document
+        pdf_path = Path("examples/data/sample.pdf")
+        pdf_result: ProcessingResult = await provider.process(pdf_path)
+        print(
+            f"PDF text (excerpt):\n{pdf_result.text[:150] if pdf_result.text else ''}..."
+        )
+        print(f"PDF metadata: {pdf_result.metadata}")
 
-    # Process a text file
-    text_path = Path("examples/data/sample.txt")
-    text_result = await processor.process(text_path)
-    print(f"\nText file content (excerpt):\n{text_result.text[:150]}...")
-
-    # Clean up
-    await processor.cleanup()
+        # Process a text file
+        text_path = Path("examples/data/sample.txt")
+        text_result: ProcessingResult = await provider.process(text_path)
+        print(
+            f"\nText file content (excerpt):\n{text_result.text[:150] if text_result.text else ''}..."
+        )
+    finally:
+        await provider.cleanup()
 
 
 async def process_image() -> None:
     """Process an image using OCR."""
-    async with PepperPy().with_content(create_processor("tesseract")) as pepper:
+    # Create image processor
+    provider = cast(
+        ContentProcessor,
+        plugin_manager.create_provider("content/processing/document", "tesseract"),
+    )
+    await provider.initialize()
+
+    try:
         # Process an image with text
         image_path = Path("examples/data/image.png")
-        image_result = await (
-            pepper.content.from_file(image_path)
-            .extract_text()
-            .with_metadata()
-            .execute()
+        image_result: ProcessingResult = await provider.process(image_path)
+        print(
+            f"\nExtracted text from image:\n{image_result.text if image_result.text else ''}"
         )
-        print(f"\nExtracted text from image:\n{image_result['text']}")
+    finally:
+        await provider.cleanup()
 
 
 async def process_audio() -> None:
     """Process an audio file."""
-    async with PepperPy().with_content(create_processor("whisper")) as pepper:
+    # Create audio processor
+    provider = cast(
+        ContentProcessor,
+        plugin_manager.create_provider("content/processing/audio", "ffmpeg"),
+    )
+    await provider.initialize()
+
+    try:
         # Process an audio file
         audio_path = Path("examples/data/audio.mp3")
-        audio_result = await (
-            pepper.content.from_file(audio_path)
-            .extract_text()
-            .with_metadata()
-            .execute()
-        )
-        print(f"\nTranscribed audio:\n{audio_result['text']}")
+        audio_result: ProcessingResult = await provider.process(audio_path)
+        print(f"\nTranscribed audio:\n{audio_result.text if audio_result.text else ''}")
+    finally:
+        await provider.cleanup()
 
 
 async def process_archive() -> None:
     """Process an archive file."""
-    async with PepperPy().with_content(create_processor("zipfile")) as pepper:
+    # Create archive processor
+    provider = cast(
+        ContentProcessor,
+        plugin_manager.create_provider("content/processing/archive", "zipfile"),
+    )
+    await provider.initialize()
+
+    try:
         # Process an archive file
         archive_path = Path("examples/data/documents.zip")
-        archive_result = await (
-            pepper.content.from_archive(archive_path)
-            .with_password("secret123")
-            .extract_to("examples/data/extracted")
-            .include_extensions(".pdf", ".docx")
-            .recursive()
-            .execute()
+        archive_result: ProcessingResult = await provider.process(
+            archive_path,
+            password="secret123",
+            output_dir="examples/data/extracted",
+            include_extensions=[".pdf", ".docx"],
+            recursive=True,
         )
-        print(f"\nExtracted {len(archive_result['files'])} files from archive")
+        print(
+            f"\nExtracted {len(archive_result.metadata.get('files', []))} files from archive"
+        )
+    finally:
+        await provider.cleanup()
 
 
 async def main() -> None:

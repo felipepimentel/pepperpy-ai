@@ -1173,15 +1173,28 @@ class PepperPy:
         self._workflow_provider = provider
         return self
 
-    def with_tts(self, provider: TTSProvider) -> "PepperPy":
+    def with_tts(
+        self, provider: Optional[TTSProvider] = None, **config: Any
+    ) -> "PepperPy":
         """Configure TTS support.
 
         Args:
-            provider: TTS provider to use
+            provider: Optional TTS provider to use (uses env var if None)
+            **config: Additional configuration options
 
         Returns:
             Self for chaining
         """
+        if provider is None:
+            provider_type = os.environ.get("PEPPERPY_TTS__PROVIDER", "elevenlabs")
+
+            from pepperpy.plugin_manager import plugin_manager
+
+            provider = cast(
+                TTSProvider,
+                plugin_manager.create_provider("tts", provider_type, **config),
+            )
+
         self._tts_provider = provider
         return self
 
@@ -1225,7 +1238,7 @@ class PepperPy:
         if not self._rag_provider:
             raise ValueError("RAG provider not configured. Call with_rag() first.")
         results = await self._rag_provider.search(query, limit=limit, **kwargs)
-        return list(cast(Sequence[RetrievalResult], results))
+        return list(results)
 
     async def get_document(self, doc_id: str) -> Optional[Document]:
         """Get a document by ID.

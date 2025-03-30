@@ -1,12 +1,14 @@
 """Document processor implementation."""
 
-import os
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Union
 
-from pepperpy.core.base import BaseProvider
-from pepperpy.content_processing.base import ContentProcessor, ContentType, ProcessingResult
-from pepperpy.content_processing.errors import ContentProcessingError, UnsupportedContentTypeError
+from pepperpy.content_processing.base import (
+    ContentProcessor,
+    ContentType,
+    ProcessingResult,
+)
+from pepperpy.content_processing.errors import ContentProcessingError
 
 
 class DocumentProcessor(ContentProcessor):
@@ -14,7 +16,7 @@ class DocumentProcessor(ContentProcessor):
 
     def __init__(
         self,
-        provider_type: str = 'pymupdf',
+        provider_type: str = "pymupdf",
         **kwargs: Any,
     ) -> None:
         """Initialize document processor.
@@ -76,7 +78,7 @@ class DocumentProcessor(ContentProcessor):
         # Process content
         try:
             result = await self._provider.process(content_path, **options)
-            result.metadata['content_type'] = self._content_type.value
+            result.metadata["content_type"] = self._content_type.value
             return result
 
         except Exception as e:
@@ -89,8 +91,8 @@ class DocumentProcessor(ContentProcessor):
             Dictionary of processor capabilities
         """
         capabilities = {
-            'content_type': self._content_type.value,
-            'provider_type': self._provider_type,
+            "content_type": self._content_type.value,
+            "provider_type": self._provider_type,
         }
         capabilities.update(self._provider.get_capabilities())
-        return capabilities 
+        return capabilities

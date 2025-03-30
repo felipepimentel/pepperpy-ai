@@ -158,7 +158,7 @@ class DocumentCache:
 
         try:
             cache_path = self.get_cache_path(cache_key)
-            with open(cache_path, "r", encoding="utf-8") as f:
+            with open(cache_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             self.hits += 1

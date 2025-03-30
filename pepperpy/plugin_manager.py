@@ -246,12 +246,25 @@ class PluginManager:
             ValidationError: If provider creation fails
         """
         debug_logger = get_logger("pepperpy.config.debug")
+
+        # Log environment variables
+        print(
+            f"DEBUG: Checking for env var PEPPERPY_{module.upper()}__{provider_type.upper()}_API_KEY"
+        )
+        env_key = f"PEPPERPY_{module.upper()}__{provider_type.upper()}_API_KEY"
+        if env_key in os.environ:
+            value = os.environ[env_key]
+            masked = f"{value[:5]}...{value[-5:]}" if len(value) > 10 else "***"
+            print(f"DEBUG: Found env var {env_key} = {masked}")
+
         debug_logger.debug(f"Creating provider: {module}/{provider_type}")
         debug_logger.debug(f"Provider configuration: {config}")
 
         # Check for environment variables prefixed with PEPPERPY_{module}__{provider_type} e.g., PEPPERPY_LLM__OPENROUTER_API_KEY
         added_from_env = {}
+        debug_logger.debug(f"Checking for env vars for {module}/{provider_type}")
         for env_var, env_value in os.environ.items():
+            debug_logger.debug(f"Checking env var: {env_var}")
             if env_var.startswith(
                 f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"
             ):
@@ -259,12 +272,21 @@ class PluginManager:
                 key_suffix = env_var.split(
                     f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"
                 )[1].lower()
+                debug_logger.debug(
+                    f"Found matching env var: {env_var}, key_suffix: {key_suffix}"
+                )
 
                 # Create provider-prefixed key (e.g., openrouter_api_key)
                 provider_prefixed_key = f"{provider_type.lower()}_{key_suffix}"
+                debug_logger.debug(f"Provider prefixed key: {provider_prefixed_key}")
                 if provider_prefixed_key not in config:
                     config[provider_prefixed_key] = env_value
                     added_from_env[provider_prefixed_key] = env_value
+                    debug_logger.debug(f"Added key to config: {provider_prefixed_key}")
+                else:
+                    debug_logger.debug(
+                        f"Key already in config: {provider_prefixed_key}"
+                    )
 
         # Only log if environment variables were actually found
         if added_from_env:

@@ -1,0 +1,35 @@
+name: "HuggingFace Embeddings Provider"
+version: "0.1.0"
+description: "Provider for HuggingFace text embeddings models"
+author: "PepperPy Team"
+plugin_category: "embeddings"
+provider_type: "huggingface"
+required_config_keys:
+  - "api_key"
+
+default_config:
+  model: "BAAI/bge-small-en-v1.5"
+  device: null
+  cache_dir: null
+
+config_schema:
+  api_key:
+    description: "HuggingFace API key"
+    required: true
+    env_var: "HUGGINGFACE_API_KEY"
+    type: "string"
+  model:
+    description: "Model name or path"
+    required: false
+    default: "BAAI/bge-small-en-v1.5"
+    type: "string"
+  device:
+    description: "Device to use (cuda if available, else cpu)"
+    required: false
+    type: "string"
+    nullable: true
+  cache_dir:
+    description: "Directory to cache models"
+    required: false
+    type: "string"
+    nullable: true 

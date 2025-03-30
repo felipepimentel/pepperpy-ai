@@ -6,8 +6,13 @@ This example shows how to use PepperPy's fluent API for RAG operations.
 import asyncio
 import os
 from pathlib import Path
+from typing import cast
 
-from pepperpy import PepperPy, create_rag_provider
+from pepperpy import PepperPy
+from pepperpy.rag.base import Document, RAGProvider
+from plugins.rag_memory.provider import (
+    InMemoryProvider,  # Import directly the provider class
+)
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -20,8 +25,8 @@ async def main() -> None:
     print("RAG Example")
     print("=" * 50)
 
-    # Create RAG provider
-    rag_provider = create_rag_provider("memory")
+    # Create RAG provider directly from the InMemoryProvider
+    rag_provider = cast(RAGProvider, InMemoryProvider())
 
     # Initialize PepperPy with RAG support
     async with PepperPy().with_rag(rag_provider) as pepper:
@@ -34,22 +39,22 @@ async def main() -> None:
             print("\nAdding sample documents...")
             # Create documents to add
             docs = [
-                {
-                    "text": "PepperPy is a Python framework for building AI applications",
-                    "metadata": {"type": "framework", "language": "python"},
-                },
-                {
-                    "text": "RAG (Retrieval Augmented Generation) enhances LLM responses with relevant context",
-                    "metadata": {"type": "concept", "field": "ai"},
-                },
-                {
-                    "text": "Vector databases store and search high-dimensional vectors efficiently",
-                    "metadata": {"type": "technology", "field": "databases"},
-                },
+                Document(
+                    text="PepperPy is a Python framework for building AI applications",
+                    metadata={"type": "framework", "language": "python"},
+                ),
+                Document(
+                    text="RAG (Retrieval Augmented Generation) enhances LLM responses with relevant context",
+                    metadata={"type": "concept", "field": "ai"},
+                ),
+                Document(
+                    text="Vector databases store and search high-dimensional vectors efficiently",
+                    metadata={"type": "technology", "field": "databases"},
+                ),
             ]
 
-            for doc in docs:
-                await rag_provider.store_document(doc["text"], doc["metadata"])
+            # Store documents using pepper's add_documents method
+            await pepper.add_documents(docs)
 
             results = await pepper.search("", limit=10)
             print(f"Added {len(results)} documents")

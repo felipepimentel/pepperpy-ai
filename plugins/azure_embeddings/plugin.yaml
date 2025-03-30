@@ -1,0 +1,41 @@
+name: "Azure Embeddings Provider"
+version: "0.1.0"
+description: "Provider for Azure OpenAI text embeddings models"
+author: "PepperPy Team"
+plugin_category: "embeddings"
+provider_type: "azure"
+required_config_keys:
+  - "api_key"
+  - "endpoint"
+  - "deployment"
+
+default_config:
+  model: "text-embedding-3-small"
+  dimensions: null
+
+config_schema:
+  api_key:
+    description: "Azure OpenAI API key"
+    required: true
+    env_var: "AZURE_OPENAI_API_KEY"
+    type: "string"
+  endpoint:
+    description: "Azure OpenAI endpoint URL"
+    required: true
+    env_var: "AZURE_OPENAI_ENDPOINT"
+    type: "string"
+  deployment:
+    description: "Azure OpenAI deployment name"
+    required: true
+    env_var: "AZURE_OPENAI_DEPLOYMENT"
+    type: "string"
+  model:
+    description: "Model to use for embeddings (text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002)"
+    required: false
+    default: "text-embedding-3-small"
+    type: "string"
+  dimensions:
+    description: "Number of dimensions for the embeddings (default based on model)"
+    required: false
+    type: "integer"
+    nullable: true 

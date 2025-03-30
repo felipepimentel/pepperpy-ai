@@ -1,19 +1,8 @@
-"""Embeddings module for PepperPy.
-
-This module was migrated from a subdirectory structure.
-"""
-
-from pepperpy.embeddings.base import (
-from pepperpy.embeddings.providers.fastai import FastAIEmbeddingProvider
-from pepperpy.embeddings.providers.huggingface import HuggingFaceEmbeddingProvider
-from pepperpy.embeddings.providers.local import LocalProvider
-
 """Base module for embeddings functionality.
 
 This module defines the base interfaces and types for embedding providers.
 """
 
-import importlib
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Protocol, Union
@@ -380,28 +369,22 @@ def create_provider(
     Raises:
         EmbeddingConfigError: If the provider type is invalid or configuration is invalid
     """
-    from pepperpy.embeddings.providers import PROVIDER_MODULES
-
-    if provider_type not in PROVIDER_MODULES:
-        raise EmbeddingConfigError(
-            f"Invalid provider type '{provider_type}'. Available providers: {list(PROVIDER_MODULES.keys())}"
-        )
-
     try:
-        module = importlib.import_module(
-            PROVIDER_MODULES[provider_type], package="pepperpy.embeddings.providers"
-        )
-        provider_class = getattr(module, provider_type)
-        return provider_class(**config)
+        # Import provider from plugins
+        from pepperpy.plugin import get_plugin_providers
+
+        providers = get_plugin_providers("embeddings")
+        if provider_type not in providers:
+            raise EmbeddingConfigError(
+                f"Invalid provider type '{provider_type}'. Available providers: {list(providers.keys())}"
+            )
+
+        return providers[provider_type](**config)
     except ImportError as e:
         raise EmbeddingConfigError(
-            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
-        )
-    except AttributeError:
-        raise EmbeddingConfigError(
-            f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {e!s}"
         )
     except Exception as e:
         raise EmbeddingConfigError(
-            f"Failed to create provider '{provider_type}': {str(e)}"
+            f"Failed to create provider '{provider_type}': {e!s}"
         )

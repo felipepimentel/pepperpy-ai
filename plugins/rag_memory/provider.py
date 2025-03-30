@@ -1,31 +1,27 @@
-"""In-memory RAG provider implementation.
-
-This module provides a simple in-memory RAG provider implementation
-for examples and testing. It has minimal dependencies and is designed
-for simplicity rather than performance.
-"""
+"""Simple in-memory RAG provider for testing and examples."""
 
 import uuid
 from typing import Any, Dict, List, Optional
 
-import numpy as np
-
-from pepperpy.rag.base import BaseProvider
+from pepperpy.core.base import BaseProvider
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
-    """Calculate cosine similarity between two vectors."""
+    """Calculate cosine similarity between two vectors.
+
+    Args:
+        a: First vector
+        b: Second vector
+
+    Returns:
+        Cosine similarity (0.0 to 1.0)
+    """
     if not a or not b:
         return 0.0
 
-    # Convert to numpy arrays for efficient computation
-    a_array = np.array(a)
-    b_array = np.array(b)
-
-    # Compute cosine similarity
-    dot_product = np.dot(a_array, b_array)
-    norm_a = np.linalg.norm(a_array)
-    norm_b = np.linalg.norm(b_array)
+    dot_product = sum(x * y for x, y in zip(a, b))
+    norm_a = sum(x * x for x in a) ** 0.5
+    norm_b = sum(y * y for y in b) ** 0.5
 
     if norm_a == 0 or norm_b == 0:
         return 0.0
@@ -34,7 +30,7 @@ def cosine_similarity(a: List[float], b: List[float]) -> float:
 
 
 class DocumentEntry:
-    """Document entry in the in-memory store."""
+    """Document entry for in-memory storage."""
 
     def __init__(
         self,
@@ -43,26 +39,29 @@ class DocumentEntry:
         metadata: Dict[str, Any],
         vector: Optional[List[float]] = None,
     ) -> None:
+        """Initialize document entry.
+
+        Args:
+            id: Document ID
+            text: Document text
+            metadata: Document metadata
+            vector: Optional embedding vector
+        """
         self.id = id
         self.text = text
-        self.metadata = metadata or {}
+        self.metadata = metadata
         self.vector = vector
 
 
 class InMemoryProvider(BaseProvider):
-    """Simple in-memory RAG provider for examples and testing.
-
-    This provider stores all documents and vectors in memory,
-    making it lightweight and easy to use for examples without
-    requiring external dependencies or databases.
-    """
+    """Simple in-memory RAG provider for testing and examples."""
 
     name = "memory"
 
-    
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
-def __init__(
+
+    def __init__(
         self,
         collection_name: str = "default",
         **kwargs: Any,
@@ -509,3 +508,66 @@ def __init__(
                 1 for doc in self._documents.values() if doc.vector is not None
             ),
         }
+
+    # Add methods to implement RAGProvider interface
+
+    async def store(self, docs):
+        """Store documents in the RAG context.
+
+        Args:
+            docs: Document or list of documents to store.
+        """
+        if isinstance(docs, list):
+            for doc in docs:
+                await self.store_document(doc.text, doc.metadata)
+        else:
+            await self.store_document(docs.text, docs.metadata)
+
+    async def search(self, query, limit=5, **kwargs):
+        """Search for relevant documents.
+
+        Args:
+            query: Search query text or Query object
+            limit: Maximum number of results to return
+            **kwargs: Additional search parameters
+
+        Returns:
+            List of search results
+        """
+        from pepperpy.rag.base import Document, Query, RetrievalResult
+
+        if isinstance(query, Query):
+            query_text = query.text
+            query_embedding = query.embeddings
+        else:
+            query_text = query
+            query_embedding = None
+
+        kwargs["query_embedding"] = query_embedding
+
+        results = await self.search_documents(query=query_text, limit=limit, **kwargs)
+
+        return [
+            RetrievalResult(
+                document=Document(text=r["text"], metadata=r["metadata"]),
+                score=r.get("score", 0.0),
+            )
+            for r in results
+        ]
+
+    async def get(self, doc_id):
+        """Get a document by ID.
+
+        Args:
+            doc_id: ID of the document to get
+
+        Returns:
+            The document if found, None otherwise
+        """
+        from pepperpy.rag.base import Document
+
+        result = await self.retrieve_document(doc_id)
+        if result is None:
+            return None
+
+        return Document(text=result["text"], metadata=result["metadata"])

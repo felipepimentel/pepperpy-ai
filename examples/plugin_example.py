@@ -28,19 +28,19 @@ async def install_plugins() -> None:
         print(f"  {status}: {plugin_name}")
 
     # Install a specific plugin
-    print("\nInstalling a specific plugin (llm_openai)...")
-    success = install_plugin_dependencies("llm_openai")
+    print("\nInstalling a specific plugin (llm_openrouter)...")
+    success = install_plugin_dependencies("llm_openrouter")
     status = "✓ Successfully installed" if success else "✗ Failed to install"
-    print(f"  {status}: llm_openai")
+    print(f"  {status}: llm_openrouter")
 
 
 async def use_plugin() -> None:
     """Use an installed plugin."""
-    print("\nUsing the OpenAI plugin:")
+    print("\nUsing the OpenRouter plugin:")
     try:
         async with PepperPy().with_llm(
-            provider_type="openai",
-            api_key=os.getenv("OPENAI_API_KEY"),
+            provider_type="openrouter",
+            api_key=os.getenv("PEPPERPY_LLM__OPENROUTER_API_KEY"),
             model="gpt-3.5-turbo",
         ) as pepper:
             # Generate text using the plugin

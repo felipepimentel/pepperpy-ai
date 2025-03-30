@@ -1,7 +1,7 @@
 """Memory implementations for the agents module."""
 
 import asyncio
-from typing import List, Optional, cast
+from typing import List, cast
 
 from pepperpy.agents.base import Memory, Message
 from pepperpy.core.memory import BaseMemory, MemoryManager
@@ -14,7 +14,7 @@ class MessageMemory(BaseMemory):
 
     def __init__(self, message: Message) -> None:
         """Initialize message memory.
-        
+
         Args:
             message: The message to store
         """
@@ -24,7 +24,7 @@ class MessageMemory(BaseMemory):
 
 class SimpleMemory(Memory):
     """Simple memory implementation for agents using core memory management.
-    
+
     This implementation uses the core memory management system to provide
     thread safety, metadata tracking, and access statistics.
     """
@@ -43,7 +43,7 @@ class SimpleMemory(Memory):
 
     async def add_message(self, message: Message) -> None:
         """Add a message to memory.
-        
+
         Args:
             message: The message to add.
         """
@@ -54,7 +54,7 @@ class SimpleMemory(Memory):
 
     async def get_messages(self) -> List[Message]:
         """Get all messages from memory.
-        
+
         Returns:
             List of messages.
         """
@@ -65,10 +65,10 @@ class SimpleMemory(Memory):
 
     async def get_messages_by_role(self, role: str) -> List[Message]:
         """Get messages from a specific role.
-        
+
         Args:
             role: The role to filter by.
-            
+
         Returns:
             List of messages from the specified role.
         """
@@ -88,4 +88,4 @@ class SimpleMemory(Memory):
     async def __del__(self) -> None:
         """Clean up resources when object is deleted."""
         if self._initialized:
-            await self._manager.__aexit__(None, None, None) 
+            await self._manager.__aexit__(None, None, None)

@@ -1,0 +1,28 @@
+name: "Local Embeddings Provider"
+version: "0.1.0"
+description: "Provider for local text embeddings using sentence-transformers"
+author: "PepperPy Team"
+plugin_category: "embeddings"
+provider_type: "local"
+
+default_config:
+  model: "all-MiniLM-L6-v2"
+  device: null
+  cache_dir: null
+
+config_schema:
+  model:
+    description: "Model name or path (all-MiniLM-L6-v2, all-mpnet-base-v2, multi-qa-mpnet-base-dot-v1)"
+    required: false
+    default: "all-MiniLM-L6-v2"
+    type: "string"
+  device:
+    description: "Device to use (cuda if available, else cpu)"
+    required: false
+    type: "string"
+    nullable: true
+  cache_dir:
+    description: "Directory to cache models"
+    required: false
+    type: "string"
+    nullable: true 

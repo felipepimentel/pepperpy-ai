@@ -9,6 +9,6 @@ Example:
     >>> cli.run()
 """
 
-from pepperpy.cli.cli import CLI
+from cli import CLI
 
 __all__ = ["CLI"]

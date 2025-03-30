@@ -1,0 +1,36 @@
+name: "OpenAI Embeddings Provider"
+version: "0.1.0"
+description: "Provider for OpenAI text embeddings models"
+author: "PepperPy Team"
+plugin_category: "embeddings"
+provider_type: "openai"
+required_config_keys:
+  - "api_key"
+
+default_config:
+  model: "text-embedding-3-small"
+  dimensions: null
+  organization: null
+
+config_schema:
+  api_key:
+    description: "OpenAI API key"
+    required: true
+    env_var: "OPENAI_API_KEY"
+    type: "string"
+  model:
+    description: "Model to use for embeddings (text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002)"
+    required: false
+    default: "text-embedding-3-small"
+    type: "string"
+  dimensions:
+    description: "Number of dimensions for the embeddings (default based on model)"
+    required: false
+    type: "integer"
+    nullable: true
+  organization:
+    description: "OpenAI organization ID"
+    required: false
+    env_var: "OPENAI_ORG_ID"
+    type: "string"
+    nullable: true 

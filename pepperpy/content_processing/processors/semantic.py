@@ -340,7 +340,7 @@ class SemanticExtractor:
             self.nlp = spacy.load(self.model_name)
 
             # Configure pipeline components
-            if "neuralcoref" in self.config and self.config["neuralcoref"]:
+            if self.config.get("neuralcoref"):
                 # Add neural coreference resolution if available
                 try:
                     import neuralcoref

@@ -480,7 +480,7 @@ class HierarchicalMemory(Memory):
 
             # Fall back to direct file if no storage provider or method not found
             if memory_data is None:
-                with open(self._persistence_path, "r") as f:
+                with open(self._persistence_path) as f:
                     memory_data = json.load(f)
 
             # Load working memory

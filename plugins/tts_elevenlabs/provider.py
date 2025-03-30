@@ -5,7 +5,8 @@ Implements text-to-speech capabilities using ElevenLabs API.
 """
 
 import os
-from typing import Any, AsyncIterator, Dict, List, Optional
+from collections.abc import AsyncIterator
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
@@ -24,10 +25,10 @@ class ElevenLabsProvider(TTSProvider):
 
     BASE_URL = "https://api.elevenlabs.io/v1"
 
-    
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
-def __init__(self, **kwargs):
+
+    def __init__(self, **kwargs):
         """Initialize the ElevenLabs provider.
 
         Args:
@@ -180,11 +181,11 @@ def __init__(self, **kwargs):
                     return await response.read()
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with ElevenLabs: {str(e)}"
+                f"Network error while communicating with ElevenLabs: {e!s}"
             ) from e
         except Exception as e:
             raise TTSProviderError(
-                f"Error generating speech with ElevenLabs: {str(e)}"
+                f"Error generating speech with ElevenLabs: {e!s}"
             ) from e
 
     async def convert_text_stream(
@@ -239,11 +240,11 @@ def __init__(self, **kwargs):
                         yield chunk
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with ElevenLabs: {str(e)}"
+                f"Network error while communicating with ElevenLabs: {e!s}"
             ) from e
         except Exception as e:
             raise TTSProviderError(
-                f"Error streaming speech with ElevenLabs: {str(e)}"
+                f"Error streaming speech with ElevenLabs: {e!s}"
             ) from e
 
     async def get_voices(self, **kwargs) -> List[Dict[str, Any]]:
@@ -285,11 +286,11 @@ def __init__(self, **kwargs):
                     ]
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with ElevenLabs: {str(e)}"
+                f"Network error while communicating with ElevenLabs: {e!s}"
             ) from e
         except Exception as e:
             raise TTSProviderError(
-                f"Error fetching voices from ElevenLabs: {str(e)}"
+                f"Error fetching voices from ElevenLabs: {e!s}"
             ) from e
 
     async def clone_voice(self, name: str, samples: List[bytes], **kwargs) -> str:
@@ -344,9 +345,7 @@ def __init__(self, **kwargs):
                     return data.get("voice_id", "")
         except aiohttp.ClientError as e:
             raise TTSProviderError(
-                f"Network error while communicating with ElevenLabs: {str(e)}"
+                f"Network error while communicating with ElevenLabs: {e!s}"
             ) from e
         except Exception as e:
-            raise TTSProviderError(
-                f"Error cloning voice with ElevenLabs: {str(e)}"
-            ) from e
+            raise TTSProviderError(f"Error cloning voice with ElevenLabs: {e!s}") from e
