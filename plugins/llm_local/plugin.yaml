@@ -1,0 +1,84 @@
+# Local LLM Provider Plugin Metadata
+name: "Local LLM Provider"
+version: "0.1.0"
+description: "Provider for local language models using transformers"
+author: "PepperPy Team"
+plugin_category: "llm"
+provider_type: "local"
+required_config_keys:
+  - "model"
+
+# Default configuration values
+default_config:
+  model: "llama2"
+  model_path: null
+  device: "cpu"
+  temperature: 0.7
+  max_tokens: 100
+
+# Configuration schema
+config_schema:
+  model:
+    description: "Model identifier (default: llama2)"
+    required: true
+    type: "string"
+    default: "llama2"
+  
+  model_path:
+    description: "Optional path to model weights (defaults to model identifier if not specified)"
+    required: false
+    type: "string"
+  
+  device:
+    description: "Device to run model on (cpu, cuda, mps)"
+    required: false
+    default: "cpu"
+    type: "string"
+  
+  temperature:
+    description: "Sampling temperature between 0.0 (deterministic) and 2.0 (creative)"
+    required: false
+    default: 0.7
+    type: "float"
+    min: 0.0
+    max: 2.0
+  
+  max_tokens:
+    description: "Maximum tokens to generate in the response"
+    required: false
+    default: 100
+    type: "integer"
+    min: 1
+
+# Documentation
+documentation:
+  usage: |
+    Local LLM provider for running models on your own hardware.
+    
+    Requires a model identifier or path and the appropriate hardware.
+    
+    Example usage:
+    ```python
+    from pepperpy import create_provider
+    
+    # Use a local model
+    provider = create_provider("llm", "local", model="llama2", device="cuda")
+    
+    # Or with a specific model path
+    provider = create_provider(
+        "llm", 
+        "local", 
+        model="mistral", 
+        model_path="/path/to/mistral/weights",
+        device="cuda"
+    )
+    
+    response = await provider.generate("Tell me a joke.")
+    print(response.content)
+    ```
+  
+  models:
+    - "llama2"
+    - "mistral"
+    - "phi"
+    - "Any HuggingFace model ID or local path" 

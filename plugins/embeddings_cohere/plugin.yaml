@@ -1,0 +1,29 @@
+# Cohere Embeddings Provider Plugin Metadata
+name: "Cohere Embeddings Provider"
+version: "0.1.0"
+description: "Provider for Cohere for embeddings tasks"
+author: "PepperPy Team"
+plugin_category: "embeddings"
+provider_type: "cohere"
+
+# Default configuration values
+default_config:
+  # Add your default config here
+  
+# Configuration schema
+config_schema:
+  # Add your config schema here
+
+# Documentation
+documentation:
+  usage: |
+    Cohere provider for embeddings tasks.
+    
+    Example usage:
+    ```python
+    from pepperpy import create_provider
+    
+    provider = create_provider("embeddings", "cohere")
+    
+    # Usage example here
+    ```

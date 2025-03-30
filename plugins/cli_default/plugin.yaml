@@ -1,0 +1,29 @@
+# Default Cli Provider Plugin Metadata
+name: "Default Cli Provider"
+version: "0.1.0"
+description: "Provider for Default for cli tasks"
+author: "PepperPy Team"
+plugin_category: "cli"
+provider_type: "default"
+
+# Default configuration values
+default_config:
+  # Add your default config here
+  
+# Configuration schema
+config_schema:
+  # Add your config schema here
+
+# Documentation
+documentation:
+  usage: |
+    Default provider for cli tasks.
+    
+    Example usage:
+    ```python
+    from pepperpy import create_provider
+    
+    provider = create_provider("cli", "default")
+    
+    # Usage example here
+    ```

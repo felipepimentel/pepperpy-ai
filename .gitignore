@@ -106,3 +106,5 @@ examples/input/
 data/vector_store/
 data/chroma/
 examples/data/
+
+backup

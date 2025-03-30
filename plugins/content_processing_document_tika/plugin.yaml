@@ -1,0 +1,29 @@
+# Tika Content Processing Document Provider Plugin Metadata
+name: "Tika Content Processing Document Provider"
+version: "0.1.0"
+description: "Provider for Tika for content_processing_document tasks"
+author: "PepperPy Team"
+plugin_category: "content/processing/document"
+provider_type: "tika"
+
+# Default configuration values
+default_config:
+  # Add your default config here
+  
+# Configuration schema
+config_schema:
+  # Add your config schema here
+
+# Documentation
+documentation:
+  usage: |
+    Tika provider for content/processing/document tasks.
+    
+    Example usage:
+    ```python
+    from pepperpy import create_provider
+    
+    provider = create_provider("content/processing/document", "tika")
+    
+    # Usage example here
+    ```

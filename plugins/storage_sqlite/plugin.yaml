@@ -1,0 +1,29 @@
+# Sqlite Storage Provider Plugin Metadata
+name: "Sqlite Storage Provider"
+version: "0.1.0"
+description: "Provider for Sqlite for storage tasks"
+author: "PepperPy Team"
+plugin_category: "storage"
+provider_type: "sqlite"
+
+# Default configuration values
+default_config:
+  # Add your default config here
+  
+# Configuration schema
+config_schema:
+  # Add your config schema here
+
+# Documentation
+documentation:
+  usage: |
+    Sqlite provider for storage tasks.
+    
+    Example usage:
+    ```python
+    from pepperpy import create_provider
+    
+    provider = create_provider("storage", "sqlite")
+    
+    # Usage example here
+    ```
