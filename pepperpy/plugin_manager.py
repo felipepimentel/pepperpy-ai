@@ -4,6 +4,7 @@ This module handles provider discovery, loading, and management.
 """
 
 import importlib
+import os
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, Optional, Type, cast
@@ -11,6 +12,9 @@ from typing import Any, Dict, Optional, Type, cast
 from pepperpy.core import BaseProvider, ValidationError
 from pepperpy.core.logging import get_logger
 from pepperpy.plugin import PepperpyPlugin, discover_plugins
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 class PluginManager:
@@ -241,29 +245,78 @@ class PluginManager:
         Raises:
             ValidationError: If provider creation fails
         """
-        logger = get_logger(__name__)
+        debug_logger = get_logger("pepperpy.config.debug")
+        debug_logger.debug(f"Creating provider: {module}/{provider_type}")
+        debug_logger.debug(f"Provider configuration: {config}")
+
+        # Check for environment variables prefixed with PEPPERPY_{module}__{provider_type} e.g., PEPPERPY_LLM__OPENROUTER_API_KEY
+        added_from_env = {}
+        for env_var, env_value in os.environ.items():
+            if env_var.startswith(
+                f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"
+            ):
+                # Extract the key suffix (e.g., API_KEY from PEPPERPY_LLM__OPENROUTER_API_KEY)
+                key_suffix = env_var.split(
+                    f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"
+                )[1].lower()
+
+                # Create provider-prefixed key (e.g., openrouter_api_key)
+                provider_prefixed_key = f"{provider_type.lower()}_{key_suffix}"
+                if provider_prefixed_key not in config:
+                    config[provider_prefixed_key] = env_value
+                    added_from_env[provider_prefixed_key] = env_value
+
+        # Only log if environment variables were actually found
+        if added_from_env:
+            # Create a masked version for sensitive values in debug logs
+            masked_added = {}
+            for k, v in added_from_env.items():
+                if any(
+                    sensitive in k.lower()
+                    for sensitive in ["key", "secret", "password", "token"]
+                ):
+                    masked_added[k] = f"{v[:5]}...{v[-5:]}" if len(v) > 10 else "***"
+                else:
+                    masked_added[k] = v
+
+            debug_logger.debug(f"Added to config from environment: {masked_added}")
 
         try:
-            logger.debug(f"Creating provider: {module}/{provider_type}")
-
             # First check if we have a registered class
             if (
                 module in self._plugin_classes
                 and provider_type in self._plugin_classes[module]
             ):
                 provider_class = self._plugin_classes[module][provider_type]
-                logger.debug(
+                debug_logger.debug(
                     f"Creating provider from registered class: {provider_class.__name__}"
                 )
-                # Create and return provider instance
+
+                # Create provider instance
                 try:
+                    debug_logger.debug("Creating instance using from_config method")
                     provider = provider_class.from_config(**config)
                 except (AttributeError, TypeError) as e:
-                    logger.warning(
+                    debug_logger.warning(
                         f"Could not use from_config method: {e}, trying direct instantiation"
                     )
-                    # Tenta criar diretamente se from_config não estiver disponível
+                    # Try direct instantiation if from_config is not available
                     provider = provider_class(**config)
+
+                # Ensure plugin is initialized from YAML if it's a ProviderPlugin
+                if hasattr(provider, "initialize_from_yaml"):
+                    # Find and initialize from plugin.yaml
+                    plugin_dir = f"plugins/{module}_{provider_type}"
+                    yaml_path = f"{plugin_dir}/plugin.yaml"
+                    try:
+                        debug_logger.debug(
+                            f"Initializing plugin from YAML: {yaml_path}"
+                        )
+                        provider.initialize_from_yaml(yaml_path)
+                    except Exception as yaml_error:
+                        debug_logger.warning(
+                            f"Error initializing from YAML: {yaml_error}"
+                        )
 
                 return cast(BaseProvider, provider)
 
@@ -291,7 +344,7 @@ class PluginManager:
 
             provider_info = providers[provider_type]
             provider_path = provider_info["path"]
-            logger.debug(f"Loading provider from path: {provider_path}")
+            debug_logger.debug(f"Loading provider from path: {provider_path}")
 
             if ":" in provider_path:
                 # Format is plugin_name.provider:Provider
@@ -302,7 +355,7 @@ class PluginManager:
                 class_name = parts[1]
                 # Usar o diretório real do plugin
                 module_path = f"plugins.{plugin_name}.provider"
-                logger.debug(
+                debug_logger.debug(
                     f"Importing from module: {module_path}, class: {class_name}"
                 )
             else:
@@ -318,13 +371,13 @@ class PluginManager:
                     class_name = (
                         f"{provider_type[0].upper()}{provider_type[1:]}Provider"
                     )
-                logger.debug(f"Using default format: {module_path}.{class_name}")
+                debug_logger.debug(f"Using default format: {module_path}.{class_name}")
 
             try:
                 # Try to import module
                 try:
                     provider_module = importlib.import_module(module_path)
-                    logger.debug(f"Successfully imported module: {module_path}")
+                    debug_logger.debug(f"Successfully imported module: {module_path}")
                 except ModuleNotFoundError:
                     logger.error(f"Module not found: {module_path}")
                     raise ImportError(f"Module not found: {module_path}")
@@ -332,7 +385,7 @@ class PluginManager:
                 # Try to get class from module
                 try:
                     provider_class = getattr(provider_module, class_name)
-                    logger.debug(f"Provider class found: {class_name}")
+                    debug_logger.debug(f"Provider class found: {class_name}")
                 except AttributeError:
                     logger.error(
                         f"Class {class_name} not found in module {module_path}"
@@ -346,15 +399,33 @@ class PluginManager:
                     self._plugin_classes[module] = {}
                 self._plugin_classes[module][provider_type] = provider_class
 
-                # Create and return provider instance
+                # Create provider instance
                 try:
+                    debug_logger.debug(
+                        f"Creating instance using from_config method with config: {config}"
+                    )
                     provider = provider_class.from_config(**config)
                 except (AttributeError, TypeError) as e:
-                    logger.warning(
+                    debug_logger.warning(
                         f"Could not use from_config method: {e}, trying direct instantiation"
                     )
-                    # Tenta criar diretamente se from_config não estiver disponível
+                    # Try direct instantiation if from_config is not available
                     provider = provider_class(**config)
+
+                # Ensure plugin is initialized from YAML if it's a ProviderPlugin
+                if hasattr(provider, "initialize_from_yaml"):
+                    # Find and initialize from plugin.yaml
+                    plugin_dir = f"plugins/{module}_{provider_type}"
+                    yaml_path = f"{plugin_dir}/plugin.yaml"
+                    try:
+                        debug_logger.debug(
+                            f"Initializing plugin from YAML: {yaml_path}"
+                        )
+                        provider.initialize_from_yaml(yaml_path)
+                    except Exception as yaml_error:
+                        debug_logger.warning(
+                            f"Error initializing from YAML: {yaml_error}"
+                        )
 
                 return cast(BaseProvider, provider)
             except Exception as e:

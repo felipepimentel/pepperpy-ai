@@ -6,7 +6,7 @@ supporting various models through OpenRouter's API.
 
 import json
 from collections.abc import AsyncIterator
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import httpx
 
@@ -25,12 +25,12 @@ T = TypeVar("T", bound="OpenRouterProvider")
 class OpenRouterProvider(LLMProvider, ProviderPlugin):
     """OpenRouter provider for LLM tasks."""
 
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-    model: str = "openai/gpt-3.5-turbo"  # Fallback padrão
-    base_url: str = "https://openrouter.ai/api/v1"  # Valor fixo como fallback
-    temperature: float = 0.7  # Valor padrão sensato
-    max_tokens: int = 1024  # Valor padrão sensato
+    # These attributes will be auto-bound from plugin.yaml with fallback defaults
+    api_key: str = ""  # Will be filled by framework from env vars
+    model: str = "openai/gpt-3.5-turbo"
+    base_url: str = "https://openrouter.ai/api/v1"
+    temperature: float = 0.7
+    max_tokens: int = 1024
     client: Optional[httpx.AsyncClient] = None
 
     def __init__(self, **kwargs: Any) -> None:
@@ -38,30 +38,42 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
         super().__init__(**kwargs)
         self.client = None
 
-        # Garantir que valores fixos estão definidos - usar kwargs, depois os padrões da classe
-        if "base_url" in kwargs:
-            self.base_url = kwargs["base_url"]
-        if "model" in kwargs:
-            self.model = kwargs["model"]
-        if "temperature" in kwargs:
-            self.temperature = kwargs["temperature"]
-        if "max_tokens" in kwargs:
-            self.max_tokens = kwargs["max_tokens"]
+        # Ensure we set the API key if provided in kwargs
+        if "api_key" in kwargs:
+            self.api_key = kwargs["api_key"]
 
     @classmethod
-    def from_config(cls: Type[T], **config: Any) -> T:
-        """Create an OpenRouter provider instance from configuration.
+    def from_config(cls, **config) -> "OpenRouterProvider":
+        """Create a provider from configuration."""
+        instance = cls()
 
-        Args:
-            **config: Configuration parameters
+        # Base URL
+        if "base_url" in config:
+            instance.base_url = config["base_url"]
 
-        Returns:
-            Provider instance
-        """
-        return cast(T, cls(**config))
+        # Model
+        if "model" in config:
+            instance.model = config["model"]
+
+        # Temperature
+        if "temperature" in config:
+            instance.temperature = float(config["temperature"])
+
+        # Max tokens
+        if "max_tokens" in config:
+            instance.max_tokens = int(config["max_tokens"])
+
+        # API key - check both the original api_key and our provider-prefixed key
+        if "api_key" in config:
+            instance.api_key = config["api_key"]
+        elif "openrouter_api_key" in config:
+            instance.api_key = config["openrouter_api_key"]
+
+        return instance
 
     async def initialize(self) -> None:
         """Initialize the OpenRouter client."""
+
         self.client = httpx.AsyncClient(
             base_url=self.base_url,
             headers={

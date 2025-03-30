@@ -13,6 +13,60 @@ priority: 920
 
 This rule defines the standards for configuring and using providers in the PepperPy framework. It ensures proper handling of environment variables, configuration validation, and provider abstractions.
 
+## Environment Variable Naming Convention
+
+PepperPy uses a standardized naming convention for environment variables:
+
+```
+PEPPERPY_{MODULE}__{PROVIDER}_{KEY}
+```
+
+Where:
+- `{MODULE}` is the module category (e.g., LLM, RAG, EMBEDDINGS)
+- `{PROVIDER}` is the provider type (e.g., OPENAI, OPENROUTER)
+- `{KEY}` is the configuration key (e.g., API_KEY, BASE_URL)
+
+For example:
+- `PEPPERPY_LLM__OPENROUTER_API_KEY` for the OpenRouter API key
+- `PEPPERPY_EMBEDDINGS__OPENAI_API_KEY` for OpenAI embeddings API key
+
+### Environment Variable to Configuration Key Transformation
+
+Environment variables are automatically transformed into configuration keys following this pattern:
+
+```
+PEPPERPY_{MODULE}__{PROVIDER}_{KEY} → {provider}_{key}
+```
+
+For example:
+- `PEPPERPY_LLM__OPENROUTER_API_KEY` becomes `openrouter_api_key`
+- `PEPPERPY_EMBEDDINGS__OPENAI_MODEL` becomes `openai_model`
+
+This provider-prefixed key format is critical for:
+1. Preventing key collisions between different providers
+2. Maintaining clear association between keys and their providers
+3. Supporting multiple providers that may use similar parameter names
+
+### Provider-Prefixed Key Implementation
+
+Provider implementations should check for provider-prefixed keys:
+
+```python
+# CORRECT - Check for provider-prefixed key
+@classmethod
+def from_config(cls, config: Dict[str, Any]) -> "MyProvider":
+    """Create provider from configuration."""
+    instance = cls()
+    
+    # Check for provider-prefixed API key
+    if "myprovider_api_key" in config:
+        instance.api_key = config["myprovider_api_key"]
+    elif "api_key" in config:  # Can also support generic key for backward compatibility
+        instance.api_key = config["api_key"]
+    
+    return instance
+```
+
 ## Auto-binding Configuration
 
 PepperPy's provider configuration is now automatically bound to instance attributes based on the configuration schema defined in `plugin.yaml`:
@@ -67,12 +121,12 @@ class MyProvider(DomainProvider, ProviderPlugin):
 
 The framework automatically resolves environment variables based on a consistent hierarchy:
 
-1. `PEPPERPY_{CATEGORY}__{PROVIDER}__{KEY}` (most specific)
+1. `PEPPERPY_{MODULE}__{PROVIDER}_{KEY}` (most specific, transforms to `provider_key`)
 2. `{PROVIDER}_{KEY}` (provider-specific)
 3. `PEPPERPY_{KEY}` (general)
 
 Example:
-- `PEPPERPY_LLM__OPENAI__API_KEY` (most specific)
+- `PEPPERPY_LLM__OPENAI_API_KEY` (most specific, transforms to `openai_api_key`)
 - `OPENAI_API_KEY` (provider-specific)
 - `PEPPERPY_API_KEY` (general)
 
@@ -85,6 +139,18 @@ When a provider is instantiated, the configuration is loaded with this precedenc
 3. Default values from `plugin.yaml`
 
 ## ❌ Anti-patterns
+
+### Incorrect Environment Variable Transformation
+
+```python
+# WRONG - Transforming to generic keys
+# PEPPERPY_LLM__OPENROUTER_API_KEY → api_key
+# This can cause key collisions between providers
+
+# CORRECT - Transform to provider-prefixed keys
+# PEPPERPY_LLM__OPENROUTER_API_KEY → openrouter_api_key
+# This prevents key collisions
+```
 
 ### Manual Environment Variable Access
 
@@ -135,6 +201,7 @@ class MyProvider(BaseProvider):
 3. **Type Safety**: Framework handles type conversion and validation
 4. **Centralized Validation**: Framework validates configuration
 5. **Consistent Environment Variables**: Follow the environment variable hierarchy
+6. **Provider-Prefixed Keys**: Transform environment variables to provider-prefixed keys
 
 ## Provider Configuration Patterns
 
@@ -145,31 +212,44 @@ class MyProvider(BaseProvider):
 from pepperpy import create_provider
 
 # Framework will load environment variables according to hierarchy
-provider = create_provider("llm", "openai")
+provider = create_provider("llm", "openrouter")
 
 # Or with explicit configuration
-provider = create_provider("llm", "openai", api_key="my-key", temperature=0.8)
+provider = create_provider("llm", "openrouter", openrouter_api_key="my-key", temperature=0.8)
 ```
 
 ### Provider Implementation
 
 ```python
-# CORRECT - Simple provider implementation
-class MyProvider(DomainProvider, ProviderPlugin):
+# CORRECT - Simple provider implementation with provider-prefixed keys
+class OpenRouterProvider(DomainProvider, ProviderPlugin):
+    @classmethod
+    def from_config(cls, config: Dict[str, Any]) -> "OpenRouterProvider":
+        """Create provider from configuration."""
+        instance = cls()
+        
+        # Check for provider-prefixed API key first
+        if "openrouter_api_key" in config:
+            instance.api_key = config["openrouter_api_key"]
+        elif "api_key" in config:  # Support generic key for backward compatibility
+            instance.api_key = config["api_key"]
+        
+        return instance
+    
     async def initialize(self) -> None:
         """Initialize the provider."""
         if self.initialized:
             return
             
-        # Check required configurations - auto-bound from plugin.yaml
+        # Check required configurations
         if not hasattr(self, "api_key") or not self.api_key:
-            raise ConfigError("API key is required")
+            raise ConfigError("API key is required for OpenRouter")
             
         # Initialize client
         try:
-            self.client = SomeClient(api_key=self.api_key)
+            self.client = OpenRouterClient(api_key=self.api_key)
         except Exception as e:
-            raise ProviderError(f"Failed to initialize client: {e}") from e
+            raise ProviderError(f"Failed to initialize OpenRouter client: {e}") from e
 ```
 
 ## Configuration Schema Definition
@@ -182,7 +262,7 @@ config_schema:
   api_key:
     description: "API key for authentication"
     required: true
-    env_var: "SERVICE_API_KEY"
+    env_var: "PEPPERPY_LLM__MYPROVIDER_API_KEY"  # Use the standard format
     type: "string"
     secret: true  # Indicates this is sensitive data
   
@@ -215,6 +295,9 @@ config_schema:
 When implementing or using providers:
 
 - [ ] Define complete configuration schema in `plugin.yaml`
+- [ ] Use environment variable naming convention: `PEPPERPY_{MODULE}__{PROVIDER}_{KEY}`
+- [ ] Transform environment variables to provider-prefixed keys: `provider_key`
+- [ ] Check for provider-prefixed keys in provider implementations
 - [ ] Use auto-bound attributes in provider code
 - [ ] Let the framework handle environment variables
 - [ ] Validate required configuration in `initialize()`
@@ -226,12 +309,13 @@ When implementing or using providers:
 from pepperpy import PepperPy
 
 # Using environment variables for configuration
-app = PepperPy().with_llm(provider_type="openai")
+# The framework will transform PEPPERPY_LLM__OPENROUTER_API_KEY to openrouter_api_key
+app = PepperPy().with_llm(provider_type="openrouter")
 
-# Or with explicit configuration
+# Or with explicit configuration using provider-prefixed keys
 app = PepperPy().with_llm(
-    provider_type="openai",
-    api_key="my-key",
+    provider_type="openrouter",
+    openrouter_api_key="my-key",  # Provider-prefixed key
     temperature=0.8
 )
 
@@ -239,4 +323,4 @@ async with app as pepper:
     response = await pepper.ask("What's the weather like?")
 ```
 
-This approach ensures that provider configuration is handled consistently, with proper environment variable resolution, type conversion, and validation. 
+This approach ensures that provider configuration is handled consistently, with proper environment variable resolution, type conversion, and validation. The provider-prefixed key pattern prevents key collisions and maintains clear association between configuration keys and their providers. 

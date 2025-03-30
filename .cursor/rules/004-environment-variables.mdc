@@ -17,19 +17,33 @@ This rule defines standards for environment variable naming, organization, and u
 All environment variables in PepperPy follow this hierarchical pattern:
 
 ```
-PEPPERPY_<DOMAIN>__<SETTING>
-PEPPERPY_<DOMAIN>__<PROVIDER>_<SETTING>  # When provider-specific
+PEPPERPY_<MODULE>__<SETTING>
+PEPPERPY_<MODULE>__<PROVIDER>_<SETTING>  # When provider-specific
 ```
 
 Where:
 - `PEPPERPY_`: Framework prefix (always required)
-- `<DOMAIN>`: Functional domain (e.g., LLM, RAG, TTS)
-- `__`: Double underscore separator for domain hierarchy
+- `<MODULE>`: Functional module (e.g., LLM, RAG, TTS)
+- `__`: Double underscore separator for module hierarchy
 - `<PROVIDER>`: (Optional) Provider name when applicable
 - `_`: Single underscore for regular word separation
 - `<SETTING>`: Specific configuration setting
 
 > **IMPORTANT**: This format is the OFFICIAL standard for PepperPy. Provider-specific names like `OPENAI_API_KEY` are supported for backward compatibility only, but all documentation and code should prioritize the PepperPy standard format.
+
+### Environment Variable to Configuration Key Transformation
+
+Environment variables are automatically transformed into configuration keys following this pattern:
+
+```
+PEPPERPY_<MODULE>__<PROVIDER>_<SETTING> → <provider>_<setting>
+```
+
+For example:
+- `PEPPERPY_LLM__OPENAI_API_KEY` becomes `openai_api_key`
+- `PEPPERPY_EMBEDDINGS__OPENAI_MODEL` becomes `openai_model`
+
+This provider-prefixed pattern is critical to prevent key collisions between different providers that might use similar parameter names.
 
 ### Examples
 
@@ -40,9 +54,9 @@ PEPPERPY_RAG__TEXT_CHUNK_SIZE=1000
 PEPPERPY_MEMORY__IMPORTANCE_THRESHOLD=0.5
 
 # Provider-specific configuration (OFFICIAL FORMAT)
-PEPPERPY_LLM__OPENAI_API_KEY=sk-....
-PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
-PEPPERPY_NEWS__NEWSAPI_API_KEY=...
+PEPPERPY_LLM__OPENAI_API_KEY=sk-....      # Transformed to openai_api_key
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...  # Transformed to openrouter_api_key
+PEPPERPY_NEWS__NEWSAPI_API_KEY=...        # Transformed to newsapi_api_key
 
 # Provider-specific configuration (COMPATIBILITY ONLY - NOT PREFERRED)
 OPENAI_API_KEY=sk-....         # Use PEPPERPY_LLM__OPENAI_API_KEY instead
@@ -70,7 +84,26 @@ debug = Config.get_bool("PEPPERPY_APP__DEBUG", default=False)
 chunk_size = Config.get_int("PEPPERPY_RAG__TEXT_CHUNK_SIZE", default=1000)
 ```
 
-### 2. Error Handling
+### 2. Provider Class Implementation
+
+Provider classes should check for provider-prefixed keys:
+
+```python
+@classmethod
+def from_config(cls, config: Dict[str, Any]) -> "MyProvider":
+    """Create provider from configuration."""
+    instance = cls()
+    
+    # Check for provider-prefixed API key
+    if "openai_api_key" in config:
+        instance.api_key = config["openai_api_key"]
+    elif "api_key" in config:  # Support for backward compatibility
+        instance.api_key = config["api_key"]
+    
+    return instance
+```
+
+### 3. Error Handling
 
 Always provide clear error messages when required environment variables are missing:
 
@@ -83,9 +116,9 @@ if not api_key:
     )
 ```
 
-## Standard Domain Prefixes
+## Standard Module Prefixes
 
-Use these standardized domain prefixes:
+Use these standardized module prefixes:
 
 ```python
 # Core Framework
@@ -94,7 +127,7 @@ PEPPERPY_CORE__     # Core framework settings
 PEPPERPY_LOG__      # Logging configuration
 PEPPERPY_SECURITY__ # Security settings
 
-# AI/ML Domains
+# AI/ML Modules
 PEPPERPY_LLM__      # Language model settings
 PEPPERPY_RAG__      # Retrieval augmented generation
 PEPPERPY_TTS__      # Text-to-speech settings
@@ -145,7 +178,7 @@ REDIS       # Redis cache
 
 ## Configuration Organization
 
-Organize environment variables by domain in configuration files:
+Organize environment variables by module in configuration files:
 
 ```bash
 # Application Settings
@@ -156,8 +189,8 @@ PEPPERPY_APP__DEBUG=true
 # LLM Configuration
 PEPPERPY_LLM__PROVIDER=openrouter
 PEPPERPY_LLM__MODEL=openai/gpt-4
-PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
-PEPPERPY_LLM__OPENAI_API_KEY=sk-...
+PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...   # Transformed to openrouter_api_key
+PEPPERPY_LLM__OPENAI_API_KEY=sk-...         # Transformed to openai_api_key
 
 # RAG Configuration
 PEPPERPY_RAG__PROVIDER=chroma
@@ -169,11 +202,88 @@ PEPPERPY_DATABASE__PROVIDER=postgres
 PEPPERPY_DATABASE__URL=postgresql://...
 ```
 
+## Code Implementation
+
+When implementing environment variable loading:
+
+```python
+# Provider factory implementation using provider-prefixed keys
+def create_provider(module: str, provider_type: str, **config):
+    # Check for environment variables
+    for env_var, env_value in os.environ.items():
+        if env_var.startswith(f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"):
+            # Extract key suffix (e.g., API_KEY)
+            key_suffix = env_var.split(f"PEPPERPY_{module.upper()}__{provider_type.upper()}_")[1].lower()
+            
+            # Create provider-prefixed key (e.g., openrouter_api_key)
+            provider_prefixed_key = f"{provider_type.lower()}_{key_suffix}"
+            
+            # Add to config if not already present
+            if provider_prefixed_key not in config:
+                config[provider_prefixed_key] = env_value
+    
+    # The provider implementation should check for provider-prefixed keys
+    api_key=config.get(f"{provider.lower()}_api_key"),
+    max_tokens=config.get("max_tokens", 2000),
+    
+    # Initialize provider with config
+    provider_cls = get_provider_class(module, provider_type)
+    return provider_cls.from_config(config)
+```
+
+## Provider Usage
+
+When implementing a client that uses providers:
+
+```python
+# RAG provider implementation using standardized environment variables
+def create_rag_provider(provider_type="chroma", **config):
+    return create_provider(
+        "rag",
+        provider_type,
+        chunk_size=Config.get_int("PEPPERPY_RAG__TEXT_CHUNK_SIZE", 1000),
+        embedding_model=Config.get_required("PEPPERPY_RAG__EMBEDDING_MODEL"),
+        **config
+    )
+```
+
+## Best Practices and Anti-patterns
+
+### ✅ Best Practices
+
+- ALWAYS use the official format `PEPPERPY_MODULE__PROVIDER_SETTING`
+- Transform environment variables to provider-prefixed keys
+- Check for provider-prefixed keys in provider implementations
+- Use verbose, descriptive environment variable names
+- Include provider name in keys to prevent collisions
+- Document all environment variables in README.md
+- Group related environment variables in the same section
+
+### ❌ Anti-patterns
+
+- NEVER use environment variables directly with `os.getenv` in provider code
+- Avoid non-standard naming patterns (e.g., OPENAI_KEY)
+- Don't mix snake_case and kebab-case in naming
+- Avoid duplicating the same setting across different providers
+- Don't hardcode secret values in code
+- Avoid using generic names like "API_KEY" without context
+
+## Implementation Checklist
+
+When implementing environment variables:
+
+- [ ] Use the official naming pattern
+- [ ] Transform to provider-prefixed keys
+- [ ] Document in README.md with examples
+- [ ] Add validation with helpful error messages
+- [ ] Check for provider-prefixed keys in provider code
+- [ ] Apply consistent naming across related modules
+
 ## Documentation Requirements
 
 When documenting environment variables:
 
-1. **Group by Domain**: Keep related variables together
+1. **Group by Module**: Keep related variables together
 2. **Provide Examples**: Show example values
 3. **Include Links**: Link to relevant API documentation
 4. **Document Constraints**: Note any limitations or requirements
@@ -188,6 +298,7 @@ Required Environment Variables:
    PEPPERPY_LLM__PROVIDER: Provider to use (openai, openrouter, anthropic)
    PEPPERPY_LLM__MODEL: Model to use (e.g., openai/gpt-4)
    PEPPERPY_LLM__OPENROUTER_API_KEY: OpenRouter API key
+   - Gets transformed to: openrouter_api_key in config
    - Get a key at https://openrouter.ai
    - Free tier: 1M tokens/month
    - Example: PEPPERPY_LLM__OPENROUTER_API_KEY=sk-or-...
@@ -201,108 +312,13 @@ Required Environment Variables:
 """
 ```
 
-## Validation and Enforcement
-
-### 1. Environment Variable Validation
-
-Use the validation script to check environment variables:
-
-```bash
-python scripts/validate_env.py
-```
-
-This script will:
-1. Verify naming conventions
-2. Check for deprecated variables
-3. Ensure documentation matches implementation
-4. Validate required variables are set
-
-### 2. Configuration Classes
-
-Create typed configuration classes for each domain:
-
-```python
-from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
-
-@dataclass
-class ProviderConfig:
-    """Base provider configuration."""
-    provider: str
-    options: Dict[str, Any] = field(default_factory=dict)
-
-@dataclass
-class LLMConfig(ProviderConfig):
-    """LLM configuration."""
-    model: str
-    api_key: Optional[str] = None
-    temperature: float = 0.7
-    max_tokens: int = 2000
-
-    @classmethod
-    def from_env(cls) -> "LLMConfig":
-        """Create config from environment variables."""
-        provider = Config.get_required("PEPPERPY_LLM__PROVIDER")
-        return cls(
-            provider=provider,
-            model=Config.get_required("PEPPERPY_LLM__MODEL"),
-            api_key=Config.get_required(f"PEPPERPY_LLM__{provider.upper()}_API_KEY"),
-            temperature=Config.get_float("PEPPERPY_LLM__TEMPERATURE", 0.7),
-            max_tokens=Config.get_int("PEPPERPY_LLM__MAX_TOKENS", 2000),
-        )
-
-@dataclass
-class RAGConfig(ProviderConfig):
-    """RAG configuration."""
-    chunk_size: int = 1000
-    embedding_model: str = "openai/text-embedding-3-small"
-
-    @classmethod
-    def from_env(cls) -> "RAGConfig":
-        """Create config from environment variables."""
-        provider = Config.get_required("PEPPERPY_RAG__PROVIDER")
-        return cls(
-            provider=provider,
-            chunk_size=Config.get_int("PEPPERPY_RAG__TEXT_CHUNK_SIZE", 1000),
-            embedding_model=Config.get_required("PEPPERPY_RAG__EMBEDDING_MODEL"),
-        )
-```
-
-## Best Practices
-
-1. **Naming**:
-   - ALWAYS use the official PEPPERPY_DOMAIN__PROVIDER_SETTING format
-   - Use consistent domain prefixes
-   - Follow the hierarchical pattern
-   - Use clear, descriptive names
-
-2. **Organization**:
-   - Group by domain
-   - Separate provider-specific settings
-   - Use consistent formatting
-
-3. **Compatibility**:
-   - Support provider-specific names (like OPENAI_API_KEY) for compatibility only
-   - Always document and recommend the official PepperPy format first
-   - Plan to migrate away from provider-specific names in future versions
-
-4. **Documentation**:
-   - Document all variables using the official format
-   - Include examples
-   - Note constraints
-   - Link to resources
-
-5. **Validation**:
-   - Validate at startup
-   - Use typed configuration
-   - Provide helpful errors
-
 ## Conclusion
 
-Following these environment variable standards ensures:
-1. Consistent configuration
-2. Clear organization
-3. Easy provider switching
-4. Type safety
-5. Good documentation
-6. Maintainable settings 
+Following these environment variable naming, transformation, and usage standards ensures consistency across the PepperPy framework. The provider-prefixed key approach (`openrouter_api_key` instead of just `api_key`) provides several benefits:
+
+1. Prevents key collisions between different providers
+2. Maintains clear association between keys and their providers
+3. Supports multiple providers that may use similar parameter names
+4. Makes configurations more self-documenting
+
+Always use the official `PEPPERPY_MODULE__PROVIDER_SETTING` format in documentation and code, and ensure that environment variables are properly transformed into provider-prefixed configuration keys. 

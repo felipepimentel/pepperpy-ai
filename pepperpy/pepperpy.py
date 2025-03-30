@@ -1105,6 +1105,15 @@ class PepperPy:
         Args:
             config: Optional global configuration
         """
+        # Carregar .env automaticamente
+        try:
+            from pepperpy.plugin import PepperpyPlugin
+
+            PepperpyPlugin._smart_load_dotenv()
+        except ImportError:
+            # Ignorar se não conseguir importar
+            pass
+
         self._config = config or {}
         self._llm_provider: Optional[LLMProvider] = None
         self._rag_provider: Optional[RAGProvider] = None

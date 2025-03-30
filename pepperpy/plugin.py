@@ -7,6 +7,7 @@ utilities for plugin registration, discovery, and management.
 import importlib
 import importlib.util
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -96,41 +97,85 @@ class PepperpyPlugin(ABC):
         return self._logger
 
     def _inject_env_variables(self) -> None:
-        """Inject environment variables into configuration.
-
-        This automatically loads environment variables for any required_config_keys
-        from plugin.yaml that aren't provided in the constructor.
-        """
-        # Check if we have metadata with required keys
+        """Inject environment variables into configuration based on metadata."""
+        plugin_category = self._metadata.get("plugin_category", "unknown")
+        provider_type = self._metadata.get("provider_type", "unknown")
         required_keys = self._metadata.get("required_config_keys", [])
-        if not required_keys:
-            return
+        config_schema = self._metadata.get("config_schema", {})
 
-        category = self._metadata.get("category", "").lower()
-        provider_type = self._metadata.get("provider_type", "").lower()
+        logger = get_logger(__name__)
+        logger.debug(
+            f"Injetando variáveis de ambiente para {plugin_category}/{provider_type}"
+        )
 
-        if not category or not provider_type:
-            return
-
+        # Estratégia de busca inteligente
         for key in required_keys:
-            if key not in self._config or not self._config[key]:
-                # Try environment variables in order of specificity
-                env_values = [
-                    # Most specific: PEPPERPY_{CATEGORY}__{PROVIDER}__{KEY}
-                    os.getenv(
-                        f"PEPPERPY_{category.upper()}__{provider_type.upper()}__{key.upper()}"
-                    ),
-                    # Provider specific: {PROVIDER}_{KEY} (e.g., OPENAI_API_KEY)
-                    os.getenv(f"{provider_type.upper()}_{key.upper()}"),
-                    # General: PEPPERPY_{KEY}
-                    os.getenv(f"PEPPERPY_{key.upper()}"),
-                ]
+            # Pular se já estiver definido
+            if key in self._config and self._config[key] is not None:
+                continue
 
-                # Use the first non-None value
-                for value in env_values:
-                    if value is not None:
-                        self._config[key] = value
-                        break
+            # 1. Tentar buscar via schema definido primeiro
+            if key in config_schema and "env_var" in config_schema[key]:
+                env_var = config_schema[key]["env_var"]
+                if env_var in os.environ:
+                    self._config[key] = os.environ[env_var]
+                    setattr(self, key, os.environ[env_var])
+                    logger.debug(f"Variável {key} definida a partir de {env_var}")
+                    continue
+
+            # 2. Tentar buscar via padrões de nomenclatura
+            patterns = [
+                # Padrão completo: PEPPERPY_CATEGORIA__PROVIDER__CHAVE
+                f"PEPPERPY_{plugin_category.upper()}__{provider_type.upper()}__{key.upper()}",
+                # Variações com underscore
+                f"PEPPERPY_{plugin_category.upper()}__{provider_type.upper()}_{key.upper()}",
+                f"PEPPERPY_{plugin_category.upper()}_{provider_type.upper()}_{key.upper()}",
+                # Padrão do provider específico
+                f"{provider_type.upper()}_{key.upper()}",
+            ]
+
+            # Adicionar padrões comuns para chaves de API
+            if key == "api_key":
+                patterns.extend([
+                    f"{provider_type.upper()}_API_KEY",
+                    f"{plugin_category.upper()}_{provider_type.upper()}_API_KEY",
+                ])
+
+            # Buscar nos padrões
+            found = False
+            for pattern in patterns:
+                if pattern in os.environ:
+                    self._config[key] = os.environ[pattern]
+                    setattr(self, key, os.environ[pattern])
+                    found = True
+
+                    # Log seguro para chaves e senhas
+                    if key in ("api_key", "secret", "password", "token"):
+                        value = self._config[key]
+                        preview = (
+                            f"{value[:3]}...{value[-3:]}"
+                            if len(value) > 10
+                            else "<masked>"
+                        )
+                        logger.debug(
+                            f"Variável {key} definida a partir de {pattern}={preview}"
+                        )
+                    else:
+                        logger.debug(
+                            f"Variável {key} definida a partir de {pattern}={os.environ[pattern]}"
+                        )
+                    break
+
+            # Avisar se não encontrou a variável de ambiente e ela é obrigatória
+            if not found and key in required_keys:
+                logger.warning(
+                    f"Variável {key} não encontrada para {plugin_category}/{provider_type}"
+                )
+                logger.debug(f"Tentativas de padrões: {patterns}")
+                if key in config_schema and "env_var" in config_schema[key]:
+                    logger.debug(
+                        f"Tentativa de variável definida no schema: {config_schema[key]['env_var']}"
+                    )
 
     def get_metadata(self) -> Dict[str, Any]:
         """Get plugin metadata.
@@ -168,13 +213,15 @@ class PepperpyPlugin(ABC):
         """
         return self._config.get(key, default)
 
-    def validate_config(self) -> None:
+    def validate_config(self, required_keys: List[str]) -> None:
         """Validate plugin configuration.
+
+        Args:
+            required_keys: List of required keys
 
         Raises:
             ConfigError: If any required keys are missing
         """
-        required_keys = self._metadata.get("required_config_keys", [])
         missing = [key for key in required_keys if key not in self._config]
         if missing:
             raise ConfigError(
@@ -232,6 +279,54 @@ class PepperpyPlugin(ABC):
         """
         await self.cleanup()
 
+    def initialize_from_yaml(self, yaml_path: str) -> None:
+        """Initialize plugin from YAML file.
+
+        Args:
+            yaml_path: Path to YAML file
+        """
+        with open(yaml_path) as f:
+            self._metadata = yaml.safe_load(f)
+
+        # Auto-bind default_config values to the instance as attributes
+        if "default_config" in self._metadata:
+            for key, value in self._metadata["default_config"].items():
+                # Only set if the attribute isn't already set via constructor
+                if key not in self._config:
+                    self._config[key] = value
+                # Bind to instance regardless to have proper typing
+                setattr(self, key, self._config.get(key, value))
+
+        # Inject environment variables for required keys
+        self._inject_env_variables()
+
+        # Rebind attributes after env injection to ensure they're updated
+        for key in self._config:
+            if key in self._metadata.get(
+                "required_config_keys", []
+            ) or key in self._metadata.get("default_config", {}):
+                setattr(self, key, self._config[key])
+
+        # Validate required keys are present
+        required_keys = self._metadata.get("required_config_keys", [])
+        self.validate_config(required_keys)
+
+    @staticmethod
+    def _smart_load_dotenv() -> None:
+        """Carrega variáveis de ambiente do .env automaticamente se não tiver sido carregado ainda."""
+        # Hack para verificar se o dotenv já foi carregado
+        if not os.environ.get("PEPPERPY_DOTENV_LOADED"):
+            try:
+                from dotenv import load_dotenv
+
+                load_dotenv()
+                os.environ["PEPPERPY_DOTENV_LOADED"] = "1"
+                logger = get_logger("pepperpy.config")
+                logger.debug("Carregando variáveis de ambiente do .env automaticamente")
+            except ImportError:
+                # Se python-dotenv não estiver instalado, continuamos sem ele
+                pass
+
 
 class ProviderPlugin(BaseProvider):
     """Base class for provider plugins.
@@ -253,6 +348,9 @@ class ProviderPlugin(BaseProvider):
         Args:
             **kwargs: Configuration options for the plugin
         """
+        # Carregar .env automaticamente
+        PepperpyPlugin._smart_load_dotenv()
+
         super().__init__(**kwargs)
 
         # Load metadata from plugin.yaml if available
@@ -263,11 +361,29 @@ class ProviderPlugin(BaseProvider):
         provider_type = self._metadata.get("provider_type", "unknown")
         self._logger = get_logger(f"pepperpy.{plugin_category}.{provider_type}")
 
-        # Inject environment variables
+        # Inject environment variables - mais inteligente e automático
         self._inject_env_variables()
 
         # Auto-bind configuration attributes based on schema
         self._auto_bind_config_attributes()
+
+        # Debug apenas se em DEBUG level
+        debug_logger = get_logger("pepperpy.config.debug")
+        if debug_logger.isEnabledFor(logging.DEBUG):
+            debug_values = {}
+            for key in self._config:
+                if key in ("api_key", "secret", "password", "token"):
+                    value = self._config[key]
+                    debug_values[key] = (
+                        f"{value[:3]}...{value[-3:]}"
+                        if value and len(value) > 10
+                        else "<empty>"
+                    )
+                else:
+                    debug_values[key] = self._config[key]
+            debug_logger.debug(
+                f"Plugin {plugin_category}/{provider_type} configurado com: {debug_values}"
+            )
 
     def _auto_bind_config_attributes(self) -> None:
         """Automatically bind configuration values from schema to instance attributes.
@@ -356,57 +472,6 @@ class ProviderPlugin(BaseProvider):
             # Log error but continue
             print(f"Error loading plugin metadata: {e}")
             return {}
-
-    def _inject_env_variables(self) -> None:
-        """Inject environment variables into configuration based on metadata."""
-        plugin_category = self._metadata.get("plugin_category", "unknown")
-        provider_type = self._metadata.get("provider_type", "unknown")
-        required_keys = self._metadata.get("required_config_keys", [])
-
-        # Check for each required key in config, then environment
-        for key in required_keys:
-            # Skip if already in config
-            if key in self._config and self._config[key] is not None:
-                continue
-
-            # Check environment variables with different prefix patterns
-            env_patterns = [
-                f"PEPPERPY_{plugin_category.upper()}__{provider_type.upper()}__{key.upper()}",
-                f"PEPPERPY_{plugin_category.upper()}_{provider_type.upper()}_{key.upper()}",
-                f"{provider_type.upper()}_{key.upper()}",
-            ]
-
-            # Try each pattern
-            for pattern in env_patterns:
-                value = os.environ.get(pattern)
-                if value:
-                    self._config[key] = value
-                    break
-
-    def get_metadata(self) -> Dict[str, Any]:
-        """Get plugin metadata.
-
-        Returns:
-            Dictionary with plugin metadata
-        """
-        return self._metadata
-
-    @classmethod
-    def get_metadata_class(cls) -> Dict[str, Any]:
-        """Get plugin metadata from class attributes.
-
-        Returns:
-            Dictionary with plugin metadata from class attributes
-        """
-        metadata = {
-            "name": getattr(cls, "plugin_name", ""),
-            "version": getattr(cls, "plugin_version", "0.1.0"),
-            "category": getattr(cls, "plugin_category", ""),
-            "provider_type": getattr(cls, "provider_type", ""),
-            "description": getattr(cls, "plugin_description", ""),
-            "author": getattr(cls, "plugin_author", "PepperPy Team"),
-            "required_config_keys": getattr(cls, "required_config_keys", []),
-        }
         return metadata
 
     @classmethod
