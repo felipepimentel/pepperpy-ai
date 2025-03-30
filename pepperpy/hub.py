@@ -1,3 +1,11 @@
+"""Hub module for PepperPy.
+
+This module was migrated from a subdirectory structure.
+"""
+
+from pepperpy.hub.base import (
+from pepperpy.hub.local import LocalHubProvider
+
 """Hub provider interface for PepperPy.
 
 This module provides the base classes and interfaces for hub providers,

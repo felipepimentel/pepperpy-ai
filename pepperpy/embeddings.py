@@ -1,3 +1,13 @@
+"""Embeddings module for PepperPy.
+
+This module was migrated from a subdirectory structure.
+"""
+
+from pepperpy.embeddings.base import (
+from pepperpy.embeddings.providers.fastai import FastAIEmbeddingProvider
+from pepperpy.embeddings.providers.huggingface import HuggingFaceEmbeddingProvider
+from pepperpy.embeddings.providers.local import LocalProvider
+
 """Base module for embeddings functionality.
 
 This module defines the base interfaces and types for embedding providers.

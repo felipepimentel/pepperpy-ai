@@ -1,24 +1,40 @@
-"""LLM interfaces and types.
+"""Llm module for PepperPy.
+
+This module was migrated from a subdirectory structure.
+"""
+
+"""Base interfaces and types for LLM capabilities.
 
 This module defines the core interfaces and data types for working with
 Language Model providers in PepperPy.
+
+Example:
+    >>> from pepperpy.llm import LLMProvider, Message, MessageRole
+    >>> provider = LLMProvider.from_config({
+    ...     "provider": "openai",
+    ...     "model": "gpt-4",
+    ...     "api_key": "sk-..."
+    ... })
+    >>> messages = [
+    ...     Message(MessageRole.SYSTEM, "You are helpful."),
+    ...     Message(MessageRole.USER, "What's the weather?")
+    ... ]
+    >>> result = provider.generate(messages)
+    >>> print(result.content)
 """
 
 import abc
 import enum
-import functools
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional, TypeVar, Union, cast
+from datetime import datetime
+from typing import Any, AsyncIterator, Dict, List, Optional, Union
 
-from pepperpy.core import BaseProvider, ConfigError, ProviderError
-from pepperpy.core.logging import get_logger
-from pepperpy.plugin_manager import plugin_manager
-
-# Module-level logger
-logger = get_logger(__name__)
-
-T = TypeVar("T")
+from pepperpy.core.base import (
+    BaseProvider,
+    PepperpyError,
+    ValidationError,
+)
+from pepperpy.workflow.base import WorkflowComponent
 
 
 class MessageRole(str, enum.Enum):
@@ -32,7 +48,14 @@ class MessageRole(str, enum.Enum):
 
 @dataclass
 class Message:
-    """A message in a conversation."""
+    """A message in a conversation.
+
+    Attributes:
+        role: Role of the message sender
+        content: Message content
+        name: Optional name of the sender
+        function_call: Optional function call details
+    """
 
     role: MessageRole
     content: str
@@ -42,7 +65,14 @@ class Message:
 
 @dataclass
 class GenerationResult:
-    """Result of a text generation request."""
+    """Result of a text generation request.
+
+    Attributes:
+        content: Generated text content
+        messages: Full conversation history
+        usage: Token usage statistics
+        metadata: Additional provider-specific metadata
+    """
 
     content: str
     messages: List[Message]
@@ -52,94 +82,121 @@ class GenerationResult:
 
 @dataclass
 class GenerationChunk:
-    """A chunk of generated text from a streaming response."""
+    """A chunk of generated text from a streaming response.
+
+    Attributes:
+        content: Generated text content
+        finish_reason: Reason for finishing (if any)
+        metadata: Additional provider-specific metadata
+    """
 
     content: str
     finish_reason: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
 
-class LLMError(ProviderError):
+class LLMError(PepperpyError):
     """Base error for the LLM module."""
 
-    pass
+    def __init__(self, message: str, *args: Any, **kwargs: Any) -> None:
+        """Initialize a new LLM error.
+
+        Args:
+            message: Error message.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        super().__init__(message, *args, **kwargs)
 
 
-def _handle_provider_method(method_name: str) -> Callable:
-    """Decorator to handle provider method lifecycle and errors.
+class LLMConfigError(LLMError):
+    """Error related to configuration of LLM providers."""
 
-    This decorator manages initialization, logging, and error handling for provider methods.
+    def __init__(
+        self, message: str, provider: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> None:
+        """Initialize a new LLM configuration error.
 
-    Args:
-        method_name: Name of the method for logging purposes
+        Args:
+            message: Error message.
+            provider: The LLM provider name.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        self.provider = provider
+        super().__init__(message, *args, **kwargs)
 
-    Returns:
-        Decorated method
+    def __str__(self) -> str:
+        """Return the string representation of the error."""
+        if self.provider:
+            return f"Configuration error for provider '{self.provider}': {self.message}"
+        return f"Configuration error: {self.message}"
+
+
+class LLMProcessError(LLMError):
+    """Error related to the LLM process."""
+
+    def __init__(
+        self, message: str, prompt: Optional[str] = None, *args: Any, **kwargs: Any
+    ) -> None:
+        """Initialize a new LLM process error.
+
+        Args:
+            message: Error message.
+            prompt: The prompt that failed to be processed.
+            *args: Additional positional arguments.
+            **kwargs: Additional keyword arguments.
+        """
+        self.prompt = prompt
+        super().__init__(message, *args, **kwargs)
+
+    def __str__(self) -> str:
+        """Return the string representation of the error."""
+        if self.prompt:
+            # Truncate prompt if too long
+            prompt = self.prompt[:50] + "..." if len(self.prompt) > 50 else self.prompt
+            return f"LLM process error for prompt '{prompt}': {self.message}"
+        return f"LLM process error: {self.message}"
+
+
+class LLMProvider(BaseProvider, abc.ABC):
+    """Base class for LLM providers.
+
+    This class defines the interface that all LLM providers must implement.
+    It includes methods for text generation, streaming, and embeddings.
     """
-
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        async def wrapper(self: "LLMProvider", *args: Any, **kwargs: Any) -> T:
-            try:
-                # Handle cleanup method specially
-                if method_name == "cleanup":
-                    # Run the cleanup method
-                    result = await func(self, *args, **kwargs)
-                    # Framework manages initialization state
-                    self._set_initialized_state(False)
-                    logger.debug(
-                        f"{self.__class__.__name__} marked as uninitialized after cleanup"
-                    )
-                    return result
-
-                # Auto-validation of configuration
-                if not self.initialized:
-                    # Auto-initialize if not already initialized
-                    logger.debug(
-                        f"Auto-initializing provider {self.__class__.__name__} before {method_name}"
-                    )
-                    await self.initialize()
-                    # Framework manages initialization state
-                    self._set_initialized_state(True)
-                    logger.debug(f"{self.__class__.__name__} marked as initialized")
-
-                # Run the actual method
-                result = await func(self, *args, **kwargs)
-                return result
-
-            except ConfigError as e:
-                # Log configuration errors
-                logger.error(
-                    f"{self.__class__.__name__} {method_name} failed with configuration error: {e}"
-                )
-                raise
-
-            except Exception as e:
-                # Log operational errors
-                logger.error(f"{self.__class__.__name__} {method_name} failed: {e}")
-                # Convert to ProviderError with original context
-                if not isinstance(e, ProviderError):
-                    raise ProviderError(f"{method_name} failed: {e}") from e
-                raise
-
-        return wrapper
-
-    return decorator
-
-
-class LLMProvider(BaseProvider):
-    """Base class for LLM providers."""
 
     name: str = "base"
 
-    # Common auto-bound attributes used by LLM providers
-    temperature: float
-    max_tokens: int
-    model: str
-    api_key: str
+    def __init__(
+        self,
+        name: str = "base",
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Initialize LLM provider.
+
+        Args:
+            name: Provider name
+            config: Optional configuration dictionary
+            **kwargs: Additional provider-specific configuration
+        """
+        self.name = name
+        self._config = config or {}
+        self._config.update(kwargs)
+        self.initialized = False
+        self.last_used = None
+
+    @property
+    def api_key(self) -> Optional[str]:
+        """Get the API key for the provider.
+
+        Returns:
+            The API key if set, None otherwise.
+        """
+        return self._config.get("api_key")
 
     @abc.abstractmethod
-    @_handle_provider_method("generate")
     async def generate(
         self,
         messages: Union[str, List[Message]],
@@ -148,107 +205,267 @@ class LLMProvider(BaseProvider):
         """Generate text based on input messages.
 
         Args:
-            messages: Input messages or a single string message
+            messages: String prompt or list of messages
             **kwargs: Additional generation options
 
         Returns:
-            A GenerationResult containing the generated text and metadata
+            GenerationResult containing the response
 
         Raises:
-            ConfigError: If configuration is invalid
-            ProviderError: If generation fails
+            LLMError: If generation fails
         """
-        pass
+        raise NotImplementedError("generate must be implemented by provider")
 
     @abc.abstractmethod
-    @_handle_provider_method("generate_stream")
-    async def generate_stream(
-        self,
-        messages: Union[str, List[Message]],
-        **kwargs: Any,
-    ) -> AsyncIterator[GenerationChunk]:
-        """Generate text in streaming mode based on input messages.
-
-        Args:
-            messages: Input messages or a single string message
-            **kwargs: Additional generation options
-
-        Returns:
-            An async iterator yielding GenerationChunk objects
-
-        Raises:
-            ConfigError: If configuration is invalid
-            ProviderError: If generation fails
-        """
-        pass
-
-    @_handle_provider_method("stream")
     async def stream(
         self,
         messages: Union[str, List[Message]],
         **kwargs: Any,
     ) -> AsyncIterator[GenerationChunk]:
-        """Alias for generate_stream.
+        """Generate text in a streaming fashion.
 
         Args:
-            messages: Input messages or a single string message
+            messages: String prompt or list of messages
             **kwargs: Additional generation options
 
         Returns:
-            An async iterator yielding GenerationChunk objects
+            AsyncIterator yielding GenerationChunk objects
 
         Raises:
-            ConfigError: If configuration is invalid
-            ProviderError: If generation fails
+            LLMError: If generation fails
         """
-        async for chunk in self.generate_stream(messages, **kwargs):
-            yield chunk
+        raise NotImplementedError("stream must be implemented by provider")
 
-    @_handle_provider_method("cleanup")
+    async def get_embeddings(
+        self,
+        texts: Union[str, List[str]],
+        **kwargs: Any,
+    ) -> List[List[float]]:
+        """Generate embeddings for input texts.
+
+        Args:
+            texts: String or list of strings to embed
+            **kwargs: Additional embedding options
+
+        Returns:
+            List of embedding vectors
+
+        Raises:
+            LLMError: If embedding generation fails
+        """
+        raise NotImplementedError("get_embeddings must be implemented by provider")
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get provider capabilities.
+
+        Returns:
+            Dictionary of provider capabilities
+        """
+        return {
+            "streaming": True,
+            "embeddings": True,
+            "function_calling": True,
+            "max_tokens": 4096,
+            "max_messages": 100,
+        }
+
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        This method should be called before using the provider.
+        It can be used to set up any necessary resources or connections.
+        """
+        if not self.initialized:
+            self.initialized = True
+            self.last_used = datetime.now()
+
     async def cleanup(self) -> None:
         """Clean up provider resources.
 
-        The framework will automatically set the initialized flag to False after cleanup.
-        Providers should release resources but not manage the initialized state.
+        This method should be called when the provider is no longer needed.
+        It can be used to clean up any resources or connections.
+        """
+        self.initialized = False
+        self.last_used = None
+
+    # Utility methods for common operations
+
+    async def chat(
+        self,
+        messages: List[Dict[str, str]],
+        **kwargs: Any,
+    ) -> str:
+        """Chat with the model.
+
+        Args:
+            messages: List of message dictionaries
+            **kwargs: Additional provider options
+
+        Returns:
+            Model response
 
         Raises:
-            ProviderError: If cleanup fails
+            LLMError: If chat fails
         """
-        # Base implementation - override in subclasses
-        pass
+        # Convert dict messages to Message objects
+        formatted_messages = [
+            Message(
+                role=MessageRole(msg.get("role", MessageRole.USER)),
+                content=msg["content"],
+                name=msg.get("name"),
+            )
+            for msg in messages
+        ]
 
-    # Framework-managed property to track initialization state
-    def _set_initialized_state(self, state: bool) -> None:
-        """Set the initialized state (framework use only)."""
-        self._initialized = state
+        result = await self.generate(formatted_messages, **kwargs)
+        return result.content
 
-    @property
-    def initialized(self) -> bool:
-        """Check if the provider is initialized."""
-        return getattr(self, "_initialized", False)
+    async def summarize(
+        self,
+        text: str,
+        max_length: Optional[int] = None,
+        **kwargs: Any,
+    ) -> str:
+        """Summarize text.
 
-    @initialized.setter
-    def initialized(self, value: bool) -> None:
-        """Set the initialized state."""
-        self._set_initialized_state(value)
+        Args:
+            text: Text to summarize
+            max_length: Optional maximum length in words
+            **kwargs: Additional provider options
+
+        Returns:
+            Generated summary
+
+        Raises:
+            LLMError: If summarization fails
+        """
+        prompt = "Summarize the following text"
+        if max_length:
+            prompt += f" in {max_length} words or less"
+        prompt += f":\n\n{text}"
+
+        result = await self.generate(prompt, **kwargs)
+        return result.content
+
+    async def classify(
+        self,
+        text: str,
+        categories: List[str],
+        **kwargs: Any,
+    ) -> str:
+        """Classify text into predefined categories.
+
+        Args:
+            text: Text to classify
+            categories: List of possible categories
+            **kwargs: Additional provider options
+
+        Returns:
+            Selected category
+
+        Raises:
+            LLMError: If classification fails
+        """
+        categories_str = ", ".join(categories)
+        prompt = f"Classify the following text into one of these categories: {categories_str}\n\nText: {text}\n\nCategory:"
+
+        result = await self.generate(prompt, **kwargs)
+        return result.content
 
 
-def create_provider(provider_type: str, **config: Any) -> LLMProvider:
-    """Create an LLM provider instance.
+class LLMComponent(WorkflowComponent):
+    """Component for Large Language Model (LLM) operations.
+
+    This component handles text generation and chat interactions using an LLM provider.
+    """
+
+    def __init__(
+        self,
+        component_id: str,
+        name: str,
+        provider: LLMProvider,
+        config: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Initialize LLM component.
+
+        Args:
+            component_id: Unique identifier for the component
+            name: Human-readable name
+            provider: LLM provider implementation
+            config: Optional configuration
+            metadata: Optional metadata
+        """
+        super().__init__(
+            component_id=component_id, name=name, config=config, metadata=metadata
+        )
+        self.provider: LLMProvider = provider
+
+    async def process(self, data: Union[str, List[Message]]) -> GenerationResult:
+        """Process input data and generate a response.
+
+        Args:
+            data: Input text or list of messages
+
+        Returns:
+            Generated response
+
+        Raises:
+            ValidationError: If input type is invalid
+        """
+        if isinstance(data, str):
+            messages = [Message(role=MessageRole.USER, content=data)]
+        elif isinstance(data, list) and all(isinstance(m, Message) for m in data):
+            messages = data
+        else:
+            raise ValidationError(
+                f"Invalid input type for LLM component: {type(data).__name__}. "
+                "Expected str or List[Message]."
+            )
+
+        return await self.provider.generate(messages)
+
+    async def cleanup(self) -> None:
+        """Clean up component resources."""
+        if self.provider:
+            await self.provider.cleanup()
+
+
+def create_provider(provider_type: str = "openai", **config: Any) -> LLMProvider:
+    """Create an LLM provider based on type.
 
     Args:
-        provider_type: Type of provider to create
+        provider_type: Type of provider to create (default: openai)
         **config: Provider configuration
 
     Returns:
-        LLM provider instance
+        An instance of the specified LLMProvider
 
     Raises:
-        ConfigError: If provider creation fails
+        ValidationError: If provider creation fails
     """
     try:
-        provider = plugin_manager.create_provider("llm", provider_type, **config)
-        return cast(LLMProvider, provider)
+        from pepperpy.llm.providers import PROVIDER_MODULES
+
+        if provider_type not in PROVIDER_MODULES:
+            raise ValidationError(f"Unknown provider type: {provider_type}")
+
+        # Import provider class lazily
+        module_path = PROVIDER_MODULES[provider_type]
+        module_name, class_name = module_path.rsplit(".", 1)
+
+        try:
+            import importlib
+
+            module = importlib.import_module(module_name)
+            provider_class = getattr(module, class_name)
+        except ImportError as e:
+            raise ValidationError(
+                f"Failed to import provider '{provider_type}'. "
+                f"Make sure you have installed the required dependencies: {e}"
+            )
+
+        # Create provider instance
+        return provider_class(**config)
     except Exception as e:
-        logger.error(f"Failed to create LLM provider {provider_type}: {e}")
-        raise ConfigError(f"Failed to create LLM provider {provider_type}: {e}") from e
+        raise ValidationError(f"Failed to create LLM provider '{provider_type}': {e}")

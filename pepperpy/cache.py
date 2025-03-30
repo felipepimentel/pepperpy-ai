@@ -1,3 +1,11 @@
+"""Cache module for PepperPy.
+
+This module was migrated from a subdirectory structure.
+"""
+
+from pepperpy.cache.base import CacheProvider
+from pepperpy.cache.memory import MemoryCacheProvider
+
 """Cache provider interface."""
 
 from abc import abstractmethod

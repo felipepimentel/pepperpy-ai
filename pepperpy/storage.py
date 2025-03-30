@@ -1,3 +1,12 @@
+"""Storage module for PepperPy.
+
+This module was migrated from a subdirectory structure.
+"""
+
+from pepperpy.core.base import PepperpyError
+from pepperpy.storage.base import (
+from pepperpy.storage.providers.local import LocalProvider
+
 """Storage provider interface for PepperPy.
 
 This module provides the base classes and interfaces for storage providers,
