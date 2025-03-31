@@ -37,7 +37,7 @@ DOMAINS = {
     "tools_repository": [
         "github",
     ],
-    "content_processing_document": [
+    "content_document": [
         "pymupdf",
         "tika",
         "tesseract",
@@ -45,15 +45,15 @@ DOMAINS = {
         "mammoth",
         "pandoc",
     ],
-    "content_processing_image": [
+    "content_image": [
         "tensorflow",
         "opencv",
         "pillow",
     ],
-    "content_processing_audio": [
+    "content_audio": [
         "ffmpeg",
     ],
-    "content_processing_video": [
+    "content_video": [
         "ffmpeg",
     ],
 }
@@ -103,11 +103,11 @@ def create_plugin_structure(domain, provider, src_path=None):
     src_path_override = None
 
     # Special handling for content processing providers which are nested
-    if domain.startswith("content_processing_"):
+    if domain.startswith("content_"):
         # Extract the subdomain (document, image, audio, video)
         subdomain = domain.split("_")[2]
-        real_domain = "content_processing"
-        plugin_domain = f"content_processing_{subdomain}"
+        real_domain = "content"
+        plugin_domain = f"content_{subdomain}"
         src_path_override = (
             f"pepperpy/{real_domain}/providers/{subdomain}/{provider}.py"
         )

@@ -61,7 +61,7 @@ class PluginManager:
             "tts",
             "workflow",
             "agents",
-            "content_processing",
+            "content",
             "cache",
             "cli",
             "embeddings",

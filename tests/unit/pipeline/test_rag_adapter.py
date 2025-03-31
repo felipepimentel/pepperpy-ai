@@ -39,8 +39,8 @@ from pepperpy.rag.pipeline.stages.retrieval import (
     RetrievalResult,
     RetrievalStageConfig,
 )
-from pepperpy.content_processing.base import ContentType
-from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.content.base import ContentType
+from pepperpy.content.providers.document.pymupdf import PyMuPDFProvider
 from pepperpy.rag.adapter import RAGAdapter
 
 
@@ -1807,7 +1807,7 @@ class TestRAGPipelineMemoryLeaks:
 
 
 @pytest.mark.asyncio
-async def test_large_content_processing():
+async def test_large_content():
     """Test processing of a large PDF file."""
     # Create provider
     provider = PyMuPDFProvider()

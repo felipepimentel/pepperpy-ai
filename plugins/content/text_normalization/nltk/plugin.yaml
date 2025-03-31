@@ -1,0 +1,69 @@
+name: text_normalization_nltk
+version: 0.1.0
+description: NLTK-based text normalization plugin for PepperPy
+author: PepperPy Team
+license: MIT
+plugin_type: content
+category: text_normalization
+provides:
+- normalizer
+provider_name: nltk
+entry_point: pepperpy.plugins.content.text_normalization.nltk.provider:NLTKTextNormalizer
+
+config_schema:
+  type: object
+  properties:
+    language:
+      type: string
+      description: Language code for stopwords (en, pt, es, fr, de, it, nl, ru)
+      enum: [en, pt, es, fr, de, it, nl, ru]
+    use_lemmatization:
+      type: boolean
+      description: Whether to apply lemmatization to tokens
+    remove_stopwords:
+      type: boolean
+      description: Whether to remove stopwords from text
+    nltk_data_dir:
+      type: string
+      description: Directory to store NLTK data files
+
+default_config:
+  language: en
+  use_lemmatization: true
+  remove_stopwords: true
+  nltk_data_dir: ~/.nltk_data
+
+usage: |
+  The NLTK text normalizer provides advanced text processing capabilities using the Natural Language Toolkit (NLTK).
+  It supports multiple languages and offers features like lemmatization and stopword removal.
+
+  Example usage:
+
+  ```python
+  from pepperpy.content.processors.text_normalization_base import TextNormalizerRegistry
+
+  # Get NLTK normalizer instance
+  normalizer = TextNormalizerRegistry.get_instance("nltk", 
+      language="en",
+      use_lemmatization=True,
+      remove_stopwords=True
+  )
+
+  # Initialize resources
+  await normalizer.initialize()
+
+  # Normalize text
+  text = "The quick brown foxes are jumping over the lazy dogs"
+  normalized = normalizer.normalize(text)
+  # Result: "quick brown fox jump lazy dog"
+
+  # Clean up
+  await normalizer.cleanup()
+  ```
+
+  Features:
+  - Multi-language support (en, pt, es, fr, de, it, nl, ru)
+  - Word tokenization
+  - Lemmatization (converts words to base form)
+  - Stopword removal
+  - Configurable NLTK data directory

@@ -93,14 +93,14 @@ class BaseProvider(abc.ABC):
     def get_float(self, key: str, default: Optional[float] = None) -> Optional[float]:
         """Get a float value from config.
 
-        Args:
+    Args:
             key: Config key
             default: Default value if key not found
 
-        Returns:
+    Returns:
             Float value or default
 
-        Raises:
+    Raises:
             ConfigError: If value cannot be converted to float
         """
         value = self._config.get(key)
@@ -112,7 +112,7 @@ class BaseProvider(abc.ABC):
         except (ValueError, TypeError) as e:
             raise ConfigError(
                 f"Config value '{key}={value}' is not a valid float"
-            ) from e
+        ) from e
 
     def get_int(self, key: str, default: Optional[int] = None) -> Optional[int]:
         """Get an integer value from config.
@@ -136,7 +136,7 @@ class BaseProvider(abc.ABC):
         except (ValueError, TypeError) as e:
             raise ConfigError(
                 f"Config value '{key}={value}' is not a valid integer"
-            ) from e
+                    ) from e
 
     def get_bool(self, key: str, default: Optional[bool] = None) -> Optional[bool]:
         """Get a boolean value from config.
@@ -153,7 +153,7 @@ class BaseProvider(abc.ABC):
             return default
 
         if isinstance(value, bool):
-            return value
+        return value
 
         # Handle string representations
         if isinstance(value, str):
@@ -249,7 +249,7 @@ class BaseProvider(abc.ABC):
 
             for key in required_keys:
                 value = self.get_config_with_defaults(key)
-                if value is None:
+    if value is None:
                     missing_keys.append(key)
 
             if missing_keys:
@@ -293,7 +293,7 @@ class BaseProvider(abc.ABC):
                 raise ConfigError(f"Missing required configuration key: {key}")
 
             # Skip further validation if value is None
-            if value is None:
+    if value is None:
                 continue
 
             # Validate type

@@ -15,9 +15,9 @@ from pepperpy.rag.utils import (
     clean_text,
     split_text_by_separator,
 )
-from pepperpy.content_processing.base import ContentType
-from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
-from pepperpy.content_processing.errors import ContentProcessingError
+from pepperpy.content.base import ContentType
+from pepperpy.content.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.content.errors import ContentProcessingError
 
 
 def test_document_to_prompt_flow():
@@ -128,7 +128,7 @@ def test_document_processing_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_content_processing_error_handling():
+async def test_content_error_handling():
     """Test error handling during content processing."""
     # Create provider
     provider = PyMuPDFProvider()

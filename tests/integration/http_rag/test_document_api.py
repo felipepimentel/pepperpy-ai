@@ -17,8 +17,8 @@ from pepperpy.rag.utils import (
     extract_html_metadata,
     split_text_by_separator,
 )
-from pepperpy.content_processing.base import ContentType
-from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.content.base import ContentType
+from pepperpy.content.providers.document.pymupdf import PyMuPDFProvider
 
 
 def test_document_upload_processing():
@@ -164,7 +164,7 @@ def test_document_api_error_handling():
 
 
 @pytest.mark.asyncio
-async def test_html_content_processing():
+async def test_html_content():
     """Test processing HTML content."""
     # Create provider
     provider = PyMuPDFProvider()
@@ -196,7 +196,7 @@ async def test_html_content_processing():
 
 
 @pytest.mark.asyncio
-async def test_html_content_processing():
+async def test_html_content():
     """Test processing HTML content."""
     # Create provider
     provider = PyMuPDFProvider()

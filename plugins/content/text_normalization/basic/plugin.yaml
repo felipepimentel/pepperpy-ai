@@ -1,0 +1,92 @@
+name: text_normalization_basic
+version: 0.1.0
+description: Basic text normalization plugin for PepperPy
+author: PepperPy Team
+license: MIT
+plugin_type: content
+category: text_normalization
+provides:
+  - normalizer
+provider_name: basic
+entry_point: pepperpy.plugins.content.text_normalization.basic.provider:BasicTextNormalizer
+
+# Configuration schema
+config_schema:
+  language:
+    description: Language code for language-specific processing
+    type: string
+    default: en
+    required: false
+  transformations:
+    description: List of transformation methods to apply
+    type: array
+    items:
+      type: string
+      enum:
+        - strip_whitespace
+        - normalize_unicode
+        - normalize_whitespace
+        - remove_control_chars
+        - replace_chars
+        - lowercase
+        - remove_punctuation
+        - remove_numbers
+        - fix_encoding
+    required: false
+  custom_patterns:
+    description: Custom regex patterns for text cleaning
+    type: object
+    required: false
+  custom_replacements:
+    description: Custom character replacements
+    type: object
+    required: false
+
+# Default configuration
+default_config:
+  language: en
+  transformations:
+    - strip_whitespace
+    - normalize_unicode
+    - normalize_whitespace
+    - remove_control_chars
+
+# Documentation
+usage: |
+  # Basic Text Normalization Plugin
+
+  This plugin provides basic text normalization capabilities without external dependencies.
+  It implements the TextNormalizer interface defined in the PepperPy content processing module.
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create a text normalizer with default configuration
+  normalizer = plugin_manager.create_provider("text_normalization", "basic")
+
+  # Apply normalization to text
+  normalized = normalizer.normalize("Text with  multiple   spaces and Unicode characters: "quoted" text")
+  ```
+
+  ## Configuration
+
+  - `language`: Language code for language-specific processing (default: 'en')
+  - `transformations`: List of transformation methods to apply (optional)
+  - `custom_patterns`: Custom regex patterns for text cleaning (optional)
+  - `custom_replacements`: Custom character replacements (optional)
+
+  ## Transformations
+
+  Available transformations:
+
+  - `strip_whitespace`: Remove leading and trailing whitespace
+  - `normalize_unicode`: Normalize Unicode characters
+  - `normalize_whitespace`: Replace multiple whitespace with single space
+  - `remove_control_chars`: Remove control characters
+  - `replace_chars`: Replace special characters with standard ones
+  - `lowercase`: Convert text to lowercase
+  - `remove_punctuation`: Remove punctuation
+  - `remove_numbers`: Remove numbers
+  - `fix_encoding`: Fix common encoding issues

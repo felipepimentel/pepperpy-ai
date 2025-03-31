@@ -4,7 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.content_processing.providers.document.pymupdf import PyMuPDFProvider
+from pepperpy.content.providers.document.pymupdf import PyMuPDFProvider
 from pepperpy.workflow.base import PipelineContext, PipelineStage, WorkflowProvider
 
 logger = logging.getLogger(__name__)
