@@ -109,14 +109,14 @@ class PluginManager:
                 self._plugin_classes[category] = {}
 
             # Determinar o formato do plugin
-            plugin_path = f"{plugin_name}.{entry_point}"
             is_hierarchical = (
                 "/" in plugin_name
             )  # Check if this is a hierarchical format
 
             # Registrar o plugin
             self._providers[category][provider_name] = {
-                "path": plugin_path,
+                "path": plugin_name,
+                "entry_point": entry_point,
                 "metadata": metadata,
                 "format": "hierarchical" if is_hierarchical else "flat",
             }
@@ -368,21 +368,12 @@ class PluginManager:
 
                 # Ensure plugin is initialized from YAML if it's a ProviderPlugin
                 if hasattr(provider, "initialize_from_yaml"):
-                    # Find and initialize from plugin.yaml
-                    # Support both formats for yaml path
-                    is_hierarchical = False
-                    if (
-                        module_name in self._providers
-                        and provider_name in self._providers[module_name]
-                    ):
-                        is_hierarchical = (
-                            self._providers[module_name][provider_name].get("format")
-                            == "hierarchical"
-                        )
-
-                    if is_hierarchical:
+                    # Find and initialize from plugin.yaml based on format
+                    if "/" in module:
+                        # Hierarchical format: "llm/openai"
                         plugin_dir = f"plugins/{module_name}/{provider_name}"
                     else:
+                        # Flat format: "llm" + "openai"
                         plugin_dir = f"plugins/{module_name}_{provider_name}"
 
                     yaml_path = f"{plugin_dir}/plugin.yaml"
@@ -421,67 +412,45 @@ class PluginManager:
                 )
 
             provider_info = providers[provider_name]
-            provider_path = provider_info["path"]
-            debug_logger.debug(f"Loading provider from path: {provider_path}")
+            plugin_path = provider_info["path"]
+            entry_point = provider_info["entry_point"]
+            debug_logger.debug(f"Loading provider from path: {plugin_path}")
 
             # Determinar o formato do plugin
             is_hierarchical = provider_info.get("format") == "hierarchical"
 
-            if ":" in provider_path:
-                # Format is plugin_name.provider:Provider
-                parts = provider_path.split(":")
-                plugin_name = parts[0].split(".")[
-                    0
-                ]  # Pegar apenas o nome do plugin sem o .provider
-                class_name = parts[1]
+            # Get module path and class name from entry_point
+            if ":" in entry_point:
+                module_path, class_name = entry_point.split(":")
+            else:
+                module_path, class_name = entry_point.rsplit(".", 1)
 
-                # Use the correct path based on format
-                if is_hierarchical:
-                    # For hierarchical format: plugins/category/service
-                    path_parts = plugin_name.split("/")
-                    module_path = "plugins." + ".".join(path_parts) + ".provider"
-                else:
-                    # For flat format: plugins/category_service
-                    module_path = f"plugins.{plugin_name}.provider"
-
-                debug_logger.debug(
-                    f"Importing from module: {module_path}, class: {class_name}"
+            # Construct full module path
+            if is_hierarchical:
+                # For hierarchical format: plugins/category/service
+                full_module_path = (
+                    f"plugins.{module_name}.{provider_name}.{module_path}"
                 )
             else:
-                # Determine path based on format
-                if is_hierarchical:
-                    # For hierarchical format: plugins/category/service
-                    parts = provider_path.split(".")
-                    plugin_dir = parts[
-                        0
-                    ]  # plugin directory like "plugins/category/service"
-                    module_path = (
-                        "plugins." + module_name + "." + provider_name + ".provider"
-                    )
-                else:
-                    # Assume default format - diretório do plugin é llm_openrouter
-                    module_path = f"plugins.{module_name}_{provider_name}.provider"
+                # For flat format: plugins/category_service
+                full_module_path = (
+                    f"plugins.{module_name}_{provider_name}.{module_path}"
+                )
 
-                # Preservar capitalização especial para certos providers
-                if provider_name == "openrouter":
-                    class_name = "OpenRouterProvider"
-                elif provider_name == "openai":
-                    class_name = "OpenAIProvider"
-                else:
-                    # Capitalizar apenas a primeira letra e manter o resto como está
-                    class_name = (
-                        f"{provider_name[0].upper()}{provider_name[1:]}Provider"
-                    )
-                debug_logger.debug(f"Using default format: {module_path}.{class_name}")
+            debug_logger.debug(
+                f"Importing from module: {full_module_path}, class: {class_name}"
+            )
 
             try:
                 # Try to import module
                 try:
-                    provider_module = importlib.import_module(module_path)
-                    debug_logger.debug(f"Successfully imported module: {module_path}")
+                    provider_module = importlib.import_module(full_module_path)
+                    debug_logger.debug(
+                        f"Successfully imported module: {full_module_path}"
+                    )
                 except ModuleNotFoundError:
-                    logger.error(f"Module not found: {module_path}")
-                    raise ImportError(f"Module not found: {module_path}")
+                    logger.error(f"Module not found: {full_module_path}")
+                    raise ImportError(f"Module not found: {full_module_path}")
 
                 # Try to get class from module
                 try:
@@ -489,10 +458,10 @@ class PluginManager:
                     debug_logger.debug(f"Provider class found: {class_name}")
                 except AttributeError:
                     logger.error(
-                        f"Class {class_name} not found in module {module_path}"
+                        f"Class {class_name} not found in module {full_module_path}"
                     )
                     raise AttributeError(
-                        f"Class {class_name} not found in module {module_path}"
+                        f"Class {class_name} not found in module {full_module_path}"
                     )
 
                 # Register provider class for future use
@@ -516,6 +485,7 @@ class PluginManager:
                 # Ensure plugin is initialized from YAML if it's a ProviderPlugin
                 if hasattr(provider, "initialize_from_yaml"):
                     # Find and initialize from plugin.yaml based on format
+                    is_hierarchical = provider_info.get("format") == "hierarchical"
                     if is_hierarchical:
                         plugin_dir = f"plugins/{module_name}/{provider_name}"
                     else:

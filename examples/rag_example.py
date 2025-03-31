@@ -8,11 +8,8 @@ import os
 from pathlib import Path
 from typing import cast
 
-from pepperpy import PepperPy
+from pepperpy import PepperPy, plugin_manager
 from pepperpy.rag.base import Document, RAGProvider
-from plugins.rag_memory.provider import (
-    InMemoryProvider,  # Import directly the provider class
-)
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -25,8 +22,8 @@ async def main() -> None:
     print("RAG Example")
     print("=" * 50)
 
-    # Create RAG provider directly from the InMemoryProvider
-    rag_provider = cast(RAGProvider, InMemoryProvider())
+    # Create RAG provider using the plugin manager
+    rag_provider = cast(RAGProvider, plugin_manager.create_provider("rag", "memory"))
 
     # Initialize PepperPy with RAG support
     async with PepperPy().with_rag(rag_provider) as pepper:
