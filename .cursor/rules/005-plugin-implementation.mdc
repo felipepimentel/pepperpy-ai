@@ -1,9 +1,7 @@
 ---
-title: PepperPy Plugin Implementation Guidelines
-description: USE WHEN implementing or modifying any provider or plugin in the PepperPy framework
-globs: 
-  - "plugins/**/*.py"
-priority: 800
+description: 
+globs: plugins/**/*.py
+alwaysApply: false
 ---
 
 # PepperPy Plugin Implementation Guidelines

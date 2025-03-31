@@ -1,9 +1,10 @@
 """Simple in-memory RAG provider for testing and examples."""
 
 import uuid
-from typing import Any, Dict, List, Optional
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.base import BaseProvider
+from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
 
 
 def cosine_similarity(a: List[float], b: List[float]) -> float:
@@ -53,7 +54,7 @@ class DocumentEntry:
         self.vector = vector
 
 
-class InMemoryProvider(BaseProvider):
+class InMemoryProvider(RAGProvider):
     """Simple in-memory RAG provider for testing and examples."""
 
     name = "memory"
@@ -276,12 +277,14 @@ class InMemoryProvider(BaseProvider):
         # Convert to result format
         results = []
         for score, doc in similarities[:limit]:
-            results.append({
-                "id": doc.id,
-                "text": doc.text,
-                "metadata": doc.metadata,
-                "score": float(score),
-            })
+            results.append(
+                {
+                    "id": doc.id,
+                    "text": doc.text,
+                    "metadata": doc.metadata,
+                    "score": float(score),
+                }
+            )
 
         return results
 
@@ -334,12 +337,14 @@ class InMemoryProvider(BaseProvider):
         # Convert to result format
         results = []
         for score, doc in matches[:limit]:
-            results.append({
-                "id": doc.id,
-                "text": doc.text,
-                "metadata": doc.metadata,
-                "score": float(score),
-            })
+            results.append(
+                {
+                    "id": doc.id,
+                    "text": doc.text,
+                    "metadata": doc.metadata,
+                    "score": float(score),
+                }
+            )
 
         return results
 
@@ -460,12 +465,14 @@ class InMemoryProvider(BaseProvider):
         # Convert to result format
         results = []
         for doc in paged_docs:
-            results.append({
-                "id": doc.id,
-                "text": doc.text,
-                "metadata": doc.metadata,
-                "vector": doc.vector,
-            })
+            results.append(
+                {
+                    "id": doc.id,
+                    "text": doc.text,
+                    "metadata": doc.metadata,
+                    "vector": doc.vector,
+                }
+            )
 
         return results
 
@@ -509,21 +516,27 @@ class InMemoryProvider(BaseProvider):
             ),
         }
 
-    # Add methods to implement RAGProvider interface
-
-    async def store(self, docs):
+    async def store(self, docs: Union[Document, List[Document]]) -> None:
         """Store documents in the RAG context.
 
         Args:
             docs: Document or list of documents to store.
         """
+        if not self._initialized:
+            await self.initialize()
+
         if isinstance(docs, list):
             for doc in docs:
                 await self.store_document(doc.text, doc.metadata)
         else:
             await self.store_document(docs.text, docs.metadata)
 
-    async def search(self, query, limit=5, **kwargs):
+    async def search(
+        self,
+        query: Union[str, Query],
+        limit: int = 5,
+        **kwargs: Any,
+    ) -> Sequence[SearchResult]:
         """Search for relevant documents.
 
         Args:
@@ -534,28 +547,39 @@ class InMemoryProvider(BaseProvider):
         Returns:
             List of search results
         """
-        from pepperpy.rag.base import Document, Query, RetrievalResult
+        if not self._initialized:
+            await self.initialize()
 
-        if isinstance(query, Query):
-            query_text = query.text
-            query_embedding = query.embeddings
-        else:
-            query_text = query
-            query_embedding = None
+        # Convert query to Query object if needed
+        if isinstance(query, str):
+            query = Query(text=query)
 
-        kwargs["query_embedding"] = query_embedding
+        # Get query vector
+        query_vector = query.embeddings
 
-        results = await self.search_documents(query=query_text, limit=limit, **kwargs)
+        # Collect results
+        results = []
+        for doc_id, doc in self._documents.items():
+            # Calculate similarity if vectors available
+            score = 0.0
+            if query_vector and doc.vector:
+                score = cosine_similarity(query_vector, doc.vector)
 
-        return [
-            RetrievalResult(
-                document=Document(text=r["text"], metadata=r["metadata"]),
-                score=r.get("score", 0.0),
+            # Add to results
+            results.append(
+                SearchResult(
+                    id=doc_id,
+                    text=doc.text,
+                    metadata=doc.metadata,
+                    score=score,
+                )
             )
-            for r in results
-        ]
 
-    async def get(self, doc_id):
+        # Sort by score and limit
+        results.sort(key=lambda x: x.score, reverse=True)
+        return results[:limit]
+
+    async def get(self, doc_id: str) -> Optional[Document]:
         """Get a document by ID.
 
         Args:
@@ -564,10 +588,14 @@ class InMemoryProvider(BaseProvider):
         Returns:
             The document if found, None otherwise
         """
-        from pepperpy.rag.base import Document
+        if not self._initialized:
+            await self.initialize()
 
-        result = await self.retrieve_document(doc_id)
-        if result is None:
+        doc = self._documents.get(doc_id)
+        if not doc:
             return None
 
-        return Document(text=result["text"], metadata=result["metadata"])
+        return Document(
+            text=doc.text,
+            metadata=doc.metadata,
+        )

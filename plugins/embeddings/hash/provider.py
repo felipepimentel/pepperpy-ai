@@ -6,12 +6,17 @@ production as it doesn't capture semantic meaning.
 """
 
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from ..base import EmbeddingError, EmbeddingOptions, EmbeddingProvider, EmbeddingResult
+from pepperpy.embeddings import (
+    EmbeddingError,
+    EmbeddingOptions,
+    EmbeddingResult,
+    EmbeddingsProvider,
+)
 
 
-class HashEmbeddingProvider(EmbeddingProvider):
+class HashEmbeddingProvider(EmbeddingsProvider):
     """Simple embedding provider that uses hash values.
 
     This is a lightweight embedding provider that converts text into vectors
@@ -19,10 +24,10 @@ class HashEmbeddingProvider(EmbeddingProvider):
     not be used in production as it doesn't capture semantic meaning.
     """
 
-    
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
-def __init__(
+
+    def __init__(
         self,
         embedding_dim: int = 1536,
         provider_name: Optional[str] = None,
@@ -48,6 +53,65 @@ def __init__(
         This provider doesn't require initialization.
         """
         pass
+
+    async def cleanup(self) -> None:
+        """Clean up resources.
+
+        This provider doesn't require cleanup.
+        """
+        pass
+
+    async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
+        """Create embeddings for the given text.
+
+        Args:
+            text: Text or list of texts to embed
+
+        Returns:
+            List of text embeddings
+        """
+        if isinstance(text, str):
+            result = await self.embed(text)
+            return [result.embedding]
+        else:
+            results = await self.embed_batch(text)
+            return [r.embedding for r in results]
+
+    async def embed_query(self, text: str) -> List[float]:
+        """Create an embedding for a single query text.
+
+        Args:
+            text: Query text to embed
+
+        Returns:
+            Query embedding as a list of floats
+        """
+        result = await self.embed(text)
+        return result.embedding
+
+    async def embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Create embeddings for multiple texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of text embeddings
+        """
+        results = await self.embed_batch(texts)
+        return [r.embedding for r in results]
+
+    def get_embedding_function(self) -> Any:
+        """Get a function that can be used by vector stores.
+
+        Returns:
+            A callable that generates embeddings
+        """
+
+        async def embed_fn(text: str) -> List[float]:
+            return await self.embed_query(text)
+
+        return embed_fn
 
     async def embed(
         self, text: str, options: Optional[EmbeddingOptions] = None

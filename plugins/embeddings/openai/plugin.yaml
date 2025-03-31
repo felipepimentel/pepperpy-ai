@@ -1,3 +1,4 @@
+# Plugin metadata
 name: embeddings/openai
 version: 0.1.0
 description: OpenAI Embeddings provider for PepperPy
@@ -5,12 +6,36 @@ author: PepperPy Team
 license: MIT
 category: embeddings
 provider_name: openai
-entry_point: provider
-required_keys:
+entry_point: provider.OpenAIEmbeddingsProvider
+required_config_keys:
   - api_key
+
+# Default configuration values
 default_config:
   model: text-embedding-3-small
   dimensions: 256
+
+# Configuration schema
+config_schema:
+  api_key:
+    description: OpenAI API key
+    required: true
+    env_var: PEPPERPY_EMBEDDINGS__OPENAI_API_KEY
+    type: string
+  model:
+    description: Model to use for embeddings
+    required: false
+    default: text-embedding-3-small
+    type: string
+  dimensions:
+    description: Output embedding dimensions
+    required: false
+    default: 256
+    type: integer
+    min: 64
+    max: 3072
+
+# Additional metadata
 homepage: https://openai.com
 documentation: |
   # OpenAI Embeddings Provider

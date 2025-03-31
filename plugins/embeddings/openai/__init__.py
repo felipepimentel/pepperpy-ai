@@ -1,5 +1,5 @@
-"""OpenAI provider for PepperPy."""
+"""OpenAI embeddings provider."""
 
-from .provider import OpenAIProvider
+from .provider import OpenAIEmbeddingsProvider as OpenAIProvider
 
 __all__ = ["OpenAIProvider"]

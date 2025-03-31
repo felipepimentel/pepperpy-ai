@@ -5,11 +5,12 @@ This example shows how to use PepperPy's fluent API for RAG operations.
 
 import asyncio
 import os
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
 from pepperpy import PepperPy, plugin_manager
-from pepperpy.rag.base import Document, RAGProvider
+from pepperpy.rag.base import Document, RAGProvider, SearchResult
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -28,7 +29,7 @@ async def main() -> None:
     # Initialize PepperPy with RAG support
     async with PepperPy().with_rag(rag_provider) as pepper:
         # Check if we have documents
-        results = await pepper.search("", limit=10)
+        results = cast(Sequence[SearchResult], await pepper.search("", limit=10))
         print(f"\nFound {len(results)} documents in database")
 
         # Add sample documents if needed
@@ -53,19 +54,21 @@ async def main() -> None:
             # Store documents using pepper's add_documents method
             await pepper.add_documents(docs)
 
-            results = await pepper.search("", limit=10)
+            results = cast(Sequence[SearchResult], await pepper.search("", limit=10))
             print(f"Added {len(results)} documents")
 
         # Search example
         print("\nSearching for 'Python framework'...")
-        results = await pepper.search("Python framework", limit=5)
+        results = cast(
+            Sequence[SearchResult], await pepper.search("Python framework", limit=5)
+        )
 
         # Print results
         print("\nSearch results:")
         for i, result in enumerate(results, 1):
-            print(f"\n{i}. {result.document.text}")
-            print(f"   Type: {result.document.metadata.get('type')}")
-            print(f"   Field: {result.document.metadata.get('field', 'N/A')}")
+            print(f"\n{i}. {result.text}")
+            print(f"   Score: {result.score or 0.0}")
+            print(f"   Metadata: {result.metadata}")
 
 
 if __name__ == "__main__":

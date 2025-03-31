@@ -6,7 +6,7 @@ and using providers.
 """
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import (
     Any,
     Dict,
@@ -20,6 +20,7 @@ from typing import (
 from loguru import logger
 
 from pepperpy.core import ValidationError
+from pepperpy.embeddings import EmbeddingsProvider
 from pepperpy.llm import (
     GenerationChunk,
     GenerationResult,
@@ -154,7 +155,8 @@ class ChatBuilder:
         if self._max_tokens is not None:
             kwargs["max_tokens"] = self._max_tokens
 
-        return await self._provider.generate_stream(self._messages, **kwargs)
+        async for chunk in self._provider.stream(self._messages, **kwargs):
+            yield chunk
 
 
 class TTSBuilder:
@@ -900,14 +902,11 @@ class TextBuilder:
             )
         )
 
-        stream = cast(
-            AsyncIterator[GenerationChunk],
-            self._llm.stream(
-                messages,
-                temperature=self._temperature,
-                max_tokens=self._max_tokens,
-                stop_sequences=self._stop_sequences if self._stop_sequences else None,
-            ),
+        stream = await self._llm.stream(
+            messages,
+            temperature=self._temperature,
+            max_tokens=self._max_tokens,
+            stop_sequences=self._stop_sequences if self._stop_sequences else None,
         )
         async for chunk in stream:
             yield chunk
@@ -1120,6 +1119,7 @@ class PepperPy:
         self._rag_provider: Optional[RAGProvider] = None
         self._workflow_provider: Optional[WorkflowProvider] = None
         self._tts_provider: Optional[TTSProvider] = None
+        self._embeddings_provider: Optional[EmbeddingsProvider] = None
 
     def with_llm(
         self,
@@ -1142,8 +1142,8 @@ class PepperPy:
         logger.debug(f"Configuring LLM provider: {provider_type}")
 
         # Use plugin manager internally
-        self._llm_provider = plugin_manager.create_provider(
-            "llm", provider_type, **config
+        self._llm_provider = cast(
+            LLMProvider, plugin_manager.create_provider("llm", provider_type, **config)
         )
         return self
 
@@ -1151,13 +1151,16 @@ class PepperPy:
         """Configure RAG support.
 
         Args:
-            provider: Optional RAG provider (uses InMemoryProvider if None)
+            provider: Optional RAG provider (uses plugin manager if None)
 
         Returns:
             Self for chaining
         """
         if provider is None:
-            provider = cast(RAGProvider, InMemoryProvider())
+            provider_type = os.environ.get("PEPPERPY_RAG__PROVIDER", "memory")
+            provider = cast(
+                RAGProvider, plugin_manager.create_provider("rag", provider_type)
+            )
         self._rag_provider = provider
         return self
 
@@ -1196,6 +1199,33 @@ class PepperPy:
             )
 
         self._tts_provider = provider
+        return self
+
+    def with_embeddings(
+        self,
+        provider_type: Optional[str] = None,
+        **config: Any,
+    ) -> Self:
+        """Configure embeddings provider.
+
+        Args:
+            provider_type: Type of provider to use (default from PEPPERPY_EMBEDDINGS__PROVIDER or "openai")
+            **config: Provider configuration
+
+        Returns:
+            Self for chaining
+        """
+        # If provider_type is not specified, check the environment variable
+        if provider_type is None:
+            provider_type = os.environ.get("PEPPERPY_EMBEDDINGS__PROVIDER", "openai")
+
+        logger.debug(f"Configuring embeddings provider: {provider_type}")
+
+        # Use plugin manager internally
+        self._embeddings_provider = cast(
+            EmbeddingsProvider,
+            plugin_manager.create_provider("embeddings", provider_type, **config),
+        )
         return self
 
     @property
@@ -1238,7 +1268,7 @@ class PepperPy:
         if not self._rag_provider:
             raise ValueError("RAG provider not configured. Call with_rag() first.")
         results = await self._rag_provider.search(query, limit=limit, **kwargs)
-        return list(results)
+        return cast(List[RetrievalResult], list(results))
 
     async def get_document(self, doc_id: str) -> Optional[Document]:
         """Get a document by ID.
@@ -1318,6 +1348,20 @@ class PepperPy:
             )
         return DocumentBuilder(self._workflow_provider)
 
+    @property
+    def rag(self) -> RAGBuilder:
+        """Get RAG builder.
+
+        Returns:
+            RAG builder instance
+
+        Raises:
+            RuntimeError: If RAG provider not configured
+        """
+        if not self._rag_provider:
+            raise RuntimeError("RAG provider not configured. Call with_rag() first.")
+        return RAGBuilder(self._rag_provider)
+
     async def __aenter__(self) -> Self:
         """Enter async context.
 
@@ -1333,6 +1377,8 @@ class PepperPy:
             await self._workflow_provider.initialize()
         if self._tts_provider:
             await self._tts_provider.initialize()
+        if self._embeddings_provider:
+            await self._embeddings_provider.initialize()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -1346,3 +1392,5 @@ class PepperPy:
             await self._workflow_provider.cleanup()
         if self._tts_provider:
             await self._tts_provider.cleanup()
+        if self._embeddings_provider:
+            await self._embeddings_provider.cleanup()
