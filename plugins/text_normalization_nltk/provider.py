@@ -1,11 +1,19 @@
 """NLTK-based text normalization provider for PepperPy."""
 
-from typing import Any, List
+from typing import Any, Dict, List, Optional
 
 from pepperpy.content_processing.processors.text_normalization_base import (
     BaseTextNormalizer,
     TextNormalizerRegistry,
 )
+
+try:
+    import nltk
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
+    from nltk.tokenize import word_tokenize
+except ImportError:
+    nltk = None
 
 
 class NLTKTextNormalizer(BaseTextNormalizer):
@@ -22,6 +30,15 @@ class NLTKTextNormalizer(BaseTextNormalizer):
     api_key: str
     client: Optional[Any]
     LANGUAGE_MAP = {
+        "en": "english",
+        "pt": "portuguese",
+        "es": "spanish",
+        "fr": "french",
+        "de": "german",
+        "it": "italian",
+        "nl": "dutch",
+        "ru": "russian",
+    }
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the NLTK text normalizer.
@@ -62,10 +79,8 @@ class NLTKTextNormalizer(BaseTextNormalizer):
             return
 
         try:
-            import nltk
-            from nltk.corpus import stopwords
-            from nltk.stem import WordNetLemmatizer
-            from nltk.tokenize import word_tokenize
+            if not nltk:
+                raise ImportError("NLTK is not installed. Please install it with: pip install nltk")
 
             # Download required NLTK data
             nltk.download("punkt", quiet=True)
