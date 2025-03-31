@@ -94,14 +94,14 @@ class BaseProvider(abc.ABC):
         """Get a float value from config.
 
         Args:
-                key: Config key
-                default: Default value if key not found
+            key: Config key
+            default: Default value if key not found
 
         Returns:
-                Float value or default
+            Float value or default
 
         Raises:
-                ConfigError: If value cannot be converted to float
+            ConfigError: If value cannot be converted to float
         """
         value = self._config.get(key)
         if value is None:
@@ -350,22 +350,6 @@ class BaseProvider(abc.ABC):
                             raise ConfigError(
                                 f"Config key '{key}' must be at most {specs['max']}, got {value}"
                             )
-
-                    elif value_type == "boolean":
-                        if not isinstance(value, bool) and not (
-                            isinstance(value, str)
-                            and value.lower()
-                            in ("true", "false", "yes", "no", "1", "0")
-                        ):
-                            raise ConfigError(
-                                f"Config key '{key}' must be a boolean, got {type(value).__name__}"
-                            )
-
-                        # Convert to bool if string
-                        if isinstance(value, str):
-                            value = value.lower() in ("true", "yes", "1")
-                            self._config[key] = value
-
                 except (ValueError, TypeError) as e:
                     raise ConfigError(
                         f"Invalid value for config key '{key}': {e}"

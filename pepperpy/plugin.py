@@ -136,10 +136,12 @@ class PepperpyPlugin(ABC):
 
             # Adicionar padrões comuns para chaves de API
             if key == "api_key":
-                patterns.extend([
-                    f"{provider_type.upper()}_API_KEY",
-                    f"{plugin_category.upper()}_{provider_type.upper()}_API_KEY",
-                ])
+                patterns.extend(
+                    [
+                        f"{provider_type.upper()}_API_KEY",
+                        f"{plugin_category.upper()}_{provider_type.upper()}_API_KEY",
+                    ]
+                )
 
             # Buscar nos padrões
             found = False
@@ -749,14 +751,16 @@ def discover_plugins(plugins_dir: Optional[str] = None) -> Dict[str, Dict[str, A
 
     logger.debug(f"Scanning for plugins in: {plugins_dir}")
     plugins = {}
-    for plugin_dir in Path(plugins_dir).iterdir():
-        if not plugin_dir.is_dir():
-            continue
 
-        try:
-            # Attempt to load metadata from plugin.yaml, plugin.json, or generate it
+    def scan_directory(directory: Path) -> None:
+        """Recursively scan directory for plugin.yaml files."""
+        for item in directory.iterdir():
+            if not item.is_dir():
+                continue
+
             try:
-                plugin_yaml_path = Path(plugin_dir) / "plugin.yaml"
+                # Check for plugin.yaml in current directory
+                plugin_yaml_path = item / "plugin.yaml"
                 if plugin_yaml_path.exists():
                     with open(plugin_yaml_path) as f:
                         metadata = yaml.safe_load(f)
@@ -774,40 +778,25 @@ def discover_plugins(plugins_dir: Optional[str] = None) -> Dict[str, Dict[str, A
                         ]
                         if missing_fields:
                             logger.warning(
-                                f"Plugin in {plugin_dir} is missing fields: {', '.join(missing_fields)}"
+                                f"Plugin in {item} is missing fields: {', '.join(missing_fields)}"
                             )
                             # Use directory name as fallback for plugin name
                             if "name" not in metadata:
-                                metadata["name"] = plugin_dir.name
+                                metadata["name"] = item.name
 
-                        plugins[plugin_dir.name] = metadata
+                        plugins[metadata.get("name", item.name)] = metadata
                         logger.debug(f"Loaded plugin metadata from {plugin_yaml_path}")
                     continue
 
-                # Fallback to load from directory method if plugin.yaml doesn't exist
-                metadata = ProviderPlugin.load_from_directory(str(plugin_dir))
-                plugins[metadata.get("name", plugin_dir.name)] = metadata
-                logger.debug(
-                    f"Loaded plugin metadata using load_from_directory for {plugin_dir}"
-                )
-            except ValueError as e:
-                logger.warning(f"Failed to load plugin metadata for {plugin_dir}: {e}")
+                # Recursively scan subdirectories
+                scan_directory(item)
+
+            except Exception as e:
+                logger.warning(f"Failed to load plugin metadata for {item}: {e}")
                 continue
 
-            # Check if requirements.txt exists and create if needed
-            requirements_path = Path(plugin_dir) / "requirements.txt"
-            if not requirements_path.exists():
-                try:
-                    with open(requirements_path, "w") as f:
-                        f.write("# Plugin dependencies\n")
-                    logger.debug(f"Created empty requirements.txt for {plugin_dir}")
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to create requirements.txt in {plugin_dir}: {e}"
-                    )
-
-        except Exception as e:
-            logger.exception(f"Error processing plugin in {plugin_dir}: {e}")
+    # Start recursive scan from plugins directory
+    scan_directory(Path(plugins_dir))
 
     return plugins
 

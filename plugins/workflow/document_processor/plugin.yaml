@@ -2,43 +2,123 @@ name: workflow/document_processor
 version: 0.1.0
 description: Ready-to-use workflow for processing documents, extracting text and metadata
 author: PepperPy Team
+license: MIT
 category: workflow
 provider_name: document_processor
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Document Processing Workflow provides pre-configured pipelines for document processing tasks.
-
-
-    Example usage:
-
-    ```python
-    from pepperpy import PepperPy
-    from pepperpy.plugin_manager import plugin_manager
-
-    async def main():
-        # Create and initialize the workflow provider
-        workflow = plugin_manager.create_provider(
-            "workflow", "document_processor", 
-            extract_metadata=True,
-            extract_images=False
-        )
-        await workflow.initialize()
-        
-        # Process a single document
-        result = await workflow.process_document("path/to/document.pdf")
-        print(f"Extracted text: {result["text"][:100]}...")
-        
-        # Process multiple documents
-        batch_results = await workflow.process_batch(["doc1.pdf", "doc2.pdf"])
-        
-        # Process all documents in a directory
-        dir_results = await workflow.process_directory("path/to/docs")
-        
-        # Clean up
-        await workflow.cleanup()
-    ```
-    '
 entry_point: workflow.DocumentProcessingWorkflow
-pepperpy_compatibility: ">=0.1.0"
-required_config_keys: [] 
+required_config_keys: []
+default_config:
+  extract_metadata: true
+  extract_images: false
+  ocr_enabled: true
+  language: en
+  output_format: json
+  max_chunk_size: 1000
+config_schema:
+  extract_metadata:
+    description: Whether to extract document metadata
+    required: false
+    default: true
+    type: boolean
+  extract_images:
+    description: Whether to extract images from documents
+    required: false
+    default: false
+    type: boolean
+  ocr_enabled:
+    description: Whether to perform OCR on images and scanned documents
+    required: false
+    default: true
+    type: boolean
+  language:
+    description: Primary language for OCR and text processing
+    required: false
+    default: en
+    type: string
+  output_format:
+    description: Format for the extracted content (json, text, markdown)
+    required: false
+    default: json
+    type: string
+    enum: [json, text, markdown]
+  max_chunk_size:
+    description: Maximum size of text chunks in words
+    required: false
+    default: 1000
+    type: integer
+    min: 100
+    max: 5000
+documentation: |
+  # Document Processing Workflow
+
+  This workflow provides a complete pipeline for processing various document types,
+  extracting text, metadata, and optionally images.
+
+  ## Features
+
+  - Text extraction from PDFs, DOCs, etc.
+  - Metadata extraction
+  - Image extraction
+  - OCR for scanned documents
+  - Text chunking for large documents
+
+  ## Configuration
+
+  - `extract_metadata`: Enable metadata extraction (default: true)
+  - `extract_images`: Enable image extraction (default: false)
+  - `ocr_enabled`: Enable OCR processing (default: true)
+  - `language`: Primary language for processing (default: en)
+  - `output_format`: Output format (default: json)
+  - `max_chunk_size`: Maximum chunk size in words (default: 1000)
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create workflow
+  workflow = plugin_manager.create_provider(
+      "workflow", "document_processor",
+      extract_metadata=True,
+      extract_images=True
+  )
+
+  # Process a single document
+  result = await workflow.process_document("path/to/document.pdf")
+  print(f"Title: {result['metadata']['title']}")
+  print(f"Author: {result['metadata']['author']}")
+  print(f"Text length: {len(result['text'])} chars")
+
+  # Process multiple documents
+  results = await workflow.process_batch([
+      "doc1.pdf",
+      "doc2.docx"
+  ])
+
+  # Process all documents in a directory
+  results = await workflow.process_directory("path/to/docs")
+  ```
+
+  ## Supported File Types
+
+  - PDF (.pdf)
+  - Microsoft Word (.doc, .docx)
+  - Microsoft Excel (.xls, .xlsx)
+  - Microsoft PowerPoint (.ppt, .pptx)
+  - OpenDocument (.odt, .ods, .odp)
+  - Rich Text (.rtf)
+  - Plain Text (.txt)
+  - Images (.png, .jpg, .jpeg) - with OCR
+  - Markdown (.md)
+
+  ## Output Format
+
+  When using JSON output (default), the workflow returns a dictionary with:
+  - `text`: Extracted text content
+  - `metadata`: Document metadata (title, author, date, etc.)
+  - `images`: List of extracted images (if enabled)
+  - `chunks`: Text split into manageable chunks
+  - `language`: Detected document language
+  - `pages`: Number of pages
+  - `word_count`: Total word count
+pepperpy_compatibility: '>=0.1.0' 

@@ -456,8 +456,8 @@ class PluginManager:
                         0
                     ]  # plugin directory like "plugins/category/service"
                     module_path = (
-                        plugin_dir.replace("/", ".") + "." + parts[1]
-                    )  # converts to plugins.category.service.provider
+                        "plugins." + module_name + "." + provider_name + ".provider"
+                    )
                 else:
                     # Assume default format - diretório do plugin é llm_openrouter
                     module_path = f"plugins.{module_name}_{provider_name}.provider"

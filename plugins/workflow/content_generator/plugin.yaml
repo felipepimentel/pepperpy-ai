@@ -2,27 +2,136 @@ name: workflow/content_generator
 version: 0.1.0
 description: Ready-to-use workflow for generating content with automated research
 author: PepperPy Team
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Content Generator Workflow provides a complete pipeline for content creation.
-
-
-    Example usage:
-
-    ```python from pepperpy import PepperPy from pepperpy.plugin_manager import plugin_manager
-
-    async def main(): # Create and initialize the workflow provider workflow = plugin_manager.create_provider("workflow",
-    "content_generator") await workflow.initialize()
-
-    # Generate content on a specific topic result = await workflow.generate_content("Artificial
-    Intelligence")
-
-    print(result["content"])
-
-    # Clean up await workflow.cleanup() ``` '
+license: MIT
 category: workflow
 provider_name: content_generator
 entry_point: workflow.ContentGeneratorWorkflow
-pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []
+default_config:
+  content_type: article
+  max_length: 1000
+  research_depth: medium
+  tone: neutral
+  format: markdown
+  include_sources: true
+  language: en
+config_schema:
+  content_type:
+    description: Type of content to generate (article, blog, summary, social)
+    required: false
+    default: article
+    type: string
+    enum: [article, blog, summary, social]
+  max_length:
+    description: Maximum length of generated content in words
+    required: false
+    default: 1000
+    type: integer
+    min: 100
+    max: 5000
+  research_depth:
+    description: Depth of research to perform (light, medium, deep)
+    required: false
+    default: medium
+    type: string
+    enum: [light, medium, deep]
+  tone:
+    description: Tone of the generated content
+    required: false
+    default: neutral
+    type: string
+    enum: [neutral, formal, casual, professional, friendly]
+  format:
+    description: Output format for the content
+    required: false
+    default: markdown
+    type: string
+    enum: [markdown, text, html]
+  include_sources:
+    description: Whether to include research sources in the output
+    required: false
+    default: true
+    type: boolean
+  language:
+    description: Language for the generated content
+    required: false
+    default: en
+    type: string
+documentation: |
+  # Content Generator Workflow
+
+  This workflow provides a complete pipeline for generating high-quality content
+  with automated research and fact-checking.
+
+  ## Features
+
+  - Automated research on topics
+  - Content generation with specified tone and style
+  - Source citation and fact-checking
+  - Multiple content formats
+  - Customizable content length and depth
+
+  ## Configuration
+
+  - `content_type`: Type of content to generate (default: article)
+  - `max_length`: Maximum content length in words (default: 1000)
+  - `research_depth`: Depth of research (default: medium)
+  - `tone`: Content tone (default: neutral)
+  - `format`: Output format (default: markdown)
+  - `include_sources`: Include research sources (default: true)
+  - `language`: Content language (default: en)
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create workflow
+  workflow = plugin_manager.create_provider(
+      "workflow", "content_generator",
+      content_type="article",
+      max_length=1500,
+      tone="professional"
+  )
+
+  # Generate content on a topic
+  result = await workflow.generate_content(
+      topic="Artificial Intelligence in Healthcare",
+      keywords=["AI", "healthcare", "machine learning"]
+  )
+
+  print(f"Content: {result['content']}")
+  print(f"Sources: {result['sources']}")
+
+  # Generate multiple pieces of content
+  results = await workflow.generate_batch([
+      "Topic 1",
+      "Topic 2"
+  ])
+
+  # Generate content with specific requirements
+  result = await workflow.generate_content(
+      topic="Climate Change",
+      outline=[
+          "Introduction",
+          "Current State",
+          "Future Implications",
+          "Solutions"
+      ],
+      style_guide={
+          "voice": "active",
+          "audience": "general public",
+          "key_points": ["urgency", "solutions", "hope"]
+      }
+  )
+  ```
+
+  ## Output Format
+
+  The workflow returns a dictionary containing:
+  - `content`: Generated content in specified format
+  - `metadata`: Content metadata (title, summary, keywords)
+  - `sources`: List of research sources (if enabled)
+  - `statistics`: Content statistics (word count, readability)
+  - `suggestions`: Related topics and keywords
+pepperpy_compatibility: '>=0.1.0'

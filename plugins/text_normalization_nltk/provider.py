@@ -16,6 +16,18 @@ class NLTKTextNormalizer(BaseTextNormalizer):
     stopword removal.
     """
 
+    # Language code to NLTK language name mapping
+    LANGUAGE_MAP = {
+        "en": "english",
+        "es": "spanish",
+        "fr": "french",
+        "de": "german",
+        "it": "italian",
+        "pt": "portuguese",
+        "nl": "dutch",
+        "ru": "russian",
+    }
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the NLTK text normalizer.
 
@@ -69,7 +81,10 @@ class NLTKTextNormalizer(BaseTextNormalizer):
             # Initialize components
             self._tokenizer = word_tokenize
             self._lemmatizer = WordNetLemmatizer()
-            self._stopwords = set(stopwords.words(self.language))
+
+            # Map language code to NLTK language name
+            nltk_language = self.LANGUAGE_MAP.get(self.language, "english")
+            self._stopwords = set(stopwords.words(nltk_language))
 
             self.initialized = True
 

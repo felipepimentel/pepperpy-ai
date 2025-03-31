@@ -1,30 +1,32 @@
+# Plugin metadata
 name: llm/openrouter
 version: 0.1.0
-description: Provider for OpenRouter API, supporting various LLM models
+description: OpenRouter LLM provider for PepperPy
 author: PepperPy Team
+license: MIT
+category: llm
+provider_name: openrouter
+entry_point: provider.OpenRouterProvider
 required_config_keys:
-- api_key
+  - api_key
+
+# Default configuration values
 default_config:
-  model: openai/gpt-3.5-turbo
-  base_url: https://openrouter.ai/api/v1
+  model: anthropic/claude-3-opus
   temperature: 0.7
   max_tokens: 1024
+
+# Configuration schema
 config_schema:
   api_key:
     description: OpenRouter API key
     required: true
     env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
     type: string
-    secret: true
   model:
-    description: Model to use, e.g. openai/gpt-3.5-turbo, anthropic/claude-3-opus
+    description: Model to use for generation
     required: false
-    default: openai/gpt-3.5-turbo
-    type: string
-  base_url:
-    description: OpenRouter API base URL
-    required: false
-    default: https://openrouter.ai/api/v1
+    default: anthropic/claude-3-opus
     type: string
   temperature:
     description: Sampling temperature between 0.0 (deterministic) and 2.0 (creative)
@@ -39,46 +41,51 @@ config_schema:
     default: 1024
     type: integer
     min: 1
-documentation:
-  usage: 'OpenRouter provider for language model tasks.
 
+documentation: |
+  # OpenRouter LLM Provider
 
-    Requires an OpenRouter API key which can be specified:
+  This plugin provides access to various language models through the OpenRouter API.
 
-    1. As a constructor parameter: api_key="key-..."
+  ## Configuration
 
-    2. As an environment variable: PEPPERPY_LLM__OPENROUTER_API_KEY (recomendado)
-    ou OPENROUTER_API_KEY (compatibilidade)
+  - `api_key`: OpenRouter API key (required)
+  - `model`: Model to use (default: anthropic/claude-3-opus)
+  - `temperature`: Sampling temperature (default: 0.7)
+  - `max_tokens`: Maximum tokens to generate (default: 1024)
 
+  ## Usage
 
-    Example usage:
+  ```python
+  from pepperpy import plugin_manager
 
-    ```python
+  # Create provider
+  provider = plugin_manager.create_provider(
+      "llm", "openrouter",
+      api_key="your-api-key"
+  )
 
-    from pepperpy import create_provider
+  # Generate text
+  response = await provider.generate("Tell me a joke.")
+  print(response.content)
 
+  # Chat completion
+  messages = [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is the capital of France?"}
+  ]
+  response = await provider.chat(messages)
+  print(response.content)
+  ```
 
-    provider = create_provider("llm", "openrouter", api_key="your-api-key")
+  ## Available Models
 
-
-    response = await provider.generate("Tell me a joke.")
-
-    print(response.content)
-
-    ```
-
-    '
-  models:
-  - anthropic/claude-3-opus
+  - anthropic/claude-3-opus (default)
   - anthropic/claude-3-sonnet
-  - anthropic/claude-2
-  - openai/gpt-4
+  - anthropic/claude-2.1
+  - openai/gpt-4-turbo
   - openai/gpt-3.5-turbo
-  - google/palm-2
-  - meta/llama-2-70b-chat
-  - meta/llama-2-13b-chat
-  - meta/llama-2-7b-chat
-category: llm
-provider_name: openrouter
-entry_point: provider.OpenRouterProvider
+  - google/gemini-pro
+  - meta/llama2-70b
+
 pepperpy_compatibility: '>=0.1.0'

@@ -1,9 +1,13 @@
 name: llm/openai
 version: 0.1.0
-description: Provider for the OpenAI GPT models
+description: OpenAI LLM provider for PepperPy
 author: PepperPy Team
+license: MIT
+category: llm
+provider_name: openai
+entry_point: provider.OpenAIProvider
 required_config_keys:
-- api_key
+  - api_key
 default_config:
   model: gpt-3.5-turbo
   temperature: 0.7
@@ -15,7 +19,7 @@ config_schema:
     env_var: PEPPERPY_LLM__OPENAI_API_KEY
     type: string
   model:
-    description: Model to use, e.g. gpt-3.5-turbo, gpt-4
+    description: Model to use for generation
     required: false
     default: gpt-3.5-turbo
     type: string
@@ -32,53 +36,50 @@ config_schema:
     default: 1024
     type: integer
     min: 1
-documentation:
-  usage: 'OpenAI provider for language model tasks.
+documentation: |
+  # OpenAI LLM Provider
 
+  This plugin provides access to OpenAI's GPT models through their API.
 
-    Requires an OpenAI API key which can be specified:
+  ## Configuration
 
-    1. As a constructor parameter: api_key="sk-..."
+  - `api_key`: OpenAI API key (required)
+  - `model`: Model to use (default: gpt-3.5-turbo)
+  - `temperature`: Sampling temperature (default: 0.7)
+  - `max_tokens`: Maximum tokens to generate (default: 1024)
 
-    2. As an environment variable: PEPPERPY_LLM__OPENAI_API_KEY (recomendado) ou OPENAI_API_KEY
-    (compatibilidade)
+  ## Usage
 
+  ```python
+  from pepperpy import plugin_manager
 
-    Example usage:
+  # Create provider
+  provider = plugin_manager.create_provider(
+      "llm", "openai",
+      api_key="your-api-key"
+  )
 
-    ```python
+  # Generate text
+  response = await provider.generate("Tell me a joke.")
+  print(response.content)
 
-    from pepperpy import create_provider
+  # Chat completion
+  messages = [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "What is the capital of France?"}
+  ]
+  response = await provider.chat(messages)
+  print(response.content)
+  ```
 
+  ## Available Models
 
-    provider = create_provider("llm", "openai", api_key="your-api-key")
+  - gpt-4-turbo (recommended for complex tasks)
+  - gpt-4
+  - gpt-3.5-turbo (default)
+  - gpt-3.5-turbo-16k
 
-
-    response = await provider.generate("Tell me a joke.")
-
-    print(response.content)
-
-    ```
-
-    '
-  parameters:
-    api_key:
-      description: OpenAI API key
-      required: true
-      env_var: PEPPERPY_LLM__OPENAI_API_KEY
-    model:
-      description: Model to use, e.g. gpt-3.5-turbo, gpt-4
-      required: false
-      default: gpt-3.5-turbo
-    temperature:
-      description: Sampling temperature between 0.0 (deterministic) and 2.0 (creative)
-      required: false
-      default: 0.7
-    max_tokens:
-      description: Maximum tokens to generate in the response
-      required: false
-      default: 1024
-category: llm
-provider_name: openai
-entry_point: provider.OpenAIProvider
+  Note: You can also use environment variables for configuration:
+  - `PEPPERPY_LLM__OPENAI_API_KEY` (recommended)
+  - `OPENAI_API_KEY` (for compatibility)
 pepperpy_compatibility: '>=0.1.0'

@@ -1,30 +1,60 @@
 name: embeddings/openrouter
 version: 0.1.0
-description: Provider for Openrouter for embeddings tasks
+description: OpenRouter Embeddings provider for PepperPy
 author: PepperPy Team
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Openrouter provider for embeddings tasks.
-
-
-    Example usage:
-
-    ```python
-
-    from pepperpy import create_provider
-
-
-    provider = create_provider("embeddings", "openrouter")
-
-
-    # Usage example here
-
-    ```
-
-    '
+license: MIT
 category: embeddings
 provider_name: openrouter
 entry_point: provider.OpenRouterEmbeddingProvider
+required_config_keys:
+  - api_key
+default_config:
+  model: anthropic/claude-3-opus
+  dimensions: 1024
+config_schema:
+  api_key:
+    description: OpenRouter API key
+    required: true
+    env_var: PEPPERPY_EMBEDDINGS__OPENROUTER_API_KEY
+    type: string
+  model:
+    description: Model to use for embeddings
+    required: false
+    default: anthropic/claude-3-opus
+    type: string
+  dimensions:
+    description: Output embedding dimensions
+    required: false
+    default: 1024
+    type: integer
+documentation: |
+  # OpenRouter Embeddings Provider
+
+  This plugin provides embeddings using OpenRouter's models.
+
+  ## Configuration
+
+  - `api_key`: OpenRouter API key (required)
+  - `model`: Embedding model to use (default: anthropic/claude-3-opus)
+  - `dimensions`: Output embedding dimensions (default: 1024)
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create provider
+  provider = plugin_manager.create_provider("embeddings/openrouter", api_key="your-api-key")
+
+  # Get embedding
+  embedding = provider.embed("Your text here")
+  ```
+
+  ## Models
+
+  - anthropic/claude-3-opus
+  - anthropic/claude-3-sonnet
+  - anthropic/claude-2.1
+  - openai/gpt-4-turbo
+  - openai/gpt-3.5-turbo
 pepperpy_compatibility: '>=0.1.0'
-required_config_keys: []
