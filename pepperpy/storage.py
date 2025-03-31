@@ -3,34 +3,15 @@
 This module was migrated from a subdirectory structure.
 """
 
-from pepperpy.core.base import PepperpyError
-from pepperpy.storage.base import (
-from pepperpy.storage.providers.local import LocalProvider
-
-"""Storage provider interface for PepperPy.
-
-This module provides the base classes and interfaces for storage providers,
-supporting different storage backends like local filesystem, S3, etc.
-
-Example:
-    >>> from pepperpy.storage import StorageProvider
-    >>> provider = StorageProvider.from_config({
-    ...     "provider": "local",
-    ...     "base_path": "/data"
-    ... })
-    >>> await provider.write("file.txt", "Hello, World!")
-    >>> content = await provider.read("file.txt")
-    >>> print(content)
-"""
-
 import json
 import logging
 import os
 from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, AsyncIterator, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pepperpy.core.base import BaseProvider, Document, PepperpyError
 from pepperpy.core.config import Config
@@ -450,7 +431,7 @@ class StorageProvider(BaseProvider, ABC):
 
         path = Path(base_dir) / filename
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
 
     async def store_as_document(
@@ -707,7 +688,7 @@ class StorageComponent:
 
         path = Path(base_dir) / filename
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return f.read()
 
     async def load_json(self, filename: str, base_dir: Optional[str] = None) -> Any:
@@ -717,7 +698,7 @@ class StorageComponent:
 
         path = Path(base_dir) / filename
 
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
 
     async def file_exists(self, filename: str, base_dir: Optional[str] = None) -> bool:
@@ -773,11 +754,11 @@ def create_provider(
         return provider_class(base_dir=base_dir, **config)
     except ImportError as e:
         raise StorageError(
-            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {e!s}"
         )
     except AttributeError:
         raise StorageError(
             f"Provider class '{provider_type}' not found in module '{PROVIDER_MODULES[provider_type]}'"
         )
     except Exception as e:
-        raise StorageError(f"Failed to create provider '{provider_type}': {str(e)}")
+        raise StorageError(f"Failed to create provider '{provider_type}': {e!s}")

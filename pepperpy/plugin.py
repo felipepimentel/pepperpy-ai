@@ -136,12 +136,10 @@ class PepperpyPlugin(ABC):
 
             # Adicionar padrões comuns para chaves de API
             if key == "api_key":
-                patterns.extend(
-                    [
-                        f"{provider_type.upper()}_API_KEY",
-                        f"{plugin_category.upper()}_{provider_type.upper()}_API_KEY",
-                    ]
-                )
+                patterns.extend([
+                    f"{provider_type.upper()}_API_KEY",
+                    f"{plugin_category.upper()}_{provider_type.upper()}_API_KEY",
+                ])
 
             # Buscar nos padrões
             found = False
