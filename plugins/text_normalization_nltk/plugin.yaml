@@ -3,62 +3,83 @@ version: 0.1.0
 description: NLTK-based text normalization plugin for PepperPy
 author: PepperPy Team
 license: MIT
-
 plugin_type: content_processing
 category: text_normalization
-provides: ['normalizer']
+provides:
+- normalizer
 provider_name: nltk
-entry_point: provider:NLTKTextNormalizer
-
+entry_point: provider.NLTKTextNormalizer
 required_config_keys:
-  - language
-
+- language
 default_config:
-  language: 'en'
+  language: en
   transformations:
-    - strip_whitespace
-    - normalize_unicode
-    - normalize_whitespace
-    - remove_control_chars
-    - tokenize_words
-    - lemmatize
-    - remove_stopwords
-    - join_words
+  - strip_whitespace
+  - normalize_unicode
+  - normalize_whitespace
+  - remove_control_chars
+  - tokenize_words
+  - lemmatize
+  - remove_stopwords
+  - join_words
+usage: '# NLTK Text Normalization Plugin
 
-usage: |
-  # NLTK Text Normalization Plugin
-  
+
   This plugin provides advanced text normalization capabilities using NLTK.
+
   It extends the base text normalizer with linguistic features like lemmatization
+
   and stopword removal.
-  
+
+
   ## Usage
-  
+
+
   ```python
+
   from pepperpy import plugin_manager
-  
+
+
   # Create a text normalizer with default configuration
+
   normalizer = plugin_manager.create_provider("text_normalization", "nltk")
-  
+
+
   # Apply normalization to text
+
   normalized = normalizer.normalize("Running quickly through the forest!")
+
   # Output: "run quick through forest"
+
   ```
-  
+
+
   ## Configuration
-  
-  - `language`: Language code for NLTK processing (default: 'en')
+
+
+  - `language`: Language code for NLTK processing (default: ''en'')
+
   - `transformations`: List of transformation methods to apply
+
   - `custom_patterns`: Custom regex patterns for text cleaning
+
   - `custom_replacements`: Custom character replacements
+
   - `use_lemmatization`: Whether to use lemmatization (default: True)
+
   - `remove_stopwords`: Whether to remove stopwords (default: True)
-  
+
+
   ## Transformations
-  
+
+
   In addition to base transformations, this plugin provides:
-  
+
+
   - `tokenize_words`: Split text into words using NLTK tokenizer
+
   - `lemmatize`: Convert words to their base form
+
   - `remove_stopwords`: Remove common stopwords
-  - `join_words`: Rejoin words into text 
+
+  - `join_words`: Rejoin words into text '

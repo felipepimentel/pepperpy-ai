@@ -16,17 +16,12 @@ class NLTKTextNormalizer(BaseTextNormalizer):
     stopword removal.
     """
 
-    # Language code to NLTK language name mapping
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[Any]
     LANGUAGE_MAP = {
-        "en": "english",
-        "es": "spanish",
-        "fr": "french",
-        "de": "german",
-        "it": "italian",
-        "pt": "portuguese",
-        "nl": "dutch",
-        "ru": "russian",
-    }
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the NLTK text normalizer.

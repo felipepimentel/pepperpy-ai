@@ -21,6 +21,12 @@ from pepperpy.content_processing.base import (
 class PymupdfProvider(ContentProcessor):
     """Provider for processing documents using PyMuPDF."""
 
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[Any]
+
     def __init__(self, **kwargs):
         """Initialize the PyMuPDF document processor."""
         super().__init__(**kwargs)

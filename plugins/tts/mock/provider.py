@@ -24,6 +24,15 @@ from pepperpy.tts.base import (
 class MockTTSProvider(TTSProvider):
     """Mock TTS provider for testing and development."""
 
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[Any]
+    voice_id: str
+    quality: str = "high"
+    speed: float = 1.0
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the mock provider."""
         super().__init__(**kwargs)

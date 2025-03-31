@@ -16,6 +16,14 @@ from pepperpy.plugin import ProviderPlugin
 class AzureEmbeddingsProvider(EmbeddingsProvider, ProviderPlugin):
     """Azure AI Embeddings Provider."""
 
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[Any]
+    model: str = "embedding-model"
+    dimensions: int = 1536
+
     def __init__(self, **config: Any) -> None:
         """Initialize the provider.
 

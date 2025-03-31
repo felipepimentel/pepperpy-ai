@@ -15,6 +15,12 @@ class BasicTextNormalizer(BaseTextNormalizer):
     the BaseTextNormalizer with plugin management capabilities.
     """
 
+    
+
+    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
+    api_key: str
+    client: Optional[Any]
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the basic text normalizer.
 
