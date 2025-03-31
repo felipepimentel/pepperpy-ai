@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.content_processing.errors import ContentProcessingError
 
 logger = logging.getLogger(__name__)
 
@@ -236,9 +235,10 @@ class ProtectedContentHandler:
             Dictionary with protection status and details
         """
         try:
+            import zipfile
+
             import py7zr
             import rarfile
-            import zipfile
 
             # Get file extension
             extension = content_path.suffix.lower()
@@ -320,9 +320,7 @@ class ProtectedContentHandler:
             }
 
         except ImportError:
-            raise ProtectedContentError(
-                "PyMuPDF not installed, cannot unlock PDF"
-            )
+            raise ProtectedContentError("PyMuPDF not installed, cannot unlock PDF")
         except Exception as e:
             raise ProtectedContentError(f"Error unlocking PDF: {e}")
 
@@ -377,9 +375,7 @@ class ProtectedContentHandler:
                 "msoffcrypto-tool not installed, cannot unlock Office document"
             )
         except Exception as e:
-            raise ProtectedContentError(
-                f"Error unlocking Office document: {e}"
-            )
+            raise ProtectedContentError(f"Error unlocking Office document: {e}")
 
     async def _unlock_archive(
         self,
@@ -400,9 +396,10 @@ class ProtectedContentHandler:
             Dictionary with unlocking results
         """
         try:
+            import zipfile
+
             import py7zr
             import rarfile
-            import zipfile
 
             # Get file extension
             extension = content_path.suffix.lower()
@@ -411,9 +408,7 @@ class ProtectedContentHandler:
                 # Unlock ZIP archive
                 with zipfile.ZipFile(content_path) as zip_file:
                     # Check if archive is protected
-                    if not any(
-                        info.flag_bits & 0x1 for info in zip_file.filelist
-                    ):
+                    if not any(info.flag_bits & 0x1 for info in zip_file.filelist):
                         raise ProtectedContentError(
                             "ZIP archive is not password-protected"
                         )
@@ -465,9 +460,7 @@ class ProtectedContentHandler:
                         raise ProtectedContentError("Invalid 7Z archive password")
 
             else:
-                raise ProtectedContentError(
-                    f"Unsupported archive type: {extension}"
-                )
+                raise ProtectedContentError(f"Unsupported archive type: {extension}")
 
             return {
                 "success": True,
@@ -479,4 +472,4 @@ class ProtectedContentHandler:
                 "Archive libraries not installed, cannot unlock archive"
             )
         except Exception as e:
-            raise ProtectedContentError(f"Error unlocking archive: {e}") 
+            raise ProtectedContentError(f"Error unlocking archive: {e}")

@@ -11,7 +11,44 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Union
 import yaml
 
 from pepperpy.core.base import ValidationError
-from pepperpy.core.utils import merge_configs, unflatten_dict, validate_type
+
+# Import helper functions
+try:
+    from pepperpy.core.helpers import merge_configs, unflatten_dict, validate_type
+except ImportError:
+    # Define helper functions if not available
+    def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
+        result = base.copy()
+        for key, value in override.items():
+            if (
+                key in result
+                and isinstance(result[key], dict)
+                and isinstance(value, dict)
+            ):
+                result[key] = merge_configs(result[key], value)
+            else:
+                result[key] = value
+        return result
+
+    def unflatten_dict(d: Dict[str, Any], sep: str = ".") -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        for key, value in d.items():
+            parts = key.split(sep)
+            tmp = result
+            for part in parts[:-1]:
+                if part not in tmp:
+                    tmp[part] = {}
+                tmp = tmp[part]
+            tmp[parts[-1]] = value
+        return result
+
+    def validate_type(value: Any, expected_type: Any) -> Any:
+        if not isinstance(value, expected_type):
+            raise TypeError(
+                f"Expected {expected_type.__name__}, got {type(value).__name__}"
+            )
+        return value
+
 
 if TYPE_CHECKING:
     pass

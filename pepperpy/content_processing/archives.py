@@ -6,14 +6,10 @@ This module provides functionality for handling archive files.
 import logging
 import os
 import shutil
-import tempfile
-import zipfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, Optional, Union
 
 from pepperpy.core.base import PepperpyError
-from pepperpy.core.utils import safe_import
-from pepperpy.content_processing.base import ContentProcessingError
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +83,7 @@ class ArchiveHandler:
                     archive_path, output_path, password, **kwargs
                 )
             elif extension in (".tar", ".gz", ".bz2", ".xz"):
-                return await self._extract_tar(
-                    archive_path, output_path, **kwargs
-                )
+                return await self._extract_tar(archive_path, output_path, **kwargs)
             else:
                 raise ArchiveError(f"Unsupported archive type: {extension}")
 
@@ -628,13 +622,15 @@ class ArchiveHandler:
                 # Get file list
                 files = []
                 for info in zip_file.filelist:
-                    files.append({
-                        "name": info.filename,
-                        "size": info.file_size,
-                        "compressed_size": info.compress_size,
-                        "date_time": info.date_time,
-                        "is_dir": info.filename.endswith("/"),
-                    })
+                    files.append(
+                        {
+                            "name": info.filename,
+                            "size": info.file_size,
+                            "compressed_size": info.compress_size,
+                            "date_time": info.date_time,
+                            "is_dir": info.filename.endswith("/"),
+                        }
+                    )
 
                 return {
                     "success": True,
@@ -676,13 +672,15 @@ class ArchiveHandler:
                 # Get file list
                 files = []
                 for info in rar_file.infolist():
-                    files.append({
-                        "name": info.filename,
-                        "size": info.file_size,
-                        "compressed_size": info.compress_size,
-                        "date_time": info.date_time,
-                        "is_dir": info.is_dir(),
-                    })
+                    files.append(
+                        {
+                            "name": info.filename,
+                            "size": info.file_size,
+                            "compressed_size": info.compress_size,
+                            "date_time": info.date_time,
+                            "is_dir": info.is_dir(),
+                        }
+                    )
 
                 return {
                     "success": True,
@@ -728,13 +726,15 @@ class ArchiveHandler:
                 # Get file list
                 files = []
                 for filename, info in z7_file.files.items():
-                    files.append({
-                        "name": filename,
-                        "size": info.uncompressed,
-                        "compressed_size": info.compressed,
-                        "date_time": info.creationtime,
-                        "is_dir": info.is_directory,
-                    })
+                    files.append(
+                        {
+                            "name": filename,
+                            "size": info.uncompressed,
+                            "compressed_size": info.compressed,
+                            "date_time": info.creationtime,
+                            "is_dir": info.is_directory,
+                        }
+                    )
 
                 return {
                     "success": True,
@@ -769,12 +769,14 @@ class ArchiveHandler:
                 # Get file list
                 files = []
                 for info in tar_file.getmembers():
-                    files.append({
-                        "name": info.name,
-                        "size": info.size,
-                        "date_time": info.mtime,
-                        "is_dir": info.isdir(),
-                    })
+                    files.append(
+                        {
+                            "name": info.name,
+                            "size": info.size,
+                            "date_time": info.mtime,
+                            "is_dir": info.isdir(),
+                        }
+                    )
 
                 return {
                     "success": True,
@@ -790,4 +792,4 @@ class ArchiveHandler:
     def cleanup(self) -> None:
         """Clean up temporary files."""
         if self._temp_dir and os.path.exists(self._temp_dir):
-            shutil.rmtree(self._temp_dir) 
+            shutil.rmtree(self._temp_dir)

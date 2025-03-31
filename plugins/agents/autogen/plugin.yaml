@@ -1,0 +1,30 @@
+name: agents/autogen
+version: 0.1.0
+description: Provider for Autogen for agents tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Autogen provider for agents tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("agents", "autogen")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: agents
+provider_name: autogen
+entry_point: provider.AutoGenAgent
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

@@ -1,0 +1,30 @@
+name: embeddings/numpy
+version: 0.1.0
+description: Provider for Numpy for embeddings tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Numpy provider for embeddings tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("embeddings", "numpy")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: embeddings
+provider_name: numpy
+entry_point: provider.NumpyProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

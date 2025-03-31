@@ -1,401 +1,372 @@
-"""Common utility functions used across the PepperPy framework.
+"""Core interfaces and base classes for PepperPy."""
 
-This module provides essential utility functions for:
-- Type validation and conversion
-- Text manipulation and formatting
-- Retry logic and error handling
-- Dynamic imports and reflection
-- Class introspection
-- Dictionary manipulation
-- Environment variable handling
-- Metadata management
-"""
-
-import datetime
-import importlib
-import inspect
+import abc
 import logging
-import os
-import time
-from functools import wraps
-from importlib import import_module
-from pathlib import Path
-from typing import IO, Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar
 
-from pepperpy.core.base import Metadata
-
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    # Mock load_dotenv if not available
-    def load_dotenv(
-        dotenv_path: Optional[Union[str, Path]] = None,
-        stream: Optional[IO[str]] = None,
-        verbose: bool = False,
-        override: bool = False,
-        **kwargs: Any,
-    ) -> bool:
-        """Mock function for load_dotenv."""
-        print("Warning: python-dotenv not available, skipping environment loading")
-        return False
-
-
-logger = logging.getLogger(__name__)
-
+# Generic type for configuration values
 T = TypeVar("T")
 
 
-# Import handling
-class LazyImportError(ImportError):
-    """Raised when a lazy import fails."""
+class PepperpyError(Exception):
+    """Base class for all PepperPy errors."""
 
-    def __init__(
-        self,
-        name: str,
-        module: str,
-        provider: str,
-        original_error: Optional[Exception] = None,
-    ):
-        self.name = name
-        self.module = module
-        self.provider = provider
-        self.original_error = original_error
-        message = (
-            f"Failed to import '{name}'. This feature requires the '{provider}' provider for the '{module}' module. "
-            f"Install it with: pip install pepperpy[{module}-{provider}]"
-        )
-        if original_error:
-            message += f"\nOriginal error: {str(original_error)}"
-        super().__init__(message)
+    pass
 
 
-def safe_import(module_name: str, package: Optional[str] = None) -> Any:
-    """Safely import a module.
+class ValidationError(PepperpyError):
+    """Error raised when validation fails."""
 
-    Args:
-        module_name: The name of the module to import.
-        package: Optional package name for relative imports.
-
-    Returns:
-        The imported module.
-
-    Raises:
-        ImportError: If the module cannot be imported.
-    """
-    try:
-        return import_module(module_name, package)
-    except ImportError as e:
-        logger.debug(f"Failed to import {module_name}: {e}")
-        raise ImportError(
-            f"Failed to import {module_name}. Please install it with: pip install {module_name}"
-        ) from e
+    pass
 
 
-def lazy_provider_import(module: str, provider: str) -> Callable:
-    """Decorator for lazy importing provider-specific dependencies."""
+class ConfigError(PepperpyError):
+    """Error in provider configuration."""
 
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            try:
-                return func(*args, **kwargs)
-            except ImportError as e:
-                raise LazyImportError(str(e).split("'")[1], module, provider, e)
-
-        return wrapper
-
-    return decorator
+    pass
 
 
-def lazy_provider_class(
-    provider_name: str,
-    provider_type: str,
-    required_packages: Optional[Dict[str, str]] = None,
-) -> Callable[[Type[T]], Type[T]]:
-    """Decorator for lazy loading provider classes."""
+class ProviderError(PepperpyError):
+    """Error in provider execution."""
 
-    def decorator(cls: Type[T]) -> Type[T]:
-        cls._provider_name = provider_name
-        cls._provider_type = provider_type
-        cls._required_packages = required_packages or {}
-
-        original_init = cls.__init__
-
-        @wraps(original_init)
-        def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
-            for package_name, package_version in cls._required_packages.items():
-                try:
-                    import_module(package_name)
-                except ImportError as e:
-                    raise ImportError(
-                        f"Failed to import required package {package_name} for {provider_name} {provider_type} provider: {e}"
-                    ) from e
-            original_init(self, *args, **kwargs)
-
-        cls.__init__ = wrapped_init
-        return cls
-
-    return decorator
+    pass
 
 
-def import_provider(import_name: str, module: str, provider: str) -> Any:
-    """Utility function for provider-specific imports."""
-    try:
-        return import_module(import_name)
-    except ImportError as e:
-        raise LazyImportError(import_name, module, provider, e)
+class BaseProvider(abc.ABC):
+    """Base class for PepperPy providers."""
 
+    name: str = "base"
 
-def import_string(import_path: str) -> Any:
-    """Import a module, class, or function by path."""
-    try:
-        module_path, name = import_path.rsplit(".", 1)
-        module = importlib.import_module(module_path)
-        return getattr(module, name)
-    except (ImportError, AttributeError) as e:
-        raise ImportError(f"Failed to import {import_path}: {e}")
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the provider with config options.
 
-
-# Type validation and conversion
-def validate_type(value: Any, expected_type: Type[T], allow_none: bool = False) -> T:
-    """Validate that a value matches the expected type."""
-    if allow_none and value is None:
-        return value
-
-    if not isinstance(value, expected_type):
-        raise TypeError(
-            f"Expected {expected_type.__name__}, got {type(value).__name__}"
+        Args:
+            **kwargs: Configuration options for the provider
+        """
+        self._config = dict(kwargs)
+        self._metadata: Dict[str, Any] = {}  # Will be populated by subclasses if needed
+        self.initialized = False
+        # Initialize logger for provider
+        self.logger = logging.getLogger(
+            f"pepperpy.{self.__class__.__module__}.{self.__class__.__name__}"
         )
 
-    return value
+    @abc.abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the provider.
 
+        This method should be called before using the provider.
+        It should initialize any resources needed by the provider.
 
-def convert_to_dict(obj: Any) -> Dict[str, Any]:
-    """Convert an object to a dictionary."""
-    if isinstance(obj, dict):
-        return obj
-    elif hasattr(obj, "__dict__"):
-        return obj.__dict__
-    elif hasattr(obj, "to_dict"):
-        return obj.to_dict()
-    else:
-        return {k: getattr(obj, k) for k in dir(obj) if not k.startswith("_")}
+        Raises:
+            ConfigError: If initialization fails due to configuration issues
+            ProviderError: If initialization fails due to other issues
+        """
+        pass
 
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
 
-# Text manipulation
-def format_date(
-    date: Optional[datetime.datetime] = None,
-    format: str = "%Y-%m-%d %H:%M:%S",
-) -> str:
-    """Format a date."""
-    if date is None:
-        date = datetime.datetime.now()
-    return date.strftime(format)
+        This method should be called when the provider is no longer needed.
+        It should release any resources used by the provider.
 
+        Raises:
+            ProviderError: If cleanup fails
+        """
+        self.initialized = False
 
-def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
-    """Truncate text to a maximum length."""
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - len(suffix)] + suffix
+    def get_str(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Get a string value from config.
 
+        Args:
+            key: Config key
+            default: Default value if key not found
 
-def format_number(num: Union[int, float], precision: int = 2) -> str:
-    """Format a number with appropriate suffixes."""
-    for unit in ["", "K", "M", "B", "T"]:
-        if abs(num) < 1000.0:
-            return f"{num:3.{precision}f}{unit}"
-        num /= 1000.0
-    return f"{num:.{precision}f}T"
-
-
-# Retry logic
-def retry(
-    func: Callable,
-    max_attempts: int = 3,
-    delay: float = 1.0,
-    backoff: float = 2.0,
-    exceptions: tuple = (Exception,),
-) -> Any:
-    """Retry a function with exponential backoff."""
-    attempt = 0
-    last_exception = None
-
-    while attempt < max_attempts:
-        try:
-            return func()
-        except exceptions as e:
-            last_exception = e
-            attempt += 1
-            if attempt >= max_attempts:
-                break
-
-            wait_time = delay * (backoff ** (attempt - 1))
-            logger.warning(
-                f"Attempt {attempt} failed, retrying in {wait_time:.2f}s: {str(e)}"
-            )
-            time.sleep(wait_time)
-
-    if last_exception:
-        raise last_exception
-    raise Exception("All retry attempts failed")
-
-
-# Class introspection
-def get_class_attributes(cls: Type[Any]) -> Dict[str, Any]:
-    """Get all attributes of a class."""
-    return {
-        name: value
-        for name, value in inspect.getmembers(cls)
-        if not name.startswith("__") and not inspect.ismethod(value)
-    }
-
-
-def get_class_methods(cls: Type[Any]) -> Dict[str, Any]:
-    """Get all methods of a class."""
-    return {
-        name: value
-        for name, value in inspect.getmembers(cls)
-        if not name.startswith("__") and inspect.ismethod(value)
-    }
-
-
-def get_method_signature(method: Callable) -> inspect.Signature:
-    """Get the signature of a method."""
-    return inspect.signature(method)
-
-
-# Dictionary manipulation
-def flatten_dict(
-    d: Dict[str, Any], parent_key: str = "", sep: str = "."
-) -> Dict[str, Any]:
-    """Flatten a nested dictionary."""
-    items = []
-    for key, value in d.items():
-        new_key = f"{parent_key}{sep}{key}" if parent_key else key
-        if isinstance(value, dict):
-            items.extend(flatten_dict(value, new_key, sep).items())
-        else:
-            items.append((new_key, value))
-    return dict(items)
-
-
-def unflatten_dict(d: Dict[str, Any], sep: str = ".") -> Dict[str, Any]:
-    """Unflatten a dictionary with dot notation keys."""
-    result = {}
-    for key, value in d.items():
-        parts = key.split(sep)
-        target = result
-        for part in parts[:-1]:
-            target = target.setdefault(part, {})
-        target[parts[-1]] = value
-    return result
-
-
-def merge_configs(*configs: Dict[str, Any]) -> Dict[str, Any]:
-    """Merge multiple configuration dictionaries."""
-    result = {}
-    for config in configs:
-        for key, value in config.items():
-            if (
-                key in result
-                and isinstance(result[key], dict)
-                and isinstance(value, dict)
-            ):
-                result[key] = merge_configs(result[key], value)
-            else:
-                result[key] = value
-    return result
-
-
-# Environment handling
-def auto_load_env(
-    env_file: Optional[Union[str, Path]] = None,
-    override: bool = False,
-    fail_silently: bool = True,
-) -> bool:
-    """Automatically load environment variables from a .env file."""
-    if env_file is None:
-        env_file = ".env"
-
-    if isinstance(env_file, str):
-        env_file = Path(env_file)
-
-    if not env_file.exists():
-        if not fail_silently:
-            raise FileNotFoundError(f"Environment file not found: {env_file}")
-        return False
-
-    return load_dotenv(dotenv_path=env_file, override=override)
-
-
-def get_env_bool(key: str, default: bool = False) -> bool:
-    """Get a boolean value from an environment variable."""
-    value = os.getenv(key)
-    if value is None:
-        return default
-    return value.lower() in ("true", "1", "yes", "y", "on")
-
-
-def get_env_int(key: str, default: int = 0) -> int:
-    """Get an integer value from an environment variable."""
-    value = os.getenv(key)
-    if value is None:
-        return default
-    try:
-        return int(value)
-    except ValueError:
-        return default
-
-
-def get_env_float(key: str, default: float = 0.0) -> float:
-    """Get a float value from an environment variable."""
-    value = os.getenv(key)
-    if value is None:
-        return default
-    try:
-        return float(value)
-    except ValueError:
-        return default
-
-
-def get_env_list(key: str, default: Optional[List[str]] = None) -> List[str]:
-    """Get a list value from an environment variable."""
-    value = os.getenv(key)
-    if value is None:
-        return default or []
-    return [item.strip() for item in value.split(",")]
-
-
-# Metadata handling
-def get_metadata_value(
-    metadata: Optional[Metadata], key: str, default: Any = None
-) -> Any:
-    """Get a value from metadata with dot notation support."""
-    if metadata is None:
-        return default
-
-    parts = key.split(".")
-    current = metadata
-    for part in parts:
-        if not isinstance(current, dict) or part not in current:
+        Returns:
+            String value or default
+        """
+        value = self._config.get(key)
+        if value is None:
             return default
-        current = current[part]
-    return current
+        return str(value)
 
+    def get_float(self, key: str, default: Optional[float] = None) -> Optional[float]:
+        """Get a float value from config.
 
-def set_metadata_value(metadata: Metadata, key: str, value: Any) -> None:
-    """Set a value in metadata with dot notation support."""
-    parts = key.split(".")
-    current = metadata
-    for part in parts[:-1]:
-        if part not in current:
-            current[part] = {}
-        current = current[part]
-    current[parts[-1]] = value
+        Args:
+                key: Config key
+                default: Default value if key not found
 
+        Returns:
+                Float value or default
 
-def update_metadata(metadata: Metadata, updates: Dict[str, Any]) -> None:
-    """Update metadata with new values."""
-    for key, value in updates.items():
-        set_metadata_value(metadata, key, value)
+        Raises:
+                ConfigError: If value cannot be converted to float
+        """
+        value = self._config.get(key)
+        if value is None:
+            return default
+
+        try:
+            return float(value)
+        except (ValueError, TypeError) as e:
+            raise ConfigError(
+                f"Config value '{key}={value}' is not a valid float"
+            ) from e
+
+    def get_int(self, key: str, default: Optional[int] = None) -> Optional[int]:
+        """Get an integer value from config.
+
+        Args:
+            key: Config key
+            default: Default value if key not found
+
+        Returns:
+            Integer value or default
+
+        Raises:
+            ConfigError: If value cannot be converted to int
+        """
+        value = self._config.get(key)
+        if value is None:
+            return default
+
+        try:
+            return int(value)
+        except (ValueError, TypeError) as e:
+            raise ConfigError(
+                f"Config value '{key}={value}' is not a valid integer"
+            ) from e
+
+    def get_bool(self, key: str, default: Optional[bool] = None) -> Optional[bool]:
+        """Get a boolean value from config.
+
+        Args:
+            key: Config key
+            default: Default value if key not found
+
+        Returns:
+            Boolean value or default
+        """
+        value = self._config.get(key)
+        if value is None:
+            return default
+
+        if isinstance(value, bool):
+            return value
+
+        # Handle string representations
+        if isinstance(value, str):
+            value_lower = value.lower()
+            if value_lower in ("true", "yes", "1", "y", "on"):
+                return True
+            if value_lower in ("false", "no", "0", "n", "off"):
+                return False
+
+        try:
+            return bool(value)
+        except (ValueError, TypeError) as e:
+            raise ConfigError(
+                f"Config value '{key}={value}' is not a valid boolean"
+            ) from e
+
+    def get_config(self, key: str, default: Any = None) -> Any:
+        """Get configuration value.
+
+        Args:
+            key: Configuration key
+            default: Default value if key not found
+
+        Returns:
+            Configuration value
+        """
+        return self._config.get(key, default)
+
+    def validate_config(self, required_keys: List[str]) -> None:
+        """Validate provider configuration.
+
+        Args:
+            required_keys: List of required configuration keys
+
+        Raises:
+            ConfigError: If any required keys are missing
+        """
+        missing = [key for key in required_keys if key not in self._config]
+        if missing:
+            raise ConfigError(
+                f"Missing required configuration keys: {', '.join(missing)}"
+            )
+
+    def update_config(self, **config: Any) -> None:
+        """Update provider configuration.
+
+        Args:
+            **config: Configuration updates
+        """
+        self._config.update(config)
+
+    def get_config_with_defaults(
+        self, key: str, default: Optional[T] = None
+    ) -> Optional[T]:
+        """Get a configuration value with fallback to default_config in metadata.
+
+        This method tries to get a value from:
+        1. Runtime config (highest priority)
+        2. Metadata default_config (if available)
+        3. Provided default value (lowest priority)
+
+        Args:
+            key: Config key
+            default: Default value if no other source is found
+
+        Returns:
+            Value from the highest priority source
+        """
+        # First check runtime config
+        if key in self._config:
+            return self._config[key]
+
+        # Then check metadata default_config
+        if hasattr(self, "_metadata") and self._metadata:
+            default_config = self._metadata.get("default_config", {})
+            if key in default_config:
+                return default_config[key]
+
+        # Finally use provided default
+        return default
+
+    def validate_required_config(self) -> None:
+        """Validate that all required configuration keys are present.
+
+        Uses metadata.required_config_keys to determine required keys.
+
+        Raises:
+            ConfigError: If any required configuration is missing
+        """
+        if hasattr(self, "_metadata") and self._metadata:
+            required_keys = self._metadata.get("required_config_keys", [])
+            missing_keys = []
+
+            for key in required_keys:
+                value = self.get_config_with_defaults(key)
+                if value is None:
+                    missing_keys.append(key)
+
+            if missing_keys:
+                raise ConfigError(
+                    f"Missing required configuration keys: {', '.join(missing_keys)}"
+                )
+
+    def _check_initialization(self) -> None:
+        """Check if the provider is initialized.
+
+        Raises:
+            ConfigError: If the provider is not initialized
+        """
+        if not self.initialized:
+            raise ConfigError(f"{self.__class__.__name__} is not initialized")
+
+    def validate_config_schema(self) -> None:
+        """Validate configuration against schema in metadata.
+
+        Uses metadata.config_schema to validate configuration values, including:
+        - Required fields
+        - Type checking
+        - Range validation
+
+        Raises:
+            ConfigError: If any configuration value is invalid
+        """
+        if not hasattr(self, "_metadata") or not self._metadata:
+            return
+
+        schema = self._metadata.get("config_schema", {})
+        if not schema:
+            return
+
+        for key, specs in schema.items():
+            # Get value with fallback to default
+            value = self.get_config_with_defaults(key)
+
+            # Check required fields
+            if specs.get("required", False) and value is None:
+                raise ConfigError(f"Missing required configuration key: {key}")
+
+            # Skip further validation if value is None
+            if value is None:
+                continue
+
+            # Validate type
+            value_type = specs.get("type")
+            if value_type:
+                try:
+                    if value_type == "string" and not isinstance(value, str):
+                        raise ConfigError(
+                            f"Config key '{key}' must be a string, got {type(value).__name__}"
+                        )
+                    elif value_type == "integer":
+                        if not isinstance(value, int) and not (
+                            isinstance(value, str) and value.isdigit()
+                        ):
+                            raise ConfigError(
+                                f"Config key '{key}' must be an integer, got {type(value).__name__}"
+                            )
+
+                        # Convert to int if string
+                        if isinstance(value, str):
+                            value = int(value)
+                            self._config[key] = value
+
+                        # Check range
+                        if "min" in specs and value < specs["min"]:
+                            raise ConfigError(
+                                f"Config key '{key}' must be at least {specs['min']}, got {value}"
+                            )
+                        if "max" in specs and value > specs["max"]:
+                            raise ConfigError(
+                                f"Config key '{key}' must be at most {specs['max']}, got {value}"
+                            )
+
+                    elif value_type == "float":
+                        if not isinstance(value, (int, float)) and not (
+                            isinstance(value, str)
+                            and value.replace(".", "", 1).isdigit()
+                        ):
+                            raise ConfigError(
+                                f"Config key '{key}' must be a float, got {type(value).__name__}"
+                            )
+
+                        # Convert to float if string or int
+                        if not isinstance(value, float):
+                            value = float(value)
+                            self._config[key] = value
+
+                        # Check range
+                        if "min" in specs and value < specs["min"]:
+                            raise ConfigError(
+                                f"Config key '{key}' must be at least {specs['min']}, got {value}"
+                            )
+                        if "max" in specs and value > specs["max"]:
+                            raise ConfigError(
+                                f"Config key '{key}' must be at most {specs['max']}, got {value}"
+                            )
+
+                    elif value_type == "boolean":
+                        if not isinstance(value, bool) and not (
+                            isinstance(value, str)
+                            and value.lower()
+                            in ("true", "false", "yes", "no", "1", "0")
+                        ):
+                            raise ConfigError(
+                                f"Config key '{key}' must be a boolean, got {type(value).__name__}"
+                            )
+
+                        # Convert to bool if string
+                        if isinstance(value, str):
+                            value = value.lower() in ("true", "yes", "1")
+                            self._config[key] = value
+
+                except (ValueError, TypeError) as e:
+                    raise ConfigError(
+                        f"Invalid value for config key '{key}': {e}"
+                    ) from e

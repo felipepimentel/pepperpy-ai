@@ -7,7 +7,7 @@ import importlib
 import os
 import subprocess
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, cast
+from typing import Any, Dict, Optional, Tuple, Type, cast
 
 from pepperpy.core import BaseProvider, ValidationError
 from pepperpy.core.logging import get_logger
@@ -108,16 +108,54 @@ class PluginManager:
                 self._providers[category] = {}
                 self._plugin_classes[category] = {}
 
-            # Registrar o plugin
+            # Determinar o formato do plugin
             plugin_path = f"{plugin_name}.{entry_point}"
+            is_hierarchical = (
+                "/" in plugin_name
+            )  # Check if this is a hierarchical format
+
+            # Registrar o plugin
             self._providers[category][provider_name] = {
                 "path": plugin_path,
                 "metadata": metadata,
+                "format": "hierarchical" if is_hierarchical else "flat",
             }
 
             logger.debug(
                 f"Registered plugin: {plugin_name} ({category}/{provider_name})"
             )
+
+    def resolve_module_provider(
+        self, module: str, provider_type: str
+    ) -> Tuple[str, str]:
+        """Resolve module and provider names, supporting both formats.
+
+        Args:
+            module: Module name or path (e.g., "llm" or "llm/openai")
+            provider_type: Provider type (may be empty for hierarchical format)
+
+        Returns:
+            Tuple of (module_name, provider_name)
+        """
+        if "/" in module:
+            # Hierarchical format: "llm/openai"
+            parts = module.split("/")
+            module_name = parts[0]
+            if len(parts) > 1:
+                provider_name = parts[1]
+                # Se provider_type também foi fornecido, o ignoramos com um aviso
+                if provider_type:
+                    logger.warning(
+                        f"Provider type '{provider_type}' ignored when using hierarchical format '{module}'"
+                    )
+            else:
+                # Se apenas a categoria foi fornecida, usamos provider_type
+                provider_name = provider_type
+
+            return module_name, provider_name
+        else:
+            # Formato tradicional: "llm" + "openai"
+            return module, provider_type
 
     def install_plugin(self, plugin_path: str) -> bool:
         """Install a plugin and its dependencies using UV.
@@ -229,14 +267,14 @@ class PluginManager:
     def create_provider(
         self,
         module: str,
-        provider_type: str,
+        provider_type: str = "",
         **config: Any,
     ) -> BaseProvider:
-        """Create a provider instance.
+        """Create a provider instance, supporting both formats.
 
         Args:
-            module: Module name (e.g., "llm", "rag")
-            provider_type: Provider type (e.g., "openai", "anthropic")
+            module: Module name (e.g., "llm") or path (e.g., "llm/openai")
+            provider_type: Provider type (e.g., "openai") - pode estar vazio se usar formato hierárquico
             **config: Provider configuration
 
         Returns:
@@ -247,37 +285,40 @@ class PluginManager:
         """
         debug_logger = get_logger("pepperpy.config.debug")
 
+        # Resolver módulo e provider baseado no formato
+        module_name, provider_name = self.resolve_module_provider(module, provider_type)
+
         # Log environment variables
         print(
-            f"DEBUG: Checking for env var PEPPERPY_{module.upper()}__{provider_type.upper()}_API_KEY"
+            f"DEBUG: Checking for env var PEPPERPY_{module_name.upper()}__{provider_name.upper()}_API_KEY"
         )
-        env_key = f"PEPPERPY_{module.upper()}__{provider_type.upper()}_API_KEY"
+        env_key = f"PEPPERPY_{module_name.upper()}__{provider_name.upper()}_API_KEY"
         if env_key in os.environ:
             value = os.environ[env_key]
             masked = f"{value[:5]}...{value[-5:]}" if len(value) > 10 else "***"
             print(f"DEBUG: Found env var {env_key} = {masked}")
 
-        debug_logger.debug(f"Creating provider: {module}/{provider_type}")
+        debug_logger.debug(f"Creating provider: {module_name}/{provider_name}")
         debug_logger.debug(f"Provider configuration: {config}")
 
         # Check for environment variables prefixed with PEPPERPY_{module}__{provider_type} e.g., PEPPERPY_LLM__OPENROUTER_API_KEY
         added_from_env = {}
-        debug_logger.debug(f"Checking for env vars for {module}/{provider_type}")
+        debug_logger.debug(f"Checking for env vars for {module_name}/{provider_name}")
         for env_var, env_value in os.environ.items():
             debug_logger.debug(f"Checking env var: {env_var}")
             if env_var.startswith(
-                f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"
+                f"PEPPERPY_{module_name.upper()}__{provider_name.upper()}_"
             ):
                 # Extract the key suffix (e.g., API_KEY from PEPPERPY_LLM__OPENROUTER_API_KEY)
                 key_suffix = env_var.split(
-                    f"PEPPERPY_{module.upper()}__{provider_type.upper()}_"
+                    f"PEPPERPY_{module_name.upper()}__{provider_name.upper()}_"
                 )[1].lower()
                 debug_logger.debug(
                     f"Found matching env var: {env_var}, key_suffix: {key_suffix}"
                 )
 
                 # Create provider-prefixed key (e.g., openrouter_api_key)
-                provider_prefixed_key = f"{provider_type.lower()}_{key_suffix}"
+                provider_prefixed_key = f"{provider_name.lower()}_{key_suffix}"
                 debug_logger.debug(f"Provider prefixed key: {provider_prefixed_key}")
                 if provider_prefixed_key not in config:
                     config[provider_prefixed_key] = env_value
@@ -306,10 +347,10 @@ class PluginManager:
         try:
             # First check if we have a registered class
             if (
-                module in self._plugin_classes
-                and provider_type in self._plugin_classes[module]
+                module_name in self._plugin_classes
+                and provider_name in self._plugin_classes[module_name]
             ):
-                provider_class = self._plugin_classes[module][provider_type]
+                provider_class = self._plugin_classes[module_name][provider_name]
                 debug_logger.debug(
                     f"Creating provider from registered class: {provider_class.__name__}"
                 )
@@ -328,7 +369,22 @@ class PluginManager:
                 # Ensure plugin is initialized from YAML if it's a ProviderPlugin
                 if hasattr(provider, "initialize_from_yaml"):
                     # Find and initialize from plugin.yaml
-                    plugin_dir = f"plugins/{module}_{provider_type}"
+                    # Support both formats for yaml path
+                    is_hierarchical = False
+                    if (
+                        module_name in self._providers
+                        and provider_name in self._providers[module_name]
+                    ):
+                        is_hierarchical = (
+                            self._providers[module_name][provider_name].get("format")
+                            == "hierarchical"
+                        )
+
+                    if is_hierarchical:
+                        plugin_dir = f"plugins/{module_name}/{provider_name}"
+                    else:
+                        plugin_dir = f"plugins/{module_name}_{provider_name}"
+
                     yaml_path = f"{plugin_dir}/plugin.yaml"
                     try:
                         debug_logger.debug(
@@ -343,30 +399,33 @@ class PluginManager:
                 return cast(BaseProvider, provider)
 
             # Otherwise, load from registered path
-            if module not in self._providers:
+            if module_name not in self._providers:
                 available_modules = list(self._providers.keys())
                 logger.error(
-                    f"Unknown module: {module}. Available modules: {available_modules}"
+                    f"Unknown module: {module_name}. Available modules: {available_modules}"
                 )
                 raise ValidationError(
-                    f"Unknown module: {module}. Available modules: {available_modules}"
+                    f"Unknown module: {module_name}. Available modules: {available_modules}"
                 )
 
-            providers = self._providers[module]
-            if provider_type not in providers:
+            providers = self._providers[module_name]
+            if provider_name not in providers:
                 available = ", ".join(providers.keys()) if providers else "none"
                 logger.error(
-                    f"Unknown provider '{provider_type}' for module '{module}'. "
+                    f"Unknown provider '{provider_name}' for module '{module_name}'. "
                     f"Available providers: {available}"
                 )
                 raise ValidationError(
-                    f"Unknown provider '{provider_type}' for module '{module}'. "
+                    f"Unknown provider '{provider_name}' for module '{module_name}'. "
                     f"Available providers: {available}"
                 )
 
-            provider_info = providers[provider_type]
+            provider_info = providers[provider_name]
             provider_path = provider_info["path"]
             debug_logger.debug(f"Loading provider from path: {provider_path}")
+
+            # Determinar o formato do plugin
+            is_hierarchical = provider_info.get("format") == "hierarchical"
 
             if ":" in provider_path:
                 # Format is plugin_name.provider:Provider
@@ -375,23 +434,43 @@ class PluginManager:
                     0
                 ]  # Pegar apenas o nome do plugin sem o .provider
                 class_name = parts[1]
-                # Usar o diretório real do plugin
-                module_path = f"plugins.{plugin_name}.provider"
+
+                # Use the correct path based on format
+                if is_hierarchical:
+                    # For hierarchical format: plugins/category/service
+                    path_parts = plugin_name.split("/")
+                    module_path = "plugins." + ".".join(path_parts) + ".provider"
+                else:
+                    # For flat format: plugins/category_service
+                    module_path = f"plugins.{plugin_name}.provider"
+
                 debug_logger.debug(
                     f"Importing from module: {module_path}, class: {class_name}"
                 )
             else:
-                # Assume default format - diretório do plugin é llm_openrouter
-                module_path = f"plugins.{module}_{provider_type}.provider"
+                # Determine path based on format
+                if is_hierarchical:
+                    # For hierarchical format: plugins/category/service
+                    parts = provider_path.split(".")
+                    plugin_dir = parts[
+                        0
+                    ]  # plugin directory like "plugins/category/service"
+                    module_path = (
+                        plugin_dir.replace("/", ".") + "." + parts[1]
+                    )  # converts to plugins.category.service.provider
+                else:
+                    # Assume default format - diretório do plugin é llm_openrouter
+                    module_path = f"plugins.{module_name}_{provider_name}.provider"
+
                 # Preservar capitalização especial para certos providers
-                if provider_type == "openrouter":
+                if provider_name == "openrouter":
                     class_name = "OpenRouterProvider"
-                elif provider_type == "openai":
+                elif provider_name == "openai":
                     class_name = "OpenAIProvider"
                 else:
                     # Capitalizar apenas a primeira letra e manter o resto como está
                     class_name = (
-                        f"{provider_type[0].upper()}{provider_type[1:]}Provider"
+                        f"{provider_name[0].upper()}{provider_name[1:]}Provider"
                     )
                 debug_logger.debug(f"Using default format: {module_path}.{class_name}")
 
@@ -417,9 +496,9 @@ class PluginManager:
                     )
 
                 # Register provider class for future use
-                if module not in self._plugin_classes:
-                    self._plugin_classes[module] = {}
-                self._plugin_classes[module][provider_type] = provider_class
+                if module_name not in self._plugin_classes:
+                    self._plugin_classes[module_name] = {}
+                self._plugin_classes[module_name][provider_name] = provider_class
 
                 # Create provider instance
                 try:
@@ -436,8 +515,12 @@ class PluginManager:
 
                 # Ensure plugin is initialized from YAML if it's a ProviderPlugin
                 if hasattr(provider, "initialize_from_yaml"):
-                    # Find and initialize from plugin.yaml
-                    plugin_dir = f"plugins/{module}_{provider_type}"
+                    # Find and initialize from plugin.yaml based on format
+                    if is_hierarchical:
+                        plugin_dir = f"plugins/{module_name}/{provider_name}"
+                    else:
+                        plugin_dir = f"plugins/{module_name}_{provider_name}"
+
                     yaml_path = f"{plugin_dir}/plugin.yaml"
                     try:
                         debug_logger.debug(
@@ -452,7 +535,7 @@ class PluginManager:
                 return cast(BaseProvider, provider)
             except Exception as e:
                 logger.exception(f"Error loading provider: {e}")
-                raise ValidationError(f"Error loading provider '{provider_type}': {e}")
+                raise ValidationError(f"Error loading provider '{provider_name}': {e}")
 
         except Exception as e:
             logger.error(f"Failed to create provider: {e}")
@@ -466,23 +549,37 @@ class PluginManager:
         """Get information about available providers.
 
         Args:
-            module: Module name
+            module: Module name or path (e.g., "llm" or "llm/openai")
             provider_type: Optional provider type to get specific info
 
         Returns:
             Provider information
         """
-        if module not in self._providers:
+        # Resolver módulo e provider baseado no formato
+        if provider_type is None and "/" in module:
+            module_name, provider_name = self.resolve_module_provider(module, "")
+        elif provider_type:
+            module_name, provider_name = self.resolve_module_provider(
+                module, provider_type
+            )
+        else:
+            module_name = module
+            provider_name = None
+
+        if module_name not in self._providers:
             return {}
 
-        if provider_type:
-            if provider_type not in self._providers[module]:
+        if provider_name:
+            if provider_name not in self._providers[module_name]:
                 return {}
-            return {"type": provider_type, **self._providers[module][provider_type]}
+            return {
+                "type": provider_name,
+                **self._providers[module_name][provider_name],
+            }
 
         return {
             type_: {"type": type_, **info}
-            for type_, info in self._providers[module].items()
+            for type_, info in self._providers[module_name].items()
         }
 
     def list_plugins(self) -> Dict[str, Dict[str, Dict[str, Any]]]:

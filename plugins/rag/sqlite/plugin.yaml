@@ -1,0 +1,30 @@
+name: rag/sqlite
+version: 0.1.0
+description: Provider for Sqlite for rag tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Sqlite provider for rag tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("rag", "sqlite")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: rag
+provider_name: sqlite
+entry_point: provider.SQLiteRAGProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

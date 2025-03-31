@@ -1,0 +1,30 @@
+name: storage/chroma
+version: 0.1.0
+description: Provider for Chroma for storage tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Chroma provider for storage tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("storage", "chroma")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: storage
+provider_name: chroma
+entry_point: provider.HashEmbeddingFunction
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

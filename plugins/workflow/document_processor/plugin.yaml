@@ -1,0 +1,44 @@
+name: workflow/document_processor
+version: 0.1.0
+description: Ready-to-use workflow for processing documents, extracting text and metadata
+author: PepperPy Team
+category: workflow
+provider_name: document_processor
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Document Processing Workflow provides pre-configured pipelines for document processing tasks.
+
+
+    Example usage:
+
+    ```python
+    from pepperpy import PepperPy
+    from pepperpy.plugin_manager import plugin_manager
+
+    async def main():
+        # Create and initialize the workflow provider
+        workflow = plugin_manager.create_provider(
+            "workflow", "document_processor", 
+            extract_metadata=True,
+            extract_images=False
+        )
+        await workflow.initialize()
+        
+        # Process a single document
+        result = await workflow.process_document("path/to/document.pdf")
+        print(f"Extracted text: {result["text"][:100]}...")
+        
+        # Process multiple documents
+        batch_results = await workflow.process_batch(["doc1.pdf", "doc2.pdf"])
+        
+        # Process all documents in a directory
+        dir_results = await workflow.process_directory("path/to/docs")
+        
+        # Clean up
+        await workflow.cleanup()
+    ```
+    '
+entry_point: workflow.DocumentProcessingWorkflow
+pepperpy_compatibility: ">=0.1.0"
+required_config_keys: [] 

@@ -1,0 +1,42 @@
+name: embeddings/openai
+version: 0.1.0
+description: OpenAI Embeddings provider for PepperPy
+author: PepperPy Team
+license: MIT
+category: embeddings
+provider_name: openai
+entry_point: provider
+required_keys:
+  - api_key
+default_config:
+  model: text-embedding-3-small
+  dimensions: 256
+homepage: https://openai.com
+documentation: |
+  # OpenAI Embeddings Provider
+
+  This plugin provides embeddings using OpenAI's text embedding models.
+
+  ## Configuration
+
+  - `api_key`: OpenAI API key
+  - `model`: Embedding model to use (default: text-embedding-3-small)
+  - `dimensions`: Output embedding dimensions (default: 256)
+
+  ## Usage
+
+  ```python
+  from pepperpy import plugin_manager
+
+  # Create provider
+  provider = plugin_manager.create_provider("embeddings/openai", api_key="your-api-key")
+
+  # Get embedding
+  embedding = provider.embed("Your text here")
+  ```
+
+  ## Models
+
+  - text-embedding-3-small
+  - text-embedding-3-large
+  - text-embedding-ada-002 (legacy)

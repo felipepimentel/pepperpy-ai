@@ -1,0 +1,25 @@
+name: workflow/text_processing
+version: 0.1.0
+description: Ready-to-use workflow for processing text using NLP tools
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Text Processing Workflow provides pre-configured pipelines for NLP tasks.
+
+
+    Example usage:
+
+    ```python from pepperpy import PepperPy
+
+    async with PepperPy() as pepper: # Initialize workflow workflow = pepper.with_workflow("text_processing")
+
+    # Process a single text result = await workflow.process_text("Your text to process")
+
+    # Process multiple texts results = await workflow.process_batch(["Text 1", "Text
+    2"]) ``` '
+category: workflow
+provider_name: text_processing
+entry_point: workflow.TextProcessingWorkflow
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

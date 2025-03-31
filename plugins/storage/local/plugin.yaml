@@ -1,0 +1,30 @@
+name: storage/local
+version: 0.1.0
+description: Provider for Local for storage tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Local provider for storage tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("storage", "local")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: storage
+provider_name: local
+entry_point: provider.LocalProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

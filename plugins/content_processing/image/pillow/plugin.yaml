@@ -1,0 +1,30 @@
+name: content_processing/image/pillow
+version: 0.1.0
+description: Provider for Mammoth for content_processing image tasks
+author: PepperPy Team
+category: content_processing/image
+provider_name: pillow
+default_config: null
+config_schema: null
+imageation:
+  usage: 'Mammoth provider for content_processing/image tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("content_processing/image", "pillow")
+
+
+    # Usage example here
+
+    ```
+
+    '
+entry_point: provider.Provider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: [] 

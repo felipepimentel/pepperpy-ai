@@ -1,0 +1,28 @@
+name: workflow/content_generator
+version: 0.1.0
+description: Ready-to-use workflow for generating content with automated research
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Content Generator Workflow provides a complete pipeline for content creation.
+
+
+    Example usage:
+
+    ```python from pepperpy import PepperPy from pepperpy.plugin_manager import plugin_manager
+
+    async def main(): # Create and initialize the workflow provider workflow = plugin_manager.create_provider("workflow",
+    "content_generator") await workflow.initialize()
+
+    # Generate content on a specific topic result = await workflow.generate_content("Artificial
+    Intelligence")
+
+    print(result["content"])
+
+    # Clean up await workflow.cleanup() ``` '
+category: workflow
+provider_name: content_generator
+entry_point: workflow.ContentGeneratorWorkflow
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

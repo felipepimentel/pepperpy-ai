@@ -1,0 +1,30 @@
+name: rag/annoy
+version: 0.1.0
+description: Provider for Annoy for rag tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Annoy provider for rag tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("rag", "annoy")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: rag
+provider_name: annoy
+entry_point: provider.AnnoyRAGProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []

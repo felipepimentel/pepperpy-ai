@@ -1,0 +1,30 @@
+name: storage/db
+version: 0.1.0
+description: Provider for Db for storage tasks
+author: PepperPy Team
+default_config: null
+config_schema: null
+documentation:
+  usage: 'Db provider for storage tasks.
+
+
+    Example usage:
+
+    ```python
+
+    from pepperpy import create_provider
+
+
+    provider = create_provider("storage", "db")
+
+
+    # Usage example here
+
+    ```
+
+    '
+category: storage
+provider_name: db
+entry_point: provider.DBProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: []
