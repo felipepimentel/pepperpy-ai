@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Dict
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.base import create_processor
+from pepperpy.content.base import create_processor
 from pepperpy.llm import create_provider as create_llm_provider
 
 # Configure logging

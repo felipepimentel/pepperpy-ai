@@ -14,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.base import ContentType, create_processor
+from pepperpy.content.base import ContentType, create_processor
 from pepperpy.llm import create_provider as create_llm_provider
 from pepperpy.rag import create_provider as create_rag_provider
 

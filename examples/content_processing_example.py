@@ -9,7 +9,7 @@ import asyncio
 from pathlib import Path
 from typing import cast
 
-from pepperpy.content_processing.base import ContentProcessor, ProcessingResult
+from pepperpy.content.base import ContentProcessor, ProcessingResult
 from pepperpy.plugin_manager import plugin_manager
 
 

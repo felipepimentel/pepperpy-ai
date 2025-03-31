@@ -1,0 +1,312 @@
+---
+description: USE WHEN validating AI-generated code, managing rules, or preserving knowledge between sessions
+globs: 
+  - "pepperpy/**/*.py"
+  - "plugins/**/*.py"
+  - "scripts/refactor.py"
+alwaysApply: false
+---
+
+# PepperPy Meta Rules
+
+## Overview
+
+This rule provides comprehensive guidance on maintaining the PepperPy framework's rule system, including validating AI-generated code, managing rules, evolving rules based on feedback, and preserving knowledge between sessions.
+
+## AI Response Validation
+
+### Before Generating ANY Code
+
+Always follow these steps before asking for code generation:
+
+1. **Check file existence first**:
+   ```bash
+   # Verify if similar files exist
+   find pepperpy -name "*similar_name*.py"
+   find plugins -name "*similar_name*.py"
+   ```
+
+2. **Understand module structure**:
+   ```bash
+   # Check structure of the relevant module
+   ls -la pepperpy/target_module/
+   ls -la plugins/domain/provider_type/
+   ```
+
+3. **Find similar implementations**:
+   ```bash
+   # Look for similar implementations
+   grep -r "class SimilarClass" pepperpy/
+   grep -r "class SimilarProvider" plugins/
+   ```
+
+### Validate ALL Generated Code
+
+After receiving AI-generated code, verify:
+
+#### 1. Import Validation
+
+✅ **All imports must exist in the codebase**
+
+Check every import statement and ensure it references real modules:
+
+```python
+# CORRECT: Imports reference existing modules
+from pepperpy.core.base import Provider
+from pepperpy.content.processors.text_normalization_base import TextNormalizer
+
+# WRONG: Referencing non-existent modules
+from pepperpy.nonexistent import Something  # ERROR!
+```
+
+#### 2. Class/Function Reference Validation
+
+✅ **All referenced classes/functions must exist**
+
+Ensure all references are to actual code:
+
+```python
+# CORRECT: Using existing class
+normalizer = BasicTextNormalizer(config)
+
+# WRONG: Using non-existent class
+normalizer = AdvancedNormalizer(config)  # ERROR! This doesn't exist
+```
+
+#### 3. File Location Validation
+
+✅ **Files must be created in correct locations**
+
+Follow the established patterns:
+
+```
+# Core Framework Modules
+pepperpy/module_name/        # Module root
+├── __init__.py              # Public exports
+├── base.py                  # Core interfaces
+├── processors/              # Domain-specific processors
+│   ├── __init__.py
+│   └── specific.py
+└── utils/                   # Module-specific utilities
+
+# Plugin Implementations
+plugins/domain/              # Domain category
+└── provider_type/          # Provider type
+    └── impl/              # Implementation
+        ├── plugin.yaml    # Plugin metadata
+        └── provider.py    # Provider implementation
+```
+
+### Common Hallucination Red Flags
+
+Watch for these warning signs of AI hallucinations:
+
+1. **Made-up module names**:
+   ```python
+   from pepperpy.content.advanced import AdvancedNormalizer  # No such module!
+   ```
+
+2. **Non-existent base classes**:
+   ```python
+   class MyNormalizer(TextProcessor):  # TextProcessor doesn't exist!
+   ```
+
+3. **Invented API methods**:
+   ```python
+   # HALLUCINATION: No such method
+   result = normalizer.normalize_with_options(text, options={"mode": "advanced"})
+   ```
+
+4. **Inconsistent parameters**:
+   ```python
+   # Method signature: def normalize(self, text: str) -> str
+   normalizer.normalize(content="some text")  # Wrong parameter name!
+   ```
+
+5. **Import confusion**:
+   ```python
+   from pepperpy.content import TextNormalizer
+   from pepperpy.content.processors import BasicTextNormalizer
+   
+   # But then uses:
+   normalizer = text_normalization.BasicTextNormalizer()  # Wrong namespace!
+   ```
+
+### Hallucination Prevention
+
+1. **Pre-Generation Verification**:
+   ```bash
+   # Establish facts first
+   python scripts/refactor.py extract-api --module pepperpy/content
+   ```
+
+2. **Progressive Implementation**:
+   - Start with skeleton structure
+   - Implement and validate one component at a time
+   - Verify each component before proceeding
+
+3. **Template-Based Generation**:
+   ```bash
+   # Generate new module with proper structure
+   python scripts/refactor.py gen-module --output pepperpy/new_module.py
+
+   # Generate new provider implementation
+   python scripts/refactor.py gen-provider --name NewProvider
+   ```
+
+## Rule Management
+
+### Rule Organization
+
+The rules system follows this numbering convention:
+
+```
+000-099: Core Framework Rules
+  001: Coding Standards
+  002: Core Architecture
+  003: Plugin Architecture
+
+100-199: Domain-Specific & Code Quality Rules
+  181: Code Duplication Prevention
+  191: API Evolution
+
+200-299: Meta Rules
+  200: Meta Rules (this file)
+  211: File Validation
+```
+
+### Rule Format
+
+The correct format for Cursor rules uses YAML frontmatter:
+
+```yaml
+---
+description: USE WHEN performing a specific activity
+globs: 
+  - "specific/file/patterns/*.py"
+alwaysApply: false
+---
+```
+
+### Single Tool Principle
+
+PepperPy adopts the principle of a **single unified tool** for code maintenance:
+
+- **All functionality** in `refactor.py` script
+- **No auxiliary scripts** for related functions
+- **Extensions via subcommands** in the main script
+
+```bash
+# Example usage
+python scripts/refactor.py rule-management --help
+```
+
+## Rule Evolution Process
+
+When failures or issues are identified:
+
+### 1. Capturing Failures
+
+```bash
+# Register the failure with details
+python scripts/refactor.py rule-management --register-issue --rule 195 --description "Failure description" --example "Code with failure"
+```
+
+### 2. Root Cause Analysis
+
+Determine:
+- Which rule should have prevented the problem
+- Why the rule was insufficient
+- How the rule can be improved
+
+### 3. Rule Updates
+
+```bash
+# Update the specific rule
+python scripts/refactor.py rule-management --update --rule 200 --section "Common Scenarios" --add-example "new_example"
+```
+
+### 4. Improvement Validation
+
+```bash
+# Regression test to verify improvement
+python scripts/refactor.py rule-management --verify --rule 200 --test-case "problem_case"
+```
+
+## Knowledge Management
+
+### Categories of Knowledge to Preserve
+
+1. **Development Preferences**:
+   - Code style preferences
+   - Implementation patterns
+   - Architecture decisions
+   - Naming conventions
+
+2. **Interaction Preferences**:
+   - Detail level in explanations
+   - Format for information presentation
+   - When to offer alternatives
+   - Response structure
+
+3. **Technical Knowledge**:
+   - Specific workflows
+   - Environment configurations
+   - Undocumented patterns
+   - Exceptions to general rules
+
+### When to Update Rules
+
+Rules should be updated when:
+
+1. User expresses a clear preference
+2. User corrects assistant behavior
+3. User identifies an undocumented pattern
+4. Assistant discovers a pattern through code analysis
+
+### Knowledge Update Process
+
+1. **Identify the appropriate rule** for the knowledge type
+2. **Add specific information** in the relevant section
+3. **Update examples** to reflect new knowledge
+4. **Check for conflicts** with existing rules
+
+## Rule Audit and Maintenance
+
+### Periodic Review
+
+Schedule regular reviews:
+
+```bash
+# Generate rule effectiveness report
+python scripts/refactor.py rule-management --audit --period "last-3-months"
+```
+
+Analyze:
+1. Frequency of each failure type
+2. Least effective rules
+3. Emerging patterns not covered
+
+### Validation Commands
+
+```bash
+# Validate all rules
+python scripts/refactor.py rule-management --validate
+
+# Verify YAML frontmatter format
+python scripts/refactor.py rule-management --validate-frontmatter
+
+# Check for inconsistencies
+python scripts/refactor.py rule-management --check-consistency
+```
+
+## Conclusion
+
+This unified meta-rule system ensures that:
+
+1. **AI-generated code** is validated against actual project structures
+2. **Rules are properly managed** with a consistent organization system
+3. **Rules evolve** based on feedback and identified issues
+4. **Knowledge persists** between sessions for consistent user experience
+
+Following these guidelines helps maintain a clean, accurate, and continuously improving rule system for the PepperPy framework. 

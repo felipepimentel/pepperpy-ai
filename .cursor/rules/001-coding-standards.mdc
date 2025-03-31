@@ -1,9 +1,9 @@
 ---
-title: PepperPy Coding Standards
-description: Core coding standards for the PepperPy framework
+description: USE WHEN implementing or refactoring Python code in the PepperPy framework
 globs: 
-  - "**/*.py"
-priority: 1000
+  - "pepperpy/**/*.py"
+  - "plugins/**/*.py"
+alwaysApply: true
 ---
 
 # PepperPy Coding Standards

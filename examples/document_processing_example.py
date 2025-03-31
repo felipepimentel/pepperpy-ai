@@ -12,7 +12,7 @@ import logging
 from pathlib import Path
 
 from pepperpy import PepperPy
-from pepperpy.content_processing.base import create_processor
+from pepperpy.content.base import create_processor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

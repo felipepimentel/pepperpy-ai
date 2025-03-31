@@ -1,191 +1,450 @@
 ---
-description: 
-globs: plugins/**/*.py
+description: USE WHEN implementing new plugin providers or modifying existing providers in the PepperPy framework
+globs: 
+  - "plugins/**/*.py"
+  - "plugins/**/*.yaml"
 alwaysApply: false
 ---
 
-# PepperPy Plugin Implementation Guidelines
+# Plugin Implementation Guidelines
 
-## Core Principles
+## Overview
 
-1. **Single Source of Truth**: O arquivo `plugin.yaml` é a ÚNICA fonte de verdade para metadados e esquema de configuração
-2. **Duas Classes de Configuração**: Distingua entre:
-   - **Variáveis de Ambiente**: Como `api_key`, que podem vir de variáveis de ambiente (não devem ter fallbacks no código)
-   - **Valores Fixos**: Como `base_url`, que podem ter valores padrão hardcoded no código
-3. **Auto-Binding**: Use atributos auto-bound do plugin.yaml, implementando fallbacks apenas para valores fixos
-4. **Proper Inheritance**: Sempre herde de `DomainProvider` e `ProviderPlugin` (e.g., `LLMProvider, ProviderPlugin`)
-5. **Default Values**: Defina valores padrão no plugin.yaml via `default_config` para configurações dinâmicas
-6. **State Management**: O framework gerencia o estado, não reimplemente isso
-7. **Factory Methods**: Cada plugin deve implementar seu próprio método de classe `from_config` para criar instâncias
+This rule defines the standardized implementation patterns, best practices, and anti-patterns for creating plugin providers in the PepperPy framework. It complements the more general Plugin Architecture rule (003) with specific implementation details.
 
-## Anti-patterns (NEVER DO THESE)
+## Provider Implementation Checklist
 
-### ❌ Duplicating Metadata
+Before submitting a plugin implementation, verify:
+
+- [ ] Provider class inherits correctly from both domain-specific provider and ProviderPlugin
+- [ ] Configuration attributes are properly type-annotated to match plugin.yaml schema
+- [ ] Provider does NOT reimplement from_config method (uses the base implementation)
+- [ ] Provider does NOT duplicate metadata from plugin.yaml in the code
+- [ ] Provider uses the async initialize/cleanup pattern correctly
+- [ ] Entry point in plugin.yaml matches the class name (provider.ClassName)
+- [ ] Default configuration values are defined in plugin.yaml
+- [ ] Provider handles error conditions properly and with clear messages
+- [ ] Provider includes proper docstrings and type annotations
+
+## Class Inheritance Pattern
+
+All plugin providers MUST follow this inheritance pattern:
 
 ```python
-# WRONG - Duplicating metadata that's already in plugin.yaml
-class MyProvider(LLMProvider, ProviderPlugin):
-    plugin_name = "My Provider"  # WRONG!
-    plugin_version = "0.1.0"     # WRONG!
-    plugin_category = "llm"      # WRONG!
-    provider_type = "myprovider" # WRONG!
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.domain import DomainProvider  # e.g., LLMProvider, StorageProvider
+
+class MySpecificProvider(DomainProvider, ProviderPlugin):
+    """My specific provider implementation.
+    
+    This provider implements a concrete solution for the domain.
+    """
 ```
 
-### ❌ Manual Configuration Fallbacks for Environment Variables
+### Required Inheritance Pattern
+
+✅ **ALWAYS inherit from both domain-specific provider AND ProviderPlugin**
 
 ```python
-# WRONG - Implementing fallbacks in code for api_key
+# CORRECT: Dual inheritance
+from pepperpy.plugin import ProviderPlugin
+from pepperpy.llm import LLMProvider
+
+class MyLLMProvider(LLMProvider, ProviderPlugin):
+    pass
+```
+
+❌ **NEVER inherit only from one parent**
+
+```python
+# WRONG: Missing ProviderPlugin
+from pepperpy.llm import LLMProvider
+
+class MyLLMProvider(LLMProvider):  # Missing ProviderPlugin!
+    pass
+
+# WRONG: Missing domain provider
+from pepperpy.plugin import ProviderPlugin
+
+class MyProvider(ProviderPlugin):  # Missing domain provider!
+    pass
+```
+
+## Config Pattern
+
+Providers MUST use the auto-binding config pattern:
+
+```python
+class MyProvider(DomainProvider, ProviderPlugin):
+    # Type-annotated config attributes that match plugin.yaml
+    api_key: str
+    model_name: str
+    temperature: float = 0.7
+    
+    async def initialize(self) -> None:
+        """Initialize the provider."""
+        if self.initialized:
+            return
+            
+        # Access config via attributes
+        self.client = Client(api_key=self.api_key)
+        self.logger.debug(f"Initialized with model={self.model_name}")
+```
+
+### Config Anti-Patterns
+
+❌ **NEVER manually manage config access**
+
+```python
+# WRONG: Manual config access
 def __init__(self, **kwargs):
     super().__init__(**kwargs)
-    
-    # WRONG! Framework handles environment variables:
-    if not hasattr(self, "api_key") or self.api_key is None:
-        self.api_key = os.environ.get("API_KEY")  # WRONG! Use env_var in plugin.yaml
+    self._config = kwargs.get("config", {})  # WRONG!
+    self._api_key = self._config.get("api_key")  # WRONG!
 ```
 
-### ❌ Manual State Management
+❌ **NEVER reimplement from_config**
 
 ```python
-# WRONG - Managing initialization state
+# WRONG: Reimplementing from_config
+@classmethod
+def from_config(cls, config):  # WRONG! Use the base implementation
+    return cls(config=config)
+```
+
+## Initialize/Cleanup Pattern
+
+All providers MUST implement the async lifecycle pattern:
+
+```python
+async def initialize(self) -> None:
+    """Initialize the provider.
+    
+    This is called automatically when the provider is first used.
+    """
+    if self.initialized:
+        return
+        
+    # Initialize resources
+    self.client = await self._create_client()
+    
+    # Track state via self.logger
+    self.logger.debug("Provider initialized")
+    
 async def cleanup(self) -> None:
-    """Clean up resources."""
-    self.client = None
-    self.initialized = False  # WRONG! Framework manages this
-```
-
-### ❌ Missing Defaults for Fixed Values
-
-```python
-# WRONG - Not providing defaults for fixed values
-class MyProvider(LLMProvider, ProviderPlugin):
-    api_key: str
-    base_url: str  # WRONG! Should have default: base_url: str = "https://api.example.com"
+    """Clean up resources.
     
-    async def initialize(self) -> None:
-        if not hasattr(self, "base_url"):  # WRONG!
-            self.base_url = "https://api.example.com"  # WRONG!
-```
-
-## Correct Implementation
-
-### ✅ Minimal Correct Structure
-
-```python
-from typing import Any, Type, TypeVar, cast
-
-T = TypeVar('T', bound='MyProvider')
-
-class MyProvider(LLMProvider, ProviderPlugin):
-    """Provider implementation."""
-    
-    # Variáveis de ambiente (não devem ter valor padrão no código)
-    api_key: str
-    
-    # Valores fixos (devem ter valor padrão no código como fallback)
-    base_url: str = "https://api.example.com/v1"
-    model: str = "default-model"
-    temperature: float = 0.7
-    max_tokens: int = 1024
-    client: Optional[SomeClient] = None
-
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the provider."""
-        super().__init__(**kwargs)
+    This is called automatically when the context manager exits.
+    """
+    if self.client:
+        await self.client.close()
         self.client = None
         
-        # Para valores fixos, garantir que estão definidos
-        if 'base_url' in kwargs:
-            self.base_url = kwargs['base_url']
-        if 'model' in kwargs:
-            self.model = kwargs['model']
+    self.logger.debug("Resources cleaned up")
+```
+
+### Initialization Anti-Patterns
+
+❌ **NEVER manage initialization flag manually**
+
+```python
+# WRONG: Manual initialization state
+async def initialize(self):
+    self._initialized = True  # WRONG! Framework manages this
+```
+
+❌ **NEVER initialize in constructor**
+
+```python
+# WRONG: Initializing in constructor
+def __init__(self, **kwargs):
+    super().__init__(**kwargs)
+    self.client = Client()  # WRONG! Use async initialize
+```
+
+## Error Handling Pattern
+
+Providers MUST follow this error handling pattern:
+
+```python
+from pepperpy.domain import DomainError
+
+async def process(self, input_data: str) -> str:
+    """Process input data.
     
-    @classmethod
-    def from_config(cls: Type[T], **config: Any) -> T:
-        """Create provider instance from configuration."""
-        return cast(T, cls(**config))
+    Args:
+        input_data: The input data to process
+        
+    Returns:
+        Processed result
+        
+    Raises:
+        DomainError: If processing fails
+    """
+    try:
+        # Ensure initialization
+        if not self.initialized:
+            await self.initialize()
+            
+        # Call external API/service
+        response = await self.client.call_api(
+            input_data, 
+            model=self.model_name,
+            temperature=self.temperature
+        )
+        
+        return self._process_response(response)
+        
+    except ExternalAPIError as e:
+        # Convert external errors to domain errors
+        raise DomainError(f"Failed to process input: {e}") from e
+```
+
+### Error Handling Anti-Patterns
+
+❌ **NEVER return error codes or None on failure**
+
+```python
+# WRONG: Returning None on failure
+def process(self, input_data):
+    try:
+        # Process
+        return result
+    except Exception as e:
+        self.logger.error(f"Failed: {e}")
+        return None  # WRONG! Should raise a proper error
+```
+
+❌ **NEVER use generic exceptions**
+
+```python
+# WRONG: Using generic exceptions
+except Exception as e:  # WRONG! Too generic
+    raise Exception(f"Something failed: {e}")  # WRONG! Use domain-specific error
+```
+
+## Plugin.yaml Configuration
+
+The plugin.yaml file MUST contain:
+
+```yaml
+# Basic metadata
+name: domain_provider_name         # e.g., llm_openai
+version: 0.1.0                     # Semantic version
+description: Provider description   # Brief description
+author: Author Information         # Author name/email
+
+# Categorization
+plugin_type: domain                # e.g., llm, storage, content
+provider_name: provider_type       # e.g., openai, local, chroma
+entry_point: provider.ProviderClassName  # Implementation class
+
+# Configuration schema (JSON Schema format)
+config_schema:
+  type: object
+  properties:
+    api_key:
+      type: string
+      description: API key for authentication
+    model:
+      type: string
+      description: Model to use
+      enum: [model1, model2, model3]
+      default: model1
+    temperature:
+      type: number
+      description: Temperature parameter
+      minimum: 0
+      maximum: 1
+      default: 0.7
+
+# Default configuration
+default_config:
+  model: model1
+  temperature: 0.7
+```
+
+### Plugin.yaml Anti-Patterns
+
+❌ **NEVER specify static configuration values in code**
+
+```python
+# WRONG: Hardcoding defaults in provider
+DEFAULT_MODEL = "gpt-3.5-turbo"  # WRONG! Should be in plugin.yaml
+```
+
+❌ **NEVER use inconsistent property names**
+
+```yaml
+# WRONG: Inconsistent naming
+config_schema:
+  properties:
+    apiKey:  # WRONG! Should use snake_case (api_key)
+      type: string
+```
+
+## Resource Management Pattern
+
+Providers MUST properly manage resources:
+
+```python
+class MyProvider(DomainProvider, ProviderPlugin):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.client = None  # Initialize to None, create in initialize()
     
     async def initialize(self) -> None:
-        """Initialize provider resources."""
-        self.client = SomeClient(api_key=self.api_key)
-        
-    async def generate(self, messages, **kwargs):
-        """Generate content."""
-        # Use auto-bound attributes from plugin.yaml 
-        temperature = kwargs.get("temperature", self.temperature)
-        model = kwargs.get("model", self.model)
-        # Implementation...
+        """Initialize resources."""
+        if self.initialized:
+            return
+            
+        self.client = await self._create_client()
         
     async def cleanup(self) -> None:
-        """Clean up provider resources."""
+        """Clean up resources."""
         if self.client:
-            await self.client.aclose()
+            await self.client.close()
             self.client = None
+            
+    async def _create_client(self):
+        """Create client resource."""
+        # Implementation
 ```
 
-### ✅ Default Values in plugin.yaml
+### Resource Management Anti-Patterns
 
-```yaml
-# In plugin.yaml:
-default_config:
-  model: "gpt-3.5-turbo"
-  temperature: 0.7
-  max_tokens: 1024
-  base_url: "https://api.example.com/v1"  # Mesmo para valores fixos, defina padrões aqui
+❌ **NEVER leave resources uncleaned**
+
+```python
+# WRONG: Missing cleanup
+async def cleanup(self):
+    pass  # WRONG! Should clean up resources
 ```
 
-## Implementation Checklist
+❌ **NEVER create persistent resources without cleanup**
 
-- [ ] Herda de `DomainProvider, ProviderPlugin`
-- [ ] Declara atributos auto-bound com type annotations
-- [ ] Distingue entre variáveis de ambiente (sem padrão) e valores fixos (com padrão)
-- [ ] Implementa método de classe `from_config` para criação de instâncias
-- [ ] NÃO duplica metadados do plugin.yaml
-- [ ] NÃO implementa fallbacks manuais para variáveis de ambiente
-- [ ] Inicialização limpa: apenas chama super() e inicializa client=None
-- [ ] Implementa apenas métodos específicos do provider
-- [ ] NÃO gerencia manualmente o estado de inicialização
-
-## Correct plugin.yaml Example
-
-```yaml
-name: "OpenAI LLM Provider"
-version: "0.1.0"
-description: "Provider for the OpenAI GPT models"
-author: "PepperPy Team"
-plugin_category: "llm"
-provider_type: "openai"
-required_config_keys:
-  - "api_key"
-
-default_config:
-  model: "gpt-3.5-turbo"
-  temperature: 0.7
-  max_tokens: 1024
-  base_url: "https://api.openai.com/v1"
-
-config_schema:
-  api_key:
-    description: "OpenAI API key"
-    required: true
-    env_var: "OPENAI_API_KEY"
-    type: "string"
-  model:
-    description: "Model to use"
-    required: false
-    default: "gpt-3.5-turbo"
-    type: "string"
-  base_url:
-    description: "API base URL"
-    required: false
-    default: "https://api.openai.com/v1"
-    type: "string"
+```python
+# WRONG: Creating resources without cleanup plan
+async def initialize(self):
+    self.file_handle = open("data.txt", "w")  # WRONG! Not closed in cleanup
 ```
 
-## Remember
+## Testing Pattern
 
-- O framework gerencia auto-binding de atributos
-- O framework gerencia carregamento de configuração
-- O framework gerencia estado de inicialização
-- Nunca implemente workarounds para "consertar" problemas do framework
-- Se o framework tem um problema, reporte e conserte no framework!
-- Valores fixos (como base_url) devem ter valor padrão no código E no plugin.yaml 
+Plugin providers SHOULD have tests that validate:
+
+```python
+import pytest
+from pepperpy.domain import create_provider
+
+@pytest.mark.asyncio
+async def test_provider_basic_functionality():
+    """Test provider's basic functionality."""
+    provider = create_provider(
+        provider_type="specific",
+        api_key="test_key",
+        model="test_model"
+    )
+    
+    async with provider:
+        # Test basic functionality
+        result = await provider.process("test input")
+        assert result is not None
+        assert isinstance(result, str)
+        
+@pytest.mark.asyncio
+async def test_provider_error_handling():
+    """Test provider's error handling."""
+    provider = create_provider(
+        provider_type="specific",
+        api_key="invalid_key"  # Should cause error
+    )
+    
+    async with provider:
+        # Test error handling
+        with pytest.raises(DomainError):
+            await provider.process("test input")
+```
+
+## Advanced Implementation Patterns
+
+### 1. Caching Support
+
+```python
+from pepperpy.core.cache import Cache
+
+class MyCachingProvider(DomainProvider, ProviderPlugin):
+    cache: Optional[Cache] = None
+    cache_ttl: int = 3600
+    
+    async def initialize(self) -> None:
+        """Initialize with caching support."""
+        if self.initialized:
+            return
+            
+        # Initialize cache if configured
+        if self.cache_ttl > 0:
+            from pepperpy.core.cache import get_cache
+            self.cache = await get_cache(namespace=self.provider_name)
+            
+    async def process(self, input_data: str) -> str:
+        """Process with caching."""
+        # Try cache first
+        if self.cache:
+            cache_key = f"{self.model}:{input_data}"
+            cached = await self.cache.get(cache_key)
+            if cached:
+                self.logger.debug("Cache hit")
+                return cached
+                
+        # Process and cache result
+        result = await self._do_process(input_data)
+        
+        if self.cache:
+            await self.cache.set(cache_key, result, ttl=self.cache_ttl)
+            
+        return result
+```
+
+### 2. Metrics Support
+
+```python
+from pepperpy.core.metrics import timing
+
+class MyMetricsProvider(DomainProvider, ProviderPlugin):
+    @timing("provider.call")
+    async def process(self, input_data: str) -> str:
+        """Process with metrics."""
+        return await self._do_process(input_data)
+```
+
+### 3. Retries Pattern
+
+```python
+from pepperpy.core.utils import retry
+
+class MyRetryingProvider(DomainProvider, ProviderPlugin):
+    max_retries: int = 3
+    retry_delay: float = 1.0
+    
+    @retry(
+        retry_on=(TransientError,),
+        max_retries="max_retries",
+        delay="retry_delay"
+    )
+    async def process(self, input_data: str) -> str:
+        """Process with retries."""
+        return await self._do_process(input_data)
+```
+
+## Conclusion
+
+Following these plugin implementation guidelines ensures:
+
+1. Consistent provider implementations
+2. Proper resource management
+3. Clean error handling
+4. Configuration consistency
+5. Testable providers
+
+All plugin implementations MUST follow these patterns and avoid the specified anti-patterns to maintain quality, consistency, and maintainability in the PepperPy framework.

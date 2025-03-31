@@ -1,0 +1,422 @@
+---
+description: USE WHEN creating new modules, implementing core functionality, or modifying the framework architecture
+globs: 
+  - "pepperpy/**/*.py"
+  - "scripts/**/*.py"
+alwaysApply: false
+---
+
+# PepperPy Core Architecture
+
+## Overview
+
+This rule defines the foundational architecture of the PepperPy framework, including core principles, module organization, file structure, and implementation patterns. It serves as the central reference for maintaining architectural integrity throughout the codebase.
+
+## Project Structure
+
+The framework is organized into vertical domains, each responsible for a specific business capability:
+
+```
+pepperpy/
+├── pepperpy.py          # Main entry point and fluent API
+│
+├── agents/              # Autonomous agents and assistants
+│   ├── __init__.py      # Public API exports
+│   └── base.py          # Core interfaces and base implementations
+│
+├── content/             # Content processing
+│   ├── __init__.py      # Public API exports
+│   ├── base.py          # Core interfaces and base implementations
+│   └── processors/      # Content processors
+│       ├── __init__.py
+│       ├── document.py
+│       ├── text_normalization.py
+│       └── text_normalization_base.py
+│
+├── core/                # Core framework components
+│   ├── __init__.py      # Public API exports
+│   ├── base.py          # Core interfaces and base implementations
+│   ├── config.py        # Configuration management
+│   └── http.py          # HTTP client utilities
+│
+├── rag/                 # Retrieval Augmented Generation
+│   ├── __init__.py      # Public API exports
+│   ├── base.py          # Core interfaces and base implementations
+│   ├── chunking/        # Chunking strategies
+│   └── pipeline/        # RAG pipeline processors
+│
+├── tools/               # Tools and integrations
+│   ├── __init__.py      # Public API exports
+│   └── repository/      # Repository analysis tools
+│
+├── tts/                 # Text-to-Speech
+│   ├── __init__.py      # Public API exports
+│   └── base.py          # Core interfaces and base implementations
+│
+└── workflow/            # Workflow system
+    ├── __init__.py      # Public API exports
+    └── base.py          # Core interfaces and base implementations
+```
+
+## Module Organization
+
+Each module MUST follow these strict principles:
+
+### 1. Single Base File Pattern
+
+All core functionality MUST be defined in a single `base.py` file:
+
+```python
+# pepperpy/module/base.py
+"""Core interfaces and factories for the module."""
+
+from typing import Protocol, Any, Dict, Optional, Type
+
+class ModuleProvider(Protocol):
+    """Core provider interface."""
+    
+    def method(self) -> None:
+        """Method description."""
+        pass
+
+# Factory function defined directly in base.py
+def create_provider(provider_type: str = None, **config: Dict[str, Any]) -> ModuleProvider:
+    """Create a provider instance.
+    
+    Args:
+        provider_type: Provider type to create
+        **config: Provider configuration
+        
+    Returns:
+        Instantiated provider
+    """
+    # Import provider only when needed (lazy import)
+    provider_type = provider_type or os.environ.get('PEPPERPY_MODULE_PROVIDER', 'default')
+    
+    try:
+        # Dynamically import the provider
+        if provider_type == "default":
+            from .providers.default import DefaultProvider
+            return DefaultProvider(**config)
+        else:
+            module = importlib.import_module(f".providers.{provider_type}", package=__package__)
+            provider_class = getattr(module, f"{provider_type.title()}Provider")
+            return provider_class(**config)
+    except (ImportError, AttributeError) as e:
+        raise ValueError(f"Unknown provider type '{provider_type}': {e}")
+```
+
+### 2. Public API Pattern
+
+All modules MUST have a well-defined public API in `__init__.py`:
+
+```python
+"""Module description."""
+
+from .base import ModuleProvider, create_provider, ModuleError
+
+__all__ = [
+    "ModuleProvider",
+    "create_provider",
+    "ModuleError",
+]
+```
+
+### 3. Provider Implementation Pattern
+
+Provider implementations should be isolated in the providers directory:
+
+```python
+# pepperpy/module/providers/specific.py
+"""Specific provider implementation."""
+
+from ..base import ModuleProvider, BaseProvider
+
+class SpecificProvider(BaseProvider):
+    """Specific provider implementation."""
+    
+    def method(self) -> None:
+        """Implementation."""
+        # Implementation details
+```
+
+## Critical Architecture Principles
+
+### 1. Strict Module Boundaries
+
+Modules MUST ONLY be accessed through their public API:
+
+```python
+# CORRECT: Access through public API
+from pepperpy.content import TextNormalizer, create_text_normalizer
+from pepperpy import PepperPy
+
+# INCORRECT: Direct import of implementations
+from pepperpy.content.processors.text_normalization_base import TextNormalizerBase  # VIOLATION!
+from pepperpy.plugins.content.text_normalization.basic.provider import BasicTextNormalizer  # VIOLATION!
+```
+
+### 2. Dependency Inversion
+
+Higher-level modules MUST NOT depend on lower-level modules:
+
+```python
+# CORRECT: Depend on abstraction
+class ContentProcessor:
+    def __init__(self, normalizer: TextNormalizer):
+        self.normalizer = normalizer
+        
+    def process(self, text: str) -> str:
+        return self.normalizer.normalize(text)
+
+# INCORRECT: Direct dependency on implementation
+class ContentProcessor:
+    def __init__(self):
+        from pepperpy.content.processors.specific import SpecificNormalizer  # VIOLATION!
+        self.normalizer = SpecificNormalizer()
+```
+
+### 3. Factory Function Pattern
+
+Provider creation MUST be handled by factory functions in `base.py`:
+
+```python
+# CORRECT: Factory function in base.py
+def create_provider(provider_type: str = None, **config) -> Provider:
+    # Implementation
+    
+# INCORRECT: Separate factory file
+# factory.py - This file should not exist!
+def create_provider(provider_type: str = None, **config) -> Provider:
+    # Implementation
+```
+
+### 4. Configuration Management
+
+Configuration should be handled consistently:
+
+```python
+# CORRECT: Using environment variables with module prefix
+PEPPERPY_CONTENT_NORMALIZER_PROVIDER=basic
+PEPPERPY_CONTENT_NORMALIZER_LANGUAGE=en
+
+# CORRECT: Configuration in code
+from pepperpy.core.config import Config
+config = Config(prefix="PEPPERPY_CONTENT_")
+normalizer = create_normalizer(**config)
+```
+
+### 5. Error Hierarchy
+
+Modules MUST define a consistent error hierarchy:
+
+```python
+# In core/base.py
+class PepperpyError(Exception):
+    """Base exception for all PepperPy errors."""
+
+class ValidationError(PepperpyError):
+    """Validation error."""
+
+# In module/base.py
+from pepperpy.core.base import PepperpyError
+
+class ModuleError(PepperpyError):
+    """Base exception for module errors."""
+
+class ProviderError(ModuleError):
+    """Provider-specific error."""
+```
+
+## Fluent API Design
+
+PepperPy follows a fluent API design:
+
+```python
+# Creating and configuring components with builder pattern
+pepperpy = (
+    PepperPy.create()
+    .with_content_processor("basic", language="en")
+    .with_llm("openai", model="gpt-4")
+    .with_rag("chroma")
+    .build()
+)
+
+# Using async context manager for resource management
+async with PepperPy.create().with_content_processor() as pepperpy:
+    result = await pepperpy.content.normalize("Some text")
+```
+
+All components MUST follow these API design principles:
+
+1. **Builder pattern** for component creation and configuration
+   - Use factory methods (e.g., `create()`) as entry points
+   - Method chaining with `return self` for fluent configuration
+   - Terminal `build()` method to complete the configuration
+
+2. **Context managers** for resource management
+   - Implement `__aenter__` and `__aexit__` for async context
+   - Handle resource initialization and cleanup automatically
+
+3. **Simplified method signatures**
+   - Provide helper methods with intuitive defaults
+   - Allow both simple and advanced usage patterns
+   - Avoid requiring low-level knowledge for common tasks
+
+## File Organization Rules
+
+### 1. Directory Structure
+
+Modules MUST follow the standard structure:
+
+```
+pepperpy/module_name/
+├── __init__.py         # Public API
+├── base.py             # Core interfaces and factory functions
+├── processors/         # (if needed)
+│   └── __init__.py
+└── providers/          # Provider implementations
+    └── __init__.py
+```
+
+### 2. Module Naming
+
+- Modules MUST use **snake_case** for all files and directories
+- Names MUST be descriptive and reflect purpose
+- Consistent suffixes:
+   - `_provider.py` for providers
+   - `_processor.py` for processors
+   - `_utils.py` for utilities
+
+### 3. File Content Rules
+
+Each file MUST have:
+- Module docstring
+- Proper imports organization (standard library first, then third-party, then local)
+- Proper type hints
+
+Example:
+```python
+"""
+Module description.
+
+This module provides...
+"""
+
+import os
+import importlib
+from typing import Dict, Any, Optional
+
+from pepperpy.core.base import PepperpyError
+
+from .base import BaseClass
+
+class ImplementationClass(BaseClass):
+    """Implementation class description."""
+    
+    def __init__(self, config: Dict[str, Any]) -> None:
+        """Initialize with configuration.
+        
+        Args:
+            config: Configuration dictionary
+        """
+        self.config = config
+```
+
+## Anti-Patterns to Avoid
+
+### 1. Direct Internal Imports
+
+❌ **AVOID**:
+```python
+# Direct import from internal structure
+from pepperpy.llm.providers.openai import OpenAIProvider
+from pepperpy.llm.base import BaseLLMProvider
+```
+
+✅ **CORRECT**:
+```python
+# Import from public API
+from pepperpy.llm import create_provider, LLMProvider
+```
+
+### 2. Module Fragmentation
+
+❌ **AVOID**:
+```
+module/
+├── __init__.py
+├── base.py
+├── factory.py    # WRONG: Should be in base.py
+├── types.py      # WRONG: Should be in base.py 
+├── constants.py  # WRONG: Should be in base.py
+└── providers/
+```
+
+✅ **CORRECT**:
+```
+module/
+├── __init__.py
+├── base.py       # Contains interfaces, types, constants, and factory function
+└── providers/
+```
+
+### 3. Circular Dependencies
+
+❌ **AVOID**:
+```python
+# In module_a/base.py
+from pepperpy.module_b import SomeClass
+
+# In module_b/base.py
+from pepperpy.module_a import OtherClass  # Creates circular dependency!
+```
+
+## Best Practices
+
+1. **Module Access**:
+   - Always import from module root (`pepperpy.content`)
+   - Never import directly from implementations
+   - Use provided interfaces, not concrete classes
+
+2. **Provider Implementation**:
+   - Implement required interfaces from `base.py`
+   - Keep implementation details private
+   - Document public methods and classes
+
+3. **Configuration**:
+   - Use environment variables with module prefix
+   - Validate configuration at startup
+   - Provide sensible defaults
+
+4. **Error Handling**:
+   - Use domain-specific error classes
+   - Include context in error messages
+   - Handle cleanup in finally blocks
+
+## Example Usage
+
+```python
+from pepperpy import PepperPy
+
+# Initialization with builder pattern and context manager
+async with PepperPy.create().with_content() as pepper:
+    # Use the content module directly
+    normalized_text = await pepper.content.normalize("Text to normalize")
+    
+    # Process a document
+    document = await pepper.content.process_document("path/to/document.pdf")
+    
+    # Use other modules
+    result = await pepper.rag.query(document, "What is the main idea?")
+```
+
+## Conclusion
+
+This architecture ensures:
+1. Clear module boundaries
+2. Consistent interfaces
+3. Easy provider swapping
+4. Configuration flexibility
+5. Proper error handling
+6. Clean public APIs 

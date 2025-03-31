@@ -3,7 +3,7 @@
 import asyncio
 
 from pepperpy import plugin_manager
-from pepperpy.content_processing.processors.text_normalization_base import (
+from pepperpy.content.processors.text_normalization_base import (
     BaseTextNormalizer,
     TextNormalizerRegistry,
 )

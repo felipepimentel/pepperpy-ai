@@ -1,9 +1,9 @@
 ---
-title: Code Duplication Prevention
-description: Apply this rule when implementing new features or refactoring code to prevent duplication, promote reuse, and maintain DRY principles
+description: USE WHEN implementing new features, refactoring code, or detecting similar functionality patterns
 globs:
   - "pepperpy/**/*.py"
-priority: 500
+  - "plugins/**/*.py"
+alwaysApply: false
 ---
 
 # Code Duplication Prevention
