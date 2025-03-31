@@ -1,6 +1,6 @@
 """Basic text normalization provider for PepperPy."""
 
-from typing import Any
+from typing import Any, Optional
 
 from pepperpy.content_processing.processors.text_normalization_base import (
     BaseTextNormalizer,
@@ -14,8 +14,6 @@ class BasicTextNormalizer(BaseTextNormalizer):
     This provider implements the TextNormalizer interface and extends
     the BaseTextNormalizer with plugin management capabilities.
     """
-
-    
 
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str
