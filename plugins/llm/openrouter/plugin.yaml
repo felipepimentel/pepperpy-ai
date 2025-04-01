@@ -1,24 +1,13 @@
 # Plugin metadata
-name: llm/openrouter
-version: 0.1.0
+type: llm
+provider: openrouter
+module: pepperpy.plugins.llm.openrouter.provider
+class: OpenRouterProvider
 description: OpenRouter LLM provider for PepperPy
+version: 0.1.0
 author: PepperPy Team
 license: MIT
-plugin_type: llm
-category: llm
-provider_name: openrouter
-entry_point: provider.OpenRouterProvider
-required_config_keys:
-  - api_key
-
-# Default configuration values
-default_config:
-  model: anthropic/claude-3-opus
-  temperature: 0.7
-  max_tokens: 1024
-
-# Configuration schema
-config_schema:
+config:
   api_key:
     description: OpenRouter API key
     required: true
@@ -27,7 +16,7 @@ config_schema:
   model:
     description: Model to use for generation
     required: false
-    default: anthropic/claude-3-opus
+    default: openai/gpt-3.5-turbo
     type: string
   temperature:
     description: Sampling temperature between 0.0 (deterministic) and 2.0 (creative)
@@ -46,47 +35,67 @@ config_schema:
 documentation: |
   # OpenRouter LLM Provider
 
-  This plugin provides access to various language models through the OpenRouter API.
+  This plugin provides access to various LLM models through OpenRouter's API.
 
   ## Configuration
 
   - `api_key`: OpenRouter API key (required)
-  - `model`: Model to use (default: anthropic/claude-3-opus)
+  - `model`: Model to use (default: openai/gpt-3.5-turbo)
   - `temperature`: Sampling temperature (default: 0.7)
   - `max_tokens`: Maximum tokens to generate (default: 1024)
 
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Create provider
-  provider = plugin_manager.create_provider(
-      "llm", "openrouter",
-      api_key="your-api-key"
-  )
-
-  # Generate text
-  response = await provider.generate("Tell me a joke.")
-  print(response.content)
-
-  # Chat completion
-  messages = [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is the capital of France?"}
-  ]
-  response = await provider.chat(messages)
-  print(response.content)
-  ```
-
   ## Available Models
 
-  - anthropic/claude-3-opus (default)
-  - anthropic/claude-3-sonnet
-  - anthropic/claude-2.1
   - openai/gpt-4-turbo
-  - openai/gpt-3.5-turbo
+  - openai/gpt-4o-mini (default)
+  - anthropic/claude-3-opus
+  - anthropic/claude-3-sonnet
+  - anthropic/claude-3-haiku
   - google/gemini-pro
   - meta/llama2-70b
+  - mistral/mistral-medium
+
+  Note: You can also use environment variables for configuration:
+  - `PEPPERPY_LLM__OPENROUTER_API_KEY` (recommended)
 
 pepperpy_compatibility: '>=0.1.0'
+
+name: openrouter
+version: 0.1.0
+description: OpenRouter LLM provider implementation
+author: PepperPy Team
+license: MIT
+
+plugin_type: llm
+category: provider
+provides:
+  - llm
+provider_name: openrouter
+entry_point: plugins.llm.openrouter.provider:OpenRouterProvider
+
+config_schema:
+  type: object
+  properties:
+    api_key:
+      type: string
+      description: OpenRouter API key
+    model:
+      type: string
+      description: Model to use
+      default: openai/gpt-4o-mini
+    temperature:
+      type: number
+      description: Temperature for generation
+      default: 0.7
+      minimum: 0
+      maximum: 2
+    max_tokens:
+      type: integer
+      description: Maximum tokens to generate
+      default: 1024
+      minimum: 1
+
+default_config:
+  model: openai/gpt-4o-mini
+  temperature: 0.7
+  max_tokens: 1024

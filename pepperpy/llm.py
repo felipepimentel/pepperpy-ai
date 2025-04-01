@@ -11,7 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, cast
 
 from pepperpy.core.errors import PepperpyError, ValidationError
-from pepperpy.plugins.discovery import create_provider_instance
+from pepperpy.plugins.manager import create_provider_instance
 from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.workflow.base import WorkflowComponent
 

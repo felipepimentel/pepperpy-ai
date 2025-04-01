@@ -1,6 +1,7 @@
 """Plugin manager for PepperPy."""
 
 import os
+from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Type
 
 from pepperpy.core.errors import ValidationError
@@ -11,6 +12,21 @@ from pepperpy.plugins.discovery import (
 from pepperpy.plugins.plugin import PepperpyPlugin
 
 logger = get_logger(__name__)
+
+
+@dataclass
+class PluginInfo:
+    """Information about a plugin."""
+
+    name: str
+    version: str
+    description: str
+    author: str
+    license: str
+    homepage: Optional[str] = None
+    repository: Optional[str] = None
+    documentation: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
 
 
 class PluginManager:

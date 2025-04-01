@@ -1,19 +1,12 @@
-name: llm/openai
-version: 0.1.0
+type: llm
+provider: openai
+module: pepperpy.plugins.llm.openai.provider
+class: OpenAIProvider
 description: OpenAI LLM provider for PepperPy
+version: 0.1.0
 author: PepperPy Team
 license: MIT
-plugin_type: llm
-category: llm
-provider_name: openai
-entry_point: provider.OpenAIProvider
-required_config_keys:
-  - api_key
-default_config:
-  model: gpt-3.5-turbo
-  temperature: 0.7
-  max_tokens: 1024
-config_schema:
+config:
   api_key:
     description: OpenAI API key
     required: true
@@ -48,30 +41,6 @@ documentation: |
   - `model`: Model to use (default: gpt-3.5-turbo)
   - `temperature`: Sampling temperature (default: 0.7)
   - `max_tokens`: Maximum tokens to generate (default: 1024)
-
-  ## Usage
-
-  ```python
-  from pepperpy import plugin_manager
-
-  # Create provider
-  provider = plugin_manager.create_provider(
-      "llm", "openai",
-      api_key="your-api-key"
-  )
-
-  # Generate text
-  response = await provider.generate("Tell me a joke.")
-  print(response.content)
-
-  # Chat completion
-  messages = [
-      {"role": "system", "content": "You are a helpful assistant."},
-      {"role": "user", "content": "What is the capital of France?"}
-  ]
-  response = await provider.chat(messages)
-  print(response.content)
-  ```
 
   ## Available Models
 

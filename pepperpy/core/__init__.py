@@ -118,13 +118,12 @@ from pepperpy.llm import LLMProvider
 
 # Plugin discovery
 from pepperpy.plugins.discovery import (
-    PluginInfo,
     PluginLoadError,
     PluginRegistry,
     PluginValidationError,
-    create_provider_instance,
     get_plugin_registry,
 )
+from pepperpy.plugins.manager import PluginInfo, create_provider_instance
 
 # Provider types
 from pepperpy.plugins.plugin import PepperpyPlugin

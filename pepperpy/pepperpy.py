@@ -34,8 +34,8 @@ from pepperpy.plugins.discovery import (
     discover_plugins,
     get_plugin,
     get_plugin_by_provider,
-    get_provider_class,
 )
+from pepperpy.plugins.manager import create_provider_instance
 from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.rag import (
     Document,
@@ -51,6 +51,20 @@ from pepperpy.workflow.base import (
 )
 
 logger = get_logger(__name__)
+
+
+async def init_framework() -> None:
+    """Initialize the PepperPy framework.
+
+    This function initializes the framework by discovering plugins and
+    setting up the necessary components.
+    """
+    # Discover plugins in default locations
+    plugin_paths = [
+        os.path.join(os.path.dirname(__file__), "plugins"),
+        os.path.join(os.path.dirname(__file__), "..", "plugins"),
+    ]
+    await discover_plugins(plugin_paths)
 
 
 class ChatBuilder:
@@ -1140,7 +1154,7 @@ class PepperPy:
             ValidationError: If provider type not found
         """
         # Get plugin class
-        plugin_class = get_provider_class(provider_type)
+        plugin_class = get_plugin_by_provider(plugin_type, provider_type)
         if not plugin_class:
             raise ValidationError(f"Provider type '{provider_type}' not found")
 
@@ -1211,30 +1225,37 @@ class PepperPy:
         self._initialized = False
 
     @staticmethod
-    def get_plugin(plugin_type: str) -> Optional[Type[PepperpyPlugin]]:
+    def get_plugin(
+        plugin_type: str, provider_type: str
+    ) -> Optional[Type[PepperpyPlugin]]:
         """Get plugin class by type.
 
         Args:
             plugin_type: Plugin type to get
-
-        Returns:
-            Plugin class if found, None otherwise
-        """
-        return get_plugin(plugin_type)
-
-    @staticmethod
-    def get_plugin_by_provider(provider_type: str) -> Optional[Type[PepperpyPlugin]]:
-        """Get plugin class by provider type.
-
-        Args:
             provider_type: Provider type to get
 
         Returns:
             Plugin class if found, None otherwise
         """
-        return get_plugin_by_provider(provider_type)
+        return get_plugin(plugin_type, provider_type)
 
-    def with_llm(
+    @staticmethod
+    def get_plugin_by_provider(
+        plugin_type: str,
+        provider_type: str,
+    ) -> Optional[Type[PepperpyPlugin]]:
+        """Get plugin class by provider type.
+
+        Args:
+            plugin_type: Plugin type to get
+            provider_type: Provider type to get
+
+        Returns:
+            Plugin class if found, None otherwise
+        """
+        return get_plugin_by_provider(plugin_type, provider_type)
+
+    async def with_llm(
         self,
         provider_type: Optional[str] = None,
         **config: Any,
@@ -1255,9 +1276,9 @@ class PepperPy:
         logger.debug(f"Configuring LLM provider: {provider_type}")
 
         # Use enhanced plugin discovery system
-        self._llm_provider = cast(
-            LLMProvider, create_provider_instance("llm", provider_type, **config)
-        )
+        provider = cast(LLMProvider, create_provider_instance("llm", provider_type))
+        await provider.initialize(config)
+        self._llm_provider = provider
         return self
 
     def with_rag(self, provider: Optional[RAGProvider] = None) -> "PepperPy":

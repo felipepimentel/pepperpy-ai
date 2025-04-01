@@ -7,10 +7,11 @@ supporting various models through OpenRouter's API.
 import asyncio
 import json
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, AsyncGenerator
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
 import httpx
+import aiohttp
 
 from pepperpy.llm import (
     GenerationChunk,
@@ -20,11 +21,13 @@ from pepperpy.llm import (
     MessageRole,
 )
 from pepperpy.plugins import ProviderPlugin
+from pepperpy.core.errors import ProviderError
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 T = TypeVar("T", bound="OpenRouterProvider")
 
 
-class OpenRouterProvider(LLMProvider, ProviderPlugin):
+class OpenRouterProvider(LLMProvider, ProviderPlugin, PepperpyPlugin):
     """OpenRouter provider for LLM tasks."""
 
     # These attributes will be auto-bound from plugin.yaml with fallback defaults
@@ -35,15 +38,58 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
     max_tokens: int = 1024
     client: Optional[httpx.AsyncClient] = None
     _test_mode: bool = False
+    _session: Optional[aiohttp.ClientSession] = None
+    _initialized: bool = False
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the OpenRouter provider."""
         super().__init__(**kwargs)
         self.client = None
+        self._api_key = str(kwargs.get("api_key", ""))
+        self._model = str(kwargs.get("model", "openai/gpt-3.5-turbo"))
+        self._temperature = float(kwargs.get("temperature", 0.7))
+        self._max_tokens = int(kwargs.get("max_tokens", 1024))
 
         # Ensure we set the API key if provided in kwargs
         if "api_key" in kwargs:
             self.api_key = kwargs["api_key"]
+
+    @property
+    def api_key(self) -> str:
+        return self._api_key
+
+    @api_key.setter
+    def api_key(self, value: str) -> None:
+        self._api_key = value
+
+    @property
+    def model(self) -> str:
+        return self._model
+
+    @model.setter
+    def model(self, value: str) -> None:
+        self._model = value
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
+
+    @temperature.setter
+    def temperature(self, value: float) -> None:
+        self._temperature = value
+
+    @property
+    def max_tokens(self) -> int:
+        return self._max_tokens
+
+    @max_tokens.setter
+    def max_tokens(self, value: int) -> None:
+        self._max_tokens = value
+
+    @property
+    def initialized(self) -> bool:
+        """Check if provider is initialized."""
+        return self._initialized
 
     @classmethod
     def from_config(cls, **config: Any) -> "OpenRouterProvider":
@@ -89,40 +135,27 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
 
         return instance
 
-    async def initialize(self) -> None:
+    async def initialize(self, config: Optional[Dict[str, Any]] = None) -> None:
         """Initialize the OpenRouter client."""
-        # Se estamos em modo de desenvolvimento (detectable por um ambiente de teste)
-        # ou se o token começa com "sk-or" mas está dando erro de autenticação,
-        # vamos usar um modo de simulação onde não fazemos chamadas reais à API
-        is_dev_mode = os.environ.get("PEPPERPY_DEV__MODE", "false").lower() == "true"
-        is_test_key = self.api_key and (
-            self.api_key.startswith("sk-or") or self.api_key.startswith("test-")
-        )
-
-        if is_dev_mode or is_test_key:
-            print(
-                "DEBUG: Using test mode for OpenRouter provider. API calls will be simulated."
-            )
-            self._test_mode = True
-            self.client = None
+        if self.initialized:
             return
 
+        if config:
+            self._api_key = str(config.get("api_key", self._api_key))
+            self._model = str(config.get("model", self._model))
+            self._temperature = float(config.get("temperature", self._temperature))
+            self._max_tokens = int(config.get("max_tokens", self._max_tokens))
+
         if not self.api_key:
-            raise ValueError("API key is required for OpenRouter provider")
+            raise ProviderError("API key is required for OpenRouter provider")
 
         print(
             f"DEBUG: Initializing OpenRouter with API key: {self.api_key[:5]}...{self.api_key[-5:]}"
         )
         self._test_mode = False
 
-        self.client = httpx.AsyncClient(
-            base_url=self.base_url,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": "https://github.com/pimentel/pepperpy",
-                "X-Title": "PepperPy Framework",
-            },
-        )
+        self._session = aiohttp.ClientSession()
+        self._initialized = True
 
     def _convert_messages(
         self, messages: Union[str, List[Message]]
@@ -208,51 +241,65 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
             )
 
         # Make API call
-        if not self.client:
+        if not self._session:
             await self.initialize()
-            assert self.client is not None
+            assert self._session is not None
 
-        response = await self.client.post(
-            "/chat/completions",
-            json={
-                "model": model,
-                "messages": openrouter_messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-            },
-        )
+        try:
+            async with self._session.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": model,
+                    "messages": openrouter_messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                },
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+                    "X-Title": "PepperPy",
+                },
+            ) as response:
+                data = await response.json()
+                if response.status != 200:
+                    error_msg = data.get("error", {}).get("message", str(data))
+                    raise ProviderError(f"OpenRouter API error: {error_msg}")
 
-        # Handle errors
-        response.raise_for_status()
-        completion = response.json()
+                if not data.get("choices") or not data["choices"][0].get(
+                    "message", {}
+                ).get("content"):
+                    raise ProviderError("Invalid response format from OpenRouter API")
 
-        if not completion.get("choices"):
-            raise ValueError("No content generated by OpenRouter")
+                content = data["choices"][0]["message"]["content"] or ""
 
-        content = completion["choices"][0]["message"]["content"] or ""
+                # Build result
+                if isinstance(messages, str):
+                    messages_list = [Message(role=MessageRole.USER, content=messages)]
+                else:
+                    messages_list = messages.copy()
 
-        # Build result
-        if isinstance(messages, str):
-            messages_list = [Message(role=MessageRole.USER, content=messages)]
-        else:
-            messages_list = messages.copy()
+                # Add response to messages
+                messages_list.append(Message(role=MessageRole.ASSISTANT, content=content))
 
-        # Add response to messages
-        messages_list.append(Message(role=MessageRole.ASSISTANT, content=content))
+                # Extract usage statistics
+                usage = data.get("usage")
 
-        # Extract usage statistics
-        usage = completion.get("usage")
-
-        return GenerationResult(
-            content=content,
-            messages=messages_list,
-            usage=usage,
-            metadata={
-                "model": completion.get("model"),
-                "created": completion.get("created"),
-                "id": completion.get("id"),
-            },
-        )
+                return GenerationResult(
+                    content=content,
+                    messages=messages_list,
+                    usage=usage,
+                    metadata={
+                        "model": data.get("model"),
+                        "created": data.get("created"),
+                        "id": data.get("id"),
+                    },
+                )
+        except aiohttp.ClientError as e:
+            raise ProviderError(f"HTTP error: {e}")
+        except json.JSONDecodeError as e:
+            raise ProviderError(f"Invalid JSON response: {e}")
+        except Exception as e:
+            raise ProviderError(f"OpenRouter API error: {e}")
 
     async def generate_stream(
         self,
@@ -317,53 +364,63 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
             return
 
         # Make API call with streaming
-        if not self.client:
+        if not self._session:
             await self.initialize()
-            assert self.client is not None
+            assert self._session is not None
 
-        response = await self.client.post(
-            "/chat/completions",
-            json={
-                "model": model,
-                "messages": openrouter_messages,
-                "temperature": temperature,
-                "max_tokens": max_tokens,
-                "stream": True,
-            },
-            timeout=60.0,  # Extended timeout for streaming
-        )
+        try:
+            async with self._session.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": model,
+                    "messages": openrouter_messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                },
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+                    "X-Title": "PepperPy",
+                },
+            ) as response:
+                if response.status != 200:
+                    data = await response.json()
+                    error_msg = data.get("error", {}).get("message", str(data))
+                    raise ProviderError(f"OpenRouter API error: {error_msg}")
 
-        # Handle errors
-        response.raise_for_status()
+                # Process the streaming response
+                async for line in response.content:
+                    line = line.decode("utf-8").strip()
 
-        # Process the streaming response
-        async for line in response.aiter_lines():
-            line = line.strip()
-
-            # Skip empty lines or non-data lines
-            if not line or line == "data: [DONE]":
-                continue
-
-            if line.startswith("data: "):
-                data = line[6:]  # Remove "data: " prefix
-                try:
-                    chunk = json.loads(data)
-
-                    if not chunk.get("choices"):
+                    # Skip empty lines or non-data lines
+                    if not line or line == "data: [DONE]":
                         continue
 
-                    delta = chunk["choices"][0].get("delta", {})
-                    content = delta.get("content", "")
+                    if line.startswith("data: "):
+                        data = line[6:]  # Remove "data: " prefix
+                        try:
+                            chunk = json.loads(data)
 
-                    if content:
-                        yield GenerationChunk(
-                            content=content,
-                            finish_reason=chunk["choices"][0].get("finish_reason"),
-                            metadata={"model": model},
-                        )
-                except Exception:
-                    # Skip invalid chunks
-                    continue
+                            if not chunk.get("choices"):
+                                continue
+
+                            delta = chunk["choices"][0].get("delta", {})
+                            content = delta.get("content", "")
+
+                            if content:
+                                yield GenerationChunk(
+                                    content=content,
+                                    finish_reason=chunk["choices"][0].get("finish_reason"),
+                                    metadata={"model": model},
+                                )
+                        except Exception:
+                            # Skip invalid chunks
+                            continue
+        except aiohttp.ClientError as e:
+            raise ProviderError(f"HTTP error: {e}")
+        except Exception as e:
+            raise ProviderError(f"OpenRouter API error: {e}")
 
     async def stream(
         self,
@@ -385,8 +442,86 @@ class OpenRouterProvider(LLMProvider, ProviderPlugin):
         async for chunk in self.generate_stream(messages, **kwargs):
             yield chunk
 
+    async def chat(
+        self,
+        messages: List[Message],
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        **kwargs,
+    ) -> AsyncGenerator[str, None]:
+        """Generate text from messages with streaming.
+
+        Args:
+            messages: List of messages
+            model: Optional model to use
+            temperature: Optional temperature
+            max_tokens: Optional max tokens
+            **kwargs: Additional arguments
+
+        Yields:
+            Generated text chunks
+
+        Raises:
+            ProviderError: If API call fails
+        """
+        if not self._session:
+            raise ProviderError("Provider not initialized")
+
+        try:
+            async with self._session.post(
+                f"{self.base_url}/chat/completions",
+                json={
+                    "model": model or self.model,
+                    "messages": [
+                        {
+                            "role": msg.role.value
+                            if isinstance(msg.role, MessageRole)
+                            else msg.role,
+                            "content": msg.content,
+                            **({"name": msg.name} if msg.name else {}),
+                        }
+                        for msg in messages
+                    ],
+                    "temperature": temperature or self.temperature,
+                    "max_tokens": max_tokens or self.max_tokens,
+                    "stream": True,
+                    **kwargs,
+                },
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+                    "X-Title": "PepperPy",
+                },
+            ) as response:
+                if response.status != 200:
+                    data = await response.json()
+                    error_msg = data.get("error", {}).get("message", str(data))
+                    raise ProviderError(f"OpenRouter API error: {error_msg}")
+
+                async for line in response.content:
+                    line = line.decode("utf-8").strip()
+                    if line:
+                        if line.startswith("data: "):
+                            line = line[6:]
+                        if line == "[DONE]":
+                            break
+                        try:
+                            data = json.loads(line)
+                            if data.get("choices"):
+                                delta = data["choices"][0].get("delta", {})
+                                if "content" in delta:
+                                    yield delta["content"]
+                        except json.JSONDecodeError:
+                            continue
+        except aiohttp.ClientError as e:
+            raise ProviderError(f"HTTP error: {e}")
+        except Exception as e:
+            raise ProviderError(f"OpenRouter API error: {e}")
+
     async def cleanup(self) -> None:
         """Clean up provider resources."""
-        if self.client:
-            await self.client.aclose()
-            self.client = None
+        if self._session:
+            await self._session.close()
+            self._session = None
+            self._initialized = False

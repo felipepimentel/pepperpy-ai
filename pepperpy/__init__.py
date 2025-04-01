@@ -1,6 +1,7 @@
 """PepperPy framework."""
 
 # Core components
+from pepperpy.core.di import ServiceLifetime, get_container
 from pepperpy.core.errors import (
     ConfigurationError,
     PepperpyError,
@@ -9,11 +10,10 @@ from pepperpy.core.errors import (
 )
 from pepperpy.core.events import Event, EventBus, EventType, emit_event, event_listener
 from pepperpy.core.logging import get_logger
-from pepperpy.core.services import ServiceLifetime, get_container
 
 # Domain-specific providers
 from pepperpy.llm import LLMProvider, Message, MessageRole
-from pepperpy.pepperpy import PepperPy
+from pepperpy.pepperpy import PepperPy, init_framework
 from pepperpy.plugins.plugin import PepperpyPlugin
 
 __version__ = "0.1.0"

@@ -1,31 +1,54 @@
+"""PepperPy Minimal Example
+
+This example demonstrates basic usage of the PepperPy framework.
+"""
+
+import asyncio
+import os
+import sys
+from pathlib import Path
+
 from pepperpy import PepperPy, init_framework
+
+# Add project root to sys.path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 async def main() -> None:
-    """Run minimal example."""
+    """Run the example."""
     print("PepperPy Minimal Example")
     print("=" * 50)
 
     # Initialize the framework
-    init_framework()
-    print("Framework initialized successfully")
-    
-    # Initialize PepperPy with default LLM provider (from environment variables)
-    async with PepperPy().with_llm() as pepper:
-        # Chat interface
+    await init_framework()
 
-        response = await pepper.chat.with_user("Say hello!").generate()
-        print("\nChat response:")
-        print(response.content)
+    # Create PepperPy instance with OpenRouter LLM provider
+    pepper = PepperPy()
+    await pepper.with_llm(
+        "openrouter",
+        api_key=os.environ.get("PEPPERPY_LLM__OPENROUTER_API_KEY"),
+        model=os.environ.get("PEPPERPY_LLM__MODEL", "openai/gpt-4o-mini"),
+        temperature=float(os.environ.get("PEPPERPY_LLM__TEMPERATURE", "0.7")),
+        max_tokens=int(os.environ.get("PEPPERPY_LLM__MAX_TOKENS", "1024")),
+    )
 
-        # Text interface
+    # Generate text using chat
+    response = await pepper.chat.with_user(
+        "Tell me a joke about Python programming."
+    ).generate()
+    print(response.content)
 
-        response = await pepper.text.with_prompt("Write a haiku about AI").generate()
-        print("\nText response:")
-        print(response)
+    # Generate chat completion
+    response = (
+        await pepper.chat.with_system("You are a helpful assistant.")
+        .with_user("What is the capital of France?")
+        .generate()
+    )
+    print(response.content)
+
+    # Clean up
+    await pepper.cleanup()
 
 
 if __name__ == "__main__":
-    import asyncio
-
     asyncio.run(main())

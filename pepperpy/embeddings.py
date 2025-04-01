@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Protocol, Union, cast, runtime_che
 
 from pepperpy.core.base import BaseComponent, PepperpyError
 from pepperpy.core.config import Config
-from pepperpy.plugins.discovery import create_provider_instance
+from pepperpy.plugins.manager import create_provider_instance
 
 
 class EmbeddingError(PepperpyError):
