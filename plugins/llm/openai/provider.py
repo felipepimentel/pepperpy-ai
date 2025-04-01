@@ -1,204 +1,121 @@
 """OpenAI provider for LLM tasks.
 
-This module provides the OpenAI provider implementation for LLM tasks,
-supporting text generation from OpenAI models.
+This module provides a provider for OpenAI's language models, including GPT-3.5 and GPT-4.
 """
 
-from collections.abc import AsyncIterator
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
+from typing import Any, List, Optional, Union
 
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletionMessageParam
-
-from pepperpy.llm import (
-    GenerationChunk,
-    GenerationResult,
-    LLMProvider,
-    Message,
-    MessageRole,
-)
-from pepperpy.plugin import ProviderPlugin
-
-T = TypeVar("T", bound="OpenAIProvider")
+import openai
+from openai.types.chat import ChatCompletion
+from pepperpy.core.logging import get_logger
+from pepperpy.llm.base import LLMProvider, Message
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 
-class OpenAIProvider(LLMProvider, ProviderPlugin):
+class OpenAIProvider(LLMProvider, PepperpyPlugin):
     """OpenAI provider for LLM tasks."""
 
-    # Attributes auto-bound from plugin.yaml
-    api_key: str
+    name = "openai"
+    version = "0.1.0"
+    description = "OpenAI provider for language model tasks"
+    author = "PepperPy Team"
+
+    # Attributes auto-bound from plugin.yaml with default fallback values
+    api_key: str = ""
     model: str = "gpt-3.5-turbo"
     temperature: float = 0.7
-    max_tokens: int = 1024
-    client: Optional[AsyncOpenAI] = None
-
-    def __init__(self, **kwargs: Any) -> None:
-        """Initialize the OpenAI provider."""
-        super().__init__(**kwargs)
-        self.client = None
-
-    @classmethod
-    def from_config(cls: Type[T], **config: Any) -> T:
-        """Create an OpenAI provider instance from configuration.
-
-        Args:
-            **config: Configuration parameters
-
-        Returns:
-            Provider instance
-        """
-        return cast(T, cls(**config))
+    max_tokens: Optional[int] = None
+    top_p: float = 1.0
+    frequency_penalty: float = 0.0
+    presence_penalty: float = 0.0
+    stop: Optional[Union[str, List[str]]] = None
+    client: Optional[openai.AsyncClient] = None
+    logger = get_logger(__name__)
 
     async def initialize(self) -> None:
-        """Initialize the OpenAI client."""
-        # Initialize client with auto-bound api_key
-        self.client = AsyncOpenAI(api_key=self.api_key)
+        """Initialize the provider.
 
-    def _convert_messages(
-        self, messages: Union[str, List[Message]]
-    ) -> List[ChatCompletionMessageParam]:
-        """Convert PepperPy messages to OpenAI format."""
-        # Handle single string as user message
-        if isinstance(messages, str):
-            return cast(
-                List[ChatCompletionMessageParam],
-                [{"role": "user", "content": messages}],
-            )
+        This method is called automatically when the provider is first used.
+        """
+        if self.initialized:
+            return
 
-        # Convert list of Message objects
-        openai_messages = []
-        for msg in messages:
-            openai_msg: Dict[str, Any] = {
+        # Create OpenAI client
+        self.client = openai.AsyncClient(api_key=self.api_key)
+
+        self.initialized = True
+        self.logger.debug(f"Initialized with model={self.model}")
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        """
+        if self.client:
+            await self.client.close()
+            self.client = None
+
+        self.initialized = False
+        self.logger.debug("Resources cleaned up")
+
+    async def chat_completion(
+        self,
+        messages: List[Message],
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        frequency_penalty: Optional[float] = None,
+        presence_penalty: Optional[float] = None,
+        stop: Optional[Union[str, List[str]]] = None,
+        **kwargs: Any,
+    ) -> ChatCompletion:
+        """Generate a chat completion.
+
+        Args:
+            messages: List of messages in the conversation
+            model: Model to use (defaults to self.model)
+            temperature: Sampling temperature (defaults to self.temperature)
+            max_tokens: Maximum number of tokens to generate (defaults to self.max_tokens)
+            top_p: Nucleus sampling parameter (defaults to self.top_p)
+            frequency_penalty: Frequency penalty (defaults to self.frequency_penalty)
+            presence_penalty: Presence penalty (defaults to self.presence_penalty)
+            stop: Stop sequences (defaults to self.stop)
+            **kwargs: Additional arguments to pass to the API
+
+        Returns:
+            Chat completion response
+
+        Raises:
+            RuntimeError: If provider is not initialized
+            openai.OpenAIError: If API request fails
+        """
+        if not self.initialized:
+            raise RuntimeError("Provider not initialized")
+
+        if not self.client:
+            raise RuntimeError("OpenAI client not initialized")
+
+        # Convert messages to OpenAI format
+        openai_messages = [
+            {
                 "role": msg.role.value,
                 "content": msg.content,
             }
-            if msg.name:
-                openai_msg["name"] = msg.name
-            if msg.function_call:
-                openai_msg["function_call"] = msg.function_call
-            openai_messages.append(cast(ChatCompletionMessageParam, openai_msg))
+            for msg in messages
+        ]
 
-        return openai_messages
-
-    async def generate(
-        self,
-        messages: Union[str, List[Message]],
-        **kwargs: Any,
-    ) -> GenerationResult:
-        """Generate text using the OpenAI API."""
-        # Convert messages to OpenAI format
-        openai_messages = self._convert_messages(messages)
-
-        # Use auto-bound attributes with kwargs overrides
-        temperature = kwargs.get("temperature", self.temperature)
-        max_tokens = kwargs.get("max_tokens", self.max_tokens)
-        model = kwargs.get("model", self.model)
-
-        # Make API call
-        if not self.client:
-            # Framework should have initialized, but check for safety
-            await self.initialize()
-            assert self.client is not None
-
-        response = await self.client.chat.completions.create(
-            model=model,
+        # Use provided values or fall back to instance defaults
+        completion = await self.client.chat.completions.create(
+            model=model or self.model,
             messages=openai_messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
+            temperature=temperature or self.temperature,
+            max_tokens=max_tokens or self.max_tokens,
+            top_p=top_p or self.top_p,
+            frequency_penalty=frequency_penalty or self.frequency_penalty,
+            presence_penalty=presence_penalty or self.presence_penalty,
+            stop=stop or self.stop,
+            **kwargs,
         )
 
-        if not response.choices:
-            raise ValueError("No content generated by OpenAI")
-
-        content = response.choices[0].message.content or ""
-
-        # Build result
-        if isinstance(messages, str):
-            messages_list = [Message(role=MessageRole.USER, content=messages)]
-        else:
-            messages_list = messages.copy()
-
-        # Add response to messages
-        messages_list.append(Message(role=MessageRole.ASSISTANT, content=content))
-
-        # Extract usage statistics
-        usage = None
-        if response.usage:
-            usage = {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens,
-            }
-
-        return GenerationResult(
-            content=content,
-            messages=messages_list,
-            usage=usage,
-            metadata={"model": model},
-        )
-
-    async def generate_stream(
-        self,
-        messages: Union[str, List[Message]],
-        **kwargs: Any,
-    ) -> AsyncIterator[GenerationChunk]:
-        """Generate text in streaming mode using the OpenAI API."""
-        # Convert messages to OpenAI format
-        openai_messages = self._convert_messages(messages)
-
-        # Use auto-bound attributes with kwargs overrides
-        temperature = kwargs.get("temperature", self.temperature)
-        max_tokens = kwargs.get("max_tokens", self.max_tokens)
-        model = kwargs.get("model", self.model)
-
-        # Make API call
-        if not self.client:
-            # Framework should have initialized, but check for safety
-            await self.initialize()
-            assert self.client is not None
-
-        response = await self.client.chat.completions.create(
-            model=model,
-            messages=openai_messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            stream=True,
-        )
-
-        async for chunk in response:
-            if not chunk.choices:
-                continue
-
-            delta = chunk.choices[0].delta
-            if not delta or not delta.content:
-                continue
-
-            yield GenerationChunk(
-                content=delta.content,
-                finish_reason=chunk.choices[0].finish_reason,
-                metadata={"model": model},
-            )
-
-    async def stream(
-        self,
-        messages: Union[str, List[Message]],
-        **kwargs: Any,
-    ) -> AsyncIterator[GenerationChunk]:
-        """Generate text in a streaming fashion (alias for generate_stream).
-
-        Args:
-            messages: String prompt or list of messages
-            **kwargs: Additional generation options
-
-        Returns:
-            AsyncIterator yielding GenerationChunk objects
-
-        Raises:
-            RuntimeError: If generation fails
-        """
-        async for chunk in self.generate_stream(messages, **kwargs):
-            yield chunk
-
-    async def cleanup(self) -> None:
-        """Clean up provider resources."""
-        self.client = None
+        return completion

@@ -19,7 +19,7 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugin import ProviderPlugin
+from pepperpy.plugins import ProviderPlugin
 
 T = TypeVar("T", bound="OpenRouterProvider")
 

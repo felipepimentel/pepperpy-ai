@@ -1,4 +1,4 @@
-from pepperpy import PepperPy
+from pepperpy import PepperPy, init_framework
 
 
 async def main() -> None:
@@ -6,8 +6,11 @@ async def main() -> None:
     print("PepperPy Minimal Example")
     print("=" * 50)
 
-    # Initialize PepperPy with OpenRouter provider
-
+    # Initialize the framework
+    init_framework()
+    print("Framework initialized successfully")
+    
+    # Initialize PepperPy with default LLM provider (from environment variables)
     async with PepperPy().with_llm() as pepper:
         # Chat interface
 

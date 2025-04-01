@@ -5,25 +5,17 @@ from typing import Any, List, Optional, Union
 
 import chromadb.utils.embedding_functions
 
-from pepperpy.core.base import ProviderError
-from pepperpy.core.utils import lazy_provider_class
-from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.core.errors import ProviderError
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 
-@lazy_provider_class("embeddings", "openrouter")
-class OpenRouterEmbeddingProvider(EmbeddingProvider):
+class OpenRouterEmbeddingProvider(PepperpyPlugin):
     """OpenRouter implementation of embeddings provider."""
 
-    
-
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-    model: str
-    base_url: str
-    temperature: float = 0.7
-    max_tokens: int = 1024
-    user_id: str
-    client: Optional[Any]
+    name = "openrouter"
+    version = "0.1.0"
+    description = "OpenRouter embeddings provider using their API"
+    author = "PepperPy Team"
 
     def __init__(
         self,
@@ -71,6 +63,12 @@ class OpenRouterEmbeddingProvider(EmbeddingProvider):
                 api_type="openrouter",
             )
         )
+        self.initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        self._embedding_function = None
+        self.initialized = False
 
     async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
         """Generate embeddings for the given text.
@@ -80,7 +78,13 @@ class OpenRouterEmbeddingProvider(EmbeddingProvider):
 
         Returns:
             List of embeddings vectors
+
+        Raises:
+            ProviderError: If provider is not initialized
         """
+        if not self._embedding_function:
+            raise ProviderError("Provider not initialized")
+
         if isinstance(text, str):
             text = [text]
         return self._embedding_function(text)

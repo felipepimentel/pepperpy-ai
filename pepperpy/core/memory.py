@@ -129,6 +129,27 @@ class MemoryManager:
     def __init__(self) -> None:
         """Initialize memory manager."""
         self._memories: List[BaseMemory] = []
+        self._initialized = False
+
+    async def __aenter__(self) -> "MemoryManager":
+        """Enter async context.
+
+        Returns:
+            Self for context management
+        """
+        self._initialized = True
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context.
+
+        Args:
+            exc_type: Exception type if an error occurred
+            exc_val: Exception value if an error occurred
+            exc_tb: Exception traceback if an error occurred
+        """
+        await self.cleanup()
+        self._initialized = False
 
     def add(self, memory: BaseMemory) -> None:
         """Add a memory instance.
@@ -193,3 +214,8 @@ class MemoryManager:
         """
         for memory in self._memories:
             memory.load(f"{path}/{memory.name}")
+
+    async def cleanup(self) -> None:
+        """Clean up all memory resources."""
+        self.clear_all()
+        self._memories.clear()

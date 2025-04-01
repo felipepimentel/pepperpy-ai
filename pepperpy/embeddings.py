@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional, Protocol, Union, cast, runtime_che
 
 from pepperpy.core.base import BaseComponent, PepperpyError
 from pepperpy.core.config import Config
-from pepperpy.plugin_manager import plugin_manager
+from pepperpy.plugins.discovery import create_provider_instance
 
 
 class EmbeddingError(PepperpyError):
@@ -152,7 +152,7 @@ class EmbeddingComponent(BaseComponent):
         """Initialize the embeddings provider."""
         provider_type = self.config.get("embeddings.provider", "openai")
         provider_config = self.config.get("embeddings.config", {})
-        provider = plugin_manager.create_provider(
+        provider = create_provider_instance(
             "embeddings", provider_type, **provider_config
         )
         self._provider = cast(EmbeddingsProvider, provider)
@@ -218,8 +218,8 @@ def create_provider(
         EmbeddingConfigError: If the provider type is invalid or configuration is invalid
     """
     try:
-        # Use plugin manager to create provider
-        provider = plugin_manager.create_provider("embeddings", provider_type, **config)
+        # Use enhanced plugin discovery to create provider
+        provider = create_provider_instance("embeddings", provider_type, **config)
         if not isinstance(provider, EmbeddingsProvider):
             raise EmbeddingConfigError(
                 f"Provider '{provider_type}' does not implement EmbeddingsProvider interface"

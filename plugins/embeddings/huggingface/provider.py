@@ -2,28 +2,22 @@
 
 from typing import Any, Dict, List, Union
 
-from pepperpy.core.utils import import_provider, lazy_provider_class
-from pepperpy.embeddings.base import EmbeddingProvider
+from pepperpy.core.exceptions import ProviderError
+from pepperpy.core.helpers import import_provider
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 
-@lazy_provider_class("embeddings", "huggingface")
-class HuggingFaceEmbeddingProvider(EmbeddingProvider):
+class HuggingFaceEmbeddingProvider(PepperpyPlugin):
     """HuggingFace implementation of embeddings provider.
 
     This provider uses HuggingFace's transformers library to generate embeddings.
     It supports a wide range of models from the HuggingFace Hub.
     """
 
-    
-
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-    model: str = "default-model"
-    base_url: str
-    temperature: float = 0.7
-    max_tokens: int = 1024
-    user_id: str
-    client: Optional[Any]
+    name = "huggingface"
+    version = "0.1.0"
+    description = "HuggingFace embeddings provider using transformers"
+    author = "PepperPy Team"
 
     def __init__(
         self,
@@ -45,9 +39,60 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         self._tokenizer = None
         self._embedding_function = None
 
+    def _mean_pooling(self, model_output: Any, attention_mask: Any) -> Any:
+        """Mean pooling to get sentence embeddings."""
+        import torch
+
+        token_embeddings = model_output[0]
+        input_mask_expanded = (
+            attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+        )
+        return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
+            input_mask_expanded.sum(1), min=1e-9
+        )
+
+    def _embed_texts(self, texts: List[str]) -> List[List[float]]:
+        """Generate embeddings for texts.
+
+        Args:
+            texts: List of texts to embed
+
+        Returns:
+            List of embeddings vectors
+
+        Raises:
+            ProviderError: If provider is not initialized
+        """
+        import torch
+
+        if not self._tokenizer or not self._model:
+            raise ProviderError("Provider not initialized")
+
+        # Tokenize texts
+        encoded_input = self._tokenizer(
+            texts,
+            padding=True,
+            truncation=True,
+            max_length=512,
+            return_tensors="pt",
+        )
+        encoded_input = {k: v.to(self.device) for k, v in encoded_input.items()}
+
+        # Compute token embeddings
+        with torch.no_grad():
+            model_output = self._model(**encoded_input)
+
+        # Perform pooling
+        embeddings = self._mean_pooling(model_output, encoded_input["attention_mask"])
+
+        # Normalize embeddings
+        embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
+
+        return embeddings.cpu().tolist()
+
     async def initialize(self) -> None:
         """Initialize the provider by loading the model."""
-        transformers = import_provider("transformers", "embeddings", "huggingface")
+        transformers = import_provider("transformers")
 
         # Load tokenizer and model
         self._tokenizer = transformers.AutoTokenizer.from_pretrained(self.model_name)
@@ -57,46 +102,16 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
         # Set model to evaluation mode
         self._model.eval()
 
-        self._embedding_function = self._get_embedding_function()
+        # Set embedding function after model and tokenizer are initialized
+        self._embedding_function = self._embed_texts
+        self.initialized = True
 
-    def _get_embedding_function(self) -> Any:
-        """Create an embedding function compatible with vector stores."""
-        import torch
-
-        def mean_pooling(model_output: Any, attention_mask: Any) -> Any:
-            """Mean pooling to get sentence embeddings."""
-            token_embeddings = model_output[0]
-            input_mask_expanded = (
-                attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-            )
-            return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
-                input_mask_expanded.sum(1), min=1e-9
-            )
-
-        def embed_texts(texts: List[str]) -> List[List[float]]:
-            # Tokenize texts
-            encoded_input = self._tokenizer(
-                texts,
-                padding=True,
-                truncation=True,
-                max_length=512,
-                return_tensors="pt",
-            )
-            encoded_input = {k: v.to(self.device) for k, v in encoded_input.items()}
-
-            # Compute token embeddings
-            with torch.no_grad():
-                model_output = self._model(**encoded_input)
-
-            # Perform pooling
-            embeddings = mean_pooling(model_output, encoded_input["attention_mask"])
-
-            # Normalize embeddings
-            embeddings = torch.nn.functional.normalize(embeddings, p=2, dim=1)
-
-            return embeddings.cpu().tolist()
-
-        return embed_texts
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        self._model = None
+        self._tokenizer = None
+        self._embedding_function = None
+        self.initialized = False
 
     async def embed_text(self, text: Union[str, List[str]]) -> List[List[float]]:
         """Generate embeddings for the given text.
@@ -106,7 +121,13 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
 
         Returns:
             List of embeddings vectors
+
+        Raises:
+            ProviderError: If provider is not initialized
         """
+        if not self._embedding_function:
+            raise ProviderError("Provider not initialized")
+
         if isinstance(text, str):
             text = [text]
         return self._embedding_function(text)
@@ -127,7 +148,12 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
 
         Returns:
             A callable that generates embeddings
+
+        Raises:
+            ProviderError: If provider is not initialized
         """
+        if not self._embedding_function:
+            raise ProviderError("Provider not initialized")
         return self._embedding_function
 
     async def get_dimensions(self) -> int:
@@ -135,9 +161,12 @@ class HuggingFaceEmbeddingProvider(EmbeddingProvider):
 
         Returns:
             The number of dimensions in the embeddings
+
+        Raises:
+            ProviderError: If provider is not initialized
         """
         if not self._model:
-            await self.initialize()
+            raise ProviderError("Provider not initialized")
         return self._model.config.hidden_size
 
     def get_config(self) -> Dict[str, Any]:

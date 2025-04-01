@@ -1,57 +1,64 @@
-"""Helper functions for PepperPy core functionality."""
+"""Helper functions for PepperPy.
+
+This module provides utility functions used throughout the framework.
+"""
 
 import functools
 import importlib
-import inspect
 import logging
 import time
-from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Dict, Optional, Type, TypeVar
+
+from pepperpy.core.errors import ConfigurationError
 
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
 
-def import_string(dotted_path: str) -> Any:
-    """Import a dotted module path and return the attribute/class.
+def lazy_provider_class(provider_path: str) -> Type[Any]:
+    """Lazily import a provider class.
 
     Args:
-        dotted_path: The dotted path to import
+        provider_path: Dotted path to provider class
 
     Returns:
-        The imported attribute/class
+        Provider class
 
     Raises:
-        ImportError: If the import failed
+        ConfigurationError: If provider cannot be imported
     """
     try:
-        module_path, class_name = dotted_path.rsplit(".", 1)
-    except ValueError as e:
-        raise ImportError(f"{dotted_path} doesn't look like a module path") from e
-
-    module = importlib.import_module(module_path)
-    try:
+        module_path, class_name = provider_path.rsplit(".", 1)
+        module = importlib.import_module(module_path)
         return getattr(module, class_name)
-    except AttributeError as e:
-        raise ImportError(
-            f"Module '{module_path}' does not define a '{class_name}' attribute/class"
+    except (ImportError, AttributeError) as e:
+        raise ConfigurationError(
+            f"Failed to import provider {provider_path}: {e}"
         ) from e
 
 
-def safe_import(module_name: str) -> Optional[Any]:
-    """Safely import a module, returning None if it cannot be imported.
+def import_provider(provider_path: str) -> Any:
+    """Import a provider module or class.
 
     Args:
-        module_name: Name of the module to import
+        provider_path: Dotted path to provider
 
     Returns:
-        The imported module or None if import failed
+        Imported provider
+
+    Raises:
+        ConfigurationError: If provider cannot be imported
     """
     try:
-        return importlib.import_module(module_name)
+        return importlib.import_module(provider_path)
     except ImportError:
-        return None
+        try:
+            return lazy_provider_class(provider_path)
+        except Exception as e2:
+            raise ConfigurationError(
+                f"Failed to import provider {provider_path}: {e2}"
+            ) from e2
 
 
 def retry(
@@ -61,39 +68,77 @@ def retry(
     exceptions: tuple = (Exception,),
     hook: Optional[Callable[[Exception, int], None]] = None,
 ) -> Callable:
-    """Function decorator implementing retrying logic.
+    """Retry decorator with exponential backoff.
 
     Args:
-        max_tries: Maximum number of attempts. Default is 3.
-        delay: Initial delay between retries in seconds. Default is 1.
-        backoff: Backoff multiplier e.g. value of 2 will double the delay. Default is 2.
-        exceptions: Tuple of exceptions to catch. Default is (Exception,).
-        hook: Function to execute when retry occurs. Default is None.
+        max_tries: Maximum number of attempts
+        delay: Initial delay between retries in seconds
+        backoff: Backoff multiplier
+        exceptions: Tuple of exceptions to catch
+        hook: Optional callback for retry events
 
     Returns:
-        A decorator function
+        Decorated function
     """
 
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            tries, delay_val = max_tries, delay
-            while tries > 1:
+            _delay = delay
+            last_exception = None
+
+            for n in range(max_tries):
                 try:
                     return func(*args, **kwargs)
                 except exceptions as e:
-                    tries -= 1
-                    if hook:
-                        hook(e, tries)
-                    if tries == 1:
+                    last_exception = e
+                    if n == max_tries - 1:
                         raise
-                    time.sleep(delay_val)
-                    delay_val *= backoff
-            return func(*args, **kwargs)
+
+                    if hook:
+                        hook(e, n)
+
+                    time.sleep(_delay)
+                    _delay *= backoff
+
+            if last_exception:
+                raise last_exception
+            return None
 
         return wrapper
 
     return decorator
+
+
+def format_string(template: str, **kwargs: Any) -> str:
+    """Format a string template with keyword arguments.
+
+    Args:
+        template: String template
+        **kwargs: Format arguments
+
+    Returns:
+        Formatted string
+
+    Raises:
+        ValueError: If required arguments are missing
+    """
+    try:
+        return template.format(**kwargs)
+    except KeyError as e:
+        raise ValueError(f"Missing required argument {e} for template: {template}")
+
+
+def convert_to_dict(obj: Any) -> Dict[str, Any]:
+    """Convert an object to a dictionary.
+
+    Args:
+        obj: Object to convert
+
+    Returns:
+        Dictionary representation
+    """
+    return getattr(obj, "__dict__", {})
 
 
 def flatten_dict(
@@ -103,13 +148,13 @@ def flatten_dict(
 
     Args:
         d: Dictionary to flatten
-        parent_key: Parent key
-        sep: Separator
+        parent_key: Parent key prefix
+        sep: Separator between keys
 
     Returns:
         Flattened dictionary
     """
-    items: List[tuple] = []
+    items: list = []
     for k, v in d.items():
         new_key = f"{parent_key}{sep}{k}" if parent_key else k
         if isinstance(v, dict):
@@ -120,135 +165,20 @@ def flatten_dict(
 
 
 def unflatten_dict(d: Dict[str, Any], sep: str = ".") -> Dict[str, Any]:
-    """Unflatten a flattened dictionary.
+    """Unflatten a dictionary with dotted keys.
 
     Args:
-        d: Flattened dictionary
-        sep: Separator used in keys
+        d: Dictionary to unflatten
+        sep: Key separator
 
     Returns:
-        Nested dictionary
+        Unflattened dictionary
     """
     result: Dict[str, Any] = {}
     for key, value in d.items():
         parts = key.split(sep)
-        tmp = result
+        target = result
         for part in parts[:-1]:
-            if part not in tmp:
-                tmp[part] = {}
-            tmp = tmp[part]
-        tmp[parts[-1]] = value
+            target = target.setdefault(part, {})
+        target[parts[-1]] = value
     return result
-
-
-def merge_configs(base: Dict[str, Any], override: Dict[str, Any]) -> Dict[str, Any]:
-    """Merge two configuration dictionaries.
-
-    Args:
-        base: Base configuration dictionary
-        override: Override configuration dictionary
-
-    Returns:
-        Merged configuration dictionary
-    """
-    result = base.copy()
-    for key, value in override.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = merge_configs(result[key], value)
-        else:
-            result[key] = value
-    return result
-
-
-def convert_to_dict(obj: Any) -> Dict[str, Any]:
-    """Convert an object to a dictionary.
-
-    Args:
-        obj: Object to convert
-
-    Returns:
-        Dictionary representation of the object
-    """
-    if isinstance(obj, dict):
-        return obj
-    elif hasattr(obj, "__dict__"):
-        return obj.__dict__
-    elif hasattr(obj, "items"):
-        return dict(obj.items())
-    else:
-        # Try to convert to dict by getting all attributes
-        return get_class_attributes(obj)
-
-
-def get_class_attributes(obj: Any) -> Dict[str, Any]:
-    """Get all attributes of a class instance.
-
-    Args:
-        obj: Object to inspect
-
-    Returns:
-        Dictionary of attributes
-    """
-    return {
-        key: value
-        for key, value in inspect.getmembers(obj)
-        if not callable(value) and not key.startswith("__")
-    }
-
-
-def format_date(
-    dt: Optional[Union[datetime, str]] = None, fmt: str = "%Y-%m-%d %H:%M:%S"
-) -> str:
-    """Format a datetime object or string as a string.
-
-    Args:
-        dt: Datetime object or string. Default is current time.
-        fmt: Format string. Default is "%Y-%m-%d %H:%M:%S".
-
-    Returns:
-        Formatted date string
-    """
-    if dt is None:
-        dt = datetime.now()
-    if isinstance(dt, str):
-        try:
-            dt = datetime.fromisoformat(dt.replace("Z", "+00:00"))
-        except ValueError:
-            return dt
-    return dt.strftime(fmt)
-
-
-def truncate_text(text: str, max_length: int = 100, suffix: str = "...") -> str:
-    """Truncate text to a maximum length.
-
-    Args:
-        text: Text to truncate
-        max_length: Maximum length of the truncated text
-        suffix: Suffix to add to truncated text
-
-    Returns:
-        Truncated text
-    """
-    if len(text) <= max_length:
-        return text
-    return text[: max_length - len(suffix)] + suffix
-
-
-def validate_type(value: Any, expected_type: Type[T]) -> T:
-    """Validate that a value is of the expected type.
-
-    Args:
-        value: Value to validate
-        expected_type: Expected type
-
-    Returns:
-        The validated value
-
-    Raises:
-        TypeError: If the value is not of the expected type
-    """
-    if not isinstance(value, expected_type):
-        raise TypeError(
-            f"Expected {expected_type.__name__}, got {type(value).__name__}"
-        )
-    return value

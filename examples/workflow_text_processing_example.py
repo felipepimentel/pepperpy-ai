@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 from pepperpy import PepperPy
-from pepperpy.plugin_manager import plugin_manager
+from pepperpy.plugins import PluginManager
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -25,7 +25,7 @@ async def main() -> None:
     # Initialize PepperPy
     async with PepperPy() as pepper:
         # Get workflow using plugin_manager
-        workflow_provider = plugin_manager.create_provider(
+        workflow_provider = PluginManager.create_provider(
             "workflow", "text_processing", processor="spacy"
         )
 
@@ -58,7 +58,7 @@ async def main() -> None:
         # Try with a different processor if available
         print("\nProcessing with NLTK processor...")
         try:
-            nltk_workflow = plugin_manager.create_provider(
+            nltk_workflow = PluginManager.create_provider(
                 "workflow", "text_processing", processor="nltk"
             )
             await nltk_workflow.initialize()
@@ -75,12 +75,10 @@ async def main() -> None:
 
         # Use the execute method directly
         print("\nUsing execute method...")
-        result = await workflow_provider.execute(
-            {
-                "text": "This is a direct execution example.",
-                "options": {"processing_options": {"include_pos": True}},
-            }
-        )
+        result = await workflow_provider.execute({
+            "text": "This is a direct execution example.",
+            "options": {"processing_options": {"include_pos": True}},
+        })
 
         processed = result["result"]
         print(f"Processed text has {len(processed.tokens)} tokens")

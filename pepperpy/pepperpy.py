@@ -5,8 +5,10 @@ It abstracts the plugin system and provides a fluent API for configuring
 and using providers.
 """
 
+import asyncio
 import os
 from collections.abc import AsyncIterator, Sequence
+from pathlib import Path
 from typing import (
     Any,
     Dict,
@@ -17,9 +19,14 @@ from typing import (
     cast,
 )
 
-from loguru import logger
-
-from pepperpy.core import ValidationError
+from pepperpy.core import (
+    EventType,
+    ValidationError,
+    get_event_bus,
+    get_logger,
+)
+from pepperpy.core.config import Config, get_config_registry
+from pepperpy.core.di import get_container
 from pepperpy.embeddings import EmbeddingsProvider
 from pepperpy.llm import (
     GenerationChunk,
@@ -28,7 +35,7 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugin_manager import plugin_manager
+from pepperpy.plugins.discovery import create_provider_instance, get_plugin_registry
 from pepperpy.rag import (
     Document,
     Query,
@@ -41,6 +48,8 @@ from pepperpy.workflow.base import (
     PipelineContext,
     WorkflowProvider,
 )
+
+logger = get_logger(__name__)
 
 
 class ChatBuilder:
@@ -1099,12 +1108,75 @@ class LLMBuilder:
 class PepperPy:
     """Main class for interacting with the PepperPy framework."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
+    def __init__(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        config_file: Optional[Union[str, Path]] = None,
+        env_prefix: str = "PEPPERPY_",
+        plugin_dirs: Optional[List[str]] = None,
+        auto_discover_plugins: bool = True,
+        register_services: bool = True,
+    ) -> None:
         """Initialize PepperPy.
 
         Args:
             config: Optional global configuration
+            config_file: Optional path to configuration file
+            env_prefix: Environment variable prefix
+            plugin_dirs: Optional additional plugin directories
+            auto_discover_plugins: Whether to discover plugins automatically
+            register_services: Whether to register core services in the DI container
         """
+        logger.info("Initializing PepperPy framework...")
+
+        # Initialize configuration
+        config_registry = get_config_registry()
+        if config_file:
+            config_registry.register(
+                "core", Config(config_path=config_file, env_prefix=env_prefix)
+            )
+        elif config:
+            config_registry.register(
+                "core", Config(defaults=config, env_prefix=env_prefix)
+            )
+        else:
+            config_registry.register("core", Config(env_prefix=env_prefix))
+
+        # Initialize dependency injection
+        container = get_container()
+        if register_services:
+            container.services.add_singleton_instance(
+                Config, config_registry.get("core")
+            )
+            container.build()
+
+        # Initialize plugin system
+        plugin_registry = get_plugin_registry()
+        if auto_discover_plugins:
+            search_paths = []
+            if plugin_dirs:
+                search_paths.extend(plugin_dirs)
+            default_path = Path(__file__).parent.parent / "plugins"
+            if default_path.exists():
+                search_paths.append(str(default_path))
+            plugin_registry.discover_plugins(search_paths)
+
+        # Publish initialization event
+        event_bus = get_event_bus()
+        asyncio.create_task(
+            event_bus.publish(
+                EventType.INITIALIZE,
+                {
+                    "config_file": str(config_file) if config_file else None,
+                    "env_prefix": env_prefix,
+                    "plugin_dirs": plugin_dirs,
+                    "auto_discover_plugins": auto_discover_plugins,
+                },
+            )
+        )
+
+        logger.info("PepperPy framework initialized successfully")
+
         # Carregar .env automaticamente
         try:
             from pepperpy.plugin import PepperpyPlugin
@@ -1141,9 +1213,9 @@ class PepperPy:
 
         logger.debug(f"Configuring LLM provider: {provider_type}")
 
-        # Use plugin manager internally
+        # Use enhanced plugin discovery system
         self._llm_provider = cast(
-            LLMProvider, plugin_manager.create_provider("llm", provider_type, **config)
+            LLMProvider, create_provider_instance("llm", provider_type, **config)
         )
         return self
 
@@ -1158,9 +1230,8 @@ class PepperPy:
         """
         if provider is None:
             provider_type = os.environ.get("PEPPERPY_RAG__PROVIDER", "memory")
-            provider = cast(
-                RAGProvider, plugin_manager.create_provider("rag", provider_type)
-            )
+
+            provider = cast(RAGProvider, create_provider_instance("rag", provider_type))
         self._rag_provider = provider
         return self
 
@@ -1191,11 +1262,9 @@ class PepperPy:
         if provider is None:
             provider_type = os.environ.get("PEPPERPY_TTS__PROVIDER", "elevenlabs")
 
-            from pepperpy.plugin_manager import plugin_manager
-
             provider = cast(
                 TTSProvider,
-                plugin_manager.create_provider("tts", provider_type, **config),
+                create_provider_instance("tts", provider_type, **config),
             )
 
         self._tts_provider = provider
@@ -1221,10 +1290,10 @@ class PepperPy:
 
         logger.debug(f"Configuring embeddings provider: {provider_type}")
 
-        # Use plugin manager internally
+        # Use enhanced plugin discovery system
         self._embeddings_provider = cast(
             EmbeddingsProvider,
-            plugin_manager.create_provider("embeddings", provider_type, **config),
+            create_provider_instance("embeddings", provider_type, **config),
         )
         return self
 

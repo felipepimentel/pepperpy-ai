@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import cast
 
 from pepperpy.content.base import ContentProcessor, ProcessingResult
-from pepperpy.plugin_manager import plugin_manager
+from pepperpy.plugins import PluginManager
 
 
 async def process_document() -> None:
@@ -18,7 +18,7 @@ async def process_document() -> None:
     # Create document processor
     provider = cast(
         ContentProcessor,
-        plugin_manager.create_provider("content/processing/document", "pymupdf"),
+        PluginManager.create_provider("content/processing/document", "pymupdf"),
     )
     await provider.initialize()
 
@@ -46,7 +46,7 @@ async def process_image() -> None:
     # Create image processor
     provider = cast(
         ContentProcessor,
-        plugin_manager.create_provider("content/processing/document", "tesseract"),
+        PluginManager.create_provider("content/processing/document", "tesseract"),
     )
     await provider.initialize()
 
@@ -66,7 +66,7 @@ async def process_audio() -> None:
     # Create audio processor
     provider = cast(
         ContentProcessor,
-        plugin_manager.create_provider("content/processing/audio", "ffmpeg"),
+        PluginManager.create_provider("content/processing/audio", "ffmpeg"),
     )
     await provider.initialize()
 
@@ -84,7 +84,7 @@ async def process_archive() -> None:
     # Create archive processor
     provider = cast(
         ContentProcessor,
-        plugin_manager.create_provider("content/processing/archive", "zipfile"),
+        PluginManager.create_provider("content/processing/archive", "zipfile"),
     )
     await provider.initialize()
 

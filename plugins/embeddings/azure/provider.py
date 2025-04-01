@@ -10,7 +10,7 @@ from openai import AsyncAzureOpenAI
 
 from pepperpy.core import ConfigError, ProviderError
 from pepperpy.embeddings.base import EmbeddingsProvider
-from pepperpy.plugin import ProviderPlugin
+from pepperpy.plugins import ProviderPlugin
 
 
 class AzureEmbeddingsProvider(EmbeddingsProvider, ProviderPlugin):

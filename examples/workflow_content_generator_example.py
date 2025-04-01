@@ -9,7 +9,7 @@ import asyncio
 import os
 from pathlib import Path
 
-from pepperpy.plugin_manager import plugin_manager
+from pepperpy.plugins import PluginManager
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -23,7 +23,7 @@ async def main() -> None:
     print("=" * 50)
 
     # Create and initialize the workflow provider
-    workflow = plugin_manager.create_provider(
+    workflow = PluginManager.create_provider(
         "workflow", "content_generator", style="conversational"
     )
     await workflow.initialize()
@@ -46,16 +46,14 @@ async def main() -> None:
 
     # Try with different options
     print("\nGenerating content with different options...")
-    advanced_result = await workflow.execute(
-        {
-            "topic": "Machine Learning Ethics",
-            "options": {
-                "outline_type": "blog_post",
-                "style": "informative",
-                "model": "gpt-4",
-            },
-        }
-    )
+    advanced_result = await workflow.execute({
+        "topic": "Machine Learning Ethics",
+        "options": {
+            "outline_type": "blog_post",
+            "style": "informative",
+            "model": "gpt-4",
+        },
+    })
 
     # Output to file
     output_file = OUTPUT_DIR / "ml_ethics_content.md"

@@ -3,26 +3,6 @@
 This module was migrated from a subdirectory structure.
 """
 
-"""Base interfaces and types for LLM capabilities.
-
-This module defines the core interfaces and data types for working with
-Language Model providers in PepperPy.
-
-Example:
-    >>> from pepperpy.llm import LLMProvider, Message, MessageRole
-    >>> provider = LLMProvider.from_config({
-    ...     "provider": "openai",
-    ...     "model": "gpt-4",
-    ...     "api_key": "sk-..."
-    ... })
-    >>> messages = [
-    ...     Message(MessageRole.SYSTEM, "You are helpful."),
-    ...     Message(MessageRole.USER, "What's the weather?")
-    ... ]
-    >>> result = provider.generate(messages)
-    >>> print(result.content)
-"""
-
 import abc
 import enum
 from collections.abc import AsyncIterator
@@ -30,11 +10,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union, cast
 
-from pepperpy.core.base import (
-    BaseProvider,
-    PepperpyError,
-    ValidationError,
-)
+from pepperpy.core.errors import PepperpyError, ValidationError
+from pepperpy.plugins.discovery import create_provider_instance
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.workflow.base import WorkflowComponent
 
 
@@ -160,7 +138,7 @@ class LLMProcessError(LLMError):
         return f"LLM process error: {self.message}"
 
 
-class LLMProvider(BaseProvider, abc.ABC):
+class LLMProvider(PepperpyPlugin, abc.ABC):
     """Base class for LLM providers.
 
     This class defines the interface that all LLM providers must implement.
@@ -182,10 +160,8 @@ class LLMProvider(BaseProvider, abc.ABC):
             config: Optional configuration dictionary
             **kwargs: Additional provider-specific configuration
         """
+        super().__init__(**{**(config or {}), **kwargs})
         self.name = name
-        self._config = config or {}
-        self._config.update(kwargs)
-        self.initialized = False
         self.last_used = None
 
     @property
@@ -195,7 +171,7 @@ class LLMProvider(BaseProvider, abc.ABC):
         Returns:
             The API key if set, None otherwise.
         """
-        return self._config.get("api_key")
+        return self.get_config("api_key")
 
     @abc.abstractmethod
     async def generate(
@@ -446,11 +422,8 @@ def create_provider(provider_type: str = "openai", **config: Any) -> LLMProvider
         ValidationError: If provider creation fails
     """
     try:
-        # Usar o plugin_manager em vez de importar diretamente os providers
-        from pepperpy.plugin_manager import plugin_manager
-
-        # Criar o provider usando o plugin_manager
-        provider = plugin_manager.create_provider("llm", provider_type, **config)
+        # Create provider using enhanced plugin discovery
+        provider = create_provider_instance("llm", provider_type, **config)
         return cast(LLMProvider, provider)
     except Exception as e:
         raise ValidationError(f"Failed to create LLM provider '{provider_type}': {e}")

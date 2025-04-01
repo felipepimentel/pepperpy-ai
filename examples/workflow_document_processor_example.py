@@ -9,7 +9,7 @@ import os
 from pathlib import Path
 
 # Import plugin_manager
-from pepperpy.plugin_manager import plugin_manager
+from pepperpy.plugins import PluginManager
 
 # Setup paths
 EXAMPLES_DIR = Path(__file__).parent
@@ -26,7 +26,7 @@ async def main() -> None:
     # Create the document processor using plugin_manager
     # O linter vai alertar sobre o método execute(), mas isso é esperado
     # já que ele não consegue inferir o tipo exato retornado pelo plugin_manager
-    workflow = plugin_manager.create_provider(
+    workflow = PluginManager.create_provider(
         "workflow",
         "document_processor",
         extract_metadata=True,

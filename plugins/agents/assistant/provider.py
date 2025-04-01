@@ -1,119 +1,119 @@
-"""Assistant Interfaces.
+"""Assistant provider for agent tasks.
 
-This module defines the core interfaces for the assistant domain,
-including message formats, context management, and base classes.
+This module provides an assistant provider that can engage in conversations,
+maintain context, and execute tasks using language models.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core import BaseProvider
+from pepperpy.core.logging import get_logger
+from pepperpy.llm import LLMProvider, Message, MessageRole
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 
-class Message:
-    """Standard message format for assistant communication.
+class Assistant(PepperpyPlugin):
+    """Assistant provider for agent tasks.
 
-    Args:
-        content: Message content
-        metadata: Optional message metadata
-
-    Example:
-        >>> message = Message("Hello!", metadata={"type": "greeting"})
-        >>> print(message.content)
-        'Hello!'
+    This provider implements an AI assistant that can engage in conversations,
+    maintain context, and execute tasks using language models.
     """
 
-    def __init__(
-        self,
-        content: str,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self.content = content
-        self.metadata = metadata or {}
+    name = "assistant"
+    version = "0.1.0"
+    description = "Assistant provider for agent tasks"
+    author = "PepperPy Team"
 
-
-class Context:
-    """Assistant execution context.
-
-    Args:
-        assistant_id: Unique assistant identifier
-        metadata: Optional context metadata
-
-    Example:
-        >>> context = Context("assistant_1", metadata={"mode": "chat"})
-        >>> print(context.assistant_id)
-        'assistant_1'
-    """
-
-    def __init__(
-        self,
-        assistant_id: str,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        self.assistant_id = assistant_id
-        self.metadata = metadata or {}
-
-
-class Assistant(BaseProvider):
-    """Base assistant implementation.
-
-    This class defines the common interface for all assistants.
-    It provides basic message processing and context management.
-
-    Args:
-        name: Assistant name
-        **kwargs: Assistant-specific configuration
-
-    Example:
-        >>> assistant = Assistant("helper")
-        >>> response = assistant.process_message("Hello!")
-        >>> print(response.content)
-    """
-
-    
-
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-    model: str = "default-model"
-    base_url: str
+    # Attributes auto-bound from plugin.yaml with default fallback values
+    model: str = "gpt-3.5-turbo"
     temperature: float = 0.7
-    max_tokens: int = 1024
-    user_id: str
-    client: Optional[Any]
+    max_tokens: Optional[int] = None
+    system_prompt: str = "You are a helpful AI assistant."
+    memory_size: int = 10
+    llm: Optional[LLMProvider] = None
+    logger = get_logger(__name__)
 
-    def __init__(
+    def __init__(self) -> None:
+        """Initialize the assistant."""
+        super().__init__()
+        self.messages: List[Message] = []
+        self.context: Dict[str, Any] = {}
+
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
+        """
+        if self.initialized:
+            return
+
+        # Add system prompt
+        self.messages = [Message(content=self.system_prompt, role=MessageRole.SYSTEM)]
+
+        self.initialized = True
+        self.logger.debug(f"Initialized with model={self.model}")
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        """
+        self.messages = []
+        self.context = {}
+
+        self.initialized = False
+        self.logger.debug("Resources cleaned up")
+
+    async def chat(
         self,
-        name: str,
+        message: Union[str, Message],
+        context: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
-    ) -> None:
-        super().__init__(name, **kwargs)
-        self.provider_type = "assistant"
-
-    def process_message(
-        self,
-        content: str,
-        context: Optional[Context] = None,
-    ) -> Message:
-        """Process an incoming message.
+    ) -> str:
+        """Send a message to the assistant and get a response.
 
         Args:
-            content: Message content
-            context: Optional processing context
+            message: Message to send
+            context: Optional context to add to the conversation
+            **kwargs: Additional arguments to pass to the LLM
 
         Returns:
-            Response message
+            Assistant's response
 
-        Example:
-            >>> assistant = Assistant("helper")
-            >>> response = assistant.process_message("Hello!")
-            >>> print(response.content)
+        Raises:
+            RuntimeError: If provider is not initialized or LLM is not set
         """
-        # Base implementation just echoes the message
-        return Message(f"Echo: {content}")
+        if not self.initialized:
+            raise RuntimeError("Provider not initialized")
 
-    def __str__(self) -> str:
-        """Get string representation.
+        if not self.llm:
+            raise RuntimeError("LLM provider not set")
 
-        Returns:
-            Assistant name and type
-        """
-        return f"{self.name} ({self.provider_type})"
+        # Convert string to Message
+        if isinstance(message, str):
+            message = Message(content=message, role=MessageRole.USER)
+
+        # Update context
+        if context:
+            self.context.update(context)
+
+        # Add message to history
+        self.messages.append(message)
+
+        # Trim history if needed
+        if len(self.messages) > self.memory_size + 1:  # +1 for system prompt
+            self.messages = [self.messages[0]] + self.messages[-self.memory_size :]
+
+        # Generate response using LLM
+        response = await self.llm.generate(
+            messages=self.messages,
+            model=kwargs.get("model", self.model),
+            temperature=kwargs.get("temperature", self.temperature),
+            max_tokens=kwargs.get("max_tokens", self.max_tokens),
+        )
+
+        # Add response to history
+        self.messages.append(
+            Message(content=response.content, role=MessageRole.ASSISTANT)
+        )
+
+        return response.content

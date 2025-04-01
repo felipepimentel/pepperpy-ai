@@ -22,13 +22,11 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugin import ProviderPlugin
+from pepperpy.plugins import ProviderPlugin
 
 
 class LocalProvider(LLMProvider, ProviderPlugin):
     """Local LLM provider using transformers."""
-
-    
 
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str

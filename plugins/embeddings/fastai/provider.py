@@ -2,7 +2,7 @@
 
 from typing import Any, Dict, List, Union
 
-from pepperpy.core.utils import import_provider, lazy_provider_class
+from pepperpy.core.helpers import import_provider, lazy_provider_class
 from pepperpy.embeddings.base import EmbeddingProvider
 
 
@@ -13,8 +13,6 @@ class FastAIEmbeddingProvider(EmbeddingProvider):
     This provider uses FastAI's AWD-LSTM model to generate embeddings.
     It's particularly good for text classification and sentiment analysis.
     """
-
-    
 
     # Attributes auto-bound from plugin.yaml com valores padrão como fallback
     api_key: str

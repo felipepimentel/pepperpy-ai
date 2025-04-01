@@ -16,16 +16,16 @@ Example:
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
+from pepperpy.core.intent import Intent as CoreIntent
 from pepperpy.core.validation import ValidationError
 
 
 @dataclass
-class Intent:
+class Intent(CoreIntent):
     """Recognized intent from user input.
 
-    This class represents a recognized intent from user input, including
-    the intent name, confidence score, extracted parameters, and metadata.
-    It is used for natural language understanding and action determination.
+    This class extends the core Intent class with additional functionality
+    specific to agent interactions, including metadata and validation.
 
     Args:
         name: Intent name
@@ -45,9 +45,6 @@ class Intent:
         London
     """
 
-    name: str
-    confidence: float
-    parameters: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):

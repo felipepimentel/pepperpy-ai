@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, Union, cast
 
 from openai import AsyncOpenAI
 from pepperpy.embeddings import EmbeddingsProvider
-from pepperpy.plugin import ProviderPlugin
+from pepperpy.plugins import ProviderPlugin
 
 T = TypeVar("T", bound="OpenAIEmbeddingsProvider")
 

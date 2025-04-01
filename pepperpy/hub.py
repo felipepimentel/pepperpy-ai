@@ -3,29 +3,6 @@
 This module was migrated from a subdirectory structure.
 """
 
-from pepperpy.hub.base import (
-from pepperpy.hub.local import LocalHubProvider
-
-"""Hub provider interface for PepperPy.
-
-This module provides the base classes and interfaces for hub providers,
-supporting management of AI assets like prompts, agents, and workflows.
-
-Example:
-    >>> from pepperpy.hub import HubProvider, Asset
-    >>> provider = HubProvider.from_config({
-    ...     "provider": "local",
-    ...     "storage": "memory"
-    ... })
-    >>> asset = await provider.create_asset(
-    ...     name="greeting_prompt",
-    ...     type="prompt",
-    ...     content="Hello, I am an AI assistant.",
-    ...     metadata={"language": "en"}
-    ... )
-    >>> assets = await provider.list_assets(type="prompt")
-"""
-
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass, field

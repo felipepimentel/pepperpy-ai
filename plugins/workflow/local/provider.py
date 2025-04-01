@@ -7,12 +7,11 @@ allowing them to run in the same process as the application.
 import logging
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.providers import LocalProvider
-from pepperpy.core.utils import lazy_provider_class
+from pepperpy.core.exceptions import PipelineError
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.workflow.base import (
     ComponentType,
     PipelineContext,
-    PipelineError,
     Workflow,
     WorkflowComponent,
 )
@@ -20,24 +19,17 @@ from pepperpy.workflow.base import (
 logger = logging.getLogger(__name__)
 
 
-@lazy_provider_class("workflow", "local")
-class LocalExecutor(LocalProvider):
+class LocalExecutor(PepperpyPlugin):
     """Local workflow executor.
 
     Executes workflows in the local process, managing component
     execution and data flow between components.
     """
 
-    
-
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-    model: str = "default-model"
-    base_url: str
-    temperature: float = 0.7
-    max_tokens: int = 1024
-    user_id: str
-    client: Optional[Any]
+    name = "local"
+    version = "0.1.0"
+    description = "Local workflow executor"
+    author = "PepperPy Team"
 
     def __init__(
         self,
@@ -50,9 +42,18 @@ class LocalExecutor(LocalProvider):
             config: Optional executor configuration
             metadata: Optional executor metadata
         """
-        self.config = config or {}
+        super().__init__(**(config or {}))
         self.metadata = metadata
         self._workflows: Dict[str, Workflow] = {}
+
+    async def initialize(self) -> None:
+        """Initialize the executor."""
+        self.initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        self._workflows.clear()
+        self.initialized = False
 
     async def execute_workflow(
         self,
@@ -104,7 +105,7 @@ class LocalExecutor(LocalProvider):
                         f"Component {component.name} failed in workflow {workflow.name}: {e}"
                     )
                     workflow.status = ComponentType.SINK
-                    raise PipelineError(f"Component execution failed: {str(e)}") from e
+                    raise PipelineError(f"Component execution failed: {e!s}") from e
 
             # Update workflow status
             workflow.status = ComponentType.SINK
@@ -113,7 +114,7 @@ class LocalExecutor(LocalProvider):
         except Exception as e:
             logger.error(f"Workflow {workflow.name} execution failed: {e}")
             workflow.status = ComponentType.SINK
-            raise PipelineError(f"Workflow execution failed: {str(e)}") from e
+            raise PipelineError(f"Workflow execution failed: {e!s}") from e
 
     async def _execute_component(
         self,
@@ -135,7 +136,7 @@ class LocalExecutor(LocalProvider):
         try:
             return await component.process(context.data.get("input_data"))
         except Exception as e:
-            raise PipelineError(f"Component execution failed: {str(e)}") from e
+            raise PipelineError(f"Component execution failed: {e!s}") from e
 
     def get_workflow(self, workflow_id: str) -> Workflow:
         """Get workflow by ID.
@@ -168,11 +169,3 @@ class LocalExecutor(LocalProvider):
         if status is None:
             return list(self._workflows.values())
         return [w for w in self._workflows.values() if w.status == status]
-
-    async def cleanup(self) -> None:
-        """Clean up resources.
-
-        This method is called when the provider is being shut down.
-        """
-        # Clear workflows
-        self._workflows.clear()

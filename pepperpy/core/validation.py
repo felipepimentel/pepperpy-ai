@@ -11,7 +11,7 @@ Example:
 
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union
 
-from pepperpy.core.base import ValidationError
+from pepperpy.core.errors import ValidationError
 
 T = TypeVar("T")
 
@@ -205,10 +205,10 @@ def validate_path(path: Union[str, "Path"]) -> None:
 
 __all__ = [
     "validate_config",
-    "validate_type",
-    "validate_range",
     "validate_length",
-    "validate_pattern",
     "validate_options",
     "validate_path",
+    "validate_pattern",
+    "validate_range",
+    "validate_type",
 ]

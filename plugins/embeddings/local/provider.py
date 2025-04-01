@@ -3,8 +3,8 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from pepperpy.core.utils import lazy_provider_class
-from pepperpy.embeddings.base import EmbeddingError, EmbeddingProvider
+from pepperpy.core.errors import EmbeddingError
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 try:
     from sentence_transformers import SentenceTransformer
@@ -14,8 +14,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-@lazy_provider_class("embeddings", "local")
-class LocalProvider(EmbeddingProvider):
+class LocalProvider(PepperpyPlugin):
     """Local implementation of embeddings provider using sentence-transformers.
 
     This provider runs completely offline without requiring any API keys.
@@ -24,11 +23,11 @@ class LocalProvider(EmbeddingProvider):
     """
 
     name = "local"
+    version = "0.1.0"
+    description = "Local embeddings provider using sentence-transformers"
+    author = "PepperPy Team"
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-def __init__(
+    def __init__(
         self,
         model_name: str = "all-MiniLM-L6-v2",
         **kwargs: Any,
@@ -60,10 +59,12 @@ def __init__(
     async def initialize(self) -> None:
         """Initialize the provider."""
         self._ensure_initialized()
+        self.initialized = True
 
     async def cleanup(self) -> None:
         """Clean up resources."""
         self._model = None
+        self.initialized = False
 
     def _get_embedding_function(self) -> Any:
         """Get the embedding function.

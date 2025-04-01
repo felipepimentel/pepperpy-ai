@@ -25,17 +25,17 @@ Example:
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union
+from collections.abc import Sequence
+from typing import Any, Dict, List, Optional, Union
 
 import chromadb
 from chromadb.api.models.Collection import Collection
 from chromadb.api.types import Documents, EmbeddingFunction, Embeddings
 from chromadb.config import Settings
 
-from pepperpy.core.base import ValidationError
-from pepperpy.core.utils import lazy_provider_class
-from pepperpy.embeddings.base import EmbeddingProvider
-from pepperpy.rag.base import Document, Query, RAGProvider, SearchResult
+from pepperpy.core.base import Document, SearchResult
+from pepperpy.core.errors import ValidationError
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 class ChromaEmbeddingFunction(EmbeddingFunction):
     """Embedding function for ChromaDB using PepperPy embedding provider."""
 
-    def __init__(self, provider: EmbeddingProvider) -> None:
+    def __init__(self, provider: Any) -> None:
         """Initialize embedding function.
 
         Args:
@@ -69,21 +69,19 @@ class ChromaEmbeddingFunction(EmbeddingFunction):
         return embeddings.tolist()
 
 
-@lazy_provider_class("rag", "chroma")
-class ChromaProvider(RAGProvider):
+class ChromaProvider(PepperpyPlugin):
     """ChromaDB provider implementation."""
 
     name = "chroma"
+    version = "0.1.0"
+    description = "ChromaDB provider for RAG capabilities"
+    author = "PepperPy Team"
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
-    client: Optional[httpx.AsyncClient] = None
-def __init__(
+    def __init__(
         self,
         collection_name: str = "default",
         persist_directory: Optional[str] = None,
-        embedding_provider: Optional[EmbeddingProvider] = None,
+        embedding_provider: Optional[Any] = None,
         **kwargs: Any,
     ) -> None:
         """Initialize ChromaDB provider.
@@ -132,11 +130,13 @@ def __init__(
             name=self.collection_name,
             embedding_function=embedding_fn,
         )
+        self.initialized = True
 
     async def cleanup(self) -> None:
         """Clean up resources."""
-        # No cleanup needed for ChromaDB
-        pass
+        self._collection = None
+        self.client = None
+        self.initialized = False
 
     def _get_metadata(self, doc: Document) -> Dict[str, Any]:
         """Get metadata for document.
@@ -148,8 +148,8 @@ def __init__(
             Metadata dictionary
         """
         metadata = doc.metadata.copy() if doc.metadata else {}
-        if not metadata:
-            metadata["id"] = doc.get("id", "")
+        if not metadata and hasattr(doc, "id"):
+            metadata["id"] = doc.id
         return metadata
 
     async def store(self, docs: Union[Document, List[Document]]) -> None:
@@ -167,7 +167,7 @@ def __init__(
             docs = [docs]
 
         # Prepare documents for ChromaDB
-        texts = [doc.text for doc in docs]
+        texts = [doc.content for doc in docs]
         metadatas = [self._get_metadata(doc) for doc in docs]
         ids = [str(i) for i in range(len(docs))]
 
@@ -180,14 +180,14 @@ def __init__(
 
     async def search(
         self,
-        query: Union[str, Query],
+        query: Union[str, Dict[str, Any]],
         limit: int = 5,
         **kwargs: Any,
     ) -> Sequence[SearchResult]:
         """Search for relevant documents.
 
         Args:
-            query: Search query text or Query object
+            query: Search query text or query object
             limit: Maximum number of results to return
             **kwargs: Additional search parameters
 
@@ -200,7 +200,7 @@ def __init__(
         collection = self.get_collection()
 
         # Get query text
-        query_text = query.text if isinstance(query, Query) else query
+        query_text = query if isinstance(query, str) else query.get("text", "")
 
         # Search collection
         results = collection.query(
@@ -221,10 +221,9 @@ def __init__(
         ):
             search_results.append(
                 SearchResult(
-                    id=doc_id,
-                    text=text,
-                    metadata=metadata,
+                    document=Document(content=text, metadata=metadata, id=doc_id),
                     score=1.0 - distance,  # Convert distance to similarity score
+                    metadata=metadata,
                 )
             )
 
@@ -250,8 +249,9 @@ def __init__(
                 return None
 
             return Document(
-                text=result["documents"][0],
+                content=result["documents"][0],
                 metadata=result["metadatas"][0] if result["metadatas"] else {},
+                id=doc_id,
             )
         except Exception:
             return None

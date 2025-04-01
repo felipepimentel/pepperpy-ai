@@ -21,14 +21,14 @@ import os
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urljoin
 
 import aioboto3
+import httpx
 
-from pepperpy.core import ProviderError
-from pepperpy.core.validation import ValidationError
-from pepperpy.providers.base import BaseProvider
-
-from .provider import StorageError, StorageProvider
+from pepperpy.core import ProviderError, ValidationError
+from pepperpy.core.logging import get_logger
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 
 class PersistenceError(ProviderError):
@@ -37,62 +37,112 @@ class PersistenceError(ProviderError):
     pass
 
 
-class ObjectStoreProvider(BaseProvider):
+class StorageError(ProviderError):
+    """Exception raised for storage-related errors."""
+
+    pass
+
+
+class StorageProvider(PepperpyPlugin):
+    """Base class for storage providers."""
+
+    def put(
+        self,
+        key: str,
+        value: Any,
+        metadata: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> None:
+        """Store an object."""
+        raise NotImplementedError
+
+    def get(self, key: str, default: Any = None, **kwargs: Any) -> Any:
+        """Retrieve an object."""
+        raise NotImplementedError
+
+    def delete(self, key: str, **kwargs: Any) -> None:
+        """Delete an object."""
+        raise NotImplementedError
+
+    def list_keys(self, pattern: Optional[str] = None, **kwargs: Any) -> List[str]:
+        """List object keys."""
+        raise NotImplementedError
+
+    def get_metadata(self, key: str, **kwargs: Any) -> Dict[str, Any]:
+        """Get object metadata."""
+        raise NotImplementedError
+
+    def get_capabilities(self) -> Dict[str, Any]:
+        """Get provider capabilities."""
+        raise NotImplementedError
+
+
+class ObjectStoreProvider(StorageProvider):
     """Object Store persistence provider.
 
     This provider handles data persistence using S3-compatible object storage services.
     Supports AWS S3, MinIO, and other S3-compatible services.
     """
 
-    
-    # Attributes auto-bound from plugin.yaml com valores padrão como fallback
-    api_key: str
+    name = "object_store"
+    version = "0.1.0"
+    description = "Object Store persistence provider for S3-compatible services"
+    author = "PepperPy Team"
+
+    # Attributes auto-bound from plugin.yaml with default fallback values
+    api_key: str = ""
     client: Optional[httpx.AsyncClient] = None
-def __init__(
-        self,
-        endpoint_url: Optional[str] = None,
-        region_name: Optional[str] = None,
-        aws_access_key_id: Optional[str] = None,
-        aws_secret_access_key: Optional[str] = None,
-        default_bucket: Optional[str] = None,
-        create_buckets: bool = False,
-        provider_name: str = "object_store",
-        provider_type: str = "data",
-        **kwargs: Any,
-    ) -> None:
-        """Initialize the S3 client.
+    bucket_name: str = "pepperpy"
+    endpoint_url: Optional[str] = None
+    region_name: str = "us-east-1"
+    access_key_id: Optional[str] = None
+    secret_access_key: Optional[str] = None
+    session: Optional[aioboto3.Session] = None
+    logger = get_logger(__name__)
 
-        Args:
-            endpoint_url: Custom endpoint URL for the S3 service
-            region_name: AWS region name
-            aws_access_key_id: AWS access key ID
-            aws_secret_access_key: AWS secret access key
-            default_bucket: Default bucket to use if none specified
-            create_buckets: Whether to create buckets if they don't exist
-            provider_name: Name of the provider
-            provider_type: Type of the provider
-            **kwargs: Additional arguments to pass to the S3 client
+    async def initialize(self) -> None:
+        """Initialize the provider.
+
+        This method is called automatically when the provider is first used.
         """
-        super().__init__(provider_name=provider_name, provider_type=provider_type)
+        if self.initialized:
+            return
 
-        # Add object storage capabilities
-        self.add_capability("object_store")
-        self.add_capability("file_storage")
-        self.add_capability("blob_storage")
+        # Create S3 session
+        self.session = aioboto3.Session(
+            aws_access_key_id=self.access_key_id,
+            aws_secret_access_key=self.secret_access_key,
+            region_name=self.region_name,
+        )
 
-        # Store configuration
-        self.endpoint_url = endpoint_url
-        self.region_name = region_name
-        self.aws_access_key_id = aws_access_key_id
-        self.aws_secret_access_key = aws_secret_access_key
-        self.default_bucket = default_bucket
-        self.create_buckets = create_buckets
-        self.client_kwargs = kwargs
+        # Create HTTP client for direct operations
+        base_url = (
+            str(httpx.URL(urljoin("https://", self.endpoint_url)))
+            if self.endpoint_url
+            else ""
+        )
+        self.client = httpx.AsyncClient(
+            base_url=base_url,
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
 
-        # Initialize session and client to None
+        self.initialized = True
+        self.logger.debug(
+            f"Initialized with bucket={self.bucket_name}, endpoint={self.endpoint_url}"
+        )
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources.
+
+        This method is called automatically when the context manager exits.
+        """
+        if self.client:
+            await self.client.aclose()
+            self.client = None
+
         self.session = None
-        self.client = None
-        self.resource = None
+        self.initialized = False
+        self.logger.debug("Resources cleaned up")
 
     async def validate(self) -> None:
         """Validate the provider configuration.
@@ -100,96 +150,19 @@ def __init__(
         Raises:
             PersistenceError: If the configuration is invalid
         """
-        if self.default_bucket and not isinstance(self.default_bucket, str):
-            raise PersistenceError("Default bucket must be a string")
+        if self.bucket_name and not isinstance(self.bucket_name, str):
+            raise PersistenceError("Bucket name must be a string")
 
         # AWS credentials can be None if using IAM roles or environment variables
-        if self.aws_access_key_id and not self.aws_secret_access_key:
+        if self.access_key_id and not self.secret_access_key:
             raise PersistenceError(
                 "AWS secret access key is required when providing access key ID"
             )
 
-        if self.aws_secret_access_key and not self.aws_access_key_id:
+        if self.secret_access_key and not self.access_key_id:
             raise PersistenceError(
                 "AWS access key ID is required when providing secret access key"
             )
-
-    async def initialize(self) -> None:
-        """Initialize the provider.
-
-        This method connects to the object storage service.
-
-        Raises:
-            PersistenceError: If initialization fails
-        """
-        await self.connect()
-
-    async def close(self) -> None:
-        """Close the provider.
-
-        This method disconnects from the object storage service.
-
-        Raises:
-            PersistenceError: If cleanup fails
-        """
-        await self.disconnect()
-
-    async def connect(self) -> None:
-        """Connect to the object store.
-
-        Raises:
-            PersistenceError: If connection fails.
-        """
-        try:
-            # Create session
-            self.session = aioboto3.Session(
-                aws_access_key_id=self.aws_access_key_id,
-                aws_secret_access_key=self.aws_secret_access_key,
-                region_name=self.region_name,
-            )
-
-            # Create client
-            self.client = self.session.client(
-                "s3",
-                endpoint_url=self.endpoint_url,
-                **self.client_kwargs,
-            )
-
-            # Create resource
-            self.resource = self.session.resource(
-                "s3",
-                endpoint_url=self.endpoint_url,
-                **self.client_kwargs,
-            )
-
-            # Create default bucket if needed
-            if self.default_bucket and self.create_buckets:
-                await self.create_bucket(self.default_bucket)
-
-        except Exception as e:
-            raise PersistenceError(f"Error connecting to object store: {str(e)}") from e
-
-    async def disconnect(self) -> None:
-        """Disconnect from the object store.
-
-        Raises:
-            PersistenceError: If disconnection fails.
-        """
-        try:
-            if self.client:
-                await self.client.__aexit__(None, None, None)
-                self.client = None
-
-            if self.resource:
-                await self.resource.__aexit__(None, None, None)
-                self.resource = None
-
-            self.session = None
-
-        except Exception as e:
-            raise PersistenceError(
-                f"Error disconnecting from object store: {str(e)}"
-            ) from e
 
     async def list_buckets(self) -> List[str]:
         """List all buckets.
@@ -205,11 +178,11 @@ def __init__(
                 raise PersistenceError("Not connected to object store")
 
             async with self.client as client:
-                response = await client.list_buckets()
-                return [bucket["Name"] for bucket in response.get("Buckets", [])]
+                response = await client.get("/")
+                return [bucket["Name"] for bucket in response.json().get("Buckets", [])]
 
         except Exception as e:
-            raise PersistenceError(f"Error listing buckets: {str(e)}") from e
+            raise PersistenceError(f"Error listing buckets: {e!s}") from e
 
     async def create_bucket(self, name: str) -> None:
         """Create a bucket.
@@ -227,25 +200,23 @@ def __init__(
             # Check if bucket exists
             try:
                 async with self.client as client:
-                    await client.head_bucket(Bucket=name)
+                    response = await client.get(f"/{name}")
+                    response.raise_for_status()
                     return  # Bucket already exists
             except Exception:
                 # Bucket doesn't exist, create it
                 async with self.client as client:
                     # For AWS S3, use LocationConstraint
                     if self.region_name and self.endpoint_url is None:
-                        await client.create_bucket(
-                            Bucket=name,
-                            CreateBucketConfiguration={
-                                "LocationConstraint": self.region_name,
-                            },
+                        await client.put(
+                            f"/{name}", json={"LocationConstraint": self.region_name}
                         )
                     else:
                         # For non-AWS implementations
-                        await client.create_bucket(Bucket=name)
+                        await client.put(f"/{name}")
 
         except Exception as e:
-            raise PersistenceError(f"Error creating bucket: {str(e)}") from e
+            raise PersistenceError(f"Error creating bucket: {e!s}") from e
 
     async def delete_bucket(self, name: str, force: bool = False) -> None:
         """Delete a bucket.
@@ -267,10 +238,10 @@ def __init__(
 
             # Delete bucket
             async with self.client as client:
-                await client.delete_bucket(Bucket=name)
+                await client.delete(f"/{name}")
 
         except Exception as e:
-            raise PersistenceError(f"Error deleting bucket: {str(e)}") from e
+            raise PersistenceError(f"Error deleting bucket: {e!s}") from e
 
     async def list_objects(
         self,
@@ -295,34 +266,31 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
             # List objects
             async with self.client as client:
-                paginator = client.get_paginator("list_objects_v2")
-                objects = []
+                response = await client.get(
+                    f"/{bucket_name}?list=true&prefix={prefix}&max-keys={max_keys}"
+                )
+                response.raise_for_status()
+                objects = response.json().get("Contents", [])
 
-                async for page in paginator.paginate(
-                    Bucket=bucket_name,
-                    Prefix=prefix,
-                    MaxKeys=max_keys,
-                ):
-                    if "Contents" in page:
-                        for obj in page["Contents"]:
-                            objects.append({
-                                "key": obj.get("Key", ""),
-                                "size": obj.get("Size", 0),
-                                "last_modified": obj.get("LastModified"),
-                                "etag": obj.get("ETag", "").strip('"'),
-                                "storage_class": obj.get("StorageClass", ""),
-                            })
-
-                return objects
+                return [
+                    {
+                        "key": obj["Key"],
+                        "size": obj["Size"],
+                        "last_modified": obj["LastModified"],
+                        "etag": obj["ETag"],
+                        "storage_class": obj.get("StorageClass", ""),
+                    }
+                    for obj in objects
+                ]
 
         except Exception as e:
-            raise PersistenceError(f"Error listing objects: {str(e)}") from e
+            raise PersistenceError(f"Error listing objects: {e!s}") from e
 
     async def upload_object(
         self,
@@ -351,7 +319,7 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -392,7 +360,8 @@ def __init__(
 
             # Upload object
             async with self.client as client:
-                response = await client.put_object(**upload_params)
+                response = await client.put(f"/{bucket_name}/{key}", json=upload_params)
+                response.raise_for_status()
 
                 # Calculate MD5 for verification
                 if isinstance(body, bytes):
@@ -408,14 +377,14 @@ def __init__(
 
                 return {
                     "key": key,
-                    "etag": response.get("ETag", ""),
+                    "etag": response.headers.get("ETag", ""),
                     "calculated_etag": calculated_etag,
                     "content_type": content_type,
                     "size": len(body) if hasattr(body, "__len__") else 0,
                 }
 
         except Exception as e:
-            raise PersistenceError(f"Error uploading object: {str(e)}") from e
+            raise PersistenceError(f"Error uploading object: {e!s}") from e
 
     async def download_object(
         self,
@@ -440,7 +409,7 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -456,25 +425,27 @@ def __init__(
 
             # Download object
             async with self.client as client:
-                response = await client.get_object(**download_params)
+                response = await client.get(
+                    f"/{bucket_name}/{key}", params=download_params
+                )
+                response.raise_for_status()
 
                 # Read body
-                body = await response["Body"].read()
-                await response["Body"].close()
+                body = await response.read()
 
                 return {
                     "key": key,
                     "data": body,
-                    "content_type": response.get("ContentType", ""),
-                    "content_length": response.get("ContentLength", 0),
-                    "last_modified": response.get("LastModified"),
-                    "etag": response.get("ETag", "").strip('"'),
-                    "metadata": response.get("Metadata", {}),
-                    "version_id": response.get("VersionId"),
+                    "content_type": response.headers.get("Content-Type", ""),
+                    "content_length": response.headers.get("Content-Length", 0),
+                    "last_modified": response.headers.get("Last-Modified"),
+                    "etag": response.headers.get("ETag", ""),
+                    "metadata": response.headers.get("Metadata", {}),
+                    "version_id": response.headers.get("VersionId"),
                 }
 
         except Exception as e:
-            raise PersistenceError(f"Error downloading object: {str(e)}") from e
+            raise PersistenceError(f"Error downloading object: {e!s}") from e
 
     async def delete_object(
         self,
@@ -499,7 +470,7 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -515,16 +486,19 @@ def __init__(
 
             # Delete object
             async with self.client as client:
-                response = await client.delete_object(**delete_params)
+                response = await client.delete(
+                    f"/{bucket_name}/{key}", params=delete_params
+                )
+                response.raise_for_status()
 
                 return {
                     "key": key,
-                    "version_id": response.get("VersionId"),
-                    "delete_marker": response.get("DeleteMarker", False),
+                    "version_id": response.headers.get("VersionId"),
+                    "delete_marker": response.headers.get("Delete-Marker", False),
                 }
 
         except Exception as e:
-            raise PersistenceError(f"Error deleting object: {str(e)}") from e
+            raise PersistenceError(f"Error deleting object: {e!s}") from e
 
     async def delete_objects(
         self,
@@ -547,7 +521,7 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -556,28 +530,27 @@ def __init__(
 
             # Delete objects
             async with self.client as client:
-                response = await client.delete_objects(
-                    Bucket=bucket_name,
-                    Delete={
-                        "Objects": objects,
-                        "Quiet": False,
-                    },
+                response = await client.post(
+                    f"/{bucket_name}?delete=true", json={"Objects": objects}
                 )
+                response.raise_for_status()
 
                 return {
-                    "deleted": [obj.get("Key") for obj in response.get("Deleted", [])],
+                    "deleted": [
+                        obj.get("Key") for obj in response.json().get("Deleted", [])
+                    ],
                     "errors": [
                         {
                             "key": err.get("Key"),
                             "code": err.get("Code"),
                             "message": err.get("Message"),
                         }
-                        for err in response.get("Errors", [])
+                        for err in response.json().get("Errors", [])
                     ],
                 }
 
         except Exception as e:
-            raise PersistenceError(f"Error deleting objects: {str(e)}") from e
+            raise PersistenceError(f"Error deleting objects: {e!s}") from e
 
     async def delete_all_objects(self, bucket: Optional[str] = None) -> Dict[str, Any]:
         """Delete all objects from a bucket.
@@ -592,7 +565,7 @@ def __init__(
             PersistenceError: If deletion fails.
         """
         try:
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -616,7 +589,7 @@ def __init__(
             return results
 
         except Exception as e:
-            raise PersistenceError(f"Error deleting all objects: {str(e)}") from e
+            raise PersistenceError(f"Error deleting all objects: {e!s}") from e
 
     async def copy_object(
         self,
@@ -645,8 +618,8 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            source_bucket_name = source_bucket or self.default_bucket
-            dest_bucket_name = dest_bucket or self.default_bucket
+            source_bucket_name = source_bucket or self.bucket_name
+            dest_bucket_name = dest_bucket or self.bucket_name
             if not source_bucket_name or not dest_bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -662,71 +635,67 @@ def __init__(
 
             # Copy object
             async with self.client as client:
-                response = await client.copy_object(
-                    CopySource=copy_source,
-                    Bucket=dest_bucket_name,
-                    Key=dest_key,
+                response = await client.post(
+                    f"/{dest_bucket_name}/{dest_key}?copy=true",
+                    json={"CopySource": copy_source},
                 )
+                response.raise_for_status()
 
                 return {
                     "source_key": source_key,
                     "dest_key": dest_key,
-                    "etag": response.get("CopyObjectResult", {})
-                    .get("ETag", "")
-                    .strip('"'),
-                    "last_modified": response.get("CopyObjectResult", {}).get(
-                        "LastModified"
-                    ),
-                    "version_id": response.get("VersionId"),
+                    "etag": response.headers.get("ETag", ""),
+                    "last_modified": response.headers.get("Last-Modified"),
+                    "version_id": response.headers.get("VersionId"),
                 }
 
         except Exception as e:
-            raise PersistenceError(f"Error copying object: {str(e)}") from e
+            raise PersistenceError(f"Error copying object: {e!s}") from e
 
     async def generate_presigned_url(
         self,
         key: str,
-        bucket: Optional[str] = None,
-        expires_in: int = 3600,
         method: str = "GET",
+        expires_in: int = 3600,
+        bucket: Optional[str] = None,
     ) -> str:
-        """Generate a presigned URL for an object.
+        """Generate a pre-signed URL for object access.
 
         Args:
-            key: Object key.
-            bucket: Bucket name (defaults to default_bucket).
-            expires_in: URL expiration time in seconds.
-            method: HTTP method ("GET", "PUT", etc).
+            key: Object key
+            method: HTTP method (GET, PUT, etc.)
+            expires_in: URL expiration time in seconds
+            bucket: Optional bucket name
 
         Returns:
-            Presigned URL.
+            Pre-signed URL as string
 
         Raises:
-            PersistenceError: If URL generation fails.
+            PersistenceError: If URL generation fails
         """
         try:
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
             # Generate URL
             async with self.client as client:
-                url = await client.generate_presigned_url(
-                    ClientMethod=f"{method.lower()}_object",
-                    Params={
-                        "Bucket": bucket_name,
-                        "Key": key,
+                response = await client.get(
+                    f"/{bucket_name}/{key}",
+                    params={
+                        "presigned": "true",
+                        "expires-in": str(expires_in),
+                        "method": method.upper(),
                     },
-                    ExpiresIn=expires_in,
                 )
-
-                return url
+                response.raise_for_status()
+                return response.text
 
         except Exception as e:
-            raise PersistenceError(f"Error generating presigned URL: {str(e)}") from e
+            raise PersistenceError(f"Error generating pre-signed URL: {e!s}") from e
 
     async def get_object_metadata(
         self,
@@ -751,7 +720,7 @@ def __init__(
             if not self.client:
                 raise PersistenceError("Not connected to object store")
 
-            bucket_name = bucket or self.default_bucket
+            bucket_name = bucket or self.bucket_name
             if not bucket_name:
                 raise PersistenceError("No bucket specified")
 
@@ -767,21 +736,22 @@ def __init__(
 
             # Get metadata
             async with self.client as client:
-                response = await client.head_object(**params)
+                response = await client.head(f"/{bucket_name}/{key}", params=params)
+                response.raise_for_status()
 
                 return {
                     "key": key,
-                    "content_type": response.get("ContentType", ""),
-                    "content_length": response.get("ContentLength", 0),
-                    "last_modified": response.get("LastModified"),
-                    "etag": response.get("ETag", "").strip('"'),
-                    "metadata": response.get("Metadata", {}),
-                    "version_id": response.get("VersionId"),
-                    "storage_class": response.get("StorageClass", ""),
+                    "content_type": response.headers.get("Content-Type", ""),
+                    "content_length": response.headers.get("Content-Length", 0),
+                    "last_modified": response.headers.get("Last-Modified"),
+                    "etag": response.headers.get("ETag", ""),
+                    "metadata": response.headers.get("Metadata", {}),
+                    "version_id": response.headers.get("VersionId"),
+                    "storage_class": response.headers.get("StorageClass", ""),
                 }
 
         except Exception as e:
-            raise PersistenceError(f"Error getting object metadata: {str(e)}") from e
+            raise PersistenceError(f"Error getting object metadata: {e!s}") from e
 
 
 class ObjectStore:

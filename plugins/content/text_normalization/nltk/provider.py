@@ -8,7 +8,7 @@ from pepperpy.content.processors.text_normalization_base import (
     TextNormalizerRegistry,
 )
 from pepperpy.core import ConfigError, ProviderError
-from pepperpy.plugin import ProviderPlugin
+from pepperpy.plugins import ProviderPlugin
 
 T = TypeVar("T", bound="NLTKTextNormalizer")
 
@@ -69,7 +69,9 @@ class NLTKTextNormalizer(BaseTextNormalizer, ProviderPlugin):
             self._lemmatizer = WordNetLemmatizer()
 
             # Map language code to NLTK language name
-            nltk_language = self.LANGUAGE_MAP.get(self.config.get("language", "en"), "english")
+            nltk_language = self.LANGUAGE_MAP.get(
+                self.config.get("language", "en"), "english"
+            )
             self._stopwords = set(stopwords.words(nltk_language))
 
         except Exception as e:
