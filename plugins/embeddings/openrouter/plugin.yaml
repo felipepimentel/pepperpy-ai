@@ -3,6 +3,7 @@ version: 0.1.0
 description: OpenRouter Embeddings provider for PepperPy
 author: PepperPy Team
 license: MIT
+plugin_type: embeddings
 category: embeddings
 provider_name: openrouter
 entry_point: provider.OpenRouterEmbeddingProvider

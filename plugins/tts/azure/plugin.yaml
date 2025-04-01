@@ -3,6 +3,7 @@ version: 0.1.0
 description: Azure Text-to-Speech provider for PepperPy
 author: PepperPy Team
 license: MIT
+plugin_type: tts
 category: tts
 provider_name: azure
 entry_point: provider.AzureProvider

@@ -1,6 +1,6 @@
 name: rag/tiny_vector
 version: 0.1.0
-description: Provider for Tiny Vector for rag tasks
+description: TinyVector RAG provider
 author: PepperPy Team
 default_config: null
 config_schema: null
@@ -28,3 +28,4 @@ provider_name: tiny_vector
 entry_point: provider.TinyVectorProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []
+plugin_type: rag

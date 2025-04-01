@@ -1,6 +1,6 @@
 name: rag/milvus
 version: 0.1.0
-description: Provider for Milvus for rag tasks
+description: Milvus RAG provider
 author: PepperPy Team
 default_config: null
 config_schema: null
@@ -28,3 +28,4 @@ provider_name: milvus
 entry_point: provider.MilvusProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []
+plugin_type: rag

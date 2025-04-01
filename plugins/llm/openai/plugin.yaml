@@ -3,6 +3,7 @@ version: 0.1.0
 description: OpenAI LLM provider for PepperPy
 author: PepperPy Team
 license: MIT
+plugin_type: llm
 category: llm
 provider_name: openai
 entry_point: provider.OpenAIProvider

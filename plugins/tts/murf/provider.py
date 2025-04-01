@@ -1,255 +1,272 @@
-"""
-Murf.ai TTS provider implementation.
-"""
+"""Murf TTS provider for PepperPy."""
 
 import asyncio
-import os
-import time
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, List, Optional
 
 import aiohttp
 from murf import Murf
 
-from ..base import TTSProviderError, TTSVoiceError
+from pepperpy.core.errors import ProviderError
+from pepperpy.plugins import ProviderPlugin
+from pepperpy.tts.base import TTSAudio, TTSProvider, TTSProviderError, TTSVoice
 
 
-class MurfProvider:
-    """Provider for Murf.ai TTS service."""
+class MurfTTSProvider(ProviderPlugin, TTSProvider):
+    """Murf TTS provider implementation."""
 
     BASE_URL = "https://api.murf.ai/v1"
 
-    def __init__(self, api_key: Optional[str] = None):
-        """Initialize the Murf.ai provider.
+    def __init__(self):
+        """Initialize the provider."""
+        super().__init__()
+        self._session: Optional[aiohttp.ClientSession] = None
+        self._api_key = self._config.get("api_key")
+        if not self._api_key:
+            raise TTSProviderError("API key not found in configuration")
+        self._logger.info("Initialized Murf TTS provider")
+        self._client = None
 
-        Args:
-            api_key: The API key for Murf.ai. If not provided, will try to get from environment.
-        """
-        env_key = os.environ.get("PEPPERPY_TTS_MURF__API_KEY")
-        if not api_key and not env_key:
-            raise TTSProviderError("No API key provided for Murf.ai")
+    async def initialize(self) -> None:
+        """Initialize provider resources."""
+        if self.initialized:
+            return
 
-        # Initialize the Murf client
-        self.client = Murf(api_key=api_key or env_key)
-
-        # Initialize headers for API requests
-        self.headers = {
-            "Authorization": f"Bearer {api_key or env_key}",
-            "Content-Type": "application/json",
-        }
-
-    @property
-    def capabilities(self) -> List[str]:
-        """Return the capabilities of this provider."""
-        return [
-            "text_to_speech",
-            "multilingual",
-        ]
-
-    async def _create_tts_job(
-        self, text: str, voice_id: str, **kwargs
-    ) -> Dict[str, Any]:
-        """Create a text-to-speech job in Murf.ai.
-
-        Args:
-            text: The text to convert.
-            voice_id: The voice ID to use.
-            **kwargs: Additional parameters.
-
-        Returns:
-            Job details including job ID.
-
-        Raises:
-            TTSProviderError: If the API request fails.
-        """
-        rate = kwargs.get("rate", 0)  # Default rate (0 = normal)
-        pitch = kwargs.get("pitch", 0)  # Default pitch (0 = normal)
-        format_type = kwargs.get("format", "mp3")
-
-        payload = {
-            "text": text,
-            "voiceId": voice_id,
-            "rate": rate,
-            "pitch": pitch,
-            "format": format_type,
-        }
-
-        url = f"{self.BASE_URL}/speech/generate"
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    url, json=payload, headers=self.headers
-                ) as response:
-                    if response.status == 404:
-                        raise TTSVoiceError(f"Voice ID '{voice_id}' not found")
-
-                    response_data = await response.json()
-
-                    if response.status != 200:
-                        error_message = response_data.get("message", "Unknown error")
-                        raise TTSProviderError(f"Murf.ai API error: {error_message}")
-
-                    return response_data
-        except aiohttp.ClientError as e:
-            raise TTSProviderError(
-                f"Network error while communicating with Murf.ai: {str(e)}"
-            ) from e
-        except Exception as e:
-            if isinstance(e, TTSProviderError):
-                raise
-            raise TTSProviderError(
-                f"Error generating speech with Murf.ai: {str(e)}"
-            ) from e
-
-    async def _get_job_status(self, job_id: str) -> Dict[str, Any]:
-        """Get the status of a text-to-speech job.
-
-        Args:
-            job_id: The job ID to check.
-
-        Returns:
-            Job details including status and audio URL if complete.
-
-        Raises:
-            TTSProviderError: If the API request fails.
-        """
-        url = f"{self.BASE_URL}/jobs/{job_id}"
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, headers=self.headers) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise TTSProviderError(
-                            f"Murf.ai API returned status {response.status}: {error_text}"
-                        )
-
-                    return await response.json()
-        except aiohttp.ClientError as e:
-            raise TTSProviderError(
-                f"Network error while checking job status: {str(e)}"
-            ) from e
-        except Exception as e:
-            raise TTSProviderError(f"Error checking job status: {str(e)}") from e
-
-    async def _wait_for_job_completion(
-        self, job_id: str, max_wait_seconds: int = 60
-    ) -> Dict[str, Any]:
-        """Wait for a text-to-speech job to complete.
-
-        Args:
-            job_id: The job ID to wait for.
-            max_wait_seconds: Maximum time to wait in seconds.
-
-        Returns:
-            Job details including audio URL.
-
-        Raises:
-            TTSProviderError: If waiting for the job fails.
-        """
-        start_time = time.time()
-        while time.time() - start_time < max_wait_seconds:
-            job_status = await self._get_job_status(job_id)
-
-            status = job_status.get("status")
-            if status == "completed":
-                return job_status
-            elif status == "failed":
-                error_message = job_status.get("error", "Unknown error")
-                raise TTSProviderError(f"Murf.ai job failed: {error_message}")
-
-            # Wait before checking again
-            await asyncio.sleep(2)
-
-        raise TTSProviderError(
-            f"Timeout waiting for Murf.ai job completion after {max_wait_seconds} seconds"
+        # Initialize HTTP session
+        self._session = aiohttp.ClientSession(
+            base_url=self.BASE_URL, headers={"Authorization": f"Bearer {self._api_key}"}
         )
 
-    async def _download_audio(self, audio_url: str) -> bytes:
-        """Download audio from URL.
+        # Initialize Murf client
+        self._client = Murf(api_key=self._api_key)
+
+        self._logger.debug("Murf TTS provider initialized")
+
+    async def cleanup(self) -> None:
+        """Clean up provider resources."""
+        if self._session:
+            await self._session.close()
+            self._session = None
+        self._client = None
+
+    async def synthesize(
+        self,
+        text: str,
+        voice_id: Optional[str] = None,
+        output_path: Optional[str] = None,
+        **kwargs: Any,
+    ) -> TTSAudio:
+        """Synthesize text to speech.
 
         Args:
-            audio_url: URL to download audio from.
+            text: Text to synthesize
+            voice_id: Voice ID to use
+            output_path: Optional path to save audio
+            **kwargs: Additional synthesis options
 
         Returns:
-            Audio data as bytes.
+            TTSAudio object
 
         Raises:
-            TTSProviderError: If downloading fails.
+            ProviderError: If synthesis fails
         """
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(audio_url, headers=self.headers) as response:
-                    if response.status != 200:
-                        error_text = await response.text()
-                        raise TTSProviderError(f"Error downloading audio: {error_text}")
+        if not text:
+            raise ValueError("Text cannot be empty")
 
-                    return await response.read()
-        except aiohttp.ClientError as e:
-            raise TTSProviderError(
-                f"Network error while downloading audio: {str(e)}"
-            ) from e
-        except Exception as e:
-            raise TTSProviderError(f"Error downloading audio: {str(e)}") from e
-
-    async def get_voices(self) -> List[Dict[str, Any]]:
-        """Get list of available voices from Murf.ai API."""
         try:
-            # Get voices using the Murf SDK
-            voices = self.client.text_to_speech.get_voices()
-            return [
-                {
-                    "id": voice.voice_id,
-                    "name": voice.display_name,
-                    "description": voice.description,
-                    "preview_url": None,
-                    "gender": voice.gender,
-                    "age": None,
-                    "language": voice.locale,
-                    "provider_data": {"accent": voice.accent},
-                }
-                for voice in voices
-            ]
-        except Exception as e:
-            raise TTSProviderError(f"Error fetching voices: {str(e)}") from e
-
-    async def convert_text(self, text: str, voice_id: str, **kwargs) -> bytes:
-        """Convert text to speech using Murf.ai API."""
-        try:
-            # Generate audio using the Murf SDK
-            response = self.client.text_to_speech.generate(
+            # Create TTS job
+            job_id = await self._create_tts_job(
                 text=text,
-                voice_id=voice_id,  # Murf.ai expects the exact voice ID
-                rate=kwargs.get("rate", 0),  # Default rate (0 = normal)
-                pitch=kwargs.get("pitch", 0),  # Default pitch (0 = normal)
-                format="MP3",  # Murf.ai requires uppercase format
+                voice_id=voice_id or self._config.get("voice_id", "en-US-1"),
+                rate=kwargs.get("rate", self._config.get("rate", 100)),
+                pitch=kwargs.get("pitch", self._config.get("pitch", 100)),
+                format=kwargs.get("format", self._config.get("format", "wav")),
             )
 
-            # Download the audio file
-            if not response.audio_file:
-                raise TTSProviderError("No audio file URL returned from Murf.ai")
+            # Wait for job completion
+            await self._wait_for_job_completion(job_id)
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(response.audio_file) as audio_response:
-                    if audio_response.status == 200:
-                        return await audio_response.read()
-                    else:
-                        error_data = await audio_response.text()
-                        raise TTSProviderError(f"Error downloading audio: {error_data}")
+            # Download audio
+            audio_data = await self._download_audio(job_id)
+
+            # Create TTSAudio object
+            audio = TTSAudio(
+                audio_data=audio_data,
+                content_type=f"audio/{kwargs.get('format', 'wav')}",
+            )
+
+            # Save to file if requested
+            if output_path:
+                audio.save(output_path)
+
+            return audio
+
         except Exception as e:
-            raise TTSProviderError(f"Error generating speech: {str(e)}") from e
+            raise ProviderError(f"Failed to synthesize text: {e}") from e
 
-    async def convert_text_stream(
-        self, text: str, voice_id: str, chunk_size: int = 1024, **kwargs
-    ) -> AsyncGenerator[bytes, None]:
-        """Convert text to speech and stream the audio data."""
-        audio_data = await self.convert_text(text, voice_id, **kwargs)
-        for i in range(0, len(audio_data), chunk_size):
-            yield audio_data[i : i + chunk_size]
+    async def get_available_voices(self) -> List[TTSVoice]:
+        """Get available voices.
 
-    async def clone_voice(self, name: str, samples: List[bytes], **kwargs) -> str:
-        """Clone a voice from audio samples.
+        Returns:
+            List of TTSVoice objects
 
-        Not supported by Murf.ai API yet.
+        Raises:
+            ProviderError: If voice list retrieval fails
         """
-        raise NotImplementedError("Voice cloning is not supported by Murf.ai API")
+        try:
+            # TODO: Implement voice list retrieval from Murf API
+            # For now, return a basic list
+            return [
+                TTSVoice(
+                    id="en-US-1",
+                    name="English US Female 1",
+                    gender="female",
+                    language="en-US",
+                    description="Professional female voice for US English",
+                    tags=["professional", "female", "us-english"],
+                ),
+                TTSVoice(
+                    id="en-US-2",
+                    name="English US Male 1",
+                    gender="male",
+                    language="en-US",
+                    description="Professional male voice for US English",
+                    tags=["professional", "male", "us-english"],
+                ),
+            ]
+        except Exception as e:
+            raise ProviderError(f"Failed to get available voices: {e}") from e
+
+    async def _create_tts_job(
+        self,
+        text: str,
+        voice_id: str,
+        rate: int,
+        pitch: int,
+        format: str,
+    ) -> str:
+        """Create TTS job.
+
+        Args:
+            text: Text to synthesize
+            voice_id: Voice ID to use
+            rate: Speech rate
+            pitch: Voice pitch
+            format: Output format
+
+        Returns:
+            Job ID
+
+        Raises:
+            ProviderError: If job creation fails
+        """
+        try:
+            if not self._session:
+                raise ProviderError("Provider not initialized")
+
+            # Prepare request payload
+            payload = {
+                "text": text,
+                "voice": voice_id,
+                "rate": rate,
+                "pitch": pitch,
+                "format": format,
+            }
+
+            # Create job
+            async with self._session.post("/tts/create", json=payload) as response:
+                if response.status != 200:
+                    error = await response.text()
+                    raise ProviderError(f"Failed to create TTS job: {error}")
+
+                data = await response.json()
+                return data["job_id"]
+
+        except Exception as e:
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(f"Failed to create TTS job: {e}") from e
+
+    async def _get_job_status(self, job_id: str) -> str:
+        """Get job status.
+
+        Args:
+            job_id: Job ID
+
+        Returns:
+            Job status
+
+        Raises:
+            ProviderError: If status check fails
+        """
+        try:
+            if not self._session:
+                raise ProviderError("Provider not initialized")
+
+            async with self._session.get(f"/tts/status/{job_id}") as response:
+                if response.status != 200:
+                    error = await response.text()
+                    raise ProviderError(f"Failed to get job status: {error}")
+
+                data = await response.json()
+                return data["status"]
+
+        except Exception as e:
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(f"Failed to get job status: {e}") from e
+
+    async def _wait_for_job_completion(self, job_id: str, timeout: int = 60) -> None:
+        """Wait for job completion.
+
+        Args:
+            job_id: Job ID
+            timeout: Timeout in seconds
+
+        Raises:
+            ProviderError: If job fails or times out
+        """
+        start_time = asyncio.get_event_loop().time()
+        while True:
+            status = await self._get_job_status(job_id)
+
+            if status == "completed":
+                return
+            elif status == "failed":
+                raise ProviderError(f"TTS job {job_id} failed")
+            elif status == "error":
+                raise ProviderError(f"TTS job {job_id} encountered an error")
+
+            # Check timeout
+            if asyncio.get_event_loop().time() - start_time > timeout:
+                raise ProviderError(f"TTS job {job_id} timed out")
+
+            # Wait before next check
+            await asyncio.sleep(1)
+
+    async def _download_audio(self, job_id: str) -> bytes:
+        """Download audio data.
+
+        Args:
+            job_id: Job ID
+
+        Returns:
+            Audio data as bytes
+
+        Raises:
+            ProviderError: If download fails
+        """
+        try:
+            if not self._session:
+                raise ProviderError("Provider not initialized")
+
+            async with self._session.get(f"/tts/download/{job_id}") as response:
+                if response.status != 200:
+                    error = await response.text()
+                    raise ProviderError(f"Failed to download audio: {error}")
+
+                return await response.read()
+
+        except Exception as e:
+            if isinstance(e, ProviderError):
+                raise
+            raise ProviderError(f"Failed to download audio: {e}") from e

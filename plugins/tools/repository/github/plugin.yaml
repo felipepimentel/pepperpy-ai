@@ -4,6 +4,7 @@ description: Provider for Github for tools_repository tasks
 author: PepperPy Team
 category: tools/repository
 provider_name: github
+plugin_type: tools
 default_config: null
 config_schema: null
 documentation:

@@ -2,6 +2,7 @@ name: tts/mock
 version: 0.1.0
 description: A mock TTS provider for development and testing
 author: PepperPy Team
+plugin_type: tts
 entry_point: provider:MockTTSProvider
 category: tts
 provider_name: mock

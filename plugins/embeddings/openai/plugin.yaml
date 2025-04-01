@@ -4,6 +4,7 @@ version: 0.1.0
 description: OpenAI Embeddings provider for PepperPy
 author: PepperPy Team
 license: MIT
+plugin_type: embeddings
 category: embeddings
 provider_name: openai
 entry_point: provider.OpenAIEmbeddingsProvider

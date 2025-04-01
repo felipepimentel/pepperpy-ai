@@ -2,6 +2,7 @@ name: rag/faiss
 version: 0.1.0
 description: Provider for Faiss for rag tasks
 author: PepperPy Team
+plugin_type: rag
 default_config: null
 config_schema: null
 documentation:

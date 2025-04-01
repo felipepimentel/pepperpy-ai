@@ -2,6 +2,7 @@ name: hub/local
 version: 0.1.0
 description: Provider for Local for hub tasks
 author: PepperPy Team
+plugin_type: hub
 default_config: null
 config_schema: null
 documentation:

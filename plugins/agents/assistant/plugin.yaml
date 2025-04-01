@@ -2,6 +2,7 @@ name: agents/assistant
 version: 0.1.0
 description: Provider for Assistant for agents tasks
 author: PepperPy Team
+plugin_type: agents
 default_config: null
 config_schema: null
 documentation:

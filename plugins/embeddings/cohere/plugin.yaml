@@ -2,6 +2,7 @@ name: embeddings/cohere
 version: 0.1.0
 description: Provider for Cohere for embeddings tasks
 author: PepperPy Team
+plugin_type: embeddings
 default_config: null
 config_schema: null
 documentation:

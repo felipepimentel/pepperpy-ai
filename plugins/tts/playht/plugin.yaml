@@ -2,6 +2,7 @@ name: tts/playht
 version: 0.1.0
 description: Provider for Playht for tts tasks
 author: PepperPy Team
+plugin_type: tts
 default_config: null
 config_schema: null
 documentation:

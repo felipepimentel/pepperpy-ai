@@ -2,29 +2,68 @@ name: tts/murf
 version: 0.1.0
 description: Provider for Murf for tts tasks
 author: PepperPy Team
-default_config: null
-config_schema: null
-documentation:
-  usage: 'Murf provider for tts tasks.
+plugin_type: tts
+category: tts
+provider_name: murf
+entry_point: provider.MurfTTSProvider
+pepperpy_compatibility: '>=0.1.0'
 
+config_schema:
+  type: object
+  properties:
+    api_key:
+      type: string
+      description: Murf API key
+      env_var: PEPPERPY_TTS_MURF__API_KEY
+    voice_id:
+      type: string
+      description: Voice ID to use for synthesis
+      default: en-US-1
+    rate:
+      type: integer
+      description: Speech rate (1-200)
+      default: 100
+    pitch:
+      type: integer
+      description: Voice pitch (1-200)
+      default: 100
+    format:
+      type: string
+      description: Output audio format
+      enum: [wav, mp3]
+      default: wav
+
+default_config:
+  voice_id: en-US-1
+  rate: 100
+  pitch: 100
+  format: wav
+
+required_config_keys:
+  - api_key
+
+dependencies:
+  - murf-api>=0.1.0
+  - aiohttp>=3.8.0
+
+documentation:
+  usage: |
+    Murf provider for text-to-speech synthesis.
 
     Example usage:
 
     ```python
-
     from pepperpy import create_provider
 
+    # Configure with API key
+    provider = create_provider("tts", "murf", api_key="your-api-key")
 
-    provider = create_provider("tts", "murf")
-
-
-    # Usage example here
-
+    # Synthesize speech
+    audio = await provider.synthesize(
+        text="Hello from Murf!",
+        voice_id="en-US-1",
+        rate=100,
+        pitch=100,
+        format="wav"
+    )
     ```
-
-    '
-category: tts
-provider_name: murf
-entry_point: provider.MurfProvider
-pepperpy_compatibility: '>=0.1.0'
-required_config_keys: []

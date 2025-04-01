@@ -3,6 +3,7 @@ version: 0.1.0
 description: Ready-to-use workflow for processing text using NLP tools
 author: PepperPy Team
 license: MIT
+plugin_type: workflow
 category: workflow
 provider_name: text_processing
 entry_point: workflow.TextProcessingWorkflow

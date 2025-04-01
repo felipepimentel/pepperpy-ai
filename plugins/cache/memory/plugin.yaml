@@ -2,6 +2,7 @@ name: cache/memory
 version: 0.1.0
 description: Provider for Memory for cache tasks
 author: PepperPy Team
+plugin_type: cache
 default_config: null
 config_schema: null
 documentation:

@@ -2,6 +2,7 @@ name: agents/autogen
 version: 0.1.0
 description: Provider for Autogen for agents tasks
 author: PepperPy Team
+plugin_type: agents
 default_config: null
 config_schema: null
 documentation:

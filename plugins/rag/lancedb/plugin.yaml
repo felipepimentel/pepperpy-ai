@@ -1,6 +1,6 @@
 name: rag/lancedb
 version: 0.1.0
-description: Provider for Lancedb for rag tasks
+description: LanceDB RAG provider
 author: PepperPy Team
 default_config: null
 config_schema: null
@@ -28,3 +28,4 @@ provider_name: lancedb
 entry_point: provider.LanceDBProvider
 pepperpy_compatibility: '>=0.1.0'
 required_config_keys: []
+plugin_type: rag

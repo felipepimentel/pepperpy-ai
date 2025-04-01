@@ -2,6 +2,7 @@ name: cli/default
 version: 0.1.0
 description: Provider for Default for cli tasks
 author: PepperPy Team
+plugin_type: cli
 default_config: null
 config_schema: null
 documentation:

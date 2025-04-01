@@ -3,6 +3,7 @@ version: 0.1.0
 description: Ready-to-use workflow for processing documents, extracting text and metadata
 author: PepperPy Team
 license: MIT
+plugin_type: workflow
 category: workflow
 provider_name: document_processor
 entry_point: workflow.DocumentProcessingWorkflow
