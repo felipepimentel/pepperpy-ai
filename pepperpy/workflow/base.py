@@ -17,7 +17,8 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
 
 # Importe a classe de erro do módulo correto com a grafia correta
 from pepperpy.core import PepperpyError
-from pepperpy.core.base import BaseProvider
+from pepperpy.core.errors import ValidationError
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")
@@ -182,8 +183,8 @@ class PipelineStage(Generic[Input, Output], ABC):
             logger.debug(f"Executing pipeline stage: {self.name}")
             return self.process(input_data, context)
         except Exception as e:
-            logger.error(f"Error in pipeline stage {self.name}: {str(e)}")
-            raise PipelineError(f"Error in pipeline stage {self.name}: {str(e)}") from e
+            logger.error(f"Error in pipeline stage {self.name}: {e!s}")
+            raise PipelineError(f"Error in pipeline stage {self.name}: {e!s}") from e
 
 
 class Pipeline(Generic[Input, Output]):
@@ -270,8 +271,8 @@ class Pipeline(Generic[Input, Output]):
                 data = stage(data, context)
             return cast(Output, data)
         except Exception as e:
-            logger.error(f"Error in pipeline {self.name}: {str(e)}")
-            raise PipelineError(f"Error in pipeline {self.name}: {str(e)}") from e
+            logger.error(f"Error in pipeline {self.name}: {e!s}")
+            raise PipelineError(f"Error in pipeline {self.name}: {e!s}") from e
 
 
 class PipelineRegistry:
@@ -515,7 +516,7 @@ class Workflow(ABC):
         self.metadata = metadata
 
 
-class WorkflowProvider(BaseProvider):
+class WorkflowProvider(PepperpyPlugin):
     """Base class for workflow providers.
 
     A workflow provider is responsible for executing workflows and managing
@@ -626,13 +627,11 @@ def create_provider(provider_type: str = "default", **config: Any) -> WorkflowPr
         # Create provider instance
         return provider_class(**config)
     except (ImportError, AttributeError) as e:
-        from pepperpy.core.base import ValidationError
-
         raise ValidationError(
             f"Failed to create Workflow provider '{provider_type}': {e}"
         ) from e
     except Exception as e:
-        raise ValidationError(f"Failed to create Workflow provider: {str(e)}") from e
+        raise ValidationError(f"Failed to create Workflow provider: {e!s}") from e
 
 
 class DocumentWorkflow(Workflow):

@@ -13,8 +13,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.core.base import BaseProvider, Document, PepperpyError
+from pepperpy.core.base import Document, PepperpyError
 from pepperpy.core.config import Config
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.rag.base import Query
 
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ class StorageStats:
     metadata: Optional[Dict[str, Any]] = None
 
 
-class StorageProvider(BaseProvider, ABC):
+class StorageProvider(PepperpyPlugin, ABC):
     """Base class for storage providers.
 
     This class defines the interface that all storage providers must implement.

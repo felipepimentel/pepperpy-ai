@@ -5,28 +5,23 @@ It abstracts the plugin system and provides a fluent API for configuring
 and using providers.
 """
 
-import asyncio
 import os
 from collections.abc import AsyncIterator, Sequence
-from pathlib import Path
 from typing import (
     Any,
     Dict,
     List,
     Optional,
     Self,
+    Type,
     Union,
     cast,
 )
 
 from pepperpy.core import (
-    EventType,
     ValidationError,
-    get_event_bus,
     get_logger,
 )
-from pepperpy.core.config import Config, get_config_registry
-from pepperpy.core.di import get_container
 from pepperpy.embeddings import EmbeddingsProvider
 from pepperpy.llm import (
     GenerationChunk,
@@ -35,7 +30,13 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugins.discovery import create_provider_instance, get_plugin_registry
+from pepperpy.plugins.discovery import (
+    discover_plugins,
+    get_plugin,
+    get_plugin_by_provider,
+    get_provider_class,
+)
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.rag import (
     Document,
     Query,
@@ -1106,92 +1107,132 @@ class LLMBuilder:
 
 
 class PepperPy:
-    """Main class for interacting with the PepperPy framework."""
+    """Main PepperPy framework class."""
 
-    def __init__(
-        self,
-        config: Optional[Dict[str, Any]] = None,
-        config_file: Optional[Union[str, Path]] = None,
-        env_prefix: str = "PEPPERPY_",
-        plugin_dirs: Optional[List[str]] = None,
-        auto_discover_plugins: bool = True,
-        register_services: bool = True,
-    ) -> None:
-        """Initialize PepperPy.
+    def __init__(self) -> None:
+        """Initialize PepperPy."""
+        self._initialized = False
+        self._providers: Dict[str, PepperpyPlugin] = {}
+
+    @classmethod
+    def create(cls) -> "PepperPy":
+        """Create a new PepperPy instance.
+
+        Returns:
+            PepperPy instance
+        """
+        return cls()
+
+    def with_plugin(
+        self, plugin_type: str, provider_type: str, **config: Any
+    ) -> "PepperPy":
+        """Configure a plugin.
 
         Args:
-            config: Optional global configuration
-            config_file: Optional path to configuration file
-            env_prefix: Environment variable prefix
-            plugin_dirs: Optional additional plugin directories
-            auto_discover_plugins: Whether to discover plugins automatically
-            register_services: Whether to register core services in the DI container
+            plugin_type: Type of plugin to configure
+            provider_type: Type of provider to use
+            **config: Plugin configuration
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValidationError: If provider type not found
         """
-        logger.info("Initializing PepperPy framework...")
+        # Get plugin class
+        plugin_class = get_provider_class(provider_type)
+        if not plugin_class:
+            raise ValidationError(f"Provider type '{provider_type}' not found")
 
-        # Initialize configuration
-        config_registry = get_config_registry()
-        if config_file:
-            config_registry.register(
-                "core", Config(config_path=config_file, env_prefix=env_prefix)
-            )
-        elif config:
-            config_registry.register(
-                "core", Config(defaults=config, env_prefix=env_prefix)
-            )
-        else:
-            config_registry.register("core", Config(env_prefix=env_prefix))
+        # Create provider instance
+        provider = plugin_class(**config)
+        self._providers[plugin_type] = provider
 
-        # Initialize dependency injection
-        container = get_container()
-        if register_services:
-            container.services.add_singleton_instance(
-                Config, config_registry.get("core")
-            )
-            container.build()
+        return self
 
-        # Initialize plugin system
-        plugin_registry = get_plugin_registry()
-        if auto_discover_plugins:
-            search_paths = []
-            if plugin_dirs:
-                search_paths.extend(plugin_dirs)
-            default_path = Path(__file__).parent.parent / "plugins"
-            if default_path.exists():
-                search_paths.append(str(default_path))
-            plugin_registry.discover_plugins(search_paths)
+    def get_provider(self, plugin_type: str) -> PepperpyPlugin:
+        """Get a configured provider.
 
-        # Publish initialization event
-        event_bus = get_event_bus()
-        asyncio.create_task(
-            event_bus.publish(
-                EventType.INITIALIZE,
-                {
-                    "config_file": str(config_file) if config_file else None,
-                    "env_prefix": env_prefix,
-                    "plugin_dirs": plugin_dirs,
-                    "auto_discover_plugins": auto_discover_plugins,
-                },
-            )
-        )
+        Args:
+            plugin_type: Type of plugin to get
 
-        logger.info("PepperPy framework initialized successfully")
+        Returns:
+            Provider instance
 
-        # Carregar .env automaticamente
-        try:
-            from pepperpy.plugin import PepperpyPlugin
+        Raises:
+            ValidationError: If provider not found
+        """
+        provider = self._providers.get(plugin_type)
+        if not provider:
+            raise ValidationError(f"Provider '{plugin_type}' not configured")
+        return provider
 
-            PepperpyPlugin._smart_load_dotenv()
-        except ImportError:
-            # Ignorar se não conseguir importar
-            pass
+    def build(self) -> "PepperPy":
+        """Build the configured PepperPy instance.
 
-        self._config = config or {}
-        self._llm_provider: Optional[LLMProvider] = None
-        self._rag_provider: Optional[RAGProvider] = None
-        self._workflow_provider: Optional[WorkflowProvider] = None
-        self._tts_provider: Optional[TTSProvider] = None
-        self._embeddings_provider: Optional[EmbeddingsProvider] = None
+        Returns:
+            Configured PepperPy instance
+        """
+        return self
+
+    async def __aenter__(self) -> "PepperPy":
+        """Enter async context.
+
+        Returns:
+            Self
+        """
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Exit async context."""
+        await self.cleanup()
+
+    async def initialize(self) -> None:
+        """Initialize PepperPy."""
+        if self._initialized:
+            return
+
+        # Discover plugins
+        await discover_plugins(["plugins"])
+
+        # Initialize providers
+        for provider in self._providers.values():
+            await provider.initialize()
+
+        self._initialized = True
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Clean up providers
+        for provider in self._providers.values():
+            await provider.cleanup()
+
+        self._initialized = False
+
+    @staticmethod
+    def get_plugin(plugin_type: str) -> Optional[Type[PepperpyPlugin]]:
+        """Get plugin class by type.
+
+        Args:
+            plugin_type: Plugin type to get
+
+        Returns:
+            Plugin class if found, None otherwise
+        """
+        return get_plugin(plugin_type)
+
+    @staticmethod
+    def get_plugin_by_provider(provider_type: str) -> Optional[Type[PepperpyPlugin]]:
+        """Get plugin class by provider type.
+
+        Args:
+            provider_type: Provider type to get
+
+        Returns:
+            Plugin class if found, None otherwise
+        """
+        return get_plugin_by_provider(provider_type)
 
     def with_llm(
         self,
@@ -1430,36 +1471,3 @@ class PepperPy:
         if not self._rag_provider:
             raise RuntimeError("RAG provider not configured. Call with_rag() first.")
         return RAGBuilder(self._rag_provider)
-
-    async def __aenter__(self) -> Self:
-        """Enter async context.
-
-        Returns:
-            Self for use in context
-        """
-        # Initialize all configured providers
-        if self._llm_provider:
-            await self._llm_provider.initialize()
-        if self._rag_provider:
-            await self._rag_provider.initialize()
-        if self._workflow_provider:
-            await self._workflow_provider.initialize()
-        if self._tts_provider:
-            await self._tts_provider.initialize()
-        if self._embeddings_provider:
-            await self._embeddings_provider.initialize()
-        return self
-
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit async context."""
-        # Clean up all configured providers
-        if self._llm_provider:
-            await self._llm_provider.cleanup()
-        if self._rag_provider:
-            await self._rag_provider.cleanup()
-        if self._workflow_provider:
-            await self._workflow_provider.cleanup()
-        if self._tts_provider:
-            await self._tts_provider.cleanup()
-        if self._embeddings_provider:
-            await self._embeddings_provider.cleanup()

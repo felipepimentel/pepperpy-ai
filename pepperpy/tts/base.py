@@ -11,12 +11,14 @@ Example:
 
 import importlib
 from abc import abstractmethod
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pepperpy.core import PepperpyError
-from pepperpy.core.base import BaseProvider, ValidationError
+from pepperpy.core.errors import ValidationError
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.workflow.base import WorkflowComponent
 
 
@@ -128,7 +130,7 @@ class TTSCapabilities(str, Enum):
     EMOTION_CONTROL = "emotion_control"
 
 
-class TTSProvider(BaseProvider):
+class TTSProvider(PepperpyPlugin):
     """Base class for TTS providers."""
 
     def __init__(
@@ -280,7 +282,7 @@ def create_provider(provider_type: str = "mock", **config: Any) -> TTSProvider:
         return provider_class(**config)
     except ImportError as e:
         raise TTSConfigError(
-            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {e!s}"
         ) from e
     except AttributeError as e:
         raise TTSConfigError(
@@ -288,7 +290,7 @@ def create_provider(provider_type: str = "mock", **config: Any) -> TTSProvider:
         ) from e
     except Exception as e:
         raise TTSConfigError(
-            f"Failed to create provider '{provider_type}': {str(e)}"
+            f"Failed to create provider '{provider_type}': {e!s}"
         ) from e
 
 

@@ -1,0 +1,26 @@
+name: content/processing/document/pymupdf
+version: 0.1.0
+description: PyMuPDF document processing provider
+author: PepperPy Team
+category: content/processing/document
+provider_name: pymupdf
+plugin_type: content/processing/document
+default_config: null
+config_schema: null
+documentation:
+  usage: 'PyMuPDF provider for document processing tasks.
+
+    Example usage:
+
+    ```python
+    from pepperpy import create_provider
+
+    provider = create_provider("content/processing/document", "pymupdf")
+
+    # Process a document
+    result = await provider.process("document.pdf")
+    ```
+    '
+entry_point: provider.PyMuPDFProvider
+pepperpy_compatibility: '>=0.1.0'
+required_config_keys: [] 

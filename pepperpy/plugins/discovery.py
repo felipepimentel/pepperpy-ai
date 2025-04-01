@@ -1,24 +1,17 @@
-"""Enhanced plugin discovery system for PepperPy.
-
-This module provides a standardized mechanism for discovering, loading,
-and registering plugins, with support for automatic dependency resolution,
-versioning, and validation.
-"""
+"""Plugin discovery module."""
 
 import importlib
 import sys
 from enum import Enum
-from importlib.metadata import entry_points
+from importlib.metadata import EntryPoint, entry_points
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, TypeVar, Union
+from typing import Dict, List, Optional, Type, cast, Iterable
 
 import yaml
 
 from pepperpy.core.errors import ValidationError
 from pepperpy.core.logging import get_logger
-
-# Type for generic plugin
-T = TypeVar("T")
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 logger = get_logger(__name__)
 
@@ -84,511 +77,244 @@ class PluginSource(Enum):
     DYNAMIC = "dynamic"  # Dynamically registered
 
 
-class PluginInfo:
-    """Information about a plugin."""
-
-    def __init__(
-        self,
-        name: str,
-        version: str,
-        description: str,
-        category: str,
-        provider_name: str,
-        entry_point: str,
-        path: Optional[str] = None,
-        source: PluginSource = PluginSource.LOCAL,
-        metadata: Optional[Dict[str, Any]] = None,
-        dependencies: Optional[List[str]] = None,
-        enabled: bool = True,
-    ):
-        """Initialize plugin info.
-
-        Args:
-            name: Plugin name
-            version: Plugin version
-            description: Plugin description
-            category: Plugin category
-            provider_name: Provider name
-            entry_point: Entry point to provider class
-            path: Path to plugin directory
-            source: Source of plugin discovery
-            metadata: Additional metadata
-            dependencies: Plugin dependencies
-            enabled: Whether plugin is enabled
-        """
-        self.name = name
-        self.version = version
-        self.description = description
-        self.category = category
-        self.provider_name = provider_name
-        self.entry_point = entry_point
-        self.path = path
-        self.source = source
-        self.metadata = metadata or {}
-        self.dependencies = dependencies or []
-        self.enabled = enabled
-        self._plugin_class = None
-        self._plugin_instance = None
-
-    @classmethod
-    def from_yaml(cls, yaml_path: Union[str, Path]) -> "PluginInfo":
-        """Create plugin info from YAML file.
-
-        Args:
-            yaml_path: Path to YAML file
-
-        Returns:
-            Plugin info
-
-        Raises:
-            PluginValidationError: If YAML is invalid
-        """
-        yaml_path = Path(yaml_path)
-        try:
-            with open(yaml_path) as f:
-                data = yaml.safe_load(f)
-
-            # Validate required fields
-            required_fields = [
-                "name",
-                "version",
-                "description",
-                "plugin_type",
-                "provider_name",
-                "entry_point",
-            ]
-            missing = [f for f in required_fields if f not in data]
-            if missing:
-                raise PluginValidationError(
-                    f"Missing required fields: {', '.join(missing)}",
-                    plugin_path=str(yaml_path),
-                )
-
-            # Create plugin info
-            return cls(
-                name=data["name"],
-                version=data["version"],
-                description=data["description"],
-                category=data["plugin_type"],
-                provider_name=data["provider_name"],
-                entry_point=data["entry_point"],
-                path=str(yaml_path.parent),
-                metadata=data,
-                dependencies=data.get("dependencies", []),
-                enabled=data.get("enabled", True),
-            )
-
-        except Exception as e:
-            if isinstance(e, PluginValidationError):
-                raise
-            raise PluginValidationError(
-                f"Failed to load plugin YAML: {e}",
-                plugin_path=str(yaml_path),
-            ) from e
-
-    def get_class(self) -> Type[Any]:
-        """Get plugin class.
-
-        Returns:
-            Plugin class
-
-        Raises:
-            PluginLoadError: If class loading fails
-        """
-        if self._plugin_class is not None:
-            return self._plugin_class
-
-        try:
-            if ":" in self.entry_point:
-                # Format: module.path:ClassName
-                module_path, class_name = self.entry_point.split(":", 1)
-            else:
-                # Format: module.path.ClassName
-                module_path, class_name = self.entry_point.rsplit(".", 1)
-
-            # If path is provided, add to sys.path temporarily
-            path_added = False
-            if self.path and self.path not in sys.path:
-                sys.path.insert(0, self.path)
-                path_added = True
-
-            try:
-                module = importlib.import_module(module_path)
-                self._plugin_class = getattr(module, class_name)
-                return self._plugin_class
-            finally:
-                # Remove from sys.path if added
-                if path_added and self.path:
-                    sys.path.remove(self.path)
-
-        except (ImportError, AttributeError) as e:
-            raise PluginLoadError(
-                f"Failed to load plugin class: {e}",
-                plugin_name=self.name,
-                plugin_path=self.path,
-                cause=e,
-            ) from e
-
-    def create_instance(self, **kwargs: Any) -> Any:
-        """Create plugin instance.
-
-        Args:
-            **kwargs: Configuration for the plugin
-
-        Returns:
-            Plugin instance
-
-        Raises:
-            PluginLoadError: If instance creation fails
-        """
-        try:
-            cls = self.get_class()
-            instance = cls(**kwargs)
-            self._plugin_instance = instance
-            return instance
-        except Exception as e:
-            if isinstance(e, PluginLoadError):
-                raise
-            raise PluginLoadError(
-                f"Failed to create plugin instance: {e}",
-                plugin_name=self.name,
-                plugin_path=self.path,
-                cause=e,
-            ) from e
-
-
 class PluginRegistry:
-    """Registry for plugins.
+    """Registry for plugins."""
 
-    This class manages the discovery, registration, and retrieval of plugins.
-    It supports multiple plugin sources including local filesystem,
-    entry points, and namespaces.
-    """
-
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize plugin registry."""
-        self._plugins: Dict[str, PluginInfo] = {}
-        self._categories: Dict[str, Dict[str, PluginInfo]] = {}
-        self._providers: Dict[str, Dict[str, PluginInfo]] = {}
-        self._search_paths: List[str] = []
+        self._plugins: Dict[str, Dict[str, Type[PepperpyPlugin]]] = {}
         self._initialized = False
 
-    def register_plugin(self, plugin: PluginInfo) -> None:
+    def register_plugin(
+        self, plugin_type: str, provider_type: str, plugin_class: Type[PepperpyPlugin]
+    ) -> None:
         """Register a plugin.
 
         Args:
-            plugin: Plugin info
+            plugin_type: Type of plugin (e.g., "llm", "rag")
+            provider_type: Type of provider (e.g., "openai", "local")
+            plugin_class: Plugin class to register
         """
-        self._plugins[plugin.name] = plugin
+        if plugin_type not in self._plugins:
+            self._plugins[plugin_type] = {}
+        self._plugins[plugin_type][provider_type] = plugin_class
+        logger.debug(f"Registered plugin: {plugin_type}/{provider_type}")
 
-        # Register by category
-        if plugin.category not in self._categories:
-            self._categories[plugin.category] = {}
-        self._categories[plugin.category][plugin.name] = plugin
-
-        # Register by provider name
-        provider_key = f"{plugin.category}:{plugin.provider_name}"
-        if provider_key not in self._providers:
-            self._providers[provider_key] = {}
-        self._providers[provider_key][plugin.name] = plugin
-
-        logger.debug(
-            f"Registered plugin: {plugin.name} ({plugin.category}/{plugin.provider_name})"
-        )
-
-    def unregister_plugin(self, plugin_name: str) -> None:
-        """Unregister a plugin.
+    def get_plugin(
+        self, plugin_type: str, provider_type: str
+    ) -> Optional[Type[PepperpyPlugin]]:
+        """Get a plugin class.
 
         Args:
-            plugin_name: Plugin name
-        """
-        if plugin_name not in self._plugins:
-            return
-
-        plugin = self._plugins[plugin_name]
-
-        # Unregister from categories
-        if plugin.category in self._categories:
-            if plugin_name in self._categories[plugin.category]:
-                del self._categories[plugin.category][plugin_name]
-
-        # Unregister from providers
-        provider_key = f"{plugin.category}:{plugin.provider_name}"
-        if provider_key in self._providers:
-            if plugin_name in self._providers[provider_key]:
-                del self._providers[provider_key][plugin_name]
-
-        # Unregister from plugins
-        del self._plugins[plugin_name]
-
-        logger.debug(f"Unregistered plugin: {plugin_name}")
-
-    def add_search_path(self, path: str) -> None:
-        """Add a search path for plugins.
-
-        Args:
-            path: Path to search for plugins
-        """
-        if path not in self._search_paths:
-            self._search_paths.append(path)
-            logger.debug(f"Added plugin search path: {path}")
-
-    def get_plugin(self, plugin_name: str) -> Optional[PluginInfo]:
-        """Get plugin by name.
-
-        Args:
-            plugin_name: Plugin name
+            plugin_type: Type of plugin
+            provider_type: Type of provider
 
         Returns:
-            Plugin info or None if not found
+            Plugin class if found, None otherwise
         """
-        return self._plugins.get(plugin_name)
+        return self._plugins.get(plugin_type, {}).get(provider_type)
 
     def get_plugin_by_provider(
-        self, category: str, provider_name: str
-    ) -> Optional[PluginInfo]:
-        """Get plugin by category and provider name.
+        self, plugin_type: str, provider_type: str
+    ) -> Optional[Type[PepperpyPlugin]]:
+        """Get a plugin by type and provider.
 
         Args:
-            category: Plugin category
-            provider_name: Provider name
+            plugin_type: Type of plugin
+            provider_type: Type of provider
 
         Returns:
-            Plugin info or None if not found
+            Plugin class if found, None otherwise
         """
-        provider_key = f"{category}:{provider_name}"
-        if provider_key in self._providers:
-            # Return the first plugin for this provider
-            providers = self._providers[provider_key]
-            if providers:
-                return next(iter(providers.values()))
-        return None
+        return self._plugins.get(plugin_type, {}).get(provider_type)
 
-    def get_plugins_by_category(self, category: str) -> Dict[str, PluginInfo]:
-        """Get plugins by category.
-
-        Args:
-            category: Plugin category
-
-        Returns:
-            Dictionary of plugin name to plugin info
-        """
-        return self._categories.get(category, {})
-
-    def list_plugins(self) -> Dict[str, PluginInfo]:
+    def list_plugins(self) -> Dict[str, Dict[str, Type[PepperpyPlugin]]]:
         """List all plugins.
 
         Returns:
-            Dictionary of plugin name to plugin info
+            Dict of plugin types to dict of provider types to plugin classes
         """
         return dict(self._plugins)
 
-    def list_categories(self) -> List[str]:
-        """List all plugin categories.
-
-        Returns:
-            List of category names
-        """
-        return list(self._categories.keys())
-
-    def list_providers(self, category: str) -> List[str]:
-        """List all providers for a category.
-
-        Args:
-            category: Plugin category
-
-        Returns:
-            List of provider names
-        """
-        providers = set()
-        for plugin in self._categories.get(category, {}).values():
-            providers.add(plugin.provider_name)
-        return list(providers)
-
-    def discover_plugins(
-        self, search_paths: Optional[List[str]] = None, include_entrypoints: bool = True
-    ) -> None:
-        """Discover and register plugins.
-
-        This method scans the configured search paths and entry points
-        for plugins and registers them.
-
-        Args:
-            search_paths: Optional additional search paths
-            include_entrypoints: Whether to include entry points
-        """
-        if search_paths:
-            for path in search_paths:
-                self.add_search_path(path)
-
-        # Discover plugins from search paths
-        for path in self._search_paths:
-            try:
-                self._discover_from_path(path)
-            except Exception as e:
-                logger.warning(f"Failed to discover plugins from {path}: {e}")
-
-        # Discover plugins from entry points
-        if include_entrypoints:
-            try:
-                self._discover_from_entrypoints()
-            except Exception as e:
-                logger.warning(f"Failed to discover plugins from entry points: {e}")
-
-        self._initialized = True
-        logger.info(f"Discovered {len(self._plugins)} plugins")
-
-    def _discover_from_path(self, path: str) -> None:
-        """Discover plugins from a directory path.
-
-        Args:
-            path: Path to search for plugins
-        """
-        path_obj = Path(path)
-        if not path_obj.exists() or not path_obj.is_dir():
-            logger.warning(
-                f"Plugin search path does not exist or is not a directory: {path}"
-            )
-            return
-
-        # Find all plugin.yaml files
-        for plugin_yaml in path_obj.glob("**/plugin.yaml"):
-            try:
-                plugin = PluginInfo.from_yaml(plugin_yaml)
-                self.register_plugin(plugin)
-            except Exception as e:
-                logger.warning(f"Failed to load plugin from {plugin_yaml}: {e}")
-
-    def _discover_from_entrypoints(self) -> None:
-        """Discover plugins from entry points."""
-        try:
-            eps = entry_points()
-
-            # Handle different entry_points() return type in Python 3.8 vs 3.9+
-            pepperpy_eps = getattr(eps, "get", lambda x: eps)("pepperpy.plugins") or []
-
-            for ep in pepperpy_eps:
-                try:
-                    plugin_class = ep.load()
-
-                    # Get metadata from class
-                    metadata = getattr(plugin_class, "plugin_metadata", {})
-                    if not metadata:
-                        logger.warning(f"No metadata for entry point plugin: {ep.name}")
-                        continue
-
-                    # Create plugin info
-                    plugin = PluginInfo(
-                        name=metadata.get("name", ep.name),
-                        version=metadata.get("version", "0.1.0"),
-                        description=metadata.get("description", ""),
-                        category=metadata.get("category", ""),
-                        provider_name=metadata.get("provider_name", ""),
-                        entry_point=ep.value,
-                        source=PluginSource.ENTRYPOINT,
-                        metadata=metadata,
-                    )
-
-                    self.register_plugin(plugin)
-                except Exception as e:
-                    logger.warning(f"Failed to load entry point plugin {ep.name}: {e}")
-        except Exception as e:
-            logger.warning(f"Failed to discover entry point plugins: {e}")
-
 
 # Global plugin registry instance
-_plugin_registry = None
+_plugin_registry: Optional[PluginRegistry] = None
 
 
 def get_plugin_registry() -> PluginRegistry:
     """Get the global plugin registry.
 
     Returns:
-        Plugin registry
+        Plugin registry instance
     """
     global _plugin_registry
     if _plugin_registry is None:
         _plugin_registry = PluginRegistry()
-
-        # Add default search paths
-        # First try the package path
-        try:
-            package_path = Path(__file__).parent.parent.parent / "plugins"
-            if package_path.exists():
-                _plugin_registry.add_search_path(str(package_path))
-        except Exception:
-            pass
-
-        # Then try the current working directory
-        try:
-            cwd_path = Path.cwd() / "plugins"
-            if cwd_path.exists():
-                _plugin_registry.add_search_path(str(cwd_path))
-        except Exception:
-            pass
-
     return _plugin_registry
 
 
-def discover_plugins(
-    search_paths: Optional[List[str]] = None, include_entrypoints: bool = True
-) -> None:
-    """Discover and register plugins.
+async def discover_plugins(paths: List[str]) -> None:
+    """Discover plugins in given paths.
 
     Args:
-        search_paths: Optional additional search paths
-        include_entrypoints: Whether to include entry points
-    """
-    registry = get_plugin_registry()
-    registry.discover_plugins(search_paths, include_entrypoints)
-
-
-def get_plugin(plugin_name: str) -> Optional[PluginInfo]:
-    """Get plugin by name.
-
-    Args:
-        plugin_name: Plugin name
-
-    Returns:
-        Plugin info or None if not found
-    """
-    registry = get_plugin_registry()
-    return registry.get_plugin(plugin_name)
-
-
-def get_plugin_by_provider(category: str, provider_name: str) -> Optional[PluginInfo]:
-    """Get plugin by category and provider name.
-
-    Args:
-        category: Plugin category
-        provider_name: Provider name
-
-    Returns:
-        Plugin info or None if not found
-    """
-    registry = get_plugin_registry()
-    return registry.get_plugin_by_provider(category, provider_name)
-
-
-def create_provider_instance(category: str, provider_name: str, **kwargs: Any) -> Any:
-    """Create a provider instance using the plugin discovery system.
-
-    Args:
-        category: Provider category (e.g., "llm", "embeddings")
-        provider_name: Provider name (e.g., "openai", "huggingface")
-        **kwargs: Provider configuration
-
-    Returns:
-        Provider instance
+        paths: List of paths to search for plugins
 
     Raises:
-        PluginLoadError: If provider cannot be loaded
-        PluginValidationError: If provider is not found
+        PluginValidationError: If plugin validation fails
+        PluginLoadError: If plugin loading fails
     """
     registry = get_plugin_registry()
-    plugin = registry.get_plugin_by_provider(category, provider_name)
+    if registry._initialized:
+        return
 
-    if not plugin:
-        raise PluginValidationError(f"Provider not found: {category}/{provider_name}")
+    # Discover from filesystem
+    for path in paths:
+        path_obj = Path(path)
+        if not path_obj.exists() or not path_obj.is_dir():
+            logger.warning(f"Plugin path does not exist or is not a directory: {path}")
+            continue
 
-    return plugin.create_instance(**kwargs)
+        # Add path to Python path temporarily
+        if str(path_obj) not in sys.path:
+            sys.path.insert(0, str(path_obj))
+
+        try:
+            # Look for plugin.yaml files
+            for plugin_yaml in path_obj.glob("**/plugin.yaml"):
+                try:
+                    # Load plugin metadata
+                    with open(plugin_yaml) as f:
+                        metadata = yaml.safe_load(f)
+
+                    # Validate metadata
+                    if not isinstance(metadata, dict):
+                        raise PluginValidationError(
+                            "Invalid plugin metadata format",
+                            plugin_path=str(plugin_yaml),
+                        )
+
+                    # Extract and validate required fields
+                    plugin_type = metadata.get("type", "")
+                    provider_type = metadata.get("provider", "")
+                    module_path = metadata.get("module", "")
+                    class_name = metadata.get("class", "")
+
+                    # Validate all required fields are present and are strings
+                    if not all(
+                        [
+                            isinstance(plugin_type, str) and plugin_type,
+                            isinstance(provider_type, str) and provider_type,
+                            isinstance(module_path, str) and module_path,
+                            isinstance(class_name, str) and class_name,
+                        ]
+                    ):
+                        raise PluginValidationError(
+                            "Missing or invalid required metadata fields",
+                            plugin_path=str(plugin_yaml),
+                        )
+
+                    # Import plugin module
+                    try:
+                        module = importlib.import_module(module_path)
+                    except ImportError as e:
+                        raise PluginLoadError(
+                            f"Failed to import plugin module: {e}",
+                            plugin_path=str(plugin_yaml),
+                            cause=e,
+                        ) from e
+
+                    # Get plugin class
+                    plugin_class = getattr(module, class_name)
+                    if plugin_class is None:
+                        raise PluginValidationError(
+                            f"Plugin class {class_name} not found in module",
+                            plugin_path=str(plugin_yaml),
+                        )
+
+                    if not issubclass(plugin_class, PepperpyPlugin):
+                        raise PluginValidationError(
+                            f"Plugin class {class_name} does not inherit from PepperpyPlugin",
+                            plugin_path=str(plugin_yaml),
+                        )
+
+                    # Register plugin
+                    registry.register_plugin(plugin_type, provider_type, plugin_class)
+
+                except (PluginValidationError, PluginLoadError) as e:
+                    logger.warning(str(e))
+                except Exception as e:
+                    logger.warning(f"Failed to load plugin from {plugin_yaml}: {e}")
+
+        finally:
+            # Remove path from Python path
+            if str(path_obj) in sys.path:
+                sys.path.remove(str(path_obj))
+
+    # Discover from entry points
+    try:
+        eps = entry_points()
+        pepperpy_eps: Iterable[EntryPoint] = []
+        
+        # Handle different entry_points() return type in Python 3.8 vs 3.9+
+        if hasattr(eps, "select"):
+            pepperpy_eps = eps.select(group="pepperpy.plugins")
+        elif hasattr(eps, "get"):
+            pepperpy_eps = cast(Iterable[EntryPoint], eps.get("pepperpy.plugins", []))
+
+        for ep in pepperpy_eps:
+            try:
+                plugin_class = ep.load()
+                if not issubclass(plugin_class, PepperpyPlugin):
+                    logger.warning(
+                        f"Entry point {ep.name} does not provide a PepperpyPlugin class"
+                    )
+                    continue
+
+                plugin_type = cast(str, getattr(plugin_class, "plugin_type", ""))
+                provider_type = cast(str, getattr(plugin_class, "provider_type", ""))
+
+                if not plugin_type or not provider_type:
+                    logger.warning(
+                        f"Entry point {ep.name} plugin class missing type metadata"
+                    )
+                    continue
+
+                registry.register_plugin(plugin_type, provider_type, plugin_class)
+
+            except Exception as e:
+                logger.warning(f"Failed to load entry point plugin {ep.name}: {e}")
+
+    except Exception as e:
+        logger.warning(f"Failed to discover entry point plugins: {e}")
+
+    registry._initialized = True
+
+
+def get_plugin(plugin_type: str, provider_type: str) -> Optional[Type[PepperpyPlugin]]:
+    """Get plugin by type and provider.
+
+    Args:
+        plugin_type: Type of plugin
+        provider_type: Type of provider
+
+    Returns:
+        Plugin class if found, None otherwise
+    """
+    registry = get_plugin_registry()
+    return registry.get_plugin(plugin_type, provider_type)
+
+
+def get_plugin_by_provider(
+    plugin_type: str, provider_type: str
+) -> Optional[Type[PepperpyPlugin]]:
+    """Get plugin by type and provider.
+
+    Args:
+        plugin_type: Type of plugin
+        provider_type: Type of provider
+
+    Returns:
+        Plugin class if found, None otherwise
+    """
+    registry = get_plugin_registry()
+    return registry.get_plugin_by_provider(plugin_type, provider_type)

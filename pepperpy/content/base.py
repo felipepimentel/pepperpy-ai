@@ -11,7 +11,7 @@ from pepperpy.content.errors import (
     ProviderNotFoundError,
     UnsupportedContentTypeError,
 )
-from pepperpy.core.base import BaseProvider
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 
 class ContentType(Enum):
@@ -40,7 +40,7 @@ class ProcessingResult:
     structured_data: Optional[Dict[str, Any]] = None
 
 
-class ContentProcessor(BaseProvider, ABC):
+class ContentProcessor(PepperpyPlugin, ABC):
     """Base class for content processors."""
 
     name: str = "base"

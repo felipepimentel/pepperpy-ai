@@ -2,13 +2,12 @@
 
 import importlib
 from abc import abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence, TypeVar, Union
+from typing import Any, Dict, List, Optional, TypeVar, Union
 
-from pepperpy.core.base import (
-    BaseProvider,
-    ValidationError,
-)
+from pepperpy.core.errors import ValidationError
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.workflow.base import WorkflowComponent
 
 T = TypeVar("T")
@@ -140,7 +139,7 @@ class RetrievalResult:
         }
 
 
-class RAGProvider(BaseProvider):
+class RAGProvider(PepperpyPlugin):
     """Base class for RAG providers."""
 
     @abstractmethod
@@ -321,14 +320,14 @@ def create_provider(
         return provider_class(**config)
     except ImportError as e:
         raise ValidationError(
-            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {str(e)}"
+            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {e!s}"
         )
     except AttributeError:
         raise ValidationError(
             f"Provider class '{PROVIDER_CLASSES[provider_type]}' not found in module '{PROVIDER_MODULES[provider_type]}'"
         )
     except Exception as e:
-        raise ValidationError(f"Failed to create provider '{provider_type}': {str(e)}")
+        raise ValidationError(f"Failed to create provider '{provider_type}': {e!s}")
 
 
 class Filter:

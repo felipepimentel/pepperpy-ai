@@ -1,42 +1,27 @@
-"""PepperPy plugin system.
+"""Plugin system for PepperPy.
 
-This package provides the plugin system for PepperPy, including:
-- Base plugin classes
-- Plugin manager
-- Plugin discovery and loading
-- Plugin installation and management
+This package provides the plugin system infrastructure for PepperPy,
+allowing dynamic discovery and loading of providers.
 """
 
-from pepperpy.plugins.manager import PluginManager
-from pepperpy.plugins.plugin import (
-    PepperpyPlugin,
-    ProviderPlugin,
+from pepperpy.plugins.discovery import (
     discover_plugins,
-    install_plugin_dependencies,
+    get_plugin,
+    get_plugin_by_provider,
 )
-from pepperpy.plugins.providers import (
-    BaseProvider,
-    FileProvider,
-    HTTPProvider,
-    LocalProvider,
-    RemoteProvider,
-    RestProvider,
+from pepperpy.plugins.manager import (
+    PluginManager,
+    create_provider_instance,
+    get_plugin_manager,
 )
+from pepperpy.plugins.plugin import PepperpyPlugin
 
 __all__ = [
-    # Base plugin classes
     "PepperpyPlugin",
-    "ProviderPlugin",
-    # Plugin manager
     "PluginManager",
-    # Plugin utilities
     "discover_plugins",
-    "install_plugin_dependencies",
-    # Provider classes
-    "BaseProvider",
-    "RemoteProvider",
-    "LocalProvider",
-    "RestProvider",
-    "FileProvider",
-    "HTTPProvider",
+    "get_plugin",
+    "get_plugin_by_provider",
+    "create_provider_instance",
+    "get_plugin_manager",
 ]
