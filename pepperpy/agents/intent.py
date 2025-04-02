@@ -16,7 +16,7 @@ Example:
 import re
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 from pepperpy.cache import cached
 from pepperpy.core.intent import Intent as CoreIntent
@@ -28,54 +28,157 @@ logger = get_logger(__name__)
 # Enhanced intent patterns with parameter extraction
 INTENT_PATTERNS = [
     # Question intents
-    (r"\b(what|who|when|where|how|why|which)\b.*\?", "question", {"subject": r"about\s+(.+?)(?:\s+in|\s+for|\?|$)"}),
-    (r"\bdefine\b|\bmeaning\b|\bwhat is\b", "definition", {"term": r"(?:is|of|the)\s+([^?.,]+)(?:\?|$)"}),
+    (
+        r"\b(what|who|when|where|how|why|which)\b.*\?",
+        "question",
+        {"subject": r"about\s+(.+?)(?:\s+in|\s+for|\?|$)"},
+    ),
+    (
+        r"\bdefine\b|\bmeaning\b|\bwhat is\b",
+        "definition",
+        {"term": r"(?:is|of|the)\s+([^?.,]+)(?:\?|$)"},
+    ),
     # Creation intents
-    (r"\bcreate\b|\bdevelop\b|\bgenerate\b|\bmake\b", "create", {"format": r"(?:an?|the)\s+(\w+)"}),
+    (
+        r"\bcreate\b|\bdevelop\b|\bgenerate\b|\bmake\b",
+        "create",
+        {"format": r"(?:an?|the)\s+(\w+)"},
+    ),
     (r"\bwrite\b|\bcompose\b|\bdraft\b", "write", {"format": r"(?:an?|the)\s+(\w+)"}),
     # Analysis intents
-    (r"\banalyze\b|\bexamine\b|\bevaluate\b", "analyze", {"subject": r"(?:this|the)\s+([^.,?]+)"}),
-    (r"\bcompare\b|\bdifference\b|\bsimilarity\b", "compare", {"items": r"between\s+(.+?)\s+and\s+(.+?)(?:\?|$)"}),
+    (
+        r"\banalyze\b|\bexamine\b|\bevaluate\b",
+        "analyze",
+        {"subject": r"(?:this|the)\s+([^.,?]+)"},
+    ),
+    (
+        r"\bcompare\b|\bdifference\b|\bsimilarity\b",
+        "compare",
+        {"items": r"between\s+(.+?)\s+and\s+(.+?)(?:\?|$)"},
+    ),
     # Processing intents
-    (r"\bprocess\b|\btransform\b|\bconvert\b", "process", {"format": r"(?:to|into|as)\s+(?:an?|the)\s+(\w+)"}),
-    (r"\bsummarize\b|\bsynthesis\b", "summarize", {"length": r"in\s+(\d+)\s+(?:words|sentences|paragraphs)"}),
+    (
+        r"\bprocess\b|\btransform\b|\bconvert\b",
+        "process",
+        {"format": r"(?:to|into|as)\s+(?:an?|the)\s+(\w+)"},
+    ),
+    (
+        r"\bsummarize\b|\bsynthesis\b",
+        "summarize",
+        {"length": r"in\s+(\d+)\s+(?:words|sentences|paragraphs)"},
+    ),
     # Configuration intents
-    (r"\bconfigure\b|\badjust\b|\bset\s+config", "configure", {"setting": r"(?:the|for)\s+(\w+)"}),
+    (
+        r"\bconfigure\b|\badjust\b|\bset\s+config",
+        "configure",
+        {"setting": r"(?:the|for)\s+(\w+)"},
+    ),
 ]
 
 # Enhanced keywords for each intent type
 INTENT_KEYWORDS = {
     "question": [
-        "question", "explain", "answer", "clarify", "help", "tell me",
-        "what", "who", "when", "where", "how", "why", "which"
+        "question",
+        "explain",
+        "answer",
+        "clarify",
+        "help",
+        "tell me",
+        "what",
+        "who",
+        "when",
+        "where",
+        "how",
+        "why",
+        "which",
     ],
     "analyze": [
-        "analysis", "analyze", "examine", "investigate", "explain", "interpret",
-        "evaluate", "assess", "review", "check", "inspect", "study"
+        "analysis",
+        "analyze",
+        "examine",
+        "investigate",
+        "explain",
+        "interpret",
+        "evaluate",
+        "assess",
+        "review",
+        "check",
+        "inspect",
+        "study",
     ],
     "create": [
-        "create", "generate", "produce", "develop", "build", "implement",
-        "design", "construct", "make", "craft", "form", "compose"
+        "create",
+        "generate",
+        "produce",
+        "develop",
+        "build",
+        "implement",
+        "design",
+        "construct",
+        "make",
+        "craft",
+        "form",
+        "compose",
     ],
     "process": [
-        "process", "transform", "convert", "modify", "adapt", "change",
-        "translate", "rewrite", "rephrase", "alter", "update"
+        "process",
+        "transform",
+        "convert",
+        "modify",
+        "adapt",
+        "change",
+        "translate",
+        "rewrite",
+        "rephrase",
+        "alter",
+        "update",
     ],
     "summarize": [
-        "summarize", "synthesize", "condense", "abbreviate", "shorten",
-        "brief", "digest", "synopsis", "outline", "recap"
+        "summarize",
+        "synthesize",
+        "condense",
+        "abbreviate",
+        "shorten",
+        "brief",
+        "digest",
+        "synopsis",
+        "outline",
+        "recap",
     ],
     "compare": [
-        "compare", "contrast", "differentiate", "distinguish", "versus",
-        "similarity", "difference", "distinction", "relationship"
+        "compare",
+        "contrast",
+        "differentiate",
+        "distinguish",
+        "versus",
+        "similarity",
+        "difference",
+        "distinction",
+        "relationship",
     ],
     "search": [
-        "search", "find", "locate", "discover", "lookup", "seek",
-        "query", "retrieve", "get", "fetch"
+        "search",
+        "find",
+        "locate",
+        "discover",
+        "lookup",
+        "seek",
+        "query",
+        "retrieve",
+        "get",
+        "fetch",
     ],
     "configure": [
-        "configure", "setup", "set", "adjust", "tune", "customize",
-        "preferences", "settings", "options", "parameters"
+        "configure",
+        "setup",
+        "set",
+        "adjust",
+        "tune",
+        "customize",
+        "preferences",
+        "settings",
+        "options",
+        "parameters",
     ],
 }
 
@@ -93,7 +196,7 @@ PARAMETER_EXTRACTORS = {
 
 class IntentCategory(Enum):
     """Categories of intents for grouping similar intent types."""
-    
+
     QUESTION = "question"
     CREATION = "creation"
     ANALYSIS = "analysis"
@@ -126,110 +229,74 @@ INTENT_CATEGORIES = {
 
 @cached(ttl=3600, namespace="intent_analysis")
 def analyze_intent(query: str) -> Tuple[str, Dict[str, Any], float]:
-    """Analyze user query to determine the intent type, extract parameters, and assign confidence.
-    
-    This enhanced function examines query text and attempts to classify it into
-    a known intent type, extract relevant parameters, and assign a confidence score.
-    
+    """Analyze a user query to determine the intent and extract parameters.
+
     Args:
-        query: The query to analyze
-        
+        query: The user query to analyze
+
     Returns:
-        A tuple of (intent_type, parameters, confidence)
-        
-    Example:
-        >>> intent_type, params, confidence = analyze_intent("Analyze this PDF document")
-        >>> print(intent_type)
-        analyze
-        >>> print(confidence)
-        0.85
+        A tuple containing (intent_type, parameters, confidence)
     """
-    if not query or not isinstance(query, str):
-        logger.warning(f"Invalid query for intent analysis: {query}")
-        return "general", {}, 0.5
-        
-    # Convert to lowercase for easier matching
-    query_lower = query.lower()
-    
-    # Initialize variables
-    detected_intents: List[Tuple[str, float, Dict[str, Any]]] = []
-    parameters: Dict[str, Any] = {}
-    
-    # Pattern-based analysis (high confidence)
-    for pattern, intent_type, param_patterns in INTENT_PATTERNS:
-        if re.search(pattern, query_lower):
-            # Extract parameters if available
-            intent_params = {}
-            for param_name, param_pattern in param_patterns.items():
-                match = re.search(param_pattern, query_lower)
-                if match:
-                    # Store all capture groups
-                    if len(match.groups()) == 1:
-                        intent_params[param_name] = match.group(1)
-                    else:
-                        for i, group in enumerate(match.groups(), 1):
-                            if group:
-                                intent_params[f"{param_name}_{i}" if i > 1 else param_name] = group
-            
-            # Add to detected intents with high confidence
-            detected_intents.append((intent_type, 0.9, intent_params))
-    
-    # Keyword-based analysis (medium confidence)
-    keyword_scores: Dict[str, float] = {}
-    for intent_type, keywords in INTENT_KEYWORDS.items():
-        score = 0.0
-        matches = 0
-        
-        for keyword in keywords:
-            if f" {keyword} " in f" {query_lower} ":
-                matches += 1
-                # Keywords at the beginning get higher weight
-                position_factor = 1.0
-                if query_lower.startswith(keyword):
-                    position_factor = 1.5
-                
-                # Add to score, considering position
-                score += 0.1 * position_factor
-        
-        if matches > 0:
-            keyword_scores[intent_type] = min(0.8, score) # Cap at 0.8
-    
-    # Add keyword-based intents
-    for intent_type, score in keyword_scores.items():
-        if score >= 0.3:  # Only add if reasonable confidence
-            detected_intents.append((intent_type, score, {}))
-    
-    # Extract generic parameters using patterns
-    for param_name, param_pattern in PARAMETER_EXTRACTORS.items():
-        match = re.search(param_pattern, query)
+    # Normalize query
+    normalized_query = query.strip().lower()
+
+    # Default values
+    intent_type = "query"
+    params = {}
+    confidence = 0.5
+
+    # Check for create intent patterns
+    create_patterns = [
+        r"(?:create|generate|write|make)(?:\s+a)?(?:\s+an)?(?:\s+some)?\s+(.*)",
+        r"(?:produce|draft|compose|prepare)(?:\s+a)?(?:\s+an)?(?:\s+some)?\s+(.*)",
+    ]
+
+    for pattern in create_patterns:
+        match = re.search(pattern, normalized_query)
         if match:
-            parameters[param_name] = match.group(1)
-    
-    # No intents detected
-    if not detected_intents:
-        # Try to use semantic understanding based on common question patterns
-        if query_lower.endswith("?"):
-            return "question", parameters, 0.7
-        elif any(query_lower.startswith(w) for w in ["how", "what", "why", "when", "where", "who"]):
-            return "question", parameters, 0.7
-        else:
-            return "general", parameters, 0.5
-    
-    # Sort by confidence and get the best match
-    detected_intents.sort(key=lambda x: x[1], reverse=True)
-    best_intent, confidence, intent_params = detected_intents[0]
-    
-    # Merge parameters
-    parameters.update(intent_params)
-    
-    # Adjust confidence based on parameter extraction
-    if parameters:
-        confidence = min(0.95, confidence + 0.05 * len(parameters))
-    
-    logger.debug(f"Detected intent '{best_intent}' with confidence {confidence:.2f} for query: {query}")
-    logger.debug(f"Extracted parameters: {parameters}")
-    
-    return best_intent, parameters, confidence
+            what_to_create = match.group(1).strip()
+            intent_type = "create"
+            params = {"content_type": what_to_create}
+            confidence = 0.7
+            break
+
+    # Check for process intent patterns
+    process_patterns = [
+        r"(?:process|transform|convert|summarize|analyze)\s+(.*)",
+        r"(?:extract|parse|get|find)\s+(.*?)\s+(?:from|in)\s+(.*)",
+    ]
+
+    for pattern in process_patterns:
+        match = re.search(pattern, normalized_query)
+        if match:
+            intent_type = "process"
+            if len(match.groups()) == 1:
+                params = {"content": match.group(1).strip()}
+            else:
+                params = {
+                    "target": match.group(1).strip(),
+                    "content": match.group(2).strip(),
+                }
+            confidence = 0.65
+            break
+
+    # Check for analyze intent patterns
+    analyze_patterns = [
+        r"(?:analyze|examine|study|investigate)\s+(.*)",
+        r"(?:what|tell me about|describe)\s+(.*)",
+    ]
+
+    for pattern in analyze_patterns:
+        match = re.search(pattern, normalized_query)
+        if match:
+            content = match.group(1).strip()
+            # Only switch to analyze if we haven't matched a more specific intent
+            if intent_type == "query":
+                intent_type = "analyze"
+                params = {"data": content}
+                confidence = 0.6
+
+    return intent_type, params, confidence
 
 
 # Remover ou comentar a função create_intent_from_query que está causando problemas
@@ -268,17 +335,17 @@ def create_intent_from_query(query: str) -> Intent:
 @dataclass
 class Intent(CoreIntent):
     """Recognized intent from user input.
-    
+
     This enhanced class extends the core Intent class with additional functionality
     specific to agent interactions, including advanced metadata, parameter validation,
     and intent comparison.
-    
+
     Args:
         name: Intent name
         confidence: Confidence score (0-1)
         parameters: Extracted parameters
         metadata: Additional intent metadata
-        
+
     Example:
         >>> intent = Intent(
         ...     "get_weather",
@@ -290,13 +357,13 @@ class Intent(CoreIntent):
         >>> print(intent.parameters["location"])
         London
     """
-    
+
     # Only add the new fields, as the base class handles the others
     metadata: Dict[str, Any] = field(default_factory=dict)
-    
+
     def __post_init__(self):
         """Validate intent after initialization.
-        
+
         Raises:
             ValidationError: If confidence is not between 0 and 1
         """
@@ -306,17 +373,17 @@ class Intent(CoreIntent):
                 field="confidence",
                 rule="range",
             )
-    
+
     def get_parameter(self, name: str, default: Any = None) -> Any:
         """Get a parameter value by name.
-        
+
         Args:
             name: Parameter name
             default: Default value if parameter not found
-            
+
         Returns:
             Parameter value or default
-            
+
         Example:
             >>> intent = Intent(
             ...     "get_weather",
@@ -327,16 +394,16 @@ class Intent(CoreIntent):
             >>> assert city == "London"
         """
         return self.parameters.get(name, default)
-    
+
     def update_confidence(self, new_confidence: float) -> None:
         """Update intent confidence score.
-        
+
         Args:
             new_confidence: New confidence score (0-1)
-            
+
         Raises:
             ValidationError: If new_confidence is not between 0 and 1
-            
+
         Example:
             >>> intent = Intent("get_weather", 0.8)
             >>> intent.update_confidence(0.95)
@@ -349,17 +416,17 @@ class Intent(CoreIntent):
                 rule="range",
             )
         self.confidence = new_confidence
-    
+
     def merge_parameters(self, other: "Intent") -> None:
         """Merge parameters from another intent.
-        
+
         This method updates the current intent's parameters with
         parameters from another intent, preserving existing values
         unless overwritten.
-        
+
         Args:
             other: Intent to merge parameters from
-            
+
         Example:
             >>> intent1 = Intent(
             ...     "get_weather",
@@ -378,17 +445,17 @@ class Intent(CoreIntent):
             ... }
         """
         self.parameters.update(other.parameters)
-    
+
     def matches(self, pattern: str, threshold: Optional[float] = None) -> bool:
         """Check if intent matches a pattern.
-        
+
         Args:
             pattern: Intent name pattern to match
             threshold: Optional confidence threshold (0-1)
-            
+
         Returns:
             True if intent matches pattern and confidence threshold
-            
+
         Example:
             >>> intent = Intent("get_weather", 0.9)
             >>> assert intent.matches("get_*", 0.8)
@@ -396,17 +463,17 @@ class Intent(CoreIntent):
         """
         if threshold is not None and self.confidence < threshold:
             return False
-            
+
         # Convert pattern to regex-like matching
         pattern = pattern.replace("*", ".*")
         return bool(re.match(pattern, self.name))
-    
+
     def get_category(self) -> IntentCategory:
         """Get the category of this intent.
-        
+
         Returns:
             The intent category enum value
-            
+
         Example:
             >>> intent = Intent("question", 0.9)
             >>> assert intent.get_category() == IntentCategory.QUESTION
@@ -417,23 +484,23 @@ class Intent(CoreIntent):
                 return IntentCategory(self.metadata["category"])
             except ValueError:
                 pass
-                
+
         # Fall back to lookup
         return INTENT_CATEGORIES.get(self.name, IntentCategory.UNKNOWN)
-    
+
     def requires_parameters(self, *param_names: str) -> bool:
         """Check if intent has all required parameters.
-        
+
         Args:
             *param_names: Names of required parameters
-            
+
         Returns:
             True if all required parameters are present
-            
+
         Example:
             >>> intent = Intent(
-            ...     "get_weather", 
-            ...     0.9, 
+            ...     "get_weather",
+            ...     0.9,
             ...     parameters={"city": "London", "date": "today"}
             ... )
             >>> assert intent.requires_parameters("city")
@@ -441,36 +508,40 @@ class Intent(CoreIntent):
             >>> assert not intent.requires_parameters("city", "country")
         """
         return all(param in self.parameters for param in param_names)
-    
+
     def is_similar_to(self, other: "Intent", threshold: float = 0.5) -> bool:
         """Check if this intent is similar to another intent.
-        
+
         Compares names, categories, and parameters to determine similarity.
-        
+
         Args:
             other: Intent to compare with
             threshold: Similarity threshold (0-1)
-            
+
         Returns:
             True if intents are similar
         """
         # Same name is an automatic match
         if self.name == other.name:
             return True
-            
+
         # Check category
         if self.get_category() == other.get_category():
             # Same category gives 0.6 similarity
             similarity = 0.6
-            
+
             # Parameter overlap increases similarity
             if self.parameters and other.parameters:
-                common_params = set(self.parameters.keys()) & set(other.parameters.keys())
-                param_similarity = len(common_params) / max(len(self.parameters), len(other.parameters))
+                common_params = set(self.parameters.keys()) & set(
+                    other.parameters.keys()
+                )
+                param_similarity = len(common_params) / max(
+                    len(self.parameters), len(other.parameters)
+                )
                 similarity += 0.4 * param_similarity
-                
+
             return similarity >= threshold
-            
+
         return False
 
 
@@ -487,10 +558,10 @@ def extract_user_intent(query: str) -> Dict[str, Any]:
         Dict with complete intent information
     """
     intent_type, parameters, confidence = analyze_intent(query)
-    
+
     # Set appropriate category
     category = INTENT_CATEGORIES.get(intent_type, IntentCategory.UNKNOWN)
-    
+
     return {
         "intent": intent_type,
         "confidence": confidence,

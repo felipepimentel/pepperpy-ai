@@ -4,27 +4,27 @@ This module provides a centralized error class hierarchy for the entire
 framework, with consistent error reporting, context, and handling mechanisms.
 """
 
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 
 class PepperpyError(Exception):
     """Base exception for all PepperPy errors.
-    
+
     All errors in PepperPy should inherit from this class to ensure consistent
     error handling and reporting.
     """
-    
+
     def __init__(
-        self, 
-        message: str, 
+        self,
+        message: str,
         *args,
         code: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
         cause: Optional[Exception] = None,
-        **kwargs
+        **kwargs,
     ):
         """Initialize a PepperPy error.
-        
+
         Args:
             message: Error message
             *args: Additional positional arguments
@@ -38,56 +38,65 @@ class PepperpyError(Exception):
         self.code = code
         self.details = details or {}
         self.cause = cause
-        
+
         # Store any additional context
         for key, value in kwargs.items():
             if not hasattr(self, key):
                 setattr(self, key, value)
-                
+
     def __str__(self) -> str:
         """Get string representation of the error.
-        
+
         Returns:
             String representation
         """
         parts = [self.message]
-        
+
         if self.code:
             parts.insert(0, f"[{self.code}]")
-            
+
         # Add all custom attributes
         for attr, value in self.__dict__.items():
-            if attr not in ("message", "code", "details", "cause", "args") and not attr.startswith("_"):
+            if attr not in (
+                "message",
+                "code",
+                "details",
+                "cause",
+                "args",
+            ) and not attr.startswith("_"):
                 parts.append(f"{attr}={value}")
-                
+
         # Add cause if available
         if self.cause:
             parts.append(f"caused by: {self.cause}")
-            
+
         return " | ".join(parts)
-        
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert error to dictionary.
-        
+
         Returns:
             Dictionary representation of the error
         """
-        result = {
-            "type": self.__class__.__name__,
-            "message": self.message
-        }
-        
+        result = {"type": self.__class__.__name__, "message": self.message}
+
         if self.code:
             result["code"] = self.code
-            
+
         if self.details:
             result["details"] = self.details
-            
+
         # Add all custom attributes
         for attr, value in self.__dict__.items():
-            if attr not in ("message", "code", "details", "cause", "args") and not attr.startswith("_"):
+            if attr not in (
+                "message",
+                "code",
+                "details",
+                "cause",
+                "args",
+            ) and not attr.startswith("_"):
                 result[attr] = value
-                
+
         # Add cause if available
         if self.cause:
             if isinstance(self.cause, PepperpyError):
@@ -95,32 +104,29 @@ class PepperpyError(Exception):
             else:
                 result["cause"] = {
                     "type": self.cause.__class__.__name__,
-                    "message": str(self.cause)
+                    "message": str(self.cause),
                 }
-                
+
         return result
-        
+
     @classmethod
     def from_exception(
-        cls, 
-        exception: Exception, 
-        message: Optional[str] = None,
-        **kwargs
+        cls, exception: Exception, message: Optional[str] = None, **kwargs
     ) -> "PepperpyError":
         """Create a PepperPy error from another exception.
-        
+
         Args:
             exception: Original exception
             message: Optional custom message
             **kwargs: Additional context values
-            
+
         Returns:
             PepperPy error
         """
         if isinstance(exception, cls):
             # Already the correct type
             return exception
-            
+
         if isinstance(exception, PepperpyError):
             # Convert from one PepperPy error to another
             return cls(
@@ -128,20 +134,16 @@ class PepperpyError(Exception):
                 code=exception.code,
                 details=exception.details,
                 cause=exception.cause,
-                **kwargs
+                **kwargs,
             )
-            
+
         # Convert from a standard exception
-        return cls(
-            message or str(exception),
-            cause=exception,
-            **kwargs
-        )
+        return cls(message or str(exception), cause=exception, **kwargs)
 
 
 class ValidationError(PepperpyError):
     """Error raised when validation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -149,10 +151,10 @@ class ValidationError(PepperpyError):
         value: Optional[Any] = None,
         constraint: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize validation error.
-        
+
         Args:
             message: Error message
             field: Optional field name that failed validation
@@ -169,17 +171,17 @@ class ValidationError(PepperpyError):
 
 class ConfigurationError(PepperpyError):
     """Error raised when configuration is invalid."""
-    
+
     def __init__(
         self,
         message: str,
         config_key: Optional[str] = None,
         config_value: Optional[Any] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize configuration error.
-        
+
         Args:
             message: Error message
             config_key: Optional configuration key
@@ -194,17 +196,17 @@ class ConfigurationError(PepperpyError):
 
 class ProviderError(PepperpyError):
     """Error raised by providers during initialization or operation."""
-    
+
     def __init__(
         self,
         message: str,
         provider_name: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize provider error.
-        
+
         Args:
             message: Error message
             provider_name: Optional provider name
@@ -219,16 +221,10 @@ class ProviderError(PepperpyError):
 
 class AuthenticationError(PepperpyError):
     """Error raised when authentication fails."""
-    
-    def __init__(
-        self,
-        message: str,
-        provider: Optional[str] = None,
-        *args,
-        **kwargs
-    ):
+
+    def __init__(self, message: str, provider: Optional[str] = None, *args, **kwargs):
         """Initialize authentication error.
-        
+
         Args:
             message: Error message
             provider: Optional provider name
@@ -241,7 +237,7 @@ class AuthenticationError(PepperpyError):
 
 class AuthorizationError(PepperpyError):
     """Error raised when authorization fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -249,10 +245,10 @@ class AuthorizationError(PepperpyError):
         resource: Optional[str] = None,
         action: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize authorization error.
-        
+
         Args:
             message: Error message
             provider: Optional provider name
@@ -269,7 +265,7 @@ class AuthorizationError(PepperpyError):
 
 class ResourceError(PepperpyError):
     """Error raised when a resource operation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -277,10 +273,10 @@ class ResourceError(PepperpyError):
         resource_id: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize resource error.
-        
+
         Args:
             message: Error message
             resource_type: Optional resource type
@@ -297,17 +293,17 @@ class ResourceError(PepperpyError):
 
 class NotFoundError(ResourceError):
     """Error raised when a resource is not found."""
-    
+
     def __init__(
         self,
         message: str,
         resource_type: Optional[str] = None,
         resource_id: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize not found error.
-        
+
         Args:
             message: Error message
             resource_type: Optional resource type
@@ -316,28 +312,28 @@ class NotFoundError(ResourceError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
+            message,
             resource_type=resource_type,
             resource_id=resource_id,
             operation="get",
-            *args, 
-            **kwargs
+            *args,
+            **kwargs,
         )
 
 
 class DuplicateError(ResourceError):
     """Error raised when a duplicate resource is found."""
-    
+
     def __init__(
         self,
         message: str,
         resource_type: Optional[str] = None,
         resource_id: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize duplicate error.
-        
+
         Args:
             message: Error message
             resource_type: Optional resource type
@@ -346,18 +342,18 @@ class DuplicateError(ResourceError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
+            message,
             resource_type=resource_type,
             resource_id=resource_id,
             operation="create",
-            *args, 
-            **kwargs
+            *args,
+            **kwargs,
         )
 
 
 class NetworkError(PepperpyError):
     """Error raised when a network operation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -365,10 +361,10 @@ class NetworkError(PepperpyError):
         operation: Optional[str] = None,
         status_code: Optional[int] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize network error.
-        
+
         Args:
             message: Error message
             host: Optional host name
@@ -385,17 +381,17 @@ class NetworkError(PepperpyError):
 
 class TimeoutError(NetworkError):
     """Error raised when an operation times out."""
-    
+
     def __init__(
         self,
         message: str,
         timeout_seconds: Optional[float] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize timeout error.
-        
+
         Args:
             message: Error message
             timeout_seconds: Optional timeout duration
@@ -409,17 +405,17 @@ class TimeoutError(NetworkError):
 
 class ServiceError(PepperpyError):
     """Error raised when a service operation fails."""
-    
+
     def __init__(
         self,
         message: str,
         service_name: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize service error.
-        
+
         Args:
             message: Error message
             service_name: Optional service name
@@ -434,7 +430,7 @@ class ServiceError(PepperpyError):
 
 class LLMError(ServiceError):
     """Error raised when an LLM operation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -442,10 +438,10 @@ class LLMError(ServiceError):
         model: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize LLM error.
-        
+
         Args:
             message: Error message
             provider: Optional LLM provider name
@@ -455,11 +451,7 @@ class LLMError(ServiceError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
-            service_name=provider, 
-            operation=operation,
-            *args, 
-            **kwargs
+            message, service_name=provider, operation=operation, *args, **kwargs
         )
         self.provider = provider
         self.model = model
@@ -467,7 +459,7 @@ class LLMError(ServiceError):
 
 class EmbeddingError(ServiceError):
     """Error raised when an embedding operation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -475,10 +467,10 @@ class EmbeddingError(ServiceError):
         model: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize embedding error.
-        
+
         Args:
             message: Error message
             provider: Optional embedding provider name
@@ -488,11 +480,7 @@ class EmbeddingError(ServiceError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
-            service_name=provider, 
-            operation=operation,
-            *args, 
-            **kwargs
+            message, service_name=provider, operation=operation, *args, **kwargs
         )
         self.provider = provider
         self.model = model
@@ -500,7 +488,7 @@ class EmbeddingError(ServiceError):
 
 class RAGError(ServiceError):
     """Error raised when a RAG operation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -508,10 +496,10 @@ class RAGError(ServiceError):
         index: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize RAG error.
-        
+
         Args:
             message: Error message
             provider: Optional RAG provider name
@@ -521,11 +509,7 @@ class RAGError(ServiceError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
-            service_name=provider, 
-            operation=operation,
-            *args, 
-            **kwargs
+            message, service_name=provider, operation=operation, *args, **kwargs
         )
         self.provider = provider
         self.index = index
@@ -533,7 +517,7 @@ class RAGError(ServiceError):
 
 class StorageError(ServiceError):
     """Error raised when a storage operation fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -542,10 +526,10 @@ class StorageError(ServiceError):
         path: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize storage error.
-        
+
         Args:
             message: Error message
             provider: Optional storage provider name
@@ -556,11 +540,7 @@ class StorageError(ServiceError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
-            service_name=provider, 
-            operation=operation,
-            *args, 
-            **kwargs
+            message, service_name=provider, operation=operation, *args, **kwargs
         )
         self.provider = provider
         self.container = container
@@ -569,17 +549,17 @@ class StorageError(ServiceError):
 
 class ContentError(PepperpyError):
     """Error raised when a content operation fails."""
-    
+
     def __init__(
         self,
         message: str,
         content_type: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize content error.
-        
+
         Args:
             message: Error message
             content_type: Optional content type
@@ -594,7 +574,7 @@ class ContentError(PepperpyError):
 
 class ParsingError(ContentError):
     """Error raised when parsing content fails."""
-    
+
     def __init__(
         self,
         message: str,
@@ -602,10 +582,10 @@ class ParsingError(ContentError):
         line: Optional[int] = None,
         column: Optional[int] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize parsing error.
-        
+
         Args:
             message: Error message
             content_type: Optional content type
@@ -615,11 +595,7 @@ class ParsingError(ContentError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
-            content_type=content_type,
-            operation="parse",
-            *args, 
-            **kwargs
+            message, content_type=content_type, operation="parse", *args, **kwargs
         )
         self.line = line
         self.column = column
@@ -627,16 +603,16 @@ class ParsingError(ContentError):
 
 class ValidationErrorCollection(ValidationError):
     """Collection of validation errors."""
-    
+
     def __init__(
         self,
         message: str,
         errors: Optional[List[ValidationError]] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize validation error collection.
-        
+
         Args:
             message: Error message
             errors: Optional list of validation errors
@@ -645,18 +621,18 @@ class ValidationErrorCollection(ValidationError):
         """
         super().__init__(message, *args, **kwargs)
         self.errors = errors or []
-        
+
     def add_error(self, error: ValidationError) -> None:
         """Add a validation error to the collection.
-        
+
         Args:
             error: Validation error to add
         """
         self.errors.append(error)
-        
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert error collection to dictionary.
-        
+
         Returns:
             Dictionary representation of the error collection
         """
@@ -667,17 +643,17 @@ class ValidationErrorCollection(ValidationError):
 
 class PluginError(PepperpyError):
     """Error raised when a plugin operation fails."""
-    
+
     def __init__(
         self,
         message: str,
         plugin_name: Optional[str] = None,
         operation: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize plugin error.
-        
+
         Args:
             message: Error message
             plugin_name: Optional plugin name
@@ -692,17 +668,17 @@ class PluginError(PepperpyError):
 
 class PluginNotFoundError(PluginError):
     """Error raised when a plugin is not found."""
-    
+
     def __init__(
         self,
         message: str,
         plugin_name: Optional[str] = None,
         category: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize plugin not found error.
-        
+
         Args:
             message: Error message
             plugin_name: Optional plugin name
@@ -711,28 +687,24 @@ class PluginNotFoundError(PluginError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
-            plugin_name=plugin_name,
-            operation="load",
-            *args, 
-            **kwargs
+            message, plugin_name=plugin_name, operation="load", *args, **kwargs
         )
         self.category = category
 
 
 class PluginInitializationError(PluginError):
     """Error raised when plugin initialization fails."""
-    
+
     def __init__(
         self,
         message: str,
         plugin_name: Optional[str] = None,
         cause: Optional[Exception] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize plugin initialization error.
-        
+
         Args:
             message: Error message
             plugin_name: Optional plugin name
@@ -741,28 +713,28 @@ class PluginInitializationError(PluginError):
             **kwargs: Additional named context values
         """
         super().__init__(
-            message, 
+            message,
             plugin_name=plugin_name,
             operation="initialize",
             cause=cause,
-            *args, 
-            **kwargs
+            *args,
+            **kwargs,
         )
 
 
 class WorkflowError(PepperpyError):
     """Error raised when a workflow operation fails."""
-    
+
     def __init__(
         self,
         message: str,
         workflow_name: Optional[str] = None,
         stage: Optional[str] = None,
         *args,
-        **kwargs
+        **kwargs,
     ):
         """Initialize workflow error.
-        
+
         Args:
             message: Error message
             workflow_name: Optional workflow name
@@ -775,21 +747,76 @@ class WorkflowError(PepperpyError):
         self.stage = stage
 
 
+class APIError(PepperpyError):
+    """Error raised when an API call fails."""
+
+    def __init__(self, message: str, status_code: int = None, *args, **kwargs):
+        super().__init__(message, *args, **kwargs)
+        self.status_code = status_code
+
+
+class RateLimitError(APIError):
+    """Error raised when rate limit is exceeded."""
+
+    def __init__(
+        self,
+        message: str = "Rate limit exceeded",
+        retry_after: float = None,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.retry_after = retry_after
+
+
+class TimeoutError(APIError):
+    """Error raised when a request times out."""
+
+    def __init__(
+        self, message: str = "Request timed out", timeout: float = None, *args, **kwargs
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.timeout = timeout
+
+
+class ServerError(APIError):
+    """Error raised when a server error occurs."""
+
+    def __init__(
+        self, message: str = "Server error", status_code: int = 500, *args, **kwargs
+    ):
+        super().__init__(message, status_code, *args, **kwargs)
+
+
+class NetworkError(PepperpyError):
+    """Error raised when a network error occurs."""
+
+    def __init__(
+        self,
+        message: str = "Network error",
+        original_error: Exception = None,
+        *args,
+        **kwargs,
+    ):
+        super().__init__(message, *args, **kwargs)
+        self.original_error = original_error
+
+
 # Error helpers
 def wrap_exception(
     exception: Exception,
     error_cls: Type[PepperpyError] = PepperpyError,
     message: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> PepperpyError:
     """Wrap an exception in a PepperPy error.
-    
+
     Args:
         exception: Original exception
         error_cls: PepperPy error class to use
         message: Optional custom message
         **kwargs: Additional context values
-        
+
     Returns:
         PepperPy error
     """
@@ -800,16 +827,16 @@ def raise_from(
     exception: Exception,
     error_cls: Type[PepperpyError] = PepperpyError,
     message: Optional[str] = None,
-    **kwargs
+    **kwargs,
 ) -> None:
     """Raise a PepperPy error from another exception.
-    
+
     Args:
         exception: Original exception
         error_cls: PepperPy error class to use
         message: Optional custom message
         **kwargs: Additional context values
-        
+
     Raises:
         PepperpyError: Wrapped exception
     """

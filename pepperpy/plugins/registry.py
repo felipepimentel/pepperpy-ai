@@ -29,6 +29,9 @@ _plugin_metadata: Dict[str, Dict[str, Dict[str, Any]]] = {}
 _plugin_paths: Set[str] = set()
 _scan_timestamps: Dict[str, float] = {}
 _discovery_initialized = False
+_plugin_watchers: Dict[str, Any] = {}  # Path to watcher object
+_hot_reload_enabled = False
+_autodiscovery_enabled = True  # Enable auto-discovery by default
 
 # Mapping of plugin aliases to actual implementations
 _plugin_aliases: Dict[str, Dict[str, Union[str, Dict[str, Any]]]] = {
@@ -346,6 +349,14 @@ def register_plugin_path(path: str) -> None:
     if os.path.isdir(path):
         _plugin_paths.add(path)
         logger.debug(f"Registered plugin path: {path}")
+
+        # Auto-discover plugins in this path if enabled
+        if _autodiscovery_enabled:
+            discover_plugins_in_path(path)
+
+        # Add file watcher if hot reload is enabled
+        if _hot_reload_enabled:
+            _add_path_watcher(path)
     else:
         logger.warning(f"Plugin path does not exist: {path}")
 
@@ -542,6 +553,75 @@ def load_plugin(plugin_type: str, provider_type: str) -> Optional[Type[PepperpyP
     return None
 
 
+def discover_plugins_in_path(path: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
+    """Discover plugins in a specific path.
+
+    Args:
+        path: Path to discover plugins in
+
+    Returns:
+        Dictionary of discovered plugins by type and provider
+    """
+    discovered: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+    if not os.path.isdir(path):
+        return discovered
+
+    # Check if we've scanned this path recently
+    if _is_path_cached(path):
+        logger.debug(f"Skipping cached plugin path: {path}")
+        return discovered
+
+    # Mark path as scanned
+    _mark_path_scanned(path)
+
+    # Discover plugin types (directories in plugin path)
+    for plugin_type in os.listdir(path):
+        type_dir = os.path.join(path, plugin_type)
+        if not os.path.isdir(type_dir):
+            continue
+
+        # Discover provider types (directories in plugin type directory)
+        for provider_type in os.listdir(type_dir):
+            provider_dir = os.path.join(type_dir, provider_type)
+            if not os.path.isdir(provider_dir):
+                continue
+
+            # Look for plugin.yaml
+            plugin_yaml = os.path.join(provider_dir, "plugin.yaml")
+            if not os.path.isfile(plugin_yaml):
+                continue
+
+            # Load plugin metadata
+            try:
+                with open(plugin_yaml) as f:
+                    metadata = yaml.safe_load(f)
+            except Exception as e:
+                logger.error(f"Failed to load plugin metadata: {plugin_yaml}: {e}")
+                continue
+
+            # Add plugin to discovered dict
+            if plugin_type not in discovered:
+                discovered[plugin_type] = {}
+
+            metadata["_path"] = plugin_yaml
+            discovered[plugin_type][provider_type] = metadata
+
+            # Auto-load if entry_point is specified
+            if _autodiscovery_enabled and "entry_point" in metadata:
+                try:
+                    load_plugin(plugin_type, provider_type)
+                    logger.info(f"Auto-loaded plugin: {plugin_type}/{provider_type}")
+                except Exception as e:
+                    logger.error(
+                        f"Failed to auto-load {plugin_type}/{provider_type}: {e}"
+                    )
+
+            logger.debug(f"Discovered plugin: {plugin_type}/{provider_type}")
+
+    return discovered
+
+
 def discover_plugins() -> Dict[str, Dict[str, Dict[str, Any]]]:
     """Discover all plugins in registered paths.
 
@@ -552,50 +632,13 @@ def discover_plugins() -> Dict[str, Dict[str, Dict[str, Any]]]:
 
     # Discover plugins in registered paths
     for plugin_path in _plugin_paths:
-        if not os.path.isdir(plugin_path):
-            continue
+        path_discovered = discover_plugins_in_path(plugin_path)
 
-        # Check if we've scanned this path recently
-        if _is_path_cached(plugin_path):
-            logger.debug(f"Skipping cached plugin path: {plugin_path}")
-            continue
-
-        # Mark path as scanned
-        _mark_path_scanned(plugin_path)
-
-        # Discover plugin types (directories in plugin path)
-        for plugin_type in os.listdir(plugin_path):
-            type_dir = os.path.join(plugin_path, plugin_type)
-            if not os.path.isdir(type_dir):
-                continue
-
-            # Discover provider types (directories in plugin type directory)
-            for provider_type in os.listdir(type_dir):
-                provider_dir = os.path.join(type_dir, provider_type)
-                if not os.path.isdir(provider_dir):
-                    continue
-
-                # Look for plugin.yaml
-                plugin_yaml = os.path.join(provider_dir, "plugin.yaml")
-                if not os.path.isfile(plugin_yaml):
-                    continue
-
-                # Load plugin metadata
-                try:
-                    with open(plugin_yaml) as f:
-                        metadata = yaml.safe_load(f)
-                except Exception as e:
-                    logger.error(f"Failed to load plugin metadata: {plugin_yaml}: {e}")
-                    continue
-
-                # Add plugin to discovered dict
-                if plugin_type not in discovered:
-                    discovered[plugin_type] = {}
-
-                metadata["_path"] = plugin_yaml
-                discovered[plugin_type][provider_type] = metadata
-
-                logger.debug(f"Discovered plugin: {plugin_type}/{provider_type}")
+        # Merge discovered plugins
+        for plugin_type, providers in path_discovered.items():
+            if plugin_type not in discovered:
+                discovered[plugin_type] = {}
+            discovered[plugin_type].update(providers)
 
     return discovered
 
@@ -656,16 +699,18 @@ async def initialize_discovery() -> None:
     # Discover plugins
     plugins = discover_plugins()
 
-    # Load common plugin types eagerly
-    for plugin_type in ["llm", "embeddings", "rag"]:
-        if plugin_type in plugins:
-            for provider_type in plugins[plugin_type]:
-                try:
-                    load_plugin(plugin_type, provider_type)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to load plugin: {plugin_type}/{provider_type}: {e}"
-                    )
+    # Load common plugin types eagerly if autodiscovery is disabled
+    # (Otherwise they would have been loaded during discovery)
+    if not _autodiscovery_enabled:
+        for plugin_type in ["llm", "embeddings", "rag"]:
+            if plugin_type in plugins:
+                for provider_type in plugins[plugin_type]:
+                    try:
+                        load_plugin(plugin_type, provider_type)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to load plugin: {plugin_type}/{provider_type}: {e}"
+                        )
 
     _discovery_initialized = True
     logger.info("Plugin discovery initialized")
@@ -696,3 +741,165 @@ async def ensure_discovery_initialized() -> None:
     """
     if not _discovery_initialized:
         await initialize_discovery()
+
+
+def enable_hot_reload(enable: bool = True) -> None:
+    """Enable or disable hot reloading of plugins.
+
+    When enabled, the plugin system will watch plugin directories for changes
+    and automatically reload plugins when they change.
+
+    Args:
+        enable: Whether to enable hot reloading
+    """
+    global _hot_reload_enabled
+
+    try:
+        import watchdog
+        from watchdog.events import FileSystemEventHandler
+        from watchdog.observers import Observer
+    except ImportError:
+        logger.error("watchdog package is required for hot reloading")
+        logger.error("Install with: pip install watchdog")
+        return
+
+    if enable:
+        if not _hot_reload_enabled:
+            _hot_reload_enabled = True
+            logger.info("Hot reloading enabled for plugins")
+
+            # Add watchers to existing paths
+            for path in _plugin_paths:
+                _add_path_watcher(path)
+    else:
+        # Disable hot reloading and stop watchers
+        _hot_reload_enabled = False
+        _stop_all_watchers()
+        logger.info("Hot reloading disabled for plugins")
+
+
+def _add_path_watcher(path: str) -> None:
+    """Add a watcher to a path for hot reloading.
+
+    Args:
+        path: Path to watch
+    """
+    try:
+        if not _hot_reload_enabled or path in _plugin_watchers:
+            return
+
+        from watchdog.events import FileSystemEventHandler
+        from watchdog.observers import Observer
+
+        class PluginChangeHandler(FileSystemEventHandler):
+            def on_modified(self, event):
+                if not event.is_directory and event.src_path.endswith(".py"):
+                    # Get plugin type and provider from path
+                    rel_path = os.path.relpath(event.src_path, path)
+                    parts = rel_path.split(os.sep)
+
+                    if len(parts) >= 2:
+                        plugin_type = parts[0]
+                        provider_type = parts[1]
+
+                        # Only reload if already loaded
+                        if (
+                            plugin_type in _plugin_registry
+                            and provider_type in _plugin_registry[plugin_type]
+                        ):
+                            logger.info(
+                                f"Detected change in {plugin_type}/{provider_type}"
+                            )
+                            # Remove from registry and reload
+                            if plugin_type in _plugin_registry:
+                                if provider_type in _plugin_registry[plugin_type]:
+                                    del _plugin_registry[plugin_type][provider_type]
+                            if plugin_type in _plugin_metadata:
+                                if provider_type in _plugin_metadata[plugin_type]:
+                                    del _plugin_metadata[plugin_type][provider_type]
+
+                            # Clear the path from cache to force reload
+                            clear_path_cache(
+                                os.path.join(path, plugin_type, provider_type)
+                            )
+
+                            # Reload the plugin
+                            try:
+                                load_plugin(plugin_type, provider_type)
+                                logger.info(
+                                    f"Reloaded plugin: {plugin_type}/{provider_type}"
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to reload plugin: {plugin_type}/{provider_type}: {e}"
+                                )
+
+        # Create observer and handler
+        observer = Observer()
+        handler = PluginChangeHandler()
+
+        # Start watching
+        observer.schedule(handler, path, recursive=True)
+        observer.start()
+
+        # Store observer
+        _plugin_watchers[path] = observer
+
+        logger.debug(f"Added plugin watcher for path: {path}")
+    except Exception as e:
+        logger.error(f"Failed to add watcher for path {path}: {e}")
+
+
+def _stop_all_watchers() -> None:
+    """Stop all plugin watchers."""
+    for path, observer in _plugin_watchers.items():
+        try:
+            observer.stop()
+            observer.join()
+            logger.debug(f"Stopped watcher for path: {path}")
+        except Exception as e:
+            logger.error(f"Failed to stop watcher for path {path}: {e}")
+
+    _plugin_watchers.clear()
+
+
+def set_autodiscovery(enabled: bool) -> None:
+    """Enable or disable automatic discovery and loading of plugins.
+
+    When enabled, plugins will be automatically discovered and loaded
+    when paths are registered or during initialization.
+
+    Args:
+        enabled: Whether to enable autodiscovery
+    """
+    global _autodiscovery_enabled
+    _autodiscovery_enabled = enabled
+
+    if enabled:
+        logger.info("Plugin autodiscovery enabled")
+    else:
+        logger.info("Plugin autodiscovery disabled")
+
+
+def scan_available_plugins() -> Dict[str, List[str]]:
+    """Scan for available plugins without loading them.
+
+    Returns:
+        Dictionary mapping plugin types to lists of available provider types
+    """
+    available: Dict[str, List[str]] = {}
+
+    # Discover plugins
+    discovered = discover_plugins()
+
+    # Convert to simplified format
+    for plugin_type, providers in discovered.items():
+        if plugin_type not in available:
+            available[plugin_type] = []
+        available[plugin_type].extend(list(providers.keys()))
+
+    # Sort lists for consistency
+    for plugin_type in available:
+        available[plugin_type].sort()
+
+    return available

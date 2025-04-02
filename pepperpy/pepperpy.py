@@ -7,9 +7,11 @@ and using providers.
 
 import os
 import sys
-from collections.abc import AsyncIterator, Sequence
+import time
+from collections.abc import AsyncIterator
 from typing import (
     Any,
+    Callable,
     Dict,
     List,
     Optional,
@@ -19,29 +21,28 @@ from typing import (
     cast,
 )
 
-from pepperpy.agents.orchestrator import (
-    Orchestrator,
-    get_orchestrator,
+from pepperpy.agents.orchestrator import Orchestrator, get_orchestrator
+from pepperpy.cache import cached, get_result_cache, invalidate_cache
+from pepperpy.core.errors import (
+    APIError,
+    RateLimitError,
+    ValidationError,
 )
-from pepperpy.content.base import ContentProcessor
-from pepperpy.core.errors import ValidationError
 from pepperpy.core.logging import get_logger
-from pepperpy.embeddings import EmbeddingsProvider
-from pepperpy.llm import (
-    GenerationChunk,
-    GenerationResult,
-    LLMProvider,
-    Message,
-    MessageRole,
-)
+from pepperpy.core.retry import retry_async, retry_strategy
+from pepperpy.discovery.content_type import detect_content_type
+from pepperpy.llm import GenerationChunk, GenerationResult, LLMProvider, Message
+from pepperpy.llm.base import MessageRole
 from pepperpy.plugins import (
     PepperpyPlugin,
-    create_provider_instance,
+    PluginError,
     discover_plugins,
     get_plugin,
     register_plugin,
     register_plugin_path,
+    set_autodiscovery,
 )
+from pepperpy.plugins.registry import enable_hot_reload, scan_available_plugins
 from pepperpy.rag import (
     Document,
     Query,
@@ -49,11 +50,7 @@ from pepperpy.rag import (
     RetrievalResult,
 )
 from pepperpy.tts import TTSProvider
-from pepperpy.workflow.base import (
-    DocumentWorkflow,
-    PipelineContext,
-    WorkflowProvider,
-)
+from pepperpy.workflow import WorkflowProvider
 
 logger = get_logger(__name__)
 
@@ -1163,16 +1160,29 @@ class PepperPy:
     """Main PepperPy framework class."""
 
     def __init__(self) -> None:
-        """Initialize PepperPy without any configured providers."""
-        # Internal state
+        """Initialize the PepperPy class."""
+        self._providers: Dict[str, PepperpyPlugin] = {}
         self._llm_provider: Optional[LLMProvider] = None
         self._rag_provider: Optional[RAGProvider] = None
-        self._workflow_provider: Optional[WorkflowProvider] = None
         self._tts_provider: Optional[TTSProvider] = None
-        self._embeddings_provider: Optional[EmbeddingsProvider] = None
-        self._providers: Dict[str, Any] = {}
-        self._initialized = False
+        self._workflow_provider: Optional[WorkflowProvider] = None
+        self._embeddings_provider: Optional[PepperpyPlugin] = None
+        self._content_provider: Optional[PepperpyPlugin] = None
         self._orchestrator: Optional[Orchestrator] = None
+        self._context: Dict[str, Any] = {}
+        self._error_handlers: Dict[Type[Exception], Callable] = {}
+        self._initialized = False
+        self._retry_config = {
+            "max_retries": 3,
+            "retry_delay": 1.0,
+            "backoff_factor": 2.0,
+            "retry_exceptions": [
+                RateLimitError,
+                APIError,
+                ConnectionError,
+                TimeoutError,
+            ],
+        }
 
     @classmethod
     def get_instance(cls) -> "PepperPy":
@@ -1261,413 +1271,482 @@ class PepperPy:
                 raise ValidationError(f"Failed to initialize orchestrator: {e}")
         return self._orchestrator
 
-    async def ask_query(self, query: str, **context) -> str:
-        """Ask any question or make any request to the system.
+    def _get_context(self) -> Dict[str, Any]:
+        """Get current execution context.
 
-        This method automatically selects and orchestrates the appropriate
-        plugins to handle the query.
+        Returns:
+            Dictionary of context variables
+        """
+        return self._context.copy()
+
+    def add_context(self, **kwargs: Any) -> Self:
+        """Add values to the global context.
 
         Args:
-            query: The question or instruction to process
-            **context: Additional context to customize the response
-
-        Returns:
-            The generated response
-
-        Example:
-            >>> response = await pepperpy.ask_query("What is generative AI?")
-            >>> explanation = await pepperpy.ask_query("Explain transformers", language="en")
-        """
-        logger.debug(f"Processing query: {query}")
-        orchestrator = self._ensure_orchestrator()
-        return await orchestrator.execute(query, context)
-
-    async def process_content(
-        self, content: Any, instruction: Optional[str] = None, **options
-    ) -> Any:
-        """Process any type of content.
-
-        Automatically detects content type and applies appropriate processing
-        based on the provided instruction.
-
-        Args:
-            content: The content to process (file, text, data)
-            instruction: Optional instruction on what to do with the content
-            **options: Additional options for processing
-
-        Returns:
-            The processing result, which can vary based on content type
-            and instruction
-
-        Example:
-            >>> summary = await pepperpy.process_content("document.pdf", "Extract key points")
-            >>> translation = await pepperpy.process_content("Hello world", "Translate to Spanish")
-        """
-        logger.debug(f"Processing content with instruction: {instruction}")
-        orchestrator = self._ensure_orchestrator()
-        return await orchestrator.process(content, instruction, options)
-
-    async def create_content(
-        self, description: str, format: Optional[str] = None, **options
-    ) -> Any:
-        """Create any type of content.
-
-        Generates content based on a description, automatically detecting
-        the required format or using the specified one.
-
-        Args:
-            description: Description of the content to create
-            format: Optional format (text, image, audio, code, etc.)
-            **options: Additional options for content creation
-
-        Returns:
-            The created content in the requested format
-
-        Example:
-            >>> image = await pepperpy.create_content("A cat programming in Python", format="image")
-            >>> article = await pepperpy.create_content("An article about generative AI", style="academic")
-        """
-        logger.debug(f"Creating content: {description} (format: {format})")
-        orchestrator = self._ensure_orchestrator()
-        return await orchestrator.create(description, format, options)
-
-    async def analyze_data(self, data: Any, instruction: str, **options) -> Any:
-        """Analyze data and provide insights.
-
-        Examines provided data according to the instruction,
-        automatically detecting the data type.
-
-        Args:
-            data: The data to analyze
-            instruction: What to analyze in the data
-            **options: Additional options for analysis
-
-        Returns:
-            Analysis results, which may include insights, visualizations,
-            statistics or other relevant formats
-
-        Example:
-            >>> insights = await pepperpy.analyze_data(df, "Identify trends and outliers")
-            >>> summary = await pepperpy.analyze_data(transactions, "Calculate metrics and patterns")
-        """
-        logger.debug(f"Analyzing data with instruction: {instruction}")
-        orchestrator = self._ensure_orchestrator()
-        return await orchestrator.analyze(data, instruction, options)
-
-    def build(self) -> "PepperPy":
-        """Build the configured PepperPy instance.
-
-        Returns:
-            Configured PepperPy instance
-        """
-        return self
-
-    async def __aenter__(self) -> Self:
-        """Enter async context manager.
+            **kwargs: Key-value pairs to add to context
 
         Returns:
             Self for chaining
         """
-        # Inicializar plugins se necessário
+        self._context.update(kwargs)
+        return self
+
+    def set_retry_config(
+        self,
+        max_retries: Optional[int] = None,
+        retry_delay: Optional[float] = None,
+        backoff_factor: Optional[float] = None,
+        retry_exceptions: Optional[List[Type[Exception]]] = None,
+    ) -> Self:
+        """Configure retry behavior.
+
+        Args:
+            max_retries: Maximum number of retry attempts
+            retry_delay: Initial delay between retries in seconds
+            backoff_factor: Multiplier for delay on each retry
+            retry_exceptions: List of exception types to retry on
+
+        Returns:
+            Self for chaining
+        """
+        if max_retries is not None:
+            self._retry_config["max_retries"] = max_retries
+        if retry_delay is not None:
+            self._retry_config["retry_delay"] = retry_delay
+        if backoff_factor is not None:
+            self._retry_config["backoff_factor"] = backoff_factor
+        if retry_exceptions is not None:
+            self._retry_config["retry_exceptions"] = retry_exceptions
+        return self
+
+    def register_error_handler(
+        self, exception_type: Type[Exception], handler: Callable
+    ) -> Self:
+        """Register a handler for a specific exception type.
+
+        Args:
+            exception_type: Type of exception to handle
+            handler: Function to call when exception occurs
+
+        Returns:
+            Self for chaining
+        """
+        self._error_handlers[exception_type] = handler
+        return self
+
+    def _handle_error(self, error: Exception) -> Any:
+        """Handle error using registered handlers.
+
+        Args:
+            error: The exception that occurred
+
+        Returns:
+            Result from handler or re-raises exception
+
+        Raises:
+            Exception: If no handler is registered for this error
+        """
+        for error_type, handler in self._error_handlers.items():
+            if isinstance(error, error_type):
+                return handler(error)
+        raise error
+
+    @cached(namespace="pepperpy.ask_query")
+    @retry_async(
+        max_retries=3,
+        retry_on=[RateLimitError, APIError, ConnectionError, TimeoutError],
+    )
+    async def ask_query(
+        self,
+        query: str,
+        system_prompt: Optional[str] = None,
+        stream: bool = False,
+        cache: bool = True,
+        **context,
+    ) -> Union[str, AsyncIterator[str]]:
+        """Ask a question and get a response.
+
+        Args:
+            query: The question to ask
+            system_prompt: Optional system prompt to provide context
+            stream: Whether to stream the response
+            cache: Whether to cache the response
+            **context: Additional context parameters for execution
+
+        Returns:
+            Response from the system, or AsyncIterator of response chunks if streaming
+
+        Raises:
+            PluginError: If an error occurs during execution
+        """
+        # This method is designed to be cached when cache=True
+        if not cache:
+            # If caching is disabled, create a unique part for the key
+            context["_nocache"] = time.time()
+
+        # Create execution context
+        exec_context = context.copy()
+        exec_context.update(self._context)
+
+        if system_prompt:
+            exec_context["system_prompt"] = system_prompt
+
+        # Get orchestrator and execute
+        try:
+            orchestrator = self._ensure_orchestrator()
+
+            if stream:
+                # Return streaming iterator
+                return orchestrator.stream(query, exec_context)
+
+            response = await orchestrator.execute(query, exec_context)
+            return response
+        except Exception as e:
+            try:
+                return self._handle_error(e)
+            except Exception as original_error:
+                logger.error(f"Error in ask_query: {original_error}")
+                if isinstance(original_error, PluginError):
+                    raise
+                raise PluginError(
+                    f"Error processing query: {original_error}"
+                ) from original_error
+
+    @cached(namespace="pepperpy.process_content", key_params=["content", "instruction"])
+    @retry_async(strategy=retry_strategy.exponential_backoff)
+    async def process_content(
+        self,
+        content: Any,
+        instruction: Optional[str] = None,
+        content_type: Optional[str] = None,
+        cache: bool = True,
+        **options,
+    ) -> Any:
+        """Process content using the appropriate plugin.
+
+        Args:
+            content: Content to process (can be text, file path, or data)
+            instruction: Processing instruction or transformation to apply
+            content_type: Optional explicit content type, auto-detected if not provided
+            cache: Whether to cache the result
+            **options: Additional processing options
+
+        Returns:
+            Processed content
+
+        Raises:
+            PluginError: If an error occurs during processing
+        """
+        # This method is designed to be cached when cache=True
+        if not cache:
+            # If caching is disabled, create a unique part for the key
+            options["_nocache"] = time.time()
+
+        # Create context
+        context = options.copy()
+        context.update(self._context)
+
+        # Auto-detect content type if not provided
+        detected_type = content_type or detect_content_type(content)
+        context["content_type"] = detected_type
+
+        # Prepare instruction-based query if provided
+        if instruction:
+            query = f"process this {detected_type}: {instruction}"
+        else:
+            query = f"process this {detected_type}"
+
+        try:
+            # Use orchestrator to route to appropriate processor
+            orchestrator = self._ensure_orchestrator()
+            result = await orchestrator.process(content, query, context)
+            return result
+        except Exception as e:
+            try:
+                return self._handle_error(e)
+            except Exception as original_error:
+                logger.error(f"Error in process_content: {original_error}")
+                if isinstance(original_error, PluginError):
+                    raise
+                raise PluginError(
+                    f"Error processing content: {original_error}"
+                ) from original_error
+
+    @cached(namespace="pepperpy.create_content")
+    @retry_async(strategy=retry_strategy.exponential_backoff)
+    async def create_content(
+        self,
+        description: str,
+        format: Optional[str] = None,
+        style: Optional[str] = None,
+        cache: bool = True,
+        **options,
+    ) -> Any:
+        """Create content based on a description.
+
+        Args:
+            description: Description of the content to create
+            format: Desired format for the content (e.g., "markdown", "html", "json")
+            style: Style or tone for the content
+            cache: Whether to cache the result
+            **options: Additional creation options
+
+        Returns:
+            Created content
+
+        Raises:
+            PluginError: If an error occurs during content creation
+        """
+        # This method is designed to be cached when cache=True
+        if not cache:
+            # If caching is disabled, create a unique part for the key
+            options["_nocache"] = time.time()
+
+        # Create context
+        context = options.copy()
+        context.update(self._context)
+
+        if format:
+            context["format"] = format
+        if style:
+            context["style"] = style
+
+        # Create query for orchestrator
+        if format:
+            query = f"create {format} content: {description}"
+        else:
+            query = f"create content: {description}"
+
+        try:
+            # Use orchestrator to route to appropriate creator
+            orchestrator = self._ensure_orchestrator()
+            result = await orchestrator.create(query, context)
+            return result
+        except Exception as e:
+            try:
+                return self._handle_error(e)
+            except Exception as original_error:
+                logger.error(f"Error in create_content: {original_error}")
+                if isinstance(original_error, PluginError):
+                    raise
+                raise PluginError(
+                    f"Error creating content: {original_error}"
+                ) from original_error
+
+    @cached(namespace="pepperpy.analyze_data")
+    @retry_async(max_retries=2)
+    async def analyze_data(
+        self,
+        data: Any,
+        instruction: str,
+        format: Optional[str] = None,
+        cache: bool = True,
+        **options,
+    ) -> Any:
+        """Analyze data and extract insights.
+
+        Args:
+            data: Data to analyze (can be structured data, text, or file path)
+            instruction: Analysis instruction or question about the data
+            format: Desired format for the analysis results (e.g., "text", "json")
+            cache: Whether to cache the result
+            **options: Additional analysis options
+
+        Returns:
+            Analysis results
+
+        Raises:
+            PluginError: If an error occurs during analysis
+        """
+        # This method is designed to be cached when cache=True
+        if not cache:
+            # If caching is disabled, create a unique part for the key
+            options["_nocache"] = time.time()
+
+        # Create context
+        context = options.copy()
+        context.update(self._context)
+
+        # Auto-detect data type
+        data_type = detect_content_type(data)
+        context["data_type"] = data_type
+
+        if format:
+            context["format"] = format
+
+        # Create query for orchestrator
+        query = f"analyze this {data_type}: {instruction}"
+
+        try:
+            # Use orchestrator to route to appropriate analyzer
+            orchestrator = self._ensure_orchestrator()
+            result = await orchestrator.analyze(data, query, context)
+            return result
+        except Exception as e:
+            try:
+                return self._handle_error(e)
+            except Exception as original_error:
+                logger.error(f"Error in analyze_data: {original_error}")
+                if isinstance(original_error, PluginError):
+                    raise
+                raise PluginError(
+                    f"Error analyzing data: {original_error}"
+                ) from original_error
+
+    async def initialize(self) -> None:
+        """Initialize the framework and providers.
+
+        This method should be called before using the framework or will be
+        called automatically when entering the async context manager.
+        """
+        # Initialize framework if necessary
+        if not _framework_initialized:
+            await init_framework()
+
+        # Initialize all registered providers
         for provider in self._providers.values():
             if not provider.initialized:
                 await provider.initialize()
 
-        if self._llm_provider and not self._llm_provider.initialized:
-            await self._llm_provider.initialize()
-
-        if self._rag_provider and not self._rag_provider.initialized:
-            await self._rag_provider.initialize()
-
-        if self._tts_provider and not self._tts_provider.initialized:
-            await self._tts_provider.initialize()
-
-        if self._embeddings_provider and not self._embeddings_provider.initialized:
-            await self._embeddings_provider.initialize()
-
-        return self
-
-    async def __aexit__(self, *_: Any) -> None:
-        """Exit async context manager."""
-        # Limpar recursos em ordem inversa de inicialização
-
-        try:
-            # Primeiro limpar os provedores especializados
-            if self._embeddings_provider:
-                try:
-                    await self._embeddings_provider.cleanup()
-                except Exception as e:
-                    logger.error(f"Error cleaning up embeddings provider: {e}")
-
-            if self._tts_provider:
-                try:
-                    await self._tts_provider.cleanup()
-                except Exception as e:
-                    logger.error(f"Error cleaning up TTS provider: {e}")
-
-            if self._rag_provider:
-                try:
-                    await self._rag_provider.cleanup()
-                except Exception as e:
-                    logger.error(f"Error cleaning up RAG provider: {e}")
-
-            if self._llm_provider:
-                try:
-                    await self._llm_provider.cleanup()
-                except Exception as e:
-                    logger.error(f"Error cleaning up LLM provider: {e}")
-
-            # Depois limpar os provedores genéricos
-            for provider in list(self._providers.values()):
-                try:
-                    await provider.cleanup()
-                except Exception as e:
-                    logger.error(
-                        f"Error cleaning up provider {provider.plugin_id}: {e}"
-                    )
-        except Exception as e:
-            logger.error(f"Error during cleanup: {e}")
-
-    async def initialize(self) -> None:
-        """Initialize PepperPy."""
-        if self._initialized:
-            return
-
-        # Discover plugins
-        await discover_plugins()
-
-        # Initialize providers
-        for provider in self._providers.values():
-            await provider.initialize()
+        # Initialize specific providers if set
+        for provider in [
+            self._llm_provider,
+            self._rag_provider,
+            self._tts_provider,
+            self._embeddings_provider,
+            self._content_provider,
+            self._workflow_provider,
+        ]:
+            if provider and not provider.initialized:
+                await provider.initialize()
 
         self._initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        # Clean up providers
-        for provider in self._providers.values():
+        """Clean up resources and providers."""
+        for provider in list(self._providers.values()):
             await provider.cleanup()
+
+        # Clean up specific providers
+        for provider in [
+            self._llm_provider,
+            self._rag_provider,
+            self._tts_provider,
+            self._embeddings_provider,
+            self._content_provider,
+            self._workflow_provider,
+        ]:
+            if provider:
+                await provider.cleanup()
 
         self._initialized = False
 
-    @staticmethod
-    def get_plugin(
-        plugin_type: str, provider_type: str
-    ) -> Optional[Type[PepperpyPlugin]]:
-        """Get plugin class by type.
-
-        Args:
-            plugin_type: Plugin type to get
-            provider_type: Provider type to get
+    @property
+    def available_plugins(self) -> Dict[str, List[str]]:
+        """Get available plugins.
 
         Returns:
-            Plugin class if found, None otherwise
+            Dictionary mapping plugin types to lists of provider types
         """
-        # Use the synchronous version for compatibility
-        return get_plugin(plugin_type, provider_type)
+        return scan_available_plugins()
 
-    @staticmethod
-    def get_plugin_by_provider(
-        plugin_type: str,
-        provider_type: str,
-    ) -> Optional[Type[PepperpyPlugin]]:
-        """Get plugin class by provider type.
+    def enable_hot_reload(self, enabled: bool = True) -> Self:
+        """Enable or disable hot reloading of plugins.
 
         Args:
-            plugin_type: Plugin type to get
-            provider_type: Provider type to get
+            enabled: Whether to enable hot reloading
 
         Returns:
-            Plugin class if found, None otherwise
+            Self for chaining
         """
-        return get_plugin(plugin_type, provider_type)
+        enable_hot_reload(enabled)
+        return self
 
-    def with_llm(
+    def enable_autodiscovery(self, enabled: bool = True) -> Self:
+        """Enable or disable automatic discovery of plugins.
+
+        Args:
+            enabled: Whether to enable autodiscovery
+
+        Returns:
+            Self for chaining
+        """
+        set_autodiscovery(enabled)
+        return self
+
+    def clear_cache(
+        self, namespace: Optional[str] = None, pattern: Optional[str] = None
+    ) -> int:
+        """Clear cached results.
+
+        Args:
+            namespace: Optional cache namespace to clear
+            pattern: Optional pattern to match cache keys
+
+        Returns:
+            Number of cache entries cleared
+        """
+        return invalidate_cache(namespace=namespace, pattern=pattern)
+
+    def get_cache_stats(self, namespace: Optional[str] = None) -> Dict[str, Any]:
+        """Get cache statistics.
+
+        Args:
+            namespace: Optional cache namespace
+
+        Returns:
+            Dictionary of cache statistics
+        """
+        cache = get_result_cache(namespace=namespace or "pepperpy")
+        return cache.get_stats()
+
+    async def stream_chat(
         self,
-        provider_type: Optional[str] = None,
-        **config: Any,
-    ) -> Self:
-        """Configure LLM provider.
+        message: str,
+        history: Optional[List[Dict[str, str]]] = None,
+        system_prompt: Optional[str] = None,
+    ) -> AsyncIterator[str]:
+        """Stream chat responses.
+
+        This is a convenience method that streams responses from a chat model.
 
         Args:
-            provider_type: Type of provider to use (default from PEPPERPY_LLM__PROVIDER or "openai")
-            **config: Provider configuration
+            message: User message
+            history: Optional chat history
+            system_prompt: Optional system prompt
 
         Returns:
-            Self for chaining
-        """
-        # If provider_type is not specified, check the environment variable
-        if provider_type is None:
-            provider_type = os.environ.get("PEPPERPY_LLM__PROVIDER", "openai")
-
-        logger.info(f"Configuring LLM provider: {provider_type}")
-
-        try:
-            # Get plugin class
-            plugin_class = get_plugin("llm", provider_type)
-
-            if not plugin_class:
-                # Manual handling for OpenRouter if plugin discovery fails
-                if provider_type == "openrouter":
-                    logger.info("Attempting to register OpenRouter provider directly")
-                    try:
-                        # Importar do caminho correto em /plugins
-                        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
-                        from plugins.llm.openrouter.provider import OpenRouterProvider
-
-                        sys.path.pop(0)  # Remover do path após importar
-
-                        register_plugin("llm", "openrouter", OpenRouterProvider)
-                        plugin_class = OpenRouterProvider
-                        logger.info("Successfully registered OpenRouter provider")
-                    except (ImportError, Exception) as e:
-                        logger.error(f"Failed to register OpenRouter provider: {e}")
-                        raise ValidationError(
-                            f"Provider not found: llm/{provider_type}"
-                        )
-                else:
-                    # Fall back to trying known plugins in a specific order
-                    for fallback_provider in [
-                        "openai",
-                        "openrouter",
-                        "anthropic",
-                        "local",
-                        "ollama",
-                    ]:
-                        logger.info(f"Trying fallback provider: {fallback_provider}")
-                        fallback_class = get_plugin("llm", fallback_provider)
-                        if fallback_class:
-                            logger.info(f"Using fallback provider: {fallback_provider}")
-                            plugin_class = fallback_class
-                            provider_type = fallback_provider
-                            break
-
-                    if not plugin_class:
-                        # No fallbacks worked either
-                        raise ValidationError(
-                            f"Provider not found: llm/{provider_type} and no fallbacks available"
-                        )
-
-            # Create provider instance with name for better logging
-            provider = plugin_class(name=provider_type, **config)
-
-            # Save provider instance
-            self._llm_provider = cast(LLMProvider, provider)
-            return self
-
-        except Exception as e:
-            logger.error(f"Error configuring LLM provider: {e}")
-            raise
-
-    def with_rag(self, provider: Optional[RAGProvider] = None) -> "PepperPy":
-        """Configure RAG support.
-
-        Args:
-            provider: Optional RAG provider (uses plugin manager if None)
-
-        Returns:
-            Self for chaining
-        """
-        if provider is None:
-            provider_type = os.environ.get("PEPPERPY_RAG__PROVIDER", "memory")
-
-            provider = cast(RAGProvider, create_provider_instance("rag", provider_type))
-        self._rag_provider = provider
-        return self
-
-    def with_workflow(self, provider: WorkflowProvider) -> "PepperPy":
-        """Configure workflow support.
-
-        Args:
-            provider: Workflow provider to use
-
-        Returns:
-            Self for chaining
-        """
-        self._workflow_provider = provider
-        return self
-
-    def with_tts(
-        self, provider: Optional[TTSProvider] = None, **config: Any
-    ) -> "PepperPy":
-        """Configure TTS support.
-
-        Args:
-            provider: Optional TTS provider to use (uses env var if None)
-            **config: Additional configuration options
-
-        Returns:
-            Self for chaining
-        """
-        if provider is None:
-            provider_type = os.environ.get("PEPPERPY_TTS__PROVIDER", "elevenlabs")
-
-            provider = cast(
-                TTSProvider,
-                create_provider_instance("tts", provider_type, **config),
-            )
-
-        self._tts_provider = provider
-        return self
-
-    def with_embeddings(
-        self,
-        provider_type: Optional[str] = None,
-        **config: Any,
-    ) -> Self:
-        """Configure embeddings provider.
-
-        Args:
-            provider_type: Type of provider to use (default from PEPPERPY_EMBEDDINGS__PROVIDER or "openai")
-            **config: Provider configuration
-
-        Returns:
-            Self for chaining
-        """
-        # If provider_type is not specified, check the environment variable
-        if provider_type is None:
-            provider_type = os.environ.get("PEPPERPY_EMBEDDINGS__PROVIDER", "openai")
-
-        logger.debug(f"Configuring embeddings provider: {provider_type}")
-
-        # Use enhanced plugin discovery system
-        self._embeddings_provider = cast(
-            EmbeddingsProvider,
-            create_provider_instance("embeddings", provider_type, **config),
-        )
-        return self
-
-    def with_content(
-        self,
-        provider_type: Optional[str] = None,
-        **config: Any,
-    ) -> Self:
-        """Configure content provider.
-
-        Args:
-            provider_type: Type of content provider to use
-            **config: Provider configuration
-
-        Returns:
-            Self for chaining
+            Async iterator with response chunks
 
         Raises:
-            ValidationError: If provider creation fails
+            PluginError: If provider not configured or error occurs
         """
-        # Get provider type from environment if not specified
-        if provider_type is None:
-            provider_type = os.environ.get("PEPPERPY_CONTENT__PROVIDER", "default")
+        if not self._llm_provider:
+            raise PluginError("LLM provider not configured")
 
-        # Create provider instance
-        provider = cast(
-            ContentProcessor,
-            create_provider_instance("content", provider_type, **config),
-        )
+        # Create chat builder
+        builder = self.chat
 
-        # Store provider
-        self._providers["content"] = provider
+        # Add system prompt if provided
+        if system_prompt:
+            builder = builder.with_system(system_prompt)
 
-        return self
+        # Add history if provided
+        if history:
+            for msg in history:
+                if msg.get("role") == "user":
+                    builder = builder.with_user(msg["content"])
+                elif msg.get("role") == "assistant":
+                    builder = builder.with_assistant(msg["content"])
+                elif msg.get("role") == "system":
+                    builder = builder.with_system(msg["content"])
+
+        # Add current message
+        builder = builder.with_user(message)
+
+        # Stream response
+        async for chunk in builder.stream():
+            yield chunk.content
 
     @property
     def llm(self) -> LLMBuilder:
@@ -1802,3 +1881,76 @@ class PepperPy:
         if not self._rag_provider:
             raise RuntimeError("RAG provider not configured. Call with_rag() first.")
         return RAGBuilder(self._rag_provider)
+
+
+# Convenience functions for the root module
+async def ask(query: str, **kwargs: Any) -> str:
+    """Ask a question using the default PepperPy instance.
+
+    Args:
+        query: The question to ask
+        **kwargs: Additional parameters for execution
+
+    Returns:
+        Response from the system
+    """
+    instance = PepperPy.get_instance()
+    return await instance.ask_query(query, **kwargs)
+
+
+async def process(
+    content: Any, instruction: Optional[str] = None, **kwargs: Any
+) -> Any:
+    """Process content using the default PepperPy instance.
+
+    Args:
+        content: Content to process
+        instruction: Processing instruction
+        **kwargs: Additional parameters for execution
+
+    Returns:
+        Processed content
+    """
+    instance = PepperPy.get_instance()
+    return await instance.process_content(content, instruction, **kwargs)
+
+
+async def create(description: str, format: Optional[str] = None, **kwargs: Any) -> Any:
+    """Create content using the default PepperPy instance.
+
+    Args:
+        description: Description of content to create
+        format: Desired format
+        **kwargs: Additional parameters for execution
+
+    Returns:
+        Created content
+    """
+    instance = PepperPy.get_instance()
+    return await instance.create_content(description, format, **kwargs)
+
+
+async def analyze(data: Any, instruction: str, **kwargs: Any) -> Any:
+    """Analyze data using the default PepperPy instance.
+
+    Args:
+        data: Data to analyze
+        instruction: Analysis instruction
+        **kwargs: Additional parameters for execution
+
+    Returns:
+        Analysis result
+    """
+    instance = PepperPy.get_instance()
+    return await instance.analyze_data(data, instruction, **kwargs)
+
+
+# Make root module convenience functions available directly
+__all__ = [
+    "PepperPy",
+    "init_framework",
+    "ask",
+    "process",
+    "create",
+    "analyze",
+]
