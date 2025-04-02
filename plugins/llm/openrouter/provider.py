@@ -22,13 +22,29 @@ from pepperpy.plugins.plugin import PepperpyPlugin
 
 
 class OpenRouterProvider(LLMProvider, PepperpyPlugin):
-    """OpenRouter provider for LLM tasks."""
+    """OpenRouter provider for LLM tasks.
+
+    This provider allows interaction with various LLM models through
+    the OpenRouter API, which provides a unified interface to multiple
+    model providers including OpenAI, Anthropic, and others.
+    """
 
     plugin_type = "llm"
     provider_type = "openrouter"
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize provider."""
+        """Initialize provider with configuration.
+
+        Args:
+            **kwargs: Configuration parameters including:
+                - api_key: OpenRouter API key
+                - model: Model name (default: openai/gpt-4o-mini)
+                - temperature: Generation temperature (default: 0.7)
+                - max_tokens: Maximum tokens to generate (default: 1000)
+
+        Raises:
+            ProviderError: If API key is not provided
+        """
         super().__init__(**kwargs)
         self._session: Optional[aiohttp.ClientSession] = None
 
@@ -49,65 +65,118 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
 
     @property
     def api_key(self) -> str:
-        """Get API key."""
+        """Get API key.
+
+        Returns:
+            The configured API key
+        """
         return self._api_key
 
     @api_key.setter
     def api_key(self, value: str) -> None:
-        """Set API key."""
+        """Set API key.
+
+        Args:
+            value: The API key to set
+        """
         # Remove Bearer prefix if present
         self._api_key = value.replace("Bearer ", "").strip()
 
     @property
     def model(self) -> str:
-        """Get model name."""
+        """Get model name.
+
+        Returns:
+            The configured model name
+        """
         return self._model
 
     @model.setter
     def model(self, value: str) -> None:
-        """Set model name."""
+        """Set model name.
+
+        Args:
+            value: The model name to set
+        """
         self._model = value
 
     @property
     def temperature(self) -> float:
-        """Get temperature."""
+        """Get temperature.
+
+        Returns:
+            The configured temperature value
+        """
         return self._temperature
 
     @temperature.setter
     def temperature(self, value: float) -> None:
-        """Set temperature."""
+        """Set temperature.
+
+        Args:
+            value: The temperature value to set
+        """
         self._temperature = value
 
     @property
     def max_tokens(self) -> int:
-        """Get max tokens."""
+        """Get max tokens.
+
+        Returns:
+            The configured maximum tokens value
+        """
         return self._max_tokens
 
     @max_tokens.setter
     def max_tokens(self, value: int) -> None:
-        """Set max tokens."""
+        """Set max tokens.
+
+        Args:
+            value: The maximum tokens value to set
+        """
         self._max_tokens = value
 
     async def initialize(self) -> None:
-        """Initialize the provider by creating a session."""
+        """Initialize the provider by creating a session.
+
+        This method sets up the HTTP session with proper authentication headers.
+
+        Raises:
+            ProviderError: If API key is not available
+        """
+        if self.initialized:
+            return
+
         if not self._api_key:
             raise ProviderError("API key is required for OpenRouter provider")
 
-        if self._session is None:
-            # Create session with default headers
-            headers = {
-                "Authorization": f"Bearer {self._api_key}",
-                "HTTP-Referer": "https://github.com/pimentel/pepperpy",
-                "X-Title": "PepperPy",
-                "Content-Type": "application/json",
-            }
+        # Create session with default headers
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "HTTP-Referer": "https://github.com/pimentel/pepperpy",
+            "X-Title": "PepperPy",
+            "Content-Type": "application/json",
+        }
 
-            self._session = aiohttp.ClientSession(headers=headers)
+        self._session = aiohttp.ClientSession(headers=headers)
+
+        # Register session for automatic cleanup
+        self.register_resource("session", self._session)
+
+        # Mark as initialized
+        self.initialized = True
 
     def _convert_messages(
         self, messages: Union[str, List[Message]]
     ) -> List[Dict[str, Any]]:
-        """Convert PepperPy messages to OpenRouter format."""
+        """Convert PepperPy messages to OpenRouter format.
+
+        Args:
+            messages: String prompt or list of Message objects
+
+        Returns:
+            List of message dictionaries in OpenRouter format
+        """
         if isinstance(messages, str):
             return [{"role": "user", "content": messages}]
 
@@ -129,10 +198,25 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
         messages: Union[str, List[Message]],
         **kwargs: Any,
     ) -> GenerationResult:
-        """Generate text using the OpenRouter API."""
-        if not self._session:
+        """Generate text using the OpenRouter API.
+
+        Args:
+            messages: String prompt or list of Message objects
+            **kwargs: Additional parameters including:
+                - temperature: Generation temperature
+                - max_tokens: Maximum tokens to generate
+                - model: Model name to use
+
+        Returns:
+            Generation result containing the model's response
+
+        Raises:
+            ProviderError: If API request fails or returns an error
+        """
+        if not self.initialized:
             await self.initialize()
-            assert self._session is not None
+
+        assert self._session is not None
 
         # Convert messages to OpenRouter format
         openrouter_messages = self._convert_messages(messages)
@@ -201,9 +285,15 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
                 )
 
         except aiohttp.ClientError as e:
-            raise ProviderError(f"OpenRouter API error: {e}") from e
+            raise ProviderError(f"OpenRouter API connection error: {e}") from e
+        except json.JSONDecodeError as e:
+            raise ProviderError(f"OpenRouter API returned invalid JSON: {e}") from e
+        except KeyError as e:
+            raise ProviderError(
+                f"OpenRouter API returned unexpected response format: missing {e}"
+            ) from e
         except Exception as e:
-            raise ProviderError(f"Unexpected error: {e}") from e
+            raise ProviderError(f"Unexpected error during API call: {e}") from e
 
     async def stream(
         self,
@@ -213,18 +303,22 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
         """Stream chat completion from the model.
 
         Args:
-            messages: Messages to generate from
-            **kwargs: Additional parameters for generation
+            messages: String prompt or list of Message objects
+            **kwargs: Additional parameters including:
+                - temperature: Generation temperature
+                - max_tokens: Maximum tokens to generate
+                - model: Model name to use
 
         Yields:
             Generated content chunks
 
         Raises:
-            ProviderError: If API request fails
+            ProviderError: If API request fails or returns an error
         """
-        if not self._session:
+        if not self.initialized:
             await self.initialize()
-            assert self._session is not None
+
+        assert self._session is not None
 
         # Convert messages to OpenRouter format
         openrouter_messages = self._convert_messages(messages)
@@ -234,55 +328,105 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
         max_tokens = kwargs.get("max_tokens", self._max_tokens)
         model = kwargs.get("model", self._model)
 
+        request_data = {
+            "model": model,
+            "messages": openrouter_messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+        }
+
         try:
             async with self._session.post(
                 f"{self._base_url}chat/completions",
-                json={
-                    "model": model,
-                    "messages": openrouter_messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                    "stream": True,
-                },
+                json=request_data,
             ) as response:
                 if response.status != 200:
-                    error_data = await response.json()
+                    try:
+                        error_data = await response.json()
+                        error_msg = error_data.get("error", {}).get(
+                            "message", "Unknown error"
+                        )
+                    except:
+                        error_msg = await response.text()
                     raise ProviderError(
-                        f"OpenRouter API stream request failed with status {response.status}: {error_data.get('error', {}).get('message', 'Unknown error')}"
+                        f"OpenRouter API request failed with status {response.status}: {error_msg}"
                     )
 
-                # Stream the response
+                # Process SSE stream
+                buffer = ""
                 async for line in response.content:
-                    line = line.strip()
-                    if not line or line == b"data: [DONE]":
-                        continue
+                    line = line.decode("utf-8")
+                    if line.startswith("data:"):
+                        data = line[5:].strip()
+                        if data == "[DONE]":
+                            break
 
-                    if line.startswith(b"data: "):
                         try:
-                            data = json.loads(line[6:])
-                            if not data.get("choices"):
-                                continue
-
-                            choice = data["choices"][0]
-                            if not choice.get("delta") or not choice["delta"].get(
-                                "content"
-                            ):
-                                continue
-
-                            content = choice["delta"]["content"]
-                            yield GenerationChunk(content=content)
-                        except (json.JSONDecodeError, KeyError, IndexError) as e:
-                            raise ProviderError(
-                                f"Failed to parse streaming response: {e}"
-                            ) from e
+                            chunk_data = json.loads(data)
+                            delta = chunk_data.get("choices", [{}])[0].get("delta", {})
+                            content = delta.get("content", "")
+                            if content:
+                                yield GenerationChunk(
+                                    content=content,
+                                    metadata={
+                                        "model": chunk_data.get("model"),
+                                        "created": chunk_data.get("created"),
+                                        "id": chunk_data.get("id"),
+                                    },
+                                )
+                        except json.JSONDecodeError:
+                            buffer += data
+                            try:
+                                chunk_data = json.loads(buffer)
+                                buffer = ""
+                                delta = chunk_data.get("choices", [{}])[0].get(
+                                    "delta", {}
+                                )
+                                content = delta.get("content", "")
+                                if content:
+                                    yield GenerationChunk(
+                                        content=content,
+                                        metadata={
+                                            "model": chunk_data.get("model"),
+                                            "created": chunk_data.get("created"),
+                                            "id": chunk_data.get("id"),
+                                        },
+                                    )
+                            except json.JSONDecodeError:
+                                # Continue buffering
+                                pass
 
         except aiohttp.ClientError as e:
-            raise ProviderError(f"OpenRouter API streaming error: {e}") from e
+            raise ProviderError(
+                f"OpenRouter API connection error during streaming: {e}"
+            ) from e
+        except json.JSONDecodeError as e:
+            raise ProviderError(
+                f"OpenRouter API returned invalid JSON during streaming: {e}"
+            ) from e
+        except KeyError as e:
+            raise ProviderError(
+                f"OpenRouter API returned unexpected response format during streaming: missing {e}"
+            ) from e
         except Exception as e:
             raise ProviderError(f"Unexpected streaming error: {e}") from e
 
     async def cleanup(self) -> None:
-        """Clean up resources."""
-        if self._session:
-            await self._session.close()
-            self._session = None
+        """Clean up resources.
+        
+        This automatically cleans up the HTTP session and other resources.
+        """
+        try:
+            # Fechar explicitamente a sessão HTTP se existir
+            if self._session and not self._session.closed:
+                try:
+                    await self._session.close()
+                    self._session = None
+                    self.logger.debug("Closed OpenRouter HTTP session")
+                except Exception as e:
+                    self.logger.error(f"Error closing OpenRouter HTTP session: {e}")
+        finally:
+            # ResourceMixin will handle cleanup of other registered resources
+            await super().cleanup()
+            self.initialized = False

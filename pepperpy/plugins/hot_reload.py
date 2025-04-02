@@ -19,8 +19,9 @@ from watchfiles import Change, awatch
 
 from pepperpy.core.errors import PluginError
 from pepperpy.core.logging import get_logger
-from pepperpy.plugins.discovery import PluginDiscovery
 from pepperpy.plugins.plugin import PepperpyPlugin
+
+from .discovery import PluginDiscovery
 
 logger = get_logger(__name__)
 

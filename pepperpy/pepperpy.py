@@ -7,7 +7,6 @@ and using providers.
 
 import os
 import sys
-import importlib
 from collections.abc import AsyncIterator, Sequence
 from typing import (
     Any,
@@ -1269,38 +1268,41 @@ class PepperPy:
     async def __aexit__(self, *_: Any) -> None:
         """Exit async context manager."""
         # Limpar recursos em ordem inversa de inicialização
+        
+        try:
+            # Primeiro limpar os provedores especializados
+            if self._embeddings_provider:
+                try:
+                    await self._embeddings_provider.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up embeddings provider: {e}")
 
-        # Primeiro limpar os provedores especializados
-        if self._embeddings_provider:
-            try:
-                await self._embeddings_provider.cleanup()
-            except Exception as e:
-                logger.error(f"Error cleaning up embeddings provider: {e}")
+            if self._tts_provider:
+                try:
+                    await self._tts_provider.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up TTS provider: {e}")
 
-        if self._tts_provider:
-            try:
-                await self._tts_provider.cleanup()
-            except Exception as e:
-                logger.error(f"Error cleaning up TTS provider: {e}")
+            if self._rag_provider:
+                try:
+                    await self._rag_provider.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up RAG provider: {e}")
 
-        if self._rag_provider:
-            try:
-                await self._rag_provider.cleanup()
-            except Exception as e:
-                logger.error(f"Error cleaning up RAG provider: {e}")
+            if self._llm_provider:
+                try:
+                    await self._llm_provider.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up LLM provider: {e}")
 
-        if self._llm_provider:
-            try:
-                await self._llm_provider.cleanup()
-            except Exception as e:
-                logger.error(f"Error cleaning up LLM provider: {e}")
-
-        # Depois limpar os provedores genéricos
-        for provider in list(self._providers.values()):
-            try:
-                await provider.cleanup()
-            except Exception as e:
-                logger.error(f"Error cleaning up provider {provider.plugin_id}: {e}")
+            # Depois limpar os provedores genéricos
+            for provider in list(self._providers.values()):
+                try:
+                    await provider.cleanup()
+                except Exception as e:
+                    logger.error(f"Error cleaning up provider {provider.plugin_id}: {e}")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
 
     async def initialize(self) -> None:
         """Initialize PepperPy."""
