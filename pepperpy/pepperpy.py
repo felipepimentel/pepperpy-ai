@@ -19,6 +19,10 @@ from typing import (
     cast,
 )
 
+from pepperpy.agents.orchestrator import (
+    Orchestrator,
+    get_orchestrator,
+)
 from pepperpy.content.base import ContentProcessor
 from pepperpy.core.errors import ValidationError
 from pepperpy.core.logging import get_logger
@@ -36,6 +40,7 @@ from pepperpy.plugins import (
     discover_plugins,
     get_plugin,
     register_plugin,
+    register_plugin_path,
 )
 from pepperpy.rag import (
     Document,
@@ -74,7 +79,13 @@ async def init_framework() -> None:
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "plugins"),
         os.path.join(os.getcwd(), "plugins"),
     ]
-    await discover_plugins(plugin_paths)
+
+    # Register paths and discover plugins
+    for path in plugin_paths:
+        register_plugin_path(path)
+
+    # Call discover_plugins without await because it's not async
+    discover_plugins()
 
     # Import and register OpenRouter provider directly
     # This ensures it's available even if plugin discovery fails
@@ -1161,6 +1172,7 @@ class PepperPy:
         self._embeddings_provider: Optional[EmbeddingsProvider] = None
         self._providers: Dict[str, Any] = {}
         self._initialized = False
+        self._orchestrator: Optional[Orchestrator] = None
 
     @classmethod
     def get_instance(cls) -> "PepperPy":
@@ -1232,6 +1244,116 @@ class PepperPy:
             raise ValidationError(f"Provider '{plugin_type}' not configured")
         return provider
 
+    def _ensure_orchestrator(self) -> Orchestrator:
+        """Ensure that an orchestrator is available.
+
+        Returns:
+            The orchestrator instance
+
+        Raises:
+            ValidationError: If initialization fails
+        """
+        if self._orchestrator is None:
+            try:
+                self._orchestrator = get_orchestrator()
+            except Exception as e:
+                logger.error(f"Failed to initialize orchestrator: {e}")
+                raise ValidationError(f"Failed to initialize orchestrator: {e}")
+        return self._orchestrator
+
+    async def ask_query(self, query: str, **context) -> str:
+        """Ask any question or make any request to the system.
+
+        This method automatically selects and orchestrates the appropriate
+        plugins to handle the query.
+
+        Args:
+            query: The question or instruction to process
+            **context: Additional context to customize the response
+
+        Returns:
+            The generated response
+
+        Example:
+            >>> response = await pepperpy.ask_query("What is generative AI?")
+            >>> explanation = await pepperpy.ask_query("Explain transformers", language="en")
+        """
+        logger.debug(f"Processing query: {query}")
+        orchestrator = self._ensure_orchestrator()
+        return await orchestrator.execute(query, context)
+
+    async def process_content(
+        self, content: Any, instruction: Optional[str] = None, **options
+    ) -> Any:
+        """Process any type of content.
+
+        Automatically detects content type and applies appropriate processing
+        based on the provided instruction.
+
+        Args:
+            content: The content to process (file, text, data)
+            instruction: Optional instruction on what to do with the content
+            **options: Additional options for processing
+
+        Returns:
+            The processing result, which can vary based on content type
+            and instruction
+
+        Example:
+            >>> summary = await pepperpy.process_content("document.pdf", "Extract key points")
+            >>> translation = await pepperpy.process_content("Hello world", "Translate to Spanish")
+        """
+        logger.debug(f"Processing content with instruction: {instruction}")
+        orchestrator = self._ensure_orchestrator()
+        return await orchestrator.process(content, instruction, options)
+
+    async def create_content(
+        self, description: str, format: Optional[str] = None, **options
+    ) -> Any:
+        """Create any type of content.
+
+        Generates content based on a description, automatically detecting
+        the required format or using the specified one.
+
+        Args:
+            description: Description of the content to create
+            format: Optional format (text, image, audio, code, etc.)
+            **options: Additional options for content creation
+
+        Returns:
+            The created content in the requested format
+
+        Example:
+            >>> image = await pepperpy.create_content("A cat programming in Python", format="image")
+            >>> article = await pepperpy.create_content("An article about generative AI", style="academic")
+        """
+        logger.debug(f"Creating content: {description} (format: {format})")
+        orchestrator = self._ensure_orchestrator()
+        return await orchestrator.create(description, format, options)
+
+    async def analyze_data(self, data: Any, instruction: str, **options) -> Any:
+        """Analyze data and provide insights.
+
+        Examines provided data according to the instruction,
+        automatically detecting the data type.
+
+        Args:
+            data: The data to analyze
+            instruction: What to analyze in the data
+            **options: Additional options for analysis
+
+        Returns:
+            Analysis results, which may include insights, visualizations,
+            statistics or other relevant formats
+
+        Example:
+            >>> insights = await pepperpy.analyze_data(df, "Identify trends and outliers")
+            >>> summary = await pepperpy.analyze_data(transactions, "Calculate metrics and patterns")
+        """
+        logger.debug(f"Analyzing data with instruction: {instruction}")
+        orchestrator = self._ensure_orchestrator()
+        return await orchestrator.analyze(data, instruction, options)
+
     def build(self) -> "PepperPy":
         """Build the configured PepperPy instance.
 
@@ -1268,7 +1390,7 @@ class PepperPy:
     async def __aexit__(self, *_: Any) -> None:
         """Exit async context manager."""
         # Limpar recursos em ordem inversa de inicialização
-        
+
         try:
             # Primeiro limpar os provedores especializados
             if self._embeddings_provider:
@@ -1300,7 +1422,9 @@ class PepperPy:
                 try:
                     await provider.cleanup()
                 except Exception as e:
-                    logger.error(f"Error cleaning up provider {provider.plugin_id}: {e}")
+                    logger.error(
+                        f"Error cleaning up provider {provider.plugin_id}: {e}"
+                    )
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
 
@@ -1310,7 +1434,7 @@ class PepperPy:
             return
 
         # Discover plugins
-        await discover_plugins(["plugins"])
+        await discover_plugins()
 
         # Initialize providers
         for provider in self._providers.values():

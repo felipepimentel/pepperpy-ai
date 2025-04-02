@@ -19,7 +19,7 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
 from pepperpy.core import PepperpyError
 from pepperpy.core.errors import ValidationError
 from pepperpy.plugins.plugin import PepperpyPlugin
-from pepperpy.plugins.manager import create_provider_instance
+from pepperpy.plugins.registry import create_provider_instance
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")

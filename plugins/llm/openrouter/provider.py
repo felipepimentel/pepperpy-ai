@@ -161,7 +161,7 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
         self._session = aiohttp.ClientSession(headers=headers)
 
         # Register session for automatic cleanup
-        self.register_resource("session", self._session)
+        self._register_resource("session", self._session)
 
         # Mark as initialized
         self.initialized = True
@@ -414,7 +414,7 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
 
     async def cleanup(self) -> None:
         """Clean up resources.
-        
+
         This automatically cleans up the HTTP session and other resources.
         """
         try:

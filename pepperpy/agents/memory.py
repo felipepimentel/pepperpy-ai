@@ -5,7 +5,7 @@ memory management system.
 """
 
 import asyncio
-from typing import List, cast
+from typing import Any, List, cast
 
 from pepperpy.agents.base import Memory, Message
 from pepperpy.core.memory import BaseMemory, MemoryManager
@@ -28,8 +28,11 @@ class MessageMemory(BaseMemory):
         self.message = message
         self.set_metadata("role", message.role)
         self.set("content", message.content)
-        if message.name:
-            self.set("name", message.name)
+
+        # Acesse name com getattr para evitar erro de linter
+        name = getattr(message, "name", None)
+        if name:
+            self.set("name", name)
 
     def load(self, path: str) -> None:
         """Load memory from storage.

@@ -15,6 +15,15 @@ from pepperpy.llm import LLMProvider, Message, MessageRole
 from pepperpy.pepperpy import PepperPy, init_framework
 from pepperpy.plugins.plugin import PepperpyPlugin
 
+# Initialize singleton
+_instance = PepperPy.get_instance()
+
+# Export convenience methods
+ask = _instance.ask_query
+process = _instance.process_content
+create = _instance.create_content
+analyze = _instance.analyze_data
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -31,4 +40,9 @@ __all__ = [
     "LLMProvider",
     "Message",
     "MessageRole",
+    # High-level API
+    "ask",
+    "process",
+    "create",
+    "analyze",
 ]

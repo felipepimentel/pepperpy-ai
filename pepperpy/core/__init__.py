@@ -5,9 +5,9 @@ from pepperpy.core.base import (
     PepperpyError,
 )
 from pepperpy.core.config import Config, ConfigurationError
-from pepperpy.core.errors import PluginError
+from pepperpy.core.errors import PluginError, ValidationError
 from pepperpy.core.logging import get_logger
-from pepperpy.plugins.manager import PluginInfo, create_provider_instance
+from pepperpy.plugins.registry import PluginInfo, create_provider_instance
 
 __all__ = [
     # Base classes
@@ -20,6 +20,8 @@ __all__ = [
     "PluginError",
     "PluginInfo",
     "create_provider_instance",
+    # Validation
+    "ValidationError",
     # Logging
     "get_logger",
 ]

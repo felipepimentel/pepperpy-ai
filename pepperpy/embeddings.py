@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Union, cast
 from pepperpy.core.base import BaseComponent, PepperpyError
 from pepperpy.core.config import Config
 from pepperpy.plugins.plugin import PepperpyPlugin
-from pepperpy.plugins.manager import create_provider_instance
+from pepperpy.plugins.registry import create_provider_instance
 
 
 class EmbeddingError(PepperpyError):

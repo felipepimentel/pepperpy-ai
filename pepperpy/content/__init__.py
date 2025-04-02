@@ -13,13 +13,39 @@ from pepperpy.content.base import (
     ProcessingResult,
     create_processor,
 )
-from pepperpy.content.errors import (
-    ContentProcessingConfigError,
-    ContentProcessingError,
-    ContentProcessingIOError,
-    ProviderNotFoundError,
-    UnsupportedContentTypeError,
-)
+from pepperpy.core.errors import PepperpyError
+
+
+class ContentProcessingError(PepperpyError):
+    """Base error for content processing."""
+
+    pass
+
+
+class ContentProcessingConfigError(ContentProcessingError):
+    """Error related to configuration of content processors."""
+
+    pass
+
+
+class ContentProcessingIOError(ContentProcessingError):
+    """IO error during content processing."""
+
+    pass
+
+
+class UnsupportedContentTypeError(ContentProcessingError):
+    """Error when content type is not supported."""
+
+    pass
+
+
+class ProviderNotFoundError(ContentProcessingError):
+    """Error when content processor provider is not found."""
+
+    pass
+
+
 from pepperpy.content.lazy import (
     AVAILABLE_PROCESSORS,
     DEFAULT_PROCESSORS,
