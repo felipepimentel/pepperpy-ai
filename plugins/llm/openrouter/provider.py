@@ -5,7 +5,6 @@ supporting various models through OpenRouter's API.
 """
 
 import json
-import os
 from collections.abc import AsyncIterator
 from typing import Any, Dict, List, Optional, Union
 
@@ -25,6 +24,9 @@ from pepperpy.plugins.plugin import PepperpyPlugin
 class OpenRouterProvider(LLMProvider, PepperpyPlugin):
     """OpenRouter provider for LLM tasks."""
 
+    plugin_type = "llm"
+    provider_type = "openrouter"
+
     def __init__(self, **kwargs: Any) -> None:
         """Initialize provider."""
         super().__init__(**kwargs)
@@ -36,14 +38,14 @@ class OpenRouterProvider(LLMProvider, PepperpyPlugin):
         self._temperature = kwargs.get("temperature", 0.7)
         self._max_tokens = kwargs.get("max_tokens", 1000)
 
-        # Try to get API key from kwargs or environment variable
-        api_key = kwargs.get("api_key") or os.getenv("PEPPERPY_LLM__OPENROUTER_API_KEY")
+        # Get API key from plugin config (busca automaticamente nas variáveis de ambiente)
+        api_key = self.get_config("api_key") or self.get_config("openrouter_api_key")
+
         if not api_key:
-            raise ProviderError(
-                "API key is required for OpenRouter provider. Please set PEPPERPY_LLM__OPENROUTER_API_KEY environment variable."
-            )
+            raise ProviderError("API key is required for OpenRouter provider.")
+
         # Remove Bearer prefix if present and strip whitespace
-        self._api_key = api_key.replace("Bearer ", "").strip()
+        self._api_key: str = str(api_key).replace("Bearer ", "").strip()
 
     @property
     def api_key(self) -> str:

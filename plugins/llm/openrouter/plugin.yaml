@@ -1,8 +1,7 @@
 # Plugin metadata
 type: llm
 provider: openrouter
-module: llm.openrouter.provider
-class: OpenRouterProvider
+entry_point: provider:OpenRouterProvider
 description: OpenRouter LLM provider for PepperPy
 version: 0.1.0
 author: PepperPy Team
@@ -58,20 +57,27 @@ documentation: |
   Note: You can also use environment variables for configuration:
   - `PEPPERPY_LLM__OPENROUTER_API_KEY` (recommended)
 
-pepperpy_compatibility: '>=0.1.0'
-
 name: openrouter
 version: 0.1.0
-description: OpenRouter LLM provider for PepperPy
+description: OpenRouter API provider for LLM interactions
 author: PepperPy Team
 license: MIT
-
 type: llm
+provider: openrouter
+module: plugins.llm.openrouter.provider
+entry_point: OpenRouterProvider
+models:
+  - "openai/gpt-4o-mini"
+  - "openai/gpt-4o"
+  - "anthropic/claude-3-opus"
+  - "anthropic/claude-3-sonnet"
+  - "anthropic/claude-3-haiku"
+  - "google/gemini-pro"
+  - "meta/llama2-70b"
+  - "mistral/mistral-medium"
+documentation_url: https://openrouter.ai/docs
 category: provider
-provides: llm
-provider_name: openrouter
-
-entry_point: provider:OpenRouterProvider
+pepperpy_compatibility: '>=0.1.0'
 
 config_schema:
   type: object
@@ -79,6 +85,10 @@ config_schema:
     api_key:
       type: string
       description: OpenRouter API key
+      env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
+    openrouter_api_key:
+      type: string
+      description: OpenRouter API key (standardized naming)
       env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
     model:
       type: string
@@ -98,31 +108,6 @@ default_config:
   temperature: 0.7
   max_tokens: 1024
 
-usage: |
-  The OpenRouter provider allows you to use various LLM models through OpenRouter's API.
-  
-  Available models:
-  - openai/gpt-4o-mini
-  - openai/gpt-4
-  - anthropic/claude-3-opus
-  - anthropic/claude-3-sonnet
-  - anthropic/claude-3-haiku
-  - google/gemini-pro
-  - meta/llama2-70b
-  - mistral/mistral-medium
-  
-  Example usage:
-  ```python
-  from pepperpy import PepperPy
-  
-  pepper = PepperPy()
-  await pepper.initialize()
-  
-  pepper.with_llm(
-      provider_type="openrouter",
-      api_key="your_api_key_here",
-      model="openai/gpt-4o-mini",
-      temperature=0.7,
-      max_tokens=1024
-  )
-  ```
+metadata:
+  provider_url: https://openrouter.ai/
+  requires_api_key: true

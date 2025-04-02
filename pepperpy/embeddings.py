@@ -4,10 +4,11 @@ This module provides the base interfaces and implementations for embeddings prov
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Protocol, Union, cast, runtime_checkable
+from typing import Any, Dict, List, Optional, Union, cast
 
 from pepperpy.core.base import BaseComponent, PepperpyError
 from pepperpy.core.config import Config
+from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.plugins.manager import create_provider_instance
 
 
@@ -81,9 +82,10 @@ class EmbeddingResult:
     metadata: Optional[Dict[str, Any]] = None
 
 
-@runtime_checkable
-class EmbeddingsProvider(Protocol):
-    """Base interface for embeddings providers."""
+class EmbeddingsProvider(PepperpyPlugin):
+    """Base class for embeddings providers."""
+
+    plugin_type = "embeddings"
 
     async def initialize(self) -> None:
         """Initialize the provider."""

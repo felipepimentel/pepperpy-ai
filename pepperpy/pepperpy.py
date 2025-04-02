@@ -6,6 +6,8 @@ and using providers.
 """
 
 import os
+import sys
+import importlib
 from collections.abc import AsyncIterator, Sequence
 from typing import (
     Any,
@@ -18,10 +20,9 @@ from typing import (
     cast,
 )
 
-from pepperpy.core import (
-    ValidationError,
-    get_logger,
-)
+from pepperpy.content.base import ContentProcessor
+from pepperpy.core.errors import ValidationError
+from pepperpy.core.logging import get_logger
 from pepperpy.embeddings import EmbeddingsProvider
 from pepperpy.llm import (
     GenerationChunk,
@@ -30,13 +31,13 @@ from pepperpy.llm import (
     Message,
     MessageRole,
 )
-from pepperpy.plugins.discovery import (
+from pepperpy.plugins import (
+    PepperpyPlugin,
+    create_provider_instance,
     discover_plugins,
     get_plugin,
-    get_plugin_by_provider,
+    register_plugin,
 )
-from pepperpy.plugins.manager import create_provider_instance
-from pepperpy.plugins.plugin import PepperpyPlugin
 from pepperpy.rag import (
     Document,
     Query,
@@ -52,6 +53,10 @@ from pepperpy.workflow.base import (
 
 logger = get_logger(__name__)
 
+# Singleton instance management
+_singleton_instance: Optional["PepperPy"] = None
+_framework_initialized = False
+
 
 async def init_framework() -> None:
     """Initialize the PepperPy framework.
@@ -59,12 +64,36 @@ async def init_framework() -> None:
     This function initializes the framework by discovering plugins and
     setting up the necessary components.
     """
+    global _framework_initialized
+
+    if _framework_initialized:
+        return
+
     # Discover plugins in default locations
     plugin_paths = [
-        os.path.join(os.path.dirname(__file__), "plugins"),
-        os.path.join(os.path.dirname(__file__), "..", "plugins"),
+        # Apenas diretórios de plugins válidos, fora do pacote pepperpy
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), "plugins"),
+        os.path.join(os.getcwd(), "plugins"),
     ]
     await discover_plugins(plugin_paths)
+
+    # Import and register OpenRouter provider directly
+    # This ensures it's available even if plugin discovery fails
+    openrouter_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), "plugins", "llm", "openrouter"
+    )
+    if os.path.exists(openrouter_path) and os.path.isdir(openrouter_path):
+        try:
+            # Tentar importar do caminho correto em /plugins
+            sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+            from plugins.llm.openrouter.provider import OpenRouterProvider
+
+            register_plugin("llm", "openrouter", OpenRouterProvider)
+            logger.info("Successfully registered OpenRouter provider")
+        except ImportError as e:
+            logger.warning(f"Failed to import OpenRouter provider: {e}")
+
+    _framework_initialized = True
 
 
 class ChatBuilder:
@@ -1124,18 +1153,41 @@ class PepperPy:
     """Main PepperPy framework class."""
 
     def __init__(self) -> None:
-        """Initialize PepperPy."""
+        """Initialize PepperPy without any configured providers."""
+        # Internal state
+        self._llm_provider: Optional[LLMProvider] = None
+        self._rag_provider: Optional[RAGProvider] = None
+        self._workflow_provider: Optional[WorkflowProvider] = None
+        self._tts_provider: Optional[TTSProvider] = None
+        self._embeddings_provider: Optional[EmbeddingsProvider] = None
+        self._providers: Dict[str, Any] = {}
         self._initialized = False
-        self._providers: Dict[str, PepperpyPlugin] = {}
 
     @classmethod
-    def create(cls) -> "PepperPy":
-        """Create a new PepperPy instance.
+    def get_instance(cls) -> "PepperPy":
+        """Get the singleton instance of PepperPy.
+
+        If an instance doesn't exist, it creates one.
 
         Returns:
-            PepperPy instance
+            Singleton PepperPy instance
         """
-        return cls()
+        global _singleton_instance
+        if _singleton_instance is None:
+            _singleton_instance = cls()
+        return _singleton_instance
+
+    @staticmethod
+    def create() -> "PepperPy":
+        """Create a new PepperPy instance.
+
+        This method is provided for backward compatibility.
+        New code should use the constructor directly.
+
+        Returns:
+            New PepperPy instance
+        """
+        return PepperPy()
 
     def with_plugin(
         self, plugin_type: str, provider_type: str, **config: Any
@@ -1154,7 +1206,7 @@ class PepperPy:
             ValidationError: If provider type not found
         """
         # Get plugin class
-        plugin_class = get_plugin_by_provider(plugin_type, provider_type)
+        plugin_class = get_plugin(plugin_type, provider_type)
         if not plugin_class:
             raise ValidationError(f"Provider type '{provider_type}' not found")
 
@@ -1189,18 +1241,66 @@ class PepperPy:
         """
         return self
 
-    async def __aenter__(self) -> "PepperPy":
-        """Enter async context.
+    async def __aenter__(self) -> Self:
+        """Enter async context manager.
 
         Returns:
-            Self
+            Self for chaining
         """
-        await self.initialize()
+        # Inicializar plugins se necessário
+        for provider in self._providers.values():
+            if not provider.initialized:
+                await provider.initialize()
+
+        if self._llm_provider and not self._llm_provider.initialized:
+            await self._llm_provider.initialize()
+
+        if self._rag_provider and not self._rag_provider.initialized:
+            await self._rag_provider.initialize()
+
+        if self._tts_provider and not self._tts_provider.initialized:
+            await self._tts_provider.initialize()
+
+        if self._embeddings_provider and not self._embeddings_provider.initialized:
+            await self._embeddings_provider.initialize()
+
         return self
 
-    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        """Exit async context."""
-        await self.cleanup()
+    async def __aexit__(self, *_: Any) -> None:
+        """Exit async context manager."""
+        # Limpar recursos em ordem inversa de inicialização
+
+        # Primeiro limpar os provedores especializados
+        if self._embeddings_provider:
+            try:
+                await self._embeddings_provider.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up embeddings provider: {e}")
+
+        if self._tts_provider:
+            try:
+                await self._tts_provider.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up TTS provider: {e}")
+
+        if self._rag_provider:
+            try:
+                await self._rag_provider.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up RAG provider: {e}")
+
+        if self._llm_provider:
+            try:
+                await self._llm_provider.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up LLM provider: {e}")
+
+        # Depois limpar os provedores genéricos
+        for provider in list(self._providers.values()):
+            try:
+                await provider.cleanup()
+            except Exception as e:
+                logger.error(f"Error cleaning up provider {provider.plugin_id}: {e}")
 
     async def initialize(self) -> None:
         """Initialize PepperPy."""
@@ -1237,6 +1337,7 @@ class PepperPy:
         Returns:
             Plugin class if found, None otherwise
         """
+        # Use the synchronous version for compatibility
         return get_plugin(plugin_type, provider_type)
 
     @staticmethod
@@ -1253,9 +1354,9 @@ class PepperPy:
         Returns:
             Plugin class if found, None otherwise
         """
-        return get_plugin_by_provider(plugin_type, provider_type)
+        return get_plugin(plugin_type, provider_type)
 
-    async def with_llm(
+    def with_llm(
         self,
         provider_type: Optional[str] = None,
         **config: Any,
@@ -1273,13 +1374,64 @@ class PepperPy:
         if provider_type is None:
             provider_type = os.environ.get("PEPPERPY_LLM__PROVIDER", "openai")
 
-        logger.debug(f"Configuring LLM provider: {provider_type}")
+        logger.info(f"Configuring LLM provider: {provider_type}")
 
-        # Use enhanced plugin discovery system
-        provider = cast(LLMProvider, create_provider_instance("llm", provider_type))
-        await provider.initialize(config)
-        self._llm_provider = provider
-        return self
+        try:
+            # Get plugin class
+            plugin_class = get_plugin("llm", provider_type)
+
+            if not plugin_class:
+                # Manual handling for OpenRouter if plugin discovery fails
+                if provider_type == "openrouter":
+                    logger.info("Attempting to register OpenRouter provider directly")
+                    try:
+                        # Importar do caminho correto em /plugins
+                        sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+                        from plugins.llm.openrouter.provider import OpenRouterProvider
+
+                        sys.path.pop(0)  # Remover do path após importar
+
+                        register_plugin("llm", "openrouter", OpenRouterProvider)
+                        plugin_class = OpenRouterProvider
+                        logger.info("Successfully registered OpenRouter provider")
+                    except (ImportError, Exception) as e:
+                        logger.error(f"Failed to register OpenRouter provider: {e}")
+                        raise ValidationError(
+                            f"Provider not found: llm/{provider_type}"
+                        )
+                else:
+                    # Fall back to trying known plugins in a specific order
+                    for fallback_provider in [
+                        "openai",
+                        "openrouter",
+                        "anthropic",
+                        "local",
+                        "ollama",
+                    ]:
+                        logger.info(f"Trying fallback provider: {fallback_provider}")
+                        fallback_class = get_plugin("llm", fallback_provider)
+                        if fallback_class:
+                            logger.info(f"Using fallback provider: {fallback_provider}")
+                            plugin_class = fallback_class
+                            provider_type = fallback_provider
+                            break
+
+                    if not plugin_class:
+                        # No fallbacks worked either
+                        raise ValidationError(
+                            f"Provider not found: llm/{provider_type} and no fallbacks available"
+                        )
+
+            # Create provider instance with name for better logging
+            provider = plugin_class(name=provider_type, **config)
+
+            # Save provider instance
+            self._llm_provider = cast(LLMProvider, provider)
+            return self
+
+        except Exception as e:
+            logger.error(f"Error configuring LLM provider: {e}")
+            raise
 
     def with_rag(self, provider: Optional[RAGProvider] = None) -> "PepperPy":
         """Configure RAG support.
@@ -1357,6 +1509,38 @@ class PepperPy:
             EmbeddingsProvider,
             create_provider_instance("embeddings", provider_type, **config),
         )
+        return self
+
+    def with_content(
+        self,
+        provider_type: Optional[str] = None,
+        **config: Any,
+    ) -> Self:
+        """Configure content provider.
+
+        Args:
+            provider_type: Type of content provider to use
+            **config: Provider configuration
+
+        Returns:
+            Self for chaining
+
+        Raises:
+            ValidationError: If provider creation fails
+        """
+        # Get provider type from environment if not specified
+        if provider_type is None:
+            provider_type = os.environ.get("PEPPERPY_CONTENT__PROVIDER", "default")
+
+        # Create provider instance
+        provider = cast(
+            ContentProcessor,
+            create_provider_instance("content", provider_type, **config),
+        )
+
+        # Store provider
+        self._providers["content"] = provider
+
         return self
 
     @property

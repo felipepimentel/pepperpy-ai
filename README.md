@@ -1,6 +1,4 @@
-# PepperPy
-
-A flexible and extensible Python framework for AI applications.
+# PepperPy: Framework Python para Interação com LLMs
 
 ## Features
 
@@ -146,4 +144,86 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details. 
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Melhorias no Sistema de Plugins
+
+O sistema de plugins do PepperPy foi significativamente melhorado para proporcionar uma experiência mais robusta e fácil de usar. As principais melhorias incluem:
+
+### 1. Gerenciamento de Configuração Centralizado
+
+- Implementada a classe `PluginConfig` que fornece um mecanismo unificado para carregar e gerenciar configurações de plugins
+- Suporte automático a variáveis de ambiente com ordem de prioridade clara
+- Busca automática de chaves de API em múltiplos formatos de variáveis de ambiente
+
+### 2. Hierarquia de Classes Aprimorada
+
+- Resolvido o problema do construtor que causava erros de inicialização
+- Implementada uma passagem de parâmetros mais robusta e previsível
+- Eliminados problemas com a herança "diamante" em múltiplas classes base
+
+### 3. Gerenciamento de Recursos Melhorado
+
+- Implementado sistema de registro e limpeza automática de recursos
+- Adicionado suporte para limpeza explícita e consistente de sessões HTTP
+- Melhorado o manipulador de contexto assíncrono para garantir limpeza adequada
+
+### 4. Sistema de Descoberta de Plugins Robusto
+
+- Registro manual de plugins essenciais para funcionamento mesmo sem descoberta
+- Implementado sistema de fallback para tentar provedores alternativos
+- Melhoria na detecção e registro de provedores disponíveis
+
+### 5. Experiência do Usuário Simplificada
+
+- Não é mais necessário passar chaves de API explicitamente
+- Simplificada a configuração de plugins com sensibilidade a ambiente
+- Reduzida a quantidade de código necessária para usar o framework
+
+## Exemplo de Uso
+
+```python
+#!/usr/bin/env python3
+"""
+Exemplo mínimo usando PepperPy com OpenRouter.
+"""
+
+import asyncio
+from dotenv import load_dotenv
+
+from pepperpy.pepperpy import PepperPy, init_framework
+
+# Carrega variáveis de ambiente
+load_dotenv()
+
+async def main():
+    # Inicializa o framework
+    await init_framework()
+    
+    # Cria instância do PepperPy - não precisa passar a API key!
+    pepper = PepperPy().with_llm(provider_type="openrouter")
+    
+    # Usa contexto assíncrono para gerenciar recursos
+    async with pepper:
+        # API fluente para interação com chat
+        result = await pepper.chat \
+            .with_system("Você é um assistente útil.") \
+            .with_user("O que é o framework PepperPy?") \
+            .generate()
+        
+        print(result.content)
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Arquitetura do Sistema de Plugins
+
+```
+PepperpyPlugin [base class]
+    ├── ResourceMixin     # Gerenciamento de recursos
+    ├── PluginConfig      # Gerenciamento de configuração
+    └── Implementações específicas (LLMProvider, etc.)
+```
+
+Esta nova arquitetura provê uma base sólida para futuras extensões e garante que o framework seja fácil de usar mesmo para usuários iniciantes. 

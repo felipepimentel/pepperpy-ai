@@ -19,6 +19,7 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, Union, cast
 from pepperpy.core import PepperpyError
 from pepperpy.core.errors import ValidationError
 from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugins.manager import create_provider_instance
 
 # Type variables for generic pipeline stages
 Input = TypeVar("Input")
@@ -27,6 +28,21 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "ComponentType",
+    "PipelineError",
+    "PipelineContext",
+    "PipelineConfig",
+    "PipelineStage",
+    "Pipeline",
+    "PipelineRegistry",
+    "WorkflowComponent",
+    "Workflow",
+    "WorkflowProvider",
+    "DocumentWorkflow",
+    "create_provider",
+]
 
 
 class ComponentType(str, enum.Enum):
@@ -605,33 +621,22 @@ def create_provider(provider_type: str = "default", **config: Any) -> WorkflowPr
 
     Args:
         provider_type: Type of provider to create
-        **config: Provider configuration options
+        **config: Provider configuration
 
     Returns:
-        WorkflowProvider instance
+        Workflow provider instance
 
     Raises:
         ValidationError: If provider creation fails
     """
     try:
-        import importlib
-
-        # Import provider module
-        module_name = f"pepperpy.workflow.providers.{provider_type}"
-        module = importlib.import_module(module_name)
-
-        # Get provider class
-        provider_class_name = f"{provider_type.title()}Executor"
-        provider_class = getattr(module, provider_class_name)
-
-        # Create provider instance
-        return provider_class(**config)
-    except (ImportError, AttributeError) as e:
-        raise ValidationError(
-            f"Failed to create Workflow provider '{provider_type}': {e}"
-        ) from e
+        provider = cast(
+            WorkflowProvider,
+            create_provider_instance("workflow", provider_type, **config),
+        )
+        return provider
     except Exception as e:
-        raise ValidationError(f"Failed to create Workflow provider: {e!s}") from e
+        raise ValidationError(f"Failed to create workflow provider: {e}") from e
 
 
 class DocumentWorkflow(Workflow):

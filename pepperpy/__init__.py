@@ -1,15 +1,14 @@
-"""PepperPy framework."""
+"""PepperPy Framework
+
+This module provides a flexible and extensible framework for AI applications.
+"""
 
 # Core components
-from pepperpy.core.di import ServiceLifetime, get_container
-from pepperpy.core.errors import (
-    ConfigurationError,
+from pepperpy.core import (
+    Config,
     PepperpyError,
-    ProviderError,
-    ValidationError,
+    get_logger,
 )
-from pepperpy.core.events import Event, EventBus, EventType, emit_event, event_listener
-from pepperpy.core.logging import get_logger
 
 # Domain-specific providers
 from pepperpy.llm import LLMProvider, Message, MessageRole
@@ -20,25 +19,16 @@ __version__ = "0.1.0"
 
 __all__ = [
     # Core components
-    "PepperPy",
-    "PepperpyPlugin",
+    "Config",
     "PepperpyError",
-    "ValidationError",
-    "ConfigurationError",
-    "ProviderError",
-    # Event system
-    "Event",
-    "EventBus",
-    "EventType",
-    "emit_event",
-    "event_listener",
-    # Service container
-    "ServiceLifetime",
-    "get_container",
+    "get_logger",
+    # Framework
+    "PepperPy",
+    "init_framework",
+    # Plugin system
+    "PepperpyPlugin",
     # LLM components
     "LLMProvider",
     "Message",
     "MessageRole",
-    # Utility functions
-    "get_logger",
 ]
