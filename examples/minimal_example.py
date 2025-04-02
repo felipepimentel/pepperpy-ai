@@ -7,11 +7,32 @@ import asyncio
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from pepperpy import PepperPy, init_framework
+from pepperpy.core.errors import ProviderError
 
 # Add project root to sys.path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+
+async def run_chat(pepper: PepperPy, prompt: str) -> Optional[str]:
+    """Run a chat interaction safely.
+
+    Args:
+        pepper: PepperPy instance
+        prompt: User prompt
+
+    Returns:
+        Generated response or None if error
+    """
+    try:
+        response = await pepper.chat.with_user(prompt).generate()
+        return response.content
+    except ProviderError as e:
+        print(f"Error generating response: {e}")
+        return None
 
 
 async def main() -> None:
@@ -19,35 +40,44 @@ async def main() -> None:
     print("PepperPy Minimal Example")
     print("=" * 50)
 
-    # Initialize the framework
-    await init_framework()
+    try:
+        # Initialize the framework
+        await init_framework()
 
-    # Create PepperPy instance with OpenRouter LLM provider
-    pepper = PepperPy()
-    await pepper.with_llm(
-        "openrouter",
-        api_key=os.environ.get("PEPPERPY_LLM__OPENROUTER_API_KEY"),
-        model=os.environ.get("PEPPERPY_LLM__MODEL", "openai/gpt-4o-mini"),
-        temperature=float(os.environ.get("PEPPERPY_LLM__TEMPERATURE", "0.7")),
-        max_tokens=int(os.environ.get("PEPPERPY_LLM__MAX_TOKENS", "1024")),
-    )
+        # Create PepperPy instance with LLM provider
+        pepper = PepperPy()
+        await pepper.initialize()
 
-    # Generate text using chat
-    response = await pepper.chat.with_user(
-        "Tell me a joke about Python programming."
-    ).generate()
-    print(response.content)
+        # Get API key from environment variable
+        api_key = os.getenv("PEPPERPY_LLM__OPENROUTER_API_KEY")
+        if not api_key:
+            raise ProviderError("OpenRouter API key not found in environment variables")
 
-    # Generate chat completion
-    response = (
-        await pepper.chat.with_system("You are a helpful assistant.")
-        .with_user("What is the capital of France?")
-        .generate()
-    )
-    print(response.content)
+        # Configure LLM provider
+        pepper.with_llm(
+            provider_type="openrouter",
+            api_key=api_key,
+            model="openai/gpt-4o-mini",
+        )
 
-    # Clean up
-    await pepper.cleanup()
+        # Generate text using chat
+        if response := await run_chat(
+            pepper, "Tell me a joke about Python programming."
+        ):
+            print("\nJoke Response:")
+            print(response)
+
+        # Generate chat completion
+        if response := await run_chat(pepper, "What is the capital of France?"):
+            print("\nCapital Response:")
+            print(response)
+
+        # Clean up
+        await pepper.cleanup()
+
+    except Exception as e:
+        print(f"Error running example: {e}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

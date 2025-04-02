@@ -1,7 +1,7 @@
 # Plugin metadata
 type: llm
 provider: openrouter
-module: pepperpy.plugins.llm.openrouter.provider
+module: llm.openrouter.provider
 class: OpenRouterProvider
 description: OpenRouter LLM provider for PepperPy
 version: 0.1.0
@@ -16,7 +16,7 @@ config:
   model:
     description: Model to use for generation
     required: false
-    default: openai/gpt-3.5-turbo
+    default: openai/gpt-4o-mini
     type: string
   temperature:
     description: Sampling temperature between 0.0 (deterministic) and 2.0 (creative)
@@ -40,7 +40,7 @@ documentation: |
   ## Configuration
 
   - `api_key`: OpenRouter API key (required)
-  - `model`: Model to use (default: openai/gpt-3.5-turbo)
+  - `model`: Model to use (default: openai/gpt-4o-mini)
   - `temperature`: Sampling temperature (default: 0.7)
   - `max_tokens`: Maximum tokens to generate (default: 1024)
 
@@ -62,16 +62,16 @@ pepperpy_compatibility: '>=0.1.0'
 
 name: openrouter
 version: 0.1.0
-description: OpenRouter LLM provider implementation
+description: OpenRouter LLM provider for PepperPy
 author: PepperPy Team
 license: MIT
 
-plugin_type: llm
+type: llm
 category: provider
-provides:
-  - llm
+provides: llm
 provider_name: openrouter
-entry_point: plugins.llm.openrouter.provider:OpenRouterProvider
+
+entry_point: provider:OpenRouterProvider
 
 config_schema:
   type: object
@@ -79,6 +79,7 @@ config_schema:
     api_key:
       type: string
       description: OpenRouter API key
+      env_var: PEPPERPY_LLM__OPENROUTER_API_KEY
     model:
       type: string
       description: Model to use
@@ -87,15 +88,41 @@ config_schema:
       type: number
       description: Temperature for generation
       default: 0.7
-      minimum: 0
-      maximum: 2
     max_tokens:
       type: integer
       description: Maximum tokens to generate
       default: 1024
-      minimum: 1
 
 default_config:
   model: openai/gpt-4o-mini
   temperature: 0.7
   max_tokens: 1024
+
+usage: |
+  The OpenRouter provider allows you to use various LLM models through OpenRouter's API.
+  
+  Available models:
+  - openai/gpt-4o-mini
+  - openai/gpt-4
+  - anthropic/claude-3-opus
+  - anthropic/claude-3-sonnet
+  - anthropic/claude-3-haiku
+  - google/gemini-pro
+  - meta/llama2-70b
+  - mistral/mistral-medium
+  
+  Example usage:
+  ```python
+  from pepperpy import PepperPy
+  
+  pepper = PepperPy()
+  await pepper.initialize()
+  
+  pepper.with_llm(
+      provider_type="openrouter",
+      api_key="your_api_key_here",
+      model="openai/gpt-4o-mini",
+      temperature=0.7,
+      max_tokens=1024
+  )
+  ```
