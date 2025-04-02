@@ -1,4 +1,8 @@
-"""PepperPy plugin base class."""
+"""PepperPy plugin base class.
+
+This module provides the base plugin class and decorators for PepperPy plugins,
+including configuration handling and lifecycle management.
+"""
 
 import asyncio
 import os
@@ -15,7 +19,7 @@ from typing import (
 )
 
 from pepperpy.core.logging import get_logger
-from pepperpy.plugins.resource import ResourceMixin
+from pepperpy.plugins.resources import ResourceMixin
 
 logger = get_logger(__name__)
 
@@ -158,7 +162,7 @@ class PepperpyPlugin(ResourceMixin):
             config: Configuration dictionary
             **kwargs: Additional configuration parameters
         """
-        # Initialize resource mixin without passing kwargs to prevent diamond inheritance issues
+        # Initialize resource mixin
         ResourceMixin.__init__(self)
 
         # Store name
@@ -261,6 +265,8 @@ class PepperpyPlugin(ResourceMixin):
         This should be overridden by plugin implementations to
         release any resources they acquired during use.
         """
+        # Clean up any registered resources
+        await self._cleanup_resources()
         self._initialized = False
 
     async def __aenter__(self) -> Self:
@@ -279,29 +285,21 @@ class PepperpyPlugin(ResourceMixin):
             await self.initialize()
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         """Exit async context manager."""
         global _inside_context
+        _inside_context = False
 
-        # Add to exiting plugins
+        # Prevent duplicate cleanup in nested context managers
+        if self in _exiting_plugins:
+            return
+
         _exiting_plugins.add(self)
-
-        # Clean up resources
         try:
             await self.cleanup()
-            await self.cleanup_resources()
-        except Exception as e:
-            logger.error(f"Error during plugin cleanup: {e}")
-
-        # Remove from active plugins
-        _active_plugins.discard(self.plugin_id)
-
-        # Remove from exiting plugins
-        _exiting_plugins.discard(self)
-
-        # Update inside context flag if no plugins are active
-        if not _active_plugins:
-            _inside_context = False
+        finally:
+            _exiting_plugins.remove(self)
+            _active_plugins.discard(self.plugin_id)
 
     async def _ensure_initialized(self) -> None:
         """Ensure the plugin is initialized."""
@@ -330,31 +328,52 @@ def auto_initialize(func):
     return wrapper
 
 
+# Decorator to automatically wrap a method in an async context manager
+def auto_context(func):
+    """Decorator to automatically wrap a method in an async context manager."""
+    if not asyncio.iscoroutinefunction(func):
+        # For synchronous functions, we can't await, so we just call the function
+        return func
+
+    async def wrapper(self, *args, **kwargs):
+        if not isinstance(self, PepperpyPlugin) or not _auto_context_enabled:
+            # If not a plugin or auto context is disabled, just call the function
+            return await func(self, *args, **kwargs)
+
+        if _inside_context:
+            # Already inside a context manager, just call the function
+            return await func(self, *args, **kwargs)
+
+        # Create a new context manager and call the function inside it
+        async with self:
+            return await func(self, *args, **kwargs)
+
+    # Update metadata to match original function
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__ = func.__doc__
+    wrapper.__module__ = func.__module__
+    wrapper.__qualname__ = func.__qualname__
+
+    return wrapper
+
+
+# Utility to create a plugin provider
 @asynccontextmanager
-async def auto_context(plugin: PepperpyPlugin) -> AsyncGenerator[PepperpyPlugin, None]:
-    """Context manager for automatically initializing and cleaning up a plugin.
-
-    This simplifies usage of plugins by handling the resource lifecycle.
-
-    Example:
-        ```python
-        async with auto_context(plugin) as p:
-            result = await p.method()
-        ```
+async def with_provider(
+    plugin_type: str, provider_type: str, **config: Any
+) -> AsyncGenerator[PepperpyPlugin, None]:
+    """Create and use a plugin provider with a context manager.
 
     Args:
-        plugin: Plugin instance to manage
+        plugin_type: Type of plugin
+        provider_type: Type of provider
+        **config: Provider configuration
 
     Yields:
-        Initialized plugin instance
+        Provider instance
     """
-    try:
-        if not plugin.initialized:
-            await plugin.initialize()
-        yield plugin
-    finally:
-        if plugin.initialized:
-            try:
-                await plugin.cleanup()
-            except Exception as e:
-                logger.error(f"Error during plugin cleanup: {e}")
+    from pepperpy.plugins.registry import create_provider_instance
+
+    provider = create_provider_instance(plugin_type, provider_type, **config)
+    async with provider:
+        yield provider

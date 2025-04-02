@@ -6,12 +6,38 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from pepperpy.content.errors import (
-    ContentProcessingError,
-    ProviderNotFoundError,
-    UnsupportedContentTypeError,
-)
+from pepperpy.core.base import PepperpyError
 from pepperpy.plugins.plugin import PepperpyPlugin
+
+
+class ContentProcessingError(PepperpyError):
+    """Base error for content processing."""
+
+    pass
+
+
+class ContentProcessingConfigError(ContentProcessingError):
+    """Error raised when there is a configuration issue."""
+
+    pass
+
+
+class ContentProcessingIOError(ContentProcessingError):
+    """Error raised when there is an I/O issue."""
+
+    pass
+
+
+class UnsupportedContentTypeError(ContentProcessingError):
+    """Error raised when content type is not supported."""
+
+    pass
+
+
+class ProviderNotFoundError(ContentProcessingError):
+    """Error raised when provider is not found."""
+
+    pass
 
 
 class ContentType(Enum):

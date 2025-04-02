@@ -1,17 +1,20 @@
-"""Plugin manager for PepperPy."""
+"""Plugin manager for PepperPy.
+
+This module provides enhanced plugin management for PepperPy, including
+dependency resolution, instance management, and lifecycle coordination.
+"""
 
 import os
-import subprocess
+from collections import defaultdict
 from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-from pepperpy.core.errors import ValidationError
+from pepperpy.core.errors import ConfigurationError, ValidationError
 from pepperpy.core.logging import get_logger
-from pepperpy.plugins.discovery import (
-    get_plugin_by_provider,
-)
 from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugins.registry import get_plugin
 
 logger = get_logger(__name__)
 
@@ -73,6 +76,22 @@ def _ensure_dotenv_loaded() -> None:
         _dotenv_loaded = True  # Prevent further attempts
 
 
+class DependencyType(Enum):
+    """Types of dependencies between plugins."""
+
+    # Required dependency - plugin won't function without it
+    REQUIRED = "required"
+
+    # Optional dependency - plugin can function without it
+    OPTIONAL = "optional"
+
+    # Runtime dependency - needed during runtime but not initialization
+    RUNTIME = "runtime"
+
+    # Enhances dependency - adds functionality to the dependent plugin
+    ENHANCES = "enhances"
+
+
 @dataclass
 class PluginInfo:
     """Information about a plugin."""
@@ -85,7 +104,213 @@ class PluginInfo:
     homepage: Optional[str] = None
     repository: Optional[str] = None
     documentation: Optional[str] = None
+    dependencies: List[Dict[str, Any]] = field(default_factory=list)
     metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+class DependencyGraph:
+    """Graph representing dependencies between plugins."""
+
+    def __init__(self) -> None:
+        """Initialize the dependency graph."""
+        # Format: {(plugin_type, provider_type): {(dep_plugin_type, dep_provider_type): DependencyType}}
+        self._dependencies: Dict[
+            Tuple[str, str], Dict[Tuple[str, str], DependencyType]
+        ] = defaultdict(dict)
+
+        # Reverse dependencies for quick lookups
+        # Format: {(plugin_type, provider_type): {(dependent_type, dependent_provider): DependencyType}}
+        self._reverse_dependencies: Dict[
+            Tuple[str, str], Dict[Tuple[str, str], DependencyType]
+        ] = defaultdict(dict)
+
+        # Cache of sorted dependencies
+        self._sorted_dependencies: Optional[List[Tuple[str, str]]] = None
+
+        # Set to track if graph has changed
+        self._graph_changed = False
+
+    def add_dependency(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        depends_on_type: str,
+        depends_on_provider: str,
+        dependency_type: DependencyType = DependencyType.REQUIRED,
+    ) -> None:
+        """Add a dependency to the graph.
+
+        Args:
+            plugin_type: Type of the dependent plugin
+            provider_type: Provider of the dependent plugin
+            depends_on_type: Type of the dependency plugin
+            depends_on_provider: Provider of the dependency plugin
+            dependency_type: Type of dependency relationship
+        """
+        plugin_key = (plugin_type, provider_type)
+        dependency_key = (depends_on_type, depends_on_provider)
+
+        # Add to dependencies dict
+        self._dependencies[plugin_key][dependency_key] = dependency_type
+
+        # Add to reverse dependencies dict for faster lookups
+        self._reverse_dependencies[dependency_key][plugin_key] = dependency_type
+
+        # Mark graph as changed
+        self._graph_changed = True
+        self._sorted_dependencies = None
+
+        logger.debug(
+            f"Added dependency: {plugin_type}/{provider_type} -> "
+            f"{depends_on_type}/{depends_on_provider} ({dependency_type.value})"
+        )
+
+    def get_dependencies(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        dependency_type: Optional[DependencyType] = None,
+    ) -> List[Tuple[str, str]]:
+        """Get all dependencies of a plugin.
+
+        Args:
+            plugin_type: Type of the plugin
+            provider_type: Provider of the plugin
+            dependency_type: Optional filter by dependency type
+
+        Returns:
+            List of (plugin_type, provider_type) tuples that the plugin depends on
+        """
+        plugin_key = (plugin_type, provider_type)
+        dependencies = self._dependencies.get(plugin_key, {})
+
+        if dependency_type:
+            return [
+                dep_key
+                for dep_key, dep_type in dependencies.items()
+                if dep_type == dependency_type
+            ]
+
+        return list(dependencies.keys())
+
+    def get_dependents(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        dependency_type: Optional[DependencyType] = None,
+    ) -> List[Tuple[str, str]]:
+        """Get all plugins that depend on this plugin.
+
+        Args:
+            plugin_type: Type of the plugin
+            provider_type: Provider of the plugin
+            dependency_type: Optional filter by dependency type
+
+        Returns:
+            List of (plugin_type, provider_type) tuples that depend on this plugin
+        """
+        plugin_key = (plugin_type, provider_type)
+        dependents = self._reverse_dependencies.get(plugin_key, {})
+
+        if dependency_type:
+            return [
+                dep_key
+                for dep_key, dep_type in dependents.items()
+                if dep_type == dependency_type
+            ]
+
+        return list(dependents.keys())
+
+    def get_dependency_type(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        depends_on_type: str,
+        depends_on_provider: str,
+    ) -> Optional[DependencyType]:
+        """Get the dependency type between two plugins.
+
+        Args:
+            plugin_type: Type of the dependent plugin
+            provider_type: Provider of the dependent plugin
+            depends_on_type: Type of the dependency plugin
+            depends_on_provider: Provider of the dependency plugin
+
+        Returns:
+            Dependency type if dependency exists, None otherwise
+        """
+        plugin_key = (plugin_type, provider_type)
+        dependency_key = (depends_on_type, depends_on_provider)
+        return self._dependencies.get(plugin_key, {}).get(dependency_key)
+
+    def topological_sort(self) -> List[Tuple[str, str]]:
+        """Sort plugins in dependency order (dependencies first).
+
+        Returns:
+            List of (plugin_type, provider_type) tuples in dependency order
+        """
+        # Use cached result if graph hasn't changed
+        if not self._graph_changed and self._sorted_dependencies is not None:
+            return self._sorted_dependencies.copy()
+
+        # Get all nodes in the graph (both plugins and dependencies)
+        all_nodes: Set[Tuple[str, str]] = set()
+        for plugin_key, dependencies in self._dependencies.items():
+            all_nodes.add(plugin_key)
+            all_nodes.update(dependencies.keys())
+
+        # Prepare result and visited sets
+        sorted_nodes: List[Tuple[str, str]] = []
+        visited: Set[Tuple[str, str]] = set()
+        temp_visited: Set[Tuple[str, str]] = set()
+
+        def visit(node: Tuple[str, str]) -> None:
+            """Visit a node in the graph.
+
+            Args:
+                node: Node to visit
+            """
+            if node in visited:
+                return
+
+            if node in temp_visited:
+                # Circular dependency detected
+                cycle = (
+                    " -> ".join(f"{n[0]}/{n[1]}" for n in temp_visited)
+                    + f" -> {node[0]}/{node[1]}"
+                )
+                raise ValueError(f"Circular dependency detected: {cycle}")
+
+            temp_visited.add(node)
+
+            # Visit all dependencies
+            for dep_node in self._dependencies.get(node, {}):
+                visit(dep_node)
+
+            temp_visited.remove(node)
+            visited.add(node)
+            sorted_nodes.append(node)
+
+        # Visit all nodes
+        for node in all_nodes:
+            if node not in visited:
+                visit(node)
+
+        # Update cache
+        self._sorted_dependencies = sorted_nodes
+        self._graph_changed = False
+
+        return sorted_nodes.copy()
+
+    def reverse_topological_sort(self) -> List[Tuple[str, str]]:
+        """Sort plugins in reverse dependency order (dependents first).
+
+        Returns:
+            List of (plugin_type, provider_type) tuples in reverse dependency order
+        """
+        # Get topological sort and reverse it
+        sorted_nodes = self.topological_sort()
+        return list(reversed(sorted_nodes))
 
 
 class PluginManager:
@@ -93,38 +318,57 @@ class PluginManager:
 
     def __init__(self) -> None:
         """Initialize plugin manager."""
-        self._plugins: Dict[str, Dict[str, Type[PepperpyPlugin]]] = {}
         self._instances: Dict[str, Dict[str, PepperpyPlugin]] = {}
         self._initialized = False
+        self._dependency_graph = DependencyGraph()
+        self._plugin_metadata: Dict[Tuple[str, str], Dict[str, Any]] = {}
 
-    def register_plugin(
-        self, plugin_type: str, provider_type: str, plugin_class: Type[PepperpyPlugin]
+    def register_plugin_metadata(
+        self, plugin_type: str, provider_type: str, metadata: Dict[str, Any]
     ) -> None:
-        """Register a plugin.
+        """Register plugin metadata including dependencies.
 
         Args:
-            plugin_type: Type of plugin (e.g., "llm", "rag")
-            provider_type: Type of provider (e.g., "openai", "local")
-            plugin_class: Plugin class to register
+            plugin_type: Type of the plugin
+            provider_type: Provider of the plugin
+            metadata: Plugin metadata including dependencies
         """
-        if plugin_type not in self._plugins:
-            self._plugins[plugin_type] = {}
-        self._plugins[plugin_type][provider_type] = plugin_class
-        logger.debug(f"Registered plugin: {plugin_type}/{provider_type}")
+        plugin_key = (plugin_type, provider_type)
+        self._plugin_metadata[plugin_key] = metadata
 
-    def get_plugin(
-        self, plugin_type: str, provider_type: str
-    ) -> Optional[Type[PepperpyPlugin]]:
-        """Get a plugin class.
+        # Process dependencies if specified
+        dependencies = metadata.get("dependencies", [])
+        for dependency in dependencies:
+            dep_type = dependency.get("type")
+            dep_provider = dependency.get("provider")
+            dep_dependency_type = DependencyType(
+                dependency.get("dependency_type", "required")
+            )
 
-        Args:
-            plugin_type: Type of plugin
-            provider_type: Type of provider
+            if dep_type and dep_provider:
+                self._dependency_graph.add_dependency(
+                    plugin_type,
+                    provider_type,
+                    dep_type,
+                    dep_provider,
+                    dep_dependency_type,
+                )
+
+    def get_initialization_order(self) -> List[Tuple[str, str]]:
+        """Get the proper initialization order for plugins.
 
         Returns:
-            Plugin class if found, None otherwise
+            List of (plugin_type, provider_type) tuples in dependency order
         """
-        return self._plugins.get(plugin_type, {}).get(provider_type)
+        return self._dependency_graph.topological_sort()
+
+    def get_shutdown_order(self) -> List[Tuple[str, str]]:
+        """Get the proper shutdown order for plugins.
+
+        Returns:
+            List of (plugin_type, provider_type) tuples in shutdown order
+        """
+        return self._dependency_graph.reverse_topological_sort()
 
     def create_instance(
         self, plugin_type: str, provider_type: str, **config: Any
@@ -143,7 +387,7 @@ class PluginManager:
             ValidationError: If plugin not found or creation fails
         """
         # Get plugin class
-        plugin_class = self.get_plugin(plugin_type, provider_type)
+        plugin_class = get_plugin(plugin_type, provider_type)
         if not plugin_class:
             raise ValidationError(f"Plugin not found: {plugin_type}/{provider_type}")
 
@@ -172,26 +416,112 @@ class PluginManager:
         return self._instances.get(plugin_type, {}).get(provider_type)
 
     async def initialize(self) -> None:
-        """Initialize plugin manager."""
+        """Initialize plugin manager and all registered instances in dependency order."""
         if self._initialized:
             return
 
-        # Initialize all instances
-        for instances in self._instances.values():
-            for instance in instances.values():
+        # Get initialization order
+        try:
+            init_order = self.get_initialization_order()
+        except ValueError as e:
+            raise ConfigurationError(f"Failed to determine initialization order: {e}")
+
+        # Initialize instances in dependency order
+        for plugin_type, provider_type in init_order:
+            instance = self.get_instance(plugin_type, provider_type)
+            if instance:
                 await instance.initialize()
 
         self._initialized = True
 
     async def cleanup(self) -> None:
-        """Clean up plugin manager."""
-        # Clean up all instances
-        for instances in self._instances.values():
-            for instance in instances.values():
-                await instance.cleanup()
+        """Clean up plugin manager and all registered instances in reverse dependency order."""
+        # Get shutdown order
+        try:
+            shutdown_order = self.get_shutdown_order()
+        except ValueError as e:
+            logger.error(f"Failed to determine shutdown order, using random order: {e}")
+            # Fallback to dictionary order
+            shutdown_order = []
+            for plugin_type, providers in self._instances.items():
+                for provider_type in providers:
+                    shutdown_order.append((plugin_type, provider_type))
+
+        # Clean up instances in shutdown order
+        for plugin_type, provider_type in shutdown_order:
+            instance = self.get_instance(plugin_type, provider_type)
+            if instance:
+                try:
+                    await instance.cleanup()
+                except Exception as e:
+                    logger.error(
+                        f"Error cleaning up plugin {plugin_type}/{provider_type}: {e}"
+                    )
 
         self._instances.clear()
         self._initialized = False
+
+    def list_instances(self) -> Dict[str, Dict[str, PepperpyPlugin]]:
+        """List all plugin instances.
+
+        Returns:
+            Dict of plugin types to provider types to plugin instances
+        """
+        return self._instances
+
+    async def load_dependencies(
+        self, plugin_type: str, provider_type: str
+    ) -> List[Tuple[str, str]]:
+        """Load all dependencies for a plugin.
+
+        Args:
+            plugin_type: Type of the plugin
+            provider_type: Provider of the plugin
+
+        Returns:
+            List of loaded dependencies
+
+        Raises:
+            ConfigurationError: If a required dependency can't be loaded
+        """
+        loaded_dependencies: List[Tuple[str, str]] = []
+
+        # Get all dependencies
+        dependencies = self._dependency_graph.get_dependencies(
+            plugin_type, provider_type
+        )
+
+        # Load each dependency
+        for dep_type, dep_provider in dependencies:
+            dependency_type = self._dependency_graph.get_dependency_type(
+                plugin_type, provider_type, dep_type, dep_provider
+            )
+
+            try:
+                # Check if already loaded
+                instance = self.get_instance(dep_type, dep_provider)
+                if instance is None:
+                    # Create and initialize the instance
+                    instance = self.create_instance(dep_type, dep_provider)
+                    await instance.initialize()
+
+                loaded_dependencies.append((dep_type, dep_provider))
+
+            except Exception as e:
+                # For required dependencies, propagate the error
+                if dependency_type == DependencyType.REQUIRED:
+                    raise ConfigurationError(
+                        f"Failed to load required dependency {dep_type}/{dep_provider} "
+                        f"for {plugin_type}/{provider_type}: {e}"
+                    ) from e
+                else:
+                    # For optional dependencies, just log the error
+                    logger.warning(
+                        f"Failed to load optional dependency {dep_type}/{dep_provider} "
+                        f"for {plugin_type}/{provider_type}: {e}"
+                    )
+
+        return loaded_dependencies
 
 
 # Global plugin manager instance
@@ -210,109 +540,36 @@ def get_plugin_manager() -> PluginManager:
     return _plugin_manager
 
 
-def create_provider_instance(
-    plugin_type: str,
-    provider_type: str,
-    require_api_key: bool = False,
-    **kwargs: Any,
-) -> Any:
-    """Create a provider instance from plugin and provider types.
+async def create_and_initialize_provider(
+    plugin_type: str, provider_type: str, **config: Any
+) -> PepperpyPlugin:
+    """Create and initialize a provider instance.
 
     Args:
         plugin_type: Type of plugin
         provider_type: Type of provider
-        require_api_key: Whether the provider requires an API key
-        **kwargs: Additional arguments to pass to the provider
+        **config: Provider configuration
 
     Returns:
-        Provider instance
+        Initialized provider instance
 
     Raises:
-        ValidationError: If plugin or provider is not found, or if API key is required but not provided
+        ValidationError: If provider creation or initialization fails
     """
-    logger.debug(f"Creating provider instance: {plugin_type}/{provider_type}")
-
-    # Ensure .env files are loaded to get configuration
+    # Ensure dotenv is loaded
     _ensure_dotenv_loaded()
 
-    # Check if API key is required and not provided in kwargs
-    if require_api_key:
-        # Build standardized API key parameter name: {provider_type}_api_key
-        api_key_param = f"{provider_type}_api_key"
+    # Get plugin manager
+    manager = get_plugin_manager()
 
-        # Check if API key is provided in kwargs with the standardized name
-        if api_key_param not in kwargs or not kwargs[api_key_param]:
-            # Try alternative parameter name format: api_key
-            if "api_key" not in kwargs or not kwargs["api_key"]:
-                # Try to get from environment variables in order of preference
-                # 1. PEPPERPY_{PLUGIN_TYPE}_{PROVIDER_TYPE}_API_KEY (e.g., PEPPERPY_LLM_OPENROUTER_API_KEY)
-                # 2. PEPPERPY_{PLUGIN_TYPE}__API_KEY (e.g., PEPPERPY_LLM__API_KEY)
-                # 3. {PROVIDER_TYPE}_API_KEY (e.g., OPENROUTER_API_KEY)
-                plugin_type_upper = plugin_type.upper()
-                provider_type_upper = provider_type.upper()
+    # Create instance
+    instance = manager.create_instance(plugin_type, provider_type, **config)
 
-                env_var_specific = (
-                    f"PEPPERPY_{plugin_type_upper}_{provider_type_upper}_API_KEY"
-                )
-                env_var_generic = f"PEPPERPY_{plugin_type_upper}__API_KEY"
-                env_var_direct = f"{provider_type_upper}_API_KEY"
+    # Load dependencies
+    await manager.load_dependencies(plugin_type, provider_type)
 
-                api_key = (
-                    os.environ.get(env_var_specific)
-                    or os.environ.get(env_var_generic)
-                    or os.environ.get(env_var_direct)
-                )
+    # Initialize instance
+    if not instance.initialized:
+        await instance.initialize()
 
-                if not api_key:
-                    error_msg = (
-                        f"API key required for {plugin_type}/{provider_type}. "
-                        f"Set either in config or via one of these environment variables: "
-                        f"{env_var_specific}, {env_var_generic}, {env_var_direct}"
-                    )
-                    raise ValidationError(error_msg)
-
-                # Use the standardized parameter name for the API key
-                kwargs[api_key_param] = api_key
-
-        # Ensure the traditional api_key parameter is also set for backward compatibility
-        if "api_key" not in kwargs:
-            kwargs["api_key"] = kwargs[api_key_param]
-
-    # Get plugin class
-    plugin_class = get_plugin_by_provider(plugin_type, provider_type)
-    if not plugin_class:
-        raise ValidationError(f"Provider not found: {plugin_type}/{provider_type}")
-
-    try:
-        # Create instance
-        provider_instance = plugin_class(**kwargs)
-        return provider_instance
-    except Exception as e:
-        raise ValidationError(f"Failed to create provider instance: {e}") from e
-
-
-def install_plugin_dependencies(plugin_path: str) -> None:
-    """Install plugin dependencies from requirements.txt.
-
-    Args:
-        plugin_path: Path to plugin directory
-
-    Raises:
-        ValidationError: If installation fails
-    """
-    requirements_file = os.path.join(plugin_path, "requirements.txt")
-    if not os.path.exists(requirements_file):
-        logger.debug(f"No requirements.txt found in {plugin_path}")
-        return
-
-    try:
-        subprocess.check_call(
-            ["pip", "install", "-r", requirements_file],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        logger.info(f"Installed dependencies for plugin at {plugin_path}")
-    except subprocess.CalledProcessError as e:
-        raise ValidationError(
-            f"Failed to install plugin dependencies: {e.stderr.decode()}"
-        ) from e
+    return instance
