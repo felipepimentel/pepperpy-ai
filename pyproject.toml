@@ -64,7 +64,7 @@ addopts = "--cov=pepperpy --cov-report=term-missing"
 name = "pepperpy"
 version = "0.1.0"
 description = "A Pythonic Framework for AI Agents and LLM Capabilities"
-authors = ["PepperPy Team <jpimentel.ai@gmail.com>"]
+authors = ["Felipe Pimentel <fpimentel88@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
 license = "MIT"

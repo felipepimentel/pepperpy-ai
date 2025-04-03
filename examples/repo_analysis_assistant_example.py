@@ -1,132 +1,230 @@
 #!/usr/bin/env python3
 """Exemplo de análise de repositórios com PepperPy.
 
-Este exemplo demonstra como usar PepperPy para analisar
-repositórios GitHub e responder perguntas sobre eles.
+Este exemplo demonstra como usar a API declarativa do PepperPy
+para analisar repositórios GitHub e responder perguntas sobre eles.
+Utiliza os novos decoradores Domain-Specific Language (DSL) e handlers.
 """
 
 import asyncio
 import os
-import shutil
-import subprocess
-import tempfile
 from pathlib import Path
 
-from pepperpy import PepperPy
+from pepperpy import (
+    AnalysisLevel,
+    AnalysisScope,
+    AnalysisType,
+    Repository,
+    analyze,
+    code_analysis,
+    event_handler,
+    on_analysis_complete,
+    repository_task,
+)
 
 # Criar diretório de saída necessário
 OUTPUT_DIR = Path(__file__).parent / "output" / "repos"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-async def main():
-    """Executar o exemplo de análise de repositório."""
-    print("Exemplo de Assistente de Análise de Repositório")
+# Registrar handlers para eventos
+@event_handler("analysis.complete")
+async def analysis_complete_handler(event):
+    """Handler para evento de análise concluída."""
+    if event.event_type == "analysis.complete":
+        print(f"\n🔍 Análise concluída para: {event.data.get('target')}")
+        print(f"  Tipo: {event.data.get('analysis_type')}")
+        # Seria possível fazer coisas como notificar, salvar em banco, etc.
+        event.add_result({"status": "processed"})
+    return event.get_results()
+
+
+@on_analysis_complete("repository")
+async def notify_repository_analysis(target, analysis_name, result, **kwargs):
+    """Handler para quando a análise de repositório for concluída."""
+    print(f"\n📊 Relatório de análise de repositório concluído: {analysis_name}")
+    if hasattr(result, "architecture"):
+        print(f"  Arquitetura identificada: {result.architecture[:150]}...")
+    # Em um cenário real: notificar equipe, integrar com CI/CD, etc.
+
+
+# Versão com decoradores DSL avançados
+@repository_task(
+    capabilities=["code_analysis", "repository_navigation"],
+    scope=AnalysisScope.REPOSITORY,
+    level=AnalysisLevel.DETAILED,
+)
+async def analyze_repo_architecture(repo):
+    """Analisar a arquitetura do repositório."""
+    print("Análise de Arquitetura de Repositório")
     print("=" * 50)
 
-    # Repositório para analisar
+    # Definir repositório a ser analisado
     repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
 
-    # Criar diretório temporário para o repositório
-    repo_path = tempfile.mkdtemp()
-    print(f"\nClonando repositório para {repo_path}...")
+    if isinstance(repo, str):
+        # Se passamos a URL em vez do objeto repo
+        repo = Repository(repo_url)
 
+    # Criar tarefas específicas de análise
+    @code_analysis(language="python")
+    async def analyze_code_organization(repo):
+        """Analisar organização do código e padrões."""
+        return await repo.ask(
+            "Analise a organização do código e identifique padrões arquiteturais"
+        )
+
+    @code_analysis(metrics=["complexity", "maintainability"])
+    async def assess_code_quality(repo):
+        """Avaliar qualidade do código."""
+        return await repo.ask(
+            "Avalie a qualidade do código quanto à complexidade e manutenibilidade"
+        )
+
+    # Executar análises customizadas
+    print("\nExecutando análises específicas:")
+
+    org_analysis = await analyze_code_organization(repo)
+    print(f"\nOrganização do código: {org_analysis[:200]}...")
+
+    quality_assessment = await assess_code_quality(repo)
+    print(f"\nAvaliação de qualidade: {quality_assessment[:200]}...")
+
+    # Usar nova API fluida para filtrar e analisar arquivos específicos
+    python_files_analysis = (
+        await repo.code_files().by_language("python").excluding("tests/*").analyze()
+    )
+    print(f"\nArquivos Python encontrados: {python_files_analysis.file_count}")
+
+    # Gerar relatório com tipos específicos de análise
+    analysis = await repo.analyze(
+        analyses=[
+            AnalysisType.ARCHITECTURE,
+            AnalysisType.PATTERNS,
+            AnalysisType.COMPLEXITY,
+        ]
+    )
+
+    # Gerar relatório completo
+    report = await analysis.generate_report()
+
+    # Salvar resultado
+    report_path = OUTPUT_DIR / "architectural_analysis_report.md"
+    await report.save(report_path, format="md")
+    print(f"\nRelatório detalhado salvo em: {report_path}")
+
+    # Analisar mudanças desde um commit (exemplo)
     try:
-        # Inicializar PepperPy
-        app = PepperPy()
-        await app.initialize()
+        changes = await repo.changes_since("main")
+        print(
+            f"\nMudanças detectadas: {changes.commit_count if hasattr(changes, 'commit_count') else 'N/A'}"
+        )
+    except Exception as e:
+        print(f"Erro ao analisar mudanças: {e}")
 
-        try:
-            # Clonar repositório
-            subprocess.run(["git", "clone", repo_url, repo_path], check=True)
-            print(f"Repositório clonado em: {repo_path}")
+    # Sugerir padrões de design
+    patterns = await repo.suggest_design_patterns()
+    print(
+        f"\nPadrões sugeridos: {patterns.suggestions[:150] if hasattr(patterns, 'suggestions') else 'N/A'}..."
+    )
 
-            # Listar arquivos do repositório
-            print("\nListando arquivos do repositório...")
-            arquivos = []
-            for raiz, _, nomes_arquivos in os.walk(repo_path):
-                for nome_arquivo in nomes_arquivos:
-                    if not nome_arquivo.startswith(".") and not raiz.endswith(
-                        "__pycache__"
-                    ):
-                        arquivos.append(os.path.join(raiz, nome_arquivo))
+    return {
+        "architecture_analysis": org_analysis,
+        "quality_assessment": quality_assessment,
+        "suggested_patterns": patterns.suggestions
+        if hasattr(patterns, "suggestions")
+        else None,
+    }
 
-            print(f"Encontrados {len(arquivos)} arquivos")
 
-            # Indexar conteúdo do repositório
-            print("\nIndexando conteúdo do repositório...")
-            arquivos_indexados = 0
+# Versão ultra-simplificada ainda disponível
+async def analyze_repo_simple():
+    """Analisar um repositório com abordagem ultra-simplificada."""
+    print("\nAnálise de Repositório - Abordagem Ultra-Simplificada")
+    print("=" * 50)
 
-            # Processar os arquivos do repositório (limite para os primeiros 10 como exemplo)
-            for caminho_arquivo in arquivos[:10]:
-                try:
-                    with open(caminho_arquivo, encoding="utf-8", errors="ignore") as f:
-                        conteudo = f.read()
+    # Usar a função analyze diretamente - ela cuida de tudo
+    repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
+    result = await analyze(
+        repo_url,
+        objectives=["understand_purpose", "identify_structure", "summarize_code"],
+    )
 
-                    caminho_relativo = os.path.relpath(caminho_arquivo, repo_path)
-                    print(f"Indexando: {caminho_relativo}")
+    # Acessar resultados
+    print(f"\nPropósito: {result.purpose if hasattr(result, 'purpose') else 'N/A'}")
+    print(
+        f"\nEstrutura: {result.architecture if hasattr(result, 'architecture') else 'N/A'}"
+    )
 
-                    # Adicionar arquivo à base de conhecimento
-                    await app.execute(
-                        query="Indexar arquivo do repositório",
-                        context={
-                            "caminho_arquivo": caminho_relativo,
-                            "conteudo": conteudo[:2000],  # Limitar tamanho do conteúdo
-                            "metadata": {"tipo": "codigo", "repo": repo_url},
-                        },
-                    )
+    # Salvar resultados
+    report_path = OUTPUT_DIR / "repo_analysis_simple.md"
+    await result.export(path=report_path, format="md")
+    print(f"\nRelatório salvo em: {report_path}")
 
-                    arquivos_indexados += 1
-                except Exception as e:
-                    print(f"Erro ao indexar {caminho_arquivo}: {e}")
+    return result
 
-            print(f"\nIndexados com sucesso {arquivos_indexados} arquivos!")
 
-            # Responder perguntas sobre o repositório
-            perguntas = [
-                "Qual é o propósito principal deste repositório?",
-                "Quais são os principais arquivos no projeto?",
-                "Como o código está estruturado?",
-            ]
+# Demonstração da API fluida de navegação de repositórios
+async def demonstrate_repository_navigation():
+    """Demonstrar capacidades avançadas de navegação em repositórios."""
+    print("\nNavegação Avançada em Repositórios")
+    print("=" * 50)
 
-            # Processar cada pergunta
-            print("\nAnalisando repositório com perguntas comuns:")
-            respostas = []
+    repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
 
-            for pergunta in perguntas:
-                print(f"\nPergunta: {pergunta}")
+    async with Repository(repo_url) as repo:
+        # Descobrir e listar branches
+        branches = repo._branches
+        print(
+            f"\nBranches disponíveis: {', '.join(branches[:5] if len(branches) > 5 else branches)}"
+        )
 
-                # Obter resposta do PepperPy
-                resposta = await app.execute(
-                    query=pergunta, context={"repo_url": repo_url}
-                )
+        # Contar arquivos por linguagem
+        py_count = await repo.code_files().by_language("python").count()
+        js_count = await repo.code_files().by_language("javascript").count()
+        ts_count = await repo.code_files().by_language("typescript").count()
 
-                print(f"Resposta: {resposta}")
-                respostas.append(resposta)
+        print("\nArquivos por linguagem:")
+        print(f"  Python: {py_count}")
+        print(f"  JavaScript: {js_count}")
+        print(f"  TypeScript: {ts_count}")
 
-            # Salvar resumo da análise
-            nome_repo = repo_url.split("/")[-1]
-            arquivo_saida = OUTPUT_DIR / f"{nome_repo}_analysis.txt"
-            with open(arquivo_saida, "w", encoding="utf-8") as f:
-                f.write(f"Análise de Repositório: {repo_url}\n")
-                f.write(f"Total de arquivos: {len(arquivos)}\n")
-                f.write(f"Arquivos indexados: {arquivos_indexados}\n")
-                f.write("\nRespostas às perguntas comuns:\n")
-                for i, (pergunta, resposta) in enumerate(
-                    zip(perguntas, respostas, strict=False), 1
-                ):
-                    f.write(f"{i}. {pergunta}\n")
-                    f.write(f"   Resposta: {resposta}\n\n")
+        # Análise de arquivos específicos
+        main_files = await repo.code_files().matching("**/main.py").analyze()
+        if hasattr(main_files, "file_count") and main_files.file_count > 0:
+            print(f"\nArquivos main.py encontrados: {main_files.file_count}")
+            print(
+                f"Análise: {main_files.analysis[:150] if hasattr(main_files, 'analysis') else 'N/A'}..."
+            )
+        else:
+            print("\nNenhum arquivo main.py encontrado")
 
-            print(f"\nResumo da análise salvo em: {arquivo_saida}")
 
-        finally:
-            # Limpar recursos
-            await app.cleanup()
+async def main():
+    """Executar o exemplo de análise de repositório."""
+    # Executar versão com decoradores DSL
+    try:
+        repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
+        result_decorator = await analyze_repo_architecture(repo_url)
+        print("\nAnálise com decoradores DSL concluída!")
+    except Exception as e:
+        print(f"Erro na análise com decorador DSL: {e}")
 
-    finally:
-        # Limpar o diretório temporário
-        shutil.rmtree(repo_path, ignore_errors=True)
+    # Executar versão simplificada
+    try:
+        result_simple = await analyze_repo_simple()
+        print("\nAnálise simplificada concluída!")
+    except Exception as e:
+        print(f"Erro na análise simplificada: {e}")
+
+    # Demonstrar navegação avançada
+    try:
+        await demonstrate_repository_navigation()
+        print("\nDemonstração de navegação concluída!")
+    except Exception as e:
+        print(f"Erro na demonstração de navegação: {e}")
+
+    print("\nExemplo de análise de repositório concluído!")
 
 
 if __name__ == "__main__":
