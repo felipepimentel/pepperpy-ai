@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.black]
 line-length = 88
-target-version = ["py39"]
+target-version = ["py312"]
 include = '\.pyi?$'
 
 [tool.isort]
@@ -13,7 +13,7 @@ line_length = 88
 multi_line_output = 3
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -63,147 +63,36 @@ addopts = "--cov=pepperpy --cov-report=term-missing"
 [tool.poetry]
 name = "pepperpy"
 version = "0.1.0"
-description = "A flexible and extensible Python framework for AI applications"
-authors = ["Pimenta <pimenta@pepperpy.com>"]
+description = "A Pythonic Framework for AI Agents and LLM Capabilities"
+authors = ["PepperPy Team <jpimentel.ai@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "pepperpy" }]
+license = "MIT"
 
 [tool.poetry.dependencies]
-python = ">=3.9,<3.13"
-aiohttp = "^3.9.3"
-pydantic = "^2.6.3"
-python-dotenv = "^1.0.1"
-tenacity = "^8.2.3"
-loguru = "^0.7.2"
+python = ">=3.10,<3.13"
+aiohttp = "^3.11.16"
+diskcache = "^5.6.3"
 httpx = "^0.28.1"
-pyyaml = "^6.0.2"
-uv = "^0.1.12"
-
-# Core ML Dependencies (Optional)
-spacy = { version = "^3.8.4", optional = true }
-nltk = { version = "^3.9.1", optional = true }
-sentence-transformers = { version = "^4.0.1", extras = [
-    "embeddings-local",
-], optional = true }
-
-# Code Analysis Dependencies (Optional)
-radon = { version = "^6.0.1", optional = true }
-lizard = { version = "^1.17.20", optional = true }
-gitpython = { version = "^3.1.44", optional = true }
-PyGithub = { version = "^2.6.1", optional = true }
-
-# Vector Store Dependencies (Optional)
-annoy = { version = "^1.17.3", optional = true }
-chromadb = { version = "^0.4.24", optional = true }
-tiktoken = { version = "^0.6.0", optional = true }
-
-# Document Processing Dependencies (Optional)
-pypdf2 = { version = "^3.0.0", optional = true }
-python-docx = { version = "^1.0.0", optional = true }
-pdfkit = { version = "^1.0.0", optional = true }
-markdown2pdf = { version = "^0.1.4", optional = true }
-reportlab = { version = "^4.0.0", optional = true }
-fpdf2 = { version = "^2.8.2", optional = true }
-
-# LLM Provider Dependencies (Optional)
-openai = { version = "^1.14.0", optional = true }
-anthropic = { version = "^0.49.0", optional = true }
-llm-openrouter = { version = "^0.4", optional = true }
-
-# Vector Store Provider Dependencies (Optional)
-weaviate-client = { version = "^4.11.3", optional = true }
-pinecone-client = { version = "^6.0.0", optional = true }
-
-# Storage Provider Dependencies (Optional)
-boto3 = { version = "^1.37.19", optional = true }
-google-cloud-storage = { version = "^3.1.0", optional = true }
-supabase = { version = "^2.14.0", optional = true }
-
-# TTS Provider Dependencies (Optional)
-azure-cognitiveservices-speech = { version = "^1.35.0", optional = true }
-gtts = { version = "^2.5.4", optional = true }
-pymupdf = "^1.25.4"
-tika = "^3.1.0"
-pillow = "^11.1.0"
-fitz = "^0.0.1.dev2"
+importlib-metadata = "^8.6.1"
 jsonschema = "^4.23.0"
-psutil = "^7.0.0"
+loguru = "^0.7.3"
+pydantic = "^2.11.1"
+python-dotenv = "^1.1.0"
+pyyaml = "^6.0.2"
+tenacity = "^9.1.2"
+uv = "^0.6.12"
+xxhash = "^3.5.0"
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
-pytest-asyncio = "^0.23.5"
-pytest-cov = "^4.1.0"
-black = "^24.2.0"
-isort = "^5.13.2"
-mypy = "^1.8.0"
-ruff = "^0.2.1"
+pytest = "^8.3.5"
+pytest-asyncio = "^0.26.0"
+pytest-cov = "^6.1.0"
+black = "^25.1.0"
+isort = "^6.0.1"
+mypy = "^1.15.0"
+ruff = "^0.11.2"
 
-[tool.poetry.extras]
-# Core ML Features
-ml-basic = ["spacy", "nltk"]
-ml-embeddings = ["sentence-transformers"]
-ml-complete = ["ml-basic", "ml-embeddings"]
-
-# Vector Store Features
-vector-basic = ["annoy"]
-vector-advanced = ["chromadb", "tiktoken"]
-vector-complete = ["vector-basic", "vector-advanced"]
-
-# RAG Features
-rag-basic = []
-rag-vector = ["vector-complete"]
-rag-providers = ["weaviate-client", "pinecone-client"]
-rag-complete = ["rag-vector", "rag-providers", "ml-embeddings"]
-
-# Document Processing
-doc-basic = ["pypdf2", "python-docx"]
-doc-advanced = ["pdfkit", "reportlab", "fpdf2", "markdown2pdf"]
-doc-complete = ["doc-basic", "doc-advanced"]
-
-# Code Analysis
-code-basic = ["radon", "lizard"]
-code-advanced = ["gitpython", "PyGithub"]
-code-complete = ["code-basic", "code-advanced"]
-
-# LLM Providers
-llm-openai = ["openai"]
-llm-anthropic = ["anthropic"]
-llm-openrouter = ["llm-openrouter"]
-llm-complete = ["llm-openai", "llm-anthropic", "llm-openrouter"]
-
-# Storage Providers
-storage-s3 = ["boto3"]
-storage-gcs = ["google-cloud-storage"]
-storage-supabase = ["supabase"]
-storage-complete = ["storage-s3", "storage-gcs", "storage-supabase"]
-
-# TTS Providers
-tts-azure = ["azure-cognitiveservices-speech"]
-tts-google = ["gtts"]
-tts-complete = ["tts-azure", "tts-google"]
-
-# Feature Groups
-ml-all = ["ml-complete", "vector-complete"]
-rag-all = ["rag-complete", "ml-complete"]
-analysis-all = ["code-complete", "ml-complete"]
-
-# All providers and features
-all = [
-    # Core Features
-    "ml-complete",
-    "vector-complete",
-    "code-complete",
-    # Document Processing
-    "doc-complete",
-    # LLM Providers
-    "llm-complete",
-    # RAG Features
-    "rag-complete",
-    # Storage Providers
-    "storage-complete",
-    # TTS Providers
-    "tts-complete",
-]
 
 [tool.coverage.run]
 source = ["pepperpy"]
@@ -222,7 +111,7 @@ exclude_lines = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py312"
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
 
 [tool.ruff.per-file-ignores]

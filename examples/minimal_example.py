@@ -1,159 +1,277 @@
 #!/usr/bin/env python
 """
-Minimal example demonstrating the intent analysis functionality in PepperPy.
+Minimal example to demonstrate PepperPy configuration system.
 """
-import re
-import time
-from typing import Any, Dict, Tuple
+
+import os
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import yaml
 
 
-# Intent analysis functionality
-def analyze_intent(query: str) -> Tuple[str, Dict[str, Any], float]:
-    """Analyze a user query to determine the intent and extract parameters.
+def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:
+    """Load configuration from YAML file.
 
     Args:
-        query: The user query to analyze
+        config_path: Path to the config file
 
     Returns:
-        A tuple containing (intent_type, parameters, confidence)
+        Loaded configuration dictionary
     """
-    # Normalize query
-    normalized_query = query.strip().lower()
+    # Get absolute path to config file
+    config_file = Path(config_path).resolve()
 
-    # Default values
-    intent_type = "query"
-    params = {}
-    confidence = 0.5
+    print(f"Loading config from: {config_file}")
 
-    # Check for create intent patterns
-    create_patterns = [
-        r"(?:create|generate|write|make)(?:\s+a)?(?:\s+an)?(?:\s+some)?\s+(.*)",
-        r"(?:produce|draft|compose|prepare)(?:\s+a)?(?:\s+an)?(?:\s+some)?\s+(.*)",
-    ]
+    # Check if config file exists
+    if not config_file.exists():
+        print(f"Config file not found: {config_file}")
+        return {}
 
-    for pattern in create_patterns:
-        match = re.search(pattern, normalized_query)
-        if match:
-            what_to_create = match.group(1).strip()
-            intent_type = "create"
-            params = {"content_type": what_to_create}
-            confidence = 0.7
-            break
+    # Load YAML file
+    with open(config_file, encoding="utf-8") as f:
+        config = yaml.safe_load(f)
 
-    # Check for process intent patterns
-    process_patterns = [
-        r"(?:process|transform|convert|summarize|analyze)\s+(.*)",
-        r"(?:extract|parse|get|find)\s+(.*?)\s+(?:from|in)\s+(.*)",
-    ]
-
-    for pattern in process_patterns:
-        match = re.search(pattern, normalized_query)
-        if match:
-            intent_type = "process"
-            if len(match.groups()) == 1:
-                params = {"content": match.group(1).strip()}
-            else:
-                params = {
-                    "target": match.group(1).strip(),
-                    "content": match.group(2).strip(),
-                }
-            confidence = 0.65
-            break
-
-    # Check for analyze intent patterns
-    analyze_patterns = [
-        r"(?:analyze|examine|study|investigate)\s+(.*)",
-        r"(?:what|tell me about|describe)\s+(.*)",
-    ]
-
-    for pattern in analyze_patterns:
-        match = re.search(pattern, normalized_query)
-        if match:
-            content = match.group(1).strip()
-            # Only switch to analyze if we haven't matched a more specific intent
-            if intent_type == "query":
-                intent_type = "analyze"
-                params = {"data": content}
-                confidence = 0.6
-
-    return intent_type, params, confidence
+    return config
 
 
-def demonstrate_intent_analysis() -> None:
-    """Demonstrate the intent analysis feature."""
-    print("\n=== Intent Analysis Demonstration ===")
+def resolve_env_vars(config: Any) -> Any:
+    """Resolve environment variables in config.
 
-    # Example queries to analyze
-    queries = [
-        "Tell me about artificial intelligence",
-        "Create a blog post about climate change",
-        "Summarize this article about quantum computing",
-        "Process this PDF and extract the main points",
-        "What's the weather like today?",
-        "Analyze this dataset for trends",
-    ]
+    Args:
+        config: Configuration to process
 
-    for query in queries:
-        # Analyze the intent
-        intent_type, parameters, confidence = analyze_intent(query)
-
-        print(f"\nQuery: {query}")
-        print(f"Intent: {intent_type}")
-        print(f"Parameters: {parameters}")
-        print(f"Confidence: {confidence:.2f}")
-        print("-" * 50)
+    Returns:
+        Configuration with environment variables resolved
+    """
+    if isinstance(config, dict):
+        return {key: resolve_env_vars(value) for key, value in config.items()}
+    elif isinstance(config, list):
+        return [resolve_env_vars(item) for item in config]
+    elif isinstance(config, str) and config.startswith("$"):
+        # Extract variable name
+        var_name = config[1:]
+        return os.environ.get(var_name, config)
+    else:
+        return config
 
 
-def simulate_caching() -> None:
-    """Simulate the caching functionality."""
-    print("\n=== Caching Simulation ===")
+def get_plugin_config(
+    config: Dict[str, Any], plugin_type: str, plugin_name: str
+) -> Optional[Dict[str, Any]]:
+    """Get configuration for a specific plugin.
 
-    # Function that simulates processing with and without caching
-    def process_with_cache(key: str, use_cache: bool = False) -> str:
-        cache = {}
+    Args:
+        config: Configuration dictionary
+        plugin_type: Plugin type (e.g., 'llm', 'rag')
+        plugin_name: Plugin name (e.g., 'openai', 'basic')
 
-        if use_cache and key in cache:
-            print(f"Retrieved result from cache for '{key}'")
-            return cache[key]
+    Returns:
+        Plugin configuration or None if not found
+    """
+    if "plugins" not in config:
+        return None
 
-        print(f"Processing '{key}' (not from cache)")
-        # Simulate processing time
-        time.sleep(0.5)
-        result = f"Processed {key}"
+    # Check for type/provider structure
+    if (
+        plugin_type in config["plugins"]
+        and plugin_name in config["plugins"][plugin_type]
+    ):
+        return config["plugins"][plugin_type][plugin_name]
 
-        # Store in cache
-        cache[key] = result
-        return result
+    # Check for direct plugin (no type)
+    if plugin_name in config["plugins"]:
+        return config["plugins"][plugin_name]
 
-    # Simulate first-time requests
-    print("\nFirst requests (no cache):")
-    start = time.time()
-    process_with_cache("query1")
-    process_with_cache("query2")
-    end = time.time()
-    print(f"Total execution time: {end - start:.2f}s")
+    # Check for namespaced plugins
+    for key, value in config["plugins"].items():
+        if "." in key and key.split(".", 1)[1] == plugin_name:
+            return value
 
-    # Simulate cached requests
-    print("\nCached implementation would reduce processing time for repeated requests")
-    print("The @cached decorator in the full framework provides this functionality")
+    return None
 
 
-def main() -> None:
-    """Main function to run the example."""
-    print("=== PepperPy Minimal Example ===")
-    print("Demonstrating Intent Analysis and Caching Simulation")
+def is_default_provider(
+    config: Dict[str, Any], plugin_type: str, plugin_name: str
+) -> bool:
+    """Check if a provider is the default for its type.
 
-    # Demonstrate intent analysis
-    demonstrate_intent_analysis()
+    Args:
+        config: Configuration dictionary
+        plugin_type: Plugin type
+        plugin_name: Plugin provider name
 
-    # Simulate caching
-    simulate_caching()
+    Returns:
+        True if the provider is the default, False otherwise
+    """
+    plugins = config.get("plugins", {})
+    if plugin_name in plugins:
+        plugin_config = plugins[plugin_name]
+        if isinstance(plugin_config, dict):
+            return plugin_config.get("default", False)
+    return False
 
-    print("\nTo use the full implementation with real LLM providers:")
-    print("1. Install the pepperpy package")
-    print("2. Set up your API keys in environment variables")
-    print("3. Use the @cached decorator for automatic result caching")
-    print("4. Use the analyze_intent function for intelligent query routing")
+
+def list_plugins_by_type(config: Dict[str, Any]) -> Dict[str, List[str]]:
+    """Group plugins by type.
+
+    Args:
+        config: Configuration dictionary
+
+    Returns:
+        Dictionary mapping plugin types to lists of provider names
+    """
+    result: Dict[str, List[str]] = {}
+
+    plugins = config.get("plugins", {})
+    # In our current config format, all plugins are directly under "plugins"
+    # We need to infer the type from context or metadata
+
+    # Special case handling - we know LLM providers
+    llm_providers = ["openrouter", "openai", "anthropic"]
+    if "llm" not in result:
+        result["llm"] = []
+
+    # Special case handling - we know TTS providers
+    tts_providers = ["elevenlabs", "murf"]
+    if "tts" not in result:
+        result["tts"] = []
+
+    # Special case handling - we know RAG providers
+    rag_providers = ["basic", "sqlite", "faiss", "chroma"]
+    if "rag" not in result:
+        result["rag"] = []
+
+    # Special case handling - we know content providers
+    content_providers = ["pymupdf"]
+    if "content" not in result:
+        result["content"] = []
+
+    # Special case handling - we know storage providers
+    storage_providers = ["storage.sqlite", "storage.memory"]
+    if "storage" not in result:
+        result["storage"] = []
+
+    # Special case handling - we know tools providers
+    tools_providers = ["github"]
+    if "tools" not in result:
+        result["tools"] = []
+
+    # Special case handling - we know news providers
+    news_providers = ["newsapi"]
+    if "news" not in result:
+        result["news"] = []
+
+    # Add standalone plugins
+    standalone = []
+
+    for plugin_name, plugin_config in plugins.items():
+        # Categorize by known types
+        if plugin_name in llm_providers:
+            result["llm"].append(plugin_name)
+        elif plugin_name in tts_providers:
+            result["tts"].append(plugin_name)
+        elif plugin_name in rag_providers:
+            result["rag"].append(plugin_name)
+        elif plugin_name in content_providers:
+            result["content"].append(plugin_name)
+        elif plugin_name in storage_providers:
+            result["storage"].append(plugin_name)
+        elif plugin_name in tools_providers:
+            result["tools"].append(plugin_name)
+        elif plugin_name in news_providers:
+            result["news"].append(plugin_name)
+        # Handle special case for Supabase which has a nested structure
+        elif plugin_name == "supabase":
+            if "standalone" not in result:
+                result["standalone"] = []
+            result["standalone"].append(plugin_name)
+        # Add as standalone if not categorized
+        elif "." in plugin_name:  # Namespaced plugins
+            if "community" not in result:
+                result["community"] = []
+            result["community"].append(plugin_name)
+        else:
+            standalone.append(plugin_name)
+
+    # Add remaining standalone plugins
+    if standalone:
+        if "standalone" not in result:
+            result["standalone"] = []
+        result["standalone"].extend(standalone)
+
+    # Remove empty categories
+    return {k: v for k, v in result.items() if v}
+
+
+def main():
+    """Run the example."""
+    # Load config
+    config = load_config("../config.yaml")
+
+    # Resolve environment variables
+    config = resolve_env_vars(config)
+
+    # Print app info
+    print(f"App Name: {config.get('app_name', 'Unknown')}")
+    print(f"App Version: {config.get('app_version', 'Unknown')}")
+    print(f"Debug Mode: {config.get('debug', False)}")
+
+    # Group plugins by type
+    plugins_by_type = list_plugins_by_type(config)
+
+    # Print available plugins by type
+    if plugins_by_type:
+        print("\nAvailable Plugins:")
+        for plugin_type, providers in plugins_by_type.items():
+            print(f"  {plugin_type}:")
+            for provider in providers:
+                print(f"    - {provider}")
+
+    # Get specific plugin config (LLM OpenAI)
+    openai_config = get_plugin_config(config, "llm", "openai")
+    if openai_config:
+        print("\nOpenAI LLM Plugin Configuration:")
+        for key, value in openai_config.items():
+            if key != "key":  # Don't print API key
+                print(f"  {key}: {value}")
+
+    # Find default plugins for each type
+    print("\nDefault Plugins:")
+    for plugin_type, providers in plugins_by_type.items():
+        if plugin_type == "standalone":
+            continue
+        for provider in providers:
+            if is_default_provider(config, plugin_type, provider):
+                print(f"  {plugin_type}: {provider}")
+
+    # Print usage examples
+    print("\nHow to use this config in PepperPy:")
+    print(
+        """
+from pepperpy import PepperPy
+
+# Create a PepperPy instance using config.yaml
+pepper = PepperPy()
+
+# Use the default LLM provider (configured in YAML)
+async def ask_question():
+    async with pepper:
+        response = await pepper.ask_query("What is artificial intelligence?")
+        print(response)
+
+# Use a specific provider with custom config
+async def use_specific_provider():
+    pepper.with_llm("openai", model="gpt-4-turbo")
+    async with pepper:
+        response = await pepper.ask_query("Explain quantum computing")
+        print(response)
+
+# All plugin config from YAML is automatically applied
+# but can be overridden with specific parameters
+"""
+    )
 
 
 if __name__ == "__main__":

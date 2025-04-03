@@ -193,17 +193,46 @@ def create_provider(provider_type: str = None, **config) -> Provider:
 
 ### 4. Configuration Management
 
-Configuration should be handled consistently:
+PepperPy uses a YAML-based configuration system with environment variable references for sensitive information.
+
+#### Configuration Hierarchy
+
+1. **YAML Configuration File** - Primary configuration source
+   - Searched in standard locations: ./config.yaml, ./pepperpy.yaml, ~/.pepperpy/config.yaml, /etc/pepperpy/config.yaml
+
+2. **Environment Variables** - Used for sensitive credentials
+   - Referenced in YAML using env_var syntax
+   - Used as fallback for backward compatibility
+
+3. **Default Values** - Used when no configuration is provided
+
+#### Example Configuration
+
+```yaml
+# Component configuration
+llm:
+  provider: openai
+  model: gpt-4
+
+# Provider with environment variable reference
+providers:
+  - type: llm
+    name: openai
+    key:
+      env_var: OPENAI_API_KEY
+      required: true
+```
+
+#### Accessing Configuration
 
 ```python
-# CORRECT: Using environment variables with module prefix
-PEPPERPY_CONTENT_NORMALIZER_PROVIDER=basic
-PEPPERPY_CONTENT_NORMALIZER_LANGUAGE=en
+from pepperpy.core.config_manager import get_provider_config, get_component_config
 
-# CORRECT: Configuration in code
-from pepperpy.core.config import Config
-config = Config(prefix="PEPPERPY_CONTENT_")
-normalizer = create_normalizer(**config)
+# Get a provider configuration
+provider = get_provider_config("llm", "openai")
+
+# Get component configuration
+llm_config = get_component_config("llm")
 ```
 
 ### 5. Error Hierarchy

@@ -1,0 +1,141 @@
+# PepperPy Configuration
+# This file contains all configuration for the PepperPy framework
+
+# Application core settings
+app_name: PepperPy
+app_version: 0.1.0
+debug: true
+
+# Logging configuration
+logging:
+  level: DEBUG
+  format: console
+
+# Security settings
+security:
+  # Secret key for encryption and token generation
+  secret_key: $PEPPERPY_SECRET_KEY
+  # API key for external services
+  api_key: $PEPPERPY_API_KEY
+  # CORS Origins
+  cors_origins:
+    - http://localhost:3000
+
+# Database settings
+database:
+  url: $PEPPERPY_DATABASE_URL
+
+# Cache configuration
+cache:
+  enabled: true
+  backend: disk
+  ttl: 3600
+  redis_uri: $PEPPERPY_REDIS_URL
+
+# Feature flags
+features:
+  enable_telemetry: false
+  enable_cache: true
+  enable_auto_discovery: true
+  enable_hot_reload: false
+
+# All plugins configuration
+plugins:
+  # LLM plugins
+  openrouter:  # Default LLM provider
+    key: $OPENROUTER_API_KEY
+    model: openai/gpt-4o-mini
+    temperature: 0.7
+    max_tokens: null
+    fallback_model: openai/gpt-4
+    timeout: 60
+    retries: 3
+    default: true  # Marca como provider padrão para LLMs
+    
+  openai:
+    key: $OPENAI_API_KEY
+    model: gpt-4
+    temperature: 0.7
+    max_tokens: null
+    timeout: 60
+    retries: 3
+    
+  anthropic:
+    key: $ANTHROPIC_API_KEY
+    model: claude-3-haiku-20240307
+    temperature: 0.7
+    timeout: 60
+    retries: 3
+  
+  # TTS plugins
+  elevenlabs:
+    key: $ELEVENLABS_API_KEY
+    voice: Adam
+    output_format: mp3
+    cache_enabled: true
+    default: true  # Marca como provider padrão para TTS
+    
+  murf:
+    key: $MURF_API_KEY
+    voice: en-US-male-1
+  
+  # RAG plugins
+  basic:
+    embedding_function: default
+    embedding_provider: openai
+    chunk_size: 1000
+    chunk_overlap: 100
+    similarity_top_k: 4
+    vector_store: memory
+    default: true  # Marca como provider padrão para RAG
+    
+  sqlite:
+    database_path: ./data/rag/sqlite.db
+    embedding_dim: 384
+    
+  faiss:
+    index_path: ./data/rag/faiss
+    dimension: 1536
+    
+  chroma:
+    persist_directory: ./data/rag/chroma
+    embedding_function: openai
+  
+  # Content plugins
+  pymupdf:
+    default: true  # Marca como provider padrão para content
+  
+  # Storage plugins
+  storage.sqlite:
+    data_dir: ./data/storage/sqlite
+    
+  storage.memory:
+    max_items: 1000
+    ttl: 3600
+  
+  # Tool plugins
+  github:
+    key: $GITHUB_API_KEY
+  
+  # News plugins
+  newsapi:
+    key: $NEWSAPI_API_KEY
+    default: true  # Marca como provider padrão para news
+  
+  # Third-party plugins (com namespace)
+  example.custom_plugin:
+    option1: value1
+    option2: value2
+    
+  # Plugins standalone
+  supabase:
+    url: $SUPABASE_URL
+    key: $SUPABASE_KEY
+    options:
+      auto_refresh_token: true
+      persist_session: true
+
+# Memory Configuration
+memory:
+  importance_threshold: 0.5
+  max_short_term_memories: 100 
