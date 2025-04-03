@@ -12,6 +12,7 @@ from pepperpy.cache.result_cache import (
     ResultCacheError,
     cached,
     get_result_cache,
+    invalidate_cache,
 )
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
     "cached",
     "get_result_cache",
     "get_cache",
+    "invalidate_cache",
 ]
 
 

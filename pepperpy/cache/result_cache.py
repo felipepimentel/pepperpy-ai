@@ -9,9 +9,16 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Set, TypeVar, Union
 
-import xxhash
+try:
+    import xxhash
+
+    XXHASH_AVAILABLE = True
+except ImportError:
+    XXHASH_AVAILABLE = False
+    # Fallback to hashlib
+    import hashlib
 from diskcache import Cache
 
 from pepperpy.core.base import PepperpyError
@@ -88,7 +95,9 @@ class ResultCache:
             self._disk_cache = None
             self._init_redis_cache()
         else:
-            raise ValueError(f"Unsupported cache backend: {backend} or missing remote_uri")
+            raise ValueError(
+                f"Unsupported cache backend: {backend} or missing remote_uri"
+            )
 
         # Cache statistics
         self.hits = 0
@@ -104,7 +113,7 @@ class ResultCache:
             self._disk_cache = Cache(directory=str(self.cache_dir))
             if self.max_size:
                 self._disk_cache.reset(self.max_size)
-            
+
             # Build key index from disk
             self._rebuild_key_index()
         except Exception as e:
@@ -113,26 +122,26 @@ class ResultCache:
             self._memory_cache = {}
             self._disk_cache = None
             self.backend = "memory"
-    
+
     def _init_redis_cache(self) -> None:
         """Initialize Redis cache."""
         try:
             # Lazy import to avoid dependency if not used
             import redis
             from redis import Redis
-            
+
             if not self.remote_uri:
                 raise ValueError("Remote URI is required for Redis backend")
-            
+
             # Parse URI and create connection
             self._redis = Redis.from_url(str(self.remote_uri))
             # Test connection
             self._redis.ping()
             logger.info(f"Connected to Redis cache at {self.remote_uri}")
-            
+
             # Set namespace prefix
             self._redis_prefix = f"pepperpy:{self.namespace}:"
-            
+
         except ImportError:
             logger.error("Redis package not installed but redis backend requested")
             logger.info("Falling back to disk cache")
@@ -143,7 +152,7 @@ class ResultCache:
             logger.info("Falling back to disk cache")
             self.backend = "disk"
             self._init_disk_cache()
-    
+
     def _rebuild_key_index(self) -> None:
         """Rebuild key index from disk cache."""
         if self.backend == "disk" and self._disk_cache:
@@ -179,7 +188,11 @@ class ResultCache:
         if isinstance(data, str):
             data = data.encode()
 
-        return xxhash.xxh64(data).hexdigest()
+        if XXHASH_AVAILABLE:
+            return xxhash.xxh64(data).hexdigest()
+        else:
+            # Fallback to MD5 which is faster than SHA but less secure
+            return hashlib.md5(data).hexdigest()
 
     def _secure_hash(self, data: Union[str, bytes, Dict[str, Any]]) -> str:
         """Generate a secure hash from data.
@@ -238,7 +251,9 @@ class ResultCache:
             return self._fast_hash(data)
         return self._secure_hash(data)
 
-    def get(self, key: str, detailed: bool = False) -> Union[Optional[Any], Dict[str, Any]]:
+    def get(
+        self, key: str, detailed: bool = False
+    ) -> Union[Optional[Any], Dict[str, Any]]:
         """Get value from cache.
 
         Args:
@@ -264,41 +279,41 @@ class ResultCache:
                 return None if not detailed else {"value": None}
 
             self.hits += 1
-            
+
             if detailed:
                 ttl = entry.get("expiry", 0) - time.time()
                 return {
                     "value": entry["value"],
                     "metadata": entry.get("metadata", {}),
                     "ttl": max(0, ttl),
-                    "created": entry.get("created", 0)
+                    "created": entry.get("created", 0),
                 }
             return entry["value"]
-        
+
         elif self.backend == "redis" and self._redis:
             try:
                 redis_key = f"{self._redis_prefix}{key}"
-                
+
                 # Get value and metadata in a pipeline
                 pipe = self._redis.pipeline()
                 pipe.get(redis_key)
                 pipe.hgetall(f"{redis_key}:meta")
                 pipe.ttl(redis_key)
-                
+
                 value_bin, meta_dict, ttl = pipe.execute()
-                
+
                 if not value_bin:
                     self.misses += 1
                     self._key_index.discard(key)
                     return None if not detailed else {"value": None}
-                
+
                 # Decode value
                 try:
                     value = json.loads(value_bin)
                 except Exception:
                     # Raw string value
                     value = value_bin.decode()
-                
+
                 # Parse metadata
                 metadata = {}
                 created = 0
@@ -307,7 +322,7 @@ class ResultCache:
                         for k, v in meta_dict.items():
                             k_str = k.decode() if isinstance(k, bytes) else k
                             v_str = v.decode() if isinstance(v, bytes) else v
-                            
+
                             if k_str == "created":
                                 created = float(v_str)
                             elif k_str == "metadata":
@@ -316,23 +331,23 @@ class ResultCache:
                                 metadata[k_str] = v_str
                     except Exception as e:
                         logger.warning(f"Error parsing cache metadata: {e}")
-                
+
                 self.hits += 1
-                
+
                 if detailed:
                     return {
                         "value": value,
                         "metadata": metadata,
                         "ttl": max(0, ttl),
-                        "created": created
+                        "created": created,
                     }
                 return value
-                
+
             except Exception as e:
                 logger.error(f"Redis cache error: {e}")
                 self.misses += 1
                 return None if not detailed else {"value": None}
-        
+
         elif self.backend == "disk" and self._disk_cache:
             # Disk cache
             try:
@@ -341,9 +356,9 @@ class ResultCache:
                     self.misses += 1
                     self._key_index.discard(key)
                     return None if not detailed else {"value": None}
-                
+
                 self.hits += 1
-                
+
                 # For detailed info, need to get metadata
                 if detailed:
                     try:
@@ -351,17 +366,17 @@ class ResultCache:
                         meta = self._disk_cache.get(f"{key}:meta", {})
                         ttl = self._disk_cache.expire(key, default=0)
                         created = meta.get("created", 0)
-                        
+
                         return {
                             "value": value,
                             "metadata": meta.get("metadata", {}),
                             "ttl": max(0, ttl),
-                            "created": created
+                            "created": created,
                         }
                     except Exception:
                         # Fall back to simple value if metadata fetch fails
                         return {"value": value, "metadata": {}, "ttl": 0, "created": 0}
-                
+
                 return value
             except Exception as e:
                 logger.error(f"Cache error: {e}")
@@ -394,11 +409,11 @@ class ResultCache:
         """
         ttl_value = ttl if ttl is not None else self.ttl
         created = time.time()
-        
+
         # Add to key index
         self._key_index.add(key)
         self.total_keys += 1
-        
+
         meta_dict = {"created": created}
         if metadata:
             meta_dict["metadata"] = metadata
@@ -418,50 +433,53 @@ class ResultCache:
             except Exception as e:
                 logger.error(f"Error setting cache: {e}")
                 return False
-        
+
         elif self.backend == "redis" and self._redis:
             try:
                 redis_key = f"{self._redis_prefix}{key}"
-                
+
                 # Prepare value (serialize if needed)
-                if isinstance(value, (dict, list, tuple, bool, int, float)) or value is None:
+                if (
+                    isinstance(value, (dict, list, tuple, bool, int, float))
+                    or value is None
+                ):
                     value_str = json.dumps(value)
                 else:
                     value_str = str(value)
-                
+
                 # Create a pipeline for atomic operations
                 pipe = self._redis.pipeline()
-                
+
                 # Set value with TTL
                 pipe.setex(redis_key, ttl_value, value_str)
-                
+
                 # Set metadata as hash
                 if metadata or tags:
                     meta_key = f"{redis_key}:meta"
                     pipe.delete(meta_key)  # Clear existing metadata
-                    
+
                     if metadata:
                         pipe.hset(meta_key, "metadata", json.dumps(metadata))
-                    
+
                     if tags:
                         pipe.hset(meta_key, "tags", json.dumps(tags))
-                    
+
                     pipe.hset(meta_key, "created", str(created))
                     pipe.expire(meta_key, ttl_value)
-                
+
                 pipe.execute()
                 return True
-                
+
             except Exception as e:
                 logger.error(f"Redis cache error: {e}")
                 return False
-        
+
         elif self.backend == "disk" and self._disk_cache:
             # Disk cache
             try:
                 # Store value with TTL
                 success = self._disk_cache.set(key, value, ttl_value)
-                
+
                 # Store metadata separately
                 if metadata or tags:
                     meta_data = {
@@ -470,9 +488,9 @@ class ResultCache:
                     }
                     if tags:
                         meta_data["tags"] = tags
-                    
+
                     self._disk_cache.set(f"{key}:meta", meta_data, ttl_value)
-                
+
                 return success
             except Exception as e:
                 logger.error(f"Cache error: {e}")
@@ -491,28 +509,28 @@ class ResultCache:
             True if successful, False otherwise
         """
         self._key_index.discard(key)
-        
+
         if self.backend == "memory" and self._memory_cache is not None:
             if key in self._memory_cache:
                 del self._memory_cache[key]
                 return True
             return False
-        
+
         elif self.backend == "redis" and self._redis:
             try:
                 redis_key = f"{self._redis_prefix}{key}"
-                
+
                 # Delete both value and metadata
                 pipe = self._redis.pipeline()
                 pipe.delete(redis_key)
                 pipe.delete(f"{redis_key}:meta")
-                
+
                 results = pipe.execute()
                 return any(count > 0 for count in results)
             except Exception as e:
                 logger.error(f"Redis delete error: {e}")
                 return False
-        
+
         elif self.backend == "disk" and self._disk_cache:
             # Disk cache
             try:
@@ -538,23 +556,23 @@ class ResultCache:
         """
         if not pattern:
             return 0
-            
+
         count = 0
-        
+
         # Use the key index to efficiently find matching keys
         matching_keys = [k for k in self._key_index if fnmatch.fnmatch(k, pattern)]
-        
+
         # Delete all matching keys
         for key in matching_keys:
             if self.delete(key):
                 count += 1
-        
+
         if count > 0:
             logger.info(f"Invalidated {count} cache entries with pattern '{pattern}'")
             self.invalids += count
-        
+
         return count
-    
+
     def invalidate_by_tag(self, tag: str) -> int:
         """Invalidate cache entries by tag.
 
@@ -566,9 +584,9 @@ class ResultCache:
         """
         if not tag:
             return 0
-            
+
         count = 0
-        
+
         if self.backend == "memory" and self._memory_cache is not None:
             # Identify keys with matching tag
             matching_keys = []
@@ -576,18 +594,18 @@ class ResultCache:
                 tags = entry.get("tags", [])
                 if tag in tags:
                     matching_keys.append(key)
-            
+
             # Delete all matching keys
             for key in matching_keys:
                 if self.delete(key):
                     count += 1
-        
+
         elif self.backend == "redis" and self._redis:
             # We need to scan all keys and check their tags
             try:
                 # Get all keys with our prefix
                 all_keys = self._redis.keys(f"{self._redis_prefix}*:meta")
-                
+
                 # Find keys with matching tag
                 matching_keys = []
                 for meta_key in all_keys:
@@ -595,56 +613,60 @@ class ResultCache:
                         tags_json = self._redis.hget(meta_key, "tags")
                         if not tags_json:
                             continue
-                            
+
                         tags = json.loads(tags_json)
                         if tag in tags:
                             # Extract original key from meta key
-                            original_key = meta_key.decode().replace(f"{self._redis_prefix}", "").replace(":meta", "")
+                            original_key = (
+                                meta_key.decode()
+                                .replace(f"{self._redis_prefix}", "")
+                                .replace(":meta", "")
+                            )
                             matching_keys.append(original_key)
                     except Exception:
                         continue
-                
+
                 # Delete all matching keys
                 for key in matching_keys:
                     if self.delete(key):
                         count += 1
-                        
+
             except Exception as e:
                 logger.error(f"Redis tag invalidation error: {e}")
-        
+
         elif self.backend == "disk" and self._disk_cache:
             # For disk cache, we need to scan keys and check their metadata
             try:
                 matching_keys = []
-                
+
                 # Scan all keys with :meta suffix
                 for key in self._disk_cache.iterkeys():
                     if not key.endswith(":meta"):
                         continue
-                    
+
                     # Get metadata and check tags
                     meta = self._disk_cache.get(key)
                     if not meta or not isinstance(meta, dict):
                         continue
-                        
+
                     tags = meta.get("tags", [])
                     if tag in tags:
                         # Extract original key
                         original_key = key[:-5]  # Remove :meta suffix
                         matching_keys.append(original_key)
-                
+
                 # Delete all matching keys
                 for key in matching_keys:
                     if self.delete(key):
                         count += 1
-                        
+
             except Exception as e:
                 logger.error(f"Disk cache tag invalidation error: {e}")
-        
+
         if count > 0:
             logger.info(f"Invalidated {count} cache entries with tag '{tag}'")
             self.invalids += count
-        
+
         return count
 
     def clear(self) -> int:
@@ -658,7 +680,7 @@ class ResultCache:
                 count = len(self._memory_cache)
                 self._memory_cache.clear()
                 self._key_index.clear()
-                
+
             elif self.backend == "redis" and self._redis:
                 # Delete all keys with our prefix
                 try:
@@ -670,7 +692,7 @@ class ResultCache:
                 except Exception as e:
                     logger.error(f"Redis clear error: {e}")
                     count = 0
-                    
+
             elif self.backend == "disk" and self._disk_cache:
                 # Disk cache
                 count = len(list(self._disk_cache.iterkeys()))
@@ -679,7 +701,7 @@ class ResultCache:
             else:
                 # Invalid configuration
                 count = 0
-                
+
             self.invalids += count
             return count
         except Exception as e:
@@ -694,7 +716,7 @@ class ResultCache:
         """
         uptime = time.time() - self.start_time
         total_ops = self.hits + self.misses
-        
+
         stats = {
             "backend": self.backend,
             "namespace": self.namespace,
@@ -706,7 +728,7 @@ class ResultCache:
             "hit_rate": self.hits / total_ops if total_ops > 0 else 0,
             "active_entries": 0,
         }
-        
+
         # Get count of active entries
         try:
             if self.backend == "memory" and self._memory_cache is not None:
@@ -715,31 +737,34 @@ class ResultCache:
                     len(json.dumps(v)) for v in self._memory_cache.values()
                 )
                 stats["storage_path"] = "memory"
-                
+
             elif self.backend == "redis" and self._redis:
                 # Count keys with our prefix
                 try:
                     keys = self._redis.keys(f"{self._redis_prefix}*")
-                    stats["active_entries"] = len(keys) // 2  # Divide by 2 because we store value and metadata separately
+                    stats["active_entries"] = (
+                        len(keys) // 2
+                    )  # Divide by 2 because we store value and metadata separately
                     stats["storage_path"] = self.remote_uri
                     stats["memory_usage"] = None  # Can't easily determine for Redis
                 except Exception as e:
                     logger.error(f"Redis stats error: {e}")
-                    
+
             elif self.backend == "disk" and self._disk_cache:
                 # Disk cache
                 stats["active_entries"] = len(list(self._disk_cache.iterkeys()))
                 stats["storage_path"] = str(self.cache_dir)
-                
+
                 # Get disk usage if available
                 try:
                     import shutil
+
                     stats["memory_usage"] = shutil.disk_usage(str(self.cache_dir)).used
                 except Exception:
                     stats["memory_usage"] = None
         except Exception as e:
             logger.error(f"Error getting cache stats: {e}")
-        
+
         return stats
 
 
@@ -771,13 +796,13 @@ def cached(
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Generate cache key from function name and arguments
             params: Dict[str, Any] = {}
-            
+
             # Add positional arguments to params
             if args:
                 params["args"] = [
                     str(arg) if isinstance(arg, (bytes, Path)) else arg for arg in args
                 ]
-                
+
             # Add keyword arguments
             if key_params:
                 # Only include specified parameters
@@ -786,36 +811,36 @@ def cached(
                         params[param] = kwargs[param]
             else:
                 # Include all parameters except those starting with _
-                params.update({
-                    k: v for k, v in kwargs.items() if not k.startswith("_")
-                })
-                
+                params.update(
+                    {k: v for k, v in kwargs.items() if not k.startswith("_")}
+                )
+
             # Generate key
             cache_key = func_cache.generate_key(params, func.__qualname__)
-            
+
             # Check cache
             cached_result = func_cache.get(cache_key)
             if cached_result is not None:
                 return cached_result
-                
+
             # Call function if not in cache
             result = await func(*args, **kwargs)
-            
+
             # Cache result
             func_cache.set(cache_key, result, ttl=ttl, tags=tags)
-            
+
             return result
 
         def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
             # Generate cache key
             params: Dict[str, Any] = {}
-            
+
             # Add positional arguments to params
             if args:
                 params["args"] = [
                     str(arg) if isinstance(arg, (bytes, Path)) else arg for arg in args
                 ]
-                
+
             # Add keyword arguments
             if key_params:
                 # Only include specified parameters
@@ -824,31 +849,32 @@ def cached(
                         params[param] = kwargs[param]
             else:
                 # Include all parameters except those starting with _
-                params.update({
-                    k: v for k, v in kwargs.items() if not k.startswith("_")
-                })
-                
+                params.update(
+                    {k: v for k, v in kwargs.items() if not k.startswith("_")}
+                )
+
             # Generate key
             cache_key = func_cache.generate_key(params, func.__qualname__)
-            
+
             # Check cache
             cached_result = func_cache.get(cache_key)
             if cached_result is not None:
                 return cached_result
-                
+
             # Call function if not in cache
             result = func(*args, **kwargs)
-            
+
             # Cache result
             func_cache.set(cache_key, result, ttl=ttl, tags=tags)
-            
+
             return result
 
         # Use the appropriate wrapper based on function type
         import asyncio
+
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
-                
+
         return sync_wrapper
 
     return decorator
@@ -880,11 +906,13 @@ def get_result_cache(
     # Get system default backend if not specified
     if backend is None:
         import os
+
         backend = os.environ.get("PEPPERPY_CACHE_BACKEND", "disk")
-        
+
     # Get system default remote URI if not specified and using Redis backend
     if backend == "redis" and remote_uri is None:
         import os
+
         remote_uri = os.environ.get("PEPPERPY_REDIS_URI", "redis://localhost:6379/0")
 
     # Create cache instance
@@ -921,20 +949,20 @@ def invalidate_cache(
     """
     # Get cache for specified namespace
     cache = get_result_cache(namespace=namespace or "default", backend=backend)
-    
+
     # Count invalidated entries
     count = 0
-    
+
     # Clear entire namespace if no pattern or tag
     if not pattern and not tag:
         return cache.clear()
-        
+
     # Invalidate by pattern
     if pattern:
         count += cache.invalidate_by_pattern(pattern)
-        
+
     # Invalidate by tag
     if tag:
         count += cache.invalidate_by_tag(tag)
-        
+
     return count

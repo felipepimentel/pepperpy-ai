@@ -1,759 +1,1068 @@
-"""Resource management for PepperPy plugins.
+"""
+Resource management for PepperPy plugins.
 
-This module provides resource management functionality for PepperPy plugins,
-including resource pooling, lazy initialization, and cleanup scheduling.
+This module provides functionality for managing resources used by plugins.
+Resources are objects that need to be acquired and released, such as
+database connections, file handles, network sockets, or any other object
+that requires proper cleanup.
 """
 
 import asyncio
-import functools
-import inspect
+import enum
+import threading
 import time
 import weakref
-from collections import defaultdict
-from datetime import datetime
-from enum import Enum, IntEnum
+from contextlib import asynccontextmanager, contextmanager
 from typing import (
     Any,
     Callable,
     Dict,
-    Generic,
-    List,
     Optional,
     Set,
     Tuple,
     TypeVar,
     Union,
-    cast,
 )
 
-from pepperpy.core.errors import ResourceError
+from pepperpy.core.errors import PluginError
 from pepperpy.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# Type variables
 T = TypeVar("T")
-R = TypeVar("R")
-F = TypeVar("F", bound=Callable[..., Any])
 
 
-class ResourceState(Enum):
-    """State of a pooled resource."""
+class ResourceType(enum.Enum):
+    """Type of resource managed by the resource system."""
 
-    # Resource is available for use
-    AVAILABLE = "available"
+    # Database connections
+    DATABASE = "database"
 
-    # Resource is in use by a plugin
-    IN_USE = "in_use"
+    # File handles
+    FILE = "file"
 
-    # Resource is being initialized
-    INITIALIZING = "initializing"
+    # Network connections
+    NETWORK = "network"
 
-    # Resource is being cleaned up
-    CLEANING_UP = "cleaning_up"
+    # Cache objects
+    CACHE = "cache"
 
-    # Resource has encountered an error
-    ERROR = "error"
+    # Thread pools
+    THREAD_POOL = "thread_pool"
 
-    # Resource has been closed/removed from pool
-    CLOSED = "closed"
+    # Process pools
+    PROCESS_POOL = "process_pool"
 
+    # Event loops
+    EVENT_LOOP = "event_loop"
 
-class InitializationPriority(IntEnum):
-    """Priority levels for lazy initialization."""
+    # Locks, semaphores, etc.
+    LOCK = "lock"
 
-    # Critical resources that should be initialized immediately when needed
-    CRITICAL = 100
+    # Memory resources like large arrays
+    MEMORY = "memory"
 
-    # High priority resources that should be initialized soon after startup
-    HIGH = 75
+    # GPU resources
+    GPU = "gpu"
 
-    # Normal priority resources
-    NORMAL = 50
+    # External API clients
+    API_CLIENT = "api_client"
 
-    # Low priority resources that can be initialized later
-    LOW = 25
-
-    # Background resources that should only be initialized when idle
-    BACKGROUND = 0
-
-
-class ResourceMetrics:
-    """Metrics for resource usage and performance."""
-
-    def __init__(self, resource_id: str, resource_type: str) -> None:
-        """Initialize resource metrics.
-
-        Args:
-            resource_id: Unique identifier for the resource
-            resource_type: Type of the resource
-        """
-        self.resource_id = resource_id
-        self.resource_type = resource_type
-
-        # Timestamps
-        self.created_at = datetime.now()
-        self.last_accessed = None
-        self.last_released = None
-
-        # Usage counts
-        self.total_accesses = 0
-        self.total_errors = 0
-        self.current_acquisition_time = None
-
-        # Time tracking
-        self.total_time_in_use = 0.0
-        self.max_time_in_use = 0.0
-        self.initialization_time_ms = None
-
-        # Error tracking
-        self.last_error = None
-        self.last_error_time = None
-
-    def mark_access(self) -> None:
-        """Mark the resource as accessed."""
-        now = datetime.now()
-        self.last_accessed = now
-        self.current_acquisition_time = time.time()
-        self.total_accesses += 1
-
-    def mark_release(self) -> None:
-        """Mark the resource as released."""
-        now = datetime.now()
-        self.last_released = now
-
-        # Calculate time in use
-        if self.current_acquisition_time is not None:
-            time_in_use = time.time() - self.current_acquisition_time
-            self.total_time_in_use += time_in_use
-            self.max_time_in_use = max(self.max_time_in_use, time_in_use)
-            self.current_acquisition_time = None
-
-    def record_error(self, error: Exception) -> None:
-        """Record an error.
-
-        Args:
-            error: The error that occurred
-        """
-        self.total_errors += 1
-        self.last_error = error
-        self.last_error_time = datetime.now()
-
-    def get_metrics(self) -> Dict[str, Any]:
-        """Get all metrics as a dictionary.
-
-        Returns:
-            Dictionary of metrics
-        """
-        metrics = {
-            "resource_id": self.resource_id,
-            "resource_type": self.resource_type,
-            "created_at": self.created_at,
-            "last_accessed": self.last_accessed,
-            "last_released": self.last_released,
-            "total_accesses": self.total_accesses,
-            "total_errors": self.total_errors,
-            "total_time_in_use": self.total_time_in_use,
-            "max_time_in_use": self.max_time_in_use,
-            "error_rate": (
-                self.total_errors / self.total_accesses
-                if self.total_accesses > 0
-                else 0
-            ),
-            "initialization_time_ms": self.initialization_time_ms,
-        }
-
-        # Add currently accessed status
-        if self.current_acquisition_time is not None:
-            metrics["currently_in_use"] = True
-            metrics["current_time_in_use"] = time.time() - self.current_acquisition_time
-        else:
-            metrics["currently_in_use"] = False
-            metrics["current_time_in_use"] = 0
-
-        return metrics
+    # Custom resource type
+    CUSTOM = "custom"
 
 
-class ManagedResource(Generic[T]):
-    """A managed resource that can be pooled, initialized, and cleaned up."""
+class ResourceError(PluginError):
+    """Base class for resource-related errors."""
 
-    def __init__(
+    pass
+
+
+class ResourceNotFoundError(ResourceError):
+    """Error raised when a resource is not found."""
+
+    pass
+
+
+class ResourceAlreadyExistsError(ResourceError):
+    """Error raised when attempting to register a resource that already exists."""
+
+    pass
+
+
+class ResourceRegistry:
+    """Registry for resources used by plugins."""
+
+    def __init__(self):
+        """Initialize the resource registry."""
+        # Resources by owner and key
+        self._resources: Dict[str, Dict[str, Any]] = {}
+
+        # Resource metadata
+        self._metadata: Dict[str, Dict[str, Dict[str, Any]]] = {}
+
+        # Cleanup functions by owner and key
+        self._cleanup_funcs: Dict[
+            str,
+            Dict[str, Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]],
+        ] = {}
+
+        # Resources pending cleanup
+        self._pending_cleanup: Set[Tuple[str, str]] = set()
+
+        # Lock for thread safety
+        self._lock = threading.RLock()
+
+        # Finalizers to automatically clean up when objects are garbage collected
+        self._finalizers: Dict[str, Dict[str, weakref.finalize]] = {}
+
+    def register_resource(
         self,
-        resource_id: str,
-        resource: T,
-        resource_type: str,
-        cleanup_func: Optional[Callable[[T], Any]] = None,
-        priority: InitializationPriority = InitializationPriority.NORMAL,
-    ) -> None:
-        """Initialize a managed resource.
-
-        Args:
-            resource_id: Unique identifier for the resource
-            resource: The resource object
-            resource_type: Type of resource
-            cleanup_func: Function to call for cleanup
-            priority: Initialization priority
-        """
-        self.resource_id = resource_id
-        self.resource = resource
-        self.resource_type = resource_type
-        self.cleanup_func = cleanup_func
-        self.priority = priority
-        self.state = ResourceState.AVAILABLE
-        self.current_owner: Optional[str] = None
-        self.metrics = ResourceMetrics(resource_id, resource_type)
-        self.lock = asyncio.Lock()
-        self.error: Optional[Exception] = None
-        self.last_state_change = datetime.now()
-        self.scheduled_cleanup_time: Optional[datetime] = None
-
-    async def acquire(self, owner: str) -> T:
-        """Acquire the resource.
-
-        Args:
-            owner: Identifier for the acquirer
-
-        Returns:
-            The resource
-
-        Raises:
-            ResourceError: If the resource is not available
-        """
-        async with self.lock:
-            if self.state != ResourceState.AVAILABLE:
-                raise ResourceError(
-                    f"Resource {self.resource_id} is not available "
-                    f"(current state: {self.state.value})"
-                )
-
-            # Change state and update metrics
-            self.state = ResourceState.IN_USE
-            self.current_owner = owner
-            self.metrics.mark_access()
-            self.last_state_change = datetime.now()
-            
-            # Cancel any scheduled cleanup
-            self.scheduled_cleanup_time = None
-
-            return self.resource
-
-    async def release(self) -> None:
-        """Release the resource.
-
-        Raises:
-            ResourceError: If the resource is not in use
-        """
-        async with self.lock:
-            if self.state != ResourceState.IN_USE:
-                raise ResourceError(
-                    f"Resource {self.resource_id} is not in use "
-                    f"(current state: {self.state.value})"
-                )
-
-            # Change state and update metrics
-            self.state = ResourceState.AVAILABLE
-            self.current_owner = None
-            self.metrics.mark_release()
-            self.last_state_change = datetime.now()
-
-    async def cleanup(self) -> None:
-        """Clean up the resource.
-
-        Raises:
-            ResourceError: If the resource is in use
-        """
-        async with self.lock:
-            if self.state == ResourceState.IN_USE:
-                raise ResourceError(
-                    f"Cannot clean up resource {self.resource_id} while in use"
-                )
-
-            # Change state
-            self.state = ResourceState.CLEANING_UP
-            self.last_state_change = datetime.now()
-
-            try:
-                # Call cleanup function if available
-                if self.cleanup_func:
-                    if asyncio.iscoroutinefunction(self.cleanup_func):
-                        await self.cleanup_func(self.resource)
-                    else:
-                        self.cleanup_func(self.resource)
-
-                # Change state
-                self.state = ResourceState.CLOSED
-                self.last_state_change = datetime.now()
-            except Exception as e:
-                # Change state and record error
-                self.state = ResourceState.ERROR
-                self.error = e
-                self.metrics.record_error(e)
-                self.last_state_change = datetime.now()
-                raise ResourceError(
-                    f"Failed to clean up resource {self.resource_id}: {e}"
-                ) from e
-
-
-class ResourcePool:
-    """Pool of managed resources."""
-
-    def __init__(
-        self,
-        max_size: int = 10,
-        idle_timeout_seconds: int = 300,
-        cleanup_interval_seconds: int = 60,
-    ) -> None:
-        """Initialize resource pool.
-
-        Args:
-            max_size: Maximum number of resources in the pool
-            idle_timeout_seconds: Seconds after which unused resources are cleaned up
-            cleanup_interval_seconds: Interval in seconds for cleanup checks
-        """
-        self._resources: Dict[str, ManagedResource[Any]] = {}
-        self._resource_by_type: Dict[str, Dict[str, ManagedResource[Any]]] = defaultdict(dict)
-        self._lock = asyncio.Lock()
-        self._max_size = max_size
-        self._idle_timeout = idle_timeout_seconds
-        self._cleanup_interval = cleanup_interval_seconds
-        self._cleanup_task: Optional[asyncio.Task] = None
-        self._shutdown = False
-
-    async def start_cleanup_scheduler(self) -> None:
-        """Start the cleanup scheduler."""
-        if self._cleanup_task is not None:
-            return
-
-        self._shutdown = False
-        self._cleanup_task = asyncio.create_task(self._cleanup_loop())
-        logger.debug("Started resource pool cleanup scheduler")
-
-    async def stop_cleanup_scheduler(self) -> None:
-        """Stop the cleanup scheduler."""
-        if self._cleanup_task is None:
-            return
-
-        self._shutdown = True
-        self._cleanup_task.cancel()
-        try:
-            await self._cleanup_task
-        except asyncio.CancelledError:
-            pass
-        self._cleanup_task = None
-        logger.debug("Stopped resource pool cleanup scheduler")
-
-    async def _cleanup_loop(self) -> None:
-        """Loop to periodically clean up idle resources."""
-        while not self._shutdown:
-            try:
-                await self._cleanup_idle_resources()
-                await asyncio.sleep(self._cleanup_interval)
-            except asyncio.CancelledError:
-                break
-            except Exception as e:
-                logger.error(f"Error in resource pool cleanup loop: {e}")
-                await asyncio.sleep(self._cleanup_interval)
-
-    async def _cleanup_idle_resources(self) -> None:
-        """Clean up idle resources."""
-        now = datetime.now()
-        to_cleanup = []
-
-        # Find resources to clean up
-        async with self._lock:
-            for resource_id, resource in list(self._resources.items()):
-                if resource.state != ResourceState.AVAILABLE:
-                    continue
-
-                if resource.scheduled_cleanup_time is not None and now >= resource.scheduled_cleanup_time:
-                    to_cleanup.append(resource)
-                elif (
-                    resource.metrics.last_released is not None
-                    and (now - resource.metrics.last_released).total_seconds() >= self._idle_timeout
-                ):
-                    # Schedule cleanup
-                    resource.scheduled_cleanup_time = now
-                    logger.debug(f"Scheduling cleanup for idle resource: {resource_id}")
-
-        # Clean up resources
-        for resource in to_cleanup:
-            try:
-                logger.debug(f"Cleaning up idle resource: {resource.resource_id}")
-                await resource.cleanup()
-                async with self._lock:
-                    self._remove_resource(resource.resource_id)
-            except Exception as e:
-                logger.error(f"Error cleaning up resource {resource.resource_id}: {e}")
-
-    def _remove_resource(self, resource_id: str) -> None:
-        """Remove a resource from the pool.
-
-        Args:
-            resource_id: ID of the resource to remove
-        """
-        if resource_id not in self._resources:
-            return
-
-        resource = self._resources[resource_id]
-        del self._resources[resource_id]
-        
-        # Remove from resource_by_type
-        resource_type = resource.resource_type
-        if resource_type in self._resource_by_type and resource_id in self._resource_by_type[resource_type]:
-            del self._resource_by_type[resource_type][resource_id]
-
-        logger.debug(f"Removed resource from pool: {resource_id}")
-
-    async def add_resource(
-        self,
-        resource_id: str,
+        owner_id: str,
+        resource_key: str,
         resource: Any,
-        resource_type: str,
-        cleanup_func: Optional[Callable[[Any], Any]] = None,
-        priority: InitializationPriority = InitializationPriority.NORMAL,
+        resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+        cleanup_func: Optional[
+            Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+        ] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        auto_cleanup: bool = True,
     ) -> None:
-        """Add a resource to the pool.
+        """Register a resource for a plugin.
 
         Args:
-            resource_id: Unique identifier for the resource
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
             resource: The resource object
-            resource_type: Type of resource
-            cleanup_func: Function to call for cleanup
-            priority: Initialization priority
+            resource_type: Type of the resource
+            cleanup_func: Optional function to call when cleaning up the resource
+            metadata: Optional metadata about the resource
+            auto_cleanup: Whether to automatically clean up the resource when it's garbage collected
 
         Raises:
-            ResourceError: If the pool is full or resource already exists
+            ResourceAlreadyExistsError: If a resource with the same key already exists for the owner
         """
-        async with self._lock:
-            if len(self._resources) >= self._max_size:
-                raise ResourceError(f"Resource pool is full (max_size={self._max_size})")
+        if isinstance(resource_type, str):
+            # Convert string to enum if possible
+            try:
+                resource_type = ResourceType(resource_type)
+            except ValueError:
+                # Keep as string for custom resource types
+                pass
 
-            if resource_id in self._resources:
-                raise ResourceError(f"Resource already exists in pool: {resource_id}")
+        with self._lock:
+            # Create owner entry if it doesn't exist
+            if owner_id not in self._resources:
+                self._resources[owner_id] = {}
+                self._cleanup_funcs[owner_id] = {}
+                self._metadata[owner_id] = {}
+                self._finalizers[owner_id] = {}
 
-            # Create managed resource
-            managed = ManagedResource(
-                resource_id, resource, resource_type, cleanup_func, priority
-            )
-            self._resources[resource_id] = managed
-            self._resource_by_type[resource_type][resource_id] = managed
-
-            logger.debug(f"Added resource to pool: {resource_id} (type={resource_type})")
-
-    async def get_resource(
-        self, resource_id: str, owner: str
-    ) -> Any:
-        """Get a resource from the pool.
-
-        Args:
-            resource_id: ID of the resource to get
-            owner: Identifier for the acquirer
-
-        Returns:
-            The resource
-
-        Raises:
-            ResourceError: If the resource doesn't exist or can't be acquired
-        """
-        async with self._lock:
-            if resource_id not in self._resources:
-                raise ResourceError(f"Resource not found in pool: {resource_id}")
-
-            resource = self._resources[resource_id]
-
-        # Acquire the resource
-        return await resource.acquire(owner)
-
-    async def release_resource(self, resource_id: str) -> None:
-        """Release a resource back to the pool.
-
-        Args:
-            resource_id: ID of the resource to release
-
-        Raises:
-            ResourceError: If the resource doesn't exist or can't be released
-        """
-        async with self._lock:
-            if resource_id not in self._resources:
-                raise ResourceError(f"Resource not found in pool: {resource_id}")
-
-            resource = self._resources[resource_id]
-
-        # Release the resource
-        await resource.release()
-
-    async def cleanup_resource(self, resource_id: str) -> None:
-        """Clean up a resource and remove it from the pool.
-
-        Args:
-            resource_id: ID of the resource to clean up
-
-        Raises:
-            ResourceError: If the resource doesn't exist or can't be cleaned up
-        """
-        async with self._lock:
-            if resource_id not in self._resources:
-                raise ResourceError(f"Resource not found in pool: {resource_id}")
-
-            resource = self._resources[resource_id]
-
-        # Clean up the resource
-        await resource.cleanup()
-
-        # Remove from pool
-        async with self._lock:
-            self._remove_resource(resource_id)
-
-    async def get_resource_by_type(
-        self, resource_type: str, owner: str
-    ) -> Tuple[str, Any]:
-        """Get an available resource of a specific type.
-
-        Args:
-            resource_type: Type of resource to get
-            owner: Identifier for the acquirer
-
-        Returns:
-            Tuple of (resource_id, resource)
-
-        Raises:
-            ResourceError: If no resources of the requested type are available
-        """
-        async with self._lock:
-            if resource_type not in self._resource_by_type or not self._resource_by_type[resource_type]:
-                raise ResourceError(f"No resources of type {resource_type} in pool")
-
-            # Find available resource
-            available_resources = [
-                r for r in self._resource_by_type[resource_type].values()
-                if r.state == ResourceState.AVAILABLE
-            ]
-
-            if not available_resources:
-                raise ResourceError(f"No available resources of type {resource_type}")
-
-            # Sort by priority and last accessed time
-            available_resources.sort(
-                key=lambda r: (
-                    -r.priority,
-                    r.metrics.last_accessed or datetime.min
+            # Check if resource already exists
+            if resource_key in self._resources[owner_id]:
+                raise ResourceAlreadyExistsError(
+                    f"Resource already exists: {owner_id}/{resource_key}"
                 )
+
+            # Register resource
+            self._resources[owner_id][resource_key] = resource
+
+            # Register cleanup function
+            if cleanup_func:
+                self._cleanup_funcs[owner_id][resource_key] = cleanup_func
+
+            # Register metadata
+            self._metadata[owner_id][resource_key] = {
+                "type": resource_type.value
+                if isinstance(resource_type, ResourceType)
+                else resource_type,
+                "registered_at": time.time(),
+                **(metadata or {}),
+            }
+
+            # Set up finalizer for auto cleanup
+            if auto_cleanup:
+
+                def finalize_callback(
+                    owner: str = owner_id,
+                    key: str = resource_key,
+                    res: Any = resource,
+                    cleanup: Optional[Callable] = cleanup_func,
+                ):
+                    logger.debug(
+                        f"Auto-cleaning resource due to garbage collection: {owner}/{key}"
+                    )
+                    try:
+                        # Remove from registry
+                        with self._lock:
+                            if (
+                                owner in self._resources
+                                and key in self._resources[owner]
+                            ):
+                                del self._resources[owner][key]
+
+                            if owner in self._metadata and key in self._metadata[owner]:
+                                del self._metadata[owner][key]
+
+                            if (
+                                owner in self._cleanup_funcs
+                                and key in self._cleanup_funcs[owner]
+                            ):
+                                del self._cleanup_funcs[owner][key]
+
+                            if (
+                                owner in self._finalizers
+                                and key in self._finalizers[owner]
+                            ):
+                                del self._finalizers[owner][key]
+
+                        # Call cleanup function
+                        if cleanup:
+                            if asyncio.iscoroutinefunction(cleanup):
+                                # Create task for async cleanup
+                                loop = asyncio.get_event_loop()
+                                loop.create_task(cleanup(res))
+                            else:
+                                # Call synchronous cleanup
+                                cleanup(res)
+                    except Exception as e:
+                        logger.error(
+                            f"Error during auto-cleanup of resource {owner}/{key}: {e}"
+                        )
+
+                self._finalizers[owner_id][resource_key] = weakref.finalize(
+                    resource, finalize_callback
+                )
+
+            logger.debug(
+                f"Registered resource: {owner_id}/{resource_key} ({resource_type})"
             )
 
-            # Get highest priority resource that was least recently used
-            resource = available_resources[0]
-            resource_id = resource.resource_id
-
-        # Acquire the resource
-        return resource_id, await resource.acquire(owner)
-
-    async def cleanup_all(self) -> None:
-        """Clean up all resources in the pool."""
-        # Stop cleanup scheduler if running
-        await self.stop_cleanup_scheduler()
-
-        # Get all resource IDs
-        async with self._lock:
-            resource_ids = list(self._resources.keys())
-
-        # Clean up each resource
-        for resource_id in resource_ids:
-            try:
-                await self.cleanup_resource(resource_id)
-            except Exception as e:
-                logger.error(f"Error cleaning up resource {resource_id}: {e}")
-
-        # Clear dictionaries
-        async with self._lock:
-            self._resources.clear()
-            self._resource_by_type.clear()
-
-    def get_metrics(self) -> Dict[str, Dict[str, Any]]:
-        """Get metrics for all resources in the pool.
-
-        Returns:
-            Dictionary of resource metrics by resource ID
-        """
-        return {
-            resource_id: resource.metrics.get_metrics()
-            for resource_id, resource in self._resources.items()
-        }
-
-
-class ResourceMixin:
-    """Mixin for classes that manage resources."""
-
-    def __init__(self) -> None:
-        """Initialize resource mixin."""
-        self._resources: Dict[str, Any] = {}
-        self._resource_cleanups: Dict[str, Callable[[], Any]] = {}
-        self._resource_metrics: Dict[str, ResourceMetrics] = {}
-
-    def _register_resource(
-        self, name: str, resource: Any, cleanup: Optional[Callable[[], Any]] = None
-    ) -> None:
-        """Register a resource with optional cleanup.
+    def unregister_resource(self, owner_id: str, resource_key: str) -> Any:
+        """Unregister a resource without cleaning it up.
 
         Args:
-            name: Name of the resource
-            resource: The resource object
-            cleanup: Optional cleanup function
-        """
-        self._resources[name] = resource
-        
-        if cleanup:
-            self._resource_cleanups[name] = cleanup
-            
-        self._resource_metrics[name] = ResourceMetrics(
-            resource_id=name,
-            resource_type=type(resource).__name__,
-        )
-        self._resource_metrics[name].mark_access()
-
-    def _get_resource(self, name: str) -> Any:
-        """Get a registered resource.
-
-        Args:
-            name: Name of the resource
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
 
         Returns:
-            The resource
+            The resource object
 
         Raises:
-            ResourceError: If the resource is not registered
+            ResourceNotFoundError: If the resource is not found
         """
-        if name not in self._resources:
-            raise ResourceError(f"Resource not registered: {name}")
-            
-        # Update metrics
-        if name in self._resource_metrics:
-            self._resource_metrics[name].mark_access()
-            
-        return self._resources[name]
+        with self._lock:
+            # Check if resource exists
+            if (
+                owner_id not in self._resources
+                or resource_key not in self._resources[owner_id]
+            ):
+                raise ResourceNotFoundError(
+                    f"Resource not found: {owner_id}/{resource_key}"
+                )
 
-    def _has_resource(self, name: str) -> bool:
-        """Check if a resource is registered.
+            # Get resource
+            resource = self._resources[owner_id][resource_key]
+
+            # Remove resource
+            del self._resources[owner_id][resource_key]
+
+            # Remove metadata
+            if owner_id in self._metadata and resource_key in self._metadata[owner_id]:
+                del self._metadata[owner_id][resource_key]
+
+            # Remove cleanup function
+            if (
+                owner_id in self._cleanup_funcs
+                and resource_key in self._cleanup_funcs[owner_id]
+            ):
+                del self._cleanup_funcs[owner_id][resource_key]
+
+            # Remove finalizer
+            if (
+                owner_id in self._finalizers
+                and resource_key in self._finalizers[owner_id]
+            ):
+                # Disable finalizer
+                self._finalizers[owner_id][resource_key].detach()
+                del self._finalizers[owner_id][resource_key]
+
+            logger.debug(f"Unregistered resource: {owner_id}/{resource_key}")
+            return resource
+
+    def get_resource(self, owner_id: str, resource_key: str) -> Any:
+        """Get a resource.
 
         Args:
-            name: Name of the resource
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
 
         Returns:
-            True if the resource is registered, False otherwise
-        """
-        return name in self._resources
+            The resource object
 
-    async def _cleanup_resources(self) -> None:
-        """Clean up all registered resources."""
-        errors = []
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        with self._lock:
+            # Check if resource exists
+            if (
+                owner_id not in self._resources
+                or resource_key not in self._resources[owner_id]
+            ):
+                raise ResourceNotFoundError(
+                    f"Resource not found: {owner_id}/{resource_key}"
+                )
+
+            # Return resource
+            return self._resources[owner_id][resource_key]
+
+    def get_resource_metadata(self, owner_id: str, resource_key: str) -> Dict[str, Any]:
+        """Get metadata for a resource.
+
+        Args:
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
+
+        Returns:
+            Metadata for the resource
+
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        with self._lock:
+            # Check if resource exists
+            if (
+                owner_id not in self._metadata
+                or resource_key not in self._metadata[owner_id]
+            ):
+                raise ResourceNotFoundError(
+                    f"Resource not found: {owner_id}/{resource_key}"
+                )
+
+            # Return metadata
+            return self._metadata[owner_id][resource_key].copy()
+
+    def has_resource(self, owner_id: str, resource_key: str) -> bool:
+        """Check if a resource exists.
+
+        Args:
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
+
+        Returns:
+            True if the resource exists, False otherwise
+        """
+        with self._lock:
+            return (
+                owner_id in self._resources
+                and resource_key in self._resources[owner_id]
+            )
+
+    def get_resources_by_owner(self, owner_id: str) -> Dict[str, Any]:
+        """Get all resources for an owner.
+
+        Args:
+            owner_id: ID of the plugin that owns the resources
+
+        Returns:
+            Dictionary of resource key to resource object
+        """
+        with self._lock:
+            if owner_id not in self._resources:
+                return {}
+
+            return self._resources[owner_id].copy()
+
+    def get_resources_by_type(
+        self, resource_type: Union[ResourceType, str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Get all resources of a specific type.
+
+        Args:
+            resource_type: Type of resources to get
+
+        Returns:
+            Dictionary of owner ID to dictionary of resource key to resource object
+        """
+        type_value = (
+            resource_type.value
+            if isinstance(resource_type, ResourceType)
+            else resource_type
+        )
+
+        result = {}
+        with self._lock:
+            for owner_id, metadata in self._metadata.items():
+                for resource_key, meta in metadata.items():
+                    if meta.get("type") == type_value:
+                        if owner_id not in result:
+                            result[owner_id] = {}
+
+                        result[owner_id][resource_key] = self._resources[owner_id][
+                            resource_key
+                        ]
+
+        return result
+
+    async def cleanup_resource(self, owner_id: str, resource_key: str) -> None:
+        """Clean up a resource.
+
+        Args:
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
+
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        resource = None
+        cleanup_func = None
+
+        with self._lock:
+            # Mark as pending cleanup
+            self._pending_cleanup.add((owner_id, resource_key))
+
+            try:
+                # Check if resource exists
+                if (
+                    owner_id not in self._resources
+                    or resource_key not in self._resources[owner_id]
+                ):
+                    raise ResourceNotFoundError(
+                        f"Resource not found: {owner_id}/{resource_key}"
+                    )
+
+                # Get resource and cleanup function
+                resource = self._resources[owner_id][resource_key]
+                cleanup_func = self._cleanup_funcs.get(owner_id, {}).get(resource_key)
+
+                # Remove finalizer
+                if (
+                    owner_id in self._finalizers
+                    and resource_key in self._finalizers[owner_id]
+                ):
+                    # Disable finalizer
+                    self._finalizers[owner_id][resource_key].detach()
+                    del self._finalizers[owner_id][resource_key]
+            finally:
+                # Mark as no longer pending cleanup
+                self._pending_cleanup.discard((owner_id, resource_key))
+
+        # Call cleanup function outside of lock
+        if cleanup_func:
+            try:
+                if asyncio.iscoroutinefunction(cleanup_func):
+                    # Call async cleanup function
+                    await cleanup_func(resource)
+                else:
+                    # Call synchronous cleanup function
+                    cleanup_func(resource)
+            except Exception as e:
+                logger.error(
+                    f"Error cleaning up resource {owner_id}/{resource_key}: {e}"
+                )
+
+        # Remove resource from registry
+        with self._lock:
+            if (
+                owner_id in self._resources
+                and resource_key in self._resources[owner_id]
+            ):
+                del self._resources[owner_id][resource_key]
+
+            if owner_id in self._metadata and resource_key in self._metadata[owner_id]:
+                del self._metadata[owner_id][resource_key]
+
+            if (
+                owner_id in self._cleanup_funcs
+                and resource_key in self._cleanup_funcs[owner_id]
+            ):
+                del self._cleanup_funcs[owner_id][resource_key]
+
+        logger.debug(f"Cleaned up resource: {owner_id}/{resource_key}")
+
+    async def cleanup_owner_resources(self, owner_id: str) -> None:
+        """Clean up all resources for an owner.
+
+        Args:
+            owner_id: ID of the plugin that owns the resources
+        """
+        # Get all resource keys for the owner
+        with self._lock:
+            if owner_id not in self._resources:
+                return
+
+            resource_keys = list(self._resources[owner_id].keys())
 
         # Clean up each resource
-        for name, cleanup in list(self._resource_cleanups.items()):
+        for resource_key in resource_keys:
             try:
-                if asyncio.iscoroutinefunction(cleanup):
-                    await cleanup()
-                else:
-                    cleanup()
-                    
-                # Update metrics
-                if name in self._resource_metrics:
-                    self._resource_metrics[name].mark_release()
-                    
+                await self.cleanup_resource(owner_id, resource_key)
+            except ResourceNotFoundError:
+                # Resource might have been cleaned up already
+                pass
             except Exception as e:
-                logger.error(f"Error cleaning up resource {name}: {e}")
-                errors.append((name, e))
-                
-                # Update metrics
-                if name in self._resource_metrics:
-                    self._resource_metrics[name].record_error(e)
+                logger.error(
+                    f"Error cleaning up resource {owner_id}/{resource_key}: {e}"
+                )
 
-        # Clear dictionaries
-        self._resources.clear()
-        self._resource_cleanups.clear()
+        logger.debug(f"Cleaned up all resources for owner: {owner_id}")
 
-        # Raise error if any occurred
-        if errors:
-            names = ", ".join(name for name, _ in errors)
-            raise ResourceError(f"Errors occurred during resource cleanup: {names}")
+    async def cleanup_all_resources(self) -> None:
+        """Clean up all resources in the registry."""
+        # Get all owner IDs
+        with self._lock:
+            owner_ids = list(self._resources.keys())
+
+        # Clean up resources for each owner
+        for owner_id in owner_ids:
+            await self.cleanup_owner_resources(owner_id)
+
+        logger.debug("Cleaned up all resources")
+
+    @contextmanager
+    def scoped_resource(
+        self,
+        owner_id: str,
+        resource_key: str,
+        resource: Any,
+        resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+        cleanup_func: Optional[
+            Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+        ] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """Context manager for a resource that automatically unregisters when the scope exits.
+
+        Args:
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
+            resource: The resource object
+            resource_type: Type of the resource
+            cleanup_func: Optional function to call when cleaning up the resource
+            metadata: Optional metadata about the resource
+
+        Yields:
+            The resource object
+
+        Raises:
+            ResourceAlreadyExistsError: If a resource with the same key already exists for the owner
+        """
+        try:
+            # Register resource
+            self.register_resource(
+                owner_id=owner_id,
+                resource_key=resource_key,
+                resource=resource,
+                resource_type=resource_type,
+                cleanup_func=cleanup_func,
+                metadata=metadata,
+                auto_cleanup=False,
+            )
+
+            # Yield resource
+            yield resource
+        finally:
+            # Unregister resource
+            try:
+                # Only call cleanup function if provided
+                if cleanup_func:
+                    if asyncio.iscoroutinefunction(cleanup_func):
+                        # Create task for async cleanup
+                        loop = asyncio.get_event_loop()
+                        loop.create_task(cleanup_func(resource))
+                    else:
+                        # Call synchronous cleanup
+                        cleanup_func(resource)
+
+                # Unregister without cleanup
+                with self._lock:
+                    if (
+                        owner_id in self._resources
+                        and resource_key in self._resources[owner_id]
+                    ):
+                        del self._resources[owner_id][resource_key]
+
+                    if (
+                        owner_id in self._metadata
+                        and resource_key in self._metadata[owner_id]
+                    ):
+                        del self._metadata[owner_id][resource_key]
+
+                    if (
+                        owner_id in self._cleanup_funcs
+                        and resource_key in self._cleanup_funcs[owner_id]
+                    ):
+                        del self._cleanup_funcs[owner_id][resource_key]
+
+                    if (
+                        owner_id in self._finalizers
+                        and resource_key in self._finalizers[owner_id]
+                    ):
+                        # Disable finalizer
+                        self._finalizers[owner_id][resource_key].detach()
+                        del self._finalizers[owner_id][resource_key]
+            except Exception as e:
+                logger.error(
+                    f"Error unregistering resource {owner_id}/{resource_key}: {e}"
+                )
+
+    @asynccontextmanager
+    async def async_scoped_resource(
+        self,
+        owner_id: str,
+        resource_key: str,
+        resource: Any,
+        resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+        cleanup_func: Optional[
+            Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+        ] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """Async context manager for a resource that automatically unregisters when the scope exits.
+
+        Args:
+            owner_id: ID of the plugin that owns the resource
+            resource_key: Unique key for the resource within the owner's scope
+            resource: The resource object
+            resource_type: Type of the resource
+            cleanup_func: Optional function to call when cleaning up the resource
+            metadata: Optional metadata about the resource
+
+        Yields:
+            The resource object
+
+        Raises:
+            ResourceAlreadyExistsError: If a resource with the same key already exists for the owner
+        """
+        try:
+            # Register resource
+            self.register_resource(
+                owner_id=owner_id,
+                resource_key=resource_key,
+                resource=resource,
+                resource_type=resource_type,
+                cleanup_func=cleanup_func,
+                metadata=metadata,
+                auto_cleanup=False,
+            )
+
+            # Yield resource
+            yield resource
+        finally:
+            # Clean up resource
+            try:
+                await self.cleanup_resource(owner_id, resource_key)
+            except ResourceNotFoundError:
+                # Resource might have been cleaned up already
+                pass
+            except Exception as e:
+                logger.error(
+                    f"Error cleaning up resource {owner_id}/{resource_key}: {e}"
+                )
 
 
-# Global resource pool
-_resource_pool: Optional[ResourcePool] = None
+# Singleton instance
+_resource_registry = ResourceRegistry()
 
 
-def get_resource_pool() -> ResourcePool:
-    """Get the global resource pool.
+# Convenience functions
+def register_resource(
+    owner_id: str,
+    resource_key: str,
+    resource: Any,
+    resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+    cleanup_func: Optional[
+        Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+    ] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    auto_cleanup: bool = True,
+) -> None:
+    """Register a resource for a plugin.
+
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+        resource: The resource object
+        resource_type: Type of the resource
+        cleanup_func: Optional function to call when cleaning up the resource
+        metadata: Optional metadata about the resource
+        auto_cleanup: Whether to automatically clean up the resource when it's garbage collected
+
+    Raises:
+        ResourceAlreadyExistsError: If a resource with the same key already exists for the owner
+    """
+    _resource_registry.register_resource(
+        owner_id,
+        resource_key,
+        resource,
+        resource_type,
+        cleanup_func,
+        metadata,
+        auto_cleanup,
+    )
+
+
+def unregister_resource(owner_id: str, resource_key: str) -> Any:
+    """Unregister a resource without cleaning it up.
+
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
 
     Returns:
-        Global resource pool instance
+        The resource object
+
+    Raises:
+        ResourceNotFoundError: If the resource is not found
     """
-    global _resource_pool
-    if _resource_pool is None:
-        _resource_pool = ResourcePool()
-    return _resource_pool
+    return _resource_registry.unregister_resource(owner_id, resource_key)
+
+
+def get_resource(owner_id: str, resource_key: str) -> Any:
+    """Get a resource.
+
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+
+    Returns:
+        The resource object
+
+    Raises:
+        ResourceNotFoundError: If the resource is not found
+    """
+    return _resource_registry.get_resource(owner_id, resource_key)
+
+
+def get_resource_metadata(owner_id: str, resource_key: str) -> Dict[str, Any]:
+    """Get metadata for a resource.
+
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+
+    Returns:
+        Metadata for the resource
+
+    Raises:
+        ResourceNotFoundError: If the resource is not found
+    """
+    return _resource_registry.get_resource_metadata(owner_id, resource_key)
+
+
+def has_resource(owner_id: str, resource_key: str) -> bool:
+    """Check if a resource exists.
+
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+
+    Returns:
+        True if the resource exists, False otherwise
+    """
+    return _resource_registry.has_resource(owner_id, resource_key)
+
+
+def get_resources_by_owner(owner_id: str) -> Dict[str, Any]:
+    """Get all resources for an owner.
+
+    Args:
+        owner_id: ID of the plugin that owns the resources
+
+    Returns:
+        Dictionary of resource key to resource object
+    """
+    return _resource_registry.get_resources_by_owner(owner_id)
+
+
+def get_resources_by_type(
+    resource_type: Union[ResourceType, str],
+) -> Dict[str, Dict[str, Any]]:
+    """Get all resources of a specific type.
+
+    Args:
+        resource_type: Type of resources to get
+
+    Returns:
+        Dictionary of owner ID to dictionary of resource key to resource object
+    """
+    return _resource_registry.get_resources_by_type(resource_type)
+
+
+async def cleanup_resource(owner_id: str, resource_key: str) -> None:
+    """Clean up a resource.
+
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+
+    Raises:
+        ResourceNotFoundError: If the resource is not found
+    """
+    await _resource_registry.cleanup_resource(owner_id, resource_key)
+
+
+async def cleanup_owner_resources(owner_id: str) -> None:
+    """Clean up all resources for an owner.
+
+    Args:
+        owner_id: ID of the plugin that owns the resources
+    """
+    await _resource_registry.cleanup_owner_resources(owner_id)
 
 
 async def cleanup_all_resources() -> None:
-    """Clean up all resources in the global resource pool."""
-    if _resource_pool is not None:
-        await _resource_pool.cleanup_all()
+    """Clean up all resources in the registry."""
+    await _resource_registry.cleanup_all_resources()
 
 
-# Decorator for lazy initialization
-def lazy_initialize(
-    func: Optional[F] = None,
-    *,
-    priority: InitializationPriority = InitializationPriority.NORMAL,
-) -> Union[F, Callable[[F], F]]:
-    """Decorator for lazy initialization of resources.
+def scoped_resource(
+    owner_id: str,
+    resource_key: str,
+    resource: Any,
+    resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+    cleanup_func: Optional[
+        Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+    ] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+):
+    """Context manager for a resource that automatically unregisters when the scope exits.
 
     Args:
-        func: Function to decorate
-        priority: Initialization priority
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+        resource: The resource object
+        resource_type: Type of the resource
+        cleanup_func: Optional function to call when cleaning up the resource
+        metadata: Optional metadata about the resource
 
     Returns:
-        Decorated function
+        Context manager that yields the resource object
+
+    Raises:
+        ResourceAlreadyExistsError: If a resource with the same key already exists for the owner
     """
-    def decorator(func: F) -> F:
-        # Get resource name from function
-        resource_name = func.__name__
-        if resource_name.startswith("_"):
-            resource_name = resource_name[1:]
-        if resource_name.startswith("initialize_"):
-            resource_name = resource_name[11:]
+    return _resource_registry.scoped_resource(
+        owner_id, resource_key, resource, resource_type, cleanup_func, metadata
+    )
 
-        @functools.wraps(func)
-        async def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
-            # Check if we have a resource attribute
-            resource_attr = f"_{resource_name}"
-            if hasattr(self, resource_attr) and getattr(self, resource_attr) is not None:
-                return getattr(self, resource_attr)
 
-            # Initialize the resource
-            logger.debug(f"Lazy initializing resource: {resource_name}")
-            start_time = time.time()
-            result = await func(self, *args, **kwargs)
-            end_time = time.time()
+def async_scoped_resource(
+    owner_id: str,
+    resource_key: str,
+    resource: Any,
+    resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+    cleanup_func: Optional[
+        Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+    ] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+):
+    """Async context manager for a resource that automatically unregisters when the scope exits.
 
-            # Store the resource
-            setattr(self, resource_attr, result)
+    Args:
+        owner_id: ID of the plugin that owns the resource
+        resource_key: Unique key for the resource within the owner's scope
+        resource: The resource object
+        resource_type: Type of the resource
+        cleanup_func: Optional function to call when cleaning up the resource
+        metadata: Optional metadata about the resource
 
-            # Register for cleanup if we have cleanup method
-            cleanup_method = getattr(self, f"_cleanup_{resource_name}", None)
-            if cleanup_method:
-                if isinstance(self, ResourceMixin):
-                    self._register_resource(resource_name, result, cleanup_method)
+    Returns:
+        Async context manager that yields the resource object
 
-            # Record metrics
-            initialization_time_ms = (end_time - start_time) * 1000
-            logger.debug(
-                f"Lazy initialized resource: {resource_name} "
-                f"in {initialization_time_ms:.2f}ms"
-            )
+    Raises:
+        ResourceAlreadyExistsError: If a resource with the same key already exists for the owner
+    """
+    return _resource_registry.async_scoped_resource(
+        owner_id, resource_key, resource, resource_type, cleanup_func, metadata
+    )
 
-            return result
 
-        return cast(F, wrapper)
+class ResourceMixin:
+    """Mixin class for plugins to manage resources."""
 
-    if func is None:
-        return decorator
-    return decorator(func)
+    def __init__(self, *args, **kwargs):
+        """Initialize the resource mixin.
+
+        This method should be called from the plugin's __init__ method.
+        """
+        self._resource_owner_id = getattr(self, "plugin_id", self.__class__.__name__)
+        super().__init__(*args, **kwargs)
+
+    def register_resource(
+        self,
+        resource_key: str,
+        resource: Any,
+        resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+        cleanup_func: Optional[
+            Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+        ] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        auto_cleanup: bool = True,
+    ) -> None:
+        """Register a resource.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+            resource: The resource object
+            resource_type: Type of the resource
+            cleanup_func: Optional function to call when cleaning up the resource
+            metadata: Optional metadata about the resource
+            auto_cleanup: Whether to automatically clean up the resource when it's garbage collected
+
+        Raises:
+            ResourceAlreadyExistsError: If a resource with the same key already exists for the plugin
+        """
+        register_resource(
+            self._resource_owner_id,
+            resource_key,
+            resource,
+            resource_type,
+            cleanup_func,
+            metadata,
+            auto_cleanup,
+        )
+
+    def unregister_resource(self, resource_key: str) -> Any:
+        """Unregister a resource without cleaning it up.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+
+        Returns:
+            The resource object
+
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        return unregister_resource(self._resource_owner_id, resource_key)
+
+    def get_resource(self, resource_key: str) -> Any:
+        """Get a resource.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+
+        Returns:
+            The resource object
+
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        return get_resource(self._resource_owner_id, resource_key)
+
+    def get_resource_metadata(self, resource_key: str) -> Dict[str, Any]:
+        """Get metadata for a resource.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+
+        Returns:
+            Metadata for the resource
+
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        return get_resource_metadata(self._resource_owner_id, resource_key)
+
+    def has_resource(self, resource_key: str) -> bool:
+        """Check if a resource exists.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+
+        Returns:
+            True if the resource exists, False otherwise
+        """
+        return has_resource(self._resource_owner_id, resource_key)
+
+    def get_resources(self) -> Dict[str, Any]:
+        """Get all resources for the plugin.
+
+        Returns:
+            Dictionary of resource key to resource object
+        """
+        return get_resources_by_owner(self._resource_owner_id)
+
+    async def cleanup_resource(self, resource_key: str) -> None:
+        """Clean up a resource.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+
+        Raises:
+            ResourceNotFoundError: If the resource is not found
+        """
+        await cleanup_resource(self._resource_owner_id, resource_key)
+
+    async def cleanup_all_resources(self) -> None:
+        """Clean up all resources for the plugin."""
+        await cleanup_owner_resources(self._resource_owner_id)
+
+    def scoped_resource(
+        self,
+        resource_key: str,
+        resource: Any,
+        resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+        cleanup_func: Optional[
+            Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+        ] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """Context manager for a resource that automatically unregisters when the scope exits.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+            resource: The resource object
+            resource_type: Type of the resource
+            cleanup_func: Optional function to call when cleaning up the resource
+            metadata: Optional metadata about the resource
+
+        Returns:
+            Context manager that yields the resource object
+
+        Raises:
+            ResourceAlreadyExistsError: If a resource with the same key already exists for the plugin
+        """
+        return scoped_resource(
+            self._resource_owner_id,
+            resource_key,
+            resource,
+            resource_type,
+            cleanup_func,
+            metadata,
+        )
+
+    def async_scoped_resource(
+        self,
+        resource_key: str,
+        resource: Any,
+        resource_type: Union[ResourceType, str] = ResourceType.CUSTOM,
+        cleanup_func: Optional[
+            Union[Callable[[Any], None], Callable[[Any], asyncio.Future]]
+        ] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """Async context manager for a resource that automatically unregisters when the scope exits.
+
+        Args:
+            resource_key: Unique key for the resource within the plugin's scope
+            resource: The resource object
+            resource_type: Type of the resource
+            cleanup_func: Optional function to call when cleaning up the resource
+            metadata: Optional metadata about the resource
+
+        Returns:
+            Async context manager that yields the resource object
+
+        Raises:
+            ResourceAlreadyExistsError: If a resource with the same key already exists for the plugin
+        """
+        return async_scoped_resource(
+            self._resource_owner_id,
+            resource_key,
+            resource,
+            resource_type,
+            cleanup_func,
+            metadata,
+        )

@@ -5,6 +5,7 @@ from .base import (
     Document,
     Query,
     RetrievalResult,
+    SearchResult,
     create_provider,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "Document",
     "Query",
     "RetrievalResult",
+    "SearchResult",
     "create_provider",
 ]

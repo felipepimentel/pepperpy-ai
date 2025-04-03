@@ -1,78 +1,67 @@
-"""Example demonstrating text normalization in PepperPy."""
+"""Example demonstrating text normalization with PepperPy.
+
+This example shows how to use PepperPy for simple text normalization tasks.
+"""
 
 import asyncio
 
-from pepperpy import plugin_manager
-from pepperpy.content.processors.text_normalization_base import (
-    BaseTextNormalizer,
-    TextNormalizerRegistry,
-)
+from pepperpy import PepperPy
+
+# Example text with various normalization issues
+EXAMPLE_TEXT = """
+This is an  example  text with   multiple    spaces,
+weird "quotes", em—dashes, and   other    formatting  issues.
+
+It includes special characters like © and ® symbols.
+
+URLs like https://example.com should be handled properly.
+"""
 
 
-async def run_example():
+async def main():
     """Run the text normalization example."""
     print("PepperPy Text Normalization Example")
     print("===================================\n")
 
-    # Example text with various normalization issues
-    example_text = """
-    This is an  example  text with   multiple    spaces,
-    weird "quotes", em—dashes, and   other    formatting  issues.
-    
-    It includes special characters like © and ® symbols.
-    
-    URLs like https://example.com should be handled properly.
-    """
-
     print("Original text:")
-    print(example_text)
+    print(EXAMPLE_TEXT)
     print("\n" + "-" * 50 + "\n")
 
-    # Method 1: Use the built-in BaseTextNormalizer directly
-    print("Using BaseTextNormalizer directly:")
-    base_normalizer = BaseTextNormalizer()
-    normalized_text = base_normalizer.normalize(example_text)
-    print(normalized_text)
-    print("\n" + "-" * 50 + "\n")
+    # Initialize PepperPy
+    app = PepperPy()
+    await app.initialize()
 
-    # Method 2: Use the TextNormalizerRegistry to create a normalizer
-    print("Using TextNormalizerRegistry:")
-    registry_normalizer = TextNormalizerRegistry.create("base")
-    normalized_text = registry_normalizer.normalize(example_text)
-    print(normalized_text)
-    print("\n" + "-" * 50 + "\n")
-
-    # Method 3: Use the plugin system (if plugin is available)
     try:
-        print("Using plugin system:")
-        plugin_normalizer = plugin_manager.create_provider(
-            "text_normalization", "basic"
+        # Basic normalization
+        print("Basic normalization:")
+        basic_result = await app.execute(
+            query="Normalize this text with basic settings",
+            context={"text": EXAMPLE_TEXT},
         )
-        await plugin_normalizer.initialize()
-        # Cast the provider to the correct type
-        text_normalizer = plugin_normalizer  # type: BasicTextNormalizer
-        normalized_text = text_normalizer.normalize(example_text)
-        print(normalized_text)
-        await plugin_normalizer.cleanup()
-    except Exception as e:
-        print(f"Plugin-based normalization failed: {e}")
+        print(basic_result)
+        print("\n" + "-" * 50 + "\n")
 
-    print("\n" + "-" * 50 + "\n")
+        # Custom normalization
+        print("Custom normalization (with extra options):")
+        custom_result = await app.execute(
+            query="Normalize this text with custom settings",
+            context={
+                "text": EXAMPLE_TEXT,
+                "options": {
+                    "strip_whitespace": True,
+                    "normalize_whitespace": True,
+                    "lowercase": True,
+                    "replace_chars": {"-": "_", ":": ""},
+                },
+            },
+        )
+        print(custom_result)
+        print("\n" + "-" * 50 + "\n")
 
-    # Custom configuration example
-    print("Using custom configuration:")
-    custom_normalizer = BaseTextNormalizer(
-        transformations=[
-            "strip_whitespace",
-            "normalize_whitespace",
-            "replace_chars",
-            "lowercase",
-        ],
-        custom_replacements={"-": "_", ":": ""},
-    )
-    normalized_text = custom_normalizer.normalize(example_text)
-    print(normalized_text)
+    finally:
+        # Clean up resources
+        await app.cleanup()
 
 
 if __name__ == "__main__":
-    asyncio.run(run_example())
+    asyncio.run(main())

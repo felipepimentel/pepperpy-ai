@@ -1,116 +1,85 @@
-"""Example of using PepperPy to create a smart PDF summarizer.
+#!/usr/bin/env python3
+"""Exemplo de sumarização inteligente de PDFs.
 
-This example demonstrates how to:
-1. Process PDF documents using content processing
-2. Extract text and metadata
-3. Use LLM to generate summaries
-4. Handle different types of content
+Este exemplo demonstra como usar PepperPy para:
+1. Carregar um documento PDF
+2. Extrair seu conteúdo
+3. Gerar um resumo inteligente
 """
 
 import asyncio
-import logging
+import os
 from pathlib import Path
-from typing import Dict
 
 from pepperpy import PepperPy
-from pepperpy.content.base import create_processor
-from pepperpy.llm import create_provider as create_llm_provider
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configurar diretórios
+EXAMPLES_DIR = Path(__file__).parent
+INPUT_DIR = EXAMPLES_DIR / "input" / "docs"
+OUTPUT_DIR = EXAMPLES_DIR / "output" / "pdf_summaries"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Example document path
-EXAMPLE_DOC = Path(__file__).parent / "data" / "sample.pdf"
-
-
-async def summarize_pdf(
-    file_path: Path,
-    max_tokens: int = 500,
-    temperature: float = 0.7,
-) -> Dict:
-    """Summarize PDF document.
-
-    Args:
-        file_path: Path to PDF file
-        max_tokens: Maximum tokens for summary
-        temperature: Temperature for LLM
-
-    Returns:
-        Dictionary with summary and metadata
-    """
-    # Create LLM provider
-    llm_provider = create_llm_provider(
-        "openrouter", max_tokens=max_tokens, temperature=temperature
-    )
-
-    # Create content processor
-    content_processor = await create_processor(
-        "document", provider_name="pymupdf", extract_images=False
-    )
-
-    # Initialize PepperPy with LLM
-    async with PepperPy().with_llm(llm_provider) as pepper:
-        # Process document using content processor directly
-        result = await content_processor.process(file_path)
-
-        # Extract text and metadata
-        text = result.text or ""
-        metadata = result.metadata or {}
-
-        # Generate summary
-        summary = await (
-            pepper.chat.with_system("You are a document summarization expert.")
-            .with_user(
-                f"""Please provide a concise summary of the following document:
-
-Title: {metadata.get("title", "Unknown")}
-Author: {metadata.get("author", "Unknown")}
-Pages: {metadata.get("page_count", "Unknown")}
-
-Content:
-{text[:2000]}...
-
-Please include:
-1. Main topics and key points
-2. Important findings or conclusions
-3. Relevant context and background
-4. Any notable quotes or statistics
-
-Summary:"""
-            )
-            .generate()
-        )
-
-        return {
-            "summary": summary.content,
-            "metadata": metadata,
-        }
+# Definir PDF de exemplo
+EXAMPLE_PDF = "exemplo.pdf"  # Substitua pelo nome de um arquivo PDF real
 
 
 async def main():
-    """Run the example."""
+    """Executar exemplo de sumarização de PDF."""
+    print("Sumarizador Inteligente de PDFs")
+    print("=" * 50)
+
+    # Inicializar PepperPy
+    app = PepperPy()
+    await app.initialize()
+
     try:
-        # Summarize document
-        logger.info("Summarizing document: %s", EXAMPLE_DOC)
-        result = await summarize_pdf(EXAMPLE_DOC)
+        pdf_path = INPUT_DIR / EXAMPLE_PDF
+        print(f"\nProcessando PDF: {pdf_path}")
 
-        # Print results
-        logger.info("\nDocument Summary:")
-        logger.info("-" * 40)
-        logger.info("Title: %s", result["metadata"].get("title", "Unknown"))
-        logger.info("Author: %s", result["metadata"].get("author", "Unknown"))
-        logger.info("Pages: %s", result["metadata"].get("pages", "Unknown"))
-        logger.info("-" * 40)
-        logger.info(result["summary"])
+        # Verificar se o arquivo existe
+        if not pdf_path.exists():
+            print(
+                "Arquivo não encontrado. Criando um PDF de exemplo para demonstração."
+            )
+            # Em um caso real, você carregaria um PDF existente
+            content = (
+                "Este é um conteúdo de exemplo que simula o texto extraído de um PDF."
+            )
+        else:
+            # Extrair conteúdo do PDF
+            print("Extraindo conteúdo do PDF...")
+            content = await app.execute(
+                query="Extrair conteúdo de um documento PDF",
+                context={"pdf_path": str(pdf_path)},
+            )
 
-    except Exception as e:
-        logger.error("Error during summarization: %s", e)
+        print(f"\nConteúdo extraído ({len(content)} caracteres)")
+
+        # Gerar resumo
+        print("\nGerando resumo inteligente...")
+        summary = await app.execute(
+            query="Gerar um resumo conciso e informativo deste conteúdo",
+            context={"content": content},
+        )
+
+        # Exibir resumo
+        print("\nResumo gerado:")
+        print("-" * 50)
+        print(summary)
+        print("-" * 50)
+
+        # Salvar resumo
+        output_file = OUTPUT_DIR / f"{Path(EXAMPLE_PDF).stem}_resumo.txt"
+        with open(output_file, "w", encoding="utf-8") as f:
+            f.write(f"Resumo de: {EXAMPLE_PDF}\n\n")
+            f.write(summary)
+
+        print(f"\nResumo salvo em: {output_file}")
+
+    finally:
+        # Limpar recursos
+        await app.cleanup()
 
 
 if __name__ == "__main__":
-    # Required environment variables in .env file:
-    # PEPPERPY_CONTENT__PROVIDER=pymupdf
-    # PEPPERPY_LLM__PROVIDER=openai
-    # PEPPERPY_LLM__API_KEY=your_api_key
     asyncio.run(main())

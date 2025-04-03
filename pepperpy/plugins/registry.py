@@ -1,22 +1,69 @@
 """Plugin registry for PepperPy.
 
-This module provides the plugin registry functionality for PepperPy,
-including registration, discovery, and lookup of plugins.
+This module provides a centralized registry for all plugins, with support for
+lazy loading, dependency resolution, and event-based communication.
 """
 
-import importlib
+import asyncio
 import os
-import sys
-import time
+import threading
+import weakref
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 
-import yaml
-
-from pepperpy.core.errors import ValidationError
+from pepperpy.core.errors import (
+    PluginError,
+    PluginNotFoundError,
+    ValidationError,
+)
 from pepperpy.core.logging import get_logger
+from pepperpy.plugins.dependencies import (
+    DependencyType,
+    add_dependency,
+    get_load_order,
+)
+from pepperpy.plugins.dependencies import (
+    add_plugin as register_dependency,
+)
+from pepperpy.plugins.dependencies import (
+    is_loaded as is_dependency_loaded,
+)
+from pepperpy.plugins.dependencies import (
+    mark_loaded as mark_dependency_loaded,
+)
+from pepperpy.plugins.discovery import (
+    PluginInfo,
+    discover_plugins,
+    get_plugin,
+    register_scan_path,
+)
+from pepperpy.plugins.discovery import (
+    register_plugin as register_discovered_plugin,
+)
 from pepperpy.plugins.plugin import PepperpyPlugin
+from pepperpy.plugins.state import (
+    PluginState,
+    set_state,
+    verify_state,
+)
+from pepperpy.plugins.state import (
+    has_plugin as has_plugin_state,
+)
+from pepperpy.plugins.state import (
+    register_plugin as register_plugin_state,
+)
+from pepperpy.plugins.validation import validate_plugin_instance
 
 logger = get_logger(__name__)
 
@@ -109,797 +156,1012 @@ class PluginError(ValidationError):
         self.cause = cause
 
 
-def register_plugin(
-    plugin_type: str,
-    provider_type: str,
-    plugin_class: Type[PepperpyPlugin],
-    metadata: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Register a plugin.
+class RegistryEvent(Enum):
+    """Events emitted by the plugin registry."""
 
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
-        plugin_class: Plugin class
-        metadata: Additional metadata
+    # Plugin registration events
+    PLUGIN_REGISTERED = "plugin_registered"
+    PLUGIN_UNREGISTERED = "plugin_unregistered"
+
+    # Plugin lifecycle events
+    PLUGIN_INITIALIZING = "plugin_initializing"
+    PLUGIN_INITIALIZED = "plugin_initialized"
+    PLUGIN_INITIALIZATION_FAILED = "plugin_initialization_failed"
+    PLUGIN_CLEANUP_STARTED = "plugin_cleanup_started"
+    PLUGIN_CLEANUP_COMPLETED = "plugin_cleanup_completed"
+    PLUGIN_CLEANUP_FAILED = "plugin_cleanup_failed"
+
+    # Registry lifecycle events
+    REGISTRY_INITIALIZING = "registry_initializing"
+    REGISTRY_INITIALIZED = "registry_initialized"
+    REGISTRY_SHUTTING_DOWN = "registry_shutting_down"
+    REGISTRY_SHUTDOWN = "registry_shutdown"
+
+
+class PluginProxy:
+    """Proxy for lazy loading of plugins.
+
+    This class acts as a proxy for plugin instances, loading them only when
+    needed and forwarding attribute access to the real instance.
     """
-    global _plugin_registry, _plugin_metadata
 
-    # Initialize dictionaries if needed
-    if plugin_type not in _plugin_registry:
-        _plugin_registry[plugin_type] = {}
+    def __init__(
+        self,
+        plugin_id: str,
+        plugin_type: str,
+        provider_type: str,
+        registry: "PluginRegistry",
+    ):
+        """Initialize the plugin proxy.
 
-    if plugin_type not in _plugin_metadata:
-        _plugin_metadata[plugin_type] = {}
+        Args:
+            plugin_id: ID of the plugin
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            registry: Plugin registry
+        """
+        self._plugin_id = plugin_id
+        self._plugin_type = plugin_type
+        self._provider_type = provider_type
+        self._registry = weakref.ref(registry)
+        self._instance: Optional[PepperpyPlugin] = None
 
-    # Register plugin class and metadata
-    _plugin_registry[plugin_type][provider_type] = plugin_class
+    def __getattr__(self, name: str) -> Any:
+        """Forward attribute access to the real plugin instance.
 
-    if metadata:
-        _plugin_metadata[plugin_type][provider_type] = metadata
+        Args:
+            name: Attribute name
 
-    logger.debug(f"Registered plugin: {plugin_type}/{provider_type}")
+        Returns:
+            Attribute value
 
+        Raises:
+            AttributeError: If the attribute doesn't exist
+        """
+        # Get the real instance
+        instance = self._get_instance()
 
-def get_plugin(plugin_type: str, provider_type: str) -> Optional[Type[PepperpyPlugin]]:
-    """Get a plugin class.
+        # Forward attribute access
+        return getattr(instance, name)
 
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
+    def _get_instance(self) -> PepperpyPlugin:
+        """Get the real plugin instance, loading it if needed.
 
-    Returns:
-        Plugin class if found, None otherwise
-    """
-    # Check for alias resolution
-    provider_type, config_override = _resolve_alias(plugin_type, provider_type)
+        Returns:
+            Plugin instance
 
-    # Try to get plugin directly
-    plugin_class = _plugin_registry.get(plugin_type, {}).get(provider_type)
+        Raises:
+            PluginNotFoundError: If the plugin is not found
+        """
+        if self._instance is None:
+            # Get registry
+            registry = self._registry()
+            if registry is None:
+                raise PluginNotFoundError(
+                    self._plugin_id,
+                    f"{self._plugin_type}/{self._provider_type}",
+                    cause=RuntimeError("Plugin registry has been garbage collected"),
+                )
 
-    # If not found and not already loading, try to load it
-    if plugin_class is None:
-        plugin_class = load_plugin(plugin_type, provider_type)
-
-    # If still not found, try fallbacks
-    if plugin_class is None and _should_try_fallbacks(plugin_type, provider_type):
-        # Get fallback provider
-        fallback_provider = find_fallback(plugin_type, provider_type)
-        if fallback_provider:
-            logger.info(
-                f"Using fallback provider {fallback_provider} for {plugin_type}/{provider_type}"
+            # Load the real instance
+            self._instance = registry._load_plugin_instance(
+                self._plugin_type, self._provider_type
             )
-            plugin_class = _plugin_registry.get(plugin_type, {}).get(fallback_provider)
-            if plugin_class is None:
-                plugin_class = load_plugin(plugin_type, fallback_provider)
 
-    return plugin_class
+        return self._instance
 
 
-def _should_try_fallbacks(plugin_type: str, provider_type: str) -> bool:
-    """Determine if fallbacks should be tried for a plugin.
+class LazyPlugin:
+    """Lazy-loaded plugin.
 
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
-
-    Returns:
-        True if fallbacks should be tried, False otherwise
+    This class represents a plugin that hasn't been loaded yet, but can be
+    loaded on demand when its attributes are accessed.
     """
-    # Check if the plugin type has fallbacks defined
-    if plugin_type not in _plugin_fallbacks:
-        return False
 
-    # Don't use fallbacks if the provider is explicitly specified and not in fallbacks
-    fallbacks = _plugin_fallbacks[plugin_type]
-    if provider_type not in fallbacks and provider_type != "auto":
-        return False
+    def __init__(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        plugin_class: Type[PepperpyPlugin],
+        registry: "PluginRegistry",
+        plugin_id: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ):
+        """Initialize the lazy plugin.
 
-    return True
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            plugin_class: Plugin class
+            registry: Plugin registry
+            plugin_id: Optional plugin ID
+            config: Optional plugin configuration
+        """
+        self.plugin_type = plugin_type
+        self.provider_type = provider_type
+        self.plugin_class = plugin_class
+        self.registry = weakref.ref(registry)
+        self.plugin_id = plugin_id or f"{plugin_type}.{provider_type}"
+        self.config = config or {}
+        self.instance: Optional[PepperpyPlugin] = None
+
+    def __call__(self, *args: Any, **kwargs: Any) -> PepperpyPlugin:
+        """Create a plugin instance.
+
+        Args:
+            *args: Positional arguments
+            **kwargs: Keyword arguments
+
+        Returns:
+            Plugin instance
+        """
+        if self.instance is None:
+            # Get registry
+            registry = self.registry()
+            if registry is None:
+                raise RuntimeError("Plugin registry has been garbage collected")
+
+            # Create instance
+            self.instance = self.plugin_class(*args, **kwargs)
+
+            # Set plugin ID if not already set
+            if not hasattr(self.instance, "plugin_id") or not self.instance.plugin_id:
+                self.instance.plugin_id = self.plugin_id
+
+            # Apply configuration
+            for key, value in self.config.items():
+                setattr(self.instance, key, value)
+
+        return self.instance
 
 
-def find_fallback(plugin_type: str, provider_type: str) -> Optional[str]:
-    """Find a fallback provider for a plugin.
+class PluginRegistry:
+    """Registry for PepperPy plugins.
 
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
-
-    Returns:
-        Fallback provider type if found, None otherwise
+    This class provides a centralized registry for all plugins, with support for
+    lazy loading, dependency resolution, and event-based communication.
     """
-    # Check if fallbacks are defined for this plugin type
-    if plugin_type not in _plugin_fallbacks:
-        return None
 
-    # Get fallback list
-    fallbacks = _plugin_fallbacks[plugin_type]
+    def __init__(self):
+        """Initialize the plugin registry."""
+        # Plugin registration
+        self._plugins: Dict[str, Dict[str, PepperpyPlugin]] = {}
+        self._lazy_plugins: Dict[str, Dict[str, LazyPlugin]] = {}
+        self._proxies: Dict[str, Dict[str, PluginProxy]] = {}
 
-    # Try each fallback provider
-    for fallback_provider in fallbacks:
-        # Skip the original provider
-        if fallback_provider == provider_type:
-            continue
+        # Plugin classes
+        self._plugin_classes: Dict[str, Dict[str, Type[PepperpyPlugin]]] = {}
 
-        # Check if provider exists
-        if fallback_provider in _plugin_registry.get(plugin_type, {}):
-            return fallback_provider
+        # Plugin metadata
+        self._metadata: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
-        # Try to load the provider
-        if load_plugin(plugin_type, fallback_provider) is not None:
-            return fallback_provider
+        # Event listeners
+        self._event_listeners: Dict[RegistryEvent, List[Callable]] = {
+            event: [] for event in RegistryEvent
+        }
 
-    return None
+        # Initialization status
+        self._initialized = False
+        self._initializing = False
+        self._shutting_down = False
 
+        # Registry lock
+        self._lock = threading.RLock()
 
-def _resolve_alias(plugin_type: str, provider_type: str) -> Tuple[str, Dict[str, Any]]:
-    """Resolve a plugin alias to a provider type and config override.
+        # Auto-initialization
+        self._auto_init = True
 
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider (or alias)
+        # Scan paths and package paths
+        self._scan_paths: Set[str] = set()
+        self._package_paths: Set[str] = set()
 
-    Returns:
-        Tuple of (resolved provider type, config override dict)
-    """
-    # Initialize empty config override
-    config_override = {}
+    def register_plugin(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        plugin_class: Type[PepperpyPlugin],
+        plugin_id: Optional[str] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+        dependencies: Optional[Dict[str, List[str]]] = None,
+        lazy: bool = True,
+        config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        """Register a plugin with the registry.
 
-    # Check for provider aliases
-    if plugin_type in _plugin_aliases and provider_type in _plugin_aliases[plugin_type]:
-        alias_target = _plugin_aliases[plugin_type][provider_type]
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            plugin_class: Plugin class
+            plugin_id: Optional plugin ID
+            metadata: Optional plugin metadata
+            dependencies: Optional plugin dependencies
+            lazy: Whether to lazy-load the plugin
+            config: Optional plugin configuration
+        """
+        plugin_id = plugin_id or f"{plugin_type}.{provider_type}"
 
-        # Handle string aliases
-        if isinstance(alias_target, str):
-            # Check if the alias includes a specific model
-            if ":" in alias_target:
-                provider, model = alias_target.split(":", 1)
-                # Set model in config
-                config_override["model"] = model
-                return provider, config_override
-            else:
-                # Just a provider alias
-                return alias_target, config_override
+        with self._lock:
+            # Initialize dictionaries if needed
+            if plugin_type not in self._plugin_classes:
+                self._plugin_classes[plugin_type] = {}
+                self._lazy_plugins[plugin_type] = {}
+                self._plugins[plugin_type] = {}
+                self._proxies[plugin_type] = {}
+                self._metadata[plugin_type] = {}
 
-        # Handle dictionary aliases with full config
-        elif isinstance(alias_target, dict) and "provider" in alias_target:
-            provider = alias_target["provider"]
-            # Copy all other fields to config override
-            for key, value in alias_target.items():
-                if key != "provider":
-                    config_override[key] = value
-            return provider, config_override
+            # Store plugin class
+            self._plugin_classes[plugin_type][provider_type] = plugin_class
 
-    # No alias found, return original
-    return provider_type, config_override
+            # Create lazy plugin
+            lazy_plugin = LazyPlugin(
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+                plugin_class=plugin_class,
+                registry=self,
+                plugin_id=plugin_id,
+                config=config,
+            )
+            self._lazy_plugins[plugin_type][provider_type] = lazy_plugin
 
+            # Create proxy
+            proxy = PluginProxy(
+                plugin_id=plugin_id,
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+                registry=self,
+            )
+            self._proxies[plugin_type][provider_type] = proxy
 
-def get_plugin_metadata(
-    plugin_type: str, provider_type: str
-) -> Optional[Dict[str, Any]]:
-    """Get plugin metadata.
+            # Store metadata
+            meta = metadata or {}
+            self._metadata[plugin_type][provider_type] = meta
 
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
+            # Register with discovery system
+            register_discovered_plugin(
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+                plugin_class=plugin_class,
+                metadata=meta,
+            )
 
-    Returns:
-        Plugin metadata if found, None otherwise
-    """
-    # Resolve alias
-    provider_type, _ = _resolve_alias(plugin_type, provider_type)
-    return _plugin_metadata.get(plugin_type, {}).get(provider_type)
+            # Register with dependency system
+            register_dependency(plugin_id)
 
+            # Register dependencies
+            if dependencies:
+                for dep_type_str, deps in dependencies.items():
+                    try:
+                        dep_type = DependencyType(dep_type_str)
+                        for dep in deps:
+                            dep_parts = dep.split(".")
+                            if len(dep_parts) >= 2:
+                                dep_plugin_type, dep_provider_type = (
+                                    dep_parts[0],
+                                    dep_parts[1],
+                                )
+                                dep_id = f"{dep_plugin_type}.{dep_provider_type}"
+                                add_dependency(plugin_id, dep_id, dep_type)
+                    except ValueError:
+                        logger.warning(f"Invalid dependency type: {dep_type_str}")
 
-def get_plugins_by_type(plugin_type: str) -> Dict[str, Type[PepperpyPlugin]]:
-    """Get all plugins of a specific type.
+        # Emit event
+        self._emit_event(
+            RegistryEvent.PLUGIN_REGISTERED,
+            plugin_id=plugin_id,
+            plugin_type=plugin_type,
+            provider_type=provider_type,
+        )
 
-    Args:
-        plugin_type: Type of plugin
+        logger.debug(f"Registered plugin: {plugin_type}/{provider_type} ({plugin_id})")
 
-    Returns:
-        Dict of provider type to plugin class
-    """
-    return _plugin_registry.get(plugin_type, {})
+    def register_plugin_instance(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        instance: PepperpyPlugin,
+        metadata: Optional[Dict[str, Any]] = None,
+        dependencies: Optional[Dict[str, List[str]]] = None,
+    ) -> None:
+        """Register a plugin instance with the registry.
 
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            instance: Plugin instance
+            metadata: Optional plugin metadata
+            dependencies: Optional plugin dependencies
+        """
+        with self._lock:
+            # Initialize dictionaries if needed
+            if plugin_type not in self._plugins:
+                self._plugins[plugin_type] = {}
+                self._lazy_plugins[plugin_type] = {}
+                self._plugin_classes[plugin_type] = {}
+                self._proxies[plugin_type] = {}
+                self._metadata[plugin_type] = {}
 
-def list_plugins() -> Dict[str, Dict[str, Type[PepperpyPlugin]]]:
-    """List all registered plugins.
+            # Store instance
+            self._plugins[plugin_type][provider_type] = instance
 
-    Returns:
-        Dict of plugin types to provider types to plugin classes
-    """
-    return _plugin_registry
+            # Store class
+            self._plugin_classes[plugin_type][provider_type] = instance.__class__
 
+            # Store metadata
+            meta = metadata or {}
+            self._metadata[plugin_type][provider_type] = meta
 
-def list_plugin_types() -> List[str]:
-    """List all plugin types.
+            # Register with state system if not already registered
+            if not has_plugin_state(instance.plugin_id):
+                register_plugin_state(instance.plugin_id)
 
-    Returns:
-        List of plugin types
-    """
-    return list(_plugin_registry.keys())
+            # Register with dependency system
+            register_dependency(instance.plugin_id)
+            mark_dependency_loaded(instance.plugin_id)
 
+            # Register dependencies
+            if dependencies:
+                for dep_type_str, deps in dependencies.items():
+                    try:
+                        dep_type = DependencyType(dep_type_str)
+                        for dep in deps:
+                            dep_parts = dep.split(".")
+                            if len(dep_parts) >= 2:
+                                dep_plugin_type, dep_provider_type = (
+                                    dep_parts[0],
+                                    dep_parts[1],
+                                )
+                                dep_id = f"{dep_plugin_type}.{dep_provider_type}"
+                                add_dependency(instance.plugin_id, dep_id, dep_type)
+                    except ValueError:
+                        logger.warning(f"Invalid dependency type: {dep_type_str}")
 
-def find_plugin_by_class(
-    plugin_class: Type[PepperpyPlugin],
-) -> Optional[Dict[str, str]]:
-    """Find plugin type and provider type by class.
+        # Emit event
+        self._emit_event(
+            RegistryEvent.PLUGIN_REGISTERED,
+            plugin_id=instance.plugin_id,
+            plugin_type=plugin_type,
+            provider_type=provider_type,
+        )
 
-    Args:
-        plugin_class: Plugin class to find
+        logger.debug(
+            f"Registered plugin instance: {plugin_type}/{provider_type} ({instance.plugin_id})"
+        )
 
-    Returns:
-        Dict with plugin_type and provider_type if found, None otherwise
-    """
-    for plugin_type, providers in _plugin_registry.items():
-        for provider_type, cls in providers.items():
-            if cls == plugin_class:
-                return {"plugin_type": plugin_type, "provider_type": provider_type}
-    return None
+    def unregister_plugin(self, plugin_type: str, provider_type: str) -> None:
+        """Unregister a plugin from the registry.
 
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+        """
+        with self._lock:
+            # Get plugin ID
+            plugin_id = None
+            if (
+                plugin_type in self._plugins
+                and provider_type in self._plugins[plugin_type]
+            ):
+                plugin_id = self._plugins[plugin_type][provider_type].plugin_id
+            elif (
+                plugin_type in self._lazy_plugins
+                and provider_type in self._lazy_plugins[plugin_type]
+            ):
+                plugin_id = self._lazy_plugins[plugin_type][provider_type].plugin_id
 
-def register_plugin_path(path: str) -> None:
-    """Register a path for plugin discovery.
+            # Remove from registry
+            if plugin_type in self._plugins:
+                self._plugins[plugin_type].pop(provider_type, None)
 
-    Args:
-        path: Path to register
-    """
-    global _plugin_paths
-    if os.path.isdir(path):
-        _plugin_paths.add(path)
-        logger.debug(f"Registered plugin path: {path}")
+            if plugin_type in self._lazy_plugins:
+                self._lazy_plugins[plugin_type].pop(provider_type, None)
 
-        # Auto-discover plugins in this path if enabled
-        if _autodiscovery_enabled:
-            discover_plugins_in_path(path)
+            if plugin_type in self._proxies:
+                self._proxies[plugin_type].pop(provider_type, None)
 
-        # Add file watcher if hot reload is enabled
-        if _hot_reload_enabled:
-            _add_path_watcher(path)
-    else:
-        logger.warning(f"Plugin path does not exist: {path}")
+            if plugin_type in self._plugin_classes:
+                self._plugin_classes[plugin_type].pop(provider_type, None)
 
+            if plugin_type in self._metadata:
+                self._metadata[plugin_type].pop(provider_type, None)
 
-def register_plugin_alias(
-    plugin_type: str,
-    alias: str,
-    provider_type: str,
-    config_override: Optional[Dict[str, Any]] = None,
-) -> None:
-    """Register a plugin alias.
-
-    Args:
-        plugin_type: Type of plugin
-        alias: Alias name
-        provider_type: Actual provider type
-        config_override: Configuration overrides to apply
-    """
-    global _plugin_aliases
-
-    # Initialize dict if needed
-    if plugin_type not in _plugin_aliases:
-        _plugin_aliases[plugin_type] = {}
-
-    # If config_override is provided, store as dict with provider
-    if config_override:
-        alias_config = {"provider": provider_type}
-        alias_config.update(config_override)
-        _plugin_aliases[plugin_type][alias] = alias_config
-    else:
-        # Otherwise store as string or as provider:model if model is specified
-        _plugin_aliases[plugin_type][alias] = provider_type
-
-    logger.debug(f"Registered plugin alias: {plugin_type}/{alias} -> {provider_type}")
-
-
-def register_plugin_fallbacks(plugin_type: str, fallbacks: List[str]) -> None:
-    """Register fallbacks for a plugin type.
-
-    Args:
-        plugin_type: Type of plugin
-        fallbacks: List of fallback provider types in order of preference
-    """
-    global _plugin_fallbacks
-    _plugin_fallbacks[plugin_type] = fallbacks
-    logger.debug(f"Registered fallbacks for {plugin_type}: {', '.join(fallbacks)}")
-
-
-def create_provider_instance(
-    plugin_type: str, provider_type: str, **config: Any
-) -> PepperpyPlugin:
-    """Create a provider instance.
-
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
-        **config: Configuration for provider
-
-    Returns:
-        Provider instance
-
-    Raises:
-        PluginError: If provider not found or creation fails
-    """
-    # Resolve alias
-    resolved_provider, config_override = _resolve_alias(plugin_type, provider_type)
-
-    # Merge config with config_override (config takes precedence)
-    merged_config = config_override.copy()
-    merged_config.update(config)
-
-    # Ensure plugin is loaded
-    plugin_class = get_plugin(plugin_type, resolved_provider)
-    if not plugin_class:
-        # If plugin not found and fallbacks are enabled, try fallbacks
-        if _should_try_fallbacks(plugin_type, resolved_provider):
-            fallback = find_fallback(plugin_type, resolved_provider)
-            if fallback:
-                logger.info(
-                    f"Using fallback provider {fallback} for {plugin_type}/{provider_type}"
-                )
-                plugin_class = get_plugin(plugin_type, fallback)
-                if not plugin_class:
-                    raise PluginError(
-                        f"Provider and fallbacks not found: {plugin_type}/{provider_type}",
-                        plugin_type=plugin_type,
-                        provider_type=provider_type,
-                    )
-            else:
-                raise PluginError(
-                    f"Provider not found and no fallbacks available: {plugin_type}/{provider_type}",
-                    plugin_type=plugin_type,
-                    provider_type=provider_type,
-                )
-        else:
-            raise PluginError(
-                f"Provider not found: {plugin_type}/{provider_type}",
+        # Emit event if we have a plugin ID
+        if plugin_id:
+            self._emit_event(
+                RegistryEvent.PLUGIN_UNREGISTERED,
+                plugin_id=plugin_id,
                 plugin_type=plugin_type,
                 provider_type=provider_type,
             )
 
-    # Create instance
-    try:
-        return plugin_class(**merged_config)
-    except Exception as e:
-        raise PluginError(
-            f"Failed to create provider instance: {e}",
-            plugin_type=plugin_type,
-            provider_type=provider_type,
-            cause=e,
-        )
-
-
-def load_plugin(plugin_type: str, provider_type: str) -> Optional[Type[PepperpyPlugin]]:
-    """Load a specific plugin.
-
-    Args:
-        plugin_type: Type of plugin
-        provider_type: Type of provider
-
-    Returns:
-        Plugin class if found and loaded, None otherwise
-    """
-    # Check if already loaded
-    plugin_class = _plugin_registry.get(plugin_type, {}).get(provider_type)
-    if plugin_class:
-        return plugin_class
-
-    # Check plugin paths for plugin configuration
-    for plugin_path in _plugin_paths:
-        provider_dir = os.path.join(plugin_path, plugin_type, provider_type)
-        if not os.path.isdir(provider_dir):
-            continue
-
-        # Look for plugin.yaml
-        plugin_yaml = os.path.join(provider_dir, "plugin.yaml")
-        if not os.path.isfile(plugin_yaml):
-            continue
-
-        # Load plugin metadata
-        try:
-            with open(plugin_yaml) as f:
-                metadata = yaml.safe_load(f)
-        except Exception as e:
-            logger.error(f"Failed to load plugin metadata: {plugin_yaml}: {e}")
-            continue
-
-        # Get entry point
-        entry_point = metadata.get("entry_point")
-        if not entry_point:
-            logger.error(f"No entry point found in plugin metadata: {plugin_yaml}")
-            continue
-
-        # Parse entry point
-        if ":" not in entry_point:
-            logger.error(
-                f"Invalid entry point format in plugin metadata: {plugin_yaml}"
+            logger.debug(
+                f"Unregistered plugin: {plugin_type}/{provider_type} ({plugin_id})"
             )
-            continue
 
-        module_name, class_name = entry_point.split(":", 1)
+    def get_plugin(
+        self, plugin_type: str, provider_type: str, lazy: bool = True
+    ) -> Union[PepperpyPlugin, PluginProxy]:
+        """Get a plugin from the registry.
 
-        # Adjust sys.path for module import
-        original_path = sys.path.copy()
-        if plugin_path not in sys.path:
-            sys.path.insert(0, plugin_path)
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            lazy: Whether to return a lazy-loading proxy or force loading
 
-        try:
-            # Import module
-            module_path = f"{os.path.basename(plugin_path)}.{module_name}"
-            module = importlib.import_module(module_path)
+        Returns:
+            Plugin instance or proxy
 
-            # Get plugin class
-            plugin_class = getattr(module, class_name)
+        Raises:
+            PluginNotFoundError: If the plugin is not found
+        """
+        with self._lock:
+            # Check if plugin exists
+            if (
+                plugin_type not in self._plugin_classes
+                or provider_type not in self._plugin_classes[plugin_type]
+            ):
+                # Auto-initialize if enabled
+                if self._auto_init and not self._initialized and not self._initializing:
+                    self.discover_plugins()
+                    return self.get_plugin(plugin_type, provider_type, lazy)
 
-            # Register plugin
-            register_plugin(plugin_type, provider_type, plugin_class, metadata)
+                # Plugin not found
+                raise PluginNotFoundError(
+                    f"{plugin_type}.{provider_type}",
+                    f"{plugin_type}/{provider_type}",
+                )
 
-            return plugin_class
-        except ImportError as e:
-            logger.error(
-                f"Failed to import plugin module: {plugin_type}/{provider_type}: {e}"
-            )
-        except AttributeError as e:
-            logger.error(
-                f"Failed to find plugin class: {plugin_type}/{provider_type}/{class_name}: {e}"
-            )
-        except Exception as e:
-            logger.error(f"Error loading plugin: {plugin_type}/{provider_type}: {e}")
-        finally:
-            # Restore sys.path
-            sys.path = original_path
+            # Return existing instance if available
+            if (
+                plugin_type in self._plugins
+                and provider_type in self._plugins[plugin_type]
+            ):
+                return self._plugins[plugin_type][provider_type]
 
-    return None
+            # Return proxy if lazy loading is enabled
+            if lazy:
+                return self._proxies[plugin_type][provider_type]
 
+            # Otherwise, load the plugin
+            return self._load_plugin_instance(plugin_type, provider_type)
 
-def discover_plugins_in_path(path: str) -> Dict[str, Dict[str, Dict[str, Any]]]:
-    """Discover plugins in a specific path.
+    def _load_plugin_instance(
+        self, plugin_type: str, provider_type: str
+    ) -> PepperpyPlugin:
+        """Load a plugin instance.
 
-    Args:
-        path: Path to discover plugins in
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
 
-    Returns:
-        Dictionary of discovered plugins by type and provider
-    """
-    discovered: Dict[str, Dict[str, Dict[str, Any]]] = {}
+        Returns:
+            Plugin instance
 
-    if not os.path.isdir(path):
-        return discovered
+        Raises:
+            PluginNotFoundError: If the plugin is not found
+        """
+        with self._lock:
+            # Check if plugin exists
+            if (
+                plugin_type not in self._lazy_plugins
+                or provider_type not in self._lazy_plugins[plugin_type]
+            ):
+                raise PluginNotFoundError(
+                    f"{plugin_type}.{provider_type}",
+                    f"{plugin_type}/{provider_type}",
+                )
 
-    # Check if we've scanned this path recently
-    if _is_path_cached(path):
-        logger.debug(f"Skipping cached plugin path: {path}")
-        return discovered
+            # Get lazy plugin
+            lazy_plugin = self._lazy_plugins[plugin_type][provider_type]
 
-    # Mark path as scanned
-    _mark_path_scanned(path)
+            # Check if already loaded
+            if (
+                plugin_type in self._plugins
+                and provider_type in self._plugins[plugin_type]
+            ):
+                return self._plugins[plugin_type][provider_type]
 
-    # Discover plugin types (directories in plugin path)
-    for plugin_type in os.listdir(path):
-        type_dir = os.path.join(path, plugin_type)
-        if not os.path.isdir(type_dir):
-            continue
+            # Load dependencies first
+            dependencies = get_load_order([lazy_plugin.plugin_id])
+            for dep_id in dependencies:
+                if dep_id != lazy_plugin.plugin_id and not is_dependency_loaded(dep_id):
+                    # Find dependency plugin
+                    dep_parts = dep_id.split(".")
+                    if len(dep_parts) >= 2:
+                        dep_plugin_type, dep_provider_type = dep_parts[0], dep_parts[1]
+                        try:
+                            # Attempt to load dependency
+                            self._load_plugin_instance(
+                                dep_plugin_type, dep_provider_type
+                            )
+                        except PluginNotFoundError:
+                            logger.warning(f"Dependency {dep_id} not found")
 
-        # Discover provider types (directories in plugin type directory)
-        for provider_type in os.listdir(type_dir):
-            provider_dir = os.path.join(type_dir, provider_type)
-            if not os.path.isdir(provider_dir):
-                continue
-
-            # Look for plugin.yaml
-            plugin_yaml = os.path.join(provider_dir, "plugin.yaml")
-            if not os.path.isfile(plugin_yaml):
-                continue
-
-            # Load plugin metadata
+            # Create instance
             try:
-                with open(plugin_yaml) as f:
-                    metadata = yaml.safe_load(f)
+                instance = lazy_plugin()
+
+                # Store instance
+                self._plugins[plugin_type][provider_type] = instance
+
+                # Mark as loaded in dependency system
+                mark_dependency_loaded(lazy_plugin.plugin_id)
+
+                # Register with state system if not already registered
+                if not has_plugin_state(instance.plugin_id):
+                    register_plugin_state(instance.plugin_id)
+
+                # Validate instance
+                validate_plugin_instance(instance)
+
+                return instance
             except Exception as e:
-                logger.error(f"Failed to load plugin metadata: {plugin_yaml}: {e}")
-                continue
+                logger.error(
+                    f"Error loading plugin {plugin_type}/{provider_type}: {e}",
+                    exc_info=True,
+                )
+                raise PluginNotFoundError(
+                    f"{plugin_type}.{provider_type}",
+                    f"{plugin_type}/{provider_type}",
+                    cause=e,
+                )
 
-            # Add plugin to discovered dict
-            if plugin_type not in discovered:
-                discovered[plugin_type] = {}
+    def has_plugin(self, plugin_type: str, provider_type: str) -> bool:
+        """Check if a plugin exists.
 
-            metadata["_path"] = plugin_yaml
-            discovered[plugin_type][provider_type] = metadata
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
 
-            # Auto-load if entry_point is specified
-            if _autodiscovery_enabled and "entry_point" in metadata:
+        Returns:
+            True if the plugin exists, False otherwise
+        """
+        with self._lock:
+            return (
+                plugin_type in self._plugin_classes
+                and provider_type in self._plugin_classes[plugin_type]
+            )
+
+    def get_plugin_metadata(
+        self, plugin_type: str, provider_type: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get plugin metadata.
+
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+
+        Returns:
+            Plugin metadata or None if not found
+        """
+        with self._lock:
+            if (
+                plugin_type not in self._metadata
+                or provider_type not in self._metadata[plugin_type]
+            ):
+                return None
+
+            return self._metadata[plugin_type][provider_type].copy()
+
+    def get_plugins_by_type(
+        self, plugin_type: str, lazy: bool = True
+    ) -> Dict[str, Union[PepperpyPlugin, PluginProxy]]:
+        """Get all plugins of a specific type.
+
+        Args:
+            plugin_type: Type of plugin
+            lazy: Whether to return lazy-loading proxies or force loading
+
+        Returns:
+            Dictionary of provider types to plugin instances or proxies
+        """
+        with self._lock:
+            result: Dict[str, Union[PepperpyPlugin, PluginProxy]] = {}
+
+            # Check if type exists
+            if plugin_type not in self._plugin_classes:
+                return result
+
+            # Get all providers
+            for provider_type in self._plugin_classes[plugin_type]:
                 try:
-                    load_plugin(plugin_type, provider_type)
-                    logger.info(f"Auto-loaded plugin: {plugin_type}/{provider_type}")
+                    result[provider_type] = self.get_plugin(
+                        plugin_type, provider_type, lazy=lazy
+                    )
                 except Exception as e:
-                    logger.error(
-                        f"Failed to auto-load {plugin_type}/{provider_type}: {e}"
+                    logger.warning(
+                        f"Error getting plugin {plugin_type}/{provider_type}: {e}"
                     )
 
-            logger.debug(f"Discovered plugin: {plugin_type}/{provider_type}")
+            return result
 
-    return discovered
+    def get_all_plugins(
+        self, lazy: bool = True
+    ) -> Dict[str, Dict[str, Union[PepperpyPlugin, PluginProxy]]]:
+        """Get all plugins.
 
+        Args:
+            lazy: Whether to return lazy-loading proxies or force loading
 
-def discover_plugins() -> Dict[str, Dict[str, Dict[str, Any]]]:
-    """Discover all plugins in registered paths.
+        Returns:
+            Dictionary of plugin types to dictionaries of provider types to plugin instances or proxies
+        """
+        with self._lock:
+            result: Dict[str, Dict[str, Union[PepperpyPlugin, PluginProxy]]] = {}
 
-    Returns:
-        Dictionary of discovered plugins by type and provider
-    """
-    discovered: Dict[str, Dict[str, Dict[str, Any]]] = {}
+            # Get all plugin types
+            for plugin_type in self._plugin_classes:
+                result[plugin_type] = self.get_plugins_by_type(plugin_type, lazy=lazy)
 
-    # Discover plugins in registered paths
-    for plugin_path in _plugin_paths:
-        path_discovered = discover_plugins_in_path(plugin_path)
+            return result
 
-        # Merge discovered plugins
-        for plugin_type, providers in path_discovered.items():
-            if plugin_type not in discovered:
-                discovered[plugin_type] = {}
-            discovered[plugin_type].update(providers)
+    def add_event_listener(self, event: RegistryEvent, listener: Callable) -> None:
+        """Add an event listener.
 
-    return discovered
+        Args:
+            event: Event to listen for
+            listener: Event listener function
+        """
+        with self._lock:
+            self._event_listeners[event].append(listener)
 
+    def remove_event_listener(self, event: RegistryEvent, listener: Callable) -> None:
+        """Remove an event listener.
 
-def _is_path_cached(path: str, max_age: float = 300.0) -> bool:
-    """Check if a path has been scanned recently.
+        Args:
+            event: Event to stop listening for
+            listener: Event listener function to remove
+        """
+        with self._lock:
+            if listener in self._event_listeners[event]:
+                self._event_listeners[event].remove(listener)
 
-    Args:
-        path: Path to check
-        max_age: Maximum age in seconds for cached path
+    def _emit_event(self, event: RegistryEvent, **kwargs: Any) -> None:
+        """Emit an event.
 
-    Returns:
-        True if path is cached and not expired, False otherwise
-    """
-    if path not in _scan_timestamps:
-        return False
+        Args:
+            event: Event to emit
+            **kwargs: Event data
+        """
+        with self._lock:
+            listeners = self._event_listeners[event].copy()
 
-    timestamp = _scan_timestamps[path]
-    return (time.time() - timestamp) < max_age
+        # Call listeners outside the lock
+        for listener in listeners:
+            try:
+                listener(event, **kwargs)
+            except Exception as e:
+                logger.error(f"Error in event listener: {e}")
 
+    def add_scan_path(self, path: str) -> None:
+        """Add a path to scan for plugins.
 
-def _mark_path_scanned(path: str) -> None:
-    """Mark a path as scanned.
+        Args:
+            path: Path to scan
+        """
+        with self._lock:
+            self._scan_paths.add(os.path.abspath(path))
+            register_scan_path(path)
 
-    Args:
-        path: Path to mark
-    """
-    _scan_timestamps[path] = time.time()
+    def add_package_path(self, package: str) -> None:
+        """Add a package to scan for plugins.
 
+        Args:
+            package: Package name to scan
+        """
+        with self._lock:
+            self._package_paths.add(package)
 
-def clear_path_cache(path: Optional[str] = None) -> None:
-    """Clear path scan cache.
+    def set_auto_init(self, enabled: bool) -> None:
+        """Enable or disable auto-initialization.
 
-    Args:
-        path: Specific path to clear, or all paths if None
-    """
-    global _scan_timestamps
-    if path:
-        if path in _scan_timestamps:
-            del _scan_timestamps[path]
-    else:
-        _scan_timestamps.clear()
+        Args:
+            enabled: Whether to enable auto-initialization
+        """
+        with self._lock:
+            self._auto_init = enabled
 
-
-async def initialize_discovery() -> None:
-    """Initialize plugin discovery.
-
-    This should be called at startup to discover plugins.
-    """
-    global _discovery_initialized
-
-    if _discovery_initialized:
-        return
-
-    # Add default plugin paths
-    _ensure_default_paths()
-
-    # Discover plugins
-    plugins = discover_plugins()
-
-    # Load common plugin types eagerly if autodiscovery is disabled
-    # (Otherwise they would have been loaded during discovery)
-    if not _autodiscovery_enabled:
-        for plugin_type in ["llm", "embeddings", "rag"]:
-            if plugin_type in plugins:
-                for provider_type in plugins[plugin_type]:
-                    try:
-                        load_plugin(plugin_type, provider_type)
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to load plugin: {plugin_type}/{provider_type}: {e}"
-                        )
-
-    _discovery_initialized = True
-    logger.info("Plugin discovery initialized")
-
-
-def _ensure_default_paths() -> None:
-    """Ensure default plugin paths are registered."""
-    # Add built-in plugin path
-    builtin_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "plugins")
-    if os.path.isdir(builtin_path):
-        register_plugin_path(builtin_path)
-
-    # Add user plugin path
-    user_plugin_path = os.path.join(os.path.expanduser("~"), ".pepperpy", "plugins")
-    if os.path.isdir(user_plugin_path):
-        register_plugin_path(user_plugin_path)
-
-    # Add current working directory plugins
-    cwd_plugins = os.path.join(os.getcwd(), "plugins")
-    if os.path.isdir(cwd_plugins):
-        register_plugin_path(cwd_plugins)
-
-
-async def ensure_discovery_initialized() -> None:
-    """Ensure discovery is initialized.
-
-    This is a convenience function that can be called from anywhere.
-    """
-    if not _discovery_initialized:
-        await initialize_discovery()
-
-
-def enable_hot_reload(enable: bool = True) -> None:
-    """Enable or disable hot reloading of plugins.
-
-    When enabled, the plugin system will watch plugin directories for changes
-    and automatically reload plugins when they change.
-
-    Args:
-        enable: Whether to enable hot reloading
-    """
-    global _hot_reload_enabled
-
-    try:
-        import watchdog
-        from watchdog.events import FileSystemEventHandler
-        from watchdog.observers import Observer
-    except ImportError:
-        logger.error("watchdog package is required for hot reloading")
-        logger.error("Install with: pip install watchdog")
-        return
-
-    if enable:
-        if not _hot_reload_enabled:
-            _hot_reload_enabled = True
-            logger.info("Hot reloading enabled for plugins")
-
-            # Add watchers to existing paths
-            for path in _plugin_paths:
-                _add_path_watcher(path)
-    else:
-        # Disable hot reloading and stop watchers
-        _hot_reload_enabled = False
-        _stop_all_watchers()
-        logger.info("Hot reloading disabled for plugins")
-
-
-def _add_path_watcher(path: str) -> None:
-    """Add a watcher to a path for hot reloading.
-
-    Args:
-        path: Path to watch
-    """
-    try:
-        if not _hot_reload_enabled or path in _plugin_watchers:
+    def discover_plugins(self) -> None:
+        """Discover plugins from all sources."""
+        if self._initialized:
             return
 
-        from watchdog.events import FileSystemEventHandler
-        from watchdog.observers import Observer
+        with self._lock:
+            if self._initializing:
+                return
 
-        class PluginChangeHandler(FileSystemEventHandler):
-            def on_modified(self, event):
-                if not event.is_directory and event.src_path.endswith(".py"):
-                    # Get plugin type and provider from path
-                    rel_path = os.path.relpath(event.src_path, path)
-                    parts = rel_path.split(os.sep)
+            self._initializing = True
 
-                    if len(parts) >= 2:
-                        plugin_type = parts[0]
-                        provider_type = parts[1]
+        # Emit event
+        self._emit_event(RegistryEvent.REGISTRY_INITIALIZING)
 
-                        # Only reload if already loaded
-                        if (
-                            plugin_type in _plugin_registry
-                            and provider_type in _plugin_registry[plugin_type]
-                        ):
-                            logger.info(
-                                f"Detected change in {plugin_type}/{provider_type}"
-                            )
-                            # Remove from registry and reload
-                            if plugin_type in _plugin_registry:
-                                if provider_type in _plugin_registry[plugin_type]:
-                                    del _plugin_registry[plugin_type][provider_type]
-                            if plugin_type in _plugin_metadata:
-                                if provider_type in _plugin_metadata[plugin_type]:
-                                    del _plugin_metadata[plugin_type][provider_type]
-
-                            # Clear the path from cache to force reload
-                            clear_path_cache(
-                                os.path.join(path, plugin_type, provider_type)
-                            )
-
-                            # Reload the plugin
-                            try:
-                                load_plugin(plugin_type, provider_type)
-                                logger.info(
-                                    f"Reloaded plugin: {plugin_type}/{provider_type}"
-                                )
-                            except Exception as e:
-                                logger.error(
-                                    f"Failed to reload plugin: {plugin_type}/{provider_type}: {e}"
-                                )
-
-        # Create observer and handler
-        observer = Observer()
-        handler = PluginChangeHandler()
-
-        # Start watching
-        observer.schedule(handler, path, recursive=True)
-        observer.start()
-
-        # Store observer
-        _plugin_watchers[path] = observer
-
-        logger.debug(f"Added plugin watcher for path: {path}")
-    except Exception as e:
-        logger.error(f"Failed to add watcher for path {path}: {e}")
-
-
-def _stop_all_watchers() -> None:
-    """Stop all plugin watchers."""
-    for path, observer in _plugin_watchers.items():
         try:
-            observer.stop()
-            observer.join()
-            logger.debug(f"Stopped watcher for path: {path}")
+            logger.debug("Discovering plugins...")
+
+            # Discover plugins
+            plugins = discover_plugins()
+
+            # Register discovered plugins
+            for plugin_type, providers in plugins.items():
+                for provider_type, info in providers.items():
+                    plugin_class = info.get_class()
+                    if plugin_class is not None:
+                        metadata = info.metadata.copy() if info.metadata else {}
+                        self.register_plugin(
+                            plugin_type=plugin_type,
+                            provider_type=provider_type,
+                            plugin_class=plugin_class,
+                            metadata=metadata,
+                            lazy=True,
+                        )
+
+            # Mark as initialized
+            with self._lock:
+                self._initialized = True
+                self._initializing = False
+
+            # Emit event
+            self._emit_event(RegistryEvent.REGISTRY_INITIALIZED)
+
+            logger.debug("Plugin discovery completed")
         except Exception as e:
-            logger.error(f"Failed to stop watcher for path {path}: {e}")
+            logger.error(f"Error discovering plugins: {e}", exc_info=True)
 
-    _plugin_watchers.clear()
+            # Reset initialization state
+            with self._lock:
+                self._initializing = False
+
+            # Re-raise exception
+            raise
+
+    async def initialize_plugin(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        **kwargs: Any,
+    ) -> PepperpyPlugin:
+        """Initialize a plugin.
+
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            **kwargs: Initialization parameters
+
+        Returns:
+            Initialized plugin instance
+
+        Raises:
+            PluginNotFoundError: If the plugin is not found
+        """
+        # Get plugin instance (force loading)
+        instance = self.get_plugin(plugin_type, provider_type, lazy=False)
+
+        # Get plugin ID
+        plugin_id = instance.plugin_id
+
+        # Verify state
+        verify_state(
+            plugin_id,
+            [PluginState.REGISTERED, PluginState.INIT_FAILED],
+            "initialization",
+        )
+
+        # Emit event
+        self._emit_event(
+            RegistryEvent.PLUGIN_INITIALIZING,
+            plugin_id=plugin_id,
+            plugin_type=plugin_type,
+            provider_type=provider_type,
+        )
+
+        try:
+            # Initialize plugin
+            set_state(plugin_id, PluginState.INITIALIZING)
+            await instance.initialize(**kwargs)
+            set_state(plugin_id, PluginState.INITIALIZED)
+
+            # Emit event
+            self._emit_event(
+                RegistryEvent.PLUGIN_INITIALIZED,
+                plugin_id=plugin_id,
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+            )
+
+            return instance
+        except Exception as e:
+            # Set state to initialization failed
+            set_state(plugin_id, PluginState.INIT_FAILED, e)
+
+            # Emit event
+            self._emit_event(
+                RegistryEvent.PLUGIN_INITIALIZATION_FAILED,
+                plugin_id=plugin_id,
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+                error=e,
+            )
+
+            # Re-raise exception
+            raise
+
+    async def cleanup_plugin(
+        self,
+        plugin_type: str,
+        provider_type: str,
+        **kwargs: Any,
+    ) -> None:
+        """Clean up a plugin.
+
+        Args:
+            plugin_type: Type of plugin
+            provider_type: Type of provider
+            **kwargs: Cleanup parameters
+
+        Raises:
+            PluginNotFoundError: If the plugin is not found
+        """
+        # Check if plugin exists and is loaded
+        if (
+            plugin_type not in self._plugins
+            or provider_type not in self._plugins[plugin_type]
+        ):
+            # Plugin not found or not loaded, nothing to clean up
+            return
+
+        # Get plugin instance
+        instance = self._plugins[plugin_type][provider_type]
+
+        # Get plugin ID
+        plugin_id = instance.plugin_id
+
+        # Verify state
+        try:
+            verify_state(
+                plugin_id,
+                [PluginState.INITIALIZED, PluginState.CLEANUP_FAILED],
+                "cleanup",
+            )
+        except PluginError:
+            # Plugin is not in a state that requires cleanup
+            return
+
+        # Emit event
+        self._emit_event(
+            RegistryEvent.PLUGIN_CLEANUP_STARTED,
+            plugin_id=plugin_id,
+            plugin_type=plugin_type,
+            provider_type=provider_type,
+        )
+
+        try:
+            # Clean up plugin
+            set_state(plugin_id, PluginState.CLEANING_UP)
+            await instance.cleanup(**kwargs)
+            set_state(plugin_id, PluginState.CLEANED_UP)
+
+            # Emit event
+            self._emit_event(
+                RegistryEvent.PLUGIN_CLEANUP_COMPLETED,
+                plugin_id=plugin_id,
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+            )
+        except Exception as e:
+            # Set state to cleanup failed
+            set_state(plugin_id, PluginState.CLEANUP_FAILED, e)
+
+            # Emit event
+            self._emit_event(
+                RegistryEvent.PLUGIN_CLEANUP_FAILED,
+                plugin_id=plugin_id,
+                plugin_type=plugin_type,
+                provider_type=provider_type,
+                error=e,
+            )
+
+            # Re-raise exception
+            raise
+
+    async def initialize_all_plugins(self, **kwargs: Any) -> None:
+        """Initialize all registered plugins.
+
+        Args:
+            **kwargs: Initialization parameters
+        """
+        # Discover plugins if not already done
+        if not self._initialized:
+            self.discover_plugins()
+
+        # Get all plugin types and providers
+        plugins = []
+        with self._lock:
+            for plugin_type, providers in self._lazy_plugins.items():
+                for provider_type in providers:
+                    plugins.append((plugin_type, provider_type))
+
+        # Initialize plugins
+        for plugin_type, provider_type in plugins:
+            try:
+                await self.initialize_plugin(plugin_type, provider_type, **kwargs)
+            except Exception as e:
+                logger.error(
+                    f"Error initializing plugin {plugin_type}/{provider_type}: {e}",
+                    exc_info=True,
+                )
+
+    async def cleanup_all_plugins(self, **kwargs: Any) -> None:
+        """Clean up all initialized plugins.
+
+        Args:
+            **kwargs: Cleanup parameters
+        """
+        # Emit event
+        self._emit_event(RegistryEvent.REGISTRY_SHUTTING_DOWN)
+
+        # Get all loaded plugins
+        plugins = []
+        with self._lock:
+            for plugin_type, providers in self._plugins.items():
+                for provider_type in providers:
+                    plugins.append((plugin_type, provider_type))
+
+            self._shutting_down = True
+
+        # Clean up plugins in reverse order
+        for plugin_type, provider_type in reversed(plugins):
+            try:
+                await self.cleanup_plugin(plugin_type, provider_type, **kwargs)
+            except Exception as e:
+                logger.error(
+                    f"Error cleaning up plugin {plugin_type}/{provider_type}: {e}",
+                    exc_info=True,
+                )
+
+        # Emit event
+        self._emit_event(RegistryEvent.REGISTRY_SHUTDOWN)
+
+        # Reset registry state
+        with self._lock:
+            self._shutting_down = False
+            self._initialized = False
+
+    def __del__(self):
+        """Clean up the registry when it's garbage collected."""
+        # Only attempt cleanup if there are plugins registered
+        with self._lock:
+            if not self._plugins:
+                return
+
+        # Run cleanup in a separate thread
+        try:
+            loop = asyncio.new_event_loop()
+            loop.run_until_complete(self.cleanup_all_plugins())
+            loop.close()
+        except Exception:
+            # Ignore exceptions during garbage collection
+            pass
 
 
-def set_autodiscovery(enabled: bool) -> None:
-    """Enable or disable automatic discovery and loading of plugins.
-
-    When enabled, plugins will be automatically discovered and loaded
-    when paths are registered or during initialization.
-
-    Args:
-        enabled: Whether to enable autodiscovery
-    """
-    global _autodiscovery_enabled
-    _autodiscovery_enabled = enabled
-
-    if enabled:
-        logger.info("Plugin autodiscovery enabled")
-    else:
-        logger.info("Plugin autodiscovery disabled")
+# Singleton instance
+_registry = PluginRegistry()
 
 
-def scan_available_plugins() -> Dict[str, List[str]]:
-    """Scan for available plugins without loading them.
-
-    Returns:
-        Dictionary mapping plugin types to lists of available provider types
-    """
-    available: Dict[str, List[str]] = {}
-
-    # Discover plugins
-    discovered = discover_plugins()
-
-    # Convert to simplified format
-    for plugin_type, providers in discovered.items():
-        if plugin_type not in available:
-            available[plugin_type] = []
-        available[plugin_type].extend(list(providers.keys()))
-
-    # Sort lists for consistency
-    for plugin_type in available:
-        available[plugin_type].sort()
-
-    return available
+# Public API
+register_plugin = _registry.register_plugin
+register_plugin_instance = _registry.register_plugin_instance
+unregister_plugin = _registry.unregister_plugin
+get_plugin = _registry.get_plugin
+has_plugin = _registry.has_plugin
+get_plugin_metadata = _registry.get_plugin_metadata
+get_plugins_by_type = _registry.get_plugins_by_type
+get_all_plugins = _registry.get_all_plugins
+add_event_listener = _registry.add_event_listener
+remove_event_listener = _registry.remove_event_listener
+add_scan_path = _registry.add_scan_path
+add_package_path = _registry.add_package_path
+set_auto_init = _registry.set_auto_init
+discover_plugins = _registry.discover_plugins
+initialize_plugin = _registry.initialize_plugin
+cleanup_plugin = _registry.cleanup_plugin
+initialize_all_plugins = _registry.initialize_all_plugins
+cleanup_all_plugins = _registry.cleanup_all_plugins

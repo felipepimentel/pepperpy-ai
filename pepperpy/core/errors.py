@@ -1,10 +1,11 @@
-"""Unified error handling for PepperPy.
+"""
+PepperPy Errors.
 
-This module provides a centralized error class hierarchy for the entire
-framework, with consistent error reporting, context, and handling mechanisms.
+This module provides exception classes for PepperPy, defining
+a hierarchy of errors that can be raised by the framework and plugins.
 """
 
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 
 class PepperpyError(Exception):
@@ -18,9 +19,9 @@ class PepperpyError(Exception):
         self,
         message: str,
         *args,
-        code: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
-        cause: Optional[Exception] = None,
+        code: str | None = None,
+        details: dict[str, Any] | None = None,
+        cause: Exception | None = None,
         **kwargs,
     ):
         """Initialize a PepperPy error.
@@ -72,13 +73,16 @@ class PepperpyError(Exception):
 
         return " | ".join(parts)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert error to dictionary.
 
         Returns:
             Dictionary representation of the error
         """
-        result = {"type": self.__class__.__name__, "message": self.message}
+        result: dict[str, Any] = {
+            "type": self.__class__.__name__,
+            "message": self.message,
+        }
 
         if self.code:
             result["code"] = self.code
@@ -111,7 +115,7 @@ class PepperpyError(Exception):
 
     @classmethod
     def from_exception(
-        cls, exception: Exception, message: Optional[str] = None, **kwargs
+        cls, exception: Exception, message: str | None = None, **kwargs
     ) -> "PepperpyError":
         """Create a PepperPy error from another exception.
 
@@ -147,9 +151,9 @@ class ValidationError(PepperpyError):
     def __init__(
         self,
         message: str,
-        field: Optional[str] = None,
-        value: Optional[Any] = None,
-        constraint: Optional[str] = None,
+        field: str | None = None,
+        value: Any | None = None,
+        constraint: str | None = None,
         *args,
         **kwargs,
     ):
@@ -175,8 +179,8 @@ class ConfigurationError(PepperpyError):
     def __init__(
         self,
         message: str,
-        config_key: Optional[str] = None,
-        config_value: Optional[Any] = None,
+        config_key: str | None = None,
+        config_value: Any | None = None,
         *args,
         **kwargs,
     ):
@@ -200,8 +204,8 @@ class ProviderError(PepperpyError):
     def __init__(
         self,
         message: str,
-        provider_name: Optional[str] = None,
-        operation: Optional[str] = None,
+        provider_name: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -222,7 +226,7 @@ class ProviderError(PepperpyError):
 class AuthenticationError(PepperpyError):
     """Error raised when authentication fails."""
 
-    def __init__(self, message: str, provider: Optional[str] = None, *args, **kwargs):
+    def __init__(self, message: str, provider: str | None = None, *args, **kwargs):
         """Initialize authentication error.
 
         Args:
@@ -241,9 +245,9 @@ class AuthorizationError(PepperpyError):
     def __init__(
         self,
         message: str,
-        provider: Optional[str] = None,
-        resource: Optional[str] = None,
-        action: Optional[str] = None,
+        provider: str | None = None,
+        resource: str | None = None,
+        action: str | None = None,
         *args,
         **kwargs,
     ):
@@ -269,9 +273,9 @@ class ResourceError(PepperpyError):
     def __init__(
         self,
         message: str,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
-        operation: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -297,8 +301,8 @@ class NotFoundError(ResourceError):
     def __init__(
         self,
         message: str,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
         *args,
         **kwargs,
     ):
@@ -327,8 +331,8 @@ class DuplicateError(ResourceError):
     def __init__(
         self,
         message: str,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
         *args,
         **kwargs,
     ):
@@ -357,9 +361,9 @@ class NetworkError(PepperpyError):
     def __init__(
         self,
         message: str,
-        host: Optional[str] = None,
-        operation: Optional[str] = None,
-        status_code: Optional[int] = None,
+        host: str | None = None,
+        operation: str | None = None,
+        status_code: int | None = None,
         *args,
         **kwargs,
     ):
@@ -385,8 +389,8 @@ class TimeoutError(NetworkError):
     def __init__(
         self,
         message: str,
-        timeout_seconds: Optional[float] = None,
-        operation: Optional[str] = None,
+        timeout_seconds: float | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -409,8 +413,8 @@ class ServiceError(PepperpyError):
     def __init__(
         self,
         message: str,
-        service_name: Optional[str] = None,
-        operation: Optional[str] = None,
+        service_name: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -434,9 +438,9 @@ class LLMError(ServiceError):
     def __init__(
         self,
         message: str,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        operation: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -463,9 +467,9 @@ class EmbeddingError(ServiceError):
     def __init__(
         self,
         message: str,
-        provider: Optional[str] = None,
-        model: Optional[str] = None,
-        operation: Optional[str] = None,
+        provider: str | None = None,
+        model: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -492,9 +496,9 @@ class RAGError(ServiceError):
     def __init__(
         self,
         message: str,
-        provider: Optional[str] = None,
-        index: Optional[str] = None,
-        operation: Optional[str] = None,
+        provider: str | None = None,
+        index: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -521,10 +525,10 @@ class StorageError(ServiceError):
     def __init__(
         self,
         message: str,
-        provider: Optional[str] = None,
-        container: Optional[str] = None,
-        path: Optional[str] = None,
-        operation: Optional[str] = None,
+        provider: str | None = None,
+        container: str | None = None,
+        path: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -553,8 +557,8 @@ class ContentError(PepperpyError):
     def __init__(
         self,
         message: str,
-        content_type: Optional[str] = None,
-        operation: Optional[str] = None,
+        content_type: str | None = None,
+        operation: str | None = None,
         *args,
         **kwargs,
     ):
@@ -578,9 +582,9 @@ class ParsingError(ContentError):
     def __init__(
         self,
         message: str,
-        content_type: Optional[str] = None,
-        line: Optional[int] = None,
-        column: Optional[int] = None,
+        content_type: str | None = None,
+        line: int | None = None,
+        column: int | None = None,
         *args,
         **kwargs,
     ):
@@ -607,7 +611,7 @@ class ValidationErrorCollection(ValidationError):
     def __init__(
         self,
         message: str,
-        errors: Optional[List[ValidationError]] = None,
+        errors: list[ValidationError] | None = None,
         *args,
         **kwargs,
     ):
@@ -630,7 +634,7 @@ class ValidationErrorCollection(ValidationError):
         """
         self.errors.append(error)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert error collection to dictionary.
 
         Returns:
@@ -642,171 +646,206 @@ class ValidationErrorCollection(ValidationError):
 
 
 class PluginError(PepperpyError):
-    """Error raised when a plugin operation fails."""
+    """Error raised by or related to a plugin."""
 
     def __init__(
         self,
         message: str,
-        plugin_name: Optional[str] = None,
-        operation: Optional[str] = None,
-        *args,
-        **kwargs,
+        plugin_id: str | None = None,
+        cause: Exception | None = None,
     ):
-        """Initialize plugin error.
+        """Initialize a plugin error.
 
         Args:
             message: Error message
-            plugin_name: Optional plugin name
-            operation: Optional operation that failed
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
+            plugin_id: Optional plugin ID
+            cause: Optional cause of the error
         """
-        super().__init__(message, *args, **kwargs)
-        self.plugin_name = plugin_name
-        self.operation = operation
+        self.plugin_id = plugin_id
+        message_with_id = f"[Plugin{f' {plugin_id}' if plugin_id else ''}] {message}"
+        super().__init__(message_with_id, cause)
+
+
+class ConfigError(PepperpyError):
+    """Error related to configuration."""
+
+    def __init__(
+        self,
+        message: str,
+        config_path: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize a configuration error.
+
+        Args:
+            message: Error message
+            config_path: Optional path to the configuration
+            cause: Optional cause of the error
+        """
+        self.config_path = config_path
+        message_with_path = (
+            f"[Config{f' {config_path}' if config_path else ''}] {message}"
+        )
+        super().__init__(message_with_path, cause)
+
+
+class ApiNetworkError(PepperpyError):
+    """Error related to network operations."""
+
+    def __init__(
+        self, message: str, url: str | None = None, cause: Exception | None = None
+    ):
+        """Initialize a network error.
+
+        Args:
+            message: Error message
+            url: Optional URL that caused the error
+            cause: Optional cause of the error
+        """
+        self.url = url
+        message_with_url = f"[Network{f' {url}' if url else ''}] {message}"
+        super().__init__(message_with_url, cause)
+
+
+class AuthError(PepperpyError):
+    """Error related to authentication."""
+
+    def __init__(
+        self,
+        message: str,
+        provider: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize an authentication error.
+
+        Args:
+            message: Error message
+            provider: Optional provider name
+            cause: Optional cause of the error
+        """
+        self.provider = provider
+        message_with_provider = f"[Auth{f' {provider}' if provider else ''}] {message}"
+        super().__init__(message_with_provider, cause)
+
+
+class DataValidationError(PepperpyError):
+    """Error related to validation."""
+
+    def __init__(
+        self,
+        message: str,
+        field: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize a validation error.
+
+        Args:
+            message: Error message
+            field: Optional field that failed validation
+            cause: Optional cause of the error
+        """
+        self.field = field
+        message_with_field = f"[Validation{f' for {field}' if field else ''}] {message}"
+        super().__init__(message_with_field, cause)
+
+
+class FrameworkError(PepperpyError):
+    """Error in the framework itself."""
+
+    def __init__(
+        self,
+        message: str,
+        component: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize a framework error.
+
+        Args:
+            message: Error message
+            component: Optional component name
+            cause: Optional cause of the error
+        """
+        self.component = component
+        message_with_component = (
+            f"[Framework{f' {component}' if component else ''}] {message}"
+        )
+        super().__init__(message_with_component, cause)
+
+
+# Specific plugin-related errors
+class PluginInitError(PluginError):
+    """Error during plugin initialization."""
+
+    def __init__(
+        self,
+        message: str,
+        plugin_id: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize a plugin initialization error.
+
+        Args:
+            message: Error message
+            plugin_id: Optional plugin ID
+            cause: Optional cause of the error
+        """
+        super().__init__(f"Initialization error: {message}", plugin_id, cause)
 
 
 class PluginNotFoundError(PluginError):
-    """Error raised when a plugin is not found."""
+    """Error when a plugin cannot be found."""
+
+    def __init__(
+        self,
+        plugin_id: str,
+        plugin_type: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize a plugin not found error.
+
+        Args:
+            plugin_id: Plugin ID
+            plugin_type: Optional plugin type
+            cause: Optional cause of the error
+        """
+        message = f"Plugin not found: {plugin_id}"
+        if plugin_type:
+            message += f" (type: {plugin_type})"
+        super().__init__(message, plugin_id, cause)
+
+
+class ProviderPluginError(PluginError):
+    """Error in a provider plugin."""
 
     def __init__(
         self,
         message: str,
-        plugin_name: Optional[str] = None,
-        category: Optional[str] = None,
-        *args,
-        **kwargs,
+        provider_id: str | None = None,
+        provider_type: str | None = None,
+        cause: Exception | None = None,
     ):
-        """Initialize plugin not found error.
+        """Initialize a provider error.
 
         Args:
             message: Error message
-            plugin_name: Optional plugin name
-            category: Optional plugin category
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
+            provider_id: Optional provider ID
+            provider_type: Optional provider type
+            cause: Optional cause of the error
         """
-        super().__init__(
-            message, plugin_name=plugin_name, operation="load", *args, **kwargs
+        self.provider_type = provider_type
+        plugin_id = (
+            f"{provider_type}/{provider_id}"
+            if provider_type and provider_id
+            else provider_id
         )
-        self.category = category
-
-
-class PluginInitializationError(PluginError):
-    """Error raised when plugin initialization fails."""
-
-    def __init__(
-        self,
-        message: str,
-        plugin_name: Optional[str] = None,
-        cause: Optional[Exception] = None,
-        *args,
-        **kwargs,
-    ):
-        """Initialize plugin initialization error.
-
-        Args:
-            message: Error message
-            plugin_name: Optional plugin name
-            cause: Optional exception that caused this error
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
-        """
-        super().__init__(
-            message,
-            plugin_name=plugin_name,
-            operation="initialize",
-            cause=cause,
-            *args,
-            **kwargs,
-        )
-
-
-class WorkflowError(PepperpyError):
-    """Error raised when a workflow operation fails."""
-
-    def __init__(
-        self,
-        message: str,
-        workflow_name: Optional[str] = None,
-        stage: Optional[str] = None,
-        *args,
-        **kwargs,
-    ):
-        """Initialize workflow error.
-
-        Args:
-            message: Error message
-            workflow_name: Optional workflow name
-            stage: Optional workflow stage
-            *args: Additional positional arguments
-            **kwargs: Additional named context values
-        """
-        super().__init__(message, *args, **kwargs)
-        self.workflow_name = workflow_name
-        self.stage = stage
-
-
-class APIError(PepperpyError):
-    """Error raised when an API call fails."""
-
-    def __init__(self, message: str, status_code: int = None, *args, **kwargs):
-        super().__init__(message, *args, **kwargs)
-        self.status_code = status_code
-
-
-class RateLimitError(APIError):
-    """Error raised when rate limit is exceeded."""
-
-    def __init__(
-        self,
-        message: str = "Rate limit exceeded",
-        retry_after: float = None,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(message, *args, **kwargs)
-        self.retry_after = retry_after
-
-
-class TimeoutError(APIError):
-    """Error raised when a request times out."""
-
-    def __init__(
-        self, message: str = "Request timed out", timeout: float = None, *args, **kwargs
-    ):
-        super().__init__(message, *args, **kwargs)
-        self.timeout = timeout
-
-
-class ServerError(APIError):
-    """Error raised when a server error occurs."""
-
-    def __init__(
-        self, message: str = "Server error", status_code: int = 500, *args, **kwargs
-    ):
-        super().__init__(message, status_code, *args, **kwargs)
-
-
-class NetworkError(PepperpyError):
-    """Error raised when a network error occurs."""
-
-    def __init__(
-        self,
-        message: str = "Network error",
-        original_error: Exception = None,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(message, *args, **kwargs)
-        self.original_error = original_error
+        super().__init__(message, plugin_id, cause)
 
 
 # Error helpers
 def wrap_exception(
     exception: Exception,
-    error_cls: Type[PepperpyError] = PepperpyError,
-    message: Optional[str] = None,
+    error_cls: type[PepperpyError] = PepperpyError,
+    message: str | None = None,
     **kwargs,
 ) -> PepperpyError:
     """Wrap an exception in a PepperPy error.
@@ -825,8 +864,8 @@ def wrap_exception(
 
 def raise_from(
     exception: Exception,
-    error_cls: Type[PepperpyError] = PepperpyError,
-    message: Optional[str] = None,
+    error_cls: type[PepperpyError] = PepperpyError,
+    message: str | None = None,
     **kwargs,
 ) -> None:
     """Raise a PepperPy error from another exception.
@@ -841,3 +880,31 @@ def raise_from(
         PepperpyError: Wrapped exception
     """
     raise wrap_exception(exception, error_cls, message, **kwargs) from exception
+
+
+class PluginValidationError(ValidationError):
+    """Error raised when plugin validation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        plugin_id: str | None = None,
+        plugin_type: str | None = None,
+        provider_type: str | None = None,
+        field: str | None = None,
+        cause: Exception | None = None,
+    ):
+        """Initialize plugin validation error.
+
+        Args:
+            message: Error message
+            plugin_id: Optional plugin ID
+            plugin_type: Optional plugin type
+            provider_type: Optional provider type
+            field: Optional field name that failed validation
+            cause: Optional exception that caused this error
+        """
+        super().__init__(message, field=field, cause=cause)
+        self.plugin_id = plugin_id
+        self.plugin_type = plugin_type
+        self.provider_type = provider_type

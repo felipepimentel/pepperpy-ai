@@ -1,48 +1,51 @@
-"""PepperPy Framework
+"""
+PepperPy Framework.
 
-This module provides a flexible and extensible framework for AI applications.
+A Python framework for building plugin-based applications.
 """
 
-# Core components
-from pepperpy.core import (
-    Config,
-    PepperpyError,
-    get_logger,
-)
-
-# Domain-specific providers
-from pepperpy.llm import LLMProvider, Message, MessageRole
-from pepperpy.pepperpy import PepperPy, init_framework
-from pepperpy.plugins.plugin import PepperpyPlugin
-
-# Initialize singleton
-_instance = PepperPy.get_instance()
-
-# Export convenience methods
-ask = _instance.ask_query
-process = _instance.process_content
-create = _instance.create_content
-analyze = _instance.analyze_data
-
+# Version information
 __version__ = "0.1.0"
 
-__all__ = [
-    # Core components
-    "Config",
-    "PepperpyError",
-    "get_logger",
-    # Framework
-    "PepperPy",
-    "init_framework",
+# Core framework
+# Logging
+from .core.logging import get_logger
+
+# Factory functions
+from .factory import (
+    create_agent,
+    create_content,
+    create_embeddings,
+    create_llm,
+    create_plugin,
+    create_rag,
+    create_storage,
+    create_tts,
+    create_workflow,
+)
+from .pepperpy import (
+    # Type definitions
+    DependencyType,
+    EventPriority,
+    # Core API
+    PepperPy,
+    ResourceType,
+    ServiceScope,
+    cleanup_plugins,
+    # Event system
+    event,
+    get_pepperpy,
+    init_framework,
+    # Lifecycle management
+    initialize_plugins,
+    # Dependency injection
+    inject,
     # Plugin system
-    "PepperpyPlugin",
-    # LLM components
-    "LLMProvider",
-    "Message",
-    "MessageRole",
-    # High-level API
-    "ask",
-    "process",
-    "create",
-    "analyze",
-]
+    plugin,
+    publish_event,
+    service,
+)
+
+# Plugin API
+from .plugins.plugin import PepperpyPlugin
+from .plugins.registry import get_plugin

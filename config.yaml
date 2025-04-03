@@ -21,17 +21,6 @@ security:
   cors_origins:
     - http://localhost:3000
 
-# Database settings
-database:
-  url: $PEPPERPY_DATABASE_URL
-
-# Cache configuration
-cache:
-  enabled: true
-  backend: disk
-  ttl: 3600
-  redis_uri: $PEPPERPY_REDIS_URL
-
 # Feature flags
 features:
   enable_telemetry: false
@@ -41,6 +30,20 @@ features:
 
 # All plugins configuration
 plugins:
+  # Database plugin
+  database:
+    url: $PEPPERPY_DATABASE_URL
+    provider: postgres
+    pool_size: 5
+    timeout: 30
+    
+  # Cache plugin
+  cache:
+    enabled: true
+    backend: disk
+    ttl: 3600
+    redis_uri: $PEPPERPY_REDIS_URL
+    
   # LLM plugins
   openrouter:  # Default LLM provider
     key: $OPENROUTER_API_KEY

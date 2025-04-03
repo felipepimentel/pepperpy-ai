@@ -8,7 +8,16 @@ This example demonstrates how to build a BI assistant with PepperPy that:
 
 import asyncio
 
-from pepperpy import PepperPy, create_llm_provider, create_rag_provider
+from pepperpy import (
+    create_embeddings,
+    create_llm,
+    create_rag,
+    get_logger,
+    init_framework,
+)
+
+# Configure logging
+logger = get_logger(__name__)
 
 
 async def analyze_business_data() -> None:
@@ -33,42 +42,79 @@ async def analyze_business_data() -> None:
         "threats": ["Competition", "Regulation"],
     }
 
-    # Initialize providers
-    llm = create_llm_provider("openrouter")
-    rag = create_rag_provider("memory")
+    # Initialize framework
+    framework = init_framework()
 
-    # Initialize PepperPy with LLM and RAG support
-    async with PepperPy().with_llm(llm).with_rag(rag) as pepper:
+    # Create providers using factory functions
+    llm_provider = create_llm(provider_type="openrouter")
+    embeddings_provider = create_embeddings()
+    rag_provider = create_rag(
+        provider_type="memory", embeddings_provider=embeddings_provider
+    )
+
+    # Initialize providers
+    await llm_provider.initialize()
+    await embeddings_provider.initialize()
+    await rag_provider.initialize()
+
+    try:
         # Analyze metrics
-        metrics_analysis = await (
-            pepper.chat.with_system("You are a business metrics analyst.")
-            .with_user(
-                f"Analyze these business metrics and provide insights: {metrics}"
-            )
-            .generate()
+        logger.info("Analyzing business metrics...")
+        metrics_analysis = await llm_provider.call(
+            messages=[
+                {"role": "system", "content": "You are a business metrics analyst."},
+                {
+                    "role": "user",
+                    "content": f"Analyze these business metrics and provide insights: {metrics}",
+                },
+            ]
         )
+        metrics_insights = metrics_analysis.get("content", "")
+        logger.info(f"Metrics analysis complete: {len(metrics_insights)} characters")
 
         # Analyze market data
-        market_analysis = await (
-            pepper.chat.with_system("You are a market analysis expert.")
-            .with_user(f"Analyze this market data and provide insights: {market_data}")
-            .generate()
+        logger.info("Analyzing market data...")
+        market_analysis = await llm_provider.call(
+            messages=[
+                {"role": "system", "content": "You are a market analysis expert."},
+                {
+                    "role": "user",
+                    "content": f"Analyze this market data and provide insights: {market_data}",
+                },
+            ]
         )
+        market_insights = market_analysis.get("content", "")
+        logger.info(f"Market analysis complete: {len(market_insights)} characters")
 
         # Generate combined insights
-        strategic_insights = await (
-            pepper.chat.with_system("You are a strategic business consultant.")
-            .with_user(
-                "Based on the metrics and market analysis, provide strategic recommendations:\n\n"
-                f"Metrics Analysis: {metrics_analysis.content}\n\n"
-                f"Market Analysis: {market_analysis.content}"
-            )
-            .generate()
+        logger.info("Generating strategic recommendations...")
+        strategic_insights = await llm_provider.call(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a strategic business consultant.",
+                },
+                {
+                    "role": "user",
+                    "content": "Based on the metrics and market analysis, provide strategic recommendations:\n\n"
+                    f"Metrics Analysis: {metrics_insights}\n\n"
+                    f"Market Analysis: {market_insights}",
+                },
+            ]
         )
 
-        # Print insights directly
-        print("\n=== Business Intelligence Insights ===")
-        print(f"\nStrategic Recommendations:\n{strategic_insights.content}")
+        # Print insights
+        logger.info("\n=== Business Intelligence Insights ===")
+        logger.info(
+            f"\nStrategic Recommendations:\n{strategic_insights.get('content', '')}"
+        )
+
+    finally:
+        # Clean up resources
+        await llm_provider.cleanup()
+        await rag_provider.cleanup()
+        await embeddings_provider.cleanup()
+        await framework.cleanup()
 
 
 if __name__ == "__main__":
