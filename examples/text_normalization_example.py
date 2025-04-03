@@ -1,65 +1,85 @@
-"""Example demonstrating text normalization with PepperPy.
+#!/usr/bin/env python3
+"""Exemplo de normalização de texto com PepperPy.
 
-This example shows how to use PepperPy for simple text normalization tasks.
+Este exemplo demonstra como utilizar PepperPy para tarefas simples de normalização de texto.
 """
 
 import asyncio
+import os
+from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Example text with various normalization issues
-EXAMPLE_TEXT = """
-This is an  example  text with   multiple    spaces,
-weird "quotes", em—dashes, and   other    formatting  issues.
+# Configurar diretório de saída
+EXAMPLES_DIR = Path(__file__).parent
+OUTPUT_DIR = EXAMPLES_DIR / "output" / "normalization"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-It includes special characters like © and ® symbols.
+# Texto de exemplo com diversos problemas de normalização
+EXEMPLO_TEXTO = """
+Este é um  exemplo  de texto com   múltiplos    espaços,
+"aspas" estranhas, travessões—longos, e   outros    problemas  de  formatação.
 
-URLs like https://example.com should be handled properly.
+Inclui caracteres especiais como © e ® símbolos.
+
+URLs como https://exemplo.com.br devem ser tratados adequadamente.
 """
 
 
 async def main():
-    """Run the text normalization example."""
-    print("PepperPy Text Normalization Example")
-    print("===================================\n")
+    """Executar o exemplo de normalização de texto."""
+    print("Exemplo de Normalização de Texto com PepperPy")
+    print("=" * 50 + "\n")
 
-    print("Original text:")
-    print(EXAMPLE_TEXT)
+    print("Texto original:")
+    print(EXEMPLO_TEXTO)
     print("\n" + "-" * 50 + "\n")
 
-    # Initialize PepperPy
+    # Inicializar PepperPy
     app = PepperPy()
     await app.initialize()
 
     try:
-        # Basic normalization
-        print("Basic normalization:")
-        basic_result = await app.execute(
-            query="Normalize this text with basic settings",
-            context={"text": EXAMPLE_TEXT},
+        # Normalização básica
+        print("Normalização básica:")
+        resultado_basico = await app.execute(
+            query="Normalizar este texto com configurações básicas",
+            context={"texto": EXEMPLO_TEXTO},
         )
-        print(basic_result)
+        print(resultado_basico)
         print("\n" + "-" * 50 + "\n")
 
-        # Custom normalization
-        print("Custom normalization (with extra options):")
-        custom_result = await app.execute(
-            query="Normalize this text with custom settings",
+        # Salvar resultado básico
+        arquivo_basico = OUTPUT_DIR / "normalizacao_basica.txt"
+        with open(arquivo_basico, "w", encoding="utf-8") as f:
+            f.write(resultado_basico)
+        print(f"Resultado básico salvo em: {arquivo_basico}")
+
+        # Normalização personalizada
+        print("\nNormalização personalizada (com opções extras):")
+        resultado_personalizado = await app.execute(
+            query="Normalizar este texto com configurações personalizadas",
             context={
-                "text": EXAMPLE_TEXT,
-                "options": {
-                    "strip_whitespace": True,
-                    "normalize_whitespace": True,
-                    "lowercase": True,
-                    "replace_chars": {"-": "_", ":": ""},
+                "texto": EXEMPLO_TEXTO,
+                "opcoes": {
+                    "remover_espacos": True,
+                    "normalizar_espacos": True,
+                    "minusculas": True,
+                    "substituir_caracteres": {"-": "_", ":": ""},
                 },
             },
         )
-        print(custom_result)
+        print(resultado_personalizado)
         print("\n" + "-" * 50 + "\n")
 
+        # Salvar resultado personalizado
+        arquivo_personalizado = OUTPUT_DIR / "normalizacao_personalizada.txt"
+        with open(arquivo_personalizado, "w", encoding="utf-8") as f:
+            f.write(resultado_personalizado)
+        print(f"Resultado personalizado salvo em: {arquivo_personalizado}")
+
     finally:
-        # Clean up resources
+        # Limpar recursos
         await app.cleanup()
 
 

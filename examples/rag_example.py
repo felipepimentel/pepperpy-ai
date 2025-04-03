@@ -1,294 +1,152 @@
-#!/usr/bin/env python
-"""
-RAG (Retrieval-Augmented Generation) Example.
+#!/usr/bin/env python3
+"""Exemplo de RAG (Recuperação Aumentada por Geração) com PepperPy.
 
-This example demonstrates how to use the RAG subsystem 
-with a mock implementation.
+Este exemplo demonstra como utilizar o sistema RAG do PepperPy para
+melhorar as respostas do modelo de linguagem com informações recuperadas.
 """
 
 import asyncio
-from typing import Any, Dict, List, Optional, Union
+import os
+from pathlib import Path
 
+from pepperpy import PepperPy
 
-# Mock classes to simulate PepperPy RAG functionality
-class Document:
-    """Document for RAG system."""
+# Configurar diretório de saída
+EXAMPLES_DIR = Path(__file__).parent
+OUTPUT_DIR = EXAMPLES_DIR / "output" / "rag"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    def __init__(
-        self,
-        text: str,
-        metadata: Optional[Dict[str, Any]] = None,
-        doc_id: Optional[str] = None,
-    ):
-        self.text = text
-        self.metadata = metadata or {}
-        self.id = doc_id or f"doc_{hash(text) % 10000}"
+# Documentos de exemplo
+DOCUMENTOS = [
+    "Python é uma linguagem de programação de alto nível conhecida por sua legibilidade e versatilidade.",
+    "PepperPy é um framework Python para construir aplicações de IA com uma interface unificada.",
+    "Recuperação Aumentada por Geração (RAG) combina recuperação e geração para resultados mais precisos.",
+    "Modelos de linguagem grandes (LLMs) são redes neurais treinadas em conjuntos massivos de dados de texto.",
+    "O sistema RAG do PepperPy permite melhorar as respostas com conhecimento específico de domínio.",
+    "Os plugins do PepperPy seguem um padrão de provedor com métodos de ciclo de vida comuns.",
+]
 
-
-class RetrievalResult:
-    """Result of RAG retrieval."""
-
-    def __init__(self, document: Document, score: float):
-        self.document = document
-        self.score = score
-
-
-class Message:
-    """Message for LLM conversations."""
-
-    def __init__(self, role: str, content: str):
-        self.role = role
-        self.content = content
-
-
-class MessageRole:
-    """Message role constants."""
-
-    SYSTEM = "system"
-    USER = "user"
-    ASSISTANT = "assistant"
-
-
-class GenerationResult:
-    """Result of text generation."""
-
-    def __init__(self, content: str):
-        self.content = content
-
-
-class MockRAGProvider:
-    """Mock RAG provider."""
-
-    def __init__(self, **config):
-        self.config = config
-        self.initialized = False
-        self.documents = {}
-
-        # Bind config to instance attributes
-        for key, value in config.items():
-            setattr(self, key, value)
-
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        if self.initialized:
-            return
-
-        print(f"Initializing RAG provider with config: {self.config}")
-        self.initialized = True
-
-    async def store(self, docs: Union[Document, List[Document]]) -> None:
-        """Store documents."""
-        if not isinstance(docs, list):
-            docs = [docs]
-
-        for doc in docs:
-            self.documents[doc.id] = doc
-            print(f"Stored document: {doc.id}")
-
-    async def search(
-        self, query: str, limit: int = 5, **kwargs
-    ) -> List[RetrievalResult]:
-        """Search for documents."""
-        print(f"Searching for: {query} (limit: {limit})")
-
-        results = []
-        for doc in self.documents.values():
-            # Simple relevance calculation based on word overlap
-            query_words = set(query.lower().split())
-            doc_words = set(doc.text.lower().split())
-            overlap = query_words.intersection(doc_words)
-
-            if overlap:
-                score = len(overlap) / len(query_words)
-                results.append(RetrievalResult(doc, score))
-
-        results.sort(key=lambda x: x.score, reverse=True)
-        return results[:limit]
-
-    async def get(self, doc_id: str) -> Optional[Document]:
-        """Get document by ID."""
-        return self.documents.get(doc_id)
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if not self.initialized:
-            return
-
-        print("Cleaning up RAG provider")
-        self.initialized = False
-
-
-class MockLLMProvider:
-    """Mock LLM provider."""
-
-    def __init__(self, **config):
-        self.config = config
-        self.initialized = False
-
-    async def initialize(self) -> None:
-        """Initialize the provider."""
-        if self.initialized:
-            return
-
-        print(f"Initializing LLM provider with config: {self.config}")
-        self.initialized = True
-
-    async def generate(self, messages: List[Message], **kwargs) -> GenerationResult:
-        """Generate text based on messages."""
-        # Get the prompt from the last user message
-        last_message = next(
-            (m for m in reversed(messages) if m.role == MessageRole.USER), None
-        )
-        if not last_message:
-            return GenerationResult("No user message found.")
-
-        # Process context information if present
-        context = None
-        for message in messages:
-            if message.role == MessageRole.SYSTEM and "Context:" in message.content:
-                context = message.content
-
-        if context:
-            return GenerationResult(
-                f"Based on the provided context, I can answer about '{last_message.content}'."
-            )
-        else:
-            return GenerationResult(
-                f"I don't have enough information to answer about '{last_message.content}'."
-            )
-
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        if not self.initialized:
-            return
-
-        print("Cleaning up LLM provider")
-        self.initialized = False
-
-
-async def basic_rag_example():
-    """Basic RAG example."""
-    print("\n=== Basic RAG Example ===")
-
-    # Create RAG provider
-    rag_provider = MockRAGProvider(
-        embedding_provider="openai",
-        chunk_size=1000,
-        chunk_overlap=100,
-    )
-
-    # Initialize provider
-    await rag_provider.initialize()
-
-    try:
-        # Store sample documents
-        print("\n--- Storing Documents ---")
-        docs = [
-            Document(
-                text="Python is a high-level programming language known for its readability and versatility.",
-                metadata={"source": "wiki", "date": "2023-01-01"},
-            ),
-            Document(
-                text="PepperPy is a Python framework for building AI applications with a unified interface.",
-                metadata={"source": "docs", "date": "2023-04-15"},
-            ),
-            Document(
-                text="Retrieval-Augmented Generation (RAG) combines retrieval and generation for more accurate results.",
-                metadata={"source": "research", "date": "2023-02-10"},
-            ),
-            Document(
-                text="Large language models (LLMs) are neural networks trained on massive text datasets.",
-                metadata={"source": "textbook", "date": "2023-03-20"},
-            ),
-        ]
-
-        await rag_provider.store(docs)
-
-        # Search for documents
-        print("\n--- Searching ---")
-        query = "What is PepperPy framework?"
-        print(f"Query: {query}")
-
-        results = await rag_provider.search(query, limit=2)
-
-        print("\n--- Results ---")
-        for i, result in enumerate(results):
-            print(f"\nResult {i+1} (Score: {result.score:.2f})")
-            print(f"Text: {result.document.text}")
-            print(f"Metadata: {result.document.metadata}")
-
-    finally:
-        # Clean up
-        await rag_provider.cleanup()
-
-
-async def rag_with_llm_example():
-    """RAG with LLM integration example."""
-    print("\n=== RAG with LLM Integration ===")
-
-    # Create providers
-    rag_provider = MockRAGProvider(embedding_provider="openai")
-    llm_provider = MockLLMProvider(model="gpt-4")
-
-    # Initialize providers
-    await rag_provider.initialize()
-    await llm_provider.initialize()
-
-    try:
-        # Store sample documents
-        docs = [
-            Document(
-                text="PepperPy is a flexible framework for AI applications, designed to be modular and extensible.",
-                metadata={"source": "docs", "section": "overview"},
-            ),
-            Document(
-                text="PepperPy plugins follow a provider pattern with common lifecycle methods like initialize and cleanup.",
-                metadata={"source": "docs", "section": "plugins"},
-            ),
-        ]
-
-        await rag_provider.store(docs)
-
-        # Perform RAG search
-        query = "How does PepperPy plugin system work?"
-        results = await rag_provider.search(query)
-
-        if results:
-            # Create context from retrieved documents
-            context = "Context:\n"
-            for i, result in enumerate(results):
-                context += f"{i+1}. {result.document.text}\n"
-
-            # Create messages with context
-            messages = [
-                Message(role=MessageRole.SYSTEM, content=context),
-                Message(role=MessageRole.USER, content=query),
-            ]
-
-            # Generate response using LLM
-            print("\n--- RAG-enhanced Generation ---")
-            print(f"Query: {query}")
-            print(f"Number of relevant documents found: {len(results)}")
-
-            response = await llm_provider.generate(messages)
-            print(f"\nResponse: {response.content}")
-        else:
-            print(f"No relevant documents found for: {query}")
-
-    finally:
-        # Clean up
-        await rag_provider.cleanup()
-        await llm_provider.cleanup()
+# Consultas de exemplo
+CONSULTAS = [
+    "O que é PepperPy?",
+    "Como funciona o sistema RAG?",
+    "Quais são as características do Python?",
+]
 
 
 async def main():
-    """Run the example."""
-    print("=== PepperPy RAG Examples ===")
+    """Executar o exemplo de RAG."""
+    print("Exemplo de Recuperação Aumentada por Geração (RAG)")
+    print("=" * 50)
 
-    await basic_rag_example()
-    await rag_with_llm_example()
+    # Inicializar PepperPy
+    app = PepperPy()
+    await app.initialize()
 
-    print("\nRAG examples completed!")
+    # Preparar arquivo de resultados
+    arquivo_resultados = OUTPUT_DIR / "resultados_rag.txt"
+    with open(arquivo_resultados, "w", encoding="utf-8") as f:
+        f.write("RESULTADOS DE RAG COM PEPPERPY\n")
+        f.write("=" * 30 + "\n\n")
+
+    try:
+        # 1. Configurar base de conhecimento
+        print("\nConfigurando base de conhecimento...")
+
+        for i, documento in enumerate(DOCUMENTOS, 1):
+            print(f"Adicionando documento {i}/{len(DOCUMENTOS)}")
+            await app.execute(
+                query="Adicionar documento à base de conhecimento",
+                context={
+                    "texto": documento,
+                    "metadata": {"id": f"doc_{i}", "fonte": "exemplo"},
+                },
+            )
+
+        # 2. Exemplo básico de RAG
+        print("\n=== Exemplo Básico de RAG ===")
+
+        # Processar cada consulta
+        for i, consulta in enumerate(CONSULTAS, 1):
+            print(f"\nConsulta {i}: {consulta}")
+            print("-" * 50)
+
+            # Executar RAG para a consulta
+            resultado = await app.execute(
+                query=consulta, context={"usar_rag": True, "limite": 2}
+            )
+
+            print(f"Resposta: {resultado}")
+
+            # Salvar no arquivo de resultados
+            with open(arquivo_resultados, "a", encoding="utf-8") as f:
+                f.write(f"Consulta {i}: {consulta}\n")
+                f.write("-" * 30 + "\n")
+                f.write(f"Resposta:\n{resultado}\n\n")
+
+        # 3. RAG com parâmetros avançados
+        print("\n=== RAG com Parâmetros Avançados ===")
+
+        consulta_avancada = "Explique como o PepperPy implementa RAG e como isso se compara a outros frameworks"
+
+        print(f"Consulta avançada: {consulta_avancada}")
+        print("-" * 50)
+
+        resultado_avancado = await app.execute(
+            query=consulta_avancada,
+            context={
+                "usar_rag": True,
+                "limite": 3,
+                "limiar_similaridade": 0.7,
+                "incluir_metadata": True,
+                "formato": "markdown",
+            },
+        )
+
+        print(f"Resposta: {resultado_avancado}")
+
+        # Salvar no arquivo de resultados
+        with open(arquivo_resultados, "a", encoding="utf-8") as f:
+            f.write("RAG COM PARÂMETROS AVANÇADOS\n")
+            f.write("-" * 30 + "\n")
+            f.write(f"Consulta: {consulta_avancada}\n\n")
+            f.write(f"Resposta:\n{resultado_avancado}\n\n")
+
+        # 4. Comparação com e sem RAG
+        print("\n=== Comparação Com e Sem RAG ===")
+
+        consulta_comparacao = "O que são LLMs e como eles funcionam?"
+
+        print(f"Consulta para comparação: {consulta_comparacao}")
+        print("-" * 50)
+
+        # Sem RAG
+        resultado_sem_rag = await app.execute(
+            query=consulta_comparacao, context={"usar_rag": False}
+        )
+
+        print(f"Resposta SEM RAG: {resultado_sem_rag}")
+
+        # Com RAG
+        resultado_com_rag = await app.execute(
+            query=consulta_comparacao, context={"usar_rag": True, "limite": 3}
+        )
+
+        print(f"Resposta COM RAG: {resultado_com_rag}")
+
+        # Salvar no arquivo de resultados
+        with open(arquivo_resultados, "a", encoding="utf-8") as f:
+            f.write("COMPARAÇÃO COM E SEM RAG\n")
+            f.write("-" * 30 + "\n")
+            f.write(f"Consulta: {consulta_comparacao}\n\n")
+            f.write(f"Resposta SEM RAG:\n{resultado_sem_rag}\n\n")
+            f.write(f"Resposta COM RAG:\n{resultado_com_rag}\n\n")
+
+        print(f"\nTodos os resultados foram salvos em: {arquivo_resultados}")
+
+    finally:
+        # Limpar recursos
+        await app.cleanup()
 
 
 if __name__ == "__main__":

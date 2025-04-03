@@ -1,24 +1,29 @@
 """
 PepperPy Framework Core.
 
-Este módulo fornece o ponto de entrada principal para o framework PepperPy,
-com uma API simples e intuitiva para plugins, serviços e eventos.
+Fornece o ponto de entrada principal para o framework PepperPy,
+com uma API fluida e intuitiva para plugins, serviços e eventos.
 """
 
+import asyncio
 import inspect
 import sys
 from collections.abc import Callable
 from enum import Enum
 from functools import wraps
+from pathlib import Path
+from types import TracebackType
 from typing import (
     Any,
+    Protocol,
+    Self,
     TypeVar,
-    Union,
     get_type_hints,
+    runtime_checkable,
 )
 
 
-# Definir nossas próprias classes base e enums antes das importações
+# Core enums
 class DependencyType(str, Enum):
     """Tipos de dependências entre plugins."""
 
@@ -53,6 +58,44 @@ class ResourceType(str, Enum):
     SHARED = "shared"
 
 
+# Core typing
+T = TypeVar("T")
+P = TypeVar("P", bound="PepperpyPlugin")
+
+
+# Core protocols
+@runtime_checkable
+class Initializable(Protocol):
+    """Protocol for objects that can be initialized."""
+
+    async def initialize(self) -> None:
+        """Initialize the object."""
+        ...
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        ...
+
+
+@runtime_checkable
+class TextProcessor(Protocol):
+    """Protocol for text processors."""
+
+    async def process(self, text: str, **options: Any) -> str:
+        """Process text."""
+        ...
+
+
+@runtime_checkable
+class AIProvider(Protocol):
+    """Protocol for AI providers."""
+
+    async def call(self, prompt: str, **options: Any) -> str:
+        """Call the AI provider."""
+        ...
+
+
+# Core base classes
 class EventContext:
     """Contexto para eventos do PepperPy."""
 
@@ -97,6 +140,10 @@ class PepperpyPlugin:
         """
         self.plugin_id = self.__class__.__name__
         self.config = kwargs or {}
+        # Allow direct attribute access to config values
+        for key, value in self.config.items():
+            if not hasattr(self, key):
+                setattr(self, key, value)
 
     async def initialize(self) -> None:
         """Inicializa o plugin."""
@@ -110,120 +157,53 @@ class PepperpyPlugin:
 class ProviderPlugin(PepperpyPlugin):
     """Classe base para plugins provedores."""
 
-    pass
+    provider_type: str = ""
 
 
-# Importações principais do sistema de plugins
+# Core registry storage
+_plugins: dict[str, PepperpyPlugin] = {}
+_plugin_classes: dict[str, type[PepperpyPlugin]] = {}
+_dependencies: dict[str, dict[str, DependencyType]] = {}
+_services: dict[str, dict[str, Callable]] = {}
+_event_handlers: dict[str, list[dict[str, Any]]] = {}
+
+
+# Import core components with fallbacks for smooth initialization
 try:
-    # Usar importações renomeadas para evitar conflitos
     from pepperpy.core.config_manager import get_config
     from pepperpy.core.logging import configure_logging, get_logger
-    from pepperpy.plugins.dependencies import add_dependency
-    from pepperpy.plugins.events import EventContext as _EventContext
-    from pepperpy.plugins.events import EventPriority as _EventPriority
-    from pepperpy.plugins.events import publish as _publish
-    from pepperpy.plugins.events import subscribe as _subscribe
-    from pepperpy.plugins.integration import PluginManager as _PluginManager
-    from pepperpy.plugins.integration import get_plugin_manager
-    from pepperpy.plugins.plugin import DependencyType as _DependencyType
-    from pepperpy.plugins.plugin import PepperpyPlugin as _PepperpyPlugin
-    from pepperpy.plugins.plugin import ProviderPlugin as _ProviderPlugin
-    from pepperpy.plugins.resources import ResourceType as _ResourceType
-    from pepperpy.plugins.resources import get_resource, register_resource
-    from pepperpy.plugins.services import ServiceScope as _ServiceScope
-    from pepperpy.plugins.services import call_service, register_service
-    from pepperpy.plugins.services import service as _service
 except ImportError:
-    # Para permitir uso mesmo se partes do sistema não estiverem disponíveis
-    class _MockEnum:
-        def __init__(self, name):
-            self.name = name
+    # Fallback implementations when not running within full framework
+    def get_config(section: str = "", **defaults) -> dict[str, Any]:
+        """Get configuration."""
+        return defaults
 
-        def __str__(self):
-            return self.name
-
-    class _DependencyType(_MockEnum):
+    def configure_logging(**kwargs) -> None:
+        """Configure logging."""
         pass
 
-    _DependencyType.REQUIRED = _DependencyType("required")
+    def get_logger(name: str) -> Any:
+        """Get a logger."""
 
-    class _EventPriority(_MockEnum):
-        pass
+        class SimpleLogger:
+            def debug(self, msg: str, *args, **kwargs) -> None:
+                print(f"DEBUG: {msg}")
 
-    _EventPriority.NORMAL = _EventPriority("normal")
+            def info(self, msg: str, *args, **kwargs) -> None:
+                print(f"INFO: {msg}")
 
-    class _ServiceScope(_MockEnum):
-        pass
+            def warning(self, msg: str, *args, **kwargs) -> None:
+                print(f"WARNING: {msg}")
 
-    _ServiceScope.PUBLIC = _ServiceScope("public")
+            def error(self, msg: str, *args, **kwargs) -> None:
+                print(f"ERROR: {msg}")
 
-    class _ResourceType(_MockEnum):
-        pass
-
-    _ResourceType.MEMORY = _ResourceType("memory")
-
-    class _PepperpyPlugin:
-        pass
-
-    class _ProviderPlugin(_PepperpyPlugin):
-        pass
-
-    class _EventContext:
-        def __init__(self, *args, **kwargs):
-            self.event_id = "mock"
-            self.canceled = False
-
-    class _PluginManager:
-        def __init__(self):
-            pass
-
-        def register_plugin(self, *args, **kwargs):
-            pass
-
-        def initialize_plugin(self, *args, **kwargs):
-            pass
-
-        def cleanup_plugin(self, *args, **kwargs):
-            pass
-
-    def _publish(*args, **kwargs):
-        return _EventContext()
-
-    def _subscribe(*args, **kwargs):
-        pass
-
-    def _service(*args, **kwargs):
-        return lambda f: f
-
-    def register_service(*args, **kwargs):
-        pass
-
-    def call_service(*args, **kwargs):
-        return None
-
-    def register_resource(*args, **kwargs):
-        pass
-
-    def get_resource(*args, **kwargs):
-        return None
-
-    def add_dependency(*args, **kwargs):
-        pass
-
-    def get_plugin_manager():
-        return _PluginManager()
-
-    def get_config(*args, **kwargs):
-        return {}
-
-    def configure_logging(*args, **kwargs):
-        pass
-
-    def get_logger(*args):
-        return print
+        return SimpleLogger()
 
 
+# Setup logger for this module
 logger = get_logger(__name__)
+
 
 # Record the Python version at startup
 PYTHON_VERSION = sys.version_info
@@ -231,147 +211,133 @@ PYTHON_VERSION_STR = (
     f"{PYTHON_VERSION.major}.{PYTHON_VERSION.minor}.{PYTHON_VERSION.micro}"
 )
 
-# Armazenamento para plugins registrados
-_plugins: dict[str, Any] = {}
-_plugin_classes: dict[str, type] = {}
-_dependencies: dict[str, dict[str, Any]] = {}
-_services: dict[str, dict[str, Callable]] = {}
-_event_handlers: dict[str, list[dict[str, Any]]] = {}
 
-T = TypeVar("T")
-
-
-def plugin(cls=None, **kwargs):
+# Fluent decorator implementations
+def plugin(
+    cls=None,
+    *,
+    provides: str | None = None,
+    depends_on: str | list[str] | dict[str, DependencyType] | None = None,
+):
     """
     Decorador para definir uma classe como um plugin PepperPy.
+
+    Uso:
+        @plugin
+        class MyPlugin:
+            pass
+
+        @plugin(provides="processor")
+        class TextProcessor:
+            pass
+
+        @plugin(depends_on=["OtherPlugin"])
+        class DependentPlugin:
+            pass
 
     Args:
         cls: A classe a ser decorada
         provides: Tipo de provedor (para plugins provedores)
-        depends_on: Lista de plugins dos quais este plugin depende
+        depends_on: Plugins dos quais este plugin depende
 
     Returns:
         A classe decorada como plugin
     """
-    provides = kwargs.pop("provides", None)
-    depends_on = kwargs.pop("depends_on", None)
 
     def decorator(cls):
-        # Em vez de modificar __bases__, vamos criar um tipo derivado dinamicamente
-        if provides:
-            # Se fornece algum serviço, é um plugin provedor
-            if not issubclass(cls, ProviderPlugin):
-                # Criar uma nova classe que herda de ProviderPlugin e da classe original
-                original_name = cls.__name__
-                original_dict = dict(cls.__dict__)
+        # Ensure the class inherits from PepperpyPlugin
+        if not issubclass(cls, PepperpyPlugin):
+            # Create a new class that inherits from PepperpyPlugin
+            original_dict = {
+                key: value
+                for key, value in cls.__dict__.items()
+                if key not in ("__dict__", "__weakref__")
+            }
 
-                # Remover atributos especiais que não devem ser copiados
-                for attr in ["__dict__", "__weakref__"]:
-                    original_dict.pop(attr, None)
-
-                # Criar nova classe
+            if provides:
+                # Provider plugins inherit from ProviderPlugin
                 new_cls = type(
-                    original_name, (ProviderPlugin,) + cls.__bases__, original_dict
+                    cls.__name__, (ProviderPlugin,) + cls.__bases__, original_dict
+                )
+                new_cls.provider_type = provides
+            else:
+                # Regular plugins inherit from PepperpyPlugin
+                new_cls = type(
+                    cls.__name__, (PepperpyPlugin,) + cls.__bases__, original_dict
                 )
 
-                # Copiar docstring e outras propriedades importantes
-                new_cls.__module__ = cls.__module__
-                if hasattr(cls, "__doc__"):
-                    new_cls.__doc__ = cls.__doc__
-
-                cls = new_cls
-
-            # Adicionar metadados de provedor como um atributo normal
+            # Copy metadata
+            new_cls.__module__ = cls.__module__
+            new_cls.__doc__ = cls.__doc__
+            cls = new_cls
+        elif provides and issubclass(cls, ProviderPlugin):
+            # Add provider type to existing ProviderPlugin
             cls.provider_type = provides
 
-        elif not issubclass(cls, PepperpyPlugin):
-            # Se não é um plugin provedor nem deriva de PepperpyPlugin,
-            # criar uma nova classe que herda de PepperpyPlugin
-            original_name = cls.__name__
-            original_dict = dict(cls.__dict__)
-
-            # Remover atributos especiais que não devem ser copiados
-            for attr in ["__dict__", "__weakref__"]:
-                if attr in original_dict:
-                    del original_dict[attr]
-
-            # Criar nova classe
-            new_cls = type(
-                original_name, (PepperpyPlugin,) + cls.__bases__, original_dict
-            )
-
-            # Copiar docstring e outras propriedades importantes
-            new_cls.__module__ = cls.__module__
-            if hasattr(cls, "__doc__"):
-                new_cls.__doc__ = cls.__doc__
-
-            cls = new_cls
-
-        # Registrar dependências como atributo normal da classe
+        # Process dependencies
         if depends_on:
             if not hasattr(cls, "dependencies"):
                 cls.dependencies = {}
 
-            if isinstance(depends_on, list) or isinstance(depends_on, tuple):
+            # Convert various dependency formats to dictionary
+            if isinstance(depends_on, (list, tuple)):
                 for dep in depends_on:
                     if isinstance(dep, str):
                         cls.dependencies[dep] = DependencyType.REQUIRED
                     elif isinstance(dep, dict):
-                        for dep_name, dep_type in dep.items():
-                            cls.dependencies[dep_name] = dep_type
+                        cls.dependencies.update(dep)
                     else:
-                        cls.dependencies[dep] = DependencyType.REQUIRED
+                        cls.dependencies[str(dep)] = DependencyType.REQUIRED
+            elif isinstance(depends_on, dict):
+                cls.dependencies.update(depends_on)
             else:
-                cls.dependencies[depends_on] = DependencyType.REQUIRED
+                cls.dependencies[str(depends_on)] = DependencyType.REQUIRED
 
-        # Registrar plugin na coleção
-        plugin_id = cls.__name__
-        _plugin_classes[plugin_id] = cls
+        # Register plugin class
+        _plugin_classes[cls.__name__] = cls
 
-        # Envolver o método __init__ para auto-registro
+        # Add auto-registration to __init__
         original_init = cls.__init__
 
         @wraps(original_init)
         def init_wrapper(self, *args, **kwargs):
-            # Chamar o inicializador original
+            # Call original init
             original_init(self, *args, **kwargs)
 
-            # Definir plugin_id se não existir
+            # Ensure plugin_id exists
             if not hasattr(self, "plugin_id"):
                 self.plugin_id = self.__class__.__name__
 
-            # Auto-registrar
+            # Register plugin instance
             _plugins[self.plugin_id] = self
 
-            # Adicionar serviços se definidos com decorador @service
+            # Register services marked with @service
             for name in dir(self):
                 attr = getattr(self, name)
-                if callable(attr) and hasattr(attr, "service_info"):
+                if callable(attr) and hasattr(attr, "_service_info"):
                     register_service(
                         self.plugin_id,
-                        attr.service_info["name"],
+                        attr._service_info["name"],
                         attr,
-                        attr.service_info["scope"],
+                        attr._service_info["scope"],
                     )
 
         cls.__init__ = init_wrapper
 
-        # Interceptar chamadas de métodos para injetar dependências automaticamente
+        # Add dependency injection to method calls
         original_getattribute = cls.__getattribute__
 
         def getattribute_wrapper(self, name):
-            # Obter o atributo normalmente
             attr = original_getattribute(self, name)
 
-            # Apenas processar chamadas de métodos
-            if callable(attr) and hasattr(attr, "inject_deps") and attr.inject_deps:
-                # Obter as anotações de tipo do método
+            # Only process methods marked for dependency injection
+            if callable(attr) and hasattr(attr, "_inject_deps") and attr._inject_deps:
                 sig = inspect.signature(attr)
                 annotations = get_type_hints(attr)
 
                 @wraps(attr)
                 def method_wrapper(*args, **kwargs):
-                    # Injetar dependências com base nos tipos
+                    # Inject dependencies based on type annotations
                     for param_name, param in sig.parameters.items():
                         if param_name == "self" or param_name in kwargs:
                             continue
@@ -380,14 +346,14 @@ def plugin(cls=None, **kwargs):
                             param_type = annotations[param_name]
                             type_name = getattr(param_type, "__name__", str(param_type))
 
-                            # Verificar se este tipo corresponde a um plugin
+                            # Check if this type corresponds to a plugin
                             if type_name in _plugin_classes:
-                                # Injetar a instância do plugin
+                                # Inject plugin instance
                                 plugin_instance = get_plugin(type_name)
                                 if plugin_instance:
                                     kwargs[param_name] = plugin_instance
 
-                    # Chamar o método original com as dependências injetadas
+                    # Call original method with injected dependencies
                     return attr(*args, **kwargs)
 
                 return method_wrapper
@@ -398,15 +364,33 @@ def plugin(cls=None, **kwargs):
 
         return cls
 
-    # Permitir uso como @plugin ou @plugin()
+    # Allow usage as @plugin or @plugin()
     if cls is None:
         return decorator
     return decorator(cls)
 
 
-def service(name_or_func=None, **kwargs):
+def service(
+    name_or_func=None,
+    *,
+    name: str | None = None,
+    scope: ServiceScope = ServiceScope.PUBLIC,
+):
     """
     Decorador para marcar um método como serviço disponível para outros plugins.
+
+    Uso:
+        @service
+        def my_service(self):
+            pass
+
+        @service(name="custom_name")
+        def another_service(self):
+            pass
+
+        @service(scope=ServiceScope.PRIVATE)
+        def private_service(self):
+            pass
 
     Args:
         name_or_func: Nome do serviço ou a função a ser decorada
@@ -416,32 +400,39 @@ def service(name_or_func=None, **kwargs):
     Returns:
         O método decorado
     """
-    name = kwargs.pop("name", None)
-    scope = kwargs.pop("scope", ServiceScope.PUBLIC)
 
     def decorator(func):
-        # Determinar o nome do serviço
+        # Determine service name
         service_name = name or (
             name_or_func if isinstance(name_or_func, str) else func.__name__
         )
 
-        # Armazenar informações do serviço como atributo normal
-        func.service_info = {"name": service_name, "scope": scope}
+        # Store service info as attribute
+        func._service_info = {"name": service_name, "scope": scope}
 
-        # Marcar para injeção de dependência
-        func.inject_deps = True
+        # Mark for dependency injection
+        func._inject_deps = True
 
         return func
 
-    # Permitir uso como @service, @service() ou @service("nome")
+    # Allow usage as @service, @service() or @service("name")
     if callable(name_or_func) and not isinstance(name_or_func, str):
         return decorator(name_or_func)
     return decorator
 
 
-def event(event_type, priority=EventPriority.NORMAL):
+def event(event_type: str, priority: EventPriority = EventPriority.NORMAL):
     """
     Decorador para inscrever um método como manipulador de eventos.
+
+    Uso:
+        @event("user.login")
+        def handle_login(self, user_data):
+            pass
+
+        @event("system.error", priority=EventPriority.HIGH)
+        def handle_error(self, error_data):
+            pass
 
     Args:
         event_type: Tipo de evento a ser manipulado
@@ -454,23 +445,21 @@ def event(event_type, priority=EventPriority.NORMAL):
     def decorator(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
-            # Permitir manipuladores com assinaturas flexíveis
-            if len(args) == 3:  # Compatível com (event_type, context, data)
-                return func(self, *args)
-            elif len(args) == 1:  # Simplificado (data)
+            # Handle various parameter patterns
+            if len(args) == 1:  # Just data
                 return func(self, args[0])
-            elif not args:  # Sem argumentos
+            elif not args:  # No arguments
                 return func(self)
-            else:
+            else:  # Pass everything through
                 return func(self, *args, **kwargs)
 
-        # Armazenar metadados como atributos normais
-        wrapper.event_handler = True
-        wrapper.event_type = event_type
-        wrapper.event_priority = priority
+        # Store metadata
+        wrapper._event_handler = True
+        wrapper._event_type = event_type
+        wrapper._event_priority = priority
 
-        # Marcar para injeção de dependência
-        wrapper.inject_deps = True
+        # Mark for dependency injection
+        wrapper._inject_deps = True
 
         return wrapper
 
@@ -481,6 +470,18 @@ def inject(cls_or_func=None):
     """
     Decorador para marcar um método para injeção automática de dependências.
 
+    Uso:
+        @inject
+        def method(self, dependency: SomePlugin):
+            # dependency é automaticamente injetado
+            pass
+
+        @inject
+        class MyClass:
+            # Todos os métodos terão injeção automática
+            def method(self, dependency: SomePlugin):
+                pass
+
     Args:
         cls_or_func: A classe ou função a ser decorada
 
@@ -490,22 +491,23 @@ def inject(cls_or_func=None):
 
     def decorator(cls_or_func):
         if inspect.isclass(cls_or_func):
-            # Para classes, decoramos todos os métodos
+            # For classes, decorate all methods
             for name, method in inspect.getmembers(cls_or_func, inspect.isfunction):
                 setattr(cls_or_func, name, inject(method))
             return cls_or_func
         else:
-            # Para funções/métodos, marcamos para injeção
-            cls_or_func.inject_deps = True
+            # For functions/methods, mark for injection
+            cls_or_func._inject_deps = True
             return cls_or_func
 
-    # Permitir uso como @inject ou @inject()
+    # Allow usage as @inject or @inject()
     if cls_or_func is None:
         return decorator
     return decorator(cls_or_func)
 
 
-def get_plugin(plugin_id: str) -> Any:
+# Core utility functions
+def get_plugin(plugin_id: str) -> PepperpyPlugin | None:
     """
     Obtém uma instância de plugin pelo ID.
 
@@ -518,47 +520,41 @@ def get_plugin(plugin_id: str) -> Any:
     return _plugins.get(plugin_id)
 
 
-def initialize_plugins() -> None:
+async def initialize_plugins() -> None:
     """Inicializa todos os plugins registrados na ordem correta."""
-    # Obter gerenciador de plugins
-    plugin_manager = get_plugin_manager()
+    logger.info(f"Inicializando plugins ({len(_plugins)} registrados)")
 
-    # Inicializar plugins em ordem de dependência
+    # TODO: Sort plugins by dependency order for proper initialization
     for plugin_id, plugin in _plugins.items():
         try:
-            if hasattr(plugin, "initialize"):
-                plugin.initialize()
+            if asyncio.iscoroutinefunction(plugin.initialize):
+                await plugin.initialize()
             else:
-                plugin_manager.initialize_plugin(plugin_id)
+                plugin.initialize()
+            logger.debug(f"Plugin inicializado: {plugin_id}")
         except Exception as e:
             logger.error(f"Erro ao inicializar plugin {plugin_id}: {e}")
 
 
 async def cleanup_plugins() -> None:
     """Limpa todos os plugins registrados na ordem inversa."""
-    # Obter gerenciador de plugins
-    plugin_manager = get_plugin_manager()
+    logger.info("Limpando plugins")
 
-    # Lista de plugins em ordem reversa
+    # Reverse order for cleanup
     plugin_ids = list(_plugins.keys())
     plugin_ids.reverse()
 
-    # Limpar plugins
     for plugin_id in plugin_ids:
         plugin = _plugins.get(plugin_id)
         if not plugin:
             continue
 
         try:
-            # Tentar async_cleanup primeiro
-            if hasattr(plugin, "async_cleanup") and callable(plugin.async_cleanup):
-                await plugin.async_cleanup()
-            # Depois tentar cleanup normal
-            elif hasattr(plugin, "cleanup") and callable(plugin.cleanup):
-                plugin.cleanup()
+            if asyncio.iscoroutinefunction(plugin.cleanup):
+                await plugin.cleanup()
             else:
-                # Usar o gerenciador como fallback
-                await plugin_manager.cleanup_plugin(plugin_id)
+                plugin.cleanup()
+            logger.debug(f"Plugin limpo: {plugin_id}")
         except Exception as e:
             logger.error(f"Erro ao limpar plugin {plugin_id}: {e}")
 
@@ -574,32 +570,131 @@ async def publish_event(event_type: str, data: Any = None) -> EventContext:
     Returns:
         Contexto do evento com resultados
     """
-    # Criar contexto local
+    logger.debug(f"Publicando evento: {event_type}")
+
+    # Create event context
     context = EventContext(event_type, data)
 
-    try:
-        # Chamar o sistema de eventos subjacente
-        internal_context = await _publish(event_type, "pepperpy", data)
+    # Get handlers for this event type
+    handlers = _event_handlers.get(event_type, [])
 
-        # Se chamada bem-sucedida, atualizar nosso contexto
-        if hasattr(internal_context, "canceled"):
-            context.cancelled = internal_context.canceled
+    # Sort by priority (highest first)
+    handlers.sort(key=lambda h: h["priority"], reverse=True)
 
-        # Tentar extrair resultados
-        if hasattr(internal_context, "results"):
-            for result in internal_context.results.values():
+    # Call handlers
+    for handler_info in handlers:
+        if context.is_cancelled:
+            break
+
+        try:
+            handler = handler_info["handler"]
+            plugin = handler_info["plugin"]
+
+            # Call handler with context
+            result = handler(plugin, context, data)
+
+            # Handle async handlers
+            if asyncio.iscoroutine(result):
+                result = await result
+
+            # Add result if not None
+            if result is not None:
                 context.add_result(result)
-    except Exception as e:
-        logger.error(f"Erro ao publicar evento {event_type}: {e}")
+
+        except Exception as e:
+            logger.error(f"Erro no manipulador de evento {event_type}: {e}")
 
     return context
 
 
+def register_service(
+    plugin_id: str,
+    service_name: str,
+    handler: Callable,
+    scope: ServiceScope = ServiceScope.PUBLIC,
+) -> None:
+    """
+    Registra um serviço para um plugin.
+
+    Args:
+        plugin_id: ID do plugin
+        service_name: Nome do serviço
+        handler: Função do serviço
+        scope: Escopo de visibilidade
+    """
+    if plugin_id not in _services:
+        _services[plugin_id] = {}
+
+    _services[plugin_id][service_name] = {"handler": handler, "scope": scope}
+
+    logger.debug(f"Serviço registrado: {plugin_id}.{service_name} ({scope.value})")
+
+
+async def call_service(
+    plugin_id: str, service_name: str, *args: Any, **kwargs: Any
+) -> Any:
+    """
+    Chama um serviço de um plugin.
+
+    Args:
+        plugin_id: ID do plugin
+        service_name: Nome do serviço
+        *args: Argumentos posicionais
+        **kwargs: Argumentos nomeados
+
+    Returns:
+        Resultado do serviço
+
+    Raises:
+        ValueError: Se o serviço não for encontrado
+    """
+    # Check if plugin exists
+    if plugin_id not in _services:
+        raise ValueError(f"Plugin não encontrado: {plugin_id}")
+
+    # Check if service exists
+    if service_name not in _services[plugin_id]:
+        raise ValueError(f"Serviço não encontrado: {plugin_id}.{service_name}")
+
+    # Get service
+    service_info = _services[plugin_id][service_name]
+    handler = service_info["handler"]
+
+    # Call service
+    result = handler(*args, **kwargs)
+
+    # Handle async services
+    if asyncio.iscoroutine(result):
+        result = await result
+
+    return result
+
+
+# Fluent PepperPy implementation
 class PepperPy:
     """
     Classe principal do framework PepperPy.
 
-    Fornece métodos simplificados para inicialização, configuração e uso do framework.
+    Fornece métodos fluidos para inicialização, configuração e uso do framework.
+
+    Uso:
+        # Uso básico
+        app = PepperPy()
+        await app.initialize()
+        result = await app.execute("Normalizar texto", {"texto": "Exemplo"})
+        await app.cleanup()
+
+        # Uso com context manager
+        async with PepperPy() as app:
+            result = await app.execute("Normalizar texto", {"texto": "Exemplo"})
+
+        # Uso fluido
+        result = await (
+            PepperPy()
+            .with_plugin("text.normalizer", "basic")
+            .with_config(lowercase=True)
+            .normalize("Exemplo")
+        )
     """
 
     def __init__(self, config: dict[str, Any] | None = None):
@@ -612,19 +707,102 @@ class PepperPy:
         self.config = config or {}
         self._initialized = False
         self._plugins = _plugins
+        self._current_plugin_type: str | None = None
+        self._current_plugin_id: str | None = None
+        self._current_config: dict[str, Any] = {}
+        self._context: dict[str, Any] = {}
 
-    async def initialize(self) -> None:
+    async def __aenter__(self) -> Self:
+        """Context manager entry."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Context manager exit."""
+        await self.cleanup()
+
+    async def initialize(self) -> Self:
         """Inicializa o framework e seus componentes."""
         if self._initialized:
-            return
+            return self
 
         logger.info(f"Inicializando framework PepperPy (Python {PYTHON_VERSION_STR})")
 
-        # Inicializar plugins
-        initialize_plugins()
+        # Initialize plugins
+        await initialize_plugins()
 
         self._initialized = True
         logger.info("Framework PepperPy inicializado")
+        return self
+
+    async def cleanup(self) -> None:
+        """Limpa o framework e todos os plugins."""
+        if not self._initialized:
+            return
+
+        logger.info("Limpando framework PepperPy")
+
+        # Clean up plugins
+        await cleanup_plugins()
+
+        self._initialized = False
+
+    def with_plugin(self, plugin_type: str, plugin_id: str) -> Self:
+        """
+        Configura o plugin atual para operações encadeadas.
+
+        Args:
+            plugin_type: Tipo de plugin
+            plugin_id: ID do plugin
+
+        Returns:
+            Self para encadeamento
+        """
+        self._current_plugin_type = plugin_type
+        self._current_plugin_id = plugin_id
+        self._current_config = {}
+        return self
+
+    def with_config(self, **config: Any) -> Self:
+        """
+        Define configuração para o plugin atual.
+
+        Args:
+            **config: Opções de configuração
+
+        Returns:
+            Self para encadeamento
+        """
+        self._current_config.update(config)
+        return self
+
+    def with_context(self, **context: Any) -> Self:
+        """
+        Define contexto para a próxima operação.
+
+        Args:
+            **context: Variáveis de contexto
+
+        Returns:
+            Self para encadeamento
+        """
+        self._context.update(context)
+        return self
+
+    def reset_context(self) -> Self:
+        """
+        Limpa o contexto atual.
+
+        Returns:
+            Self para encadeamento
+        """
+        self._context = {}
+        return self
 
     async def execute(self, query: str, context: dict[str, Any] | None = None) -> Any:
         """
@@ -637,44 +815,196 @@ class PepperPy:
         Returns:
             Resultado da execução da query
         """
+        full_context = self._context.copy()
+        if context:
+            full_context.update(context)
+
+        # Verificar se o framework está inicializado
+        if not self._initialized:
+            await self.initialize()
+
         logger.info(f"Executando query: {query}")
+
+        # Aqui você implementaria a lógica real de processamento
+        # Por enquanto, retorna um texto de exemplo com base na query
+        if "texto" in full_context:
+            texto = full_context["texto"]
+            if "normalizar" in query.lower():
+                return self._normalize_text_example(
+                    texto, full_context.get("opcoes", {})
+                )
+            elif "resumir" in query.lower():
+                return self._summarize_text_example(texto)
+            elif "traduzir" in query.lower():
+                return self._translate_text_example(texto)
+
         return f"PepperPy processou: {query}"
 
-    async def cleanup(self) -> None:
-        """Limpa o framework e todos os plugins."""
-        if not self._initialized:
-            return
+    # Exemplos de métodos de processamento
+    def _normalize_text_example(self, texto: str, opcoes: dict[str, Any]) -> str:
+        """Exemplo de normalização de texto."""
+        result = texto
 
-        logger.info("Limpando framework PepperPy")
+        if opcoes.get("minusculas", False):
+            result = result.lower()
 
-        # Limpar plugins
-        await cleanup_plugins()
+        if opcoes.get("remover_pontuacao", False):
+            import re
 
-        self._initialized = False
+            result = re.sub(r"[^\w\s]", "", result)
 
-    def get_plugin_instance(self, plugin_type: str, name: str) -> Any:
-        """Get a plugin instance by type and name.
+        return result
+
+    def _summarize_text_example(self, texto: str) -> str:
+        """Exemplo de resumo de texto."""
+        words = texto.split()
+        if len(words) <= 5:
+            return texto
+        return " ".join(words[:5]) + "..."
+
+    def _translate_text_example(self, texto: str) -> str:
+        """Exemplo de tradução de texto."""
+        # Simulação de tradução
+        return f"[Tradução] {texto}"
+
+    # Métodos especializados para operações comuns
+    async def normalize(self, text: str, **options: Any) -> str:
+        """
+        Normaliza um texto com as opções especificadas.
 
         Args:
-            plugin_type: Type of plugin
-            name: Name of plugin instance
+            text: Texto a ser normalizado
+            **options: Opções de normalização
 
         Returns:
-            Plugin instance if found, None otherwise
+            Texto normalizado
         """
-        registry_key = f"{plugin_type}.{name}"
+        context = {"texto": text, "opcoes": options}
+        result = await self.execute("Normalizar este texto", context)
+        return result
+
+    async def summarize(self, text: str, length: str = "medium") -> str:
+        """
+        Resume um texto.
+
+        Args:
+            text: Texto a ser resumido
+            length: Tamanho do resumo (short, medium, long)
+
+        Returns:
+            Texto resumido
+        """
+        context = {"texto": text, "tamanho": length}
+        result = await self.execute("Resumir este texto", context)
+        return result
+
+    async def translate(self, text: str, target_language: str) -> str:
+        """
+        Traduz um texto.
+
+        Args:
+            text: Texto a ser traduzido
+            target_language: Idioma alvo
+
+        Returns:
+            Texto traduzido
+        """
+        context = {"texto": text, "idioma": target_language}
+        result = await self.execute(
+            f"Traduzir este texto para {target_language}", context
+        )
+        return result
+
+    async def process_file(
+        self,
+        input_path: str | Path,
+        output_path: str | Path | None = None,
+        operation: str = "normalize",
+        **options: Any,
+    ) -> str | None:
+        """
+        Processa um arquivo de texto.
+
+        Args:
+            input_path: Caminho do arquivo de entrada
+            output_path: Caminho do arquivo de saída (opcional)
+            operation: Operação a ser realizada (normalize, summarize, translate)
+            **options: Opções adicionais
+
+        Returns:
+            Conteúdo processado se output_path for None, caso contrário None
+        """
+        # Normalizar caminhos
+        input_path = Path(input_path)
+        output_path = Path(output_path) if output_path else None
+
+        # Verificar se o arquivo existe
+        if not input_path.exists():
+            raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+
+        # Ler o arquivo
+        with open(input_path, encoding="utf-8") as f:
+            content = f.read()
+
+        # Processar o conteúdo
+        if operation == "normalize":
+            processed = await self.normalize(content, **options)
+        elif operation == "summarize":
+            processed = await self.summarize(content, **options.get("length", "medium"))
+        elif operation == "translate":
+            processed = await self.translate(
+                content, options.get("target_language", "en")
+            )
+        else:
+            raise ValueError(f"Operação desconhecida: {operation}")
+
+        # Salvar ou retornar o resultado
+        if output_path:
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(processed)
+            return None
+        else:
+            return processed
+
+    def get_plugin_instance(
+        self, plugin_type: str, plugin_id: str
+    ) -> PepperpyPlugin | None:
+        """
+        Obtém uma instância de plugin.
+
+        Args:
+            plugin_type: Tipo de plugin
+            plugin_id: ID do plugin
+
+        Returns:
+            Instância do plugin ou None se não encontrado
+        """
+        registry_key = f"{plugin_type}.{plugin_id}"
         return self._plugins.get(registry_key)
 
     def register_plugin(
-        self, plugin: Union["PepperpyPlugin", type["PepperpyPlugin"]]
-    ) -> None:
-        """Register a plugin with the framework.
+        self, plugin: PepperpyPlugin | type[PepperpyPlugin]
+    ) -> PepperpyPlugin | None:
+        """
+        Registra um plugin.
 
         Args:
-            plugin: Plugin instance or class to register
+            plugin: Instância ou classe do plugin
+
+        Returns:
+            Instância do plugin registrado ou None se falhar
         """
-        # Implement plugin registration logic here
-        pass
+        if inspect.isclass(plugin):
+            # É uma classe, instanciar
+            try:
+                instance = plugin()
+                return instance
+            except Exception as e:
+                logger.error(f"Erro ao instanciar plugin {plugin.__name__}: {e}")
+                return None
+        else:
+            # É uma instância, já registrada no __init__
+            return plugin
 
 
 # Instância singleton
@@ -714,21 +1044,153 @@ def get_pepperpy() -> PepperPy:
     return _framework
 
 
-# Exportar decoradores e funções principais da API
+# Factory functions for common operations
+async def normalize(
+    text: str,
+    lowercase: bool = True,
+    remove_punctuation: bool = False,
+    remove_numbers: bool = False,
+    remove_whitespace: bool = False,
+) -> str:
+    """
+    Normaliza um texto.
+
+    Args:
+        text: Texto a ser normalizado
+        lowercase: Converter para minúsculas
+        remove_punctuation: Remover pontuação
+        remove_numbers: Remover números
+        remove_whitespace: Remover espaços extras
+
+    Returns:
+        Texto normalizado
+    """
+    app = get_pepperpy()
+    return await app.normalize(
+        text,
+        lowercase=lowercase,
+        remove_punctuation=remove_punctuation,
+        remove_numbers=remove_numbers,
+        remove_whitespace=remove_whitespace,
+    )
+
+
+async def summarize(text: str, length: str = "medium") -> str:
+    """
+    Resume um texto.
+
+    Args:
+        text: Texto a ser resumido
+        length: Tamanho do resumo (short, medium, long)
+
+    Returns:
+        Texto resumido
+    """
+    app = get_pepperpy()
+    return await app.summarize(text, length=length)
+
+
+async def translate(text: str, target_language: str) -> str:
+    """
+    Traduz um texto.
+
+    Args:
+        text: Texto a ser traduzido
+        target_language: Idioma alvo
+
+    Returns:
+        Texto traduzido
+    """
+    app = get_pepperpy()
+    return await app.translate(text, target_language)
+
+
+async def process_file(
+    input_path: str | Path,
+    output_path: str | Path | None = None,
+    operation: str = "normalize",
+    **options: Any,
+) -> str | None:
+    """
+    Processa um arquivo de texto.
+
+    Args:
+        input_path: Caminho do arquivo de entrada
+        output_path: Caminho do arquivo de saída (opcional)
+        operation: Operação a ser realizada (normalize, summarize, translate)
+        **options: Opções adicionais
+
+    Returns:
+        Conteúdo processado se output_path for None, caso contrário None
+    """
+    app = get_pepperpy()
+    return await app.process_file(input_path, output_path, operation, **options)
+
+
+# Type export aliases for easier imports
+Plugin = PepperpyPlugin
+Provider = ProviderPlugin
+
+
+# Função create para criar e configurar uma instância do framework
+async def create(
+    config: dict[str, Any] | None = None, auto_initialize: bool = True
+) -> PepperPy:
+    """
+    Cria uma nova instância do framework.
+
+    Args:
+        config: Configuração opcional
+        auto_initialize: Inicializar automaticamente
+
+    Returns:
+        Nova instância do framework
+    """
+    app = PepperPy(config)
+    if auto_initialize:
+        await app.initialize()
+    return app
+
+
+# Export public API
 __all__ = [
+    # Classes principais
+    "PepperPy",
+    "PepperpyPlugin",
+    "ProviderPlugin",
+    "EventContext",
+    # Aliases de tipo
+    "Plugin",
+    "Provider",
+    # Enums
     "DependencyType",
     "EventPriority",
-    "PepperPy",
-    "ResourceType",
     "ServiceScope",
-    "cleanup_plugins",
-    "event",
-    "get_pepperpy",
-    "get_plugin",
-    "init_framework",
-    "initialize_plugins",
-    "inject",
+    "ResourceType",
+    # Protocolos
+    "Initializable",
+    "TextProcessor",
+    "AIProvider",
+    # Decoradores
     "plugin",
-    "publish_event",
     "service",
+    "event",
+    "inject",
+    # Funções de singleton
+    "get_pepperpy",
+    "init_framework",
+    # Funções de criação
+    "create",
+    # Funções de utilidade
+    "get_plugin",
+    "initialize_plugins",
+    "cleanup_plugins",
+    "publish_event",
+    "call_service",
+    "register_service",
+    # Funções simples
+    "normalize",
+    "summarize",
+    "translate",
+    "process_file",
 ]

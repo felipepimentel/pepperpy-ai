@@ -1,7 +1,8 @@
-"""Example of using PepperPy for repository analysis.
+#!/usr/bin/env python3
+"""Exemplo de análise de repositórios com PepperPy.
 
-This example demonstrates how to use PepperPy to analyze
-GitHub repositories and answer questions about them.
+Este exemplo demonstra como usar PepperPy para analisar
+repositórios GitHub e responder perguntas sobre eles.
 """
 
 import asyncio
@@ -13,112 +14,118 @@ from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Create necessary output directory
-os.makedirs("output/repos", exist_ok=True)
+# Criar diretório de saída necessário
+OUTPUT_DIR = Path(__file__).parent / "output" / "repos"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 async def main():
-    """Run the repository analysis example."""
-    print("Repository Analysis Assistant Example")
+    """Executar o exemplo de análise de repositório."""
+    print("Exemplo de Assistente de Análise de Repositório")
     print("=" * 50)
 
-    # Repository to analyze
+    # Repositório para analisar
     repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
 
-    # Create temp directory for repository
+    # Criar diretório temporário para o repositório
     repo_path = tempfile.mkdtemp()
-    print(f"\nCloning repository to {repo_path}...")
+    print(f"\nClonando repositório para {repo_path}...")
 
     try:
-        # Initialize PepperPy
+        # Inicializar PepperPy
         app = PepperPy()
         await app.initialize()
 
         try:
-            # Clone repository
+            # Clonar repositório
             subprocess.run(["git", "clone", repo_url, repo_path], check=True)
-            print(f"Repository cloned to: {repo_path}")
+            print(f"Repositório clonado em: {repo_path}")
 
-            # List repository files
-            print("\nListing repository files...")
-            files = []
-            for root, _, filenames in os.walk(repo_path):
-                for filename in filenames:
-                    if not filename.startswith(".") and not root.endswith(
+            # Listar arquivos do repositório
+            print("\nListando arquivos do repositório...")
+            arquivos = []
+            for raiz, _, nomes_arquivos in os.walk(repo_path):
+                for nome_arquivo in nomes_arquivos:
+                    if not nome_arquivo.startswith(".") and not raiz.endswith(
                         "__pycache__"
                     ):
-                        files.append(os.path.join(root, filename))
+                        arquivos.append(os.path.join(raiz, nome_arquivo))
 
-            print(f"Found {len(files)} files")
+            print(f"Encontrados {len(arquivos)} arquivos")
 
-            # Index repository content
-            print("\nIndexing repository content...")
-            indexed_files = 0
+            # Indexar conteúdo do repositório
+            print("\nIndexando conteúdo do repositório...")
+            arquivos_indexados = 0
 
-            # Process the repository files (limit to first 10 for example)
-            for file_path in files[:10]:
+            # Processar os arquivos do repositório (limite para os primeiros 10 como exemplo)
+            for caminho_arquivo in arquivos[:10]:
                 try:
-                    with open(file_path, encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
+                    with open(caminho_arquivo, encoding="utf-8", errors="ignore") as f:
+                        conteudo = f.read()
 
-                    rel_path = os.path.relpath(file_path, repo_path)
-                    print(f"Indexing: {rel_path}")
+                    caminho_relativo = os.path.relpath(caminho_arquivo, repo_path)
+                    print(f"Indexando: {caminho_relativo}")
 
-                    # Add file to knowledge base
+                    # Adicionar arquivo à base de conhecimento
                     await app.execute(
-                        query="Index repository file",
+                        query="Indexar arquivo do repositório",
                         context={
-                            "file_path": rel_path,
-                            "content": content[:2000],  # Limit content size
-                            "metadata": {"type": "code", "repo": repo_url},
+                            "caminho_arquivo": caminho_relativo,
+                            "conteudo": conteudo[:2000],  # Limitar tamanho do conteúdo
+                            "metadata": {"tipo": "codigo", "repo": repo_url},
                         },
                     )
 
-                    indexed_files += 1
+                    arquivos_indexados += 1
                 except Exception as e:
-                    print(f"Error indexing {file_path}: {e}")
+                    print(f"Erro ao indexar {caminho_arquivo}: {e}")
 
-            print(f"\nSuccessfully indexed {indexed_files} files!")
+            print(f"\nIndexados com sucesso {arquivos_indexados} arquivos!")
 
-            # Answer questions about the repository
-            questions = [
-                "What is the main purpose of this repository?",
-                "What are the main files in the project?",
-                "How is the code structured?",
+            # Responder perguntas sobre o repositório
+            perguntas = [
+                "Qual é o propósito principal deste repositório?",
+                "Quais são os principais arquivos no projeto?",
+                "Como o código está estruturado?",
             ]
 
-            # Process each question
-            print("\nAnalyzing repository with common questions:")
-            for question in questions:
-                print(f"\nQuestion: {question}")
+            # Processar cada pergunta
+            print("\nAnalisando repositório com perguntas comuns:")
+            respostas = []
 
-                # Get answer from PepperPy
-                answer = await app.execute(
-                    query=question, context={"repo_url": repo_url}
+            for pergunta in perguntas:
+                print(f"\nPergunta: {pergunta}")
+
+                # Obter resposta do PepperPy
+                resposta = await app.execute(
+                    query=pergunta, context={"repo_url": repo_url}
                 )
 
-                print(f"Answer: {answer}")
+                print(f"Resposta: {resposta}")
+                respostas.append(resposta)
 
-            # Save analysis summary
-            output_file = (
-                Path("output/repos") / f"{repo_url.split('/')[-1]}_analysis.txt"
-            )
-            with open(output_file, "w") as f:
-                f.write(f"Repository Analysis: {repo_url}\n")
-                f.write(f"Total files: {len(files)}\n")
-                f.write(f"Indexed files: {indexed_files}\n")
-                f.write("\nAnswers to common questions:\n")
-                for i, question in enumerate(questions):
-                    f.write(f"{i + 1}. {question}\n")
+            # Salvar resumo da análise
+            nome_repo = repo_url.split("/")[-1]
+            arquivo_saida = OUTPUT_DIR / f"{nome_repo}_analysis.txt"
+            with open(arquivo_saida, "w", encoding="utf-8") as f:
+                f.write(f"Análise de Repositório: {repo_url}\n")
+                f.write(f"Total de arquivos: {len(arquivos)}\n")
+                f.write(f"Arquivos indexados: {arquivos_indexados}\n")
+                f.write("\nRespostas às perguntas comuns:\n")
+                for i, (pergunta, resposta) in enumerate(
+                    zip(perguntas, respostas, strict=False), 1
+                ):
+                    f.write(f"{i}. {pergunta}\n")
+                    f.write(f"   Resposta: {resposta}\n\n")
 
-            print(f"\nAnalysis summary saved to: {output_file}")
+            print(f"\nResumo da análise salvo em: {arquivo_saida}")
 
         finally:
-            # Clean up resources
+            # Limpar recursos
             await app.cleanup()
 
     finally:
-        # Clean up the temporary directory
+        # Limpar o diretório temporário
         shutil.rmtree(repo_path, ignore_errors=True)
 
 

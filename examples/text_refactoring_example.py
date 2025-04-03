@@ -1,76 +1,100 @@
-"""Example demonstrating intelligent text refactoring with PepperPy.
+#!/usr/bin/env python3
+"""Exemplo de refatoração inteligente de texto com PepperPy.
 
-This example shows how to use PepperPy to improve text by analyzing
-its structure and content.
+Este exemplo demonstra como utilizar PepperPy para melhorar textos analisando
+sua estrutura e conteúdo.
 """
 
 import asyncio
+import os
+from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Sample text to refactor
-SAMPLE_TEXT = """Chapter 1: Introduction to Machine Learning
+# Configurar diretório de saída
+EXAMPLES_DIR = Path(__file__).parent
+OUTPUT_DIR = EXAMPLES_DIR / "output" / "text_refactoring"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Texto de exemplo para refatorar
+TEXTO_EXEMPLO = """Capítulo 1: Introdução ao Machine Learning
     
-Machine learning is a fascinating field that combines statistics, 
-computer science, and data analysis. It's a field that's growing rapidly
-and has many applications. Machine learning is used in many areas and
-has lots of uses in different domains. The applications are numerous
-and varied across different fields.
+Machine learning é um campo fascinante que combina estatística, 
+ciência da computação e análise de dados. É uma área que está crescendo rapidamente
+e tem muitas aplicações. Machine learning é usado em muitas áreas e
+tem muitos usos em diferentes domínios. As aplicações são numerosas
+e variadas em diferentes campos.
     
-The history of machine learning goes back many years. It started
-with early statistical methods. Then it evolved over time. Many
-researchers contributed to its development. The field grew as
-computers became more powerful. Now it's a major area of study.
+A história do machine learning remonta há muitos anos. Começou
+com métodos estatísticos iniciais. Depois evoluiu ao longo do tempo. Muitos
+pesquisadores contribuíram para seu desenvolvimento. O campo cresceu à medida
+que os computadores se tornaram mais poderosos. Agora é uma importante área de estudo.
 """
 
-# Style guide
-STYLE_GUIDE = """
-Writing Style Guide:
-1. Be concise but thorough
-2. Use active voice
-3. Maintain technical accuracy
-4. Avoid redundancy
-5. Use clear transitions
-6. Keep consistent terminology
+# Guia de estilo
+GUIA_ESTILO = """
+Guia de Estilo de Escrita:
+1. Seja conciso mas completo
+2. Use voz ativa
+3. Mantenha precisão técnica
+4. Evite redundâncias
+5. Use transições claras
+6. Mantenha terminologia consistente
 """
 
 
 async def main():
-    """Run the text refactoring example."""
-    print("Text Refactoring Example")
+    """Executar o exemplo de refatoração de texto."""
+    print("Exemplo de Refatoração de Texto")
     print("=" * 50)
 
-    # Initialize PepperPy
+    # Inicializar PepperPy
     app = PepperPy()
     await app.initialize()
 
     try:
-        # Analyze text structure
-        print("Analyzing text structure...")
+        # Analisar estrutura do texto
+        print("Analisando estrutura do texto...")
 
-        # Execute structure analysis
-        structure_result = await app.execute(
-            query="Analyze this text structure and identify main sections",
-            context={"text": SAMPLE_TEXT},
+        # Executar análise de estrutura
+        resultado_estrutura = await app.execute(
+            query="Analisar a estrutura deste texto e identificar as seções principais",
+            context={"texto": TEXTO_EXEMPLO},
         )
-        print(f"Structure analysis: {structure_result[:100]}...")
+        print(f"Análise de estrutura: {resultado_estrutura[:100]}...")
 
-        # Improve the text content
-        print("\nImproving text content...")
+        # Salvar análise de estrutura
+        arquivo_analise = OUTPUT_DIR / "analise_estrutura.txt"
+        with open(arquivo_analise, "w", encoding="utf-8") as f:
+            f.write("ANÁLISE DE ESTRUTURA DO TEXTO\n")
+            f.write("=" * 30 + "\n\n")
+            f.write(resultado_estrutura)
+        print(f"Análise completa salva em: {arquivo_analise}")
 
-        # Execute text improvement
-        improved_text = await app.execute(
-            query="Improve this text while following the style guide",
-            context={"text": SAMPLE_TEXT, "style_guide": STYLE_GUIDE},
+        # Melhorar o conteúdo do texto
+        print("\nMelhorando conteúdo do texto...")
+
+        # Executar melhoria de texto
+        texto_melhorado = await app.execute(
+            query="Melhorar este texto seguindo o guia de estilo fornecido",
+            context={"texto": TEXTO_EXEMPLO, "guia_estilo": GUIA_ESTILO},
         )
 
-        # Display results
-        print("\nImproved Text:")
+        # Exibir resultados
+        print("\nTexto Melhorado:")
         print("-" * 50)
-        print(improved_text)
+        print(texto_melhorado)
+
+        # Salvar texto melhorado
+        arquivo_melhorado = OUTPUT_DIR / "texto_melhorado.txt"
+        with open(arquivo_melhorado, "w", encoding="utf-8") as f:
+            f.write("TEXTO MELHORADO\n")
+            f.write("=" * 30 + "\n\n")
+            f.write(texto_melhorado)
+        print(f"\nTexto melhorado salvo em: {arquivo_melhorado}")
 
     finally:
-        # Clean up resources
+        # Limpar recursos
         await app.cleanup()
 
 

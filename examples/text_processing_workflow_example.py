@@ -1,83 +1,127 @@
-"""Text Processing Workflow Example with PepperPy.
+#!/usr/bin/env python3
+"""Exemplo de fluxo de processamento de texto com PepperPy.
 
-This example demonstrates how to use PepperPy for text processing workflows.
+Este exemplo demonstra como utilizar PepperPy para fluxos de processamento de texto.
 """
 
 import asyncio
+import os
+from pathlib import Path
 
 from pepperpy import PepperPy
 
-# Sample corpus of texts
-SAMPLE_CORPUS = [
-    "Python is a versatile programming language created by Guido van Rossum in 1991.",
-    "The Django framework is written in Python and enables rapid development of secure and scalable web applications.",
-    "NumPy is essential for scientific computing in Python, providing support for multidimensional arrays and mathematical operations.",
-    "Machine Learning is a subfield of Artificial Intelligence focused on developing algorithms that can learn from data.",
-    "PepperPy is an AI framework for simplifying LLM-based application development.",
+# Configurar diretório de saída
+EXAMPLES_DIR = Path(__file__).parent
+OUTPUT_DIR = EXAMPLES_DIR / "output" / "text_workflow"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+# Corpus de exemplo com textos
+CORPUS_EXEMPLO = [
+    "Python é uma linguagem de programação versátil criada por Guido van Rossum em 1991.",
+    "O framework Django é escrito em Python e permite o desenvolvimento rápido de aplicações web seguras e escaláveis.",
+    "NumPy é essencial para computação científica em Python, fornecendo suporte para arrays multidimensionais e operações matemáticas.",
+    "Machine Learning é um subcampo da Inteligência Artificial focado no desenvolvimento de algoritmos que podem aprender a partir de dados.",
+    "PepperPy é um framework de IA para simplificar o desenvolvimento de aplicações baseadas em LLMs.",
 ]
 
 
 async def main():
-    """Run the text processing examples with PepperPy."""
-    print("Text Processing Example with PepperPy")
+    """Executar os exemplos de processamento de texto com PepperPy."""
+    print("Exemplo de Processamento de Texto com PepperPy")
     print("=" * 50)
 
-    # Initialize PepperPy
+    # Inicializar PepperPy
     app = PepperPy()
     await app.initialize()
 
+    # Preparar arquivo de resultados
+    arquivo_resultados = OUTPUT_DIR / "resultados_processamento.txt"
+    with open(arquivo_resultados, "w", encoding="utf-8") as f:
+        f.write("Resultados do Processamento de Texto\n")
+        f.write("=" * 50 + "\n\n")
+
     try:
-        # Process text with RAG-like functionality
-        print("\n=== Text Processing with Knowledge Base ===")
+        # Processar texto com funcionalidade semelhante a RAG
+        print("\n=== Processamento de Texto com Base de Conhecimento ===")
 
-        # Add documents to knowledge base
-        print(f"Adding {len(SAMPLE_CORPUS)} documents to context...")
+        # Adicionar ao arquivo de resultados
+        with open(arquivo_resultados, "a", encoding="utf-8") as f:
+            f.write("PROCESSAMENTO COM BASE DE CONHECIMENTO\n")
+            f.write("-" * 40 + "\n\n")
 
-        # Execute query to add documents
-        for i, text in enumerate(SAMPLE_CORPUS):
+        # Adicionar documentos à base de conhecimento
+        print(f"Adicionando {len(CORPUS_EXEMPLO)} documentos ao contexto...")
+
+        # Executar consulta para adicionar documentos
+        for i, texto in enumerate(CORPUS_EXEMPLO):
             await app.execute(
-                query="Add document to knowledge base",
-                context={"text": text, "metadata": {"source": "example", "id": str(i)}},
+                query="Adicionar documento à base de conhecimento",
+                context={
+                    "texto": texto,
+                    "metadata": {"fonte": "exemplo", "id": str(i)},
+                },
             )
 
-        # Query about Python
-        print("\nQuerying about Python...")
-        python_answer = await app.execute(
-            query="What is Python and who created it?",
-            context={"use_knowledge_base": True},
+        # Consulta sobre Python
+        print("\nConsultando sobre Python...")
+        resposta_python = await app.execute(
+            query="O que é Python e quem o criou?",
+            context={"usar_base_conhecimento": True},
         )
-        print(f"Answer: {python_answer}")
+        print(f"Resposta: {resposta_python}")
 
-        # Query about Machine Learning
-        print("\nQuerying about Machine Learning...")
-        ml_answer = await app.execute(
-            query="Explain what Machine Learning is in a few words.",
-            context={"use_knowledge_base": True},
+        # Salvar no arquivo de resultados
+        with open(arquivo_resultados, "a", encoding="utf-8") as f:
+            f.write("Consulta: O que é Python e quem o criou?\n")
+            f.write(f"Resposta: {resposta_python}\n\n")
+
+        # Consulta sobre Machine Learning
+        print("\nConsultando sobre Machine Learning...")
+        resposta_ml = await app.execute(
+            query="Explique o que é Machine Learning em poucas palavras.",
+            context={"usar_base_conhecimento": True},
         )
-        print(f"Answer: {ml_answer}")
+        print(f"Resposta: {resposta_ml}")
 
-        # Process text with custom pipeline
-        print("\n=== Text Processing with Custom Pipeline ===")
+        # Salvar no arquivo de resultados
+        with open(arquivo_resultados, "a", encoding="utf-8") as f:
+            f.write("Consulta: Explique o que é Machine Learning em poucas palavras.\n")
+            f.write(f"Resposta: {resposta_ml}\n\n")
 
-        # Sample texts to process
-        sample_texts = [
-            "Python is a versatile programming language with clear and readable syntax.",
-            "Natural Language Processing (NLP) enables computers to understand human language.",
+        # Processar texto com pipeline personalizado
+        print("\n=== Processamento de Texto com Pipeline Personalizado ===")
+
+        # Adicionar ao arquivo de resultados
+        with open(arquivo_resultados, "a", encoding="utf-8") as f:
+            f.write("PROCESSAMENTO COM PIPELINE PERSONALIZADO\n")
+            f.write("-" * 40 + "\n\n")
+
+        # Textos de exemplo para processar
+        textos_exemplo = [
+            "Python é uma linguagem de programação versátil com sintaxe clara e legível.",
+            "Processamento de Linguagem Natural (PLN) permite aos computadores entenderem a linguagem humana.",
         ]
 
-        print("Processing texts with custom pipeline...")
-        for i, text in enumerate(sample_texts, 1):
-            # Transform and summarize text
-            result = await app.execute(
-                query="Summarize this text in one sentence", context={"text": text}
+        print("Processando textos com pipeline personalizado...")
+        for i, texto in enumerate(textos_exemplo, 1):
+            # Transformar e resumir texto
+            resultado = await app.execute(
+                query="Resumir este texto em uma frase", context={"texto": texto}
             )
-            print(f"Summary {i}: {result}")
+            print(f"Resumo {i}: {resultado}")
+
+            # Salvar no arquivo de resultados
+            with open(arquivo_resultados, "a", encoding="utf-8") as f:
+                f.write(f"Texto {i}: {texto}\n")
+                f.write(f"Resumo: {resultado}\n\n")
+
+        print(f"\nTodos os resultados foram salvos em: {arquivo_resultados}")
 
     finally:
-        # Clean up resources
+        # Limpar recursos
         await app.cleanup()
 
-    print("\nText processing examples completed.")
+    print("\nExemplos de processamento de texto concluídos.")
 
 
 if __name__ == "__main__":
