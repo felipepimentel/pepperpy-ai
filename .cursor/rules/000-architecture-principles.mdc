@@ -1,0 +1,156 @@
+---
+description: USE ALWAYS when designing or implementing any component - core design principles and architectural vision
+globs: 
+  - "**/*.py"
+alwaysApply: true
+---
+
+# PepperPy Architectural Principles
+
+## Framework Vision
+
+PepperPy is a unified abstraction for AI/LLM ecosystems with a focus on agentic AI capabilities.
+
+- **Not just a wrapper**: PepperPy goes beyond a simple wrapper for LLMs or RAG
+- **Agentic platform**: Facilitates orchestration of autonomous agents and workflows
+- **Composable by design**: Independent components that can be combined
+- **Think vertical, not horizontal**: Organized by business domains, not technical types
+
+## Fundamental Principles
+
+### 1. Indirect Plugin Access
+
+❌ **NEVER access plugins directly**
+```python
+# WRONG: Direct import from plugin
+from plugins.llm.openai.provider import OpenAIProvider  # VIOLATION!
+
+provider = OpenAIProvider(api_key="...")
+```
+
+✅ **ALWAYS use framework orchestration**
+```python
+# CORRECT: Framework-managed access
+from pepperpy import PepperPy
+
+pepperpy = PepperPy.create().with_llm("openai")
+result = await pepperpy.llm.generate("prompt")
+```
+
+### 2. Configuration Strategy
+
+PepperPy uses a layered configuration strategy:
+
+1. **Global Configuration** (.config.yml)
+   - Defines framework-wide settings
+   - Specifies which providers are used by default
+
+2. **Plugin Configuration** (plugin.yaml)
+   - Defines plugin-specific configuration schema
+   - Establishes defaults for specific plugins
+   - Documents available options
+
+3. **API Access**
+   - Allows programmatic override of configurations
+   - Enables runtime adjustments
+
+### 3. Implementation Independence
+
+Each domain must be independent, interacting only through abstract interfaces:
+
+```
+LLM ◄─────────── RAG ◄─────────── Agent
+  │                │                │
+  ▼                ▼                ▼
+Providers       Providers        Providers
+```
+
+- Domains must not depend on specific implementations of other domains
+- Communication only through interface contracts
+
+### 4. Language Standard
+
+❌ **NEVER mix languages in codebase**
+```python
+# WRONG: Non-English variable names or comments
+def processar_texto(texto_entrada):  # VIOLATION!
+    # Processar o texto aqui
+    return texto_processado
+```
+
+✅ **ALWAYS use English throughout the codebase**
+```python
+# CORRECT: English-only
+def process_text(input_text):
+    # Process the text here
+    return processed_text
+```
+
+## Main Modules
+
+PepperPy is organized into vertical domains, each with specific responsibilities:
+
+| Domain       | Purpose                              | Examples                        |
+|--------------|--------------------------------------|--------------------------------|
+| **LLM**      | Interaction with language models     | OpenAI, Anthropic, Ollama      |
+| **RAG**      | Retrieval Augmented Generation       | Chroma, Pinecone, FAISS        |
+| **Embedding**| Text embedding generation            | OpenAI, HuggingFace, Cohere    |
+| **Content**  | Content processing                   | Loaders, Extractors, Parsers   |
+| **Agent**    | Autonomous agents and assistants     | Copilot, Assistant, Agent      |
+| **Tool**     | Tools and integrations               | GitHub, Jira, Slack            |
+| **Workflow** | Pipeline orchestration               | Sequential, Parallel, DAG      |
+
+## Dependency Management
+
+PepperPy uses a modern dependency management strategy:
+
+- **Poetry** for package management in the core
+  - Defines dependencies in `pyproject.toml`
+  - Ensures reproducibility with `poetry.lock`
+
+- **uv** for accelerated installation
+  - Fast module loading
+  - Compatible with Poetry environment
+
+- **Plugin isolation**
+  - Plugins specify their own dependencies
+  - Avoids conflicts between plugin requirements
+
+## Anti-Patterns
+
+### Framework Bypass
+
+❌ **NEVER bypass the framework**
+```python
+# WRONG: Bypassing the framework
+import openai  # VIOLATION!
+
+response = openai.ChatCompletion.create(...)
+```
+
+### Configuration Hardcoding
+
+❌ **NEVER hardcode configurations**
+```python
+# WRONG: Hardcoding configuration
+model = "gpt-4"  # VIOLATION!
+```
+
+### Direct Provider Dependencies
+
+❌ **NEVER create direct provider dependencies**
+```python
+# WRONG: Directly depending on a specific provider
+class MyAgent:
+    def __init__(self):
+        from pepperpy.llm.providers.openai import OpenAIProvider  # VIOLATION!
+        self.llm = OpenAIProvider()
+```
+
+## Development Workflow
+
+1. **Think domain-first**: Identify which domain your functionality belongs to
+2. **Interface-driven**: Design the public interface before implementation
+3. **Provider-agnostic**: Implement without depending on specific providers
+4. **Config-aware**: Use the configuration system for all parameters
+5. **Test with alternatives**: Test with multiple providers to ensure abstraction 

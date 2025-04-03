@@ -8,7 +8,7 @@ import enum
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, cast
 
 from pepperpy.core.errors import PepperpyError, ValidationError
 from pepperpy.plugins.plugin import PepperpyPlugin
@@ -38,8 +38,8 @@ class Message:
 
     role: MessageRole
     content: str
-    name: Optional[str] = None
-    function_call: Optional[Dict[str, Any]] = None
+    name: str | None = None
+    function_call: dict[str, Any] | None = None
 
 
 @dataclass
@@ -54,9 +54,9 @@ class GenerationResult:
     """
 
     content: str
-    messages: List[Message]
-    usage: Optional[Dict[str, int]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    messages: list[Message]
+    usage: dict[str, int] | None = None
+    metadata: dict[str, Any] | None = None
 
 
 @dataclass
@@ -70,8 +70,8 @@ class GenerationChunk:
     """
 
     content: str
-    finish_reason: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+    finish_reason: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 class LLMError(PepperpyError):
@@ -92,7 +92,7 @@ class LLMConfigError(LLMError):
     """Error related to configuration of LLM providers."""
 
     def __init__(
-        self, message: str, provider: Optional[str] = None, *args: Any, **kwargs: Any
+        self, message: str, provider: str | None = None, *args: Any, **kwargs: Any
     ) -> None:
         """Initialize a new LLM configuration error.
 
@@ -116,7 +116,7 @@ class LLMProcessError(LLMError):
     """Error related to the LLM process."""
 
     def __init__(
-        self, message: str, prompt: Optional[str] = None, *args: Any, **kwargs: Any
+        self, message: str, prompt: str | None = None, *args: Any, **kwargs: Any
     ) -> None:
         """Initialize a new LLM process error.
 
@@ -150,7 +150,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
     def __init__(
         self,
         name: str = "base",
-        config: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize LLM provider.
@@ -165,7 +165,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
         self.last_used = None
 
     @property
-    def api_key(self) -> Optional[str]:
+    def api_key(self) -> str | None:
         """Get the API key for the provider.
 
         Returns:
@@ -176,7 +176,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
     @abc.abstractmethod
     async def generate(
         self,
-        messages: Union[str, List[Message]],
+        messages: str | list[Message],
         **kwargs: Any,
     ) -> GenerationResult:
         """Generate text based on input messages.
@@ -196,7 +196,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
     @abc.abstractmethod
     async def stream(
         self,
-        messages: Union[str, List[Message]],
+        messages: str | list[Message],
         **kwargs: Any,
     ) -> AsyncIterator[GenerationChunk]:
         """Generate text in a streaming fashion.
@@ -215,9 +215,9 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
 
     async def get_embeddings(
         self,
-        texts: Union[str, List[str]],
+        texts: str | list[str],
         **kwargs: Any,
-    ) -> List[List[float]]:
+    ) -> list[list[float]]:
         """Generate embeddings for input texts.
 
         Args:
@@ -232,7 +232,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
         """
         raise NotImplementedError("get_embeddings must be implemented by provider")
 
-    def get_capabilities(self) -> Dict[str, Any]:
+    def get_capabilities(self) -> dict[str, Any]:
         """Get provider capabilities.
 
         Returns:
@@ -269,7 +269,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
 
     async def chat(
         self,
-        messages: List[Dict[str, str]],
+        messages: list[dict[str, str]],
         **kwargs: Any,
     ) -> str:
         """Chat with the model.
@@ -300,7 +300,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
     async def summarize(
         self,
         text: str,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
         **kwargs: Any,
     ) -> str:
         """Summarize text.
@@ -327,7 +327,7 @@ class LLMProvider(PepperpyPlugin, abc.ABC):
     async def classify(
         self,
         text: str,
-        categories: List[str],
+        categories: list[str],
         **kwargs: Any,
     ) -> str:
         """Classify text into predefined categories.
@@ -361,8 +361,8 @@ class LLMComponent(WorkflowComponent):
         component_id: str,
         name: str,
         provider: LLMProvider,
-        config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Initialize LLM component.
 
@@ -378,7 +378,7 @@ class LLMComponent(WorkflowComponent):
         )
         self.provider: LLMProvider = provider
 
-    async def process(self, data: Union[str, List[Message]]) -> GenerationResult:
+    async def process(self, data: str | list[Message]) -> GenerationResult:
         """Process input data and generate a response.
 
         Args:

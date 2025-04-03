@@ -1,5 +1,5 @@
 ---
-description: USE WHEN implementing or refactoring Python code in the PepperPy framework
+description: USE ALWAYS when writing any Python code - enforces mandatory style, patterns and type hints
 globs: 
   - "pepperpy/**/*.py"
   - "plugins/**/*.py"
@@ -164,3 +164,115 @@ class Processor(Protocol):
    ```python
    def process(value: int | str) -> float | None:
        pass
+   ```
+
+## Code Duplication Prevention
+
+### Anti-Patterns to Avoid
+
+❌ **NEVER duplicate base functionality**
+```python
+# WRONG: Duplicating base functionality
+class OpenAIProvider:
+    def validate_response(self):  # WRONG - Should inherit
+        if not self.response:
+            raise ValueError("Empty response")
+
+class AnthropicProvider:
+    def validate_response(self):  # WRONG - Duplicated code
+        if not self.response:
+            raise ValueError("Empty response")
+```
+
+✅ **ALWAYS inherit common functionality**
+```python
+# CORRECT: Use base class
+class BaseProvider:
+    def validate_response(self):
+        if not self.response:
+            raise ValueError("Empty response")
+
+class OpenAIProvider(BaseProvider):
+    pass  # Inherits validate_response
+```
+
+### Utility Functions
+
+❌ **NEVER duplicate utility code**
+```python
+# WRONG: Duplicating utility functions
+def format_prompt(text: str) -> str:  # WRONG - Should be shared
+    return text.strip().lower()
+
+def clean_prompt(text: str) -> str:  # WRONG - Same functionality
+    return text.strip().lower()
+```
+
+✅ **ALWAYS share utility functions**
+```python
+# CORRECT: Share utility function
+from pepperpy.core.utils import format_prompt
+
+# In different files:
+result1 = format_prompt(text1)
+result2 = format_prompt(text2)
+```
+
+### Error Handling
+
+❌ **NEVER duplicate error handling**
+```python
+# WRONG: Duplicating error handling
+def process1():
+    try:  # WRONG - Should use decorator
+        response = api.call()
+        if not response:
+            raise ValueError("Empty response")
+    except Exception as e:
+        logger.error(f"API error: {e}")
+        raise
+```
+
+✅ **ALWAYS use decorators/utilities**
+```python
+# CORRECT: Use error handling decorator
+from pepperpy.core.decorators import handle_api_errors
+
+@handle_api_errors
+def process1():
+    response = api.call()
+    if not response:
+        raise ValueError("Empty response")
+```
+
+### Configuration Management
+
+❌ **NEVER duplicate config handling**
+```python
+# WRONG: Duplicating config handling
+class Provider:
+    def __init__(self):
+        self.api_key = os.getenv("API_KEY")  # WRONG
+```
+
+✅ **ALWAYS use config management**
+```python
+# CORRECT: Use config management
+from pepperpy.core.config import get_config
+
+class Provider:
+    def __init__(self):
+        self.config = get_config()
+        self.api_key = self.config.get_api_key()
+```
+
+### Refactoring Strategies
+
+#### 1. Extract Method
+When you see the same code in multiple places, extract it to a shared method.
+
+#### 2. Template Method Pattern
+Use base classes with "template methods" that define a skeleton, with specific steps implemented by subclasses.
+
+#### 3. Strategy Pattern
+Extract varying behavior into separate strategy classes that implement a common interface.

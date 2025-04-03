@@ -8,8 +8,9 @@ com uma API fluida, orientada a domínio e baseada em tarefas.
 import asyncio
 import os
 import re
+import time
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from enum import Enum
 from functools import wraps
 from pathlib import Path
@@ -153,7 +154,7 @@ def repository_task(
 ):
     """Decorador para definir uma tarefa de análise de repositório.
 
-    Args:
+        Args:
         capabilities: Capacidades necessárias para executar a tarefa
         requires: Plugins ou recursos necessários
         scope: Escopo da análise (arquivo, módulo, pacote, repositório)
@@ -468,7 +469,7 @@ class RepositoryActionEvent(Event):
 async def publish_event(event: Event) -> Event:
     """Publicar um evento para os handlers registrados.
 
-    Args:
+        Args:
         event: Evento a ser publicado
 
     Returns:
@@ -1096,7 +1097,7 @@ class GitRepository:
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
@@ -1479,17 +1480,12 @@ class GitRepository:
                         for pattern in secret_patterns:
                             matches = re.finditer(pattern, content, re.IGNORECASE)
                             for match in matches:
-                                security_issues.append(
-                                    {
-                                        "file": str(
-                                            file_path.relative_to(self.local_path)
-                                        ),
-                                        "issue": "Potential hardcoded secret",
-                                        "pattern": pattern,
-                                        "line": content[: match.start()].count("\n")
-                                        + 1,
-                                    }
-                                )
+                                security_issues.append({
+                                    "file": str(file_path.relative_to(self.local_path)),
+                                    "issue": "Potential hardcoded secret",
+                                    "pattern": pattern,
+                                    "line": content[: match.start()].count("\n") + 1,
+                                })
                 except Exception:
                     continue
 
@@ -1597,10 +1593,10 @@ class GitRepository:
         """Analisa mudanças desde uma referência (tag, commit, etc).
 
         Args:
-            reference: Referência para comparação (commit, tag)
+                reference: Referência para comparação (commit, tag)
 
         Returns:
-            Resultado da análise de mudanças
+                Resultado da análise de mudanças
         """
         await self.ensure_cloned()
 
@@ -1763,6 +1759,509 @@ class GitRepository:
         """String representation."""
         branch = f", branch={self._current_branch}" if self._current_branch else ""
         return f"GitRepository(url={self.url}{branch})"
+
+    def query(self) -> "QueryBuilder":
+        """
+        Cria um builder para consultas expressivas.
+
+        Returns:
+            Builder de consultas
+        """
+        return QueryBuilder(self)
+
+    def select(self, pattern: str = "*") -> "SelectBuilder":
+        """
+        Cria um builder estilo SQL para seleção de arquivos.
+
+        Args:
+            pattern: Padrão de seleção inicial
+
+        Returns:
+            Builder de seleção
+        """
+        builder = SelectBuilder(self)
+        return builder.files(pattern)
+
+    def pipeline(self, steps: list[dict[str, Any]] | None = None) -> "AnalysisPipeline":
+        """
+        Cria um pipeline de análise.
+
+        Args:
+            steps: Lista de passos a executar
+
+        Returns:
+            Pipeline de análise
+        """
+        pipeline = AnalysisPipeline(self)
+
+        if steps:
+            for step_def in steps:
+                if isinstance(step_def, dict):
+                    action = step_def.pop("action", None)
+                    if action:
+                        step = AnalysisStep(action, **step_def)
+                        pipeline.add_step(step)
+                elif isinstance(step_def, AnalysisStep):
+                    pipeline.add_step(step_def)
+
+        return pipeline
+
+    def analyze_with_updates(self) -> "LiveAnalysis":
+        """
+        Inicia uma análise com atualizações em tempo real.
+
+        Returns:
+            Interface de análise ao vivo
+        """
+        return LiveAnalysis(self)
+
+    @classmethod
+    async def compare(
+        cls,
+        repo1_url: str,
+        repo2_url: str,
+        aspects: list[str] | None = None,
+        **options: Any,
+    ) -> "ComparisonResult":
+        """
+        Compara dois repositórios.
+
+        Args:
+            repo1_url: URL do primeiro repositório
+            repo2_url: URL do segundo repositório
+            aspects: Aspectos a comparar
+            **options: Opções adicionais
+
+        Returns:
+            Resultado da comparação
+        """
+        # Criar os repositórios
+        repo1 = cls(url=repo1_url)
+        repo2 = cls(url=repo2_url)
+
+        # Garantir que estão clonados
+        await repo1.ensure_cloned()
+        await repo2.ensure_cloned()
+
+        # Mapear aspectos para tipos de análise
+        analyses = []
+        if aspects:
+            for aspect in aspects:
+                if aspect == "architecture":
+                    analyses.append(AnalysisType.ARCHITECTURE)
+                elif aspect == "dependencies":
+                    analyses.append(AnalysisType.DEPENDENCIES)
+                elif aspect == "complexity":
+                    analyses.append(AnalysisType.COMPLEXITY)
+                elif aspect == "patterns":
+                    analyses.append(AnalysisType.PATTERNS)
+                elif aspect == "security":
+                    analyses.append(AnalysisType.SECURITY)
+
+        # Análises paralelas
+        analysis1_task = asyncio.create_task(repo1.analyze(analyses=analyses))
+        analysis2_task = asyncio.create_task(repo2.analyze(analyses=analyses))
+
+        # Aguardar resultados
+        analysis1 = await analysis1_task
+        analysis2 = await analysis2_task
+
+        # Obter um agente para análise comparativa
+        agent = await repo1.get_agent()
+
+        # Realizar comparação de alto nível
+        comparison_result = await agent.ask(
+            "Compare these two repositories in detail",
+            repo1_analysis=analysis1,
+            repo2_analysis=analysis2,
+        )
+
+        # Criar resultado da comparação
+        result = ComparisonResult(
+            repo1=repo1,
+            repo2=repo2,
+            repo1_analysis=analysis1,
+            repo2_analysis=analysis2,
+            comparison=comparison_result,
+        )
+
+        return result
+
+    @classmethod
+    async def batch_analyze(
+        cls,
+        repo_urls: list[str],
+        analyses: list[AnalysisType] | None = None,
+        **options: Any,
+    ) -> list["RepositoryAnalysis"]:
+        """
+        Analisa vários repositórios em paralelo.
+
+        Args:
+            repo_urls: URLs dos repositórios
+            analyses: Tipos de análise a executar
+            **options: Opções adicionais
+
+        Returns:
+            Lista de resultados de análise
+        """
+        # Criar tasks para cada repositório
+        tasks = []
+        for url in repo_urls:
+            repo = cls(url=url)
+            task = asyncio.create_task(repo.analyze(analyses=analyses))
+            tasks.append(task)
+
+        # Aguardar todas as análises
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Filtrar exceções
+        analyses = []
+        for result in results:
+            if isinstance(result, Exception):
+                # Poderia logar o erro
+                analyses.append(None)
+            else:
+                analyses.append(result)
+
+        return analyses
+
+    def with_enhancers(self, enhancers: list["Enhancer"]) -> "GitRepository":
+        """
+        Aplica enhancers para potencializar análises.
+
+        Args:
+            enhancers: Lista de enhancers a aplicar
+
+        Returns:
+            Self para encadeamento
+        """
+        if not hasattr(self, "_enhancers"):
+            self._enhancers = []
+
+        self._enhancers.extend(enhancers)
+        return self
+
+    async def analyze(
+        self, analyses: list[AnalysisType] | None = None
+    ) -> "RepositoryAnalysis":
+        """Analyze repository and return comprehensive analysis."""
+        await self.ensure_cloned()
+        agent = await self.get_agent()
+
+        # Publish analysis starting event
+        start_event = AnalysisStartEvent(
+            "repository", self, {"analyses": analyses, "branch": self._current_branch}
+        )
+        await publish_event(start_event)
+
+        # If analysis was cancelled by an event handler
+        if start_event.is_cancelled:
+            return RepositoryAnalysis(repository=self, cancelled=True)
+
+        # Determine which analyses to run
+        analyses_to_run = analyses or [
+            AnalysisType.ARCHITECTURE,
+            AnalysisType.DEPENDENCIES,
+        ]
+
+        # Aplicar enhancers ao contexto, se houver
+        context = {}
+
+        if hasattr(self, "_enhancers") and self._enhancers:
+            for enhancer in self._enhancers:
+                context = enhancer.apply_to_context(context)
+
+            # Registrar enhancers usados nos metadados
+            enhancer_names = [str(e) for e in self._enhancers]
+            context["used_enhancers"] = enhancer_names
+
+        # Run the specified analyses
+        results = {}
+
+        if AnalysisType.ARCHITECTURE in analyses_to_run:
+            prompt = "How is the code structured?"
+
+            # Aplicar enhancers ao prompt, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    prompt = e.enhance_prompt(prompt)
+
+            arch_result = await agent.ask(prompt, repo_url=self.url, **context)
+
+            # Aplicar enhancers ao resultado, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    arch_result = e.enhance_result(arch_result)
+
+            results["architecture"] = arch_result
+
+        if AnalysisType.DEPENDENCIES in analyses_to_run:
+            deps_result = await self._analyze_dependencies(context)
+
+            # Aplicar enhancers ao resultado, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    deps_result = e.enhance_result(deps_result)
+
+            results["dependencies"] = deps_result
+
+        if AnalysisType.COMPLEXITY in analyses_to_run:
+            complex_result = await self._analyze_complexity(context)
+
+            # Aplicar enhancers ao resultado, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    complex_result = e.enhance_result(complex_result)
+
+            results["complexity"] = complex_result
+
+        if AnalysisType.PATTERNS in analyses_to_run:
+            prompt = "Identify common design patterns used in this codebase"
+
+            # Aplicar enhancers ao prompt, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    prompt = e.enhance_prompt(prompt)
+
+            patterns_result = await agent.ask(prompt, repo_url=self.url, **context)
+
+            # Aplicar enhancers ao resultado, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    patterns_result = e.enhance_result(patterns_result)
+
+            results["patterns"] = {
+                "identified_patterns": patterns_result,
+                "suggestions": "Potential pattern applications would go here",
+            }
+
+        if AnalysisType.SECURITY in analyses_to_run:
+            security_result = await self._analyze_security(context)
+
+            # Aplicar enhancers ao resultado, se houver
+            if hasattr(self, "_enhancers") and self._enhancers:
+                for e in self._enhancers:
+                    security_result = e.enhance_result(security_result)
+
+            results["security"] = security_result
+
+        # Always get the purpose
+        prompt = "What is the purpose of this repository?"
+
+        # Aplicar enhancers ao prompt, se houver
+        if hasattr(self, "_enhancers") and self._enhancers:
+            for e in self._enhancers:
+                prompt = e.enhance_prompt(prompt)
+
+        purpose_result = await agent.ask(prompt, repo_url=self.url, **context)
+
+        # Aplicar enhancers ao resultado, se houver
+        if hasattr(self, "_enhancers") and self._enhancers:
+            for e in self._enhancers:
+                purpose_result = e.enhance_result(purpose_result)
+
+        results["purpose"] = purpose_result
+
+        # Get main files
+        prompt = "What are the main files in this project?"
+
+        # Aplicar enhancers ao prompt, se houver
+        if hasattr(self, "_enhancers") and self._enhancers:
+            for e in self._enhancers:
+                prompt = e.enhance_prompt(prompt)
+
+        files_result = await agent.ask(prompt, repo_url=self.url, **context)
+
+        # Aplicar enhancers ao resultado, se houver
+        if hasattr(self, "_enhancers") and self._enhancers:
+            for e in self._enhancers:
+                files_result = e.enhance_result(files_result)
+
+        results["main_files"] = files_result
+
+        # Adicionar metadados sobre enhancers, se houver
+        if hasattr(self, "_enhancers") and self._enhancers:
+            results["_metadata"] = {
+                "enhanced_with": [str(e) for e in self._enhancers],
+                "enhancement_context": context,
+            }
+
+        # Create repository analysis result
+        analysis = RepositoryAnalysis(repository=self, **results)
+
+        # Publish analysis completed event
+        complete_event = AnalysisCompleteEvent("repository", self, analysis)
+        await publish_event(complete_event)
+
+        # Limpar enhancers após uso
+        if hasattr(self, "_enhancers"):
+            self._enhancers = []
+
+        return analysis
+
+    async def _analyze_dependencies(
+        self, context: dict[str, Any] = None
+    ) -> dict[str, Any]:
+        """Analyze repository dependencies."""
+        # Specialized dependency analysis implementation
+        agent = await self.get_agent()
+
+        prompt = "List all direct dependencies in this repository with versions"
+
+        # Aplicar enhancers ao prompt, se houver
+        if hasattr(self, "_enhancers") and self._enhancers:
+            for e in self._enhancers:
+                prompt = e.enhance_prompt(prompt)
+
+        # Get direct dependencies
+        direct_deps = await agent.ask(prompt, repo_url=self.url, **(context or {}))
+
+        # Parse and structure the results
+        dependencies = {"direct": direct_deps}
+
+        return dependencies
+
+    async def _analyze_complexity(
+        self, context: dict[str, Any] = None
+    ) -> dict[str, Any]:
+        """Analyze code complexity."""
+        # Example implementation
+        import subprocess
+
+        # Find Python files to analyze
+        python_files = [f for f in self._files if f.suffix == ".py"]
+        complexity_data = {}
+
+        if python_files:
+            try:
+                # Try to use radon for complexity analysis if available
+                import importlib.util
+
+                if importlib.util.find_spec("radon"):
+                    for py_file in python_files[:10]:  # Limit to 10 files for example
+                        rel_path = py_file.relative_to(self.local_path)
+                        proc = subprocess.run(
+                            ["radon", "cc", "-s", str(py_file)],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                        )
+                        complexity_data[str(rel_path)] = proc.stdout
+            except (ImportError, subprocess.SubprocessError):
+                # Fallback to simpler analysis
+                for py_file in python_files[:10]:
+                    rel_path = py_file.relative_to(self.local_path)
+                    with open(py_file, encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                        loc = len(content.splitlines())
+                        # Simple complexity heuristic based on line count
+                        complexity_data[str(rel_path)] = {
+                            "loc": loc,
+                            "complexity": "high"
+                            if loc > 500
+                            else "medium"
+                            if loc > 200
+                            else "low",
+                        }
+
+        # Aplicar enhancers específicos para complexidade
+        if hasattr(self, "_enhancers") and self._enhancers:
+            # Verificar se há enhancer de performance
+            performance_enhancers = [
+                e for e in self._enhancers if isinstance(e, PerformanceEnhancer)
+            ]
+            if performance_enhancers and complexity_data:
+                # Adicionar análise mais detalhada para arquivos de alta complexidade
+                high_complexity_files = [
+                    file
+                    for file, data in complexity_data.items()
+                    if isinstance(data, dict) and data.get("complexity") == "high"
+                ]
+
+                if high_complexity_files:
+                    complexity_data["hotspots"] = high_complexity_files
+
+        return {
+            "metrics": complexity_data,
+            "summary": "Complexity analysis summary would go here",
+        }
+
+    async def _analyze_security(self, context: dict[str, Any] = None) -> dict[str, Any]:
+        """Analyze code for security issues."""
+        # Example implementation
+        security_issues = []
+
+        # Very basic check for hard-coded secrets/keys
+        for file_path in self._files:
+            if file_path.suffix in [
+                ".py",
+                ".js",
+                ".ts",
+                ".java",
+                ".xml",
+                ".yml",
+                ".yaml",
+            ]:
+                try:
+                    with open(file_path, encoding="utf-8", errors="ignore") as f:
+                        content = f.read()
+                        # Basic check for API keys, passwords, etc.
+                        secret_patterns = [
+                            r'api[_-]?key\s*=\s*[\'"]([\w\d]{16,})[\'"]',
+                            r'password\s*=\s*[\'"]([\w\d]{8,})[\'"]',
+                            r'secret\s*=\s*[\'"]([\w\d]{16,})[\'"]',
+                        ]
+
+                        for pattern in secret_patterns:
+                            matches = re.finditer(pattern, content, re.IGNORECASE)
+                            for match in matches:
+                                security_issues.append({
+                                    "file": str(file_path.relative_to(self.local_path)),
+                                    "issue": "Potential hardcoded secret",
+                                    "pattern": pattern,
+                                    "line": content[: match.start()].count("\n") + 1,
+                                })
+                except Exception:
+                    continue
+
+        # Se tiver enhancer de segurança, realizar análises adicionais
+        if hasattr(self, "_enhancers") and self._enhancers:
+            security_enhancers = [
+                e for e in self._enhancers if isinstance(e, SecurityEnhancer)
+            ]
+            if security_enhancers:
+                # Verificar configurações de segurança
+                compliance_checks = []
+                for enhancer in security_enhancers:
+                    if enhancer.config.get("compliance"):
+                        for standard in enhancer.config.get("compliance", []):
+                            compliance_checks.append({
+                                "standard": standard,
+                                "status": "Not implemented - demo only",
+                            })
+
+                if compliance_checks:
+                    return {
+                        "issues": security_issues,
+                        "count": len(security_issues),
+                        "risk_level": "high"
+                        if len(security_issues) > 5
+                        else "medium"
+                        if security_issues
+                        else "low",
+                        "compliance_checks": compliance_checks,
+                    }
+
+        return {
+            "issues": security_issues,
+            "count": len(security_issues),
+            "risk_level": "high"
+            if len(security_issues) > 5
+            else "medium"
+            if security_issues
+            else "low",
+        }
 
 
 class RepoFileFilter:
@@ -1945,106 +2444,78 @@ class RepoFileFilter:
         return len(self._apply_filters())
 
 
-class PepperPy:
-    """
-    Classe principal do framework PepperPy.
+class QueryBuilder:
+    """Builder para consultas expressivas sobre repositórios."""
 
-    Fornece métodos fluidos para inicialização, configuração e uso do framework.
-    """
-
-    def __init__(self, config: dict[str, Any] | None = None):
+    def __init__(self, repo: "GitRepository"):
         """
-        Inicializa o framework.
+            Inicializa o builder de consultas.
 
         Args:
-            config: Configuração opcional
+                repo: Repositório alvo das consultas
         """
-        self.config = config or {}
-        self._initialized = False
-        self._plugins: dict[str, Plugin] = {}
-        self._current_plugin_type: str | None = None
-        self._current_plugin_id: str | None = None
-        self._current_config: dict[str, Any] = {}
-        self._context: dict[str, Any] = {}
-        self._events: list[Event] = []
-        self._providers: dict[str, dict[str, Any]] = {}
+        self.repo = repo
+        self._focus = []
+        self._scope = None
+        self._limit = None
+        self._context = {}
+        self._filters = {}
 
-    async def __aenter__(self) -> Self:
-        """Context manager entry."""
-        await self.initialize()
+    def about(self, topic: str) -> "QueryBuilder":
+        """
+            Define o tópico principal da consulta.
+
+            Args:
+                topic: Tópico principal (architecture, patterns, etc)
+
+        Returns:
+                Self para encadeamento
+        """
+        self._topic = topic
         return self
 
-    async def __aexit__(
-        self,
-        exc_type: Type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        """Context manager exit."""
-        await self.cleanup()
-
-    async def initialize(self) -> Self:
-        """Inicializa o framework e seus componentes."""
-        if self._initialized:
-            return self
-
-        # Initialize plugins
-        await self._initialize_plugins()
-
-        self._initialized = True
-        return self
-
-    async def cleanup(self) -> None:
-        """Limpa o framework e todos os plugins."""
-        if not self._initialized:
-            return
-
-        # Clean up plugins
-        for plugin in self._plugins.values():
-            await plugin.cleanup()
-
-        self._initialized = False
-
-    async def _initialize_plugins(self) -> None:
-        """Inicializa todos os plugins registrados."""
-        for plugin_id, plugin in self._plugins.items():
-            try:
-                await plugin.initialize()
-            except Exception as e:
-                print(f"Erro ao inicializar plugin {plugin_id}: {e}")
-
-    def with_plugin(self, plugin_type: str, plugin_id: str) -> Self:
+    def with_focus(self, *focus: str) -> "QueryBuilder":
         """
-        Configura o plugin atual para operações encadeadas.
+        Define o foco específico da consulta.
 
         Args:
-            plugin_type: Tipo de plugin
-            plugin_id: ID do plugin
+            *focus: Aspectos de foco (patterns, complexity, etc)
 
         Returns:
             Self para encadeamento
         """
-        self._current_plugin_type = plugin_type
-        self._current_plugin_id = plugin_id
-        self._current_config = {}
+        self._focus.extend(focus)
         return self
 
-    def with_config(self, **config: Any) -> Self:
+    def in_scope(self, scope: str) -> "QueryBuilder":
         """
-        Define configuração para o plugin atual.
+        Define o escopo da consulta.
 
         Args:
-            **config: Opções de configuração
+            scope: Escopo da consulta (repository, file, etc)
 
         Returns:
             Self para encadeamento
         """
-        self._current_config.update(config)
+        self._scope = scope
         return self
 
-    def with_context(self, **context: Any) -> Self:
+    def limit(self, count: int) -> "QueryBuilder":
         """
-        Define contexto para a próxima operação.
+            Limita os resultados da consulta.
+
+        Args:
+                count: Número máximo de resultados
+
+        Returns:
+                Self para encadeamento
+        """
+        self._limit = count
+        return self
+
+    def with_context(self, **context: Any) -> "QueryBuilder":
+        """
+        Adiciona contexto à consulta.
 
         Args:
             **context: Variáveis de contexto
@@ -2055,435 +2526,708 @@ class PepperPy:
         self._context.update(context)
         return self
 
-    def reset_context(self) -> Self:
+    def filter(self, **filters: Any) -> "QueryBuilder":
         """
-        Limpa o contexto atual.
+        Adiciona filtros à consulta.
+
+        Args:
+            **filters: Filtros a aplicar
 
         Returns:
             Self para encadeamento
         """
-        self._context = {}
+        self._filters.update(filters)
         return self
 
-    async def execute(self, query: str, context: dict[str, Any] | None = None) -> Any:
+    async def execute(self) -> str:
         """
-        Executa uma query com contexto.
-
-        Args:
-            query: Query do usuário
-            context: Informações de contexto
+        Executa a consulta construída.
 
         Returns:
-            Resultado da execução da query
+            Resultado da consulta
         """
-        # Verificar se o framework está inicializado
-        if not self._initialized:
-            await self.initialize()
+        # Construir a query baseada nos parâmetros
+        query_parts = []
 
-        # Criar contexto completo
-        full_context = self._context.copy()
-        if context:
-            full_context.update(context)
+        if hasattr(self, "_topic"):
+            if self._topic == "code_organization":
+                query_parts.append("Analise a organização do código")
+            elif self._topic == "purpose":
+                query_parts.append("Qual é o propósito deste repositório")
+            elif self._topic == "complexity":
+                query_parts.append("Avalie a complexidade do código")
+            elif self._topic == "dependencies":
+                query_parts.append("Identifique as dependências do projeto")
+            else:
+                query_parts.append(f"Analise o {self._topic} do repositório")
 
-        # Publicar evento de início de execução
-        event = Event("execute.start", {"query": query, "context": full_context})
-        await publish_event(event)
+        # Adicionar foco, se definido
+        if self._focus:
+            focus_str = ", ".join(self._focus)
+            query_parts.append(f"com foco em {focus_str}")
 
-        # Processar a query
-        result = await self._process_query(query, full_context)
+        # Adicionar escopo, se definido
+        if self._scope:
+            query_parts.append(f"no escopo {self._scope}")
 
-        # Publicar evento de conclusão
-        end_event = Event(
-            "execute.complete",
-            {"query": query, "context": full_context, "result": result},
+        # Construir a query final
+        query = " ".join(query_parts)
+
+        # Adicionar filtros ao contexto
+        context = self._context.copy()
+        if self._filters:
+            context["filters"] = self._filters
+
+        # Adicionar limite ao contexto
+        if self._limit:
+            context["limit"] = self._limit
+
+        # Executar a consulta
+        return await self.repo.ask(query, **context)
+
+
+class SelectBuilder:
+    """Builder estilo SQL para seleção de arquivos em repositórios."""
+
+    def __init__(self, repo: "GitRepository"):
+        """
+            Inicializa o builder de seleção.
+
+        Args:
+                repo: Repositório alvo
+        """
+        self.repo = repo
+        self._patterns = []
+        self._conditions = {}
+        self._exclusions = []
+
+    def files(self, pattern: str) -> "SelectBuilder":
+        """
+            Seleciona arquivos por padrão glob.
+
+            Args:
+                pattern: Padrão glob
+
+        Returns:
+                Self para encadeamento
+        """
+        self._patterns.append(pattern)
+        return self
+
+    def where(self, **conditions: Any) -> "SelectBuilder":
+        """
+        Define condições para seleção.
+
+        Args:
+            **conditions: Condições de seleção
+
+        Returns:
+            Self para encadeamento
+        """
+        self._conditions.update(conditions)
+        return self
+
+    def not_in(self, *directories: str) -> "SelectBuilder":
+        """
+            Exclui diretórios da seleção.
+
+        Args:
+                *directories: Diretórios a excluir
+
+        Returns:
+                Self para encadeamento
+        """
+        self._exclusions.extend(directories)
+        return self
+
+    async def execute(self) -> list[Path]:
+        """
+        Executa a seleção de arquivos.
+
+        Returns:
+            Lista de arquivos selecionados
+        """
+        # Começar com a API fluida existente
+        file_filter = self.repo.code_files()
+
+        # Aplicar padrões de arquivo
+        for pattern in self._patterns:
+            file_filter = file_filter.matching(pattern)
+
+        # Aplicar exclusões
+        for exclusion in self._exclusions:
+            file_filter = file_filter.excluding(exclusion)
+
+        # Aplicar condições específicas
+        if "language" in self._conditions:
+            file_filter = file_filter.by_language(self._conditions["language"])
+
+        if "complexity" in self._conditions:
+            # Complexidade seria implementada como parte da análise
+            pass
+
+        if "contains" in self._conditions:
+            # Isso exigiria uma implementação mais complexa
+            pass
+
+        # Executar a análise para obter os resultados
+        files = file_filter._apply_filters()
+        return files
+
+
+class AnalysisStep:
+    """Passo em um pipeline de análise."""
+
+    def __init__(self, action: str, **params: Any):
+        """
+        Inicializa um passo de análise.
+
+        Args:
+            action: Ação a executar
+            **params: Parâmetros da ação
+        """
+        self.action = action
+        self.params = params
+
+    async def execute(
+        self, repo: "GitRepository", context: dict[str, Any] = None
+    ) -> Any:
+        """
+        Executa o passo de análise.
+
+        Args:
+            repo: Repositório alvo
+            context: Contexto de execução
+
+        Returns:
+            Resultado da execução
+        """
+        context = context or {}
+
+        if self.action == "clone":
+            return await repo.ensure_cloned()
+
+        elif self.action == "analyze":
+            analyses = self.params.get("analyses", None)
+            return await repo.analyze(analyses=analyses)
+
+        elif self.action == "filter":
+            # Implementação simplificada
+            return context.get("last_result", None)
+
+        elif self.action == "summarize":
+            if "last_result" in context and hasattr(
+                context["last_result"], "summarize"
+            ):
+                return await context["last_result"].summarize()
+            else:
+                return "Não foi possível gerar um resumo"
+
+        elif self.action == "report":
+            report_name = self.params.get("name", "report")
+            if "last_result" in context and hasattr(
+                context["last_result"], "generate_report"
+            ):
+                report = await context["last_result"].generate_report()
+                return report
+            else:
+                return None
+
+        return None
+
+
+class AnalysisPipeline:
+    """Pipeline para execução encadeada de passos de análise."""
+
+    def __init__(self, repo: "GitRepository", steps: list[AnalysisStep] = None):
+        """
+            Inicializa o pipeline de análise.
+
+        Args:
+                repo: Repositório alvo
+                steps: Passos de análise
+        """
+        self.repo = repo
+        self.steps = steps or []
+        self.context = {}
+        self.results = []
+
+    def add_step(self, step: AnalysisStep) -> "AnalysisPipeline":
+        """
+            Adiciona um passo ao pipeline.
+
+            Args:
+                step: Passo a adicionar
+
+        Returns:
+                Self para encadeamento
+        """
+        self.steps.append(step)
+        return self
+
+    async def execute(self) -> list[Any]:
+        """
+        Executa todos os passos do pipeline.
+
+        Returns:
+            Resultados da execução
+        """
+        for step in self.steps:
+            result = await step.execute(self.repo, self.context)
+            self.results.append(result)
+            self.context["last_result"] = result
+            self.context["results"] = self.results
+
+        return self.results
+
+
+class ProgressTracker:
+    """Rastreador de progresso para operações de longa duração."""
+
+    def __init__(self, total_steps: int = 0, description: str = ""):
+        """
+        Inicializa o rastreador de progresso.
+
+        Args:
+            total_steps: Total de passos
+            description: Descrição da operação
+        """
+        self.total_steps = total_steps
+        self.current_step = 0
+        self.description = description
+        self.start_time = time.time()
+        self.updates = []
+        self._listeners = []
+
+    def add_listener(self, callback: Callable[[dict[str, Any]], None]) -> None:
+        """
+        Adiciona um ouvinte para atualizações.
+
+        Args:
+            callback: Função de callback
+        """
+        self._listeners.append(callback)
+
+    def update(self, step: int, description: str = None) -> None:
+        """
+        Atualiza o progresso.
+
+        Args:
+            step: Passo atual
+            description: Descrição opcional do passo
+        """
+        self.current_step = step
+        if description:
+            self.description = description
+
+        # Calcular porcentagem
+        percentage = (
+            (self.current_step / self.total_steps) * 100 if self.total_steps > 0 else 0
         )
-        await publish_event(end_event)
 
-        return result
+        # Criar atualização
+        update = {
+            "step": self.current_step,
+            "total": self.total_steps,
+            "percentage": round(percentage, 2),
+            "description": self.description,
+            "elapsed_time": time.time() - self.start_time,
+        }
 
-    async def _process_query(self, query: str, context: dict[str, Any]) -> Any:
+        self.updates.append(update)
+
+        # Notificar ouvintes
+        for listener in self._listeners:
+            listener(update)
+
+    def complete(self, final_description: str = "Operação concluída") -> None:
         """
-        Processa uma query usando o contexto.
+        Marca a operação como concluída.
 
         Args:
-            query: Query do usuário
-            context: Contexto da execução
-
-        Returns:
-            Resultado do processamento
+            final_description: Descrição final
         """
-        # Aqui você implementaria a lógica real de processamento
-        # Por enquanto, retorna um texto de exemplo com base na query
-        if "texto" in context:
-            texto = context["texto"]
-            if "normalizar" in query.lower():
-                return self._normalize_text_example(texto, context.get("opcoes", {}))
-            elif "resumir" in query.lower():
-                return self._summarize_text_example(texto)
-            elif "traduzir" in query.lower():
-                return self._translate_text_example(texto)
+        self.update(self.total_steps, final_description)
 
-        return f"PepperPy processou: {query}"
 
-    # Exemplos de métodos de processamento
-    def _normalize_text_example(self, texto: str, opcoes: dict[str, Any]) -> str:
-        """Exemplo de normalização de texto."""
-        result = texto
+class LiveAnalysis:
+    """Interface para análise ao vivo com atualizações de progresso."""
 
-        if opcoes.get("minusculas", False):
-            result = result.lower()
-
-        if opcoes.get("remover_pontuacao", False):
-            result = re.sub(r"[^\w\s]", "", result)
-
-        return result
-
-    def _summarize_text_example(self, texto: str) -> str:
-        """Exemplo de resumo de texto."""
-        words = texto.split()
-        if len(words) <= 5:
-            return texto
-        return " ".join(words[:5]) + "..."
-
-    def _translate_text_example(self, texto: str) -> str:
-        """Exemplo de tradução de texto."""
-        return f"[Tradução] {texto}"
-
-    async def normalize(self, text: str, **options: Any) -> str:
+    def __init__(
+        self, repo: "GitRepository", analyses: list[AnalysisType] | None = None
+    ):
         """
-        Normaliza um texto com as opções especificadas.
+        Inicializa a análise ao vivo.
 
         Args:
-            text: Texto a ser normalizado
-            **options: Opções de normalização
-
-        Returns:
-            Texto normalizado
+            repo: Repositório a analisar
+            analyses: Tipos de análise
         """
-        context = {"texto": text, "opcoes": options}
-        result = await self.execute("Normalizar este texto", context)
-        return result
-
-    async def summarize(self, text: str, length: str = "medium") -> str:
-        """
-        Resume um texto.
-
-        Args:
-            text: Texto a ser resumido
-            length: Tamanho do resumo (short, medium, long)
-
-        Returns:
-            Texto resumido
-        """
-        context = {"texto": text, "tamanho": length}
-        result = await self.execute("Resumir este texto", context)
-        return result
-
-    async def translate(self, text: str, target_language: str) -> str:
-        """
-        Traduz um texto.
-
-        Args:
-            text: Texto a ser traduzido
-            target_language: Idioma alvo
-
-        Returns:
-            Texto traduzido
-        """
-        context = {"texto": text, "idioma": target_language}
-        result = await self.execute(
-            f"Traduzir este texto para {target_language}", context
+        self.repo = repo
+        self.analyses = analyses
+        self.tracker = ProgressTracker(
+            total_steps=len(analyses) if analyses else 4,
+            description="Iniciando análise",
         )
-        return result
+        self.result = None
+        self._queue = asyncio.Queue()
+        self._task = None
 
-    async def process_file(
+    async def __aenter__(self) -> "LiveAnalysis":
+        """Context manager entry."""
+        # Iniciar a análise em uma task separada
+        self._task = asyncio.create_task(self._analyze())
+        return self
+
+    async def __aexit__(
         self,
-        input_path: str | Path,
-        output_path: str | Path | None = None,
-        operation: str = "normalize",
-        **options: Any,
-    ) -> str | None:
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        """Context manager exit."""
+        if self._task and not self._task.done():
+            self._task.cancel()
+            try:
+                await self._task
+            except asyncio.CancelledError:
+                pass
+
+    async def _analyze(self) -> None:
+        """Executa a análise com atualizações de progresso."""
+        try:
+            # Preparação
+            self.tracker.update(0, "Clonando repositório")
+            await self.repo.ensure_cloned()
+
+            # Análise principal
+            self.tracker.update(1, "Iniciando análise")
+
+            # Se não temos tipos específicos, usar os padrão
+            analyses_to_run = self.analyses or [
+                AnalysisType.ARCHITECTURE,
+                AnalysisType.DEPENDENCIES,
+                AnalysisType.COMPLEXITY,
+            ]
+
+            # Análise com progresso
+            for i, analysis_type in enumerate(analyses_to_run):
+                step = i + 1
+                self.tracker.update(step, f"Analisando {analysis_type.name.lower()}")
+                # Pequeno atraso para visibilidade
+                await asyncio.sleep(0.5)
+
+            # Análise final
+            self.tracker.update(len(analyses_to_run) + 1, "Finalizando análise")
+
+            # Executar a análise real
+            self.result = await self.repo.analyze(analyses=self.analyses)
+
+            # Marcar como concluído
+            self.tracker.complete("Análise concluída com sucesso")
+
+            # Colocar None na fila para indicar o fim
+            await self._queue.put(None)
+
+        except Exception as e:
+            # Atualizar o tracker com erro
+            self.tracker.update(self.tracker.current_step, f"Erro: {e!s}")
+            # Propagar a exceção na fila
+            await self._queue.put(e)
+            # Re-raise para o contexto
+            raise
+
+    @property
+    async def progress(self) -> AsyncIterator[dict[str, Any]]:
         """
-        Processa um arquivo de texto.
+        Gerador assíncrono para acompanhar progresso.
+
+        Yields:
+            Atualizações de progresso
+        """
+        last_update_index = -1
+
+        while True:
+            # Verificar por novos updates sem bloquear
+            if last_update_index + 1 < len(self.tracker.updates):
+                last_update_index += 1
+                yield self.tracker.updates[last_update_index]
+            else:
+                # Verificar se terminou
+                try:
+                    result = self._queue.get_nowait()
+                    if result is None:
+                        # Fim normal
+                        break
+                    elif isinstance(result, Exception):
+                        # Erro
+                        raise result
+                except asyncio.QueueEmpty:
+                    # Ainda em andamento, esperar um pouco
+                    await asyncio.sleep(0.1)
+
+
+class ComparisonResult:
+    """Resultado da comparação entre repositórios."""
+
+    def __init__(
+        self,
+        repo1: GitRepository,
+        repo2: GitRepository,
+        repo1_analysis: "RepositoryAnalysis",
+        repo2_analysis: "RepositoryAnalysis",
+        comparison: str,
+    ):
+        """
+        Inicializa o resultado da comparação.
 
         Args:
-            input_path: Caminho do arquivo de entrada
-            output_path: Caminho do arquivo de saída (opcional)
-            operation: Operação a ser realizada (normalize, summarize, translate)
-            **options: Opções adicionais
-
-        Returns:
-            Conteúdo processado se output_path for None, caso contrário None
+            repo1: Primeiro repositório
+            repo2: Segundo repositório
+            repo1_analysis: Análise do primeiro repositório
+            repo2_analysis: Análise do segundo repositório
+            comparison: Comparação textual
         """
-        # Normalizar caminhos
-        input_path = Path(input_path)
-        output_path = Path(output_path) if output_path else None
+        self.repo1 = repo1
+        self.repo2 = repo2
+        self.repo1_analysis = repo1_analysis
+        self.repo2_analysis = repo2_analysis
+        self.comparison = comparison
 
-        # Verificar se o arquivo existe
-        if not input_path.exists():
-            raise FileNotFoundError(f"Arquivo não encontrado: {input_path}")
+        # Extrair informações de similaridades e diferenças
+        self.similarities, self.differences = self._extract_comparison_data(comparison)
 
-        # Ler o arquivo
-        with open(input_path, encoding="utf-8") as f:
-            content = f.read()
-
-        # Processar o conteúdo
-        if operation == "normalize":
-            processed = await self.normalize(content, **options)
-        elif operation == "summarize":
-            processed = await self.summarize(content, **options.get("length", "medium"))
-        elif operation == "translate":
-            processed = await self.translate(
-                content, options.get("target_language", "en")
-            )
-        else:
-            raise ValueError(f"Operação desconhecida: {operation}")
-
-        # Salvar ou retornar o resultado
-        if output_path:
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(processed)
-            return None
-        else:
-            return processed
-
-    def register_plugin(self, plugin: Plugin) -> Plugin:
+    def _extract_comparison_data(self, comparison: str) -> tuple[list[str], list[str]]:
         """
-        Registra um plugin no framework.
+        Extrai informações de similaridades e diferenças.
 
         Args:
-            plugin: Instância do plugin
+            comparison: Texto de comparação
 
         Returns:
-            O plugin registrado
+            Tupla (similaridades, diferenças)
         """
-        self._plugins[plugin.plugin_id] = plugin
-        return plugin
+        # Implementação simplificada
+        similarities = []
+        differences = []
 
-    def create_repository(
-        self, url: str, local_path: str | Path | None = None
-    ) -> GitRepository:
+        lines = comparison.split("\n")
+        current_section = None
+
+        for line in lines:
+            line = line.strip()
+
+            if "similaridades" in line.lower() or "similarities" in line.lower():
+                current_section = "similarities"
+                continue
+            elif "diferenças" in line.lower() or "differences" in line.lower():
+                current_section = "differences"
+                continue
+
+            if current_section == "similarities" and line and not line.startswith("#"):
+                similarities.append(line)
+            elif current_section == "differences" and line and not line.startswith("#"):
+                differences.append(line)
+
+        return similarities, differences
+
+    async def generate_report(self, format: str = "md") -> "Report":
         """
-        Cria uma interface para um repositório git.
+        Gera um relatório de comparação.
 
         Args:
-            url: URL do repositório
-            local_path: Caminho local opcional
+            format: Formato do relatório
 
         Returns:
-            Interface do repositório
+            Relatório de comparação
         """
-        return GitRepository(url=url, local_path=local_path)
+        # Implementação simplificada
+        content = f"""# Comparação entre Repositórios
 
-    # Métodos factory integrados do factory.py
-    def create_plugin(
-        self, plugin_type: str, provider_type: str | None = None, **config: Any
-    ) -> Plugin:
+## Repositório 1: {self.repo1.url}
+## Repositório 2: {self.repo2.url}
+
+## Comparação
+{self.comparison}
+
+## Similaridades
+{chr(10).join("- " + sim for sim in self.similarities)}
+
+## Diferenças
+{chr(10).join("- " + diff for diff in self.differences)}
+"""
+
+        # Criar relatório
+        return Report(
+            title="Comparação de Repositórios", content=content, format=format
+        )
+
+    async def export(self, path: str | Path, format: str = "md") -> Path:
         """
-        Cria uma instância de plugin.
+        Exporta a comparação para um arquivo.
 
         Args:
-            plugin_type: Tipo de plugin (llm, tts, rag, etc.)
-            provider_type: Tipo de provedor (opcional)
-            **config: Configuração adicional
+            path: Caminho do arquivo
+            format: Formato do arquivo
 
         Returns:
-            Instância do plugin
+            Caminho do arquivo exportado
         """
-        if not provider_type:
-            # Obter provedor padrão
-            provider_type = config.pop("provider_type", "default")
+        # Gerar relatório
+        report = await self.generate_report(format=format)
 
-        # Criação e registro fictício do plugin
-        plugin = Plugin()
-        plugin.plugin_id = f"{plugin_type}.{provider_type}"
-        for key, value in config.items():
-            setattr(plugin, key, value)
+        # Exportar
+        return await report.save(path, format=format)
 
-        # Registrar o plugin
-        self._plugins[plugin.plugin_id] = plugin
-        return plugin
+    def __repr__(self) -> str:
+        """String representation."""
+        return f"ComparisonResult(repo1={self.repo1.url}, repo2={self.repo2.url})"
 
-    def create_agent(self, **config: Any) -> AgentImpl:
+
+# Funções auxiliares para criar pipelines
+class steps:
+    """Funções auxiliares para criar pipelines de análise."""
+
+    @staticmethod
+    def clone() -> AnalysisStep:
         """
-        Cria um agente.
+        Cria um passo para clonar o repositório.
+
+        Returns:
+            Passo de análise
+        """
+        return AnalysisStep("clone")
+
+    @staticmethod
+    def analyze(analyses: list[AnalysisType] | None = None) -> AnalysisStep:
+        """
+        Cria um passo para analisar o repositório.
 
         Args:
-            **config: Configuração do agente
+            analyses: Tipos de análise
 
         Returns:
-            Instância do agente
+            Passo de análise
         """
-        capabilities = config.pop("capabilities", None)
-        return AgentImpl(capabilities=capabilities, **config)
+        return AnalysisStep("analyze", analyses=analyses)
+
+    @staticmethod
+    def filter(**filters: Any) -> AnalysisStep:
+        """
+        Cria um passo para filtrar resultados.
+
+        Args:
+            **filters: Filtros a aplicar
+
+        Returns:
+            Passo de análise
+        """
+        return AnalysisStep("filter", **filters)
+
+    @staticmethod
+    def summarize() -> AnalysisStep:
+        """
+        Cria um passo para resumir resultados.
+
+        Returns:
+            Passo de análise
+        """
+        return AnalysisStep("summarize")
+
+    @staticmethod
+    def report(name: str) -> AnalysisStep:
+        """
+            Cria um passo para gerar um relatório.
+
+        Args:
+                name: Nome do relatório
+
+        Returns:
+                Passo de análise
+        """
+        return AnalysisStep("report", name=name)
 
 
-# Instância singleton
-_instance: PepperPy | None = None
+# Implementação de operadores para tipos de análise
+class AnalysisType(Enum):
+    """Tipos de análise de repositório."""
 
-# Funções de factory globais
+    ARCHITECTURE = "architecture"
+    DEPENDENCIES = "dependencies"
+    COMPLEXITY = "complexity"
+    PATTERNS = "patterns"
+    SECURITY = "security"
+
+    def __or__(self, other: "AnalysisType") -> list["AnalysisType"]:
+        """Operador | para combinar tipos de análise."""
+        return [self, other]
+
+    def __add__(self, other: "AnalysisType") -> list["AnalysisType"]:
+        """Operador + para combinar tipos de análise."""
+        return [self, other]
 
 
-def get_instance() -> PepperPy:
-    """Obtém ou cria a instância singleton do PepperPy."""
-    global _instance
-    if _instance is None:
-        _instance = PepperPy()
-    return _instance
+# Estender API global com novos métodos
 
 
-async def create(**config: Any) -> PepperPy:
+async def analyze_with_config(config: dict[str, Any]) -> Any:
     """
-    Cria uma nova instância do framework.
+    Analisa repositórios usando configuração estruturada.
 
     Args:
-        **config: Configuração opcional
-
-    Returns:
-        Nova instância do framework
-    """
-    instance = PepperPy(config)
-    await instance.initialize()
-    return instance
-
-
-def Repository(url: str, local_path: str | Path | None = None) -> GitRepository:
-    """
-    Cria uma interface para um repositório git.
-
-    Args:
-        url: URL do repositório
-        local_path: Caminho local opcional
-
-    Returns:
-        Interface do repositório
-    """
-    return GitRepository(url=url, local_path=local_path)
-
-
-async def normalize(text: str, **options: Any) -> str:
-    """
-    Normaliza um texto com as opções especificadas.
-
-    Args:
-        text: Texto a ser normalizado
-        **options: Opções de normalização
-
-    Returns:
-        Texto normalizado
-    """
-    instance = get_instance()
-    return await instance.normalize(text, **options)
-
-
-async def summarize(text: str, length: str = "medium") -> str:
-    """
-    Resume um texto.
-
-    Args:
-        text: Texto a ser resumido
-        length: Tamanho do resumo (short, medium, long)
-
-    Returns:
-        Texto resumido
-    """
-    instance = get_instance()
-    return await instance.summarize(text, length=length)
-
-
-async def translate(text: str, target_language: str) -> str:
-    """
-    Traduz um texto.
-
-    Args:
-        text: Texto a ser traduzido
-        target_language: Idioma alvo
-
-    Returns:
-        Texto traduzido
-    """
-    instance = get_instance()
-    return await instance.translate(text, target_language=target_language)
-
-
-async def process_file(
-    input_path: str | Path,
-    output_path: str | Path | None = None,
-    operation: str = "normalize",
-    **options: Any,
-) -> str | None:
-    """
-    Processa um arquivo de texto.
-
-    Args:
-        input_path: Caminho do arquivo de entrada
-        output_path: Caminho do arquivo de saída (opcional)
-        operation: Operação a ser realizada (normalize, summarize, translate)
-        **options: Opções adicionais
-
-    Returns:
-        Conteúdo processado se output_path for None, caso contrário None
-    """
-    instance = get_instance()
-    return await instance.process_file(input_path, output_path, operation, **options)
-
-
-async def analyze(
-    url: str, objectives: list[str] | None = None, **options: Any
-) -> Result:
-    """
-    Analisa um URL (repositório, documento, etc.) com objetivos específicos.
-
-    Args:
-        url: URL a ser analisado
-        objectives: Lista de objetivos de análise
-        **options: Opções adicionais
+        config: Configuração da análise
 
     Returns:
         Resultado da análise
     """
-    # Determinar tipo de URL e criar handler apropriado
-    if url.endswith(".git") or "github.com" in url:
-        # Git repository
-        repo = Repository(url)
+    # Extrair informações da configuração
+    target = config.get("target")
+    if not target:
+        raise ValueError("Configuração deve incluir 'target'")
 
-        # Se especificou análises específicas, mapear para AnalysisType
-        analyses = None
-        if objectives:
-            analyses = []
-            for obj in objectives:
-                if obj == "understand_purpose":
-                    # Propósito já é sempre incluído
-                    pass
-                elif obj == "identify_structure":
-                    analyses.append(AnalysisType.ARCHITECTURE)
-                elif obj == "summarize_code":
-                    analyses.append(AnalysisType.COMPLEXITY)
-                elif obj == "check_security":
-                    analyses.append(AnalysisType.SECURITY)
-                elif obj == "identify_patterns":
-                    analyses.append(AnalysisType.PATTERNS)
+    # Converter nomes de análise para enums
+    analyses = []
+    for analysis_name in config.get("analyses", []):
+        if analysis_name == "architecture":
+            analyses.append(AnalysisType.ARCHITECTURE)
+        elif analysis_name == "dependencies":
+            analyses.append(AnalysisType.DEPENDENCIES)
+        elif analysis_name == "complexity":
+            analyses.append(AnalysisType.COMPLEXITY)
+        elif analysis_name == "patterns":
+            analyses.append(AnalysisType.PATTERNS)
+        elif analysis_name == "security":
+            analyses.append(AnalysisType.SECURITY)
 
-        # Executar análise
-        analysis = await repo.analyze(analyses=analyses)
+    # Criar e configurar repositório
+    repo = Repository(target)
 
-        return analysis
+    # Aplicar filtros, se existem
+    filters = config.get("filters", {})
+    code_filter = repo.code_files()
 
-    # Default para resultado genérico
-    return Result(url=url, analysis=f"Análise de {url}")
+    if "languages" in filters:
+        for lang in filters["languages"]:
+            code_filter = code_filter.by_language(lang)
+
+    if "exclude" in filters:
+        for pattern in filters["exclude"]:
+            code_filter = code_filter.excluding(pattern)
+
+    # Executar a análise
+    analysis = await repo.analyze(analyses=analyses)
+
+    # Gerar relatórios, se solicitado
+    output_config = config.get("output", {})
+    if "reports" in output_config:
+        for report_name in output_config["reports"]:
+            # Aqui seria onde geraria relatórios específicos
+            pass
+
+    return analysis
 
 
-# Alias task factory para métodos da classe Task
-analyze_task = Task.analyze
-summarize_task = Task.summarize
-translate_task = Task.translate
-index_task = Task.index
-search_task = Task.search
-generate_task = Task.generate
-extract_task = Task.extract
-convert_task = Task.convert
-
-# Export public API
+# Atualização da lista de exportação
 __all__ = [
     # Classes principais
     "PepperPy",
@@ -2498,6 +3242,16 @@ __all__ = [
     "IndexResult",
     "GitRepository",
     "RepoFileFilter",
+    "QueryBuilder",
+    "SelectBuilder",
+    "AnalysisPipeline",
+    "AnalysisStep",
+    "LiveAnalysis",
+    "ProgressTracker",
+    "ComparisonResult",
+    "steps",
+    "enhancer",
+    "Enhancer",
     # Enums
     "TaskType",
     "AgentCapability",
@@ -2534,6 +3288,7 @@ __all__ = [
     "translate",
     "process_file",
     "analyze",
+    "analyze_with_config",
     # Aliases de factory para Task
     "analyze_task",
     "summarize_task",
@@ -2544,3 +3299,805 @@ __all__ = [
     "extract_task",
     "convert_task",
 ]
+
+
+class Enhancer:
+    """Base class for enhancers that improve analyses."""
+
+    def __init__(self, name: str, **config: Any):
+        """
+        Initialize the enhancer.
+
+        Args:
+            name: Name of the enhancer
+            **config: Configuration parameters
+        """
+        self.name = name
+        self.config = config
+
+    def apply_to_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        """
+        Apply enhancer to analysis context.
+
+        Args:
+            context: The original context
+
+        Returns:
+            Enhanced context
+        """
+        return context
+
+    def enhance_prompt(self, prompt: str) -> str:
+        """
+        Enhance an analysis prompt.
+
+        Args:
+            prompt: The original prompt
+
+        Returns:
+            Enhanced prompt
+        """
+        return prompt
+
+    def enhance_result(self, result: Any) -> Any:
+        """
+        Enhance an analysis result.
+
+        Args:
+            result: The original result
+
+        Returns:
+            Enhanced result
+        """
+        return result
+
+    def __str__(self) -> str:
+        """String representation of the enhancer."""
+        return f"{self.name}({', '.join(f'{k}={v}' for k, v in self.config.items())})"
+
+
+class DeepContextEnhancer(Enhancer):
+    """Enhancer that adds deeper context to analyses."""
+
+    def __init__(self, depth: int = 3, include_history: bool = False):
+        """
+        Initialize the deep context enhancer.
+
+        Args:
+            depth: Depth of context (1-5)
+            include_history: Whether to include historical context
+        """
+        super().__init__("deep_context", depth=depth, include_history=include_history)
+
+    def apply_to_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        """Apply deep context to analysis context."""
+        enhanced = context.copy()
+        enhanced["analysis_depth"] = self.config.get("depth", 3)
+        if self.config.get("include_history", False):
+            enhanced["include_history"] = True
+        return enhanced
+
+    def enhance_prompt(self, prompt: str) -> str:
+        """Enhance prompt with deep context instructions."""
+        depth = self.config.get("depth", 3)
+        include_history = self.config.get("include_history", False)
+
+        depth_instructions = [
+            "Consider basic structure and purpose.",
+            "Examine key components and their interactions.",
+            "Analyze architecture patterns and implementation details.",
+            "Evaluate design decisions, trade-offs, and technical debt.",
+            "Perform comprehensive analysis including historical evolution and future scalability.",
+        ]
+
+        depth_prompt = depth_instructions[min(depth - 1, 4)]
+        history_prompt = (
+            " Include historical context and evolution of the codebase."
+            if include_history
+            else ""
+        )
+
+        return f"{prompt}\n\nInstructions: {depth_prompt}{history_prompt} Be thorough and insightful in your analysis."
+
+    def enhance_result(self, result: Any) -> Any:
+        """Enhance result with additional context markers."""
+        if isinstance(result, str):
+            depth = self.config.get("depth", 3)
+            depth_level = ["Basic", "Standard", "Detailed", "Comprehensive", "Expert"][
+                min(depth - 1, 4)
+            ]
+
+            enhanced = f"[Analysis Depth: {depth_level}]\n\n{result}"
+            return enhanced
+        return result
+
+
+class HistoricalTrendsEnhancer(Enhancer):
+    """Enhancer that focuses on analyzing historical trends."""
+
+    def __init__(self, timespan: str = "1y", metrics: list[str] = None):
+        """
+        Initialize the historical trends enhancer.
+
+        Args:
+            timespan: Time span to analyze (e.g., "1m", "6m", "1y")
+            metrics: Metrics to track
+        """
+        super().__init__(
+            "historical_trends",
+            timespan=timespan,
+            metrics=metrics or ["complexity", "contributors", "activity"],
+        )
+
+    def apply_to_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        """Apply historical trends to analysis context."""
+        enhanced = context.copy()
+        enhanced["historical_analysis"] = {
+            "timespan": self.config.get("timespan", "1y"),
+            "metrics": self.config.get("metrics", []),
+        }
+        return enhanced
+
+    def enhance_prompt(self, prompt: str) -> str:
+        """Enhance prompt with historical trends instructions."""
+        timespan = self.config.get("timespan", "1y")
+        metrics = self.config.get("metrics", [])
+
+        metrics_str = ", ".join(metrics) if metrics else "key metrics"
+
+        return (
+            f"{prompt}\n\nAnalyze historical trends over the past {timespan}, "
+            f"focusing on {metrics_str}. Identify patterns of evolution and notable changes."
+        )
+
+    def enhance_result(self, result: Any) -> Any:
+        """Enhance result with historical trends markers."""
+        if isinstance(result, str):
+            timespan = self.config.get("timespan", "1y")
+            return f"[Historical Analysis: {timespan}]\n\n{result}"
+        return result
+
+
+class BestPracticesEnhancer(Enhancer):
+    """Enhancer that evaluates code against best practices."""
+
+    def __init__(
+        self,
+        framework: str = None,
+        patterns: list[str] = None,
+        strictness: str = "medium",
+    ):
+        """
+        Initialize the best practices enhancer.
+
+        Args:
+            framework: Target framework or language
+            patterns: Design patterns to look for
+            strictness: How strict to be (low, medium, high)
+        """
+        super().__init__(
+            "best_practices",
+            framework=framework,
+            patterns=patterns or [],
+            strictness=strictness,
+        )
+
+    def apply_to_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        """Apply best practices to analysis context."""
+        enhanced = context.copy()
+        enhanced["best_practices"] = {
+            "framework": self.config.get("framework"),
+            "patterns": self.config.get("patterns", []),
+            "strictness": self.config.get("strictness", "medium"),
+        }
+        return enhanced
+
+    def enhance_prompt(self, prompt: str) -> str:
+        """Enhance prompt with best practices instructions."""
+        framework = self.config.get("framework")
+        patterns = self.config.get("patterns", [])
+        strictness = self.config.get("strictness", "medium")
+
+        framework_str = f" for {framework}" if framework else ""
+        patterns_str = f", especially {', '.join(patterns)}" if patterns else ""
+
+        return (
+            f"{prompt}\n\nEvaluate against best practices{framework_str}{patterns_str}. "
+            f"Apply {strictness} strictness in your evaluation."
+        )
+
+    def enhance_result(self, result: Any) -> Any:
+        """Enhance result with best practices markers."""
+        if isinstance(result, str):
+            framework = self.config.get("framework")
+            framework_str = f" for {framework}" if framework else ""
+
+            return f"[Best Practices{framework_str}]\n\n{result}"
+        return result
+
+
+class PerformanceEnhancer(Enhancer):
+    """Enhancer that focuses on performance aspects."""
+
+    def __init__(
+        self, hotspots: bool = True, algorithms: bool = False, memory: bool = False
+    ):
+        """
+        Initialize the performance enhancer.
+
+        Args:
+            hotspots: Whether to identify performance hotspots
+            algorithms: Whether to analyze algorithm efficiency
+            memory: Whether to analyze memory usage
+        """
+        super().__init__(
+            "performance", hotspots=hotspots, algorithms=algorithms, memory=memory
+        )
+
+    def apply_to_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        """Apply performance focus to analysis context."""
+        enhanced = context.copy()
+        enhanced["performance_focus"] = {
+            "hotspots": self.config.get("hotspots", True),
+            "algorithms": self.config.get("algorithms", False),
+            "memory": self.config.get("memory", False),
+        }
+        return enhanced
+
+    def enhance_prompt(self, prompt: str) -> str:
+        """Enhance prompt with performance instructions."""
+        aspects = []
+
+        if self.config.get("hotspots", True):
+            aspects.append("performance hotspots")
+
+        if self.config.get("algorithms", False):
+            aspects.append("algorithm efficiency")
+
+        if self.config.get("memory", False):
+            aspects.append("memory usage patterns")
+
+        aspects_str = ", ".join(aspects)
+
+        return (
+            f"{prompt}\n\nFocus on performance aspects including {aspects_str}. "
+            f"Identify potential optimizations and efficiency improvements."
+        )
+
+    def enhance_result(self, result: Any) -> Any:
+        """Enhance result with performance markers."""
+        if isinstance(result, str):
+            return f"[Performance Analysis]\n\n{result}"
+        return result
+
+
+class SecurityEnhancer(Enhancer):
+    """Enhancer that focuses on security aspects."""
+
+    def __init__(
+        self,
+        vulnerabilities: bool = True,
+        compliance: list[str] = None,
+        sensitive_data: bool = False,
+    ):
+        """
+        Initialize the security enhancer.
+
+        Args:
+            vulnerabilities: Whether to identify vulnerabilities
+            compliance: Compliance standards to check against
+            sensitive_data: Whether to check for sensitive data exposure
+        """
+        super().__init__(
+            "security",
+            vulnerabilities=vulnerabilities,
+            compliance=compliance or [],
+            sensitive_data=sensitive_data,
+        )
+
+    def apply_to_context(self, context: dict[str, Any]) -> dict[str, Any]:
+        """Apply security focus to analysis context."""
+        enhanced = context.copy()
+        enhanced["security_focus"] = {
+            "vulnerabilities": self.config.get("vulnerabilities", True),
+            "compliance": self.config.get("compliance", []),
+            "sensitive_data": self.config.get("sensitive_data", False),
+        }
+        return enhanced
+
+    def enhance_prompt(self, prompt: str) -> str:
+        """Enhance prompt with security instructions."""
+        aspects = []
+
+        if self.config.get("vulnerabilities", True):
+            aspects.append("security vulnerabilities")
+
+        compliance = self.config.get("compliance", [])
+        if compliance:
+            aspects.append(f"compliance with {', '.join(compliance)}")
+
+        if self.config.get("sensitive_data", False):
+            aspects.append("sensitive data exposure")
+
+        aspects_str = ", ".join(aspects)
+
+        return (
+            f"{prompt}\n\nFocus on security aspects including {aspects_str}. "
+            f"Identify potential security issues and suggest mitigations."
+        )
+
+    def enhance_result(self, result: Any) -> Any:
+        """Enhance result with security markers."""
+        if isinstance(result, str):
+            compliance = self.config.get("compliance", [])
+            compliance_str = f" ({', '.join(compliance)})" if compliance else ""
+
+            return f"[Security Analysis{compliance_str}]\n\n{result}"
+        return result
+
+
+class enhancer:
+    """Namespace for enhancer factory methods."""
+
+    @staticmethod
+    def deep_context(
+        depth: int = 3, include_history: bool = False
+    ) -> DeepContextEnhancer:
+        """Create a deep context enhancer."""
+        return DeepContextEnhancer(depth=depth, include_history=include_history)
+
+    @staticmethod
+    def historical_trends(
+        timespan: str = "1y", metrics: list[str] = None
+    ) -> HistoricalTrendsEnhancer:
+        """Create a historical trends enhancer."""
+        return HistoricalTrendsEnhancer(timespan=timespan, metrics=metrics)
+
+    @staticmethod
+    def best_practices(
+        framework: str = None, patterns: list[str] = None, strictness: str = "medium"
+    ) -> BestPracticesEnhancer:
+        """Create a best practices enhancer."""
+        return BestPracticesEnhancer(
+            framework=framework, patterns=patterns, strictness=strictness
+        )
+
+    @staticmethod
+    def performance(
+        hotspots: bool = True, algorithms: bool = False, memory: bool = False
+    ) -> PerformanceEnhancer:
+        """Create a performance enhancer."""
+        return PerformanceEnhancer(
+            hotspots=hotspots, algorithms=algorithms, memory=memory
+        )
+
+    @staticmethod
+    def security(
+        vulnerabilities: bool = True,
+        compliance: list[str] = None,
+        sensitive_data: bool = False,
+    ) -> SecurityEnhancer:
+        """Create a security enhancer."""
+        return SecurityEnhancer(
+            vulnerabilities=vulnerabilities,
+            compliance=compliance,
+            sensitive_data=sensitive_data,
+        )
+
+
+class PepperPy:
+    """Main interface for the PepperPy framework."""
+
+    def __init__(self, **config: Any):
+        """Initialize PepperPy instance."""
+        self._config = config
+        self._resources = {}
+        self._rag_provider = None
+        self._llm_provider = None
+        self._embeddings_provider = None
+        self.chat = ChatInterface(self)
+        self._pepper = self  # For compatibility with existing code
+        self._memory_repositories = {}
+
+    async def initialize(self) -> None:
+        """Initialize resources."""
+        # Initialize providers if set
+        if self._rag_provider:
+            await self._rag_provider.initialize()
+
+        if self._llm_provider:
+            await self._llm_provider.initialize()
+
+        if self._embeddings_provider:
+            await self._embeddings_provider.initialize()
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Cleanup providers if set
+        if self._rag_provider:
+            await self._rag_provider.cleanup()
+
+        if self._llm_provider:
+            await self._llm_provider.cleanup()
+
+        if self._embeddings_provider:
+            await self._embeddings_provider.cleanup()
+
+        # Cleanup memory repositories
+        for repo in self._memory_repositories.values():
+            await repo.cleanup()
+
+    async def execute(self, query: str, context: dict[str, Any] | None = None) -> str:
+        """Execute a query and return the response."""
+        # Implementation will depend on llm_provider
+        if not self._llm_provider:
+            raise ValueError("LLM provider not configured. Use with_llm() to set one.")
+
+        # Define how to handle context and build prompt appropriately
+        context = context or {}
+
+        # Simple implementation that passes to LLM provider
+        return await self._llm_provider.complete(query, **context)
+
+    def with_rag(self, provider: Any) -> "PepperPy":
+        """Configure PepperPy with a RAG provider.
+
+        Args:
+            provider: The RAG provider instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._rag_provider = provider
+        return self
+
+    def with_llm(self, provider: Any) -> "PepperPy":
+        """Configure PepperPy with an LLM provider.
+
+        Args:
+            provider: The LLM provider instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._llm_provider = provider
+        return self
+
+    def with_embeddings(self, provider: Any) -> "PepperPy":
+        """Configure PepperPy with an embeddings provider.
+
+        Args:
+            provider: The embeddings provider instance
+
+        Returns:
+            Self for method chaining
+        """
+        self._embeddings_provider = provider
+        return self
+
+    async def __aenter__(self) -> "PepperPy":
+        """Support async context manager protocol."""
+        await self.initialize()
+        return self
+
+    async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """Support async context manager protocol."""
+        await self.cleanup()
+
+    def create_memory_repository(self, name: str = "default") -> "MemoryRepository":
+        """Create a memory repository for storing and retrieving information.
+
+        Args:
+            name: Name for the repository
+
+        Returns:
+            Memory repository instance
+        """
+        if name in self._memory_repositories:
+            return self._memory_repositories[name]
+
+        repo = MemoryRepository(name, self)
+        self._memory_repositories[name] = repo
+        return repo
+
+
+class ChatInterface:
+    """Interface for chat-based interactions."""
+
+    def __init__(self, pepper: PepperPy):
+        """Initialize chat interface."""
+        self._pepper = pepper
+        self._messages = []
+        self._memory_repo = None
+
+    def with_message(self, role: "MessageRole", content: str) -> "ChatInterface":
+        """Add a message to the conversation.
+
+        Args:
+            role: The role of the message sender
+            content: The message content
+
+        Returns:
+            Self for method chaining
+        """
+        self._messages.append({"role": role, "content": content})
+        return self
+
+    def with_memory(self, repository: "MemoryRepository") -> "ChatInterface":
+        """Enhance chat with memory from a repository.
+
+        Args:
+            repository: Memory repository to use
+
+        Returns:
+            Self for method chaining
+        """
+        self._memory_repo = repository
+        return self
+
+    async def generate(self) -> str:
+        """Generate a response based on the conversation history.
+
+        Returns:
+            The generated response
+        """
+        if not self._pepper._llm_provider:
+            raise ValueError("LLM provider not configured. Use with_llm() to set one.")
+
+        # Build context with messages
+        context = {"messages": self._messages}
+
+        # Add memory context if available
+        if self._memory_repo:
+            memory_context = await self._memory_repo.get_context()
+            context["memory"] = memory_context
+
+        # Get response from LLM
+        response = await self._pepper.execute("Generate chat response", context)
+
+        # Add response to message history
+        self._messages.append({"role": MessageRole.ASSISTANT, "content": response})
+
+        # Store conversation in memory if available
+        if self._memory_repo:
+            await self._memory_repo.store_experience(
+                f"User asked: {self._messages[-2]['content']}",
+                response=response,
+                memory_type="conversation",
+            )
+
+        return response
+
+    def clear(self) -> "ChatInterface":
+        """Clear conversation history.
+
+        Returns:
+            Self for method chaining
+        """
+        self._messages = []
+        return self
+
+
+class MemoryRepository:
+    """Repository for storing hierarchical memory."""
+
+    def __init__(self, name: str, pepper: PepperPy):
+        """Initialize memory repository.
+
+        Args:
+            name: Repository name
+            pepper: PepperPy instance
+        """
+        self.name = name
+        self._pepper = pepper
+        self._memories = {
+            "knowledge": [],  # Semantic memory (facts)
+            "procedures": [],  # Procedural memory (how-to)
+            "experiences": [],  # Episodic memory (events)
+        }
+        self._memory_dir = Path("./memory_data")
+        self._memory_dir.mkdir(exist_ok=True)
+
+    async def initialize(self) -> None:
+        """Initialize the repository."""
+        # Ensure directory exists
+        self._memory_dir.mkdir(exist_ok=True)
+
+        # Try to load existing memories
+        memory_file = self._memory_dir / f"{self.name}_memory.json"
+        if memory_file.exists():
+            try:
+                with open(memory_file) as f:
+                    data = json.load(f)
+                    if isinstance(data, dict):
+                        self._memories = data
+            except Exception as e:
+                print(f"Error loading memory: {e}")
+
+    def clear(self) -> "MemoryRepository":
+        """Clear all memories.
+
+        Returns:
+            Self for method chaining
+        """
+        self._memories = {"knowledge": [], "procedures": [], "experiences": []}
+        return self
+
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Save memories
+        await self.save()
+
+    async def save(self) -> Path:
+        """Save memories to disk.
+
+        Returns:
+            Path to saved file
+        """
+        import json
+
+        memory_file = self._memory_dir / f"{self.name}_memory.json"
+        with open(memory_file, "w") as f:
+            json.dump(self._memories, f, indent=2)
+        return memory_file
+
+    async def store_knowledge(self, text: str, **metadata: Any) -> None:
+        """Store semantic knowledge.
+
+        Args:
+            text: Knowledge text
+            **metadata: Additional metadata
+        """
+        from datetime import datetime
+
+        self._memories["knowledge"].append({
+            "text": text,
+            "metadata": metadata,
+            "timestamp": datetime.now().isoformat(),
+        })
+
+    async def store_procedure(self, text: str, **metadata: Any) -> None:
+        """Store procedural knowledge.
+
+        Args:
+            text: Procedure text
+            **metadata: Additional metadata
+        """
+        from datetime import datetime
+
+        self._memories["procedures"].append({
+            "text": text,
+            "metadata": metadata,
+            "timestamp": datetime.now().isoformat(),
+        })
+
+    async def store_experience(self, text: str, **metadata: Any) -> None:
+        """Store episodic memory.
+
+        Args:
+            text: Experience text
+            **metadata: Additional metadata
+        """
+        from datetime import datetime
+
+        self._memories["experiences"].append({
+            "text": text,
+            "metadata": metadata,
+            "timestamp": datetime.now().isoformat(),
+        })
+
+    async def search(self, query: str) -> list[Result]:
+        """Search across all memory types.
+
+        Args:
+            query: Search query
+
+        Returns:
+            List of matching results
+        """
+        results = []
+        query = query.lower()
+
+        # Search in all memory types
+        for memory_type, memories in self._memories.items():
+            for memory in memories:
+                if query in memory["text"].lower():
+                    result = Result(
+                        text=memory["text"],
+                        metadata=memory["metadata"],
+                        memory_type=memory_type,
+                        timestamp=memory.get("timestamp"),
+                    )
+                    results.append(result)
+
+        return results
+
+    async def get_knowledge(self) -> list[Result]:
+        """Get all semantic knowledge.
+
+        Returns:
+            List of knowledge items
+        """
+        return [
+            Result(
+                text=item["text"], metadata=item["metadata"], memory_type="knowledge"
+            )
+            for item in self._memories["knowledge"]
+        ]
+
+    async def get_procedures(self) -> list[Result]:
+        """Get all procedural knowledge.
+
+        Returns:
+            List of procedure items
+        """
+        return [
+            Result(
+                text=item["text"], metadata=item["metadata"], memory_type="procedures"
+            )
+            for item in self._memories["procedures"]
+        ]
+
+    async def get_experiences(self) -> list[Result]:
+        """Get all episodic memories.
+
+        Returns:
+            List of experience items
+        """
+        return [
+            Result(
+                text=item["text"], metadata=item["metadata"], memory_type="experiences"
+            )
+            for item in self._memories["experiences"]
+        ]
+
+    async def get_context(self) -> dict[str, Any]:
+        """Get context for LLM prompting.
+
+        Returns:
+            Context dictionary
+        """
+        # Format memories for context
+        knowledge = "\n".join([
+            f"- {item['text']}" for item in self._memories["knowledge"][-5:]
+        ])
+
+        procedures = "\n".join([
+            f"- {item['text']}" for item in self._memories["procedures"][-3:]
+        ])
+
+        experiences = "\n".join([
+            f"- {item['text']}" for item in self._memories["experiences"][-3:]
+        ])
+
+        return {
+            "knowledge": knowledge,
+            "procedures": procedures,
+            "experiences": experiences,
+        }
+
+    async def export_memory(self, filename: str) -> Path:
+        """Export memory to a file.
+
+        Args:
+            filename: Target filename
+
+        Returns:
+            Path to exported file
+        """
+        import json
+
+        export_path = self._memory_dir / filename
+        with open(export_path, "w") as f:
+            json.dump(self._memories, f, indent=2)
+
+        return export_path
+
+
+class MessageRole(str, Enum):
+    """Role of a message in a conversation."""
+
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    FUNCTION = "function"

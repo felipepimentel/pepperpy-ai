@@ -1,581 +1,167 @@
 ---
-description: USE WHEN creating, modifying or working with plugins in the PepperPy framework
+description: USE ALWAYS when working with plugins - mandatory structure and patterns for all plugin work
 globs: 
+  - "plugins/**/*.py"
+  - "plugins/**/*.yaml"
 alwaysApply: false
 ---
 
-# PepperPy Plugin Architecture
+# PepperPy Plugin System
 
-## Overview
-
-This rule defines the standardized structure, implementation patterns, and configuration schema for creating plugins in the PepperPy framework. Plugins are the primary way to extend the framework's capabilities with different provider implementations.
-
-## Plugin Directory Structure
-
-Every plugin MUST follow this directory structure:
+## Directory Structure
 
 ```
 plugins/
-└── domain/                  # Domain category (e.g. content, embeddings)
-    └── provider_type/       # Provider type (e.g. text_normalization)
-        └── impl/            # Implementation (e.g. basic, nltk)
-            ├── plugin.yaml  # Plugin metadata and configuration schema
-            ├── provider.py  # Provider implementation
+└── domain/                  # Domain (content, embeddings, llm, etc)
+    └── provider_type/       # Provider type (text_normalization, etc)
+        └── impl/            # Implementation (basic, nltk, etc)
+            ├── plugin.yaml  # Plugin metadata and configuration
+            └── provider.py  # Provider implementation
 ```
 
-### Real-World Example Structure
-
-```
-plugins/
-├── content/                 # Content processing domain
-│   └── text_normalization/  # Text normalization providers
-│       ├── basic/           # Basic implementation
-│       │   ├── plugin.yaml  # Configuration schema
-│       │   └── provider.py  # Provider implementation
-│       └── nltk/            # NLTK implementation
-│           ├── plugin.yaml  # Configuration schema
-│           └── provider.py  # Provider implementation
-│
-├── embeddings/              # Embeddings domain
-│   ├── openai/              # OpenAI embeddings
-│   │   └── plugin.yaml
-│   ├── huggingface/         # HuggingFace embeddings
-│   │   └── plugin.yaml
-│   └── cohere/              # Cohere embeddings
-│       └── plugin.yaml
-│
-├── llm/                     # LLM domain
-│   ├── openai/              # OpenAI LLM provider
-│   │   └── plugin.yaml
-│   ├── openrouter/          # OpenRouter LLM provider
-│   │   └── plugin.yaml
-│   └── local/               # Local LLM provider
-│       └── plugin.yaml
-│
-└── rag/                     # RAG domain
-    ├── chroma/              # ChromaDB provider
-    │   └── plugin.yaml
-    ├── faiss/               # FAISS provider
-    │   └── plugin.yaml
-    └── pinecone/            # Pinecone provider
-        └── plugin.yaml
-```
-
-## The plugin.yaml File
-
-The `plugin.yaml` file is the single source of truth for plugin metadata and configuration schema. It MUST contain:
-
-1. **Basic metadata**: Name, version, description, author
-2. **Plugin categorization**: Domain, category, plugin type
-3. **Configuration schema**: JSON Schema for configuration validation
-4. **Default configuration**: Default values for configuration
-5. **Entry point**: Path to provider implementation
-
-### Required plugin.yaml Structure
+## Plugin.yaml Requirements
 
 ```yaml
 # Basic metadata
-name: text_normalization_basic           # Unique plugin name
-version: 0.1.0                           # Semantic version
-description: Basic text normalization    # Brief description
-author: PepperPy Team                    # Author information
-license: MIT                             # License
+name: domain_provider_name           # Unique plugin name
+version: 0.1.0                       # Semantic version
+description: Provider description     # Brief description
+author: Author Information           # Author name/email
 
 # Categorization
-plugin_type: content                     # Plugin domain
-category: text_normalization             # Provider category
-provides:                                # Capabilities provided
-  - normalizer
-provider_name: basic                     # Provider name
-entry_point: plugins.content.text_normalization.basic.provider:BasicTextNormalizer  # Implementation class
+plugin_type: domain                  # Domain (llm, content, etc)
+category: provider_type              # Provider category
+provider_name: implementation_name   # Provider name
+entry_point: provider.ClassName      # Implementation class path
 
 # Configuration schema (JSON Schema format)
 config_schema:
   type: object
   properties:
-    language:
+    required_option:
       type: string
-      description: Language code for text processing
-      enum: [en, es, fr, de]
-      default: en
-    transformations:
-      type: array
-      description: List of transformations to apply
-      items:
-        type: string
-        enum: [lowercase, strip_whitespace, normalize_unicode, remove_punctuation]
-      default:
-        - lowercase
-        - strip_whitespace
-    remove_stopwords:
-      type: boolean
-      description: Whether to remove stopwords
-      default: false
-    custom_patterns:
-      type: array
-      description: Custom regex patterns to apply
-      items:
-        type: string
-      default: []
+      description: Description
+    optional_option:
+      type: string
+      description: Description
+      default: default_value
 
 # Default configuration
 default_config:
-  language: en
-  transformations:
-    - lowercase
-    - strip_whitespace
-  remove_stopwords: false
-  custom_patterns: []
-
-# Usage documentation
-usage: |
-  This plugin provides basic text normalization capabilities.
-  
-  Example usage:
-  ```python
-  from pepperpy import PepperPy
-  
-  async with PepperPy.create().with_content_processor("basic") as pepper:
-      normalized = await pepper.content.normalize("Some Text to Normalize!")
-      print(normalized)  # "some text to normalize"
-  ```
+  optional_option: default_value
 ```
 
-## Provider Implementation
-
-The provider implementation in `provider.py` MUST:
-
-1. Implement the domain-specific provider interface
-2. Use auto-bound configuration attributes
-3. Properly implement resource initialization and cleanup
-4. Follow the common lifecycle pattern
-
-### Provider Implementation Pattern
+## Provider Implementation Pattern
 
 ```python
-"""Basic text normalization provider for PepperPy."""
+"""Provider implementation for domain."""
 
-import re
-from typing import List, Optional, Any, Dict
-
-from pepperpy.content import TextNormalizer
+from pepperpy.domain import DomainProvider
 from pepperpy.plugin import ProviderPlugin
 
-class BasicTextNormalizer(TextNormalizer, ProviderPlugin):
-    """Basic text normalization provider.
+class MyProvider(DomainProvider, ProviderPlugin):
+    """Provider implementation.
     
-    This provider implements simple text normalization with configurable
-    transformations.
+    ALWAYS inherit from both domain provider and ProviderPlugin.
     """
+    # Type-annotated config attributes
+    api_key: str
+    option: str = "default"
     
     async def initialize(self) -> None:
-        """Initialize the provider.
+        """Initialize provider resources.
         
-        This method is called automatically when the provider is first used.
+        ALWAYS check initialization flag.
+        NEVER initialize in constructor.
         """
         if self.initialized:
             return
             
-        # Access configuration directly through attributes
-        # These are auto-bound from the plugin.yaml configuration
-        self.language = self.config.get("language", "en")
-        self.transformations = self.config.get("transformations", [
-            "lowercase", 
-            "strip_whitespace"
-        ])
-        self.remove_stopwords = self.config.get("remove_stopwords", False)
-        
         # Initialize resources
-        if self.remove_stopwords:
-            self._load_stopwords()
-        
-        # Pre-compile regex patterns
-        self._patterns = []
-        for pattern in self.config.get("custom_patterns", []):
-            self._patterns.append(re.compile(pattern))
-            
-        self.logger.debug(f"Initialized with language={self.language}, transformations={self.transformations}")
+        self.client = Client(api_key=self.api_key)
+        self.logger.debug(f"Initialized with {self.option}")
     
     async def cleanup(self) -> None:
         """Clean up resources.
         
-        This method is called automatically when the context manager exits.
+        ALWAYS release all resources.
         """
-        # Release resources
-        self._patterns = None
-        self._stopwords = None
-        
-        self.logger.debug("Resources cleaned up")
+        if self.client:
+            await self.client.close()
+            self.client = None
     
-    def normalize(self, text: str) -> str:
-        """Normalize text according to configuration.
+    async def process(self, input: str) -> str:
+        """Process input data.
         
-        Args:
-            text: The text to normalize
-            
-        Returns:
-            Normalized text
+        ALWAYS handle errors properly.
         """
-        if not text:
-            return ""
-            
-        # Ensure we're initialized
-        if not self.initialized:
-            raise RuntimeError("Provider not initialized")
-            
-        result = text
-        
-        # Apply configured transformations
-        for transform in self.transformations:
-            transform_method = getattr(self, f"_transform_{transform}", None)
-            if transform_method:
-                result = transform_method(result)
-                
-        # Apply custom patterns
-        for pattern in self._patterns:
-            result = pattern.sub("", result)
-            
-        # Remove stopwords if configured
-        if self.remove_stopwords and hasattr(self, "_stopwords"):
-            words = result.split()
-            result = " ".join(w for w in words if w.lower() not in self._stopwords)
-                
-        return result
-    
-    # Private transformation methods
-    def _transform_lowercase(self, text: str) -> str:
-        """Transform text to lowercase."""
-        return text.lower()
-        
-    def _transform_strip_whitespace(self, text: str) -> str:
-        """Strip excess whitespace."""
-        return re.sub(r'\s+', ' ', text).strip()
-        
-    def _transform_normalize_unicode(self, text: str) -> str:
-        """Normalize Unicode characters."""
-        import unicodedata
-        return unicodedata.normalize('NFKD', text)
-        
-    def _transform_remove_punctuation(self, text: str) -> str:
-        """Remove punctuation."""
-        return re.sub(r'[^\w\s]', '', text)
-    
-    def _load_stopwords(self) -> None:
-        """Load stopwords for the configured language."""
-        # Simple example - in real implementation, load from a file
-        if self.language == "en":
-            self._stopwords = {"the", "a", "an", "and", "or", "but"}
-        else:
-            self._stopwords = set()
+        try:
+            response = await self.client.call_api(
+                input, 
+                option=self.option
+            )
+            return self._format_response(response)
+        except ExternalError as e:
+            raise DomainError(f"Processing failed: {e}") from e
 ```
 
-## Plugin Configuration Guidelines
+## Critical Requirements
 
-### 1. Environment Variables
+### 1. Provider Class Structure
 
-Plugins are configured through environment variables following this pattern:
+✅ **ALWAYS**:
+- Inherit from BOTH domain provider AND ProviderPlugin
+- Use type annotations for configuration attributes
+- Implement async initialize/cleanup methods
+- Handle errors with domain-specific exceptions
 
-```
-PEPPERPY_{DOMAIN}_{CATEGORY}_{KEY}={VALUE}
-```
+❌ **NEVER**:
+- Initialize resources in constructor
+- Manage initialization flag manually
+- Return None or error codes on failure
+- Use generic exceptions
+- Implement your own from_config method
 
-Examples:
-```
-# Configure which provider to use
-PEPPERPY_CONTENT_TEXT_NORMALIZATION_PROVIDER=basic
+### 2. Resource Management
 
-# Configure provider-specific options
-PEPPERPY_CONTENT_TEXT_NORMALIZATION_LANGUAGE=en
-PEPPERPY_CONTENT_TEXT_NORMALIZATION_REMOVE_STOPWORDS=true
-```
+✅ **ALWAYS**:
+- Initialize resources in async initialize()
+- Release resources in async cleanup()
+- Handle cleanup for partial initialization
+- Log initialization with self.logger.debug()
 
-### 2. Configuration in Code
+### 3. Error Handling
 
-Plugins can also be configured programmatically:
+✅ **ALWAYS**:
+- Convert external exceptions to domain exceptions
+- Include original exception as cause
+- Add context to error messages
+- Use specific error types from domain
+
+### 4. Configuration
+
+✅ **ALWAYS**:
+- Define schema in plugin.yaml
+- Use type annotations in class for config fields
+- Provide defaults in plugin.yaml
+- Access config via attributes (self.option)
+
+## Testing Requirements
 
 ```python
-from pepperpy import PepperPy
-
-# Configure provider type and options during creation
-pepperpy = (
-    PepperPy.create()
-    .with_content_processor(
-        provider_type="basic",
-        language="en",
-        transformations=["lowercase", "strip_whitespace"],
-        remove_stopwords=True
-    )
-    .build()
-)
-```
-
-### 3. Configuration Schema Validation
-
-All plugin configurations MUST be validated against their schema:
-
-```python
-# In the core framework
-def validate_config(config: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
-    """Validate configuration against schema."""
-    from jsonschema import validate
-    validate(instance=config, schema=schema)
-    return config
-```
-
-## Anti-Patterns to Avoid
-
-### 1. Manual Metadata Duplication
-
-❌ **AVOID**: Duplicating metadata in the provider class
-```python
-# WRONG - Duplicating metadata that's already in plugin.yaml
-class BadProvider(BaseProvider, ProviderPlugin):
-    """Provider implementation."""
-    
-    plugin_name = "My Provider"  # WRONG - Already in plugin.yaml
-    plugin_version = "0.1.0"     # WRONG - Already in plugin.yaml
-    plugin_type = "content"      # WRONG - Already in plugin.yaml
-```
-
-### 2. Manual Configuration Access
-
-❌ **AVOID**: Manually accessing configuration
-```python
-# WRONG - Not using auto-binding for configuration
-def __init__(self, **kwargs):
-    super().__init__(**kwargs)
-    
-    # WRONG - Should use auto-binding
-    self._config = kwargs.get("config", {})
-    self._language = self._config.get("language", "en")
-```
-
-### 3. Manual Logger Management
-
-❌ **AVOID**: Managing your own logger
-```python
-# WRONG - Managing own logger
-class BadProvider(BaseProvider):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        
-        # WRONG - Logger is provided by the framework
-        import logging
-        self._logger = logging.getLogger("my_provider")
-```
-
-### 4. Manual State Management
-
-❌ **AVOID**: Managing initialization state manually
-```python
-# WRONG - Managing initialization state
-async def initialize(self):
-    self._initialized = True  # WRONG - Framework manages this
-    
-async def cleanup(self):
-    self._initialized = False  # WRONG - Framework manages this
-```
-
-## Plugin Lifecycle
-
-Plugins follow this lifecycle:
-
-1. **Registration**: At startup, plugins are discovered and registered
-2. **Configuration**: Configuration is loaded and validated against schema
-3. **Instantiation**: Provider instance is created when needed (lazy loading)
-4. **Initialization**: Resources are initialized when provider is first used
-5. **Operation**: Provider is used for its primary function
-6. **Cleanup**: Resources are released when context manager exits
-
-```python
-# Typical plugin lifecycle
-async with PepperPy.create().with_provider("domain", "type") as pepper:
-    # 1. Provider is instantiated (if not already)
-    # 2. Provider is initialized (async)
-    
-    # 3. Provider is used
-    result = await pepper.provider.method()
-    
-    # 4. Resources are cleaned up (async)
-```
-
-## Provider Implementation Best Practices
-
-1. **Focused Functionality**:
-   - Each provider should do ONE thing well
-   - Follow the Single Responsibility Principle
-   - Keep implementations concise and focused
-
-2. **Error Handling**:
-   - Catch and wrap provider-specific errors
-   - Provide meaningful error messages
-   - Always clean up resources in case of errors
-
-3. **Asynchronous Implementation**:
-   - Use async methods for I/O operations
-   - Support proper cancellation
-   - Don't block the event loop with CPU-intensive tasks
-
-4. **Documentation**:
-   - Document configuration options
-   - Provide usage examples
-   - Explain provider capabilities and limitations
-
-## Implementation Checklist
-
-Before submitting a plugin implementation, verify:
-
-- [ ] Plugin follows the correct directory structure
-- [ ] The plugin.yaml file has complete metadata and configuration schema
-- [ ] Provider class implements the correct interfaces
-- [ ] All required methods are implemented
-- [ ] Error handling follows framework patterns
-- [ ] Resources are properly initialized and cleaned up
-- [ ] Configuration validation is in place
-- [ ] Documentation is complete
-- [ ] Tests cover basic functionality
-
-## Example Complete Plugin Implementation
-
-### 1. Directory Structure
-```
-plugins/
-└── content/
-    └── text_normalization/
-        └── basic/
-            ├── plugin.yaml
-            ├── provider.py
-            └── tests/
-                └── test_provider.py
-```
-
-### 2. plugin.yaml
-```yaml
-name: text_normalization_basic
-version: 0.1.0
-description: Basic text normalization plugin
-author: PepperPy Team
-license: MIT
-plugin_type: content
-category: text_normalization
-provides:
-  - normalizer
-provider_name: basic
-entry_point: plugins.content.text_normalization.basic.provider:BasicTextNormalizer
-
-config_schema:
-  type: object
-  properties:
-    language:
-      type: string
-      description: Language code
-      default: en
-    transformations:
-      type: array
-      items:
-        type: string
-      default:
-        - lowercase
-        - strip_whitespace
-
-default_config:
-  language: en
-  transformations:
-    - lowercase
-    - strip_whitespace
-```
-
-### 3. provider.py
-```python
-"""Basic text normalization provider."""
-
-import re
-from typing import List, Dict, Any
-
-from pepperpy.content import TextNormalizer
-from pepperpy.plugin import ProviderPlugin
-
-class BasicTextNormalizer(TextNormalizer, ProviderPlugin):
-    """Basic text normalization implementation."""
-    
-    async def initialize(self) -> None:
-        """Initialize provider."""
-        if self.initialized:
-            return
-            
-        self.transformations = self.config.get("transformations", [
-            "lowercase", 
-            "strip_whitespace"
-        ])
-        
-        self.logger.debug(f"Initialized with transformations={self.transformations}")
-    
-    def normalize(self, text: str) -> str:
-        """Normalize text."""
-        if not text:
-            return ""
-            
-        result = text
-        
-        for transform in self.transformations:
-            transform_method = getattr(self, f"_transform_{transform}", None)
-            if transform_method:
-                result = transform_method(result)
-                
-        return result
-    
-    def _transform_lowercase(self, text: str) -> str:
-        """Transform text to lowercase."""
-        return text.lower()
-        
-    def _transform_strip_whitespace(self, text: str) -> str:
-        """Strip excess whitespace."""
-        return re.sub(r'\s+', ' ', text).strip()
-    
-    async def cleanup(self) -> None:
-        """Clean up resources."""
-        # No resources to clean up in this simple provider
-        pass
-```
-
-### 4. test_provider.py
-```python
-"""Tests for basic text normalizer."""
-
 import pytest
-from pepperpy.content import create_text_normalizer
+from pepperpy.domain import create_provider
 
 @pytest.mark.asyncio
-async def test_basic_normalization():
-    """Test basic text normalization."""
-    normalizer = create_text_normalizer(
-        provider_type="basic", 
-        transformations=["lowercase", "strip_whitespace"]
+async def test_provider():
+    """Test provider functionality."""
+    provider = create_provider(
+        provider_type="specific",
+        api_key="test_key",
+        option="test_value"
     )
     
-    async with normalizer:
-        # Test lowercase transformation
-        result = normalizer.normalize("HELLO WORLD")
-        assert result == "hello world"
-        
-        # Test whitespace transformation
-        result = normalizer.normalize("  Multiple    Spaces   ")
-        assert result == "multiple spaces"
-
-@pytest.mark.asyncio
-async def test_custom_transformations():
-    """Test custom transformation selection."""
-    normalizer = create_text_normalizer(
-        provider_type="basic", 
-        transformations=["lowercase"]  # Only lowercase
-    )
-    
-    async with normalizer:
-        # Should only apply lowercase, not strip whitespace
-        result = normalizer.normalize("  HELLO   WORLD  ")
-        assert result == "  hello   world  "
-```
-
-## Conclusion
-
-Following these plugin architecture guidelines ensures that all PepperPy plugins are consistent, maintainable, and follow best practices. Properly implemented plugins will seamlessly integrate with the framework and provide a consistent experience for users. 
+    async with provider:
+        result = await provider.process("test input")
+        assert result == "expected output"
+``` 

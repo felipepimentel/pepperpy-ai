@@ -4,7 +4,7 @@ import importlib
 from abc import abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from pepperpy.core.errors import ValidationError
 from pepperpy.plugins.plugin import PepperpyPlugin
@@ -30,8 +30,8 @@ class Document:
     """Document for RAG."""
 
     text: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    _data: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
+    _data: dict[str, Any] = field(default_factory=dict)
 
     def __getitem__(self, key: str) -> Any:
         """Get item from document.
@@ -77,7 +77,7 @@ class Document:
         except KeyError:
             return default
 
-    def update(self, data: Dict[str, Any]) -> None:
+    def update(self, data: dict[str, Any]) -> None:
         """Update document with data.
 
         Args:
@@ -92,8 +92,8 @@ class Query:
     """Query for RAG."""
 
     text: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    embeddings: Optional[List[float]] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    embeddings: list[float] | None = None
 
 
 @dataclass
@@ -102,8 +102,8 @@ class SearchResult:
 
     id: str
     text: str
-    metadata: Dict[str, Any] = field(default_factory=dict)
-    score: Optional[float] = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    score: float | None = None
 
     def to_document(self) -> Document:
         """Convert search result to document.
@@ -127,7 +127,7 @@ class RetrievalResult:
         self.document = document
         self.score = score
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary representation.
 
         Returns:
@@ -143,7 +143,7 @@ class RAGProvider(PepperpyPlugin):
     """Base class for RAG providers."""
 
     @abstractmethod
-    async def store(self, docs: Union[Document, List[Document]]) -> None:
+    async def store(self, docs: Document | list[Document]) -> None:
         """Store documents in the RAG context.
 
         Args:
@@ -154,7 +154,7 @@ class RAGProvider(PepperpyPlugin):
     @abstractmethod
     async def search(
         self,
-        query: Union[str, Query],
+        query: str | Query,
         limit: int = 5,
         **kwargs: Any,
     ) -> Sequence[SearchResult]:
@@ -171,7 +171,7 @@ class RAGProvider(PepperpyPlugin):
         pass
 
     @abstractmethod
-    async def get(self, doc_id: str) -> Optional[Document]:
+    async def get(self, doc_id: str) -> Document | None:
         """Get a document by ID.
 
         Args:
@@ -202,7 +202,7 @@ class RAGContext:
         """Clean up resources."""
         await self.provider.cleanup()
 
-    async def add_documents(self, documents: List[Document]) -> None:
+    async def add_documents(self, documents: list[Document]) -> None:
         """Add documents to the context.
 
         Args:
@@ -210,7 +210,7 @@ class RAGContext:
         """
         await self.provider.store(documents)
 
-    async def search(self, query: Query) -> List[Document]:
+    async def search(self, query: Query) -> list[Document]:
         """Search for relevant documents.
 
         Args:
@@ -234,8 +234,8 @@ class RAGComponent(WorkflowComponent):
         component_id: str,
         name: str,
         provider: RAGProvider,
-        config: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Initialize RAG component.
 
@@ -251,7 +251,7 @@ class RAGComponent(WorkflowComponent):
         )
         self.provider: RAGProvider = provider
 
-    async def process(self, data: Union[str, Query]) -> List[Document]:
+    async def process(self, data: str | Query) -> list[Document]:
         """Process input data and generate a response.
 
         Args:
@@ -286,48 +286,49 @@ def create_provider(
     provider_type: str,
     **config: Any,
 ) -> RAGProvider:
-    """Create a new RAG provider.
+    """Create a RAG provider instance.
 
     Args:
         provider_type: Type of provider to create
-        **config: Additional configuration options
+        **config: Provider configuration
 
     Returns:
-        A new RAG provider instance
+        Instantiated RAG provider
 
     Raises:
-        ValidationError: If provider creation fails
+        ValueError: If provider type is invalid
     """
-    from pepperpy.rag.providers import (
-        DEFAULT_PROVIDER,
-        PROVIDER_CLASSES,
-        PROVIDER_MODULES,
-    )
+    # Handle built-in provider types
+    if provider_type == "memory":
+        # Import here to avoid circular imports
+        from pepperpy.rag.memory_provider import MemoryProvider
 
-    if not provider_type:
-        provider_type = DEFAULT_PROVIDER
+        return MemoryProvider(**config)
+    else:
+        try:
+            # Try to create from plugin registry
+            from pepperpy.plugins.registry import create_provider_instance
 
-    if provider_type not in PROVIDER_MODULES:
-        raise ValidationError(
-            f"Invalid provider type '{provider_type}'. Available providers: {list(PROVIDER_MODULES.keys())}"
-        )
+            return create_provider_instance("rag", provider_type, **config)
+        except (ImportError, ValueError):
+            # Try dynamic import for custom providers
+            try:
+                module_name = f"pepperpy.rag.providers.{provider_type}"
+                module = importlib.import_module(module_name)
 
-    try:
-        module = importlib.import_module(
-            PROVIDER_MODULES[provider_type], package="pepperpy.rag.providers"
-        )
-        provider_class = getattr(module, PROVIDER_CLASSES[provider_type])
-        return provider_class(**config)
-    except ImportError as e:
-        raise ValidationError(
-            f"Failed to import provider '{provider_type}'. Please install the required dependencies: {e!s}"
-        )
-    except AttributeError:
-        raise ValidationError(
-            f"Provider class '{PROVIDER_CLASSES[provider_type]}' not found in module '{PROVIDER_MODULES[provider_type]}'"
-        )
-    except Exception as e:
-        raise ValidationError(f"Failed to create provider '{provider_type}': {e!s}")
+                # Find the provider class (assumed to be the only RAGProvider subclass)
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if (
+                        isinstance(attr, type)
+                        and issubclass(attr, RAGProvider)
+                        and attr != RAGProvider
+                    ):
+                        return attr(**config)
+
+                raise ValueError(f"No RAGProvider subclass found in {module_name}")
+            except (ImportError, AttributeError) as e:
+                raise ValueError(f"Invalid RAG provider type: {provider_type}") from e
 
 
 class Filter:

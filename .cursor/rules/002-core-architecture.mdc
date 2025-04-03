@@ -1,5 +1,5 @@
 ---
-description: USE WHEN creating new modules, implementing core functionality, or modifying the framework architecture
+description: USE ALWAYS when modifying core framework components or creating new modules
 globs: 
   - "pepperpy/**/*.py"
   - "scripts/**/*.py"
@@ -255,6 +255,169 @@ class ModuleError(PepperpyError):
 
 class ProviderError(ModuleError):
     """Provider-specific error."""
+```
+
+## File Validation Requirements
+
+ALWAYS perform these validations before creating any new files:
+
+### 1. Initial Search
+
+Run these searches before creating any file:
+
+```bash
+# Search for similar files
+find . -type f -name "*similar_name*"
+
+# Search for similar content
+grep -r "similar_pattern" .
+
+# Search for imports or references
+grep -r "from pepperpy.similar" .
+```
+
+### 2. Module Structure Check
+
+Verify the module structure follows the standard pattern:
+
+```
+module/
+├── __init__.py      # Public API
+├── base.py          # Domain interfaces
+├── providers/       # Implementations
+│   └── __init__.py
+└── utils/           # Module utilities
+    └── __init__.py
+```
+
+### 3. File Type Validation
+
+#### Error Classes
+❌ **NEVER create isolated error files**
+```python
+# WRONG: Creating new error file
+# new_errors.py  # WRONG - Should extend from core
+class CustomError(Exception):
+    pass
+```
+
+✅ **ALWAYS extend core errors**
+```python
+# CORRECT: Extend from core
+from pepperpy.core import PepperpyError
+
+class SpecificError(PepperpyError):
+    pass
+```
+
+#### Provider Classes
+❌ **NEVER create isolated providers**
+```python
+# WRONG: Creating provider without interface
+class NewProvider:  # WRONG - Should implement interface
+    pass
+```
+
+✅ **ALWAYS implement interfaces**
+```python
+# CORRECT: Implement interface
+from ..base import DomainProvider
+
+class SpecificProvider(DomainProvider):
+    pass
+```
+
+## Code Generation Workflow
+
+ALWAYS follow this workflow when generating new code:
+
+### 1. Pre-Implementation Analysis
+
+Before writing any code:
+- Identify the module/domain the code will belong to
+- Review similar implementations
+- Identify relevant base classes and interfaces
+
+### 2. Implementation Structure
+
+Start with a proper skeleton:
+
+```python
+"""Module description."""
+
+from typing import Dict, Any, Optional
+from pepperpy.domain import BaseInterface
+
+class NewImplementation(BaseInterface):
+    """Implementation description."""
+    
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    # Required interface methods
+    async def initialize(self) -> None:
+        """Initialize resources."""
+        if self.initialized:
+            return
+        # Initialize resources
+        
+    async def cleanup(self) -> None:
+        """Clean up resources."""
+        # Release resources
+```
+
+### 3. Core Patterns
+
+#### Factory Function Pattern
+ALWAYS use factory functions for creating instances:
+
+```python
+def create_processor(processor_type: str = None, **config) -> Processor:
+    """Create a processor."""
+    processor_type = processor_type or os.environ.get(
+        "PEPPERPY_PROCESSOR_TYPE", "default")
+    
+    # Import lazily
+    if processor_type == "specific":
+        from .processors.specific import SpecificProcessor
+        return SpecificProcessor(**config)
+    else:
+        from .processors.default import DefaultProcessor
+        return DefaultProcessor(**config)
+```
+
+#### Resource Management Pattern
+ALWAYS implement proper resource management:
+
+```python
+async def initialize(self) -> None:
+    """Initialize resources."""
+    if self.initialized:
+        return
+        
+    # Initialize resources
+    self.client = await self._create_client()
+    
+async def cleanup(self) -> None:
+    """Clean up resources."""
+    if self.client:
+        await self.client.close()
+        self.client = None
+```
+
+#### Error Handling Pattern
+ALWAYS convert external errors to domain errors:
+
+```python
+from pepperpy.domain import DomainError
+
+async def process(self, input_data: str) -> str:
+    """Process input data."""
+    try:
+        response = await self.client.call_api(input_data)
+        return self._process_response(response)
+    except ExternalError as e:
+        raise DomainError(f"Failed to process input: {e}") from e
 ```
 
 ## Fluent API Design
