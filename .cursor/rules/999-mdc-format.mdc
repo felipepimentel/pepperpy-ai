@@ -130,3 +130,32 @@ When updating existing rules:
 2. Keep the same glob patterns unless intentionally changing the rule's scope
 3. Update the description if the purpose of the rule changes
 4. Consider whether changes should propagate to related rules (e.g., CE versions)
+
+## Handling Instruction Changes
+
+When the user indicates changes to existing guidance with statements like "don't do this anymore", "forget this", or "change this approach":
+
+1. **Analyze Existing Rules**:
+   - Review all relevant rules that might be affected by the change
+   - Determine if the change conflicts with guidance in other rules
+   - Identify if the change requires updating multiple rules
+
+2. **Update Approaches**:
+   - **Modify Existing Rule**: Update the relevant section in the appropriate rule file when the change refines existing guidance
+   - **Create New Rule**: If the change represents a significant shift in approach or applies to a specific domain
+   - **Deprecate Content**: When instructions should be removed, either delete the content or mark it as deprecated with clear alternatives
+
+3. **Document Changes**:
+   - Add a change note at the affected section
+   - Consider adding a versioning comment for significant changes
+   - Make sure changes are consistent across related rules
+
+4. **Implementation Examples**:
+   - If a practice is being replaced, include:
+     - The old pattern marked as ❌ **WRONG**
+     - The new pattern marked as ✅ **CORRECT**
+     - Brief explanation of why the change was made
+
+5. **Cross-Reference**:
+   - When guidance changes in one rule, check for similar guidance in other rules
+   - Ensure consistent application of the principle across all relevant files

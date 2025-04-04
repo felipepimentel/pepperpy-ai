@@ -1,46 +1,39 @@
 #!/usr/bin/env python3
-"""Exemplo de análise de repositórios com PepperPy.
+"""Repository analysis example with PepperPy.
 
-Este exemplo demonstra o uso dos Enhancers (Potencializadores) implementados
-no PepperPy para análise de repositórios.
+This example demonstrates the use of Enhancers implemented in PepperPy
+for repository analysis.
 """
 
 import asyncio
 import os
-
-# Importação do pepperpy
-import sys
 from pathlib import Path
 
-sys.path.append(str(Path(__file__).parent.parent))
-from pepperpy.pepperpy import (
-    Enhancer,
-    GitRepository,
-    enhancer,
-)
+# Import PepperPy
+from pepperpy import Enhancer, GitRepository, enhancer
 
-# Criar diretório de saída necessário
+# Create necessary output directory
 OUTPUT_DIR = Path(__file__).parent / "output" / "repos"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-# Demonstração de enhancers customizados
+# Custom enhancers demonstration
 async def demonstrate_custom_enhancer():
-    """Demonstrar como criar e usar enhancers customizados."""
-    print("\nEnhancers Customizados")
+    """Demonstrate how to create and use custom enhancers."""
+    print("\nCustom Enhancers")
     print("=" * 50)
 
-    # Definir uma classe de enhancer customizada
+    # Define a custom enhancer class
     class DomainSpecificEnhancer(Enhancer):
-        """Enhancer customizado para um domínio específico."""
+        """Custom enhancer for a specific domain."""
 
         def __init__(self, domain: str, expertise_level: str = "expert"):
             """
-            Inicializa o enhancer de domínio específico.
+            Initialize the domain-specific enhancer.
 
             Args:
-                domain: Domínio de conhecimento
-                expertise_level: Nível de expertise
+                domain: Knowledge domain
+                expertise_level: Level of expertise
             """
             super().__init__(
                 "domain_specific", domain=domain, expertise_level=expertise_level
@@ -48,88 +41,88 @@ async def demonstrate_custom_enhancer():
 
         def enhance_prompt(self, prompt: str) -> str:
             """
-            Melhora o prompt com conhecimento de domínio específico.
+            Enhance the prompt with domain-specific knowledge.
 
             Args:
-                prompt: Prompt original
+                prompt: Original prompt
 
             Returns:
-                Prompt melhorado
+                Enhanced prompt
             """
-            domain = self.config.get("domain", "geral")
+            domain = self.config.get("domain", "general")
             expertise = self.config.get("expertise_level", "expert")
 
             domain_prompt = (
-                f"\n\nAnalize esta questão com conhecimento especializado em {domain}, "
-                f"em nível de {expertise}. Considere padrões, práticas e desafios "
-                f"específicos deste domínio."
+                f"\n\nAnalyze this question with specialized knowledge in {domain}, "
+                f"at a {expertise} level. Consider patterns, practices, and challenges "
+                f"specific to this domain."
             )
 
             return prompt + domain_prompt
 
-    # Usar o enhancer customizado
+    # Use the custom enhancer
     repo_url = "https://github.com/wonderwhy-er/ClaudeDesktopCommander"
     repo = GitRepository(url=repo_url)
     await repo.ensure_cloned()
     agent = await repo.get_agent()
 
-    # Criar enhancer customizado
+    # Create custom enhancer
     custom_enhancer = DomainSpecificEnhancer(
-        domain="interface homem-máquina", expertise_level="especialista"
+        domain="human-computer interaction", expertise_level="specialist"
     )
 
-    # Aplicar enhancer
+    # Apply enhancer
     context = custom_enhancer.apply_to_context({})
     prompt = custom_enhancer.enhance_prompt(
-        "Como melhorar a usabilidade desta aplicação?"
+        "How can the usability of this application be improved?"
     )
 
-    # Executar análise
-    print("\nAnálise com enhancer customizado:")
+    # Run analysis
+    print("\nAnalysis with custom enhancer:")
     result = await agent.ask(prompt, repo_url=repo.url, **context)
     result = custom_enhancer.enhance_result(result)
 
-    print(f"\nResultado com enhancer customizado: {result[:200]}...")
+    print(f"\nResult with custom enhancer: {result[:200]}...")
 
-    # Usar enhancers built-in
-    print("\nTeste de enhancers built-in:")
+    # Use built-in enhancers
+    print("\nTesting built-in enhancers:")
 
     # Deep Context Enhancer
     deep_context = enhancer.deep_context(depth=4)
     context = deep_context.apply_to_context({})
-    prompt = deep_context.enhance_prompt("Como esta biblioteca está estruturada?")
+    prompt = deep_context.enhance_prompt("How is this library structured?")
 
     deep_result = await agent.ask(prompt, repo_url=repo.url, **context)
     deep_result = deep_context.enhance_result(deep_result)
 
-    print(f"\nResultado com Deep Context Enhancer: {deep_result[:200]}...")
+    print(f"\nResult with Deep Context Enhancer: {deep_result[:200]}...")
 
     # Security Enhancer
     sec_enhancer = enhancer.security(compliance=["OWASP Top 10"])
     context = sec_enhancer.apply_to_context({})
     prompt = sec_enhancer.enhance_prompt(
-        "Quais são os possíveis problemas de segurança neste código?"
+        "What are the possible security issues in this code?"
     )
 
     security_result = await agent.ask(prompt, repo_url=repo.url, **context)
     security_result = sec_enhancer.enhance_result(security_result)
 
-    print(f"\nResultado com Security Enhancer: {security_result[:200]}...")
+    print(f"\nResult with Security Enhancer: {security_result[:200]}...")
 
     # Performance Enhancer
     perf_enhancer = enhancer.performance(hotspots=True, algorithms=True)
     context = perf_enhancer.apply_to_context({})
     prompt = perf_enhancer.enhance_prompt(
-        "Identifique possíveis gargalos de desempenho nesta aplicação."
+        "Identify possible performance bottlenecks in this application."
     )
 
     perf_result = await agent.ask(prompt, repo_url=repo.url, **context)
     perf_result = perf_enhancer.enhance_result(perf_result)
 
-    print(f"\nResultado com Performance Enhancer: {perf_result[:200]}...")
+    print(f"\nResult with Performance Enhancer: {perf_result[:200]}...")
 
-    # Combinação de enhancers
-    print("\nCombinando múltiplos enhancers:")
+    # Combining enhancers
+    print("\nCombining multiple enhancers:")
     enhancers_list = [
         enhancer.deep_context(depth=3),
         enhancer.best_practices(framework="Python"),
@@ -137,36 +130,38 @@ async def demonstrate_custom_enhancer():
     ]
 
     context = {}
-    prompt = "Como melhorar a arquitetura deste projeto para maior escalabilidade?"
+    prompt = (
+        "How can the architecture of this project be improved for better scalability?"
+    )
 
-    # Aplicar cada enhancer ao contexto e prompt
+    # Apply each enhancer to context and prompt
     for e in enhancers_list:
         context = e.apply_to_context(context)
         prompt = e.enhance_prompt(prompt)
 
     combined_result = await agent.ask(prompt, repo_url=repo.url, **context)
 
-    # Aplicar enhancers ao resultado
+    # Apply enhancers to result
     for e in enhancers_list:
         combined_result = e.enhance_result(combined_result)
 
-    print(f"\nResultado com enhancers combinados: {combined_result[:200]}...")
+    print(f"\nResult with combined enhancers: {combined_result[:200]}...")
 
-    return "Demonstração concluída"
+    return "Demonstration completed"
 
 
 async def main():
-    """Função principal."""
-    print("\n===== ENHANCERS DO PEPPERPY =====")
-    print("Demonstração das capacidades de potencialização de análises")
+    """Main function."""
+    print("\n===== PEPPERPY ENHANCERS =====")
+    print("Demonstration of analysis enhancement capabilities")
 
     try:
         await demonstrate_custom_enhancer()
-        print("\nDemonstração concluída com sucesso!")
+        print("\nDemonstration completed successfully!")
     except Exception as e:
-        print(f"Erro na demonstração: {e}")
+        print(f"Error in demonstration: {e}")
 
-    print("\nExemplo de enhancers concluído!")
+    print("\nEnhancers example completed!")
 
 
 if __name__ == "__main__":

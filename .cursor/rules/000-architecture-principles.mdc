@@ -1,7 +1,6 @@
 ---
 description: USE ALWAYS when designing or implementing any component - core design principles and architectural vision
 globs: 
-  - "**/*.py"
 alwaysApply: true
 ---
 
@@ -33,8 +32,8 @@ provider = OpenAIProvider(api_key="...")
 # CORRECT: Framework-managed access
 from pepperpy import PepperPy
 
-pepperpy = PepperPy.create().with_llm("openai")
-result = await pepperpy.llm.generate("prompt")
+pepperpy = PepperPy().with_llm("openai")
+result = await pepperpy.execute("prompt")
 ```
 
 ### 2. Configuration Strategy

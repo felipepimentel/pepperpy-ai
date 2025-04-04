@@ -3,6 +3,7 @@ description: USE ALWAYS when writing any Python code - enforces mandatory style,
 globs: 
   - "pepperpy/**/*.py"
   - "plugins/**/*.py"
+  - "examples/**/*.py"
 alwaysApply: true
 ---
 
